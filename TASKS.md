@@ -14,6 +14,26 @@ tests pass, and `notes/STATE.md` records the evidence path.
 
 ## Phase 0.5 — runtime
 
+### RUN-1: Run the retail game under dgVoodoo2
+- [x] Patch the startup CD check in `run/DinoIsland.exe`.
+- [x] Add dgVoodoo2 x86 wrappers.
+- [x] Disable the intro video.
+- [x] Reach Free Mode -> IGUANO -> easy -> Start.
+- **Evidence:** `notes/park-after2.png`, `notes/menu-freegame-selected.png`,
+  `scripts/x32dbg/play-freegame.ps1`.
+
+### TEST-1: Live asset-load trace
+- [x] Log `CreateFileA/W` and the mesh/skin/skeleton loaders under x32dbg.
+- [x] Confirm entrance `.skel/.skin/.anim/.mesh`, people meshes, and dino
+  animation files are loaded.
+- **Evidence:** `notes/x32dbg-freegame.out.log`.
+
+### FMT-4b: Decode the live skeleton transform
+- [ ] Spawn a dinosaur so the 80-bone skeleton is live.
+- [ ] Dump the skeleton object after `0x4714b0` / the 64-byte reader.
+- [ ] Compare object blocks with `allo.skel`; derive the matrix layout.
+- **Depends on:** RUN-1, TEST-1.
+
 ### PATCH-1: No-CD startup patch
 - [x] Locate the drive scan (`GetDriveTypeA` / `GetVolumeInformationA`).
 - [x] Patch the `CD found` branch at `0x401BFC`.

@@ -1,0 +1,148 @@
+param(
+    [int]$Seconds = 55,
+    [string]$GameDir = "run",
+    [string]$Log = "notes\x32dbg-freegame.out.log"
+)
+
+$root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
+$h = "C:\Tools\x64dbg\release\x32\headless.exe"
+$wd = Join-Path $root $GameDir
+$exe = Join-Path $wd "DinoIsland.exe"
+$logPath = Join-Path $root $Log
+
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = $h
+$psi.Arguments = "-workingDir `"$wd`" `"$exe`""
+$psi.UseShellExecute = $false
+$psi.RedirectStandardInput = $true
+$psi.RedirectStandardOutput = $true
+$psi.RedirectStandardError = $true
+$psi.CreateNoWindow = $true
+$psi.WorkingDirectory = $root
+
+$p = [System.Diagnostics.Process]::Start($psi)
+$outTask = $p.StandardOutput.ReadToEndAsync()
+$errTask = $p.StandardError.ReadToEndAsync()
+
+function Send([string]$line) {
+    $p.StandardInput.WriteLine($line)
+    $p.StandardInput.Flush()
+}
+
+# File opens and format loaders.
+Send 'bp CreateFileA'
+Send 'SetBreakpointCommand CreateFileA, "log CF_{s:[esp+4]}; run"'
+Send 'bp CreateFileW'
+Send 'SetBreakpointCommand CreateFileW, "log CW_{s:[esp+4]}; run"'
+Send 'bp 0x48b870'
+Send 'SetBreakpointCommand 0x48b870, "log SKIN_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
+Send 'bp 0x475e30'
+Send 'SetBreakpointCommand 0x475e30, "log SKEL_LOADER_ecx={p:ecx}; run"'
+Send 'bp 0x48b800'
+Send 'SetBreakpointCommand 0x48b800, "log MESH_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
+New-Item -ItemType Directory -Force C:\Tools\dino_dumps | Out-Null
+foreach ($a in @('0x477890','0x4762d0','0x43b8f0','0x454fc0','0x455030')) {
+    Send "bp $a"
+    Send ("SetBreakpointCommand $a, `"log VT_{0}_ecx={{p:ecx}}; run`"" -f $a)
+}
+Send 'run'
+Start-Sleep -Milliseconds 700
+Send 'run'
+Start-Sleep -Milliseconds 700
+Send 'run'
+
+Start-Sleep -Seconds 8
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+}
+"@
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName Microsoft.VisualBasic
+Add-Type -AssemblyName System.Windows.Forms
+
+function Save-Window([IntPtr]$hwnd, [string]$name) {
+    $r = New-Object Win32+RECT
+    [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
+    $w = $r.Right - $r.Left
+    $hgt = $r.Bottom - $r.Top
+    if ($w -le 0 -or $hgt -le 0) { return }
+    $bmp = New-Object System.Drawing.Bitmap $w, $hgt
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    try {
+        $hdc = $g.GetHdc()
+        [Win32]::PrintWindow($hwnd, $hdc, 0) | Out-Null
+        $g.ReleaseHdc($hdc)
+    } finally {
+        # fall back to screen if PrintWindow produced a blank image
+        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $hgt))
+        $g.Dispose()
+    }
+    $bmp.Save((Join-Path $root "notes\$name.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+    $bmp.Dispose()
+}
+
+function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    [Win32]::ShowWindow($hwnd, 9) | Out-Null
+    [Win32]::SetForegroundWindow($hwnd) | Out-Null
+    Start-Sleep -Milliseconds 300
+    $r = New-Object Win32+RECT
+    [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
+    [Win32]::SetCursorPos($r.Left + $x, $r.Top + $y) | Out-Null
+    Start-Sleep -Milliseconds 150
+    [Win32]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero) # left down
+    Start-Sleep -Milliseconds 80
+    [Win32]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero) # left up
+    Start-Sleep -Milliseconds 300
+}
+
+$game = Get-Process DinoIsland -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $game) {
+    Write-Host "game process not found"
+} else {
+    Write-Host "game PID=$($game.Id) title='$($game.MainWindowTitle)' hwnd=$($game.MainWindowHandle)"
+    $hwnd = $game.MainWindowHandle
+    if ($hwnd -eq 0) {
+        Write-Host "no main window handle"
+    } else {
+        [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        Save-Window $hwnd "menu-main"
+        Write-Host "clicking Free Game"
+        Click-Client $hwnd 395 234
+        Start-Sleep -Seconds 2
+        Save-Window $hwnd "menu-freegame"
+        Write-Host "selecting IGUANO"
+        Click-Client $hwnd 260 183
+        Start-Sleep -Seconds 1
+        Write-Host "selecting easy difficulty"
+        Click-Client $hwnd 494 451
+        Start-Sleep -Seconds 1
+        Save-Window $hwnd "menu-freegame-selected"
+        Write-Host "clicking Start"
+        Click-Client $hwnd 526 531
+        Start-Sleep -Seconds 15
+        Save-Window $hwnd "park-loading2"
+        Start-Sleep -Seconds 10
+        Save-Window $hwnd "park-after2"
+    }
+}
+
+Start-Sleep -Seconds ([Math]::Max(2, $Seconds - 32))
+Send 'exit'
+if (-not $p.WaitForExit(10000)) { $p.Kill() }
+$out = $outTask.Result
+$err = $errTask.Result
+$out | Set-Content -Path $logPath -Encoding utf8
+$err | Set-Content -Path ($logPath -replace '\.out\.', '.err.') -Encoding utf8
+
+Write-Host "--- loader/file matches ---"
+Select-String -Path $logPath -Pattern "SKIN_LOADER|SKEL_LOADER|MESH_LOADER|\.skel|\.skin|\.anim|\.mesh|InsertCD|EXCEPTION" | Select-Object -Last 120

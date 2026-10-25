@@ -51,13 +51,32 @@ Updated: 2026-10-25
 - Patched `run/` copy passes the CD check under x32dbg + dgVoodoo2, reaches
   `Begin3D Success`, and loads menu assets. `run/` is gitignored.
 
+- Game is now runnable for dynamic testing:
+  - `run/DinoIsland.exe` patched with the no-CD startup patch.
+  - dgVoodoo2 x86 D3D8/DDraw wrappers in `run/`.
+  - `run/Data/Config/Dino.ini` has `UseIntroVideo=0`.
+  - Free Mode -> IGUANO -> easy -> Start reaches a playable park.
+  - Screenshots: `notes/menu-main.png`, `notes/menu-freegame-selected.png`,
+    `notes/park-after2.png`.
+- x32dbg harness works headless: `scripts/x32dbg/play-freegame.ps1`
+  launches, clicks Free Mode/IGUANO/easy/Start, and logs loader hits.
+- Live trace confirms asset loading:
+  - `entrance_lod1.skel`, `.skin`, `.anim`, `.mesh`
+  - customer/person `.mesh` LODs
+  - dinosaur animation `.anim` files (LowQuadruped, etc.)
+- Skeleton transform remains open. The `.skel` body is 80 × 64-byte blocks
+  plus more sections, but the 16 floats are not a standard 4×4 matrix; the
+  reader at `0x477610` is not hit in the `.skel` path, and vtable probing only
+  hit `0x43b8f0`. The next target is the generic loader/64-byte reader or a
+  live object dump after a dinosaur is spawned.
+
 ## Next action
 
-1. Decode the `.skel`/`.skin` virtual read methods in Ghidra:
-   vtables `0x625f0c` (skel) and `0x625e8c` (skin); types `0x56789abc`
-   and `0x02468ace`.
-2. Decode the 6,514-byte full-mesh tail as the skin map.
-3. Re-fit the skeleton transform after the layout is known.
+1. Spawn a dinosaur in the running park (lab or campaign) so `allo.skel`/
+   `.skin` and a full 80-bone skeleton are live.
+2. Break on `0x4714b0` / `0x466380` and dump the live skeleton object after
+   the load; compare its 64-byte blocks with the file.
+3. Decode the 6,514-byte full-mesh tail as the skin map.
 4. Then FMT-5 (`.anim`) and VIEW-1 (SDL3 viewer).
 
 ## Blockers
