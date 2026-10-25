@@ -138,7 +138,7 @@ Updated: 2026-10-25
   - 32-bit `DINPUT8.dll` proxy in `run/`; forwards the single imported
     `DirectInput8Create` to the real system DLL.
   - Inline detours on `0x4663a0` (64-byte/16-float matrix reader, 281k calls)
-    and `0x4809a0` (12-byte/3-float normal reader, 97k calls).
+    and `0x4809a0` (12-byte/3-float normal reader, 95k calls).
   - Game reaches a playable park with both replacements active.
   - Evidence: `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
     `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,

@@ -23,7 +23,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0047d460` | `u16` per-triangle array reader | decompiled | `.skin` doc |
 | `0x0047d880` | skin bone-record reader: name, indices, weights, matrix | decompiled, verified | 60 dinosaur skins |
 | `0x004663a0` | 64-byte (16-float) matrix reader | **replaced** | `src/hook/dinput8_proxy.cpp`; 281k calls, park reached |
-| `0x004809a0` | 12-byte (3-float) normal reader | **replaced** | same proxy; 97k calls, park reached |
+| `0x004809a0` | 12-byte (3-float) normal reader | **replaced** | same proxy; 95k calls, park reached |
 | `0x0048b870` | `.skin` loader wrapper (`0x02468ace`) | identified | `.skin` doc |
 | `0x00474320` | animation constructor (`0xdef01234`); vtable `0x625ec4` | identified | `.anim` doc |
 | `0x00475990` | animation reader: duration/start, bone count, 0x2c records | decompiled, verified | 299/299 `.anim` files |
@@ -50,7 +50,7 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | Original | C++ | Status |
 | --- | --- | --- |
 | `0x4663a0` matrix reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 281k calls |
-| `0x4809a0` normal reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 97k calls |
+| `0x4809a0` normal reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 95k calls |
 | `0x477890` skeleton reader | `src/formats/skel.cpp` | reimplemented, tested on 80-bone allo |
 | `0x47d880` skin bone records | `src/formats/skin.cpp` | reimplemented, 317 assignments |
 | `0x475990` / `0x4839e0` animation reader | `src/formats/anim.cpp` | reimplemented, quaternion sampling |

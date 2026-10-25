@@ -257,7 +257,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ### HYB-2: Replace the normal reader
 - [x] Detour `0x4809a0` (12-byte/3-float normal reader) with C++.
-- [x] Verify with the same park run; 97,000 calls, no crash.
+- [x] Verify with the same park run; 95,000 calls, no crash.
 - **Acceptance:** the game still loads with the replacement active.
 - **Depends on:** HYB-1.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/decomp/hybrid.md`,

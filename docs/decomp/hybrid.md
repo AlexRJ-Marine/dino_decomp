@@ -55,7 +55,7 @@ return stream->vtable->read(buffer, 4, 3) == 3;
 - Used by the skin per-block normal arrays.
 
 The proxy is verified to keep the game playable. During a park session the
-matrix reader is called ~281,000 times and the normal reader ~97,000 times.
+matrix reader is called ~281,000 times and the normal reader ~95,000 times.
 
 ## Build/run
 
@@ -75,7 +75,7 @@ park, screenshots, and prints `run/dino_hook.log`.
 | --- | --- |
 | `notes/park-hook.png` | playable park reached with both hooks active |
 | `notes/hook-4663a0.log` | first hook only: calls 1 → 281,000 |
-| `notes/hook-4663a0-4809a0.log` | both hooks: 281k matrix + 97k normal calls |
+| `notes/hook-4663a0-4809a0.log` | both hooks: 281k matrix + 95k normal calls |
 | `src/hook/dinput8_proxy.cpp` | proxy + replacements |
 | `scripts/build-hook.ps1` | 32-bit DLL build |
 | `scripts/play-freegame-direct.ps1` | direct-launch park smoke test |
@@ -107,8 +107,11 @@ hook_4809a0: calls=97000
 1. Add the next detours: `0x47d460` (u16 array reader) and `0x47cc90` (child
    index list) — these touch the engine's vector class, so port the vector
    contract first.
-2. Work up to `0x477890` (`.skel`), `0x47d880` (`.skin` records), and
+2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
+   caller is `0x471cd0` and it is not exercised by the park run. Promote it
+   once that path is identified.
+3. Work up to `0x477890` (`.skel`), `0x47d880` (`.skin` records), and
    `0x4839e0` (`.anim` bone records); these need the stream/container object
    contracts, not just the file format.
-3. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
+4. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.
