@@ -26,6 +26,8 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00475990` | animation reader: duration/start, bone count, 0x2c records | decompiled, verified | 299/299 `.anim` files |
 | `0x004839e0` | animation bone reader: name, `u64` key times, matrices | decompiled, verified | `.anim` doc |
 | `0x00475e30` | skeleton constructor (`0x56789abc`) | decompiled | `.skel` doc |
+| `0x00430fb0` | `mgFontDx8::LoadFile` (`.fnt` header/tables/glyphs) | decompiled, verified | 5/5 fonts + reference render |
+| `0x00430ea0` | `mgFontDx8::CreateTexture` | identified | `.fnt` doc |
 | `0x00477890` | skeleton reader: matrices, children, parents, names, flags | decompiled, verified | 64/64 `.skel` files |
 | `0x00477610` | skeleton writer/export counterpart | decompiled (partial) | `.skel` doc |
 

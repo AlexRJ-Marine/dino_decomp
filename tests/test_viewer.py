@@ -79,3 +79,19 @@ def test_cli_mesh(tmp_path):
     assert result.returncode == 0, result.stderr
     assert out.exists()
     assert Image.open(out).size == (320, 240)
+
+
+def test_cli_font(tmp_path):
+    font = GAME / "Data" / "Fonte" / "arial12.fnt"
+    if not font.exists():
+        pytest.skip("retail sample not present")
+    out = tmp_path / "text.png"
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "viewer" / "asset_viewer.py"),
+         "--font", str(font), "--text", "Hello, Dino Island!",
+         "--scale", "2", "--out", str(out)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert out.exists()
+    assert Image.open(out).size[0] > 100

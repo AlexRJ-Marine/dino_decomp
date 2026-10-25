@@ -139,10 +139,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `tests/test_wav.py`; 649 TGA + 231 WAV, 0 errors.
 
 ### FMT-7: Text/config formats
-- `.loc` (UTF-16LE key/value), `.lnd` (length-prefixed strings), `.fnt`
-  (bitmap glyphs), `.ini` (already text), `.shw`/`.gen`/`.imp`.
+- [x] `.loc` (UTF-16LE records: FIELD_ID / TEXT / LAST_MODIFIED).
+- [x] `.lnd` (8 resource strings, dimensions, music, 25 vegetation slots).
+- [x] `.fnt` (16-bit atlas, 245 glyphs, +2 metric offset).
+- [x] Render a reference string from `arial12.fnt`.
 - **Acceptance:** parser round-trips a sample; font renders a reference string.
 - **Depends on:** ENV-1.
+- **Evidence:** `tools/formats/loc.py`, `lnd.py`, `fnt.py`,
+  `docs/formats/loc.md`, `lnd.md`, `fnt.md`, `tests/test_loc.py`,
+  `test_lnd.py`, `test_fnt.py`, `notes/font-arial12-sample.png`; 2 `.loc`
+  (758 records), 10 `.lnd`, 5 `.fnt` (1,225 glyphs).
 
 ### VIEW-0: Simple asset viewer
 - [x] Software renderer for one `.mesh` + `.tga` (views, supersampling,

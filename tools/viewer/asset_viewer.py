@@ -24,8 +24,10 @@ if str(FORMATS) not in sys.path:
 from mesh import read_mesh  # noqa: E402
 from tga import read_tga  # noqa: E402
 from wav import read_wav  # noqa: E402
+from fnt import read_fnt  # noqa: E402
 
 from soft_render import load_texture, render_mesh, save_texture_preview  # noqa: E402
+from text_render import render_text  # noqa: E402
 
 
 def _wav_command(path: Path, play: bool) -> int:
@@ -48,6 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mesh", type=Path, help=".mesh to render")
     ap.add_argument("--texture", type=Path, help=".tga texture or texture-only preview")
     ap.add_argument("--wav", type=Path, help=".wav info (and optional --play)")
+    ap.add_argument("--font", type=Path, help=".fnt bitmap font")
+    ap.add_argument("--text", default="Hello, Dino Island!", help="text for --font")
+    ap.add_argument("--scale", type=int, default=1, help="integer text scale")
     ap.add_argument("--out", type=Path, help="output PNG")
     ap.add_argument("--view", default="three_quarter",
                     choices=("side", "three_quarter", "front", "top"))
@@ -59,6 +64,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.wav:
         return _wav_command(args.wav, args.play)
+
+    if args.font:
+        if args.out is None:
+            ap.error("--font requires --out")
+        font = read_fnt(args.font)
+        image = render_text(font, args.text, scale=max(1, args.scale))
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        image.save(args.out)
+        print(f"wrote {args.out}: {font.atlas_width}x{font.atlas_height} atlas, "
+              f"{len(font.glyphs)} glyphs")
+        return 0
 
     if args.mesh:
         if args.out is None:
@@ -86,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {out}: {tga.width}x{tga.height}, {tga.pixel_depth}-bit")
         return 0
 
-    ap.error("choose --mesh, --texture, or --wav")
+    ap.error("choose --mesh, --texture, --font, or --wav")
     return 2
 
 

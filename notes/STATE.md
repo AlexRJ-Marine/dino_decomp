@@ -30,7 +30,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 37 tests pass.
+  `dino_tools.exe`, and all 51 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -88,6 +88,17 @@ Updated: 2026-10-25
     colors, bilinear texture sampling, supersampling.
   - Evidence: `tools/viewer/soft_render.py`, `tests/test_viewer.py`,
     `notes/view-allo.png`, `notes/view-cursor.png`.
+- FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
+  - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
+    758 records.
+  - `.lnd`: 8 resource strings + float/dimensions/theme + music + 25
+    vegetation `.imp`/`None` slots; 10/10 islands.
+  - `.fnt`: 9-u32 header, 247 code words, 247 metrics, 16-bit atlas;
+    `codes[i] -> metrics[i+2]`, 245 real glyphs; 5/5 fonts.
+  - `arial12` renders `"Hello, Dino Island!"` correctly.
+  - Evidence: `tools/formats/loc.py`, `lnd.py`, `fnt.py`,
+    `docs/formats/{loc,lnd,fnt}.md`, `tests/test_loc.py`, `test_lnd.py`,
+    `test_fnt.py`, `notes/font-arial12-sample.png`.
 - Allosaurus retail mesh rendered by our own parser/rasterizer:
   `notes/allo-3q-vc-flip.png`, `notes/allo-side-vc-flip.png`,
   `notes/allo-head-flip.png`. Uses `allo_lod1.mesh` (317 v / 382 tri),
@@ -119,18 +130,21 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 1 remaining: FMT-7 (`.loc`, `.lnd`, `.fnt`) and publishing the
-  XeNTaX/ZenHax post.
+- Phase 1 formats/assets is complete except for publishing the XeNTaX/ZenHax
+  post. Moving into Phase 2: the portable platform layer.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. FMT-7: parse `.loc` (UTF-16LE key/value), `.lnd` (length-prefixed strings),
-   `.fnt` (bitmap glyphs). Render a reference string with the `.fnt` atlas.
-2. Phase 2: VIEW-1 (SDL3 + OpenGL window), VIEW-2 (mesh + texture), VIEW-3
-   (skinned animation playback).
-3. User: publish `docs/community/xentax-post.md` and record any replies.
+1. VIEW-1: CMake + SDL3 + OpenGL window with input, delta time and clean
+   shutdown; `scripts/build.ps1` must build it.
+2. VIEW-2: load one `.mesh` + `.tga` through the C++ layer and render it with a
+   lit shader and camera.
+3. VIEW-3: load `.skel` + `.skin` + `.anim`, apply the rigid skinning and play
+   the allosaurus clip.
+4. Then QOL-1..3 (resolution/widescreen/borderless, UI scaling, key rebinding).
+5. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 
