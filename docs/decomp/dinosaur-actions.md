@@ -69,25 +69,33 @@ When the action countdown expires, `0x571190` switches on `+0xb0`:
 - 28 DinoAttackForCarnivore → clear `+0x2a8`
 
 It then sets the action id to `0x1f` (31) and raises `+0x515`/`+0x4d`.
-Because 31 is `JumpHole` in the table, `0x1f` is most likely the
-"action finished / idle" sentinel, not a real action; confirm at runtime.
+`saDinosaur::Update` treats `+0x2c0 == 0x1f` as "no action" and skips the
+completion call, so **`0x1f` is the idle/finished sentinel**, not a real
+`JumpHole` action.
 
-## Need gauges
+## Need gauges and the four UI needs
 
-`saDinosaur::Update` (`0x00571540`) maintains two gauges:
+**Offset correction.** Earlier notes used `param_1[0x96]` / `param_1[0x97]`
+from a decompiler where `param_1` is an `int *`. Those are **dword indices**:
+`param_1[0x96]` is byte **`+0x258`**, not `+0x96`. The same mistake applied to
+`+0x76`/`+0x77` (`+0x1d8`/`+0x1dc`) and `+0xb0` (`+0x2c0`).
 
-```text
-+0x96  need A, decays every frame by +0x126 * table[+0x354 + type*4]
-+0x97  need B, decays every 10 s by 10 * +0x1b
-+0x76  max A
-+0x77  max B
-+0x98  action countdown
-+0xb0  current action id
-```
+### Raw gauges
 
-`+0x130` selects the current activity/need type and its decay multiplier:
+`saDinosaur::Update` (`0x00571540`) and the periodic need pass (`0x00571370`)
+maintain two raw gauges:
 
-| +0x130 | Actions | Multiplier |
+| Byte offset | Meaning | Max | Decay |
+| --- | --- | ---: | --- |
+| `+0x258` | rest / sleep gauge | `+0x1d8` | every frame, `+0x498 * table[+0x354 + activity*4]` |
+| `+0x25c` | food gauge | `+0x1dc` | periodic pass, `+0x6c` scaled |
+| `+0x260` | action countdown | — | `saDinosaur::Update` |
+| `+0x2c0` | current action id | — | `ApplyActionEffect` |
+| `+0x4c0` | activity/need type | — | selects the decay multiplier |
+
+`+0x4c0` selects the activity multiplier:
+
+| `+0x4c0` | Actions | Multiplier |
 | ---: | --- | --- |
 | 1, 2 | RunAway, Sleep | `stat[0x9a] * 0.2` |
 | 9, 10, 11 | Smell, Speed, GetInvincibility | `stat[0xa2]` |
@@ -98,11 +106,45 @@ Because 31 is `JumpHole` in the table, `0x1f` is most likely the
 | 16, 25 | GetBonus, HeadCharge | `stat[0x99]` |
 | 25 | HeadCharge | `stat[0x2f]` (special case) |
 
-The gauges are restored by HeadCharge (`+0x96`) and Explode (`+0x97`). The UI
-shows four axes (violence, rest/sleep, food, security); which two correspond to
-`+0x96`/`+0x97` is still open, with food/rest the most likely pair.
+`0x00570fd0` initialises them: rest to `+0x1d8` (full), food to
+`0x1dc * 0.5`, and the four need values to 99.
 
-## UI need axes
+### Four UI needs
+
+The four UI axes live in a separate 0..99 block:
+
+| Byte offset | UI axis | State index | UI state widgets |
+| --- | --- | ---: | --- |
+| `+0x244` | **FOOD** | `+0x2ac` | `+0xd0` GOOD, `+0xd4` MID, `+0xd8` BAD |
+| `+0x248` | **VIOLENCE** | `+0x2b0` | `+0xe8` GOOD, `+0xec` MID, `+0xf0` BAD |
+| `+0x24c` | **SECU** (fear/security) | `+0x2b4` | `+0xf4` GOOD, `+0xf8` MID, `+0xfc` BAD |
+| `+0x250` | **REPOS** (rest) | `+0x2b8` | `+0xdc` GOOD, `+0xe0` MID, `+0xe4` BAD |
+
+`0x005714b0(category)` turns a need value into a state index using the
+threshold array at `+0x3c + category*4` (initialised by `0x00570590` to
+`[0x50, 0x3c, 0x1e]` = `[80, 60, 30]`):
+
+```text
+value <= 30           -> state 2 (BAD)
+30 < value <= 60      -> state 1 (MID)
+60 < value <= 80      -> state 0 (GOOD)
+value > 80            -> state 3 (also rendered GOOD)
+```
+
+`0x00571350` recomputes all four states. `0x00572e10` returns the index of the
+most urgent state (0..3, or 4 when none), used by the list/info UI.
+
+### Feed-forward from actions
+
+- `RunAway` adds to `+0x248` (VIOLENCE) and calls `0x005714b0(1)`.
+- `0x00571410` decays `+0x248` (VIOLENCE) over time.
+- `0x00571370` decays `+0x25c` (food) and stores the normalised feed value in
+  `+0x244` (FOOD).
+- `saDinosaur::Update` decays `+0x258` (rest) and stores the normalised value
+  in `+0x250` (REPOS).
+- `HeadCharge` restores `+0x258`; `Explode` restores `+0x25c`.
+
+### UI widgets
 
 `bvwDinosaurListPanel.cpp` (`0x005df900`) creates four need indicators per
 dinosaur row:
@@ -114,7 +156,10 @@ DINO_INDICATEURS_BESOINS_FOOD_SLOTn
 DINO_INDICATEURS_BESOINS_SECU_SLOTn
 ```
 
-`ParkEng.loc` supplies the matching states:
+The info panel `0x00511d80` creates the per-axis BAD/MID/GOOD state widgets.
+The needs-tab update `0x005138b0` reads `+0x2ac`, `+0x2b8`, `+0x2b0`, `+0x2b4`
+in that order and enables the matching FOOD/REPOS/VIOLENCE/SECU state widget.
+`ParkEng.loc` supplies the labels:
 
 ```text
 &DinoNeed       = Needs
@@ -124,9 +169,22 @@ DINO_INDICATEURS_BESOINS_SECU_SLOTn
 &DinoPanicked   = Panicked
 ```
 
-The four axes are **violence, rest/sleep, food, security**. The two decaying
-gauges `+0x96`/`+0x97` are two of those four; food and rest are the most likely
-pair, but this still needs a runtime or UI-field cross-check.
+### Eat / sleep
+
+`Eat` (action 4) and `Sleep` (action 2) are real `actionlist.ini` actions.
+Their need feed is the FOOD/REPOS pair above; the FOOD gauge starts at 50 % of
+its maximum and the REPOS gauge starts full. The exact dinosaur-AI chooser that
+turns a BAD FOOD/REPOS state into action 4/2 is **not decoded yet** (the `.bai`
+action records and the `apDinosaurBehavior` action selection are the next
+step). The state machine and thresholds it must use are now known.
+
+### Idle sentinel
+
+`saDinosaur::Update` skips completion when `+0x2c0 == 0x1f`, and
+`ApplyActionEffect` calls `0x00571190` first if the current action is not
+`0x1f`. `0x00571190` sets `+0x2c0 = 0x1f` after every completed action.
+Therefore **`0x1f` is the idle/finished sentinel**, not a real `JumpHole`
+action. This is confirmed by the two independent checks.
 
 ## Evidence
 
@@ -134,5 +192,12 @@ pair, but this still needs a runtime or UI-field cross-check.
 - `FUN_0053e060` — actionlist loader.
 - `FUN_005727b0` — `ApplyActionEffect`.
 - `FUN_00571190` — completion.
-- `FUN_00571540` — per-frame decay.
+- `FUN_00571540` — per-frame rest decay and need normalisation.
+- `FUN_00571370` — periodic food decay.
+- `FUN_00571410` — violence decay.
+- `FUN_005714b0` — need value to state index.
+- `FUN_00572e10` — most urgent need index.
+- `FUN_00570590` — need threshold init (`[80, 60, 30]`).
+- `FUN_00570fd0` — need init/reset.
+- `FUN_00511d80`, `FUN_005138b0`, `FUN_005df900` — UI need widgets.
 - `ActionList.ini` + 64 `.bai` files.

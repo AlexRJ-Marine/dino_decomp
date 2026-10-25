@@ -668,3 +668,42 @@ same path as the retail screens.
 
 Open: the original park camera's initial position is not yet recovered; the
 port still uses its orbit auto-framing (`bounds.extent() * 1.7`).
+
+## Minimap implementation (follow-up)
+
+The minimap is a **2-D detail map**, not a second 3-D camera:
+
+- `MAP_RENDERVIEW` is the RENDER widget type (10) with `RV_ZMIN`/`RV_ZMAX`
+  fields; drawing is delegated to the owner (event id 10) and the detail-map
+  partition renders into a **256x256** target, displayed in the 136x136
+  widget.
+- The four zoom handlers do not touch the camera. They set held flags
+  `+0x24`/`+0x25` on the map view; `FUN_005fb7e0` applies
+  `+/- dt*0.15` per second to the map scale at `+0x38`. Default **0.25**,
+  clamped **0.1..2.0**.
+- The map quad is centred on the **camera target**:
+  `FUN_005fb120` writes `x = tgt.x/1024`, `y = 1 - tgt.y/1024` and
+  `angle = 90deg + atan2(tgt.y-pos.y, tgt.x-pos.x)`, i.e. it rotates with the
+  park camera and is not fixed at -45 degrees.
+- The park camera is the only 3-D camera (`pvwPark3DRenderView+0x10`); per
+  frame `FUN_00529d00` sets FOV 80 deg, aspect 4:3, near >= 1, far 1000. The
+  ten constants at `0x5278b5` belong to `pvwParkObserver`, not the minimap:
+  1.57 rad turn rate, height clamps 2..10000, X/Y clamps 10..1000.
+
+Port mapping (`src/viewer/main.cpp`):
+
+- 256x256 FBO, displayed at `MAP_RENDERVIEW` (652,451,136x136);
+- top-down orthographic terrain render centred on the camera target and
+  rotated so the camera heading is up;
+- visible world width = `2 * world_size * scale`; default 0.25 shows the whole
+  1024-unit island;
+- zoom buttons are hold-to-zoom at 0.15/s in `0.1..2.0`; `--park-click` uses
+  0.05 per scripted click; `--minimap-scale N` overrides the start value;
+- red camera marker with a yellow heading tick, only when inside the map;
+- the FBO is re-rendered only when the target, heading or scale changes.
+
+Open: the detail-map water colour (retail teal vs our basemap/clear edge) and
+the exact detail-map texture/partition contents (actors unproven). Evidence:
+`notes/minimap-isl01.png`, `notes/minimap-isl01-detail.png`,
+`notes/minimap-isl01-zoom-detail.png`, `notes/minimap-isl10-detail.png`,
+`notes/retail-minimap-crop.png`.

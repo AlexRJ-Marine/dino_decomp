@@ -199,3 +199,29 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   initial worlds share the `.sav` serializer; Cpg07 is unlisted cut content.
   Reader `tools/formats/campaign.py`, spec `docs/formats/campaign.md`, tests
   `test_campaign.py`.
+- Visitor scoring weights: `DAT_00675638` is set once by `FUN_0051f560` from
+  profile record `+0xD0`, which is the constant `.bvi` block at file
+  `0x38..0x50` = [1, 1, 1, 500, 300, -3000, 3000] (identical in all 24
+  files). Score = rand()%6000 - 3000 + sum(attr*(99-need)^2) - 300*distance
+  - 500*price. `FUN_0059aef0` is pow(x,2). The five variable profile weights
+  (file 0x1C..0x2C) land at record +0x24..+0x34 and are NOT used by the
+  scorer; their consumer is open. Evidence: notes/visitor-weights-runtime.md,
+  tools/recon/dump-visitor-weights.ps1, tests/test_bvi.py.
+- Campaign objectives: `snoObjective::Load` (`0x5654f0`) maps 33 verbs to
+  ids 0-32 via `0x5658d0` and stores a tri-state evaluator (0 pending,
+  1 success, 2 failure). Simple evaluators decoded (treasury, marchandizing,
+  dyingdinos, employees, visitors/happyvisitors, connected buildings, camera
+  altitude, delay limit, buy-all-dinos, bankrupt); trait/show predicates open.
+  Cpg07's cut mission has a `dyinddinos` typo. Table in
+  docs/formats/campaign.md, evidence in notes/objectives-recon.md.
+- `anim_trans.dic` / `graphic_trans.dic`: plain-text genotype dictionaries.
+  anim_trans has 20 dinosaurs, 5 animation families, 51 clip names and four
+  20x20 merge tables (Head/Body/Tail = identity+50, ArmLeg = directional
+  0/1/50/99 with a 10/10 species split). All 51 clip names exist in all 5
+  family folders. graphic_trans has 5 reference widths (100,100,100,300,150).
+  Reader tools/formats/anim_trans.py, spec docs/formats/anim-trans.md.
+- `proportion.dat`: u32 20 + 20 x 5 floats in anim_trans dinosaur order.
+  Columns are part scale factors [head, arm, body, leg, tail]; the leg column
+  is 1.0 everywhere. T-rex arm 0.235, Diplodocus tail 2.093, Brachio head
+  1.1375. Pairs with the .gen head/armleg/body/tail species genes.
+  Reader tools/formats/anim_trans.py --dump-proportion.

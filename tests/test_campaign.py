@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
-from campaign import load_campaigns, read_campaign, scan  # noqa: E402
+from campaign import OBJECTIVE_VERBS, load_campaigns, read_campaign, scan  # noqa: E402
 from loc import read_loc  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
@@ -64,6 +64,32 @@ def test_objectives_and_verbs():
     assert len(data["verbs"]) == 28
     assert data["verbs"]["genotypedinos"] == 14
     assert data["verbs"]["happyvisitors"] == 10
+
+
+def test_objective_verb_table():
+    """The decompiled verb -> id/evaluator table covers every mission verb."""
+    assert len(OBJECTIVE_VERBS) == 33
+    ids = sorted(spec.objective_id for spec in OBJECTIVE_VERBS.values())
+    assert ids == list(range(33))
+    assert OBJECTIVE_VERBS["treasury"].objective_id == 0
+    assert OBJECTIVE_VERBS["genotypedinos"].evaluator == "0x00568750"
+    assert OBJECTIVE_VERBS["bankrupt"].objective_id == 32
+    # Supported but unused by any CampaignList mission.
+    unused = {v for v, spec in OBJECTIVE_VERBS.items() if not spec.used}
+    assert unused == {
+        "scaritydinos", "keephappyvisitors", "carnivordinos", "fightshow",
+        "bankrupt",
+    }
+    if not (SCENARIO / "CampaignList.ini").exists():
+        pytest.skip("retail missions not present")
+    unknown = {
+        objective.verb
+        for campaign in load_campaigns(SCENARIO)
+        for mission in campaign.missions
+        for objective in mission.objectives
+        if objective.verb not in OBJECTIVE_VERBS
+    }
+    assert not unknown, sorted(unknown)
 
 
 def test_world_files_and_cpg07():

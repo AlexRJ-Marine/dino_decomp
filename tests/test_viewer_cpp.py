@@ -915,3 +915,36 @@ def test_cpp_menu_start_loads_selected_island(tmp_path):
     b = Image.open(last).convert("RGB")
     # Different island: the rendered scene must change.
     assert ImageChops.difference(a, b).getbbox() is not None
+
+def test_cpp_minimap_detail_view(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "map.bmp"
+    zoom = tmp_path / "map-zoom.bmp"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME),
+              "--yaw", "35", "--pitch", "22", "--distance", "500"]
+    result = subprocess.run(common + ["--screenshot", str(base)],
+                            capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    image = Image.open(base).convert("RGB")
+    map_area = image.crop((652, 451, 788, 587))
+    # The detail map is a rendered island, not the flat clear colour.
+    assert len(map_area.getcolors(maxcolors=1_000_000)) > 500
+    reds = [
+        map_area.getpixel((x, y)) for y in range(136) for x in range(136)
+        if map_area.getpixel((x, y))[0] > 180 and map_area.getpixel((x, y))[1] < 80
+    ]
+    assert len(reds) > 5  # camera marker
+
+    result = subprocess.run(
+        common + ["--screenshot", str(zoom), "--park-click", "633,552"],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    assert "park click 633,552 -> minimap zoom in" in result.stdout
+    assert "minimap scale=0.20" in result.stdout
+    zoomed = Image.open(zoom).convert("RGB").crop((652, 451, 788, 587))
+    diff = ImageChops.difference(map_area, zoomed).getbbox()
+    assert diff is not None
+    assert (diff[2] - diff[0]) * (diff[3] - diff[1]) > 1000

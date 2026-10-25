@@ -1,18 +1,30 @@
 param(
-    [int]$Seconds = 75,
+    [int]$Seconds = 120,
     [string]$GameDir = "run",
-    [string]$Log = "notes\visitor-weights-runtime.out.log"
+    [string]$Log = "notes\visitor-weights-runtime.out.log",
+    [switch]$LoadSave
 )
 
-# Read-only recon: logs the .bvi profile record +0xD0 block as FUN_00544110
-# copies each profile into the visitor list, and logs the global weight vector
-# passed to FUN_0051f560. No game files are modified.
+# Read-only recon:
+#  - logs each .bvi temp record +0xD0 block as FUN_00544110 copies it
+#  - logs the global weight vector and the five profile weights
+#  - publishes the live weight pointer via savedata, then arms hardware read
+#    breakpoints on profile weights 0 and 4 so their reader is recorded.
+# No game files are modified.
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+$dumpDir = "C:\Tools\dino_dumps"
+$wptrFile = Join-Path $dumpDir "wptr.bin"
+
+New-Item -ItemType Directory -Force $dumpDir | Out-Null
+Remove-Item $wptrFile -ErrorAction SilentlyContinue
+# Start from a clean breakpoint database; the headless debugger otherwise
+# reloads breakpoints left by earlier sessions.
+Remove-Item "C:\Tools\x64dbg\release\x32\headless\db\DinoIsland.exe.dd32" -ErrorAction SilentlyContinue
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -36,12 +48,10 @@ function Send([string]$line) {
 Send 'bp 0x544110'
 Send 'SetBreakpointCommand 0x544110, "log BVI_REC={p:[esp+4]}_0={x:[[esp+4]+0xd0]}_1={x:[[esp+4]+0xd4]}_2={x:[[esp+4]+0xd8]}_3={x:[[esp+4]+0xdc]}_4={x:[[esp+4]+0xe0]}_5={x:[[esp+4]+0xe4]}_6={x:[[esp+4]+0xe8]}; run"'
 Send 'bp 0x51f560'
-Send 'SetBreakpointCommand 0x51f560, "log GLOBAL_W_PTR={p:[esp+4]}_0={x:[[esp+4]]}_1={x:[[esp+4]+4]}_2={x:[[esp+4]+8]}_3={x:[[esp+4]+0xc]}_4={x:[[esp+4]+0x10]}_5={x:[[esp+4]+0x14]}; run"'
-Send 'bp 0x522a10'
-Send 'SetBreakpointCommand 0x522a10, "log SCORE_HIT={p:[0x675638]}; run"'
-for ($i = 0; $i -lt 5; $i++) {
+Send 'SetBreakpointCommand 0x51f560, "log GLOBAL_W_PTR={p:[esp+4]}_W0={x:[[esp+4]]}_W1={x:[[esp+4]+4]}_W2={x:[[esp+4]+8]}_W3={x:[[esp+4]+0xc]}_W4={x:[[esp+4]+0x10]}_W5={x:[[esp+4]+0x14]}_P0={x:[[esp+4]-0xac]}_P1={x:[[esp+4]-0xa8]}_P2={x:[[esp+4]-0xa4]}_P3={x:[[esp+4]-0xa0]}_P4={x:[[esp+4]-0x9c]}; savedata C:\Tools\dino_dumps\wptr.bin, esp+4, 4; run"'
+for ($i = 0; $i -lt 8; $i++) {
     Send 'run'
-    Start-Sleep -Milliseconds 900
+    Start-Sleep -Milliseconds 800
 }
 
 $deadline = (Get-Date).AddSeconds(25)
@@ -79,30 +89,57 @@ function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
     Start-Sleep -Milliseconds 300
 }
 
-$game = Get-Process DinoIsland -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $game) {
-    Write-Host "game process not found"
+    Write-Host "game window not found"
 } else {
     $hwnd = $game.MainWindowHandle
     Write-Host "game PID=$($game.Id) hwnd=$hwnd"
-    if ($hwnd -ne 0) {
-        Write-Host "clicking Free Game"
+    if ($LoadSave) {
+        Write-Host "clicking LOAD GAME"
+        Click-Client $hwnd 400 280
+        Start-Sleep -Seconds 2
+        Write-Host "selecting first save"
+        Click-Client $hwnd 395 150
+        Start-Sleep -Seconds 1
+        Write-Host "confirming load"
+        Click-Client $hwnd 355 512
+    } else {
         Click-Client $hwnd 395 234
         Start-Sleep -Seconds 2
-        Write-Host "selecting IGUANO"
         Click-Client $hwnd 260 183
         Start-Sleep -Seconds 1
-        Write-Host "selecting easy difficulty"
         Click-Client $hwnd 494 451
         Start-Sleep -Seconds 1
-        Write-Host "clicking Start"
         Click-Client $hwnd 526 531
-        Start-Sleep -Seconds 25
-        Write-Host "park should be running"
+    }
+    Start-Sleep -Seconds 20
+
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline -and -not (Test-Path $wptrFile)) {
+        Start-Sleep -Milliseconds 300
+    }
+    if (Test-Path $wptrFile) {
+        $bytes = [System.IO.File]::ReadAllBytes($wptrFile)
+        $wptr = [BitConverter]::ToUInt32($bytes, 0)
+        $pref0 = $wptr - 0xAC
+        $pref4 = $wptr - 0x9C
+        $h0 = '0x{0:X8}' -f $pref0
+        $h4 = '0x{0:X8}' -f $pref4
+        Write-Host "weight ptr=0x$('{0:X8}' -f $wptr) pref0=$h0 pref4=$h4"
+        Send 'pause'
+        Start-Sleep -Milliseconds 800
+        Send ('bph {0}, r, 4' -f $h0)
+        Send ('bph {0}, r, 4' -f $h4)
+        Send ('SetHardwareBreakpointCommand {0}, "log PREF0_READ_cip={{p:cip}}; run"' -f $h0)
+        Send ('SetHardwareBreakpointCommand {0}, "log PREF4_READ_cip={{p:cip}}; run"' -f $h4)
+        Start-Sleep -Milliseconds 500
+        Send 'run'
+        Start-Sleep -Seconds 15
+    } else {
+        Write-Host "weight pointer file not written"
     }
 }
 
-Start-Sleep -Seconds ([Math]::Max(2, $Seconds - 40))
 Send 'exit'
 if (-not $p.WaitForExit(15000)) { $p.Kill() }
 $out = $outTask.Result
@@ -111,4 +148,4 @@ $out | Set-Content -Path $logPath -Encoding utf8
 $err | Set-Content -Path ($logPath -replace '\.out\.', '.err.') -Encoding utf8
 
 Write-Host "--- matches ---"
-Select-String -Path $logPath -Pattern "BVI_REC|GLOBAL_W|EXCEPTION" | ForEach-Object { $_.Line }
+Select-String -Path $logPath -Pattern "BVI_REC|GLOBAL_W|PREF0_READ|PREF4_READ|EXCEPTION|Invalid" | Select-Object -First 60 | ForEach-Object { $_.Line }

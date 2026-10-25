@@ -68,25 +68,75 @@ Example `Cpg01_Mission4`: objectives `genotypedinos hypsilo 2`,
 
 ## Objective commands
 
-`ObjectiveN` is `<verb> <args...>`. 28 verbs occur in 89 objective lines:
+`ObjectiveN` is `<verb> <args...>`. `snoObjective::Load` (`0x005654f0`)
+tokenises the line, maps the verb to an id with `0x005658d0`, parses up to two
+numeric arguments into `+0x28`/`+0x2c`, and stores an evaluator pointer at
+`+0x30`. Evaluators return **0 = pending, 1 = success, 2 = failure**.
+
+All 33 implemented verbs (id, evaluator, arguments):
+
+| Id | Verb | Evaluator | Arguments | Notes |
+| ---: | --- | --- | --- | --- |
+| 0 | `treasury` | `0x00567c00` | target, [deadline] | below target fails when deadline <= 0 |
+| 1 | `marchandizing` | `0x00567c40` | target | merchandise income > target |
+| 2 | `dyingdinos` | `0x00569010` | max | death counters sum <= max |
+| 3 | `aggressivedinos` | `0x00568680` | threshold, percent | trait predicate open |
+| 4 | `genotypedinos` | `0x00568750` | species, count | 9-trait genotype match |
+| 5 | `cutedinos` | `0x00568770` | count, percent | trait predicate open |
+| 6 | `hybriddinos` | `0x00568840` | count, percent | trait predicate open |
+| 7 | `notconnectedbuildings` | `0x00567170` | type, count | helper mode 0 |
+| 8 | `connectedbuildings` | `0x00567150` | type, count | helper mode 1 |
+| 9 | `visitors` | `0x00566590` | profile, count | `all` or a profile name |
+| 10 | `scaritydinos` | `0x00568910` | ? | unused |
+| 11 | `speeddinos` | `0x00568ab0` | flag, percent | trait predicate open |
+| 12 | `staminadinos` | `0x00568b80` | flag, percent | trait predicate open |
+| 13 | `cleverdinos` | `0x00568c50` | flag, percent | trait predicate open |
+| 14 | `sizedagilitydinos` | `0x00569040` | flag, percent | trait predicate open |
+| 15 | `franckstrangedinos` | `0x00569110` | count, percent | trait predicate open |
+| 16 | `employees` | `0x005665f0` | profile, count | never fails |
+| 17 | `hungrydinos` | `0x005689e0` | flag, percent | trait predicate open |
+| 18 | `isolateddinos` | `0x00568d20` | count | predicate open |
+| 19 | `happyvisitors` | `0x005665b0` | profile, percent | every visitor >= percent |
+| 20 | `keephappyvisitors` | `0x005665d0` | profile, percent | unused |
+| 21 | `carnivordinos` | `0x00568de0` | ? | unused |
+| 22 | `ornateddinos` | `0x00568ef0` | count | predicate open |
+| 23 | `cameraaltitude` | `0x00569230` | height | camera altitude >= height |
+| 24 | `happyshow` | `0x00567710` | profile, percent | show result open |
+| 25 | `fightshow` | `0x005677b0` | ? | unused |
+| 26 | `scientificshow` | `0x005678b0` | threshold, percent | show result open |
+| 27 | `happydinoshow` | `0x00567b10` | count, duration | show result open |
+| 28 | `delaylimit` | `0x00567bb0` | limit | clock <= load-time + limit |
+| 29 | `buyalldinos` | `0x00569280` | — | dino store empty |
+| 30 | `dinoexclusiveshow` | `0x005692a0` | — | show result open |
+| 31 | `prettystrangedino` | `0x005694c0` | count, percent | trait predicate open |
+| 32 | `bankrupt` | `0x00567c80` | — | fails when the flag is set |
+
+The 89 CampaignList objectives use 28 of these; `scaritydinos`,
+`keephappyvisitors`, `carnivordinos`, `fightshow` and `bankrupt` are
+implemented but unused. `Cpg07_Mission1` (cut campaign) contains a
+`dyinddinos` typo which would hit the `unknown objective` assert;
+`Cpg06_Mission1` has a malformed `genotypedinos diplo 1""` line that still
+parses because `atoi` stops at the quote.
+
+Known semantics:
 
 ```text
-genotypedinos 14   happyvisitors 10   connectedbuildings 9   visitors 8
-dyingdinos 5       franckstrangedinos 4   treasury 4
-delaylimit 3       isolateddinos 3
-buyalldinos 2      cutedinos 2        dinoexclusiveshow 2
-happydinoshow 2    happyshow 2        hybriddinos 2
-notconnectedbuildings 2                prettystrangedino 2
-scientificshow 2   sizedagilitydinos 2
-aggressivedinos 1  cameraaltitude 1   cleverdinos 1
-employees 1        hungrydinos 1      marchandizing 1
-ornateddinos 1     speeddinos 1       staminadinos 1
+treasury       treasury >= target; below target -> failure if deadline <= 0
+marchandizing  merchandise income > target
+dyingdinos     death counters (+0x14c + +0x150) <= max
+employees      employee count >= count
+cameraaltitude camera altitude >= height
+delaylimit     clock <= clock-at-load + limit, then failure
+buyalldinos    dino store is empty
+bankrupt       failure once sim+0x95 is set
+visitors       visitor count >= count (profile 'all' = total)
+happyvisitors  every visitor satisfaction >= percent
 ```
 
-The verbs name simulation queries (dino counts/traits, visitor happiness,
-building connectivity, treasury, camera altitude). Argument semantics are
-per-verb and not yet decoded; the mission evaluator is in
-`snoObjective.cpp` (`0x6658bc`).
+`genotypedinos` is the bridge to `.gen`: `FUN_00567cb0` loads the design files
+from `Data/Design/scenario/genotype/` and compares nine dinosaur trait fields
+(`+0x90`, `+0xbc`, `+0x1e4`, `+0x1e8`, `+0x244`, `+0x98`, `+0xc0`, `+0x8c`,
+`+0x1e0`) against the requested pattern.
 
 All 206 mission/briefing/objective loc IDs resolve in `MenuEng.loc` /
 `ParkEng.loc`.
@@ -110,9 +160,10 @@ python tools/formats/campaign.py --dump <CpgNN.ini>
 ```
 
 Returns campaigns, islands, budgets, world files, missions and parsed
-objectives; validates mission counts, mission files and world files.
+objectives; `OBJECTIVE_VERBS` maps each verb to its internal id and evaluator
+address. Validates mission counts, mission files and world files.
 Tests: `tests/test_campaign.py` (7/39/89, per-mission counts, loc coverage,
-world files, Cpg07 anomaly).
+world files, Cpg07 anomaly, 33-verb table).
 
 ## Evidence
 
@@ -120,11 +171,16 @@ world files, Cpg07 anomaly).
   `MissionBase.ini`, `Cpg*/`.
 - `Data/Config/Scenario.ini` is referenced by the exe but absent from the
   retail tree.
-- `tools/formats/campaign.py`, `tests/test_campaign.py`.
+- `FUN_005654f0` (`snoObjective::Load`), `FUN_005658d0` (verb lookup),
+  `FUN_00566080`/`FUN_00566620`/`FUN_00567cb0` (shared evaluators).
+- `notes/objectives-recon.md`, `tools/formats/campaign.py`,
+  `tests/test_campaign.py`.
 
 ## Open
 
-- Per-verb objective argument semantics and mission completion.
+- Exact predicates for the dino-trait verbs and the nine genotype fields.
+- Show evaluator internals (`happyshow`, `scientificshow`, …).
+- `scaritydinos` / `carnivordinos` argument semantics.
 - Difficulty variants (`*Medium`/`*Hard`) evaluation.
 - Cpg07's role (cut campaign).
 - `.wld` world-object contents (shared with `.sav`).

@@ -68,3 +68,31 @@ def test_personality_stats_unique():
     assert len(stats) == 10
     assert stats[4] == ("Old", 1.2)
     assert stats[0] == ("Surfer", 2.5)
+
+
+def test_scoring_weight_block_is_global():
+    """Header 0x38..0x50 is a constant tuning block, not per-profile data.
+
+    FUN_0051f560 points DAT_00675638 at record+0xD0, which is this block
+    (runtime-verified). The anti-attraction scorer FUN_00522a10 reads the
+    first six floats; the seventh (3000) is the upper end of the random base
+    range because the code subtracts W[5] from W[6].
+    """
+    if not VISITORS.exists():
+        pytest.skip("retail game tree not present")
+    expected = (1.0, 1.0, 1.0, 500.0, 300.0, -3000.0, 3000.0)
+    for path in sorted(VISITORS.glob("*.bvi")):
+        profile = read_bvi(path)
+        assert profile.scoring_weights == expected, path.name
+        assert profile.header_tail[0] == 576, path.name
+
+
+def test_surfer_preferences_and_scale():
+    if not (VISITORS / "SurferMan.bvi").exists():
+        pytest.skip("retail sample not present")
+    profile = read_bvi(VISITORS / "SurferMan.bvi")
+    assert profile.preferences == (0.0, 0.5, 1.0, -0.2, 0.0)
+    assert profile.unknown_0x34 == pytest.approx(1.5)
+    # Runtime dump of the same record read P0..P4 = 0, 0.5, 1, -0.2, 0 at
+    # record+0x24..0x34, i.e. file 0x1C..0x2C shifted by +8.
+    assert profile.scoring_weights[5] == pytest.approx(-3000.0)

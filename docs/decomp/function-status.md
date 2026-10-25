@@ -69,7 +69,13 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005c5bf0` | `moWidget::Draw` — self then child list (priority/insertion order) | decompiled | `notes/ui-recon.md` |
 | `0x005c5d60` | child draw thunk (`Draw` + `+0x3c`) | identified | same |
 | `0x005bae40` | widget manager add-child (priority-ordered list) | decompiled | same |
-| `0x00529880` | minimap controller (`MAP_PANEL`, `MAP_RENDERVIEW`, zoom buttons) | decompiled | same |
+| `0x00529880` | minimap controller (`MAP_PANEL`, `MAP_RENDERVIEW`, zoom buttons) | decompiled, verified | `src/viewer/main.cpp` (minimap) |
+| `0x00529a90` / `0x00529b60` | minimap zoom-in/out press — set held flags `+0x24`/`+0x25` | decompiled, verified | `notes/ui-recon.md` ("Minimap implementation") |
+| `0x005fb7e0` | minimap zoom integration — scale `+0x38` ±0.15/s, clamp 0.1..2.0 | decompiled, verified | same |
+| `0x005fb120` | detail-map quad — target centre (x/1024, 1-y/1024), angle 90° + camera heading | decompiled, verified | same |
+| `0x005face0` | detail-map target setup — 256×256, scale default 0.25 | decompiled | same |
+| `0x005ba6b0` / `0x005ba8f0` | widget type `RENDER` (10), `RV_ZMIN`/`RV_ZMAX` | decompiled | same |
+| `0x00529d00` | park observer update — camera FOV 80°, aspect 4:3, near ≥ 1, far 1000, clamps | decompiled | same |
 | `0x00527650` | `pvwPark3DRenderView` ctor — park camera/renderer | decompiled (partial) | same |
 | `0x0050c1a0` | in-park `OPTIONS_PANEL` controller (options/save/load tabs) | decompiled | same |
 | `0x005257a0` | camera/navigation controller; `PauseGame` action | decompiled (partial) | same |
@@ -85,9 +91,22 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00403340` | save/autosave wrapper | decompiled | same |
 | `0x0051e6c0` | manager load chain: campaign → world → sim → AI → scenario | decompiled | same |
 | `0x0051e7e0` | manager save chain (same order) | decompiled | same |
-| `0x0053a140` | `pwdWorldManager` class table IDs `0x12`–`0x18` | decompiled | same |
-| `0x0053c560` | `pwdWorldManager` load | decompiled | same |
+| `0x0053a140` | `pwdWorldManager` class table IDs `0x12`–`0x18` | decompiled | `notes/world-objects-recon.md` |
+| `0x0053c560` | `pwdWorldManager` load — typed object lists | decompiled | same |
 | `0x0053c9d0` | `pwdWorldManager` save | decompiled | same |
+| `0x005e8e30`…`0x005e8f80` | world serializer classes `0x12`–`0x18` (constructor, load, save) | decompiled | same |
+| `0x005e93e0` / `0x005e9620` | placed-object base load/save (waypoints) | decompiled | same |
+| `0x005e97f0` / `0x005e9820` | simple-object base load/save | decompiled | same |
+| `0x005e8860` / `0x005e8910` | `drsFence` load/save | decompiled | same |
+| `0x005e7670` / `0x005e7860` | `drsShow` load/save | decompiled | same |
+| `0x005e8610` / `0x005e86a0` | `drsBuilding` load/save | decompiled | same |
+| `0x005e8cf0` / `0x005e8d60` | `drsVisitor` load/save | decompiled | same |
+| `0x005e8a70` / `0x005e8aa0` | `drsAnimal` load/save | decompiled | same |
+| `0x005e8bc0` / `0x005e8be0` | `drsEmployee` load/save | decompiled | same |
+| `0x00584ed0` | `drsDinosaur` payload — 18 gene pairs | decompiled | same |
+| `0x005869b0` / `0x00615bb0` | objective list record add | decompiled | same |
+| `0x00543d20` / `0x00543e70` | unlock arrays: 62 features / 39 buildings / 10 food / 6 misc | decompiled | same |
+| `0x00403e10` | `.wld` loader (reads version + mode, campaign flag 1) | decompiled | same |
 | `0x00558340` / `0x00558230` | show manager save/load (`0x2c`-byte records) | decompiled | same |
 | `0x00585240` | `spPark` load: budget at `+0x08` | decompiled | same |
 | `0x00585bd0` | park budget/setup setter (confirms `+0x08`) | decompiled | same |
@@ -104,7 +123,6 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00585de0` | ticket income (visitor entry) | decompiled | same |
 | `0x00585e10` | daily counter roll-up and bankruptcy flags | decompiled | same |
 | `0x0058ad00` | daily economy settlement | decompiled | same |
-| `0x005e8e30`…`0x005e8f80` | world serializer classes `0x12`–`0x18` | decompiled | same |
 
 ## Scheduler / simulation / AI (DEC-2)
 
@@ -127,12 +145,19 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005f6fb0` | linear integer-vector `find` (begin, end, &value) | decompiled | same; not a visibility test |
 | `0x00522820` | `apVisitorBehavior::Update` — action dispatcher | decompiled | `docs/decomp/visitor-ai.md` |
 | `0x00522940` | visitor state transitions (choose/travel/use/leave) | decompiled | same |
-| `0x00522a10` | visitor attraction scoring | decompiled | same |
+| `0x00522a10` | visitor attraction scoring; weight vector = constant `.bvi` block, `(99−need)²` terms | decompiled + runtime-verified | same, `notes/visitor-weights-runtime.md` |
+| `0x0051f560` | sets `DAT_00675638` from profile record `+0xD0` | decompiled + runtime-verified | same |
+| `0x00544110` | copies a parsed `.bvi` profile into the 0xEC list record | decompiled + runtime-verified | same |
 | `0x00522ff0` | show schedule/arrival check | decompiled | same |
 | `0x00521490` | visitor path following | decompiled | same |
 | `0x00522cb0` | path obstacle avoidance / reroute | decompiled | same |
 | `0x005219f0` / `0x00522f30` | attraction use and timer | decompiled | same |
 | `0x00521df0` | per-visitor movement tick | decompiled | same |
+| `0x005654f0` | `snoObjective::Load` — verb id, args, evaluator pointer | decompiled | `notes/objectives-recon.md` |
+| `0x005658d0` | objective verb → id lookup (33 verbs) | decompiled | same |
+| `0x00566080` | objective visitor counter (`visitors`/`happyvisitors`) | decompiled | same |
+| `0x00566620` | objective building counter (`connectedbuildings`) | decompiled | same |
+| `0x00567cb0` | objective genotype matcher (9 dino traits) | decompiled | same |
 | `0x005220e0` | `apEmployeeBehavior::Update` — job dispatcher | decompiled | `docs/decomp/employee-ai.md` |
 | `0x005224c0` | employee job-queue pop / target selection | decompiled | same |
 | `0x00522390` | employee kind-0xb work animation | decompiled | same |
@@ -140,9 +165,21 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00594b80` | `spScheduleManager` constructor | decompiled | same |
 | `0x0053e060` | `actionlist.ini` loader; action IDs 0..63 | decompiled | `docs/decomp/dinosaur-actions.md` |
 | `0x005727b0` | `saDinosaur::ApplyActionEffect(action_id, …)` | decompiled | same |
-| `0x00571540` | `saDinosaur::Update` — need decay and action countdown | decompiled | same |
-| `0x00571190` | action completion switch on `+0xb0` | decompiled | same |
-| `0x005725e0` / `0x00571370` / `0x00571410` | 5 s and 10 s need passes | decompiled | same |
+| `0x00571540` | `saDinosaur::Update` — rest decay, action countdown, activity table | decompiled | same |
+| `0x00571190` | action completion; sets `+0x2c0 = 0x1f` | decompiled | same |
+| `0x005725e0` / `0x00571370` / `0x00571410` | 5 s/10 s need passes (food/violence) | decompiled | same |
+| `0x00570590` | need threshold init `[80,60,30]` | decompiled | same |
+| `0x00570fd0` | need/raw-gauge reset (rest full, food 50%, needs 99) | decompiled | same |
+| `0x005714b0` | need value → GOOD/MID/BAD state index | decompiled | same |
+| `0x00571350` | recompute all four need states | decompiled | same |
+| `0x00572e10` | most-urgent need index (0..3, 4 = none) | decompiled | same |
+| `0x00511d80` / `0x005138b0` / `0x005df900` | dinosaur need widgets and tab update | decompiled | same |
+| `0x005ca960` | dynamic `dsound.dll` / `winmm.dll` loader | decompiled | `docs/decomp/media.md` |
+| `0x005b6f30` / `0x005b70a0` / `0x005b7d00` | `msSoundEngine` / sound DB load / lookup | decompiled | same |
+| `0x004fdb00` / `0x004fd910` | `sdpAudioPark` constructor / music playback | decompiled | same |
+| `0x005c0210`..`0x005c90f0` | `mvVideo` / `mvMovie` / `mvSubtitle` (DirectShow) | decompiled | same |
+| `0x00517a40` / `0x00517ab0` | menu movie wrapper / playing poll | decompiled | same |
+| `0x00401d40` / `0x00402600` | startup intro / generic movie paths | decompiled | same |
 
 ## C++ reimplementations
 
@@ -161,16 +198,18 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
 | park HUD panel switching | `src/ui/park.cpp` | reimplemented, 12 HUD buttons + info pages + lab centres |
 | menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
+| minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items
 
-- `.fnt`, `.loc`, `.lnd`, audio loaders — FMT-6/FMT-7.
-- Park minimap render target, 1024×768 HUD anchoring and dynamic sub-panel
-  fields — UI-2 Phase C rest.
+- SFX/music playback port and the MPEG intro player — MEDIA-1 rest; the sound
+  DB, music map and DirectShow pipeline are solved in `docs/decomp/media.md`.
+- 1024×768 HUD anchoring and dynamic sub-panel fields — UI-2 Phase C rest.
 - Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
   panel — UI-2 Phase D.
-- Semantic names for the two dinosaur need gauges and the `0x1f` idle sentinel
-  (DEC-2 follow-up); action IDs are solved in `docs/decomp/dinosaur-actions.md`.
-- `.sav` world object lists, the AI/scenario tail, and populated lab records —
-  DEC-3 follow-up.
+- Dinosaur AI action chooser that maps BAD FOOD/REPOS to `Eat`/`Sleep`;
+  the gauges, four needs and `0x1f` idle sentinel are solved in
+  `docs/decomp/dinosaur-actions.md`.
+- `.sav` world object lists are solved; the remaining DEC-3 item is populated
+  lab records.

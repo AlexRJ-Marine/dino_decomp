@@ -58,8 +58,20 @@ hungrydinos 1, marchandizing 1, ornateddinos 1, speeddinos 1,
 staminadinos 1
 ```
 
-Argument semantics and the evaluator (`snoObjective.cpp`, 0x6658bc) remain
-open.
+Dispatch solved: `FUN_005654f0` parses the line and stores the verb id at
+`+0x34`, two numeric args at `+0x28`/`+0x2c`, and an evaluator pointer at
+`+0x30`. `FUN_005658d0` maps 33 verbs to ids 0–32. Evaluators are tri-state:
+0 = pending, 1 = success, 2 = failure.
+
+Simple evaluators decoded (treasury, marchandizing, dyingdinos, employees,
+visitors, happyvisitors, connected/not-connected buildings, camera altitude,
+delay limit, buy-all-dinos, bankrupt); trait and show predicates remain open.
+Full table and evidence: `notes/objectives-recon.md`,
+`docs/formats/campaign.md`.
+
+Data quirks: Cpg07's cut mission uses the typo `dyinddinos`; Cpg06_Mission1
+has `genotypedinos diplo 1""` (still parses). `scaritydinos`,
+`keephappyvisitors`, `carnivordinos`, `fightshow` and `bankrupt` are unused.
 
 ## World files
 

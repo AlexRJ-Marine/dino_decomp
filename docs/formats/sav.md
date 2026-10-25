@@ -1,7 +1,8 @@
 # `.sav` save format
 
-Status: **header, show catalog, simulation-state prefix and the AI/camera tail
-are solved; world object contents remain partial.**
+Status: **header, world-object graph, show catalog, simulation-state prefix
+and the AI/camera tail are solved; populated lab records and some simulation
+semantics remain.**
 The retail save is a sequence of manager-level serializers, not one fixed
 struct.
 
@@ -19,12 +20,24 @@ struct.
 0x04  u32   slot/index (0)
 0x08  u32   save-name byte length (NUL included)
 0x0c  ...   UTF-16LE save name
-...         campaign manager: 2 x u32 (0, 0 in retail saves)
-...         world manager: object lists + show manager
+...         12 reserved zero bytes
+...         world manager: campaign ids, objectives, object lists,
+            unlock arrays, show catalog
 ...         simulation manager: road network, visitors, park, stores
 ...         AI manager
 ...         scenario manager
 ```
+
+The world block starts at **`0x18 + name_len`**:
+
+| Save | `name_len` | World start | Show count | Show catalog |
+| --- | ---: | ---: | ---: | ---: |
+| `slot001.sav` | 20 | `0x2c` | `0x171` | 39 records |
+| `auto/auto.sav` | 2 | `0x1a` | `0x12f` | 39 records |
+
+The shared world-object layout (class table, fence/show/building/visitor/
+dinosaur records, objective list and unlock arrays) is documented in
+`docs/formats/wld.md` and parsed by `tools/formats/wld.py`.
 
 The wrapper functions establish the order:
 
@@ -35,10 +48,41 @@ The wrapper functions establish the order:
 
 Stream methods: `[vtable + 4]` writes, `[vtable + 8]` reads.
 
-The show catalog is serialized **last** in the world-manager section by the
-show manager writer `0x00558340` (reader `0x00558230`; constructor
-`0x00557a30`, path `DATA\design\scenario\show\`). That is why the show catalog
-can be located before the simulation section.
+## World manager section
+
+The campaign manager writes two u32 ids (`0x0055d870`; `-1, -1` in free game).
+`0x0053c560` then reads:
+
+```text
+u32 objective_count              # 6 in retail
+objective_count x (u32 kind, u32 value, u32 target)
+
+u32 fence_count     + drsFence records
+u32 show_count      + drsShow records
+u32 animal_count    + drsAnimal records
+u32 employee_count  + drsEmployee records
+u32 building_count  + (drsBuilding, u32 link) records
+u32 visitor_count   + drsVisitor records
+u32 dinosaur_count  + drsDinosaur records (18-gene genotype)
+
+u32 feature_flags (62 bytes)
+u32 building_flags (39 bytes)
+u32 food_flags (10 bytes)
+u32 misc_flags (6 bytes)
+
+u32 show_catalog_count
+show_catalog_count x show record
+```
+
+The class ids `0x12`–`0x18` and every record layout are in
+`docs/formats/wld.md`. Retail free-game saves contain one `Entrance` building
+at `(520,376)`, six default objective records, and all unlock bytes set to 1.
+`slot001.sav` has two `drsVisitor` objects; `auto.sav` has none.
+
+The show catalog is serialized **last** in this section by the show manager
+writer `0x00558340` (reader `0x00558230`; constructor `0x00557a30`, path
+`DATA\design\scenario\show\`). That is why the catalog can be located before
+the simulation section.
 
 ## Show catalog
 
@@ -111,6 +155,9 @@ object lists are empty. The manual save has two visitors and a budget of
 75,125; the autosave has none and a budget of 75,000.
 
 ### Visitor record (`0x50` bytes)
+
+This is the **simulation** visitor record. It is separate from the
+`drsVisitor` world object in the world manager section.
 
 ```text
 +0x00 u32 object id         4 / 6 in the manual save

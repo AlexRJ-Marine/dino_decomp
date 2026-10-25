@@ -286,7 +286,20 @@ Updated: 2026-10-25
     `notes/menu-start-isl10.png`,
     `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`,
     `test_cpp_island_list_and_free_game_budgets`.
-- 169 tests pass; working tree committed (UI-2 Phase B rest plus
+- UI-2 Phase C minimap complete: **rendered detail map in `MAP_RENDERVIEW`.**
+  - 256×256 FBO rendered top-down, centred on the camera target and rotated
+    with the camera heading (`FUN_005fb120`); visible width
+    `2 * world_size * scale`.
+  - Retail zoom model: scale default 0.25, clamp 0.1..2.0, held buttons
+    ±0.15/s (`FUN_005fb7e0`); `--park-click` steps 0.05 and `--minimap-scale`
+    sets the start value.
+  - Red/yellow camera marker; FBO refresh only when target/heading/scale
+    change.
+  - Evidence: `notes/ui-recon.md` ("Minimap implementation"),
+    `notes/minimap-isl01.png`, `notes/minimap-isl01-detail.png`,
+    `notes/minimap-isl01-zoom-detail.png`, `notes/minimap-isl10-detail.png`,
+    `tests/test_viewer_cpp.py::test_cpp_minimap_detail_view`.
+- 194 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -311,22 +324,31 @@ Updated: 2026-10-25
   - Evidence: `notes/ui-recon.md`, `notes/ui-frame-handoff.md`,
     `docs/formats/overlay-ini.md`,
     `docs/platform/ui-original-menu.md` (the seven UI-2 questions answered).
-- SAVE-RECON (partial): **header, show catalog and simulation-state prefix.**
-  - Header: version 53, slot, length-prefixed UTF-16 save name, variable block.
+- SAVE-RECON complete: **header, world object graph, show catalog and
+  simulation-state prefix.**
+  - Header: version 53, slot, length-prefixed UTF-16 save name, 12 reserved
+    zero bytes; world block starts at `0x18 + name_len` (`0x2c` / `0x1a`).
+  - World object graph: class IDs `0x12`–`0x18` = `drsDinosaur`, `drsVisitor`,
+    `drsEmployee`, `drsAnimal`, `drsShow`, `drsFence`, `drsBuilding`; every
+    per-list record decoded. Save games add the campaign/mission ids, six
+    objective records, the visitor list and 62/39/10/6 unlock bytes.
+  - `.wld` world files use the same block with campaign flag 1, then the
+    simulation road rectangles and camera; 7/7 version 50–53 worlds parse.
   - Show records: ASCII `.shw` path + UTF-16 name + 6 u32 params; 39 records
     in both manual and auto saves.
   - Manager order: campaign → world (objects + show manager) → simulation →
     AI → scenario (`0x51e6c0` load, `0x51e7e0` save).
-  - World serializer class IDs `0x12`–`0x18` recovered (`0x53a140`).
   - Simulation prefix decoded: one road rectangle, 0x50-byte visitor records
     (2/0), 0x293-byte park block with **budget 75,125/75,000**, 20 dinosaur
     store records, five visitor-model values, 8 empty lab flags.
   - AI/camera tail decoded: 5 AI-list counts (fifth 2/0), 17-byte AI entries,
     and 10 camera floats (`camSwitcher`).
-  - Remaining: world object contents and populated lab records.
+  - Dinosaur world objects store the 18-gene genotype (same order as `.gen`).
+  - Remaining: populated lab records and a few field semantics.
   - Evidence: `notes/save-recon.md`, `notes/save-graph-recon.md`,
-    `docs/formats/sav.md`, `tools/formats/sav.py`, `sav_graph.py`,
-    `tests/test_sav.py`, `test_sav_graph.py`.
+    `notes/world-objects-recon.md`, `docs/formats/sav.md`,
+    `docs/formats/wld.md`, `tools/formats/sav.py`, `sav_graph.py`,
+    `wld.py`, `tests/test_sav.py`, `test_sav_graph.py`, `test_wld.py`.
 - FMT-8 complete: **`.shw` show scenarios.**
   - Plain text `//` sections: name, cost, judge kind, cage size, dimensions,
     wall type, 4-int feature grid, cage→team list.
@@ -385,8 +407,48 @@ Updated: 2026-10-25
     resolve; every `WorldFile` `.wld` exists.
   - Campaign table (island, budget, missions) and the `CampaignBase`/
     `MissionBase` schema documented; `Cpg07` is unlisted cut content.
+  - Objective dispatch solved: 33 verbs, ids 0–32, evaluator addresses,
+    tri-state verdict (0 pending / 1 success / 2 failure). Simple evaluators
+    (treasury, marchandizing, dyingdinos, employees, visitors, happyvisitors,
+    buildings, camera altitude, delay limit, buy-all-dinos, bankrupt) decoded.
+    Trait/show predicates remain open.
   - Evidence: `tools/formats/campaign.py`, `docs/formats/campaign.md`,
-    `tests/test_campaign.py`, `notes/campaign-recon.md`.
+    `tests/test_campaign.py`, `notes/campaign-recon.md`,
+    `notes/objectives-recon.md`.
+- FMT-17 complete: **`anim_trans.dic` / `graphic_trans.dic` / `proportion.dat`.**
+  - 20 dinosaurs, 5 families, 51 clip names; four 20×20 merge tables.
+  - All 51 clip names exist in every family folder (255 `.anim`).
+  - ArmLeg is a directional 10/10 table (A→B=1, B→A=99) with two
+    exceptions; Head/Body/Tail are identity+50.
+  - `proportion.dat`: 20 × 5 part scales (head/arm/body/leg/tail, leg = 1.0;
+    T-rex arm 0.235, Diplodocus tail 2.093).
+  - Evidence: `tools/formats/anim_trans.py`,
+    `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
+    `notes/anim-trans-recon.md`.
+- MEDIA-1 recon complete: **sound DB, music and DirectShow movies.**
+  - `MenuSoundDB.ini` (5 entries) and `ParkSoundDB.ini` (224); all filenames
+    resolve except the documented `[bell]` retail typo.
+  - `dsound.dll`/`winmm.dll` are loaded dynamically (`0x5ca960`); the engine
+    is `msSoundEngine`/`msSoundDatabase`. Island `.lnd` music names map to
+    five streaming/looping park themes plus `musLabo`.
+  - Movies use DirectShow (`mvVideo`/`mvMovie`, `0x5c7ed0`), with
+    `intro.mpg`/`generic.mpg` startup paths and a menu wrapper `0x517a40`.
+  - Evidence: `docs/formats/sounddb.md`, `docs/decomp/media.md`,
+    `notes/media-recon.md`, `tools/formats/sounddb.py`,
+    `tests/test_sounddb.py`.
+- SIM-3 needs complete: **dinosaur action IDs, need gauges and idle sentinel.**
+  - Corrected the old dword-index offsets: the two raw gauges are `+0x258`
+    (rest, max `+0x1d8`) and `+0x25c` (food, max `+0x1dc`), not `+0x96`/
+    `+0x97`; the action id is `+0x2c0`, not `+0xb0`.
+  - Four UI needs: `+0x244` FOOD, `+0x248` VIOLENCE, `+0x24c` SECU,
+    `+0x250` REPOS; state indices `+0x2ac..+0x2b8` with thresholds
+    `[80,60,30]` and GOOD/MID/BAD widgets in `0x511d80`/`0x5138b0`.
+  - `0x1f` is the idle/finished sentinel: `0x571540` skips completion and
+    `0x572826` checks it before `0x571190`, which sets `+0x2c0 = 0x1f`.
+  - Eat (4) / Sleep (2) are real actions; the AI chooser that maps BAD
+    FOOD/REPOS to them remains open.
+  - Evidence: `docs/decomp/dinosaur-actions.md`,
+    `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`.
 - DEC-2 complete: **simulation scheduler + AI update order decompiled.**
   - `lpScheduler` (`0x506ec0` ctor, `0x507050` AddTask, `0x507490`
     SetTaskEnabled, `0x507530` Update) runs a fixed-order task list with
@@ -407,15 +469,20 @@ Updated: 2026-10-25
   - Evidence: `notes/scheduler-recon.md`, `docs/decomp/scheduler.md`,
     `notes/dinosaur-actions-recon.md`, `docs/decomp/dinosaur-actions.md`,
     `docs/decomp/function-status.md`.
-- SIM-2b research: **visitor attraction AI decompiled.**
+- SIM-2b research: **visitor attraction AI decompiled; scoring weights solved.**
   - `apVisitorBehavior::Update` (`0x522820`) + state transitions (`0x522940`):
     choose → travel → use attraction → leave.
-  - Attraction scoring (`0x522a10`) uses six global preference weights
-    (`DAT_00675638`), radius, price/tag, distance and a 1-in-5 leave chance.
+  - Attraction scoring (`0x522a10`) uses a constant seven-float block from
+    `.bvi` file `0x38..0x50` (`[1, 1, 1, 500, 300, −3000, 3000]`), not the
+    five per-profile weights: `rand()%6000 − 3000 + Σ(attr·(99−need)²) −
+    300·distance − 500·price`. Runtime-verified under x32dbg.
   - Show availability (`0x522ff0`), path following (`0x521490`) and obstacle
     rerouting (`0x522cb0`) mapped.
-  - Remaining: exact `.bvi` weight indices, attraction field names, need decay.
-  - Evidence: `notes/visitor-ai-recon.md`, `docs/decomp/visitor-ai.md`,
+  - Remaining: consumer of the five variable profile weights (record
+    `+0x24..+0x34`), attraction field names, need decay.
+  - Evidence: `notes/visitor-ai-recon.md`, `notes/visitor-weights-runtime.md`,
+    `docs/decomp/visitor-ai.md`, `docs/formats/bvi.md`,
+    `tools/recon/dump-visitor-weights.ps1`,
     `docs/decomp/function-status.md`.
 - STAFF research: **employee task AI decompiled.**
   - `apEmployeeBehavior::Update` (`0x5220e0`) uses the same choose → travel →
@@ -481,10 +548,10 @@ Updated: 2026-10-25
 
 ## In progress
 
-- **UI-2 Phase C rest:** minimap render target (`MAP_RENDERVIEW`), 1024×768
-  HUD re-anchoring (QOL-2), and dynamic values inside sub-panels (budget
-  ledger rows, list snapshots, slider/checkbox selection). Button bindings,
-  hover/pressed states and the menu→island handoff are done.
+- **UI-2 Phase C rest:** 1024×768 HUD re-anchoring (QOL-2), dynamic values
+  inside sub-panels (budget ledger rows, list snapshots, slider/checkbox
+  selection), minimap water colour/partition polish. Button bindings,
+  hover/pressed states, the menu→island handoff and the minimap are done.
 - **UI-2 Phase B polish:** the original park camera's initial framing is not
   yet recovered; the port still auto-frames with `bounds.extent() * 1.7`.
 - **UI-2 Phase D:** save/load panels, menu sounds, warning/request dialogs
@@ -498,8 +565,8 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-2 Phase C rest: render the minimap into `MAP_RENDERVIEW` (136×136,
-   absolute 652,451) and wire the zoom buttons; then QOL-2 anchoring.
+1. UI-2 Phase C rest: 1024×768 HUD re-anchoring (QOL-2) and dynamic values in
+   sub-panels (budget ledger rows, list snapshots, sliders).
 2. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
    (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
 3. Capture a side-by-side comparison against the original game for WORLD-3.
@@ -507,8 +574,9 @@ Updated: 2026-10-25
 5. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are
    solved in `docs/decomp/dinosaur-actions.md`.
-6. DEC-3 rest: decode the world object lists (`0x53c9d0`) and populated lab
-   records; the AI/camera tail is solved. See `docs/formats/sav.md`.
+6. DEC-3 rest: decode populated lab records; the world object graph, unlock
+   arrays and AI/camera tail are solved. See `docs/formats/sav.md` and
+   `docs/formats/wld.md`.
 7. SIM-4 rest: name the fixed economy categories and the daily settlement
    trigger; see `docs/decomp/economy.md`.
 8. STAFF rest: decode job kind `0xb`, Nutritionist/Guard role assignment and

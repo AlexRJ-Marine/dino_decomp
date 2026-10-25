@@ -237,11 +237,49 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `MissionList.ini`, `MissionBase.ini`, mission files.
 - [x] 7 campaigns, 39 missions, 89 objective lines (28 verbs); 206/206 loc IDs
   resolve; all `WorldFile` `.wld` files exist.
-- [ ] Per-verb objective argument semantics and the mission evaluator.
-- **Acceptance:** 7/7 campaigns and 39/39 missions parse.
-- **Depends on:** FMT-7, FMT-8.
+- [x] Decode the objective dispatch: 33 verbs, ids 0–32, evaluator addresses,
+  tri-state verdict (0 pending / 1 success / 2 failure).
+- [x] Simple evaluators (treasury, marchandizing, dyingdinos, employees,
+  visitors, happyvisitors, connected buildings, camera altitude, delay limit,
+  buy-all-dinos, bankrupt) decoded.
+- [ ] Trait-verb predicates, genotype field mapping and show evaluators.
+- **Acceptance:** 7/7 campaigns and 39/39 missions parse; every mission verb
+  resolves to the 33-verb table.
+- **Depends on:** FMT-7, FMT-8, FMT-9.
 - **Evidence:** `tools/formats/campaign.py`, `docs/formats/campaign.md`,
-  `tests/test_campaign.py`, `notes/campaign-recon.md`.
+  `tests/test_campaign.py`, `notes/campaign-recon.md`,
+  `notes/objectives-recon.md`.
+
+### FMT-17: `anim_trans.dic` / `graphic_trans.dic` / `proportion.dat`
+- [x] Parse both text dictionaries: 20 dinosaurs, 5 families, 51 animation
+  names, four 20×20 merge tables, five reference widths.
+- [x] Parse `proportion.dat`: 20 × 5 part scale factors (`head, arm, body,
+  leg, tail`; leg column = 1.0).
+- [x] All 51 clip names exist in every family folder (51 × 5 = 255 `.anim`).
+- [x] Pin the ArmLeg directional 10/10 split and its two exceptions.
+- [ ] Meaning of merge codes 1/50/99 and the consumer in the hybrid lab.
+- **Acceptance:** all three files parse; matrix dimensions/value sets and the
+  20 × 5 table are checked.
+- **Depends on:** FMT-5, FMT-9.
+- **Evidence:** `tools/formats/anim_trans.py`,
+  `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
+  `notes/anim-trans-recon.md`.
+
+### SIM-2b-W: visitor attraction scoring weights
+- [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
+- [x] Identify the block as `.bvi` file `0x38..0x50`: constant
+  `[1, 1, 1, 500, 300, −3000, 3000]` in all 24 profiles.
+- [x] Decode the real score: `rand()%6000 − 3000 + Σ(attr·(99−need)²) −
+  300·distance − 500·price`; `FUN_0059aef0` is `pow(x, 2.0)`.
+- [x] Locate the five variable profile weights at record `+0x24..+0x34`
+  (file `0x1C..0x2C`), runtime-verified with SurferMan.
+- [ ] Consumer of the five variable weights (no read in an empty or
+  two-visitor park within 15 s).
+- **Acceptance:** live dump matches the file block; all 24 files share it.
+- **Depends on:** FMT-10, SIM-2b.
+- **Evidence:** `notes/visitor-weights-runtime.md`,
+  `tools/recon/dump-visitor-weights.ps1`, `docs/formats/bvi.md`,
+  `docs/decomp/visitor-ai.md`, `tests/test_bvi.py`.
 
 ### VIEW-0: Simple asset viewer
 - [x] Software renderer for one `.mesh` + `.tga` (views, supersampling,
@@ -460,9 +498,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/visitor-ai-recon.md`, `docs/decomp/visitor-ai.md`.
 
 ### SIM-3: Dinosaurs
-- Load genotypes, needs, behaviors, animation state machine.
+- [x] Map all 64 action IDs, `ApplyActionEffect`, completion and the `0x1f`
+  idle sentinel.
+- [x] Decode the two raw gauges (`+0x258` rest, `+0x25c` food), the four UI
+  needs (`+0x244` FOOD, `+0x248` VIOLENCE, `+0x24c` SECU, `+0x250` REPOS),
+  their state indices and the `[80,60,30]` thresholds.
+- [x] Cross-check the need-to-widget mapping against the info panel
+  (`0x511d80`, `0x5138b0`, `0x5df900`).
+- [ ] Decode the dinosaur-AI action chooser that turns a BAD FOOD/REPOS state
+  into `Eat` (4) / `Sleep` (2), and the visitor reaction.
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
+- **Evidence:** `docs/decomp/dinosaur-actions.md`,
+  `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
@@ -533,8 +581,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase C rest (bindings): `src/ui/park.cpp` maps the 12 HUD buttons, the
   construction sub-buttons, info-controller pages, lab centres and close
   buttons; hover/pressed frames, `--park-click` / `--park-hover`.
-- [ ] Phase C rest: minimap render target, 1024×768 re-anchoring, dynamic
-  sub-panel fields (budget ledger rows, list snapshots, sliders).
+- [x] Phase C rest (minimap): `MAP_RENDERVIEW` renders a 256² top-down detail
+  map into an FBO, centred on the camera target, rotated with the camera
+  heading; held zoom buttons change the 0.1..2.0 scale; red/yellow camera
+  marker.
+- [ ] Phase C rest: 1024×768 re-anchoring, dynamic sub-panel fields (budget
+  ledger rows, list snapshots, sliders), minimap water colour/partition
+  polish.
 - [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
@@ -543,18 +596,32 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/menu-retail.png`, `notes/menu-free.png`, `notes/menu-loading.png`,
   `notes/menu-pages-sheet.png`, `notes/menu-start-isl01.png`,
   `notes/menu-start-isl03.png`, `notes/menu-start-isl10.png`,
+  `notes/minimap-isl01.png`, `notes/minimap-isl01-zoom-detail.png`,
+  `notes/minimap-isl10-detail.png`,
   `notes/park-hud.png`, `notes/park-budget.png`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
-  `test_cpp_island_list_and_free_game_budgets`), `tools/formats/overlay.py`,
+  `test_cpp_island_list_and_free_game_budgets`,
+  `test_cpp_minimap_detail_view`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video
-- DirectSound-equivalent playback, music, MPEG intro.
+- [x] Decode `ParkSoundDB.ini` / `MenuSoundDB.ini`, the dynamic
+  `dsound.dll`/`winmm.dll` loader and the `msSoundEngine`/`msSoundDatabase`
+  path.
+- [x] Decode music selection: the `.lnd` music name maps to a streaming,
+  looping sound-DB entry; five park themes plus the `musLabo` menu loop.
+- [x] Decode the DirectShow movie pipeline (`mvVideo`/`mvMovie`), the
+  `intro.mpg`/`generic.mpg` startup paths and the menu wrapper.
+- [ ] Port music streaming/looping and SFX playback into the SDL3 viewer;
+  implement the MPEG intro with a platform decoder.
 - **Acceptance:** music loops, SFX trigger, intro plays.
 - **Depends on:** VIEW-1.
+- **Evidence:** `docs/formats/sounddb.md`, `docs/decomp/media.md`,
+  `notes/media-recon.md`, `tools/formats/sounddb.py`,
+  `tests/test_sounddb.py`.
 
 ### SAVE-RECON: Retail `.sav` research
 - [x] Parse the header and the 39-record show catalog in `slot001.sav` and
@@ -565,12 +632,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Decode the simulation-state prefix: road rectangles, visitor records,
   park block with the real budget, 20-genotype dinosaur store, lab flags,
   AI lists and the 10-float camera state.
-- [ ] Remaining world object contents and populated lab records.
+- [x] Decode the world object graph: class table `0x12`–`0x18`, every list
+  record, the objective list, the 62/39/10/6 unlock arrays and the `.sav`
+  world-start offset (`0x18 + name_len`).
+- [x] Decode the `.wld` header, world objects, simulation roads and camera;
+  7/7 version 50–53 campaign worlds parse.
+- [ ] Populated lab records (the empty-flag path is solved).
 - **Depends on:** RUN-2.
 - **Evidence:** `notes/save-recon.md`, `notes/save-graph-recon.md`,
-  `docs/formats/sav.md`, `tools/formats/sav.py`,
-  `tools/formats/sav_graph.py`, `tests/test_sav.py`,
-  `tests/test_sav_graph.py`.
+  `notes/world-objects-recon.md`, `docs/formats/sav.md`,
+  `docs/formats/wld.md`, `tools/formats/sav.py`,
+  `tools/formats/sav_graph.py`, `tools/formats/wld.py`,
+  `tests/test_sav.py`, `tests/test_sav_graph.py`, `tests/test_wld.py`.
 
 ### SAVE-1: Save/load
 - Reproduce enough of `.wld`/save semantics or define a new format.
@@ -596,11 +669,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   **Done:** `docs/decomp/scheduler.md`, `notes/scheduler-recon.md`,
   `docs/decomp/dinosaur-actions.md` (64 action IDs mapped); runtime
   confirmation, the idle sentinel and need-gauge names remain.
-- DEC-3: Map the `.wld` save format. **Partial:** header + 39-show catalog,
-  manager order, world class table, the simulation-state prefix and the
-  AI/camera tail solved. World object contents and populated lab records
-  remain. See `docs/formats/sav.md`, `notes/save-graph-recon.md`,
-  `tools/formats/sav_graph.py`.
+- DEC-3: Map the `.wld` save format. **Solved for versions 50–53:** header,
+  world object graph, objective list, unlock arrays, 39-show catalog,
+  simulation-state prefix and the AI/camera tail. Populated lab records and
+  a few field semantics remain. See `docs/formats/sav.md`,
+  `docs/formats/wld.md`, `notes/save-graph-recon.md`,
+  `notes/world-objects-recon.md`, `tools/formats/sav_graph.py`,
+  `tools/formats/wld.py`.
 - DEC-4: Recover the original assert-string source map into `docs/architecture.md`.
 - DEC-5: Determine whether `Pathmap.bin` is generated at runtime.
   **Resolved:** 0 bytes in retail and after Free Mode; no exe string.

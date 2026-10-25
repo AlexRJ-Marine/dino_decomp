@@ -32,6 +32,76 @@ class CampaignFormatError(ValueError):
     pass
 
 
+@dataclass(frozen=True)
+class ObjectiveSpec:
+    """One objective verb, its internal id and evaluator function."""
+
+    objective_id: int
+    evaluator: str
+    args: tuple[str, ...] = ()
+    note: str = ""
+    used: bool = True
+
+
+# Recovered from the verb lookup FUN_005658d0 and the evaluator dispatch in
+# FUN_005654f0 (snoObjective.cpp).  Verdicts are tri-state: 0 = pending,
+# 1 = success, 2 = failure.  `used` is False for verbs the executable supports
+# but no retail mission in CampaignList.ini uses.
+OBJECTIVE_VERBS: dict[str, ObjectiveSpec] = {
+    "treasury": ObjectiveSpec(0, "0x00567c00", ("target:int", "[deadline:int]"),
+                              "treasury >= target; below target fails when deadline <= 0"),
+    "marchandizing": ObjectiveSpec(1, "0x00567c40", ("target:int",),
+                                   "merchandise income > target"),
+    "dyingdinos": ObjectiveSpec(2, "0x00569010", ("max:int",),
+                                "death counters sum <= max"),
+    "aggressivedinos": ObjectiveSpec(3, "0x00568680", ("threshold:int", "percent:int")),
+    "genotypedinos": ObjectiveSpec(4, "0x00568750", ("species:str", "count:int"),
+                                   "count dinos matching the species/9-trait genotype"),
+    "cutedinos": ObjectiveSpec(5, "0x00568770", ("count:int", "percent:int")),
+    "hybriddinos": ObjectiveSpec(6, "0x00568840", ("count:int", "percent:int")),
+    "notconnectedbuildings": ObjectiveSpec(7, "0x00567170", ("type:str", "count:int"),
+                                           "FUN_00566620 mode 0"),
+    "connectedbuildings": ObjectiveSpec(8, "0x00567150", ("type:str", "count:int"),
+                                        "FUN_00566620 mode 1"),
+    "visitors": ObjectiveSpec(9, "0x00566590", ("profile:str", "count:int"),
+                              "visitor count >= count; profile may be 'all'"),
+    "scaritydinos": ObjectiveSpec(10, "0x00568910", ("?",), used=False),
+    "speeddinos": ObjectiveSpec(11, "0x00568ab0", ("flag:int", "percent:int")),
+    "staminadinos": ObjectiveSpec(12, "0x00568b80", ("flag:int", "percent:int")),
+    "cleverdinos": ObjectiveSpec(13, "0x00568c50", ("flag:int", "percent:int")),
+    "sizedagilitydinos": ObjectiveSpec(14, "0x00569040", ("flag:int", "percent:int")),
+    "franckstrangedinos": ObjectiveSpec(15, "0x00569110", ("count:int", "percent:int")),
+    "employees": ObjectiveSpec(16, "0x005665f0", ("profile:str", "count:int"),
+                               "employee count >= count; never fails"),
+    "hungrydinos": ObjectiveSpec(17, "0x005689e0", ("flag:int", "percent:int")),
+    "isolateddinos": ObjectiveSpec(18, "0x00568d20", ("count:int",)),
+    "happyvisitors": ObjectiveSpec(19, "0x005665b0", ("profile:str", "percent:int"),
+                                   "every visitor has satisfaction >= percent"),
+    "keephappyvisitors": ObjectiveSpec(20, "0x005665d0", ("profile:str", "percent:int"),
+                                       used=False),
+    "carnivordinos": ObjectiveSpec(21, "0x00568de0", ("?",), used=False),
+    "ornateddinos": ObjectiveSpec(22, "0x00568ef0", ("count:int",)),
+    "cameraaltitude": ObjectiveSpec(23, "0x00569230", ("height:int",),
+                                    "camera altitude >= height"),
+    "happyshow": ObjectiveSpec(24, "0x00567710", ("profile:str", "percent:int")),
+    "fightshow": ObjectiveSpec(25, "0x005677b0", ("?",), used=False),
+    "scientificshow": ObjectiveSpec(26, "0x005678b0", ("threshold:int", "percent:int")),
+    "happydinoshow": ObjectiveSpec(27, "0x00567b10", ("count:int", "duration:int")),
+    "delaylimit": ObjectiveSpec(28, "0x00567bb0", ("limit:int",),
+                                "clock <= load-time + limit; fails after"),
+    "buyalldinos": ObjectiveSpec(29, "0x00569280", (),
+                                 "dino store is empty"),
+    "dinoexclusiveshow": ObjectiveSpec(30, "0x005692a0", ()),
+    "prettystrangedino": ObjectiveSpec(31, "0x005694c0", ("count:int", "percent:int")),
+    "bankrupt": ObjectiveSpec(32, "0x00567c80", (), "fails when the bankruptcy flag is set",
+                              used=False),
+}
+
+
+def objective_spec(verb: str) -> ObjectiveSpec | None:
+    return OBJECTIVE_VERBS.get(verb.lower())
+
+
 def _merged(path: Path) -> dict[str, dict[str, str]]:
     """Merge #INCLUDEs; later section/key definitions override earlier ones."""
     out: dict[str, dict[str, str]] = {}

@@ -102,6 +102,20 @@ CLI: `--park-click X,Y` applies a design-space click before the first frame
 (repeatable, useful for screenshots/tests); `--park-hover X,Y` sets the hover
 point; `--no-park-hud` disables the whole HUD.
 
+### Minimap
+
+`MAP_RENDERVIEW` (652,451,136×136) is a 2-D detail map, not a 3-D camera and
+not a basemap crop. The viewer renders the terrain into a 256×256 FBO
+top-down, centred on the camera target and rotated so the camera heading is
+up. The visible world width is `2 * world_size * scale`:
+
+- scale default 0.25 (whole 1024-unit island), clamped 0.1..2.0;
+- the retail zoom buttons are hold-to-zoom at 0.15/s (`+` decreases the
+  scale); `--park-click` steps 0.05; `--minimap-scale N` sets the start value;
+- a red camera marker with a yellow heading tick is drawn when it falls
+  inside the map;
+- the FBO is refreshed only when the target, heading or scale changes.
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
@@ -112,6 +126,11 @@ point; `--no-park-hud` disables the whole HUD.
 - `notes/park-construction-kit.png` - construction kit panel.
 - `notes/park-lab-breed.png` - breeding centre with its own lab backdrop.
 - `notes/park-hud-hover.png` - hover frame on the budget gauge button.
+- `notes/minimap-isl01.png` / `notes/minimap-isl01-detail.png` - minimap with
+  the camera marker.
+- `notes/minimap-isl01-zoom-detail.png` - two scripted zoom-in clicks.
+- `notes/minimap-isl10-detail.png` - a different island (snow) in the map.
+- `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:
   - `test_cpp_hud` checks the font load line and bright glyph pixels.
@@ -126,6 +145,6 @@ point; `--no-park-hud` disables the whole HUD.
 - Kerning/advance beyond glyph width; coloured/shadowed text.
 - HUD scaling for high-DPI and park re-anchoring at 1024×768 (QOL-2).
 - Save/load panels and park button bindings (UI-2 Phase D).
-- Minimap render target.
+- Minimap detail-map water colour and exact partition contents.
 - `draw_ui_mesh` re-uploads its mesh per widget per frame; batching is the
   next performance step for the park HUD.

@@ -1,7 +1,8 @@
 # `.bvi` visitor profile
 
-Status: **solved** for the header, personality ids and asset table; the five
-preference weights and the tail bytes are partial.
+Status: **solved** for the header, personality ids, asset table and the
+constant attraction-scoring block; the consumer of the five variable weights
+and the tail bytes are partial.
 
 ## Inventory
 
@@ -34,8 +35,44 @@ preference weights and the tail bytes are partial.
 | 16 | f32 | walk speed (1.2–2.5) |
 | 20 | u32 | 10 |
 | 24 | u32 | 2 |
-| 28..48 | 5 × f32 | preference weights (−1..1); semantics open |
-| 48..95 | 12 × u32 | header tail (semantics open: 576, 2.0, 1.0×3, 500, 300, −3000, 3000, 0, 0, 2) |
+| 28..48 | 5 × f32 | preference weights (−1..1); not the scorer vector (see below) |
+| 48 | u32 | 576 |
+| 52 | f32 | unknown per-profile scale (1.0–2.5; not walk speed) |
+| 56..84 | 7 × f32 | **constant tuning block**: 1, 1, 1, 500, 300, −3000, 3000 |
+| 84..95 | 3 × u32 | 0, 0, 2 |
+
+### Header fields 0x38..0x50
+
+These seven floats are **identical in all 24 files**:
+
+```text
+0x38  1.0        W0  appeal-array term scale
+0x3c  1.0        W1  attr10 term scale
+0x40  1.0        W2  attr11 term scale
+0x44  500.0      W3  price/ticket penalty
+0x48  300.0      W4  per-tile distance penalty
+0x4c  -3000.0    W5  random-base lower bound
+0x50  3000.0     W6  random-base upper bound (code uses W6 − W5 = 6000)
+```
+
+At runtime `FUN_0051f560` sets `DAT_00675638` = profile record `+0xD0`, which
+is this block; `FUN_00522a10` reads W0..W5 and uses W6 − W5 for the random
+range. Dumped live under x32dbg as
+`3F800000 3F800000 3F800000 43FA0000 43960000 C53B8000` (plus `453B8000`).
+See `docs/decomp/visitor-ai.md` for the corrected score formula.
+
+### In-memory record
+
+`FUN_00544110` copies each parsed profile into a `0xEC`-byte record. The
+five variable weights land at record `+0x24..+0x34` (not `+0x1C..+0x2C`);
+the constant block lands at `+0xD0..+0xE8`. Runtime check with SurferMan:
+record `+0x24..0x34` = `0.0, 0.5, 1.0, −0.2, 0.0`, exactly file `0x1C..0x2C`.
+
+The consumer of the five variable weights is still open: a hardware read
+breakpoint on record `+0x24` produced no hits in an empty free-game park or
+in a loaded save with two visitors (15 s window), so it is probably read only
+at visitor creation or in a longer need cycle. The scorer does **not** read
+them.
 
 ### Personalities
 
@@ -70,9 +107,19 @@ The repeats are deliberate: the actor has two slots per animation state
 
 ## Tail
 
-After the last string, 91–113 bytes remain. It is mixed binary, not a float
-array (the first bytes decode as a 4-byte code followed by floats). It likely
-holds need rates/attraction preferences; not decoded.
+After the last string, 91–113 bytes remain. The prefix is structured:
+
+```text
+u32  5
+f32  200, 400, 600, 800, 1000      five thresholds
+f32  0.8, 9.6, 1.9, 22.8, 4.0, 48.0   three (rate, 12×rate) pairs
+u32  14
+...  ~57 bytes of mixed binary (not float-aligned; purpose open)
+```
+
+The 200..1000 thresholds and the rate pairs are identical in the samples
+checked (Blase, Fan); they look like need/patience bands rather than
+per-profile data. The trailing mixed bytes are still undecoded.
 
 ## Reader
 
@@ -83,19 +130,26 @@ python tools/formats/bvi.py --dump <file.bvi>
 python tools/formats/bvi.py --scan <visitors-dir>
 ```
 
-Tests: `tests/test_bvi.py` (FanMan values, 24-file scan, 624 mesh paths).
+Tests: `tests/test_bvi.py` (FanMan/Surfer values, 24-file scan, 624 mesh
+paths, and the constant scoring block).
 
 ## Evidence
 
 - `Data/Design/visitors/*.bvi` (read-only).
 - `Data/Design/visitors/VisitorList.ini` — 10 profile types, 24 names.
+- `FUN_00544110` — profile → 0xEC list record (weights at `+0x24`, constants
+  at `+0xD0`).
+- `FUN_0051f560` — publishes the constant block as `DAT_00675638`.
+- `notes/visitor-weights-runtime.md` — live x32dbg dump.
 - `tools/formats/bvi.py`, `tests/test_bvi.py`.
 
 ## Open
 
-- Meaning of the five preference weights (likely attraction categories).
-  Visitor AI (`docs/decomp/visitor-ai.md`) uses six global preference weights
-  (`0x522a10`, `DAT_00675638`); `.bvi` supplies five per-profile weights, so
-  the index mapping is still open.
-- Tail bytes (needs/rates).
+- Consumer of the five variable weights at file `0x1C..0x2C` (record
+  `+0x24..+0x34`). They are **not** the attraction-scoring vector; the
+  decompiled scorer uses the constant block instead. Likely need/attraction
+  category weights read at visitor creation.
+- Meaning of the per-profile scale at `0x34` (1.0–2.5) and the `576` at
+  `0x30`.
+- Tail prefix meaning (thresholds/rates) and the trailing mixed bytes.
 - How personality ids select visitor spawn probabilities.

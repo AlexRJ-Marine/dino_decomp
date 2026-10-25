@@ -4,7 +4,8 @@ Date: 2026-10-25
 Scope: static decompilation; no writes to `game/` or `original/`.
 
 Status: **action index table + action-effect switch solved; the two need slots
-are still only partially named.**
+are still only partially named.** See section 7 for the SIM-3 correction and
+the final need mapping.
 
 ## 1. Action list order
 
@@ -167,6 +168,83 @@ yet proven.
 - The `+0x130` activity values 3..8, 17..24, etc.
 - The effect fields `+0x264..+0x2a8` and how they map to the UI dinosaur stats.
 - The 17-byte AI entries in the save (possibly the same action/need state).
+
+## 7. SIM-3 correction: the real need offsets and UI mapping
+
+Date: 2026-10-25
+
+The offsets in sections 3–5 above are **dword indices**, not byte offsets.
+Ghidra decompiled against `int *param_1`, so `param_1[0x96]` is byte
+**`+0x258`**, `param_1[0x76]` is `+0x1d8`, and `param_1[0xb0]` is `+0x2c0`.
+The corrected layout is:
+
+### Raw gauges
+
+| Byte | Meaning | Max | Evidence |
+| ---: | --- | ---: | --- |
+| `+0x258` | rest/sleep gauge | `+0x1d8` | `0x571905`/`0x571911`; init in `0x570fd0` |
+| `+0x25c` | food gauge | `+0x1dc` | `0x57137a`/`0x5713e9`; init in `0x570fd0` |
+| `+0x260` | action countdown | — | `0x5719fa` |
+| `+0x2c0` | current action | — | `0x572826`, `0x57283a` |
+| `+0x4c0` | activity type | — | `0x5718e2` |
+
+`0x570fd0` initialises rest to `+0x1d8` (full), food to `0x1dc * 0.5`,
+and the four need values to 99.
+
+### Four UI needs
+
+| Byte | UI axis | State index | State widgets |
+| ---: | --- | ---: | --- |
+| `+0x244` | **FOOD** | `+0x2ac` | `+0xd0` GOOD, `+0xd4` MID, `+0xd8` BAD |
+| `+0x248` | **VIOLENCE** | `+0x2b0` | `+0xe8` GOOD, `+0xec` MID, `+0xf0` BAD |
+| `+0x24c` | **SECU** | `+0x2b4` | `+0xf4` GOOD, `+0xf8` MID, `+0xfc` BAD |
+| `+0x250` | **REPOS** | `+0x2b8` | `+0xdc` GOOD, `+0xe0` MID, `+0xe4` BAD |
+
+Evidence:
+
+- `0x5138b0` reads `+0x2ac`, `+0x2b8`, `+0x2b0`, `+0x2b4` and enables the
+  FOOD, REPOS, VIOLENCE, SECU state widgets in that order.
+- `0x511d80` stores the FOOD/REPOS/VIOLENCE/SECU state widgets at the offsets
+  above.
+- `0x572e10` returns the largest state index (0..3, 4 if none) in the order
+  `+0x2ac`, `+0x2b8`, `+0x2b4`, `+0x2b0`, which matches FOOD/REPOS/SECU/
+  VIOLENCE in the UI helper.
+- `0x5714b0(category)` maps a need value to a state index using the threshold
+  array at `+0x3c + category*4`; `0x570590` initialises every array to
+  `[0x50, 0x3c, 0x1e]` = `[80, 60, 30]`.
+- `0x571350` recomputes all four states.
+
+State mapping (value higher is better):
+
+```text
+<= 30       -> 2 BAD
+30 .. 60    -> 1 MID
+60 .. 80    -> 0 GOOD
+> 80        -> 3 (rendered as GOOD)
+```
+
+### Feed-forward
+
+- `RunAway` adds to `+0x248` (VIOLENCE) and calls `0x5714b0(1)` (`0x5727fc`).
+- `0x571410` decays `+0x248` (VIOLENCE).
+- `0x571370` decays `+0x25c` (food) and writes the normalised value to
+  `+0x244` (FOOD).
+- `0x571540` decays `+0x258` (rest) and writes the normalised value to
+  `+0x250` (REPOS).
+- `HeadCharge` restores `+0x258`; `Explode` restores `+0x25c`.
+
+### Idle sentinel
+
+`0x571540` skips completion when `+0x2c0 == 0x1f`; `0x572826` checks the same
+before calling `0x571190`; `0x571190` sets `+0x2c0 = 0x1f`. **Confirmed:**
+`0x1f` is the idle/finished sentinel.
+
+### Eat / sleep
+
+`Eat` (4) and `Sleep` (2) are real actions. The FOOD and REPOS needs above are
+their feed. The exact dinosaur-AI chooser that turns a BAD state into action
+4/2 is still open; the `.bai` action records and the dinosaur behavior tree are
+the next step.
 
 ## Evidence
 

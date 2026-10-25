@@ -16,7 +16,12 @@ Header (24 x 32-bit, mixed int/float):
     5  u32  10
     6  u32  2
     7..11 f32  five preference weights (-1 .. 1)
-    12..23    header tail (semantics open)
+    12 u32  576
+    13 f32  unknown per-profile scale (1.0 .. 2.5)
+    14..20 f32 seven constant tuning weights, identical in all 24 files
+              (1, 1, 1, 500, 300, -3000, 3000); the first six are the global
+              attraction-scoring vector.
+    21..23    header tail (0, 0, 2)
 
 See ``docs/formats/bvi.md``.
 """
@@ -55,6 +60,8 @@ class VisitorProfile:
     walk_speed: float
     preferences: tuple[float, ...]
     header_tail: tuple[int, ...]
+    unknown_0x34: float = 0.0
+    scoring_weights: tuple[float, ...] = ()
     strings: list[str] = field(default_factory=list)
     tail: bytes = b""
 
@@ -88,6 +95,8 @@ class VisitorProfile:
             "height": self.height,
             "walk_speed": self.walk_speed,
             "preferences": list(self.preferences),
+            "unknown_0x34": self.unknown_0x34,
+            "scoring_weights": list(self.scoring_weights),
             "meshes": len(self.meshes),
             "texture": Path(self.texture).name,
             "tail_bytes": len(self.tail),
@@ -122,6 +131,8 @@ def read_bvi(path: Path) -> VisitorProfile:
         walk_speed=floats[4],
         preferences=tuple(round(floats[i], 4) for i in range(7, 12)),
         header_tail=tuple(words[12:24]),
+        unknown_0x34=round(floats[13], 4),
+        scoring_weights=tuple(round(floats[i], 4) for i in range(14, 21)),
         strings=strings,
         tail=data[off:],
     )

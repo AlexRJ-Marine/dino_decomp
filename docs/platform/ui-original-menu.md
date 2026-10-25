@@ -328,10 +328,14 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       Evidence: `notes/ui-recon.md` ("Park HUD panel switching"),
       `notes/park-budget.png`, `notes/park-construction-kit.png`,
       `notes/park-lab-breed.png`.
-- [ ] Minimap: `MAP_RENDERVIEW` is a 136×136 RENDER target (absolute
-      652,451), not a basemap crop. Render the terrain top-down with the park
-      yaw (≈−45°); zoom buttons scale it. `FUN_00529880` binds it. See
-      `notes/ui-recon.md` ("Minimap render view").
+- [x] Minimap: `MAP_RENDERVIEW` (136×136 at 652,451) is a 2-D detail map.
+      A 256×256 FBO renders the terrain top-down, centred on the camera
+      target and rotated with the camera heading; the retail zoom is a held
+      `0.1..2.0` scale (default 0.25, 0.15/s). A red/yellow camera marker is
+      drawn when inside the map. See `notes/ui-recon.md` ("Minimap
+      implementation").
+- [ ] Minimap polish: detail-map water colour and exact partition contents
+      (actors unproven), marker clamp at the edge.
 - [ ] 1024×768 re-anchor pass: the original HUD re-anchors (right panel at
       931,168; gauge at 293,737; map at 840,584) while menu pages centre.
       The viewer currently centres the 800×600 HUD; QOL-2 decides.

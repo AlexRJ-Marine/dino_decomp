@@ -277,6 +277,15 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return true;
     }
 
+    if (name == "MAP_PANEL_ZOOMIN_BUTTON") {
+        action = "minimap zoom in";
+        return true;
+    }
+    if (name == "MAP_PANEL_ZOOMOUT_BUTTON") {
+        action = "minimap zoom out";
+        return true;
+    }
+
     // Any other HUD button (panel internals, lists) is consumed but has no
     // port behaviour yet.
     return true;

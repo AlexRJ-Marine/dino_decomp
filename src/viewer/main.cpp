@@ -103,6 +103,7 @@ struct Options {
     std::vector<std::string> menu_clicks;
     std::string menu_hover;
     float menu_loading_time = 0.8f;
+    float minimap_scale = 0.25f;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -291,6 +292,9 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--menu-hover") {
             opt.menu_hover = next("--menu-hover");
             opt.force_menu = true;
+        } else if (arg == "--minimap-scale") {
+            opt.minimap_scale = static_cast<float>(
+                std::atof(next("--minimap-scale")));
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -391,6 +395,7 @@ Options parse_args(int argc, char** argv) {
                 "  --menu-click X,Y     click design-space point(s) before the first frame\n"
                 "  --menu-loading-time N  seconds to show the loading page (default 0.8)\n"
                 "  --menu-hover X,Y     set the hovered design-space point\n"
+                "  --minimap-scale N    detail-map scale 0.1..2.0 (default 0.25)\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -540,6 +545,16 @@ struct GlFns {
     PFNGLUNIFORM1FPROC Uniform1f = nullptr;
     PFNGLUNIFORM1IPROC Uniform1i = nullptr;
     PFNGLACTIVETEXTUREPROC ActiveTexture = nullptr;
+    PFNGLGENFRAMEBUFFERSPROC GenFramebuffers = nullptr;
+    PFNGLBINDFRAMEBUFFERPROC BindFramebuffer = nullptr;
+    PFNGLFRAMEBUFFERTEXTURE2DPROC FramebufferTexture2D = nullptr;
+    PFNGLCHECKFRAMEBUFFERSTATUSPROC CheckFramebufferStatus = nullptr;
+    PFNGLDELETEFRAMEBUFFERSPROC DeleteFramebuffers = nullptr;
+    PFNGLGENRENDERBUFFERSPROC GenRenderbuffers = nullptr;
+    PFNGLBINDRENDERBUFFERPROC BindRenderbuffer = nullptr;
+    PFNGLRENDERBUFFERSTORAGEPROC RenderbufferStorage = nullptr;
+    PFNGLFRAMEBUFFERRENDERBUFFERPROC FramebufferRenderbuffer = nullptr;
+    PFNGLDELETERENDERBUFFERSPROC DeleteRenderbuffers = nullptr;
 
     bool load() {
         auto get = [](const char* name) {
@@ -576,6 +591,16 @@ struct GlFns {
         LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
+        LOAD(GenFramebuffers, "glGenFramebuffers")
+        LOAD(BindFramebuffer, "glBindFramebuffer")
+        LOAD(FramebufferTexture2D, "glFramebufferTexture2D")
+        LOAD(CheckFramebufferStatus, "glCheckFramebufferStatus")
+        LOAD(DeleteFramebuffers, "glDeleteFramebuffers")
+        LOAD(GenRenderbuffers, "glGenRenderbuffers")
+        LOAD(BindRenderbuffer, "glBindRenderbuffer")
+        LOAD(RenderbufferStorage, "glRenderbufferStorage")
+        LOAD(FramebufferRenderbuffer, "glFramebufferRenderbuffer")
+        LOAD(DeleteRenderbuffers, "glDeleteRenderbuffers")
 #undef LOAD
         return true;
     }
@@ -1110,6 +1135,77 @@ struct DrawItem {
     float alpha = 1.0f;
 };
 
+dino::Mat4 ortho(float left, float right, float bottom, float top,
+                 float near_plane, float far_plane) {
+    // Row-vector convention, matching look_at() and the transposed upload
+    // used by the renderer: translation lives in row 3 (m[3], m[7], m[11]).
+    dino::Mat4 out;
+    out.m[0] = 2.0f / (right - left);
+    out.m[5] = 2.0f / (top - bottom);
+    out.m[10] = -2.0f / (far_plane - near_plane);
+    out.m[3] = -(right + left) / (right - left);
+    out.m[7] = -(top + bottom) / (top - bottom);
+    out.m[11] = -(far_plane + near_plane) / (far_plane - near_plane);
+    out.m[15] = 1.0f;
+    return out;
+}
+
+// Offscreen colour+depth target for MAP_RENDERVIEW (136x136 in the retail
+// HUD). The minimap is a render target, not a crop of the basemap.
+struct MinimapTarget {
+    GLuint fbo = 0;
+    GLuint color = 0;
+    GLuint depth = 0;
+    int size = 0;
+
+    bool create(GlFns& gl, int new_size) {
+        destroy(gl);
+        size = new_size;
+        glGenTextures(1, &color);
+        glBindTexture(GL_TEXTURE_2D, color);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size, size, 0, GL_RGBA,
+                     GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        gl.GenFramebuffers(1, &fbo);
+        gl.BindFramebuffer(GL_FRAMEBUFFER, fbo);
+        gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                GL_TEXTURE_2D, color, 0);
+        gl.GenRenderbuffers(1, &depth);
+        gl.BindRenderbuffer(GL_RENDERBUFFER, depth);
+        gl.RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, size, size);
+        gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                   GL_RENDERBUFFER, depth);
+        const GLenum status = gl.CheckFramebufferStatus(GL_FRAMEBUFFER);
+        gl.BindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            std::fprintf(stderr, "minimap FBO incomplete: 0x%x\n", status);
+            destroy(gl);
+            return false;
+        }
+        return true;
+    }
+
+    void destroy(GlFns& gl) {
+        if (fbo != 0) {
+            gl.DeleteFramebuffers(1, &fbo);
+            fbo = 0;
+        }
+        if (depth != 0) {
+            gl.DeleteRenderbuffers(1, &depth);
+            depth = 0;
+        }
+        if (color != 0) {
+            glDeleteTextures(1, &color);
+            color = 0;
+        }
+        size = 0;
+    }
+};
+
 void draw_scene(const GpuMesh& mesh, GLuint texture,
                 const std::vector<DrawItem>& extras,
                 const SkyboxGL& skybox,
@@ -1555,6 +1651,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    int pending_minimap_zoom = 0;
     if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
@@ -1563,12 +1660,19 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"),
             park_error);
         if (loaded) {
+            // Apply scripted HUD clicks early so --validate can report them;
+            // minimap zoom actions are replayed once the render target exists.
             for (const auto& value : opt.park_clicks) {
                 int x = 0;
                 int y = 0;
                 if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                     std::string action;
                     park.click(x, y, action);
+                    if (action == "minimap zoom in") {
+                        --pending_minimap_zoom;
+                    } else if (action == "minimap zoom out") {
+                        ++pending_minimap_zoom;
+                    }
                     std::printf("park click %d,%d -> %s\n", x, y,
                                 action.empty() ? "consumed" : action.c_str());
                 }
@@ -2490,6 +2594,69 @@ int main(int argc, char** argv) {
             glfns);
     }
 
+    // MAP_RENDERVIEW: 256x256 detail-map target displayed in the 136x136
+    // widget. Recovered from FUN_00529880 / FUN_005fb7e0 / FUN_005fb120:
+    // - map scale at +0x38, default 0.25, clamped to 0.1..2.0;
+    // - held zoom buttons change it by 0.15 per second (in decreases);
+    // - the map is centred on the camera target and rotated by the camera
+    //   heading + 90 degrees, so it turns with the park camera.
+    MinimapTarget minimap;
+    const bool minimap_ready = minimap.create(glfns, 256);
+    float minimap_scale = std::clamp(opt.minimap_scale, 0.1f, 2.0f);
+    bool minimap_zoom_in = false;
+    bool minimap_zoom_out = false;
+
+    auto minimap_click_zoom = [&](int delta) {
+        minimap_scale =
+            std::clamp(minimap_scale + 0.05f * static_cast<float>(delta),
+                       0.1f, 2.0f);
+        std::printf("minimap scale=%.2f\n", minimap_scale);
+    };
+
+    if (pending_minimap_zoom != 0) {
+        minimap_click_zoom(pending_minimap_zoom);
+    }
+
+    auto render_minimap = [&](const dino::Vec3& focus, float heading_rad) {
+        if (!minimap_ready || terrain.world_size <= 0.0f) {
+            return;
+        }
+        const float half = terrain.world_size * 2.0f * minimap_scale;
+        const dino::Vec3 eye{focus.x, focus.y, 4000.0f};
+        // Put the camera's forward direction at the top of the map so the
+        // island rotates with the park camera (FUN_005fb120).
+        const dino::Vec3 up{std::cos(heading_rad), std::sin(heading_rad), 0.0f};
+
+        glfns.BindFramebuffer(GL_FRAMEBUFFER, minimap.fbo);
+        glViewport(0, 0, minimap.size, minimap.size);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glClearColor(0.10f, 0.29f, 0.43f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        const dino::Mat4 view =
+            look_at(eye, {focus.x, focus.y, 0.0f}, up);
+        const dino::Mat4 proj =
+            ortho(-half, half, -half, half, 0.1f, 8000.0f);
+        const dino::Mat4 mvp = dino::multiply(proj, view);
+
+        glfns.UseProgram(program);
+        glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1,
+                               GL_TRUE, mvp.m);
+        glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), 1);
+        glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
+                        texture != 0 ? 1 : 0);
+        glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), 1.0f);
+        if (texture != 0) {
+            glfns.ActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+        }
+        glfns.BindVertexArray(gpu.vao);
+        glDrawElements(GL_TRIANGLES, gpu.index_count, GL_UNSIGNED_INT, nullptr);
+
+        glfns.BindFramebuffer(GL_FRAMEBUFFER, 0);
+    };
+
     std::vector<DrawItem> extra_items;
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
@@ -2812,6 +2979,9 @@ int main(int argc, char** argv) {
     int park_hover_y = -1;
     int park_active_index = -1;
     int park_budget = free_game_budgets[0];
+    dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
+    float minimap_heading = 1e30f;
+    float minimap_rendered_scale = -1.0f;
     if (!opt.park_hover.empty() && park.loaded()) {
         int x = 0, y = 0;
         if (std::sscanf(opt.park_hover.c_str(), "%d,%d", &x, &y) == 2) {
@@ -3104,6 +3274,11 @@ int main(int argc, char** argv) {
                             park_active_index = hit;
                         }
                         ui_click_consumed = true;
+                        if (action == "minimap zoom in") {
+                            minimap_zoom_in = true;
+                        } else if (action == "minimap zoom out") {
+                            minimap_zoom_out = true;
+                        }
                         if (!action.empty()) {
                             std::printf("park click %d,%d -> %s\n", dx, dy,
                                         action.c_str());
@@ -3118,6 +3293,8 @@ int main(int argc, char** argv) {
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                        event.button.button == SDL_BUTTON_LEFT) {
                 park_active_index = -1;
+                minimap_zoom_in = false;
+                minimap_zoom_out = false;
                 dragging = false;
                 if (ui_click_consumed) {
                     ui_click_consumed = false;
@@ -3189,6 +3366,7 @@ int main(int argc, char** argv) {
                     try {
                         load_island(island_names[static_cast<std::size_t>(island_index)],
                                     true);
+                        minimap_rendered_scale = -1.0f;
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "island load: %s\n", e.what());
                     }
@@ -3199,6 +3377,15 @@ int main(int argc, char** argv) {
                         difficulty, park_budget);
                 }
             }
+        }
+
+        if (minimap_zoom_in) {
+            minimap_scale =
+                std::max(0.1f, minimap_scale - static_cast<float>(dt) * 0.15f);
+        }
+        if (minimap_zoom_out) {
+            minimap_scale =
+                std::min(2.0f, minimap_scale + static_cast<float>(dt) * 0.15f);
         }
 
         if (free_camera && !opt.no_input) {
@@ -3383,6 +3570,21 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (park.loaded() && !park.hud_hidden()) {
+            const float heading =
+                std::atan2(view_center.y - eye.y, view_center.x - eye.x);
+            const bool moved =
+                std::abs(view_center.x - minimap_focus.x) > 0.5f ||
+                std::abs(view_center.y - minimap_focus.y) > 0.5f ||
+                std::abs(heading - minimap_heading) > 0.002f ||
+                std::abs(minimap_scale - minimap_rendered_scale) > 0.002f;
+            if (moved) {
+                render_minimap(view_center, heading);
+                minimap_focus = view_center;
+                minimap_heading = heading;
+                minimap_rendered_scale = minimap_scale;
+            }
+        }
         draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
                    view_center, width, height);
 
@@ -3429,6 +3631,67 @@ int main(int argc, char** argv) {
         } else {
             if (park.loaded()) {
                 draw_park_hud(width, height, logical_width, logical_height);
+                if (minimap_ready && !park.hud_hidden()) {
+                    const float dpi =
+                        logical_width > 0
+                            ? static_cast<float>(width) /
+                                  static_cast<float>(logical_width)
+                            : 1.0f;
+                    const float ox =
+                        (static_cast<float>(width) - 800.0f * dpi) * 0.5f;
+                    const float oy =
+                        (static_cast<float>(height) - 600.0f * dpi) * 0.5f;
+                    // MAP_RENDERVIEW: 136x136 at (652,451); the FBO texture is
+                    // bottom-up, so V is flipped.
+                    draw_ui_mesh(
+                        menu_gpu,
+                        build_ui_quad(ox + 652.0f * dpi, oy + 451.0f * dpi,
+                                      136.0f * dpi, 136.0f * dpi, 0.0f, 1.0f,
+                                      1.0f, 0.0f, {255, 255, 255, 255}),
+                        minimap.color, 1.0f, 1, width, height);
+
+                    // Retail map marker: red block at the camera position
+                    // with a short heading tick (FUN_005fb120 maps the camera
+                    // position into the rotated, target-centred quad).
+                    const float half = terrain.world_size * 2.0f * minimap_scale;
+                    if (half > 0.5f) {
+                        const float angle = std::atan2(view_center.y - eye.y,
+                                                       view_center.x - eye.x);
+                        const float dx = eye.x - view_center.x;
+                        const float dy = eye.y - view_center.y;
+                        const float sx =
+                            dx * std::sin(angle) - dy * std::cos(angle);
+                        const float sy =
+                            dx * std::cos(angle) + dy * std::sin(angle);
+                        const float centre_x = ox + 720.0f * dpi;
+                        const float centre_y = oy + 519.0f * dpi;
+                        const float half_px = 68.0f * dpi;
+                        const float marker_x =
+                            centre_x + (sx / half) * half_px;
+                        const float marker_y =
+                            centre_y - (sy / half) * half_px;
+                        const float inset = 4.0f * dpi;
+                        if (marker_x > ox + 652.0f * dpi + inset &&
+                            marker_x < ox + 788.0f * dpi - inset &&
+                            marker_y > oy + 451.0f * dpi + inset &&
+                            marker_y < oy + 587.0f * dpi - inset) {
+                            draw_ui_mesh(
+                                menu_gpu,
+                                build_screen_rect(marker_x - 2.5f * dpi,
+                                                  marker_y - 2.5f * dpi,
+                                                  5.0f * dpi, 5.0f * dpi,
+                                                  {220, 32, 32, 255}),
+                                0, 1.0f, 1, width, height);
+                            draw_ui_mesh(
+                                menu_gpu,
+                                build_screen_rect(marker_x - 0.75f * dpi,
+                                                  marker_y - 7.0f * dpi,
+                                                  1.5f * dpi, 4.5f * dpi,
+                                                  {250, 224, 64, 255}),
+                                0, 1.0f, 1, width, height);
+                        }
+                    }
+                }
             }
             if (hud_visible && hud_font_texture != 0) {
                 char line1[128];
