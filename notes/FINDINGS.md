@@ -129,3 +129,24 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   494,451 (easy), 526,531 (Start) — see `scripts/x32dbg/play-freegame.ps1`.
 - Current port menu is placeholder only; handoff/questions in
   `docs/platform/ui-original-menu.md`.
+
+## Save format and Pathmap (2026-10-25)
+
+- `.sav` is a serialized world: header (version 53, slot, UTF-16 save name),
+  a **39-record show catalog** (ASCII `.shw` path + UTF-16 name + 6 u32
+  params), then an opaque park-state object graph (3,023 bytes manual /
+  2,829 auto). Header + catalog parser: `tools/formats/sav.py`,
+  `tests/test_sav.py`; details in `notes/save-recon.md`,
+  `docs/formats/sav.md`.
+- `Data/Pathmap.bin` is **0 bytes** in the retail tree and remains 0 bytes
+  after a Free Mode park session; the executable has no `Pathmap` string.
+  DEC-5 is therefore "not generated/populated on the tested path" until a
+  campaign/editor path proves otherwise.
+
+## Updates to the overlay findings
+
+- `RadialMenu.Ini` is **legacy/unused**: no executable references and its 15
+  icon names are absent from every GraphicDB. Do not implement it.
+- The original menu is now implemented (UI-2 Phase A); the data-driven layout,
+  frame strips and preview oracle are in `docs/formats/overlay-ini.md`,
+  `notes/ui-recon.md` and `tools/viewer/overlay_preview.py`.

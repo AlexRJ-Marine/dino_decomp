@@ -75,27 +75,13 @@ class RenderOptions:
     normal_frames: dict[str, int] = field(default_factory=dict)
 
 
-def _has_ink(image: Image.Image, rect: tuple[int, int, int, int]) -> bool:
-    if image.mode != "RGBA":
-        return True
-    x, y, w, h = rect
-    if w <= 0 or h <= 0:
-        return False
-    x0, y0 = max(0, x), max(0, y)
-    x1, y1 = min(image.width, x + w), min(image.height, y + h)
-    if x1 <= x0 or y1 <= y0:
-        return False
-    extrema = image.crop((x0, y0, x1, y1)).getchannel("A").getextrema()
-    return bool(extrema) and extrema[1] > 0
-
-
-def visible_frames(graphic: Graphic, image: Image.Image) -> list[int]:
-    frames = []
-    for frame in graphic.used_frames():
-        rect = graphic.frame_rect(frame, image.width)
-        if rect is not None and _has_ink(image, rect):
-            frames.append(frame)
-    return frames
+STATE_FRAMES = {
+    "disabled": 0,
+    "normal": 4,
+    "hover": 5,
+    "pressed": 6,
+    "selected": 7,
+}
 
 
 def state_frame(
@@ -104,22 +90,26 @@ def state_frame(
     state: str,
     normal_frame: int | None = None,
 ) -> tuple[int, int, int, int] | None:
-    frames = visible_frames(graphic, image)
+    """Frame for a widget state.
+
+    Frame 4 is normal, 0 disabled, 5 hover, 6 pressed, 7 selected. Frame 4
+    may be transparent (menu/list bars), in which case the page art shows
+    through. The skip mask removes animation frames, not states.
+    """
+    frames = graphic.used_frames()
     if not frames:
         return None
-    if normal_frame in frames:
-        normal_index = frames.index(normal_frame)
-    else:
-        normal_index = 0
-    if state == "selected":
-        index = len(frames) - 1
-    elif state == "hover":
-        index = min(normal_index + 1, len(frames) - 1)
-    elif state == "pressed":
-        index = min(normal_index + 2, len(frames) - 1)
-    else:
-        index = normal_index
-    return graphic.frame_rect(frames[index], image.width)
+    frame = STATE_FRAMES.get(state, 4)
+    if state == "normal" and normal_frame is not None:
+        frame = normal_frame
+    if frame not in frames:
+        if state == "selected":
+            frame = frames[-1]
+        elif state == "disabled":
+            frame = frames[0]
+        else:
+            frame = 4 if 4 in frames else frames[0]
+    return graphic.frame_rect(frame, image.width)
 
 
 def blend_text(
@@ -374,7 +364,7 @@ def draw_widget(
         draw_text(canvas, widget, assets, locs, options)
     children = sorted(
         (interface.widgets[n] for n in widget.children),
-        key=lambda w: (w.priority, w.zpriority, w.order),
+        key=lambda w: (w.priority, w.order),
     )
     for child in children:
         draw_widget(canvas, child, interface, graphics, assets, locs, options)
@@ -404,7 +394,7 @@ def render_page(
 
     children = sorted(
         (interface.widgets[n] for n in page.children),
-        key=lambda w: (w.priority, w.zpriority, w.order),
+        key=lambda w: (w.priority, w.order),
     )
     for child in children:
         draw_widget(canvas, child, interface, graphics, assets, locs, options)
@@ -430,7 +420,7 @@ def render_hud(
 
     roots = sorted(
         (w for w in interface.roots() if (w.visible or w.name in options.force_visible) and w.type != "RENDER"),
-        key=lambda w: (w.priority, w.zpriority, w.order),
+        key=lambda w: (w.priority, w.order),
     )
     for root in roots:
         draw_widget(canvas, root, interface, graphics, assets, locs, options)
@@ -438,23 +428,6 @@ def render_hud(
 
 
 def hud_options() -> RenderOptions:
-    icon_frames = {
-        "LABO_ICON": 4,
-        "CONSTRUCTION_ICON": 4,
-        "BUILDING_ICON": 4,
-        "TRANSPORT_ICON": 4,
-        "PURCHASE_ICON": 4,
-        "OPTIONS_ICON": 4,
-        "ZOOM_BUTTON": 4,
-        "DEZOOM_BUTTON": 4,
-        "GORIGHT_BUTTON": 4,
-        "GOLEFT_BUTTON": 4,
-        "GOTOP_BUTTON": 4,
-        "GOBOTTOM_BUTTON": 4,
-        "TURNRIGHT_BUTTON": 4,
-        "TURNLEFT_BUTTON": 4,
-        "WARNING_REPAIR_BUTTON": 4,
-    }
     return RenderOptions(
         runtime_text={
             "BUDGET_AMOUNT": "75050",
@@ -465,7 +438,6 @@ def hud_options() -> RenderOptions:
             "PARK_CURRENT_TIME": "09:44",
             "PARK_CURRENT_DAY": "1",
         },
-        normal_frames=icon_frames,
     )
 
 
@@ -483,11 +455,6 @@ def free_game_options(interface: Interface, graphics: dict[str, Graphic], locs: 
         "FREE_MIDDLE_BUTTON": "selected" if difficulty == "middle" else "normal",
         "FREE_HARD_BUTTON": "selected" if difficulty == "hard" else "normal",
     }
-    options.normal_frames.update({
-        "CAMPAIGN_TEXT_SCROLLUP": 4,
-        "CAMPAIGN_TEXT_SCROLLDOWN": 4,
-        "CAMPAIGN_TEXT_THUMB": 4,
-    })
     return options
 
 
@@ -502,6 +469,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--difficulty", choices=("easy", "middle", "hard"), default="easy")
     ap.add_argument("--hud", action="store_true", help="render ParkInterface HUD instead of a menu page")
     ap.add_argument("--background", type=Path, help="optional background image for the HUD")
+    ap.add_argument("--resize-anchors", action="store_true",
+                    help="apply moWidget::OnResize to the HUD for the requested size")
     args = ap.parse_args(argv)
 
     overlay = args.game / "Data" / "Overlay"
@@ -511,6 +480,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.hud:
         interface = load_interface(overlay / "ParkInterface.Ini")
         graphics = load_graphic_db(overlay / "ParkGraphicDB.ini")
+        if args.resize_anchors:
+            interface.apply_resize(args.width, args.height)
         background = None
         if args.background:
             background = Image.open(args.background)

@@ -207,7 +207,25 @@ This confirms the parent-relative coordinate model with no window scaling.
 - Z-order: `PRIORITY` (integer 0..100) and `ZPRIORITY` (float 0..1). The
   exact comparator was not recovered.
 
-## Follow-up: frame strips (`NB_OBJECTS` / `SKIP_LIST`)
+## Draw order (solved)
+
+- `moWidget::Draw` is `FUN_005c5bf0` (vtable slot `+0x38`). It draws the
+  widget itself, then walks the child linked list at `widget + 4`. For each
+  child it checks the `VISIBLE` flag (bit 0) and calls the child vtable
+  `+0x34` (`FUN_005c5d60`), which calls `Draw` (`+0x38`) then `+0x3c`. The
+  special child at `widget + 0x44` is drawn last.
+- Children are kept in a priority-ordered list built by the widget manager
+  (`FUN_005bae40`) with the priority key at `widget + 0x34`; equal priority
+  keeps INI declaration order. So draw order is: parent first, then children
+  by `PRIORITY` ascending, insertion order within a priority.
+- `ZPRIORITY` (`widget + 0x40`) is read by `Draw` and passed to helper calls
+  guarded by flag bits `0x80`/`0x40`; it is a per-widget render hint, not the
+  child traversal order. Exact helper role (shadow/border/offset) still open.
+- The Python preview sorts by `(PRIORITY, declaration order)`; retail MAD is
+  unchanged versus the previous `ZPRIORITY` tie-break, so this is the model
+  to port.
+
+## Frame strips (follow-up)
 
 `FUN_00421630` (`moGraphicCtrl::Load`) parses GraphicDB entries. Newly
 decoded properties: `ALIGN_USER_DEFINED` (bit 15), `SIZE` (X/Y/W/H tuple),
@@ -228,9 +246,9 @@ Measured evidence (alpha-channel analysis, `notes/ui-atlas-frames.png`):
 | `ISLAND_LIST_BUTTON` | 0,55 166×34, skip 0 1 2 3 | vertical; slot 0 blank, bars at y ≈ 97, 131, 165 |
 
 So the strip is horizontal when it fits the texture width, otherwise
-vertical. The first stored slot can be blank/disabled: **frame 0 is not
-always the normal state**. On the main menu the first visible bar is normal,
-the next two are hover/pressed.
+vertical. The first stored slot (frame 4) is the **normal** state and may be
+fully transparent; the visible bars are frames 5–7 (hover/pressed/selected).
+Frame 0 is the disabled art, not normal.
 
 Runtime storage: the widget keeps the graphic index in the low 16 bits of
 `widget + 4`, the frame index in bits 16..23, and mosaic in bit 24
@@ -238,19 +256,23 @@ Runtime storage: the widget keeps the graphic index in the low 16 bits of
 
 ### Observed state frames
 
-The retail 800×600 park screenshot (`notes/park-after2.png`) pinned the
-normal frames; the first attempt (first inked frame) rendered gray disabled
-icons, which the screenshot comparison exposed.
+The mapping is universal: **0 = disabled, 4 = normal, 5 = hover,
+6 = pressed, 7 = selected**. `SKIP_LIST` removes animation frames 1–3, not
+states. Frame 4 may be fully transparent (menu/list bars) — that is why
+normal rows show no bar; do not skip it.
 
-| Control family | Disabled | Normal | Hover | Pressed | Selected |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Menu/list bars | — | 5 (dark) | 6 | 7 | 7 (bright) |
-| Right-panel icons | 0 (gray) | 4 (colour) | 5 (green) | 6 | 7 (yellow) |
-| Difficulty icons | — | 4 (blue) | 5 (orange) | 6 (green) | 7 (yellow ring) |
-| Start/Cancel | — | 0 (gray) | 4 | 5 | 7 |
+The first attempt used "first inked frame", which rendered gray disabled
+icons and dark bones. Comparing with the retail screenshots fixed it:
 
-This is empirical (art + screenshot), not yet the engine's state table. The
-exact table and the `INTRO_BUTTON` strip wrap remain open.
+- Start/Cancel with frame 4 now match the retail Free Game screenshot
+  exactly (MAD 0.0).
+- Park gauge icons with frame 4: MAD 3.65 (was 12.0 with frame 0).
+- Full Free Game page: MAD 2.93, mostly text anti-aliasing.
+
+Remaining ambiguity: whether selected vs pressed on bars is frame 6 or 7;
+normal = 4 is certain.
+
+The preview oracle is the implementation reference.
 
 ## Text/style edge cases
 
@@ -266,6 +288,39 @@ exact table and the `INTRO_BUTTON` strip wrap remain open.
   `GAUGE_PANEL`, `MAP_PANEL`, `MESSAGE_PANEL` (ENABLE=0). `DECO_BOUT_GAUCHE`
   is `VISIBLE=0` at park start (the retail bottom-left piece is the gauge
   panel's left edge at x=69); it is shown later by the build/UI code.
+
+## Widget type enum and constructors
+
+`FUN_005ba6b0` maps the `TYPE` string to an enum; `FUN_005ba8f0` calls the
+constructor:
+
+| Type | Enum | Constructor |
+| --- | ---: | --- |
+| `WIDGET` | 0 | `0x005bc220` |
+| `BUTTON` | 1 | `0x005c0380` |
+| `EDIT` | 2 | `0x005c3ed0` |
+| `PROGRESS` | 3 | `0x005bf900` |
+| `GROUP` | 4 | `0x005bec80` |
+| `HSCROLL` | 5 | `0x005be620` |
+| `VSCROLL` | 6 | `0x005c45b0` |
+| `LIST` | 7 | `0x005bd5d0` |
+| `COMBO` | 8 | `0x005c4ba0` |
+| `CURVE` | 9 | `0x005c5140` |
+| `RENDER` | 10 | (render view, no widget ctor in the switch) |
+
+`WINDOW` is not handled (and unused). Note: **`0x005bf900` is the PROGRESS
+bar** (the 8-colour gradient/threshold array), not a button. The plain
+button constructor is `0x005c0380`.
+
+## Progress bars
+
+`PROGRESS` (type 3) is `FUN_005bf900`. Its constructor seeds four colour
+stops at 25/50/75/100 with colours `(0,0,255)`, `(0,127,255)`,
+`(0,255,255)`, `(255,0,0)` — a blue→cyan→red gauge. Retail usages are tiny
+attribute gauges, e.g. `CONSTRUC_RESTAURANT1_PROFIL1_GAUGE` 20×4 with
+`PB_MAX_PROGRESS=100`, `PB_CURRENT_PROGRESS=50`; they set no texture or
+colours. Draw a filled rect of `current/max` with the threshold colour (exact
+stop mapping open), plus `PB_VERTICAL` for orientation.
 
 ## Retail property usage
 
@@ -309,6 +364,100 @@ So there is no separate pause screen: **ESC/pause opens `OPTIONS_PANEL`**,
 with `OPTIONS_MENU_PANEL` tabs for options, save and load. The `&PauseGame`
 loc string is the action/key label, not a panel title.
 
+Geometry at 800×600 (parent-relative absolute):
+
+| Widget | Rect | Default |
+| --- | --- | --- |
+| `OPTIONS_PANEL` | 250,50 250×411 | hidden |
+| `OPTIONS_MENU_PANEL` (tabs) | 292,50 112×48 | visible |
+| `OPTIONS_OPTIONS_PANEL` | 250,110 250×351 | visible |
+| `OPTIONS_SAVE_PANEL` | 250,100 250×361 | hidden |
+| `OPTIONS_SAVE_NAMES_LIST` | 282,125 143×216 | visible |
+| `OPTIONS_NAME_PANEL` | 278,370 143×27 | visible |
+| `OPTIONS_NAME_SLOT` (edit) | 285,375 128×14 | visible |
+| `OPTIONS_VALIDATE_BUTTON` | 320,422 28×28 | visible |
+| `OPTIONS_UNVALIDATE_BUTTON` | 350,422 28×28 | visible |
+
+**Do not use `notes/save-panel.png` as the save-panel reference**: it is the
+`DINO_ACHAT_SAVE_PANEL` dinosaur-purchase screen, not `OPTIONS_SAVE_PANEL`.
+
+## Minimap render view
+
+- `MAP_RENDERVIEW` is a `RENDER` widget: 136×136 at panel offset (36,35), i.e.
+  absolute (652,451) at 800×600. It is a render target, **not** a basemap
+  crop.
+- `FUN_00529880` binds `MAP_PANEL`, `MAP_RENDERVIEW`,
+  `MAP_PANEL_ZOOMIN_BUTTON` and `MAP_PANEL_ZOOMOUT_BUTTON`. Zoom handlers:
+  `0x00529a90`/`0x00529b60` (click), `0x00529b40`/`0x00529c10` (release).
+- `pvwPark3DRenderView` (`FUN_00527650`) creates the park camera/renderer.
+  Candidate camera constants copied to the camera object (meaning not fully
+  decoded): `40.0, 1.57, -0.7853, 10000.0, 2.0, 10.0, 10.0, 1000.0, 1000.0,
+  3.0`. The `-0.7853` is −45°, which matches the retail minimap's rotated
+  island; `40.0` is likely the field of view.
+- Practical port spec: render the terrain (and later actors) top-down into
+  the 136×136 view with the park camera's yaw (≈−45°), orthographic or a
+  high perspective camera; zoom buttons scale the view. A basemap crop is a
+  fallback, not parity.
+
+## HUD at 1024×768 (anchor pass)
+
+Applying `moWidget::OnResize` to `ParkInterface` at 1024×768 gives:
+
+```text
+RENDERVIEW          0    0  1024x768   (stretch)
+NAVIGATION_PANEL  864  457    83x128   (right+down)
+RIGHT_PANEL       931  168    93x417   (right+down)
+GAUGE_PANEL       293  737   618x31    (right+down)
+MAP_PANEL         840  584   184x184   (right+down)
+DECO_BOUT_GAUCHE    0  572    70x47    (fixed)
+MESSAGE_PANEL     100   20   202x82    (fixed)
+```
+
+Note that the right panel moves **down** by 168 as well as right: it has
+`ALIGN_RIGHT`/`ALIGN_DOWN` but not `ALIGN_UP`, so the top-right area is
+empty at 1024×768. Menu pages behave differently: they are centred
+(measured +112,+84), not anchored. The current viewer centres the 800×600
+overlay in the window, which is a QOL choice rather than the original park
+behaviour; QOL-2 should decide whether to re-anchor, letterbox or scale.
+Rendered reference: `notes/hud-1024.png`.
+
+## Park HUD button bindings
+
+`FUN_00527d30` binds the in-park HUD buttons (click handlers at event slot
+`+0x24`; click is event argument 0). Handler labels:
+
+| Widget | Handler |
+| --- | --- |
+| `OPEN_LABORATORY` | `0x005285e0` |
+| `OPEN_CONSTRUCTION` | `0x00528510` |
+| `OPEN_BUILDING` | `0x005286a0` |
+| `OPEN_TRANSPORT` | `0x00528770` |
+| `OPEN_PURCHASE` | `0x00528840` |
+| `OPEN_OPTIONS` | `0x00528910` |
+| `OPEN_BUDGET_PANEL` | `0x005289e0` |
+| `OPEN_VISITOR_PANEL` | `0x00528ab0` |
+| `OPEN_DINO_LIST_PANEL` | `0x00528b80` |
+| `OPEN_SHOW_LIST_PANEL` | `0x00528ba0` |
+| `OPEN_PADDOCK_LIST_PANEL` | `0x00528df0` |
+| `OPEN_SELLING` | `0x00528f90` |
+
+The handlers call the park state manager (`[this+0x10]`) to switch the active
+panel; `OPEN_BUDGET_PANEL` sets state 5. The six right-panel buttons open the
+lab/construction/building/transport/purchase/options panels; the five gauge
+buttons open the budget/visitor/dino-list/show-list/paddock-list panels.
+`FUN_00525340` is an older binder for the same six right-panel buttons.
+
+## Unused / legacy data
+
+- `RadialMenu.Ini` describes a clean 8-slot radial menu (200×200 container,
+  40×40 buttons at `(80,5)`, `(133,27)`, `(155,80)`, `(133,133)`, `(80,155)`,
+  `(27,133)`, `(5,80)`, `(27,27)`), but it is **dead data**: the executable
+  has no string references to `RadialMenu` or its section names, and none of
+  its 15 icon names exist in any GraphicDB. Do not implement it.
+- `WINDOW`, `COMBO`, `CHECK_BOX`, `SIZE`, `TEXTURE_MOSAIC` and
+  `ALIGN_USER_DEFINED` also never occur in retail data; parse them for
+  completeness but they are not needed for parity.
+
 ## Golden preview oracle
 
 `tools/viewer/overlay_preview.py` renders a page/HUD from the same data:
@@ -323,9 +472,11 @@ python tools/viewer/overlay_preview.py --hud --out notes/hud-preview.png
 
 The main-menu and Free Game previews match the retail screenshots: same art,
 button bars, island rows, selected-row highlight, difficulty ring and
-Start/Cancel icons. The HUD preview matches `notes/park-after2.png` on the
-right panel (MAD 8.8), gauge (12.0) and nav panel; the remaining difference
-is the background and the empty minimap render target. It is the oracle the
+Start/Cancel icons. The Free Game page is MAD 2.93 overall (Start/Cancel and
+the island picture 0.0). The HUD preview matches `notes/park-after2.png` on
+the right panel (MAD 8.8) and gauge (3.65); the nav-panel difference is
+background only (the panel pixels match). The remaining deltas are text
+anti-aliasing and the empty minimap render target. It is the oracle the
 C++ `src/ui/` layer is checked against.
 
 ## Evidence: text and sound

@@ -17,7 +17,7 @@ Covers `MenuInterface.Ini`, `ParkInterface.Ini`, the other
 | `Data/Overlay/ListInterface.Ini` | 336 | Lists (dinos, paddocks, staff, …) |
 | `Data/Overlay/LabInterface*.Ini` | 95–245 each | Lab screens |
 | `Data/Overlay/MissionInfo.Ini` | 136 | Mission/objective panels |
-| `Data/Overlay/RadialMenu.Ini` | 22 | Radial build/context menus |
+| `Data/Overlay/RadialMenu.Ini` | 22 | Legacy radial build/context menus — **unused** (no exe refs; icons missing) |
 | `Data/Overlay/AttributeRange.ini` | 2 | Attribute gauge ranges |
 | `Data/Overlay/MenuGraphicDB.ini` | 53 | Named sprite rectangles for menus |
 | `Data/Overlay/ParkGraphicDB.ini` | 426 + `LabGraphicDB.ini` 180 = 605 unique (`LAB_NAME_PANEL` repeats identically) | Named sprite rectangles for the park/UI |
@@ -71,6 +71,12 @@ TEXT_JUSTIFY   = CENTER
 
 `WIDGET`, `BUTTON`, `COMBO`, `EDIT`, `CURVE`, `GROUP`, `HSCROLL`, `LIST`,
 `PROGRESS`, `RENDER`, `VSCROLL`, `WINDOW`.
+
+Engine enum (`FUN_005ba6b0`): `WIDGET` 0, `BUTTON` 1, `EDIT` 2, `PROGRESS` 3,
+`GROUP` 4, `HSCROLL` 5, `VSCROLL` 6, `LIST` 7, `COMBO` 8, `CURVE` 9,
+`RENDER` 10. `WINDOW` is not handled and does not occur in retail data. The
+`0x005bf900` class is the progress bar, not a button; the button is
+`0x005c0380`.
 
 The header of `MenuInterface.Ini`/`ParkInterface.Ini` documents the full
 parameter list. Confirmed properties:
@@ -231,10 +237,10 @@ entry's `(X, Y)`:
   and 165.
 
 So: use the complement of `SKIP_LIST`, lay the frames out horizontally when
-the strip fits the texture width, otherwise vertically. The first stored slot
-may be a blank/disabled frame; **frame 0 is not always the normal state**.
-For the main menu buttons the first stored slot is transparent and the first
-visible bar is the normal state.
+the strip fits the texture width, otherwise vertically. The first stored
+slot is frame 4 and is the **normal** state; it may be fully transparent
+(menu/list bars), so the page art shows through. Frame 0 is the disabled
+art. See "Observed state frames" below.
 
 At runtime a widget stores the resolved graphic index in the low 16 bits of
 `widget + 4`, the `TEXTURE_FRAME` value in bits 16..23, and `TEXTURE_MOSAIC`
@@ -243,23 +249,30 @@ offsets the frame chosen for the current button state.
 
 ### Observed state frames
 
-The normal frame is **not universal**. Comparing the retail 800×600 park
-screenshot with the atlas frames and the Python preview gives:
+The state frames are universal; the art differs per control:
 
-| Control family | Disabled | Normal | Hover | Pressed | Selected |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Menu/list bars (`MAIN_MENU_BUTTON`, `ISLAND_LIST_BUTTON`) | — | 5 (dark) | 6 | 7 | 7 (bright) |
-| Right-panel icons (`LABO_ICON`, …) | 0 (gray) | 4 (colour) | 5 (green) | 6 | 7 (yellow) |
-| Difficulty (`EASY/MIDDLE/HARD_MODE_BUTTON`) | — | 4 (blue) | 5 (orange) | 6 (green) | 7 (yellow ring) |
-| Start/Cancel (`START_BUTTON`, `CANCEL_BUTTON`) | — | 0 (gray) | 4 | 5 | 7 |
+| State | Frame | Notes |
+| --- | ---: | --- |
+| disabled | 0 | gray variants; absent when `SKIP_LIST` masks 0 |
+| normal | 4 | **may be fully transparent** (menu/list bars), so the page art shows through |
+| hover | 5 | dark/medium bar, green icon border |
+| pressed | 6 | brighter bar, green border |
+| selected | 7 | brightest bar, yellow icon border |
 
-This is inferred from the retail art/screenshots, not yet from the state
-machine. Treat it as the parity target until the exact state table is
-recovered; the C++ UI should allow a per-control normal-frame override.
+`SKIP_LIST` removes animation frames 1–3, not states. Do **not** skip
+transparent frames when mapping states: frame 4 is stored and is the normal
+state even when its alpha is zero.
+
+This model is validated by the Python previews: Start/Cancel match the retail
+Free Game screenshot exactly (MAD 0.0), the park gauge icons match at MAD
+3.65, and the full Free Game page differs only in text anti-aliasing
+(MAD 2.93). The remaining per-control ambiguity is only which of 6/7 is used
+for selected vs pressed on bars; normal=4 is certain.
 
 Evidence images: `notes/ui-atlas-frames.png`,
 `notes/ui-atlas-outcome4-full.png`, `notes/ui-atlas-outcome.png`,
-`notes/hud-preview.png`, `notes/hud-preview-compare.png`.
+`notes/hud-preview.png`, `notes/hud-preview-compare.png`,
+`notes/freegame-compare.png`.
 
 ## Anchoring / resize
 
@@ -301,7 +314,9 @@ an opt-in scale for high-DPI.
 5. Resolve `TEXT`/`HINT` through `.loc` when the value starts with `&`;
    otherwise treat it as a literal.
 6. On resize, run the anchoring pass above.
-7. Draw in `PRIORITY` then `ZPRIORITY` order; skip `VISIBLE = 0`.
+7. Draw each widget first, then its children by `PRIORITY` ascending and
+   declaration order (the engine's child list); skip `VISIBLE = 0`.
+   `ZPRIORITY` is a render hint, not the traversal order.
 
 ## Evidence
 

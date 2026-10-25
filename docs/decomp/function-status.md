@@ -52,6 +52,14 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00421630` | `moGraphicCtrl::Load` — GraphicDB entries, `NB_OBJECTS`, `SKIP_LIST` bitmask | decompiled | frame-strip section in `notes/ui-recon.md` |
 | `0x004219c0` | graphic lookup by name (returns atlas index) | decompiled | same |
 | `0x005c3a20` / `0x005c3a60` / `0x005c3a40` | widget texture index / `TEXTURE_FRAME` / `TEXTURE_MOSAIC` setters | decompiled | same |
+| `0x00527d30` | in-park HUD button binder (`OPEN_*` → state-manager handlers) | decompiled | `notes/ui-recon.md` |
+| `0x005c5bf0` | `moWidget::Draw` — self then child list (priority/insertion order) | decompiled | `notes/ui-recon.md` |
+| `0x005c5d60` | child draw thunk (`Draw` + `+0x3c`) | identified | same |
+| `0x005bae40` | widget manager add-child (priority-ordered list) | decompiled | same |
+| `0x00529880` | minimap controller (`MAP_PANEL`, `MAP_RENDERVIEW`, zoom buttons) | decompiled | same |
+| `0x00527650` | `pvwPark3DRenderView` ctor — park camera/renderer | decompiled (partial) | same |
+| `0x0050c1a0` | in-park `OPTIONS_PANEL` controller (options/save/load tabs) | decompiled | same |
+| `0x005257a0` | camera/navigation controller; `PauseGame` action | decompiled (partial) | same |
 
 ## Runtime / save / startup
 
