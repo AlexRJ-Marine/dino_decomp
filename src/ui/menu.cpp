@@ -94,7 +94,9 @@ void Menu::click(int x, int y) {
     } else if (name == "FREE_CANCEL_BUTTON") {
         page = 0;
     } else if (name == "FREE_START_BUTTON") {
-        active = false;
+        page = 8;
+        loading = true;
+        loading_timer = loading_time;
     } else if (name == "FREE_EASY_BUTTON") {
         difficulty = 0;
     } else if (name == "FREE_MIDDLE_BUTTON") {

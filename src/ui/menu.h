@@ -18,6 +18,9 @@ struct Menu {
     int hover = -1;
     int island = 0;       // selected island index 0..9
     int difficulty = 1;   // 0 easy, 1 middle, 2 hard
+    bool loading = false;
+    float loading_timer = 0.0f;
+    float loading_time = 0.8f;
     std::string error;
 
     bool load(const std::string& asset_root);

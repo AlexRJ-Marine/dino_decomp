@@ -626,7 +626,26 @@ def test_cpp_retail_menu_clicks():
         capture_output=True, text=True, timeout=120,
     )
     assert start.returncode == 0, start.stderr
-    assert "menu page=1 active=0" in start.stdout
+    assert "menu page=8 active=1" in start.stdout
+
+
+def test_cpp_retail_menu_loading_handoff(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "park.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "5", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--menu-loading-time", "0", "--menu-click", "395,234",
+         "--menu-click", "526,531"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    # Loading page is white-backed art; the park starts with sky/terrain.
+    r, g, b = image.getpixel((10, 10))
+    assert not (r > 235 and g > 235 and b > 235)
 
 
 def test_cpp_retail_menu_shot(tmp_path):

@@ -165,10 +165,10 @@ for the first pass.
   horizontal, 4/8/12 vertical, 15 = both centred).
 - Buttons use `NB_OBJECTS=8`; `SKIP_LIST` is a **bitmask** of unused frames.
   Frames are packed compactly (horizontal when the strip fits, else
-  vertical), and the first stored slot may be blank. Observed normal frames:
-  menu/list bars 5 (dark), right-panel icons 4 (coloured), difficulty 4,
-  Start/Cancel 0. The exact state→frame table remains open; allow a
-  per-control override until it is recovered.
+  vertical). State mapping is **0 disabled, 4 normal, 5 hover, 6 pressed,
+  7 selected**; frame 4 may be transparent (menu/list bars). This is
+  validated by the Python oracle: Start/Cancel match retail exactly
+  (MAD 0.0), gauge icons 3.65.
 - Draw order uses `PRIORITY` (0..100) then `ZPRIORITY` (0..1); the exact
   comparator is not recovered.
 - `TEXTURE_MOSAIC` tiles instead of stretching.
@@ -270,7 +270,8 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - [x] Populate `ISLAND_LIST` from the 10 `.loc` island names.
 - [x] Island picture (`ISLAND_PIC01..10`, `ile*.tga`), difficulty buttons,
       Start/Cancel selection.
-- [x] Start closes the menu and resumes the already-loaded park scene.
+- [x] Start switches to `LOADING_PAGE` (page 8) for
+      `--menu-loading-time` seconds, then closes the menu and resumes the park.
 - [ ] Start sets state 8; `LOADING_PAGE` shows `loading_800x600.tga`, then the
       viewer builds the chosen island scene.
 - [ ] Acceptance: the harness click sequence reaches the park through the real
@@ -310,7 +311,9 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   absolute rects and frame strips.
 - `tools/viewer/overlay_preview.py` + `tests/test_overlay_preview.py` render
   the main menu, Free Game page and park HUD; the HUD output matches
-  `notes/park-after2.png` (right panel MAD 8.8, gauge 12.0).
+  `notes/park-after2.png` (right panel MAD 8.8, gauge 3.65) and the Free Game
+  page matches `notes/menu-freegame-selected.png` (MAD 2.93; Start/Cancel
+  and island picture 0.0).
 - All `TEXTURE` names resolve to existing TGAs (allow the known
   `TEMP_jaugebas.tga` miss).
 - `TEXT_JUSTIFY` bit values and `TEXT_HEIGHT == font_size`.
@@ -321,7 +324,8 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 
 ## Open items
 
-- Exact button state→frame table and the `INTRO_BUTTON` strip wrap.
+- Exact selected-vs-pressed frame on bars (6/7) and the `INTRO_BUTTON`
+  strip wrap.
 - `PRIORITY`/`ZPRIORITY` draw comparator.
 - The code path that centres menu pages (no `ALIGN_CENTER` in the INI).
 - Exact save-slot validation/naming handler internals (`LAB_0050cc10`,

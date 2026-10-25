@@ -99,6 +99,7 @@ struct Options {
     bool use_menu = true;
     int menu_page = -1;
     std::vector<std::string> menu_clicks;
+    float menu_loading_time = 0.8f;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -278,6 +279,9 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--menu-click") {
             opt.menu_clicks.push_back(next("--menu-click"));
             opt.force_menu = true;
+        } else if (arg == "--menu-loading-time") {
+            opt.menu_loading_time = static_cast<float>(std::atof(next("--menu-loading-time")));
+            opt.force_menu = true;
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -370,6 +374,7 @@ Options parse_args(int argc, char** argv) {
                 "  --help-panel         show the controls panel at startup\n"
                 "  --menu-page N        start the retail menu on page 0..8\n"
                 "  --menu-click X,Y     click design-space point(s) before the first frame\n"
+                "  --menu-loading-time N  seconds to show the loading page (default 0.8)\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -1515,6 +1520,7 @@ int main(int argc, char** argv) {
     }
 
     if (menu_loaded) {
+        menu.loading_time = opt.menu_loading_time;
         if (opt.menu_page >= 0) {
             menu.page = std::clamp(opt.menu_page, 0, 8);
         }
@@ -2643,6 +2649,15 @@ int main(int argc, char** argv) {
         const double dt = static_cast<double>(now - last) / static_cast<double>(freq);
         last = now;
         elapsed += dt;
+
+        if (menu_loaded && opt.use_menu && menu.loading) {
+            menu.loading_timer -= static_cast<float>(dt);
+            if (menu.loading_timer <= 0.0f) {
+                menu.loading = false;
+                menu.active = false;
+                start_screen = false;
+            }
+        }
 
         if (free_camera && !opt.no_input) {
             const bool* keys = SDL_GetKeyboardState(nullptr);

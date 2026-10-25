@@ -230,16 +230,19 @@ Updated: 2026-10-25
   - Viewer: 800×600 design space centred in the window, `BACKGROUND_*`,
     compact button frame strips (`NB_OBJECTS`/`SKIP_LIST`), `.fnt` text with
     `TEXT_HEIGHT`/`TEXT_JUSTIFY`.
-  - Free Game page: 10-island list, island picture, difficulty, Start/Cancel.
-    Pages 2–8 render their retail backgrounds/widgets; Start closes the menu.
+  - Free Game page: 10-island list with row sprites, island picture, difficulty,
+    Start/Cancel. Start shows `LOADING_PAGE` for `--menu-loading-time` seconds,
+    then closes the menu and resumes the park. Pages 2–8 render their retail
+    backgrounds/widgets.
   - CLI: `--menu`, `--menu-page N`, `--menu-click X,Y`,
-    `--placeholder-menu`, `--no-menu`.
+    `--menu-loading-time N`, `--placeholder-menu`, `--no-menu`.
   - Cross-checked against the Python parser/preview (`tools/formats/overlay.py`,
     `notes/menu-preview.png`) and the 800×600 retail reference.
   - Evidence: `docs/platform/ui-original-menu.md`, `notes/menu-retail.png`,
-    `notes/menu-free.png`, `notes/menu-pages-sheet.png`,
+    `notes/menu-free.png`, `notes/menu-loading.png`,
+    `notes/menu-pages-sheet.png`,
     `tests/test_viewer_cpp.py::test_cpp_retail_menu_*`.
-- 100 tests pass; working tree committed.
+- 104 tests pass; working tree committed.
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
     9 pages), `ParkInterface.Ini` (137 + 9 includes), `MenuGraphicDB.ini`
@@ -259,7 +262,7 @@ Updated: 2026-10-25
     with `tests/test_overlay.py`, `tests/test_overlay_preview.py` (13 tests).
     Previews: `notes/menu-preview.png`, `notes/menu-freegame-preview.png`,
     `notes/hud-preview.png`; HUD matches the retail 800×600 screenshot
-    (right panel MAD 8.8, gauge 12.0).
+    (right panel MAD 8.8, gauge 3.65) and the Free Game page (2.93).
   - Evidence: `notes/ui-recon.md`, `notes/ui-frame-handoff.md`,
     `docs/formats/overlay-ini.md`,
     `docs/platform/ui-original-menu.md` (the seven UI-2 questions answered).
