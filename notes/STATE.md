@@ -30,7 +30,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 24 tests pass.
+  `dino_tools.exe`, and all 37 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -73,6 +73,21 @@ Updated: 2026-10-25
     rearing loop; `t=0` and `t=4800` match within `1e-6` m.
   - Evidence: `tools/formats/anim.py`, `docs/formats/anim.md`,
     `tests/test_anim.py`, `notes/allo-anim.gif`.
+- FMT-6 complete: **TGA + WAV.**
+  - 649 TGA files (405 × 32-bit, 240 × 24-bit, 4 × 8-bit grayscale), 0 errors.
+    Decoded pixels match PIL exactly on 32/24/8-bit samples.
+  - 231 WAV files (all PCM 16-bit; 225 mono 22,050, 4 stereo 22,050, 2 mono
+    44,100), 0 errors. Durations/samples match Python's `wave`.
+  - Evidence: `tools/formats/tga.py`, `tools/formats/wav.py`,
+    `docs/formats/tga.md`, `docs/formats/wav.md`, `tests/test_tga.py`,
+    `tests/test_wav.py`.
+- VIEW-0 complete: Phase 1 asset viewer.
+  - `tools/viewer/asset_viewer.py` renders a `.mesh` + `.tga` to PNG, writes
+    texture previews, and prints/plays WAV info.
+  - Software renderer supports side/three-quarter/front/top views, vertex
+    colors, bilinear texture sampling, supersampling.
+  - Evidence: `tools/viewer/soft_render.py`, `tests/test_viewer.py`,
+    `notes/view-allo.png`, `notes/view-cursor.png`.
 - Allosaurus retail mesh rendered by our own parser/rasterizer:
   `notes/allo-3q-vc-flip.png`, `notes/allo-side-vc-flip.png`,
   `notes/allo-head-flip.png`. Uses `allo_lod1.mesh` (317 v / 382 tri),
@@ -104,21 +119,18 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 1 remaining: FMT-6 simple asset loaders (TGA/WAV), FMT-7 text/config
-  formats, VIEW-0 simple asset viewer, and publishing the XeNTaX post.
+- Phase 1 remaining: FMT-7 (`.loc`, `.lnd`, `.fnt`) and publishing the
+  XeNTaX/ZenHax post.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. FMT-6: TGA (16/24/32-bit) and WAV (PCM) loaders; batch-validate 10 samples
-   of each and report dimensions/duration.
-2. VIEW-0: promote the software rasterizer into a small asset viewer CLI.
-   Open `allo_lod1.mesh` + `allo.tga`, a standalone TGA, and a WAV; write a PNG
-   preview. This is the Phase 1 "check by eye" tool.
-3. FMT-7: `.loc`, `.lnd`, `.fnt`; font renderer for a reference string.
-4. Phase 2: VIEW-1/2/3 (SDL3 + OpenGL window, mesh/texture, skinned animation).
-5. User: publish `docs/community/xentax-post.md` and record any replies.
+1. FMT-7: parse `.loc` (UTF-16LE key/value), `.lnd` (length-prefixed strings),
+   `.fnt` (bitmap glyphs). Render a reference string with the `.fnt` atlas.
+2. Phase 2: VIEW-1 (SDL3 + OpenGL window), VIEW-2 (mesh + texture), VIEW-3
+   (skinned animation playback).
+3. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

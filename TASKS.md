@@ -129,9 +129,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `tests/test_anim.py`, `notes/allo-anim.gif`.
 
 ### FMT-6: Simple asset loaders
-- `.tga` (16/24/32-bit), `.wav` (PCM), `.mpg` (MPEG-1), `.png`, `.jpg`.
+- [x] TGA: 24/32-bit true-color, 8-bit grayscale, 16-bit and RLE support.
+- [x] WAV: RIFF/PCM 16-bit, mono/stereo, header-only and sample loading.
+- [x] Batch-validate the full retail sets against PIL and Python `wave`.
 - **Acceptance:** batch-convert 10 samples of each; dimensions/duration match.
 - **Depends on:** ENV-1.
+- **Evidence:** `tools/formats/tga.py`, `tools/formats/wav.py`,
+  `docs/formats/tga.md`, `docs/formats/wav.md`, `tests/test_tga.py`,
+  `tests/test_wav.py`; 649 TGA + 231 WAV, 0 errors.
 
 ### FMT-7: Text/config formats
 - `.loc` (UTF-16LE key/value), `.lnd` (length-prefixed strings), `.fnt`
@@ -140,10 +145,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** ENV-1.
 
 ### VIEW-0: Simple asset viewer
-- CLI/GUI viewer for one `.mesh` + `.tga`, one texture, and one sound.
+- [x] Software renderer for one `.mesh` + `.tga` (views, supersampling,
+  vertex colors, UV `v_tex = 1 + v`).
+- [x] Texture preview and WAV info/play CLI.
 - **Acceptance:** opens `allo_lod1.mesh` + `allo.tga`, a standalone TGA, and a
   WAV; writes a PNG screenshot/preview.
 - **Depends on:** FMT-2, FMT-6.
+- **Evidence:** `tools/viewer/asset_viewer.py`,
+  `tools/viewer/soft_render.py`, `tests/test_viewer.py`,
+  `notes/view-allo.png`, `notes/view-cursor.png`.
 
 ### OUTREACH-1: XeNTaX / ZenHax post
 - [x] Draft the format summary and questions in
