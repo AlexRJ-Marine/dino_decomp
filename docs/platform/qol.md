@@ -41,6 +41,9 @@ orbit_up=UP          orbit_down=DOWN
 zoom_in=PLUS         zoom_out=MINUS
 reset=R
 fullscreen=F11       borderless=F10      mute=M       quit=ESC
+move_forward=W       move_back=S         move_left=A  move_right=D
+move_up=E            move_down=Q         sprint=LSHIFT
+toggle_camera=C
 ```
 
 - `--keys FILE` chooses another map.

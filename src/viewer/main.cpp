@@ -70,6 +70,7 @@ struct Options {
     bool muted = false;
     bool no_vegetation = false;
     bool skin_bind_from_skin = false;
+    bool free_camera = false;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -192,6 +193,8 @@ Options parse_args(int argc, char** argv) {
                 std::fprintf(stderr, "--skin-bind expects mesh or skin\n");
                 std::exit(2);
             }
+        } else if (arg == "--free-camera") {
+            opt.free_camera = true;
         } else if (arg == "--once") {
             opt.loop_audio = false;
         } else if (arg == "--mute") {
@@ -249,6 +252,7 @@ Options parse_args(int argc, char** argv) {
                 "  --height-scale N     heightmap multiplier (default 1)\n"
                 "  --no-vegetation      skip the .imp/.blf placed objects\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
+                "  --free-camera        start in free-fly camera mode (C toggles)\n"
                 "  --once               play the WAV once (default loops)\n"
                 "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
@@ -674,17 +678,8 @@ struct DrawItem {
 void draw_scene(const GpuMesh& mesh, GLuint texture,
                 const std::vector<DrawItem>& extras,
                 GLuint program,
-                const GlFns& gl, const dino::Vec3& center,
-                float yaw, float pitch,
-                float distance, int width, int height) {
-    const float cp = std::cos(pitch * 3.14159265f / 180.0f);
-    const float sp = std::sin(pitch * 3.14159265f / 180.0f);
-    const float cy = std::cos(yaw * 3.14159265f / 180.0f);
-    const float sy = std::sin(yaw * 3.14159265f / 180.0f);
-    const dino::Vec3 eye{center.x + distance * cp * cy,
-                         center.y + distance * cp * sy,
-                         center.z + distance * sp};
-
+                const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
+                int width, int height) {
     const dino::Mat4 proj = perspective(33.0f,
                                         static_cast<float>(width) / std::max(1, height),
                                         0.1f, 10000.0f);
@@ -1267,6 +1262,32 @@ int main(int argc, char** argv) {
     float yaw = opt.yaw;
     float pitch = opt.pitch;
 
+    auto orbit_eye = [&]() {
+        const float cp = std::cos(pitch * 3.14159265f / 180.0f);
+        const float sp = std::sin(pitch * 3.14159265f / 180.0f);
+        const float cy = std::cos(yaw * 3.14159265f / 180.0f);
+        const float sy = std::sin(yaw * 3.14159265f / 180.0f);
+        return dino::Vec3{center.x + distance * cp * cy,
+                          center.y + distance * cp * sy,
+                          center.z + distance * sp};
+    };
+
+    bool free_camera = opt.free_camera;
+    dino::Vec3 free_pos = orbit_eye();
+    float free_yaw = 0.0f;
+    float free_pitch = 0.0f;
+    auto enter_free_camera = [&]() {
+        free_pos = orbit_eye();
+        const dino::Vec3 dir = dino::normalize({center.x - free_pos.x,
+                                                center.y - free_pos.y,
+                                                center.z - free_pos.z});
+        free_yaw = std::atan2(dir.y, dir.x) * 180.0f / 3.14159265f;
+        free_pitch = std::asin(std::clamp(dir.z, -1.0f, 1.0f)) * 180.0f / 3.14159265f;
+    };
+    if (free_camera) {
+        enter_free_camera();
+    }
+
     bool running = true;
     bool dragging = false;
     float last_mx = 0.0f, last_my = 0.0f;
@@ -1313,6 +1334,11 @@ int main(int argc, char** argv) {
                     if (audio != nullptr) {
                         SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
                     }
+                } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
+                    free_camera = !free_camera;
+                    if (free_camera) {
+                        enter_free_camera();
+                    }
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_LEFT) {
@@ -1323,8 +1349,15 @@ int main(int argc, char** argv) {
                        event.button.button == SDL_BUTTON_LEFT) {
                 dragging = false;
             } else if (event.type == SDL_EVENT_MOUSE_MOTION && dragging) {
-                yaw += (event.motion.x - last_mx) * 0.4f;
-                pitch = std::clamp(pitch + (event.motion.y - last_my) * 0.4f, -89.0f, 89.0f);
+                const float dx = event.motion.x - last_mx;
+                const float dy = event.motion.y - last_my;
+                if (free_camera) {
+                    free_yaw += dx * 0.3f;
+                    free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
+                } else {
+                    yaw += dx * 0.4f;
+                    pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
+                }
                 last_mx = event.motion.x;
                 last_my = event.motion.y;
             } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
@@ -1348,6 +1381,55 @@ int main(int argc, char** argv) {
         const double dt = static_cast<double>(now - last) / static_cast<double>(freq);
         last = now;
         elapsed += dt;
+
+        if (free_camera) {
+            const bool* keys = SDL_GetKeyboardState(nullptr);
+            auto held = [&](dino::KeyAction action) {
+                const SDL_Scancode scancode =
+                    SDL_GetScancodeFromKey(keymap[action], nullptr);
+                return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
+            };
+            const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
+            const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+            const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
+                                     std::cos(pitch_rad) * std::sin(yaw_rad),
+                                     std::sin(pitch_rad)};
+            const dino::Vec3 right{-std::sin(yaw_rad), std::cos(yaw_rad), 0.0f};
+            const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
+            const float step = speed * static_cast<float>(dt);
+            if (held(dino::KeyAction::MoveForward)) {
+                free_pos.x += forward.x * step;
+                free_pos.y += forward.y * step;
+                free_pos.z += forward.z * step;
+            }
+            if (held(dino::KeyAction::MoveBack)) {
+                free_pos.x -= forward.x * step;
+                free_pos.y -= forward.y * step;
+                free_pos.z -= forward.z * step;
+            }
+            if (held(dino::KeyAction::MoveRight)) {
+                free_pos.x += right.x * step;
+                free_pos.y += right.y * step;
+            }
+            if (held(dino::KeyAction::MoveLeft)) {
+                free_pos.x -= right.x * step;
+                free_pos.y -= right.y * step;
+            }
+            if (held(dino::KeyAction::MoveUp)) {
+                free_pos.z += step;
+            }
+            if (held(dino::KeyAction::MoveDown)) {
+                free_pos.z -= step;
+            }
+            if (terrain.world_size > 0.0f) {
+                const float half = terrain.world_size * 0.5f;
+                if (free_pos.x >= -half && free_pos.x <= half &&
+                    free_pos.y >= -half && free_pos.y <= half) {
+                    const float min_z = terrain.height_at(free_pos.x, free_pos.y) + 1.6f;
+                    free_pos.z = std::max(free_pos.z, min_z);
+                }
+            }
+        }
 
         if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
             const int queued = SDL_GetAudioStreamQueued(audio);
@@ -1390,8 +1472,25 @@ int main(int argc, char** argv) {
             }
         }
 
-        draw_scene(gpu, texture, extra_items, program, glfns, center,
-                   yaw, pitch, distance, width, height);
+        dino::Vec3 eye;
+        dino::Vec3 view_center;
+        if (free_camera) {
+            const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
+            const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+            const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
+                                     std::cos(pitch_rad) * std::sin(yaw_rad),
+                                     std::sin(pitch_rad)};
+            eye = free_pos;
+            view_center = {free_pos.x + forward.x * 10.0f,
+                           free_pos.y + forward.y * 10.0f,
+                           free_pos.z + forward.z * 10.0f};
+        } else {
+            eye = orbit_eye();
+            view_center = center;
+        }
+
+        draw_scene(gpu, texture, extra_items, program, glfns, eye, view_center,
+                   width, height);
 
         if (!opt.capture_dir.empty()) {
             std::filesystem::create_directories(opt.capture_dir);

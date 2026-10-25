@@ -18,6 +18,14 @@ enum class KeyAction {
     Fullscreen,
     Borderless,
     Mute,
+    MoveForward,
+    MoveBack,
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+    Sprint,
+    ToggleCamera,
     Quit,
     Count
 };

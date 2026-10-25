@@ -61,6 +61,14 @@ const KeyName action_names[] = {
     {"fullscreen", static_cast<SDL_Keycode>(0)},
     {"borderless", static_cast<SDL_Keycode>(0)},
     {"mute", static_cast<SDL_Keycode>(0)},
+    {"move_forward", static_cast<SDL_Keycode>(0)},
+    {"move_back", static_cast<SDL_Keycode>(0)},
+    {"move_left", static_cast<SDL_Keycode>(0)},
+    {"move_right", static_cast<SDL_Keycode>(0)},
+    {"move_up", static_cast<SDL_Keycode>(0)},
+    {"move_down", static_cast<SDL_Keycode>(0)},
+    {"sprint", static_cast<SDL_Keycode>(0)},
+    {"toggle_camera", static_cast<SDL_Keycode>(0)},
     {"quit", static_cast<SDL_Keycode>(0)},
 };
 
@@ -77,6 +85,14 @@ KeyMap::KeyMap() {
     (*this)[KeyAction::Fullscreen] = SDLK_F11;
     (*this)[KeyAction::Borderless] = SDLK_F10;
     (*this)[KeyAction::Mute] = SDLK_M;
+    (*this)[KeyAction::MoveForward] = SDLK_W;
+    (*this)[KeyAction::MoveBack] = SDLK_S;
+    (*this)[KeyAction::MoveLeft] = SDLK_A;
+    (*this)[KeyAction::MoveRight] = SDLK_D;
+    (*this)[KeyAction::MoveUp] = SDLK_E;
+    (*this)[KeyAction::MoveDown] = SDLK_Q;
+    (*this)[KeyAction::Sprint] = SDLK_LSHIFT;
+    (*this)[KeyAction::ToggleCamera] = SDLK_C;
     (*this)[KeyAction::Quit] = SDLK_ESCAPE;
 }
 

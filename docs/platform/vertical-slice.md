@@ -1,7 +1,8 @@
 # Vertical-slice scene (island + dinosaur)
 
 Status: **working** — isl01 terrain, 1,536 placed trees, and an animated
-allosaurus standing on the terrain in one C++/SDL3/GL scene.
+allosaurus standing on the terrain in one C++/SDL3/GL scene, with orbit and
+free-fly cameras.
 
 ## Command
 
@@ -29,9 +30,24 @@ Options added for the combined scene:
 
 ## Camera
 
-When a dinosaur is placed, the orbit camera targets the spawn point at
-`z = terrain + 3` and defaults to a 22-unit distance. Otherwise it frames the
-whole island. Mouse drag / arrows orbit, wheel zooms, `R` resets.
+Orbit mode (default): **left-drag** orbits, wheel zooms, arrows orbit, `R`
+resets. When a dinosaur is placed, the orbit target is the spawn point at
+`z = terrain + 3`; otherwise it frames the whole island.
+
+Free-fly mode: `--free-camera` or `C` to toggle. Controls:
+
+```text
+W/S          forward/back along the view direction
+A/D          strafe
+E/Q          up/down
+Shift        sprint (140 u/s vs 40 u/s)
+left-drag    mouse look
+```
+
+The camera is clamped to `terrain height + 1.6` while it is over the island,
+so it cannot sink through the ground. All actions are rebindable in
+`dino_keys.cfg` (`move_forward`, `move_back`, `move_left`, `move_right`,
+`move_up`, `move_down`, `sprint`, `toggle_camera`).
 
 ## Contact shadow
 
@@ -54,7 +70,7 @@ skin` reproduces the crouched bind for comparison. Details and evidence:
 | One island with terrain + textures | done |
 | Placed objects with textures | done (1,536 trees, 9 draw batches) |
 | Skinned dinosaur animation | done (`HeavyBiped_Walk`/`Neutral`/`Run`) |
-| Player moves the camera | orbit camera done; free-fly next |
+| Player moves the camera | orbit + free-fly done |
 | Place a path/fence | not started (SIM-1) |
 | 10 minutes without crashing | pending a long-run test |
 

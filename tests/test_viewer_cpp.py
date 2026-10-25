@@ -149,6 +149,39 @@ def test_cpp_island_dino_window(tmp_path):
     assert "spawn: x=512.0 y=512.0" in result.stdout
 
 
+def test_cpp_free_camera_start(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists() or not all(
+            p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
+        pytest.skip("retail samples not present")
+    shot = tmp_path / "free-cam.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
+         "--free-camera", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--dino-texture", str(ALLO_TEX), "--dino-pos", "512,512",
+         "--distance", "17", "--pitch", "16",
+         *_dino_geometry_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert shot.exists()
+    assert Image.open(shot).size == (400, 300)
+
+
+def test_cpp_keymap_has_free_camera_actions():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    result = subprocess.run(
+        [str(EXE), "--list-keys"], capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    for action in ("move_forward", "move_back", "move_left", "move_right",
+                   "move_up", "move_down", "sprint", "toggle_camera"):
+        assert action in result.stdout
+
+
 def test_cpp_skinned_validate():
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")

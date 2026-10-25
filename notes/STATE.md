@@ -164,6 +164,8 @@ Updated: 2026-10-25
     the `.mesh` standing rest pose with the same rigid weights
     (`--skin-bind mesh`, default); `.skin` bind selectable for comparison.
   - `HeavyBiped_Walk` at t=1200 renders a clean walk cycle on the island.
+  - Free-fly camera (`--free-camera` / `C`): WASD + mouse look, Q/E up/down,
+    Shift sprint, terrain clamp; movement actions are in `dino_keys.cfg`.
   - Evidence: `docs/platform/vertical-slice.md`,
     `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
     `tests/test_viewer_cpp.py`.
@@ -209,8 +211,8 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3 vertical slice: add a free-fly camera (WASD + mouse look), then a
-  10-minute stability run, then path/fence placement (SIM-1).
+- Phase 3 vertical slice: 10-minute stability run of the island + walking
+  dinosaur scene, then path/fence placement (SIM-1).
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
   placements (1,536 vegetation instances already batch into 9 draws).
 - QOL-2 (UI scaling) waits for the overlay/UI layer.
@@ -219,14 +221,13 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. Add `--free-camera`: WASD movement, mouse look, terrain-following height;
-   keep orbit as the default.
-2. Run a 10-minute stability test of the island + walking dinosaur scene.
-3. SIM-1: path/fence placement grid, validation and undo.
-4. WORLD-3: skybox + water plane for a closer match.
-5. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
+1. Run a 10-minute stability test with `--frames 36000 --capture-dir` (or a
+   timed loop) and check memory/handle growth.
+2. SIM-1: path/fence placement grid, validation and undo.
+3. WORLD-3: skybox + water plane for a closer match.
+4. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
    the container/vector contracts are ported.
-6. User: publish `docs/community/xentax-post.md` and record any replies.
+5. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

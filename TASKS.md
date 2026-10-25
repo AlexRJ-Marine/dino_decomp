@@ -297,11 +297,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Use the `.mesh` standing rest pose with the `.skin` rigid weights
   (`--skin-bind mesh`), plus a soft contact shadow.
 - [x] `HeavyBiped_Walk` / `Neutral` / `Run` deform the standing mesh cleanly.
-- **Acceptance:** one scene shows island, trees and an animated dinosaur.
+- [x] Free-fly camera (`--free-camera` / `C`, WASD + mouse look, terrain clamp);
+  all movement actions are rebindable.
+- **Acceptance:** one scene shows island, trees, an animated dinosaur, and the
+  player can move the camera.
 - **Depends on:** WORLD-1, VIEW-3.
 - **Evidence:** `docs/platform/vertical-slice.md`,
   `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
-  `tests/test_viewer_cpp.py` (`test_cpp_island_dino_*`).
+  `tests/test_viewer_cpp.py` (`test_cpp_island_dino_*`,
+  `test_cpp_free_camera_start`).
 
 ## Phase 3 verification targets — simulation
 
