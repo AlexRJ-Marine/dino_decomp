@@ -90,7 +90,8 @@ Then `0x00589cd0(manager, dt)` runs the park-wide step. Its ordering is:
 2. generic actor update (`actor->vtable[+0xc](dt)`);
 3. clear the one-frame actor flag at `+0x4f9`;
 4. per-actor reaction checks (`0x00521d10`, `0x0051f8d0`, `0x00521d60`)
-   followed by the actor update;
+   followed by the actor update; `0x005f6fb0` is an integer-vector `find`,
+   not a visibility test;
 5. deferred behavior events (`0x00520880`);
 6. visitor ticks (`0x00521df0`) and visitor AI (`0x00522820`);
 7. employee AI (`0x005220e0`).

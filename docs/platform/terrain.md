@@ -91,6 +91,35 @@ Result: `notes/isl01-terrain.png` (bare terrain) and
 `notes/isl01-vegetation.png` (terrain + 1,536 trees). The island, volcano,
 beaches, islets, ocean basemap and placed palm/fern/sequoia groups all line up.
 
+## All ten islands and runtime selection
+
+`Data/Design/landscape/IslandList.ini` is the authoritative order
+(`10`, then `isl01`..`isl10`). The original builds
+`Data\Design\Landscape\<name>\<name>.lnd` from the selected record
+(`FUN_0051dad0`); all per-island paths live inside the `.lnd`.
+
+The viewer reads the same list. Starting a Free Game from the retail menu
+calls `load_island(name)`, which rebuilds the terrain, basemap, vegetation,
+skybox, water plane and their GPU resources and recentres the camera. All ten
+islands validate:
+
+| island | heightmap | water | notes |
+| --- | --- | --- | --- |
+| isl01 | 512×512, 0..92 | 16.0 | 9 vegetation groups |
+| isl02 | 512×512, 0..70 | 20.0 | |
+| isl03 | 512×512, 0..90 | 20.0 | |
+| isl04 | 512×512, 0..83 | 20.0 | |
+| isl05 | 512×512, 0..59 | 18.0 | |
+| isl06 | 512×512, 0..150 | 26.0 | |
+| isl07 | 512×512, 0..143 | 17.0 | |
+| isl08 | 512×512, 0..192 | 20.0 | highest terrain |
+| isl09 | 512×512, 0..144 | 20.0 | |
+| isl10 | 512×512, 0..67 | 20.0 | |
+
+Evidence: `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
+`notes/menu-start-isl10.png`; `notes/ui-recon.md` ("Free Game start -> park
+handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`.
+
 ## Evidence
 
 - `src/formats/lnd.cpp`, `src/world/terrain.cpp`,

@@ -277,17 +277,31 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - Acceptance met: the 800×600 main menu matches the retail reference; Free
   Mode at 395,234 enters page 1; Start at 526,531 closes the menu.
 
-### Phase B — Free Game → park (partial)
+### Phase B — Free Game → park (done)
 
 - [x] Populate `ISLAND_LIST` from the 10 `.loc` island names.
 - [x] Island picture (`ISLAND_PIC01..10`, `ile*.tga`), difficulty buttons,
       Start/Cancel selection.
-- [x] Start switches to `LOADING_PAGE` (page 8) for
-      `--menu-loading-time` seconds, then closes the menu and resumes the park.
-- [ ] Start sets state 8; `LOADING_PAGE` shows `loading_800x600.tga`, then the
-      viewer builds the chosen island scene.
-- [ ] Acceptance: the harness click sequence reaches the park through the real
-      screens.
+- [x] Start sets state 8 (`LOADING_PAGE`); `loading_800x600.tga` is shown for
+      `--menu-loading-time` seconds.
+- [x] On timer expiry the viewer loads the selected island at runtime:
+      `IslandList.ini` order → `Data/Design/Landscape/<name>/<name>.lnd` →
+      terrain, basemap, vegetation, skybox, water and GPU resources are
+      rebuilt (`load_island` in `src/viewer/main.cpp`). This mirrors
+      `FUN_0051dad0`/`FUN_00403e10`; the loading page itself is display-only
+      in the original.
+- [x] Free-game budget from `Data/Design/Scenario/FreeGame.ini`
+      (`[CONTEXT]`): 75,000 / 50,000 / 25,000 for easy/middle/hard, shown in
+      the park HUD. Sell-back factor and visitor profiles are parsed by the
+      original but not yet used by the port.
+- [x] Acceptance: `--menu-page 1 --menu-click 200,180 --menu-click 494,451
+      --menu-click 526,531 --menu-loading-time 0` reaches isl01/easy with
+      75,000; row 9 + hard reaches isl10 with 25,000.
+- Evidence: `notes/ui-recon.md` ("Free Game start -> park handoff"),
+  `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
+  `notes/menu-start-isl10.png`, `tests/test_viewer_cpp.py`
+  (`test_cpp_menu_start_loads_selected_island`).
+- Open: the original park camera's initial framing is not yet recovered.
 
 ### Phase C — park HUD (done at 800×600)
 

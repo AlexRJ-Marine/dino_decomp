@@ -21,6 +21,7 @@
 #include "../world/visitors.h"
 #include "../ui/menu.h"
 #include "../ui/park.h"
+#include "../ui/ini.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -1267,6 +1268,39 @@ std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
 }
 
+// `Data/Design/landscape/IslandList.ini`: count then one folder name per line.
+// The original reads this in gdtIslandDataBase (FUN_00506530) and builds
+// `Data\Design\Landscape\<name>\<name>.lnd` from the selected record.
+std::vector<std::string> read_island_list(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        throw std::runtime_error("cannot open island list: " + path);
+    }
+    std::vector<std::string> names;
+    int count = -1;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (line.empty() || line[0] == ';' || line[0] == '#') {
+            continue;
+        }
+        if (count < 0) {
+            count = std::atoi(line.c_str());
+            continue;
+        }
+        names.push_back(line);
+        if (static_cast<int>(names.size()) == count) {
+            break;
+        }
+    }
+    if (count <= 0 || static_cast<int>(names.size()) != count) {
+        throw std::runtime_error("bad island list: " + path);
+    }
+    return names;
+}
+
 // Ray-marches the heightfield from the camera through a screen pixel.
 bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
                   const dino::Vec3& target, float mouse_x, float mouse_y,
@@ -1486,6 +1520,30 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    std::vector<std::string> island_names;
+    int free_game_budgets[3] = {75000, 50000, 25000};
+    try {
+        island_names = read_island_list(resolve_asset(
+            opt.asset_root, "Data/Design/landscape/IslandList.ini"));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "island list: %s\n", e.what());
+    }
+    try {
+        const dino::ui::IniFile free_game = dino::ui::load_ini(
+            resolve_asset(opt.asset_root, "Data/Design/Scenario/FreeGame.ini"));
+        if (const dino::ui::IniSection* context = free_game.find("CONTEXT")) {
+            auto budget = [&](const char* key, int fallback) {
+                const std::string value = context->get(key);
+                return value.empty() ? fallback : std::atoi(value.c_str());
+            };
+            free_game_budgets[0] = budget("Budget", 75000);
+            free_game_budgets[1] = budget("BudgetMedium", 50000);
+            free_game_budgets[2] = budget("BudgetHard", 25000);
+        }
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "free game scenario: %s\n", e.what());
+    }
+
     dino::ui::Menu menu;
     bool menu_loaded = false;
     dino::ui::ParkHud park;
@@ -1497,7 +1555,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (opt.park_hud && !opt.lnd_path.empty()) {
+    if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
             resolve_asset(opt.asset_root, "Data/Overlay/ParkInterface.Ini"),
@@ -1765,6 +1823,12 @@ int main(int argc, char** argv) {
     }
 
     if (opt.validate) {
+        if (!island_names.empty()) {
+            std::printf("islands: %zu %s..%s\n", island_names.size(),
+                        island_names.front().c_str(), island_names.back().c_str());
+        }
+        std::printf("free game budgets: %d/%d/%d\n", free_game_budgets[0],
+                    free_game_budgets[1], free_game_budgets[2]);
         if (opt.use_menu) {
             std::printf("menu: loaded=%d widgets=%zu pages=%zu graphics=%zu\n",
                         menu_loaded ? 1 : 0, menu.overlay.widgets.size(),
@@ -2005,7 +2069,7 @@ int main(int argc, char** argv) {
         mesh = std::move(fallback);
     }
 
-    const GLuint texture = image.width > 0 ? upload_texture(image) : 0;
+    GLuint texture = image.width > 0 ? upload_texture(image) : 0;
     const GLuint dino_texture = dino_image.width > 0 ? upload_texture(dino_image) : 0;
     const GLuint hud_font_texture =
         (opt.hud && hud_font_ready) ? upload_font_atlas(hud_font) : 0;
@@ -2305,9 +2369,9 @@ int main(int argc, char** argv) {
             }
         }
     };
-    const bool place_dino = skinned && !opt.lnd_path.empty();
-    const float spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x : terrain.world_size * 0.5f;
-    const float spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y : terrain.world_size * 0.5f;
+    bool place_dino = skinned && !opt.lnd_path.empty();
+    float spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x : terrain.world_size * 0.5f;
+    float spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y : terrain.world_size * 0.5f;
 
     auto pose_dino = [&](double time) {
         const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
@@ -2475,14 +2539,14 @@ int main(int argc, char** argv) {
     float click_y = 0.0f;
     float drag_distance = 0.0f;
 
-    const dino::Vec3 center = place_dino
+    dino::Vec3 center = place_dino
         ? dino::Vec3{spawn_x - terrain.world_size * 0.5f,
                      spawn_y - terrain.world_size * 0.5f,
                      terrain.height_at(spawn_x - terrain.world_size * 0.5f,
                                        spawn_y - terrain.world_size * 0.5f) + 3.0f}
         : bounds.center();
 
-    const float auto_distance = place_dino ? 22.0f
+    float auto_distance = place_dino ? 22.0f
         : std::max(2.0f, bounds.extent() * 1.7f);
     float distance = opt.distance > 0.0f ? opt.distance : auto_distance;
     float yaw = opt.yaw;
@@ -2514,9 +2578,240 @@ int main(int argc, char** argv) {
         enter_free_camera();
     }
 
+    // Rebuilds the park from `Data\Design\Landscape\<island>\<island>.lnd`,
+    // mirroring FUN_0051dad0/FUN_00403e10. The .lnd carries the basemap,
+    // heightmap, skybox, water, music and vegetation list, so only the folder
+    // name is selected here. Used by the Free Game start handoff.
+    auto load_island = [&](const std::string& island, bool reset_view) {
+        const std::string lnd_path = resolve_asset(
+            opt.asset_root,
+            "Data/Design/Landscape/" + island + "/" + island + ".lnd");
+        dino::Lnd new_lnd = dino::load_lnd(lnd_path);
+        int hm_width = 0, hm_height = 0;
+        const auto heights = dino::load_raw_u8(
+            resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height);
+        dino::Terrain new_terrain = dino::build_terrain(
+            heights, hm_width, hm_height, opt.terrain_size, opt.height_scale);
+        dino::Vegetation new_vegetation;
+        if (!opt.no_vegetation) {
+            new_vegetation =
+                dino::load_vegetation(opt.asset_root, new_lnd, new_terrain);
+        }
+        dino::Image new_image;
+        if (opt.texture_path.empty() && !new_lnd.basemap.empty()) {
+            new_image =
+                dino::load_tga(resolve_asset(opt.asset_root, new_lnd.basemap));
+        }
+        std::array<dino::Image, 6> new_sky{};
+        const std::string sky_dir =
+            opt.skybox_dir.empty() ? resolve_asset(opt.asset_root, new_lnd.skybox)
+                                   : opt.skybox_dir;
+        static const char* kFaces[6] = {"front", "back", "left",
+                                        "right", "top", "bottom"};
+        for (int i = 0; i < 6; ++i) {
+            try {
+                new_sky[i] =
+                    dino::load_image(sky_dir + "/" + kFaces[i] + ".PNG");
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "skybox face %s: %s\n", kFaces[i], e.what());
+            }
+        }
+        dino::Image new_water;
+        const float new_water_z =
+            opt.water_level >= 0.0f ? opt.water_level : new_lnd.unknown_float;
+        if (opt.water && !new_lnd.water.empty()) {
+            try {
+                new_water = dino::load_image(
+                    resolve_asset(opt.asset_root, new_lnd.water));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "water texture: %s\n", e.what());
+            }
+        }
+
+        // Release the previous island's GPU resources before replacing them.
+        gpu.destroy(glfns);
+        for (auto& mesh : veg_gpu) {
+            mesh.destroy(glfns);
+        }
+        for (const GLuint id : veg_textures) {
+            if (id != 0) {
+                glDeleteTextures(1, &id);
+            }
+        }
+        veg_gpu.clear();
+        veg_textures.clear();
+        for (int i = 0; i < 6; ++i) {
+            skybox.faces[i].destroy(glfns);
+            if (skybox.textures[i] != 0) {
+                glDeleteTextures(1, &skybox.textures[i]);
+            }
+            skybox.textures[i] = 0;
+        }
+        skybox.ready = false;
+        water_gpu.destroy(glfns);
+        if (water_texture != 0) {
+            glDeleteTextures(1, &water_texture);
+            water_texture = 0;
+        }
+        visitor_gpu.destroy(glfns);
+        if (visitor_texture_id != 0) {
+            glDeleteTextures(1, &visitor_texture_id);
+            visitor_texture_id = 0;
+        }
+        dino_gpu.destroy(glfns);
+        shadow_gpu.destroy(glfns);
+        if (opt.texture_path.empty()) {
+            if (texture != 0) {
+                glDeleteTextures(1, &texture);
+                texture = 0;
+            }
+            image = std::move(new_image);
+        }
+
+        lnd = std::move(new_lnd);
+        terrain = std::move(new_terrain);
+        vegetation = std::move(new_vegetation);
+        sky_images = std::move(new_sky);
+        water_image = std::move(new_water);
+        water_z = new_water_z;
+
+        if (opt.texture_path.empty() && image.width > 0) {
+            texture = upload_texture(image);
+        }
+        display = terrain.mesh;
+        gpu = upload_mesh(display, glfns);
+
+        veg_gpu.reserve(vegetation.groups.size());
+        veg_textures.reserve(vegetation.groups.size());
+        for (const auto& group : vegetation.groups) {
+            veg_gpu.push_back(upload_mesh(group.mesh, glfns));
+            GLuint group_texture = 0;
+            if (!group.texture_path.empty() &&
+                std::filesystem::exists(group.texture_path)) {
+                try {
+                    group_texture =
+                        upload_texture(dino::load_tga(group.texture_path));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+                }
+            }
+            veg_textures.push_back(group_texture);
+        }
+
+        int loaded_faces = 0;
+        for (int i = 0; i < 6; ++i) {
+            if (sky_images[i].width <= 0) {
+                continue;
+            }
+            skybox.faces[i] = upload_mesh(make_sky_face(i, 5000.0f), glfns);
+            skybox.textures[i] = upload_texture(sky_images[i]);
+            if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
+                ++loaded_faces;
+            }
+        }
+        skybox.ready = loaded_faces == 6;
+
+        if (water_image.width > 0 && terrain.world_size > 0.0f) {
+            water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
+            water_gpu = upload_mesh(
+                make_water_plane(terrain.world_size * 6.0f, water_z, 48.0f),
+                glfns);
+        }
+
+        if (build_ready) {
+            build_grid.init(opt.build_cell, terrain.world_size);
+            for (const auto& value : opt.place_paths) {
+                int x = 0, y = 0, edge = 0;
+                if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
+                    build_grid.set_path(x, y, true);
+                }
+            }
+            for (const auto& value : opt.place_fences) {
+                int x = 0, y = 0, edge = 0;
+                if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
+                    build_grid.set_fence(x, y, edge, true);
+                }
+            }
+            build_grid.undo_stack.clear();
+            visitor_system.visitors.clear();
+            if (opt.visitors > 0) {
+                const int spawned = visitor_system.spawn(build_grid, opt.visitors);
+                std::printf("visitors: %d spawned on %d path cells\n", spawned,
+                            build_grid.path_count);
+            }
+            if (!visitor_system.visitors.empty()) {
+                visitor_texture_id = upload_texture(visitor_image);
+                visitor_gpu = upload_mesh(
+                    visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+                                              visitor_pose2),
+                    glfns);
+            }
+            rebuild_build_meshes();
+        }
+        rebuild_extra_items();
+
+        bounds = Bounds{};
+        for (const auto& p : display.positions) {
+            bounds.add(p);
+        }
+        for (const auto& group : vegetation.groups) {
+            for (const auto& p : group.mesh.positions) {
+                bounds.add(p);
+            }
+        }
+
+        place_dino = skinned;
+        if (place_dino) {
+            spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x
+                                          : terrain.world_size * 0.5f;
+            spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y
+                                          : terrain.world_size * 0.5f;
+            dino_gpu = upload_mesh(
+                pose_dino(opt.anim_time >= 0.0 ? opt.anim_time : 0.0), glfns);
+            const float half = terrain.world_size * 0.5f;
+            shadow_gpu = upload_mesh(
+                make_contact_shadow(
+                    spawn_x - half, spawn_y - half,
+                    terrain.height_at(spawn_x - half, spawn_y - half) + 0.06f,
+                    2.6f),
+                glfns);
+            for (const auto& p : pose_dino(0.0).positions) {
+                bounds.add(p);
+            }
+            std::printf("spawn: x=%.1f y=%.1f z=%.2f angle=%.1f\n", spawn_x,
+                        spawn_y,
+                        terrain.height_at(spawn_x - half, spawn_y - half),
+                        opt.dino_angle);
+        }
+
+        const float half = terrain.world_size * 0.5f;
+        center = place_dino
+            ? dino::Vec3{spawn_x - half, spawn_y - half,
+                         terrain.height_at(spawn_x - half, spawn_y - half) + 3.0f}
+            : bounds.center();
+        auto_distance = place_dino ? 22.0f
+                                   : std::max(2.0f, bounds.extent() * 1.7f);
+        if (reset_view) {
+            distance = opt.distance > 0.0f ? opt.distance : auto_distance;
+            yaw = opt.yaw;
+            pitch = opt.pitch;
+            free_pos = orbit_eye();
+            if (free_camera) {
+                enter_free_camera();
+            }
+        }
+
+        std::printf(
+            "island: %s lnd=%s terrain=%dx%d vegetation=%zu groups water=%.1f "
+            "sky=%d\n",
+            island.c_str(), lnd_path.c_str(), terrain.width, terrain.height,
+            vegetation.groups.size(), water_z, loaded_faces);
+    };
+
     int park_hover_x = -1;
     int park_hover_y = -1;
     int park_active_index = -1;
+    int park_budget = free_game_budgets[0];
     if (!opt.park_hover.empty() && park.loaded()) {
         int x = 0, y = 0;
         if (std::sscanf(opt.park_hover.c_str(), "%d,%d", &x, &y) == 2) {
@@ -2563,7 +2858,7 @@ int main(int argc, char** argv) {
 
         auto runtime_text = [&](const std::string& name) -> std::string {
             if (name == "BUDGET_AMOUNT") {
-                return "76050";
+                return std::to_string(park_budget);
             }
             if (name == "VISITOR_AMOUNT") {
                 return std::to_string(visitor_system.visitors.size());
@@ -2685,6 +2980,9 @@ int main(int argc, char** argv) {
             window_y - (static_cast<float>(logical_height) - 600.0f) * 0.5f);
     };
 
+    const bool menu_hover_forced = !opt.menu_hover.empty();
+    const bool park_hover_forced = !opt.park_hover.empty();
+
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -2700,8 +2998,10 @@ int main(int argc, char** argv) {
                     const float off_y =
                         (static_cast<float>(logical_height) - 600.0f) * 0.5f;
                     if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                        menu.move(static_cast<int>(event.motion.x - off_x),
-                                  static_cast<int>(event.motion.y - off_y));
+                        if (!menu_hover_forced) {
+                            menu.move(static_cast<int>(event.motion.x - off_x),
+                                      static_cast<int>(event.motion.y - off_y));
+                        }
                     } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                                event.button.button == SDL_BUTTON_LEFT) {
                         menu.click(static_cast<int>(event.button.x - off_x),
@@ -2793,8 +3093,10 @@ int main(int argc, char** argv) {
                 if (park.loaded()) {
                     int dx = 0, dy = 0;
                     park_design(event.button.x, event.button.y, dx, dy);
-                    park_hover_x = dx;
-                    park_hover_y = dy;
+                    if (!park_hover_forced) {
+                        park_hover_x = dx;
+                        park_hover_y = dy;
+                    }
                     const int hit = park.overlay.hit_test(dx, dy);
                     std::string action;
                     if (park.click(dx, dy, action)) {
@@ -2830,8 +3132,10 @@ int main(int argc, char** argv) {
                 if (park.loaded()) {
                     int dx = 0, dy = 0;
                     park_design(event.motion.x, event.motion.y, dx, dy);
-                    park_hover_x = dx;
-                    park_hover_y = dy;
+                    if (!park_hover_forced) {
+                        park_hover_x = dx;
+                        park_hover_y = dy;
+                    }
                 }
                 if (!dragging) {
                     continue;
@@ -2877,6 +3181,23 @@ int main(int argc, char** argv) {
                 menu.loading = false;
                 menu.active = false;
                 start_screen = false;
+                if (!island_names.empty()) {
+                    const int island_index =
+                        std::clamp(menu.island, 0,
+                                   static_cast<int>(island_names.size()) - 1);
+                    const int difficulty = std::clamp(menu.difficulty, 0, 2);
+                    try {
+                        load_island(island_names[static_cast<std::size_t>(island_index)],
+                                    true);
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "island load: %s\n", e.what());
+                    }
+                    park_budget = free_game_budgets[difficulty];
+                    std::printf(
+                        "start: island=%s difficulty=%d budget=%d\n",
+                        island_names[static_cast<std::size_t>(island_index)].c_str(),
+                        difficulty, park_budget);
+                }
             }
         }
 

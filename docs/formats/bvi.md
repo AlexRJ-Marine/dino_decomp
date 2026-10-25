@@ -94,5 +94,8 @@ Tests: `tests/test_bvi.py` (FanMan values, 24-file scan, 624 mesh paths).
 ## Open
 
 - Meaning of the five preference weights (likely attraction categories).
+  Visitor AI (`docs/decomp/visitor-ai.md`) uses six global preference weights
+  (`0x522a10`, `DAT_00675638`); `.bvi` supplies five per-profile weights, so
+  the index mapping is still open.
 - Tail bytes (needs/rates).
 - How personality ids select visitor spawn probabilities.

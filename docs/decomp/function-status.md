@@ -57,6 +57,15 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00529120` | registers the park state classes `0..0x14` (lab, neutral, selections, construction, purchase, selling) | decompiled | same |
 | `0x00532590` | `CONSTRUCTION_MAIN` binder — kit/fence/predefined sub-buttons | decompiled, verified | same |
 | `0x0052bd10` | state construction helper `(id, name, ...)` | decompiled | same |
+| `0x0051b370` | `FREE_START_BUTTON` — validates island index, sets free-game mode/action 0, requests state 8 | decompiled, verified | `notes/ui-recon.md` ("Free Game start") |
+| `0x0051bb30` | difficulty setter — writes `Y+0x44` (0/1/2) | decompiled | same |
+| `0x00517e90` / `0x00517ef0` | `LOADING_PAGE` ctor / Activate — sets the start request; no loader | decompiled | same |
+| `0x00402460` | `daMainApplication::Update` — consumes start request, tears down the menu, calls new-game/load | decompiled | same |
+| `0x00403e10` | new-game start — park init + island load; free game calls `FUN_0051dad0` | decompiled, verified | `src/viewer/main.cpp` (`load_island`) |
+| `0x0051dad0` | builds `Data\Design\Landscape\<isl>\<isl>.lnd` and opens the park | decompiled, verified | same |
+| `0x00506530` | `gdtIslandDataBase` — reads `IslandList.ini` | decompiled, verified | `IslandList.ini`, 10 records |
+| `0x0055dab0` | free-game/campaign scenario setup (`FreeGame.ini`) | decompiled | same |
+| `0x00561bb0` | difficulty branch — budget/sell-back/visitor profile keys | decompiled | same |
 | `0x005c5bf0` | `moWidget::Draw` — self then child list (priority/insertion order) | decompiled | `notes/ui-recon.md` |
 | `0x005c5d60` | child draw thunk (`Draw` + `+0x3c`) | identified | same |
 | `0x005bae40` | widget manager add-child (priority-ordered list) | decompiled | same |
@@ -72,6 +81,30 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00401bfc` | CD-check branch patched for no-CD | verified | `docs/patches/no-cd.md` |
 | `0x00598bad` | `SetCurrentDirectoryA` helper | decompiled | save-path investigation |
 | `0x004160c0` | change working directory | decompiled | save-path investigation |
+| `0x00402bc0` | load-save wrapper (opens `save/`, calls load chain) | decompiled | `notes/save-graph-recon.md` |
+| `0x00403340` | save/autosave wrapper | decompiled | same |
+| `0x0051e6c0` | manager load chain: campaign → world → sim → AI → scenario | decompiled | same |
+| `0x0051e7e0` | manager save chain (same order) | decompiled | same |
+| `0x0053a140` | `pwdWorldManager` class table IDs `0x12`–`0x18` | decompiled | same |
+| `0x0053c560` | `pwdWorldManager` load | decompiled | same |
+| `0x0053c9d0` | `pwdWorldManager` save | decompiled | same |
+| `0x00558340` / `0x00558230` | show manager save/load (`0x2c`-byte records) | decompiled | same |
+| `0x00585240` | `spPark` load: budget at `+0x08` | decompiled | same |
+| `0x00585bd0` | park budget/setup setter (confirms `+0x08`) | decompiled | same |
+| `0x0058aed0` | `spSimuManager` state read (road, visitors, park, stores) | decompiled | same |
+| `0x0058ccc0` | road-network save/load (rectangles) | decompiled | same |
+| `0x00593a60` | dinosaur-store load (20 name/id/path/description records) | decompiled | same |
+| `0x00592060` / `0x00592a00` | visitor-model values + lab store (flags) | decompiled | same |
+| `0x0051f290` / `0x0051f400` | AI manager load/save (5 lists, 17-byte entries) | decompiled | same |
+| `0x005e5b80` / `0x005e5ba0` | camera-switcher load/save (10 floats) | decompiled | same |
+| `0x005e5920` / `0x005e5940` | scenario-manager load/save wrapper | decompiled | same |
+| `0x00585c00` / `0x00585c40` | park budget subtract / generic income | decompiled | `docs/decomp/economy.md` |
+| `0x00585cc0` / `0x00585cf0` / `0x00585d20` | park expense category setters | decompiled | same |
+| `0x00585d50` / `0x00585d80` | attraction / per-category shop expenses | decompiled | same |
+| `0x00585de0` | ticket income (visitor entry) | decompiled | same |
+| `0x00585e10` | daily counter roll-up and bankruptcy flags | decompiled | same |
+| `0x0058ad00` | daily economy settlement | decompiled | same |
+| `0x005e8e30`…`0x005e8f80` | world serializer classes `0x12`–`0x18` | decompiled | same |
 
 ## Scheduler / simulation / AI (DEC-2)
 
@@ -91,8 +124,24 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005213f0` | behavior event callback; state 1 → 2 on target match | decompiled | same |
 | `0x00521760` / `0x00521790` | stop action / write target cell and insert path record | decompiled | same |
 | `0x0051fa10` / `0x0051f8d0` | dinosaur notify/attack and forced target reactions | decompiled | same |
+| `0x005f6fb0` | linear integer-vector `find` (begin, end, &value) | decompiled | same; not a visibility test |
+| `0x00522820` | `apVisitorBehavior::Update` — action dispatcher | decompiled | `docs/decomp/visitor-ai.md` |
+| `0x00522940` | visitor state transitions (choose/travel/use/leave) | decompiled | same |
+| `0x00522a10` | visitor attraction scoring | decompiled | same |
+| `0x00522ff0` | show schedule/arrival check | decompiled | same |
+| `0x00521490` | visitor path following | decompiled | same |
+| `0x00522cb0` | path obstacle avoidance / reroute | decompiled | same |
+| `0x005219f0` / `0x00522f30` | attraction use and timer | decompiled | same |
+| `0x00521df0` | per-visitor movement tick | decompiled | same |
+| `0x005220e0` | `apEmployeeBehavior::Update` — job dispatcher | decompiled | `docs/decomp/employee-ai.md` |
+| `0x005224c0` | employee job-queue pop / target selection | decompiled | same |
+| `0x00522390` | employee kind-0xb work animation | decompiled | same |
+| `0x00522300` | employee state transitions | decompiled | same |
+| `0x00594b80` | `spScheduleManager` constructor | decompiled | same |
+| `0x0053e060` | `actionlist.ini` loader; action IDs 0..63 | decompiled | `docs/decomp/dinosaur-actions.md` |
+| `0x005727b0` | `saDinosaur::ApplyActionEffect(action_id, …)` | decompiled | same |
 | `0x00571540` | `saDinosaur::Update` — need decay and action countdown | decompiled | same |
-| `0x00571190` | advance/complete the current need action | decompiled | same |
+| `0x00571190` | action completion switch on `+0xb0` | decompiled | same |
 | `0x005725e0` / `0x00571370` / `0x00571410` | 5 s and 10 s need passes | decompiled | same |
 
 ## C++ reimplementations
@@ -111,6 +160,7 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
 | `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
 | park HUD panel switching | `src/ui/park.cpp` | reimplemented, 12 HUD buttons + info pages + lab centres |
+| menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items
@@ -120,6 +170,7 @@ hooked into the original exe (Phase 3 `HYB-1`).
   fields — UI-2 Phase C rest.
 - Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
   panel — UI-2 Phase D.
-- Semantic names for the dinosaur need slots and the `0x2c0` action indices
-  (DEC-2 follow-up).
-- `.wld` save format — DEC-3.
+- Semantic names for the two dinosaur need gauges and the `0x1f` idle sentinel
+  (DEC-2 follow-up); action IDs are solved in `docs/decomp/dinosaur-actions.md`.
+- `.sav` world object lists, the AI/scenario tail, and populated lab records —
+  DEC-3 follow-up.

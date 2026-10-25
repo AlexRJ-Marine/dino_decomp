@@ -162,8 +162,9 @@ Order inside one update:
    - for each sim actor `a` with behavior `b = a+0x270`:
      - if `b.state == 1` and `b[200] != b[0xcc]`:
        `0x0051fa10(b, a, dt)` — notify/attack nearby actors.
-     - if `b[0xb8] != b[0xbc]`: scan scene actors, use `0x005f6fb0` as a
-       filter/visibility test, and call `0x00521d80(a, b, target)` when hit.
+     - if `b[0xb8] != b[0xbc]`: scan scene actors and call `0x005f6fb0`
+       (`std::find` on an int vector) to test whether the target is already
+       known; when absent, call `0x00521d80(a, b, target)` to react.
 2. **Generic actor update**
    - for each actor in `+0x24`: virtual `vtable[+0xc](dt)`.
 3. Clear the one-frame `actor+0x4f9` flag for each scene actor.
@@ -322,8 +323,9 @@ There is no priority or dependency graph; insertion order is the contract.
 - Which exact task subset `0x00507490` disables when the game is paused.
 - The `0x00589cd0` sub-functions `0x0058a970`, `0x00585c80`, `0x0058dfc0`,
   `0x00594d00` are ordered but not individually decoded.
-- `0x005f6fb0` is used as a target filter in both dinosaur and visitor
-  perception; its contract (distance/visibility/LOS) is still open.
+- `0x005f6fb0` is a generic linear `std::find` over an int vector (begin,
+  end, &value; returns end if absent), used to test whether a target is
+  already in a reaction list. It is not a distance or visibility test.
 - Confirmation by a runtime trace (breakpoints on 0x00507050 callbacks) is
   still desirable.
 

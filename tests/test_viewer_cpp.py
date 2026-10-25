@@ -861,3 +861,57 @@ def test_cpp_park_hover_shot(tmp_path):
     changed = ImageChops.difference(a.crop(box), b.crop(box)).getbbox()
     assert changed is not None
     assert (changed[2] - changed[0]) * (changed[3] - changed[1]) > 100
+
+def test_cpp_island_list_and_free_game_budgets():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--asset-root", str(GAME), "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "islands: 10 isl01..isl10" in result.stdout
+    assert "free game budgets: 75000/50000/25000" in result.stdout
+
+
+def _menu_start(shot, row, difficulty):
+    # ISLAND_LIST is 188x285 at 175,166 -> 28-px rows; difficulty buttons are
+    # 52 px wide at x = 494/568/642, y = 451.
+    island_y = 166 + row * 28 + 14
+    difficulty_x = 494 + difficulty * 74
+    return subprocess.run(
+        [str(EXE), "--frames", "4", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--no-hud", "--asset-root", str(GAME),
+         "--menu-page", "1",
+         "--menu-click", f"200,{island_y}",
+         "--menu-click", f"{difficulty_x},451",
+         "--menu-click", "526,531",
+         "--menu-loading-time", "0"],
+        capture_output=True, text=True, timeout=180,
+    )
+
+
+def test_cpp_menu_start_loads_selected_island(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    first = tmp_path / "isl01.bmp"
+    result = _menu_start(first, row=0, difficulty=0)
+    assert result.returncode == 0, result.stderr
+    assert "island: isl01" in result.stdout
+    assert "start: island=isl01 difficulty=0 budget=75000" in result.stdout
+    image = Image.open(first).convert("RGB")
+    assert image.size == (800, 600)
+    # The park HUD (not just the terrain) is present after the handoff.
+    assert len(image.crop((707, 0, 800, 417)).getcolors(maxcolors=1_000_000)) > 200
+    assert len(image.crop((69, 569, 687, 600)).getcolors(maxcolors=1_000_000)) > 100
+
+    last = tmp_path / "isl10.bmp"
+    result = _menu_start(last, row=9, difficulty=2)
+    assert result.returncode == 0, result.stderr
+    assert "island: isl10" in result.stdout
+    assert "start: island=isl10 difficulty=2 budget=25000" in result.stdout
+    a = Image.open(first).convert("RGB")
+    b = Image.open(last).convert("RGB")
+    # Different island: the rendered scene must change.
+    assert ImageChops.difference(a, b).getbbox() is not None

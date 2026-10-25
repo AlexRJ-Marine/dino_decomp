@@ -115,6 +115,12 @@ appears in the state, so some fields are unset/padding.
 The writer/reader of the state graph has **not** been decompiled yet; the
 class table registration is the place to start.
 
+> Update 2026-10-25: this has now been decompiled. The manager order, world
+> serializer class IDs `0x12`–`0x18`, and the simulation-state prefix are in
+> `notes/save-graph-recon.md`; the parser is `tools/formats/sav_graph.py`.
+> The real budgets are 75,125 (manual) and 75,000 (auto). The world object
+> contents, AI/scenario tail, and populated lab records remain open.
+
 ## Tooling
 
 `tools/formats/sav.py` parses the header + catalog and exposes the state blob:

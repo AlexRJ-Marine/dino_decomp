@@ -176,3 +176,26 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   names resolve (Security button missing). Header suggests footprint w0 x w1
   and cost w5. Reader `tools/formats/bbi.py`, spec `docs/formats/bbi.md`,
   tests `test_bbi.py`.
+- `.bsi` food sources: 10 files (Flower..Cow) with a 29-byte header
+  (nutrition, quantity, price, kind id), four food/part meshes + texture dir,
+  a feeder ``feed_*.mesh`` and a ``FOOD_DISTRIBUTION_*_BUTTON``. All assets
+  and buttons resolve. Reader `tools/formats/bsi.py`, spec
+  `docs/formats/bsi.md`, tests `test_bsi.py`.
+- `.bni` animals (5) and `.bei` employees (2) share an actor-profile layout:
+  fixed header + interleaved numeric/string body. Animals: size, food value,
+  quantity, food kind (matches `.bsi`), meshes + texture. Employees: kind,
+  height 1.7, walk/action speed, meshes, textures, sounds. All 42 mesh paths
+  exist. Readers in `tools/formats/actors.py`, specs `docs/formats/bni.md`,
+  `bei.md`, tests `test_actors.py`.
+- `.seq` animation events: 5 FX + 5 Sound files (one per family). Common
+  42-47-string table of sounds/particles/bones; FX events are 6 bytes
+  (frame/30, type, string index), Sound events 16 bytes (type|string, flags,
+  time, value). 1,304 events, exact byte sizes. Reader
+  `tools/formats/seq.py`, spec `docs/formats/seq.md`, tests `test_seq.py`.
+- Campaign layer: `CampaignList.ini` (7), `CampaignBase.ini`,
+  `CpgNN.ini` (island, mission list, WorldFile, budget),
+  `MissionList.ini`, `MissionBase.ini`, 39 mission files with 89 objective
+  commands (28 verbs). All 206 loc IDs resolve. The 8 `CpgNN_Save.wld`
+  initial worlds share the `.sav` serializer; Cpg07 is unlisted cut content.
+  Reader `tools/formats/campaign.py`, spec `docs/formats/campaign.md`, tests
+  `test_campaign.py`.

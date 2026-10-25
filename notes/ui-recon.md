@@ -625,3 +625,46 @@ Consequences:
 Evidence: decompiled handlers above; `FUN_00529120` registers the state
 ctors; state table from `FUN_0052bd10(id, name, ...)` calls. The C++ table is
 `kOpeners` / `kClosers` / `kLabTabs` in `src/ui/park.cpp`.
+
+## Free Game start -> park handoff
+
+The menu never loads the island itself; the loading page is only a cover
+frame. Recovered chain:
+
+1. `FREE_START_BUTTON` handler `0x0051b370`:
+   - requires `page+0x40 >= 0` (selected island; the page ctor initialises it
+     to -1 and `ISLAND_LIST` updates it through `0x0051b8a0`);
+   - writes the game context `Y+0x40 = 0` (free-game mode) and
+     `Y+0x24 = 999` (no campaign);
+   - writes controller action `0` and requests menu state `8`;
+   - plays `clicDefault` and calls the page Deactivate.
+   It does **not** read difficulty.
+2. Difficulty buttons call `0x0051bb30(page, 0/1/2)`, which writes `Y+0x44`.
+3. `LOADING_PAGE` (`FUN_00517e90`, vtable `0x6428d4`): Activate `0x517ef0`
+   sets `controller+0x10 = 1` (start request); Update `0x51c580` is an empty
+   stub. There is no loader call in the page.
+4. `daMainApplication` update `0x402460` consumes the request, destroys the
+   menu interface and calls `0x00403e10` (new game) or `0x00402f10` (load).
+5. `FUN_00403e10` for free game calls `FUN_0051d1d0` (park init) and
+   `FUN_0051dad0(record+0xc, 1)`.
+6. `FUN_0051dad0` builds `Data\Design\Landscape\<name>\<name>.lnd`; `<name>`
+   comes from `IslandList.ini` (`0x65ea4c`, read by `FUN_00506530`), whose
+   order is `isl01..isl10`. Everything else (basemap, heightmap, skybox,
+   water, occupation, music, 25 vegetation `.imp` slots) is inside the
+   `.lnd`.
+7. Free-game scenario `Data/Design/Scenario/FreeGame.ini` (`FUN_0055dab0`),
+   difficulty at `scenario+0x50` (`FUN_00561bb0`):
+   - easy: `Budget=75000`, `SellBackFactor=1.0`, `VisProfiles`;
+   - middle: `BudgetMedium=50000`, `SellBackFactorMedium=0.5`,
+     `VisProfilesMedium`;
+   - hard: `BudgetHard=25000`, `SellBackFactorHard=0.2`, `VisProfilesHard`.
+   DINOSTORE and LABORATORY are not difficulty-suffixed.
+
+Port mapping: `src/viewer/main.cpp` reads `IslandList.ini` and the three
+budgets; on the loading timer expiry it calls `load_island(name)`, which
+rebuilds terrain/vegetation/basemap/sky/water and the GPU resources, sets the
+HUD budget and recentres the camera. `--menu-click` sequences exercise the
+same path as the retail screens.
+
+Open: the original park camera's initial position is not yet recovered; the
+port still uses its orbit auto-framing (`bounds.extent() * 1.7`).
