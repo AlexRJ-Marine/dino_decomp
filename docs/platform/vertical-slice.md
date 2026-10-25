@@ -71,8 +71,8 @@ skin` reproduces the crouched bind for comparison. Details and evidence:
 | Placed objects with textures | done (1,536 trees, 9 draw batches) |
 | Skinned dinosaur animation | done (`HeavyBiped_Walk`/`Neutral`/`Run`) |
 | Player moves the camera | orbit + free-fly done |
-| Place a path/fence | not started (SIM-1) |
-| 10 minutes without crashing | pending a long-run test |
+| Place a path/fence | done (SIM-1: grid, ray-pick, undo, save/load) |
+| 10 minutes without crashing | done: 60,000 frames at ~100 FPS, 134.1 MB flat |
 
 ## Evidence
 

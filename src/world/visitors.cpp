@@ -26,13 +26,17 @@ struct Rng {
 };
 
 float cell_center_x(const BuildGrid& grid, int x) {
-    const float half = grid.cell_size * static_cast<float>(grid.width) * 0.5f;
-    return -half + (static_cast<float>(x) + 0.5f) * grid.cell_size;
+    return grid.origin_x + (static_cast<float>(x) + 0.5f) * grid.cell_size;
 }
 
 float cell_center_y(const BuildGrid& grid, int y) {
-    const float half = grid.cell_size * static_cast<float>(grid.width) * 0.5f;
-    return -half + (static_cast<float>(y) + 0.5f) * grid.cell_size;
+    return grid.origin_y + (static_cast<float>(y) + 0.5f) * grid.cell_size;
+}
+
+unsigned visitor_seed(int x, int y, std::size_t count) {
+    return static_cast<unsigned>(x) * 73856093u ^
+           static_cast<unsigned>(y) * 19349663u ^
+           static_cast<unsigned>(count);
 }
 
 void choose_target(Visitor& visitor, const BuildGrid& grid, Rng& rng) {
@@ -118,9 +122,8 @@ void VisitorSystem::update(const BuildGrid& grid, const Terrain& terrain,
     for (Visitor& visitor : visitors) {
         if (visitor.target_x == visitor.cell_x &&
             visitor.target_y == visitor.cell_y) {
-            Rng rng(static_cast<unsigned>(visitor.cell_x * 73856093 ^
-                                          visitor.cell_y * 19349663 ^
-                                          static_cast<unsigned>(visitors.size())));
+            Rng rng(visitor_seed(visitor.cell_x, visitor.cell_y,
+                                 visitors.size()));
             choose_target(visitor, grid, rng);
             if (visitor.target_x == visitor.cell_x &&
                 visitor.target_y == visitor.cell_y) {
@@ -139,9 +142,8 @@ void VisitorSystem::update(const BuildGrid& grid, const Terrain& terrain,
             visitor.prev_y = visitor.cell_y;
             visitor.cell_x = visitor.target_x;
             visitor.cell_y = visitor.target_y;
-            Rng rng(static_cast<unsigned>(visitor.cell_x * 73856093 ^
-                                          visitor.cell_y * 19349663 ^
-                                          static_cast<unsigned>(visitors.size())));
+            Rng rng(visitor_seed(visitor.cell_x, visitor.cell_y,
+                                 visitors.size()));
             choose_target(visitor, grid, rng);
             const float nx = cell_center_x(grid, visitor.target_x);
             const float ny = cell_center_y(grid, visitor.target_y);

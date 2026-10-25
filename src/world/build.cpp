@@ -45,6 +45,8 @@ void BuildGrid::init(float new_cell_size, float world_size) {
     cell_size = new_cell_size > 0.0f ? new_cell_size : 4.0f;
     width = static_cast<int>(std::ceil(world_size / cell_size));
     height = width;
+    origin_x = -world_size * 0.5f;
+    origin_y = -world_size * 0.5f;
     path.assign(static_cast<std::size_t>(width) * height, 0);
     fences.assign(static_cast<std::size_t>(width) * height, 0);
     undo_stack.clear();
@@ -120,9 +122,8 @@ bool BuildGrid::undo() {
 }
 
 bool BuildGrid::cells_for_world(float wx, float wy, int& x, int& y) const {
-    const float half = cell_size * static_cast<float>(width) * 0.5f;
-    const float gx = (wx + half) / cell_size;
-    const float gy = (wy + half) / cell_size;
+    const float gx = (wx - origin_x) / cell_size;
+    const float gy = (wy - origin_y) / cell_size;
     if (gx < 0.0f || gy < 0.0f) {
         return false;
     }
@@ -137,7 +138,6 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     if (grid.width <= 0 || grid.height <= 0 || terrain.world_size <= 0.0f) {
         return out;
     }
-    const float half = terrain.world_size * 0.5f;
     const float cs = grid.cell_size;
 
     out.paths.name = "build_paths";
@@ -151,8 +151,8 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
             if (!grid.path_at(x, y)) {
                 continue;
             }
-            const float x0 = -half + static_cast<float>(x) * cs;
-            const float y0 = -half + static_cast<float>(y) * cs;
+            const float x0 = grid.origin_x + static_cast<float>(x) * cs;
+            const float y0 = grid.origin_y + static_cast<float>(y) * cs;
             const float x1 = x0 + cs;
             const float y1 = y0 + cs;
             const auto base = static_cast<std::uint32_t>(out.paths.positions.size());
@@ -210,8 +210,8 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
                 if (!grid.fence_at(x, y, edge)) {
                     continue;
                 }
-                const float x0 = -half + static_cast<float>(x) * cs;
-                const float y0 = -half + static_cast<float>(y) * cs;
+                const float x0 = grid.origin_x + static_cast<float>(x) * cs;
+                const float y0 = grid.origin_y + static_cast<float>(y) * cs;
                 float cx = x0 + cs * 0.5f;
                 float cy = y0 + cs * 0.5f;
                 float angle = 0.0f;
@@ -254,42 +254,51 @@ void save_build(const BuildGrid& grid, const std::string& path) {
     }
 }
 
-void load_build(BuildGrid& grid, const std::string& path) {
+void load_build(BuildGrid& grid, const std::string& path, float world_size) {
     std::ifstream in(path);
     if (!in) {
         throw std::runtime_error("cannot read build file " + path);
     }
+    std::vector<std::string> lines;
     std::string line;
-    bool initialised = false;
     while (std::getline(in, line)) {
-        std::istringstream parts(line);
+        lines.push_back(line);
+    }
+
+    float cell_size = 4.0f;
+    int stored_width = 0;
+    int stored_height = 0;
+    for (const auto& text : lines) {
+        std::istringstream parts(text);
         std::string key;
         parts >> key;
-        if (key.empty() || key[0] == '#') {
-            continue;
-        }
         if (key == "cell_size") {
-            float cs = 4.0f;
-            parts >> cs;
-            grid.cell_size = cs;
+            parts >> cell_size;
         } else if (key == "size") {
-            int w = 0, h = 0;
-            parts >> w >> h;
-            const float world = static_cast<float>(std::max(w, h)) * grid.cell_size;
-            grid.init(grid.cell_size, world);
-            initialised = true;
-        } else if (key == "path") {
+            parts >> stored_width >> stored_height;
+        }
+    }
+    if (stored_width <= 0 || stored_height <= 0) {
+        throw std::runtime_error("build file has no grid size: " + path);
+    }
+    grid.init(cell_size, world_size);
+    if (stored_width != grid.width || stored_height != grid.height) {
+        throw std::runtime_error("build grid size does not match the terrain: " +
+                                 path);
+    }
+
+    for (const auto& text : lines) {
+        std::istringstream parts(text);
+        std::string key;
+        parts >> key;
+        if (key == "path") {
             int x = 0, y = 0;
             parts >> x >> y;
-            if (initialised) {
-                grid.set_path(x, y, true);
-            }
+            grid.set_path(x, y, true);
         } else if (key == "fence") {
             int x = 0, y = 0, edge = 0;
             parts >> x >> y >> edge;
-            if (initialised) {
-                grid.set_fence(x, y, edge, true);
-            }
+            grid.set_fence(x, y, edge, true);
         }
     }
     grid.undo_stack.clear();

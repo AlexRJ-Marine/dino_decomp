@@ -26,7 +26,7 @@ All 60 dinosaur skins (20 dinosaurs × 3 LODs) use this scheme, always with
   - `FUN_00477b50` is the `mgVMeshXMdl` header reader; class vtable `0x626aac`.
   - `FUN_00477f30` (vtable slot `+0x10`) reads the block count and an array
     of 0xB8-byte block records.
-  - `FUN_004472240` is the per-block reader: name, vertices, indices, UVs,
+  - `FUN_00472240` is the per-block reader: name, vertices, indices, UVs,
     normals, colors, materials.
   - `FUN_0047d460` reads the `u16` per-triangle array.
   - `FUN_0047d880` reads the skin bone records: name, vertex-index vector,

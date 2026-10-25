@@ -20,7 +20,7 @@ disabled. `--skybox DIR` overrides the directory.
 - Level: the `.lnd` float (16.0 on isl01) by default; `--water-level N`
   overrides, `--no-water` disables.
 - Texture: the first `.lnd` water path (`Water.tga`, 256×256), repeat-wrapped,
-  tiled 48× across a 6144-unit plane so it reaches the skybox horizon.
+  tiled 48× across a plane with a 6144-unit half-extent (12,288 units across) so it reaches the skybox horizon.
 - Drawn after the terrain with alpha 0.78 and depth writes off, so the
   shoreline shows through.
 

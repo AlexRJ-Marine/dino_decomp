@@ -149,6 +149,14 @@ def test_cpp_island_dino_window(tmp_path):
     assert shot.exists()
     assert Image.open(shot).size == (480, 320)
     assert "spawn: x=512.0 y=512.0" in result.stdout
+    image = Image.open(shot).convert("RGB")
+    bg = image.getpixel((0, 0))
+    data = image.tobytes()
+    foreground = sum(
+        1 for i in range(0, len(data), 3)
+        if abs(data[i] - bg[0]) + abs(data[i + 1] - bg[1]) + abs(data[i + 2] - bg[2]) > 20
+    )
+    assert foreground > 3000
 
 
 def test_cpp_free_camera_start(tmp_path):
@@ -231,7 +239,7 @@ def test_cpp_pick_terrain(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "pick: " in result.stdout
-    assert "cell " in result.stdout
+    assert "cell 126 126" in result.stdout
     assert shot.exists()
 
 

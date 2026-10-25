@@ -177,12 +177,12 @@ Updated: 2026-10-25
   - Evidence: `docs/platform/build.md`, `src/world/build.cpp`,
     `notes/build-preview.png`, `notes/build-preview2.png`,
     `tests/test_viewer_cpp.py`.
-- WORLD-3 complete: skybox + water.
+- WORLD-3 implemented (side-by-side comparison pending): skybox + water.
   - Six 128×128 PNG skybox faces via vendored `stb_image`; unlit cube drawn
     before the terrain (`src/third_party/stb_image.h`,
     `src/formats/image.cpp`).
   - Tiled `Water.tga` plane at the `.lnd` float level (16.0), alpha 0.78,
-    repeat wrap, extending to the skybox horizon.
+    repeat wrap, 6144-unit half-extent.
   - Evidence: `docs/platform/environment.md`, `notes/world3-sky2.png`,
     `notes/world3-hero.png`, `notes/world3-up.png`,
     `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
@@ -196,6 +196,11 @@ Updated: 2026-10-25
   - Random-neighbour cell walk at 1.6 u/s, fixed seed, one combined mesh.
   - Evidence: `docs/platform/visitors.md`, `src/world/visitors.cpp`,
     `notes/visitors.png`, `tests/test_viewer_cpp.py`.
+- Reviewer fixes applied: free-fly strafe direction, unsigned visitor RNG seed,
+  water drawn after opaque actors, unified grid origin for non-divisor cell
+  sizes, initial pitch/distance clamps, shader leak on failed compile,
+  high-DPI picking uses logical window size, exact pick-cell and dino-visible
+  test assertions.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.

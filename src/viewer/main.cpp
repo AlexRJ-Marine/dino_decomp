@@ -364,6 +364,10 @@ Options parse_args(int argc, char** argv) {
         std::fprintf(stderr, "window must be at least 64x64\n");
         std::exit(2);
     }
+    opt.pitch = std::clamp(opt.pitch, -89.0f, 89.0f);
+    if (opt.distance > 0.0f) {
+        opt.distance = std::clamp(opt.distance, 1.0f, 10000.0f);
+    }
     return opt;
 }
 
@@ -578,6 +582,12 @@ void main() {
     const GLuint vs = compile_shader(GL_VERTEX_SHADER, kVertex, gl);
     const GLuint fs = compile_shader(GL_FRAGMENT_SHADER, kFragment, gl);
     if (!vs || !fs) {
+        if (vs) {
+            gl.DeleteShader(vs);
+        }
+        if (fs) {
+            gl.DeleteShader(fs);
+        }
         return 0;
     }
     const GLuint program = gl.CreateProgram();
@@ -1144,7 +1154,7 @@ int main(int argc, char** argv) {
             if (opt.build_mode) {
                 build_grid.init(opt.build_cell, terrain.world_size);
                 if (!opt.build_load_path.empty()) {
-                    dino::load_build(build_grid, opt.build_load_path);
+                    dino::load_build(build_grid, opt.build_load_path, terrain.world_size);
                 }
                 for (const auto& value : opt.place_paths) {
                     int x = 0, y = 0, edge = 0;
@@ -1658,17 +1668,18 @@ int main(int argc, char** argv) {
         if (fence_gpu.vao != 0) {
             extra_items.push_back({&fence_gpu, fence_texture});
         }
-        if (water_gpu.vao != 0) {
-            extra_items.push_back({&water_gpu, water_texture, 0.78f});
-        }
         if (visitor_gpu.vao != 0) {
             extra_items.push_back({&visitor_gpu, visitor_texture_id});
         }
         if (dino_gpu.vao != 0) {
+            extra_items.push_back({&dino_gpu, dino_texture});
             if (shadow_gpu.vao != 0) {
                 extra_items.push_back({&shadow_gpu, 0, 0.35f});
             }
-            extra_items.push_back({&dino_gpu, dino_texture});
+        }
+        // Transparent pass: water last so it blends over all opaque actors.
+        if (water_gpu.vao != 0) {
+            extra_items.push_back({&water_gpu, water_texture, 0.78f});
         }
     };
     rebuild_extra_items();
@@ -1742,6 +1753,8 @@ int main(int argc, char** argv) {
     double elapsed = 0.0;
     int width = opt.width;
     int height = opt.height;
+    int logical_width = opt.width;
+    int logical_height = opt.height;
 
     while (running) {
         SDL_Event event;
@@ -1840,6 +1853,7 @@ int main(int argc, char** argv) {
         }
 
         SDL_GetWindowSizeInPixels(window, &width, &height);
+        SDL_GetWindowSize(window, &logical_width, &logical_height);
         if (width <= 0 || height <= 0) {
             SDL_Delay(10);
             continue;
@@ -1862,7 +1876,7 @@ int main(int argc, char** argv) {
             const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
                                      std::cos(pitch_rad) * std::sin(yaw_rad),
                                      std::sin(pitch_rad)};
-            const dino::Vec3 right{-std::sin(yaw_rad), std::cos(yaw_rad), 0.0f};
+            const dino::Vec3 right{std::sin(yaw_rad), -std::cos(yaw_rad), 0.0f};
             const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
             const float step = speed * static_cast<float>(dt);
             if (held(dino::KeyAction::MoveForward)) {
@@ -1969,7 +1983,7 @@ int main(int argc, char** argv) {
             pending_click = false;
             if (build_ready && build_tool != 0) {                dino::Vec3 hit;
                 if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                                 width, height, hit)) {
+                                 logical_width, logical_height, hit)) {
                     int cx = 0;
                     int cy = 0;
                     if (build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
@@ -1978,9 +1992,8 @@ int main(int argc, char** argv) {
                             build_grid.set_path(cx, cy, !build_grid.path_at(cx, cy));
                         } else {
                             const float cs = build_grid.cell_size;
-                            const float half = terrain.world_size * 0.5f;
-                            const float x0 = -half + static_cast<float>(cx) * cs;
-                            const float y0 = -half + static_cast<float>(cy) * cs;
+                            const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
+                            const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
                             float best = 1e30f;
                             int ex = cx;
                             int ey = cy;
@@ -1996,9 +2009,7 @@ int main(int argc, char** argv) {
                             if (cx > 0) {
                                 consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
                             }
-                            if (cx + 1 < build_grid.width) {
-                                consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
-                            }
+                            consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
                             consider(std::fabs(hit.y - y0), cx, cy, 0);
                             if (cy + 1 < build_grid.height) {
                                 consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
@@ -2020,11 +2031,13 @@ int main(int argc, char** argv) {
             if (std::sscanf(opt.pick_test.c_str(), "%d,%d", &mx, &my) == 2) {
                 dino::Vec3 hit;
                 if (pick_terrain(terrain, eye, view_center, static_cast<float>(mx),
-                                 static_cast<float>(my), width, height, hit)) {
-                    const float half = terrain.world_size * 0.5f;
+                                 static_cast<float>(my), logical_width,
+                                 logical_height, hit)) {
                     const float cs = build_ready ? build_grid.cell_size : 4.0f;
-                    const int cx = static_cast<int>(std::floor((hit.x + half) / cs));
-                    const int cy = static_cast<int>(std::floor((hit.y + half) / cs));
+                    const float origin = build_ready ? build_grid.origin_x
+                                                     : -terrain.world_size * 0.5f;
+                    const int cx = static_cast<int>(std::floor((hit.x - origin) / cs));
+                    const int cy = static_cast<int>(std::floor((hit.y - origin) / cs));
                     std::printf("pick: %.2f %.2f %.2f cell %d %d\n", hit.x, hit.y,
                                 hit.z, cx, cy);
                 } else {

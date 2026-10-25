@@ -23,6 +23,8 @@ struct BuildGrid {
     };
 
     float cell_size = 4.0f;
+    float origin_x = 0.0f;
+    float origin_y = 0.0f;
     int width = 0;
     int height = 0;
     std::vector<std::uint8_t> path;
@@ -55,6 +57,6 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
                                    const Mesh& fence_source);
 
 void save_build(const BuildGrid& grid, const std::string& path);
-void load_build(BuildGrid& grid, const std::string& path);
+void load_build(BuildGrid& grid, const std::string& path, float world_size);
 
 }  // namespace dino

@@ -37,8 +37,10 @@ cell edge (west/east/south/north) and toggles its canonical edge.
   `Data/Graphics/Textures/buildings/ground.tga` (default).
 - Fence segments instance the retail paddock fence
   `Data/Graphics/paddock/fences/fence_paddock_lod1.mesh`, scaled so one
-  segment spans one cell, and textured from the mesh material
-  (`laser2.tga` under `Textures/buildings`).
+  segment spans one cell. The mesh has two materials
+  (`fence_paddock.tga` 27/35 triangles, `laser2.tga` 8 triangles); the port
+  currently draws all triangles with material 0 (`fence_paddock.tga`) because
+  per-triangle material splitting is not implemented yet.
 - Both are baked into one mesh per type and rebuilt only when placement
   changes.
 
@@ -86,5 +88,6 @@ build: cell 4.0, grid 256x256, 2 path cells, 1 fences; mesh 2 tiles, 1 segments
 - Validation rules: block steep slopes, water, buildings, dinosaur pens.
 - Costs/limits and a HUD (needs the overlay/UI layer).
 - Path connectivity / visitors (SIM-2).
+- Per-triangle fence material split (material 1 is `laser2.tga`, 8 triangles).
 - The paddock fence is 8.8 m tall; other wall types (`.bwi`: LowWood,
   HighSteel, …) need their own mesh generation.
