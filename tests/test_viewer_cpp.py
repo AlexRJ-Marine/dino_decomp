@@ -21,7 +21,8 @@ def test_viewer_window_smoke(tmp_path):
     shot = tmp_path / "window.bmp"
     result = subprocess.run(
         [str(EXE), "--frames", "2", "--screenshot", str(shot),
-         "--width", "320", "--height", "240", "--no-vsync"],
+         "--width", "320", "--height", "240", "--no-vsync",
+         "--no-save-config"],
         capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stderr
@@ -55,7 +56,7 @@ def test_cpp_mesh_window(tmp_path):
     shot = tmp_path / "allo.bmp"
     result = subprocess.run(
         [str(EXE), "--frames", "2", "--screenshot", str(shot),
-         "--width", "400", "--height", "300", "--no-vsync",
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
          "--mesh", str(ALLO_MESH), "--texture", str(ALLO_TEX)],
         capture_output=True, text=True, timeout=60,
     )
@@ -107,7 +108,8 @@ def test_cpp_skinned_window(tmp_path):
     shot = tmp_path / "skin.bmp"
     result = subprocess.run(
         [str(EXE), "--frames", "2", "--screenshot", str(shot),
-         "--width", "400", "--height", "300", "--no-vsync", "--time", "1600",
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
+         "--time", "1600",
          "--distance", "16", *_skinned_args()],
         capture_output=True, text=True, timeout=60,
     )
@@ -133,10 +135,51 @@ def test_cpp_frame_capture(tmp_path):
     result = subprocess.run(
         [str(EXE), "--frames", "3", "--capture-dir", str(out_dir),
          "--capture-prefix", "test", "--width", "200", "--height", "150",
-         "--no-vsync", "--distance", "16", *_skinned_args()],
+         "--no-vsync", "--no-save-config", "--distance", "16", *_skinned_args()],
         capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stderr
     frames = sorted(out_dir.glob("test_*.bmp"))
     assert len(frames) == 3
     assert Image.open(frames[0]).size == (200, 150)
+
+
+def test_cpp_config_persist(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    cfg = tmp_path / "viewer.cfg"
+    first = tmp_path / "first.bmp"
+    result = subprocess.run(
+        [str(EXE), "--config", str(cfg), "--width", "400", "--height", "300",
+         "--frames", "2", "--screenshot", str(first), "--no-vsync"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    text = cfg.read_text()
+    assert "width=400" in text and "height=300" in text
+    second = tmp_path / "second.bmp"
+    result = subprocess.run(
+        [str(EXE), "--config", str(cfg), "--frames", "2",
+         "--screenshot", str(second), "--no-vsync", "--no-save-config"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert Image.open(second).size == (400, 300)
+
+
+def test_cpp_widescreen_and_4x3(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    wide = tmp_path / "wide.bmp"
+    tall = tmp_path / "tall.bmp"
+    for out, width, height in ((wide, 480, 270), (tall, 480, 360)):
+        result = subprocess.run(
+            [str(EXE), "--frames", "2", "--screenshot", str(out),
+             "--width", str(width), "--height", str(height),
+             "--no-vsync", "--no-save-config", "--borderless"],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        assert Image.open(out).size == (width, height)
+    assert Image.open(wide).size[0] / Image.open(wide).size[1] > 1.7
+    assert Image.open(tall).size[0] / Image.open(tall).size[1] < 1.4

@@ -32,7 +32,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 57 tests pass.
+  `dino_tools.exe`, and all 59 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -115,6 +115,13 @@ Updated: 2026-10-25
   - Evidence: `src/formats/{skel,skin,anim}.cpp`, `src/viewer/main.cpp`,
     `tests/test_viewer_cpp.py`, `notes/viewer-anim-1600.png`,
     `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
+- QOL-1 complete: window modes + persistence.
+  - Windowed/fullscreen/borderless, F10/F11 toggles.
+  - `dino_viewer.cfg` persists size/mode/vsync; CLI overrides;
+    `--config`, `--no-save-config`.
+  - Widescreen framing uses actual drawable size and fixed vertical FOV.
+  - Evidence: `docs/platform/qol.md`, `tests/test_viewer_cpp.py`,
+    `notes/qol-16x9.png`, `notes/qol-4x3.png`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -157,20 +164,20 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 2 QoL: QOL-1 resolution/widescreen/borderless, then QOL-2 UI scaling
-  and QOL-3 key rebinding.
+- Phase 2 QoL: QOL-3 portable key rebinding (camera actions first). QOL-2
+  (UI scaling) needs the overlay/UI layer and is deferred to Phase 3.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. QOL-1: windowed/borderless/fullscreen, arbitrary resolution, widescreen
-   projection; persist the choice.
-2. QOL-2: scale the original overlay layout for high-DPI/widescreen.
-3. QOL-3: portable key map and rebinding.
-4. Phase 3: hook the original exe and replace loaders one at a time; keep
-   `docs/decomp/function-status.md` current.
-5. User: publish `docs/community/xentax-post.md` and record any replies.
+1. QOL-3: config-backed key map for camera orbit/zoom/reset; parse
+   `KeyMapper.ini` names where they map to port actions.
+2. Phase 3: hook the original exe and replace loaders one at a time; keep
+   `docs/decomp/function-status.md` current; start with `HYB-1` (skeleton or
+   skin loader).
+3. QOL-2 after the overlay/UI layer exists.
+4. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

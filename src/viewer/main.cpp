@@ -39,6 +39,10 @@ struct Options {
     std::string screenshot;
     std::string capture_dir;
     std::string capture_prefix = "frame";
+    std::string config_path = "dino_viewer.cfg";
+    bool fullscreen = false;
+    bool borderless = false;
+    bool save_config = true;
     std::string mesh_path;
     std::string texture_path;
     std::string skel_path;
@@ -51,8 +55,53 @@ struct Options {
     float distance = 0.0f;
 };
 
+void load_config(const std::string& path, Options& opt) {
+    std::ifstream in(path);
+    if (!in) {
+        return;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        const std::size_t eq = line.find('=');
+        if (eq == std::string::npos) {
+            continue;
+        }
+        const std::string key = line.substr(0, eq);
+        const int value = std::atoi(line.c_str() + eq + 1);
+        if (key == "width" && value >= 64) {
+            opt.width = value;
+        } else if (key == "height" && value >= 64) {
+            opt.height = value;
+        } else if (key == "fullscreen") {
+            opt.fullscreen = value != 0;
+        } else if (key == "borderless") {
+            opt.borderless = value != 0;
+        } else if (key == "vsync") {
+            opt.vsync = value != 0;
+        }
+    }
+}
+
+void save_config(const std::string& path, const Options& opt) {
+    std::ofstream out(path);
+    if (!out) {
+        return;
+    }
+    out << "width=" << opt.width << "\n";
+    out << "height=" << opt.height << "\n";
+    out << "fullscreen=" << (opt.fullscreen ? 1 : 0) << "\n";
+    out << "borderless=" << (opt.borderless ? 1 : 0) << "\n";
+    out << "vsync=" << (opt.vsync ? 1 : 0) << "\n";
+}
+
 Options parse_args(int argc, char** argv) {
     Options opt;
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) == "--config") {
+            opt.config_path = argv[i + 1];
+        }
+    }
+    load_config(opt.config_path, opt);
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         auto next = [&](const char* what) -> const char* {
@@ -98,6 +147,19 @@ Options parse_args(int argc, char** argv) {
             opt.distance = static_cast<float>(std::atof(next("--distance")));
         } else if (arg == "--validate") {
             opt.validate = true;
+        } else if (arg == "--fullscreen") {
+            opt.fullscreen = true;
+        } else if (arg == "--borderless") {
+            opt.borderless = true;
+        } else if (arg == "--windowed") {
+            opt.fullscreen = false;
+            opt.borderless = false;
+        } else if (arg == "--config") {
+            opt.config_path = next("--config");
+        } else if (arg == "--no-save-config") {
+            opt.save_config = false;
+        } else if (arg == "--vsync") {
+            opt.vsync = true;
         } else if (arg == "--no-vsync") {
             opt.vsync = false;
         } else if (arg == "--help" || arg == "-h") {
@@ -116,8 +178,13 @@ Options parse_args(int argc, char** argv) {
                 "  --capture-dir DIR    save every frame (fixed animation step)\n"
                 "  --capture-prefix P   frame filename prefix (default frame)\n"
                 "  --yaw DEG --pitch DEG --distance N  camera\n"
+                "  --fullscreen         start fullscreen\n"
+                "  --borderless         borderless window\n"
+                "  --windowed           force windowed mode\n"
+                "  --config FILE        config file (default dino_viewer.cfg)\n"
+                "  --no-save-config     do not persist window settings\n"
                 "  --validate           parse inputs and print counts, no window\n"
-                "  --no-vsync           disable vsync\n");
+                "  --vsync / --no-vsync enable/disable vsync\n");
             std::exit(0);
         } else {
             std::fprintf(stderr, "unknown argument: %s\n", arg.c_str());
@@ -625,7 +692,7 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
 }  // namespace
 
 int main(int argc, char** argv) {
-    const Options opt = parse_args(argc, argv);
+    Options opt = parse_args(argc, argv);
 
     dino::Mesh mesh;
     dino::Image image;
@@ -734,9 +801,16 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
+    SDL_WindowFlags window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
+                                   SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    if (opt.fullscreen) {
+        window_flags |= SDL_WINDOW_FULLSCREEN;
+    }
+    if (opt.borderless) {
+        window_flags |= SDL_WINDOW_BORDERLESS;
+    }
     SDL_Window* window = SDL_CreateWindow(
-        opt.title.c_str(), opt.width, opt.height,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        opt.title.c_str(), opt.width, opt.height, window_flags);
     if (!window) {
         std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
@@ -851,6 +925,14 @@ int main(int argc, char** argv) {
                         pitch = opt.pitch;
                         distance = auto_distance;
                         break;
+                    case SDLK_F11:
+                        opt.fullscreen = !opt.fullscreen;
+                        SDL_SetWindowFullscreen(window, opt.fullscreen);
+                        break;
+                    case SDLK_F10:
+                        opt.borderless = !opt.borderless;
+                        SDL_SetWindowBordered(window, !opt.borderless);
+                        break;
                     default:
                         break;
                 }
@@ -946,6 +1028,16 @@ int main(int argc, char** argv) {
                         frame, 1.0 / (dt > 0.0 ? dt : 1.0), width, height,
                         yaw, pitch, distance);
         }
+    }
+
+    if (opt.save_config) {
+        int final_width = 0, final_height = 0;
+        SDL_GetWindowSize(window, &final_width, &final_height);
+        if (!opt.fullscreen && final_width >= 64 && final_height >= 64) {
+            opt.width = final_width;
+            opt.height = final_height;
+        }
+        save_config(opt.config_path, opt);
     }
 
     gpu.destroy(glfns);

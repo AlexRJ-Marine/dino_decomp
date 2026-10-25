@@ -204,9 +204,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
 
 ### QOL-1: Resolution, widescreen, borderless
-- Windowed/borderless/fullscreen, arbitrary resolution, widescreen FOV.
+- [x] Windowed / fullscreen / borderless modes; F10/F11 toggles.
+- [x] Persisted `dino_viewer.cfg` (size, mode, vsync); CLI overrides.
+- [x] Widescreen framing via actual drawable size + fixed vertical FOV.
 - **Acceptance:** config persists; 16:9 and 4:3 screenshots match expected framing.
 - **Depends on:** VIEW-1.
+- **Evidence:** `docs/platform/qol.md`, `tests/test_viewer_cpp.py`,
+  `notes/qol-16x9.png`, `notes/qol-4x3.png`.
 
 ### QOL-2: UI scaling
 - Scale the original overlay layout for high-DPI and widescreen.

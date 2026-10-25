@@ -17,6 +17,7 @@
 # Local tool state
 *.log
 *.tmp
+dino_viewer.cfg
 __pycache__/
 *.pyc
 .pytest_cache/
