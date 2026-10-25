@@ -183,3 +183,37 @@ def test_cpp_widescreen_and_4x3(tmp_path):
         assert Image.open(out).size == (width, height)
     assert Image.open(wide).size[0] / Image.open(wide).size[1] > 1.7
     assert Image.open(tall).size[0] / Image.open(tall).size[1] < 1.4
+
+
+def test_cpp_keymap_persist(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    keys = tmp_path / "keys.cfg"
+    result = subprocess.run(
+        [str(EXE), "--keys", str(keys),
+         "--rebind", "orbit_left=J", "--rebind", "reset=H", "--list-keys"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "orbit_left   J" in result.stdout
+    assert "reset        H" in result.stdout
+    text = keys.read_text()
+    assert "orbit_left=J" in text and "reset=H" in text
+    again = subprocess.run(
+        [str(EXE), "--keys", str(keys), "--list-keys"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert again.returncode == 0, again.stderr
+    assert "orbit_left   J" in again.stdout
+    assert "reset        H" in again.stdout
+
+
+def test_cpp_keymap_rejects_unknown_action():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    result = subprocess.run(
+        [str(EXE), "--rebind", "no_such_action=J", "--list-keys"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 2
+    assert "unknown action" in result.stderr

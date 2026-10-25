@@ -215,12 +215,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ### QOL-2: UI scaling
 - Scale the original overlay layout for high-DPI and widescreen.
 - **Acceptance:** menus remain readable at 1080p/1440p/4K.
-- **Depends on:** VIEW-2.
+- **Depends on:** VIEW-2 + the Phase 3 overlay/UI layer.
 
 ### QOL-3: Key rebinding
-- Read/write a portable key map; replace `KeyMapper.ini` semantics.
-- **Acceptance:** rebind one camera and one movement action; persists.
+- [x] Config-backed key map (`dino_keys.cfg`) for orbit/zoom/reset/window/quit.
+- [x] `--rebind`, `--list-keys`, `--keys`, `--no-save-keys`; persists.
+- **Acceptance:** rebind one camera and one reset action; persists.
 - **Depends on:** VIEW-1.
+- **Evidence:** `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
+  `tests/test_viewer_cpp.py`.
 
 ## Phase 3 — hybrid decompilation
 

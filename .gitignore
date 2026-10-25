@@ -18,6 +18,7 @@
 *.log
 *.tmp
 dino_viewer.cfg
+dino_keys.cfg
 __pycache__/
 *.pyc
 .pytest_cache/

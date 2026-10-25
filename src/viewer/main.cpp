@@ -11,6 +11,7 @@
 #include "../formats/skel.h"
 #include "../formats/skin.h"
 #include "../formats/anim.h"
+#include "keymap.h"
 
 #include <algorithm>
 #include <cmath>
@@ -40,6 +41,10 @@ struct Options {
     std::string capture_dir;
     std::string capture_prefix = "frame";
     std::string config_path = "dino_viewer.cfg";
+    std::string keys_path = "dino_keys.cfg";
+    std::vector<std::string> rebinds;
+    bool list_keys = false;
+    bool no_save_keys = false;
     bool fullscreen = false;
     bool borderless = false;
     bool save_config = true;
@@ -156,6 +161,14 @@ Options parse_args(int argc, char** argv) {
             opt.borderless = false;
         } else if (arg == "--config") {
             opt.config_path = next("--config");
+        } else if (arg == "--keys") {
+            opt.keys_path = next("--keys");
+        } else if (arg == "--rebind") {
+            opt.rebinds.emplace_back(next("--rebind"));
+        } else if (arg == "--list-keys") {
+            opt.list_keys = true;
+        } else if (arg == "--no-save-keys") {
+            opt.no_save_keys = true;
         } else if (arg == "--no-save-config") {
             opt.save_config = false;
         } else if (arg == "--vsync") {
@@ -182,6 +195,10 @@ Options parse_args(int argc, char** argv) {
                 "  --borderless         borderless window\n"
                 "  --windowed           force windowed mode\n"
                 "  --config FILE        config file (default dino_viewer.cfg)\n"
+                "  --keys FILE          key map (default dino_keys.cfg)\n"
+                "  --rebind A=KEY       rebind one action (repeatable)\n"
+                "  --list-keys          print the key map and exit\n"
+                "  --no-save-keys       do not persist rebinds\n"
                 "  --no-save-config     do not persist window settings\n"
                 "  --validate           parse inputs and print counts, no window\n"
                 "  --vsync / --no-vsync enable/disable vsync\n");
@@ -694,6 +711,23 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
 int main(int argc, char** argv) {
     Options opt = parse_args(argc, argv);
 
+    dino::KeyMap keymap;
+    dino::load_keymap(opt.keys_path, keymap);
+    for (const auto& rebind : opt.rebinds) {
+        std::string error;
+        if (!dino::rebind_key(keymap, rebind, error)) {
+            std::fprintf(stderr, "rebind error: %s\n", error.c_str());
+            return 2;
+        }
+    }
+    if (!opt.rebinds.empty() && !opt.no_save_keys) {
+        dino::save_keymap(opt.keys_path, keymap);
+    }
+    if (opt.list_keys) {
+        dino::print_keymap(keymap);
+        return 0;
+    }
+
     dino::Mesh mesh;
     dino::Image image;
     dino::Skeleton skeleton;
@@ -904,37 +938,31 @@ int main(int argc, char** argv) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                switch (event.key.key) {
-                    case SDLK_ESCAPE:
-                        running = false;
-                        break;
-                    case SDLK_LEFT:
-                        yaw -= 4.0f;
-                        break;
-                    case SDLK_RIGHT:
-                        yaw += 4.0f;
-                        break;
-                    case SDLK_UP:
-                        pitch = std::min(89.0f, pitch + 4.0f);
-                        break;
-                    case SDLK_DOWN:
-                        pitch = std::max(-89.0f, pitch - 4.0f);
-                        break;
-                    case SDLK_R:
-                        yaw = opt.yaw;
-                        pitch = opt.pitch;
-                        distance = auto_distance;
-                        break;
-                    case SDLK_F11:
-                        opt.fullscreen = !opt.fullscreen;
-                        SDL_SetWindowFullscreen(window, opt.fullscreen);
-                        break;
-                    case SDLK_F10:
-                        opt.borderless = !opt.borderless;
-                        SDL_SetWindowBordered(window, !opt.borderless);
-                        break;
-                    default:
-                        break;
+                const SDL_Keycode key = event.key.key;
+                if (key == keymap[dino::KeyAction::Quit]) {
+                    running = false;
+                } else if (key == keymap[dino::KeyAction::OrbitLeft]) {
+                    yaw -= 4.0f;
+                } else if (key == keymap[dino::KeyAction::OrbitRight]) {
+                    yaw += 4.0f;
+                } else if (key == keymap[dino::KeyAction::OrbitUp]) {
+                    pitch = std::min(89.0f, pitch + 4.0f);
+                } else if (key == keymap[dino::KeyAction::OrbitDown]) {
+                    pitch = std::max(-89.0f, pitch - 4.0f);
+                } else if (key == keymap[dino::KeyAction::ZoomIn]) {
+                    distance = std::max(1.0f, distance * 0.9f);
+                } else if (key == keymap[dino::KeyAction::ZoomOut]) {
+                    distance = std::min(500.0f, distance * 1.1f);
+                } else if (key == keymap[dino::KeyAction::Reset]) {
+                    yaw = opt.yaw;
+                    pitch = opt.pitch;
+                    distance = auto_distance;
+                } else if (key == keymap[dino::KeyAction::Fullscreen]) {
+                    opt.fullscreen = !opt.fullscreen;
+                    SDL_SetWindowFullscreen(window, opt.fullscreen);
+                } else if (key == keymap[dino::KeyAction::Borderless]) {
+                    opt.borderless = !opt.borderless;
+                    SDL_SetWindowBordered(window, !opt.borderless);
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_LEFT) {

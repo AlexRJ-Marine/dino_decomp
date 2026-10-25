@@ -1,7 +1,7 @@
 # Quality-of-life layer
 
-Status: **QOL-1 complete** — window modes, resolution persistence and widescreen
-framing. QOL-2/3 are next.
+Status: **QOL-1 and QOL-3 complete** — window modes/persistence and portable
+camera key rebinding. QOL-2 (UI scaling) waits for the overlay/UI layer.
 
 ## Window modes
 
@@ -31,6 +31,36 @@ vsync=1
 - `--config FILE` chooses another path; `--no-save-config` disables saving.
 - `--validate` returns before creating a window and does not write config.
 
+## Key rebinding
+
+Default key map: `dino_keys.cfg` (gitignored).
+
+```text
+orbit_left=LEFT      orbit_right=RIGHT
+orbit_up=UP          orbit_down=DOWN
+zoom_in=PLUS         zoom_out=MINUS
+reset=R
+fullscreen=F11       borderless=F10      quit=ESC
+```
+
+- `--keys FILE` chooses another map.
+- `--rebind ACTION=KEY` (repeatable) changes one binding.
+- `--list-keys` prints the effective map and exits.
+- `--no-save-keys` avoids writing the file.
+- Key names: `LEFT`, `RIGHT`, `UP`, `DOWN`, `ESC`, `SPACE`, `A`..`Z`,
+  `0`..`9`, `F1`..`F12`, `PLUS`, `MINUS`, `KP_PLUS`, `KP_MINUS`, etc.
+- Rebinds are applied before the window starts and persist to the file.
+
+Example:
+
+```powershell
+.\build\mingw\dino_viewer.exe --keys dino_keys.cfg `
+  --rebind orbit_left=J --rebind reset=H --list-keys
+```
+
+The original `Data/Config/KeyMapper.ini` action names can be mapped to these
+port actions as game actions are ported.
+
 ## Evidence
 
 | File | Size |
@@ -43,10 +73,12 @@ Tests (`tests/test_viewer_cpp.py`):
 - `test_cpp_config_persist`: writes `width=400`/`height=300`, relaunches
   without size flags, checks the persisted 400×300 screenshot.
 - `test_cpp_widescreen_and_4x3`: borderless 16:9 and 4:3 screenshots.
+- `test_cpp_keymap_persist`: rebinds `orbit_left=J` and `reset=H`, checks the
+  file and the reloaded map.
+- `test_cpp_keymap_rejects_unknown_action`.
 
 ## Next
 
 - **QOL-2**: UI scaling for the original overlay layout (needs the overlay/UI
   layer in Phase 3).
-- **QOL-3**: portable key map and rebinding (camera actions first, then game
-  actions as they are ported).
+- **Phase 3**: hook the original exe and replace loaders one at a time.
