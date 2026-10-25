@@ -44,6 +44,7 @@ add_executable(dino_viewer
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp
+    src/world/visitors.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

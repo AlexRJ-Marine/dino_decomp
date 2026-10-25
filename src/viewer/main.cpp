@@ -17,6 +17,7 @@
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
+#include "../world/visitors.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -88,6 +89,10 @@ struct Options {
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
+    int visitors = 0;
+    std::string visitor_pose1;
+    std::string visitor_pose2;
+    std::string visitor_texture;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -244,6 +249,14 @@ Options parse_args(int argc, char** argv) {
             opt.water_level = static_cast<float>(std::atof(next("--water-level")));
         } else if (arg == "--skybox") {
             opt.skybox_dir = next("--skybox");
+        } else if (arg == "--visitors") {
+            opt.visitors = std::atoi(next("--visitors"));
+        } else if (arg == "--visitor-pose1") {
+            opt.visitor_pose1 = next("--visitor-pose1");
+        } else if (arg == "--visitor-pose2") {
+            opt.visitor_pose2 = next("--visitor-pose2");
+        } else if (arg == "--visitor-texture") {
+            opt.visitor_texture = next("--visitor-texture");
         } else if (arg == "--once") {
             opt.loop_audio = false;
         } else if (arg == "--mute") {
@@ -316,6 +329,10 @@ Options parse_args(int argc, char** argv) {
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
+                "  --visitors N         spawn N visitors on the placed path network\n"
+                "  --visitor-pose1 FILE walk pose A (default woman_walk1)\n"
+                "  --visitor-pose2 FILE walk pose B (default woman_walk2)\n"
+                "  --visitor-texture FILE visitor texture (default wom.tga)\n"
                 "  --once               play the WAV once (default loops)\n"
                 "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
@@ -1102,6 +1119,10 @@ int main(int argc, char** argv) {
     std::array<dino::Image, 6> sky_images;
     dino::Image water_image;
     float water_z = 0.0f;
+    dino::VisitorSystem visitor_system;
+    dino::Mesh visitor_pose1;
+    dino::Mesh visitor_pose2;
+    dino::Image visitor_image;
     bool build_ready = false;
     try {
         if (!opt.mesh_path.empty()) {
@@ -1150,6 +1171,33 @@ int main(int argc, char** argv) {
                         : opt.fence_mesh_path;
                 fence_source = dino::load_mesh(fence_mesh);
                 build_ready = true;
+
+                if (opt.visitors > 0) {
+                    const std::string pose1 =
+                        opt.visitor_pose1.empty()
+                            ? resolve_asset(opt.asset_root,
+                                            "Data/Graphics/Actors/people/customers/"
+                                            "wom/woman_walk1_LOD1.mesh")
+                            : opt.visitor_pose1;
+                    const std::string pose2 =
+                        opt.visitor_pose2.empty()
+                            ? resolve_asset(opt.asset_root,
+                                            "Data/Graphics/Actors/people/customers/"
+                                            "wom/woman_walk2_LOD1.mesh")
+                            : opt.visitor_pose2;
+                    const std::string texture =
+                        opt.visitor_texture.empty()
+                            ? resolve_asset(opt.asset_root,
+                                            "Data/Graphics/Textures/actors/people/"
+                                            "customers/wom.tga")
+                            : opt.visitor_texture;
+                    visitor_pose1 = dino::load_mesh(pose1);
+                    visitor_pose2 = dino::load_mesh(pose2);
+                    visitor_image = dino::load_image(texture);
+                    const int spawned = visitor_system.spawn(build_grid, opt.visitors);
+                    std::printf("visitors: %d spawned on %d path cells\n", spawned,
+                                build_grid.path_count);
+                }
             }
             const std::string sky_dir =
                 opt.skybox_dir.empty()
@@ -1361,6 +1409,9 @@ int main(int argc, char** argv) {
                         build_grid.cell_size, build_grid.width, build_grid.height,
                         build_grid.path_count, build_grid.fence_count,
                         meshes.path_tiles, meshes.fence_segments);
+            if (!visitor_system.visitors.empty()) {
+                std::printf("visitors: %zu\n", visitor_system.visitors.size());
+            }
             if (!opt.build_save_path.empty()) {
                 dino::save_build(build_grid, opt.build_save_path);
                 std::printf("build saved: %s\n", opt.build_save_path.c_str());
@@ -1585,6 +1636,16 @@ int main(int argc, char** argv) {
             make_water_plane(terrain.world_size * 6.0f, water_z, 48.0f), glfns);
     }
 
+    GpuMesh visitor_gpu;
+    GLuint visitor_texture_id = 0;
+    if (!visitor_system.visitors.empty()) {
+        visitor_texture_id = upload_texture(visitor_image);
+        visitor_gpu = upload_mesh(
+            visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+                                      visitor_pose2),
+            glfns);
+    }
+
     std::vector<DrawItem> extra_items;
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
@@ -1599,6 +1660,9 @@ int main(int argc, char** argv) {
         }
         if (water_gpu.vao != 0) {
             extra_items.push_back({&water_gpu, water_texture, 0.78f});
+        }
+        if (visitor_gpu.vao != 0) {
+            extra_items.push_back({&visitor_gpu, visitor_texture_id});
         }
         if (dino_gpu.vao != 0) {
             if (shadow_gpu.vao != 0) {
@@ -1876,6 +1940,14 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (!visitor_system.visitors.empty()) {
+            visitor_system.update(build_grid, terrain, static_cast<float>(dt));
+            update_mesh(visitor_gpu,
+                        visitor_system.build_mesh(build_grid, terrain,
+                                                  visitor_pose1, visitor_pose2),
+                        glfns);
+        }
+
         dino::Vec3 eye;
         dino::Vec3 view_center;
         if (free_camera) {
@@ -2025,6 +2097,10 @@ int main(int argc, char** argv) {
     path_gpu.destroy(glfns);
     fence_gpu.destroy(glfns);
     water_gpu.destroy(glfns);
+    visitor_gpu.destroy(glfns);
+    if (visitor_texture_id != 0) {
+        glDeleteTextures(1, &visitor_texture_id);
+    }
     for (int i = 0; i < 6; ++i) {
         skybox.faces[i].destroy(glfns);
         if (skybox.textures[i] != 0) {

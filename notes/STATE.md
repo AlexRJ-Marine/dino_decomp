@@ -189,7 +189,13 @@ Updated: 2026-10-25
 - Stability: **60,000 frames (~10 min) at ~100 FPS**, working set 134.1 MB
   flat, exit 0.
   - Evidence: `notes/stability.out.log`, `notes/stability-memory.csv`,
-    `notes/stability-final.bmp`.
+    `notes/stability-final.png`.
+- SIM-2 (walking part) complete: visitors on the path network.
+  - People are not skinned; the walk is a two-pose flip book
+    (`woman_walk1`/`woman_walk2`, 72 verts / 52 tris).
+  - Random-neighbour cell walk at 1.6 u/s, fixed seed, one combined mesh.
+  - Evidence: `docs/platform/visitors.md`, `src/world/visitors.cpp`,
+    `notes/visitors.png`, `tests/test_viewer_cpp.py`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -233,8 +239,8 @@ Updated: 2026-10-25
 ## In progress
 
 - Phase 3 vertical slice is functionally complete: island, vegetation,
-  dinosaur, free camera, path/fence, sky/water, and a 10-minute run.
-- Next feature: SIM-2 visitor agents walking the placed path network.
+  dinosaur, free camera, path/fence, sky/water, visitors, and a 10-minute run.
+- Next feature: SIM-2 needs/attraction use and an entrance/exit flow.
 - WORLD-3 polish remains: verify the skybox cube orientation against the
   original and tune water colour/animation.
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
@@ -245,8 +251,8 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. SIM-2: spawn visitors at the island entrance and walk them along placed path
-   cells (grid BFS), with a simple body mesh + walk animation.
+1. SIM-2b: pick a visitor target (a placed attraction/point of interest), walk
+   to it, wait, and leave; add a simple spawn/despawn at the entrance.
 2. Capture a side-by-side comparison against the original game for WORLD-3.
 3. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
 4. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when

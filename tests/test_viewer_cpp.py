@@ -479,3 +479,27 @@ def test_cpp_skybox_and_water():
     assert result.returncode == 0, result.stderr
     assert "environment: skybox 6/6 faces" in result.stdout
     assert "water yes at z=16.0 (256x256)" in result.stdout
+
+def _path_loop_args():
+    args = []
+    for x in range(126, 133):
+        args += ["--place-path", f"{x},126", "--place-path", f"{x},132"]
+    for y in range(127, 132):
+        args += ["--place-path", f"126,{y}", "--place-path", f"132,{y}"]
+    return args
+
+
+def test_cpp_visitors_validate():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--build", "--visitors", "8", *_path_loop_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "visitors: 8 spawned on 24 path cells" in result.stdout
+    assert "build: cell 4.0, grid 256x256, 24 path cells" in result.stdout
+    assert "visitors: 8" in result.stdout

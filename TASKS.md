@@ -333,9 +333,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_pick_terrain`).
 
 ### SIM-2: Visitor agents
-- Spawn visitors, pathfinding, needs, attraction use.
+- [x] Visitors spawn on placed path cells and walk cell-to-cell (random
+  neighbour, no immediate backtrack), at 1.6 units/s.
+- [x] Retail two-pose walk flip book (`woman_walk1` / `woman_walk2`), one
+  combined draw call, fixed seed for reproducibility.
+- [ ] Needs, attraction use and leave/enter flow.
 - **Acceptance:** 50 visitors enter, use one attraction, and leave.
 - **Depends on:** SIM-1.
+- **Evidence:** `docs/platform/visitors.md`, `src/world/visitors.cpp`,
+  `notes/visitors.png`, `tests/test_viewer_cpp.py::test_cpp_visitors_validate`.
 
 ### SIM-3: Dinosaurs
 - Load genotypes, needs, behaviors, animation state machine.
