@@ -234,12 +234,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** Ghidra import.
 
 ### HYB-1: Hook and replace the first loader
-- Hook the original exe, route one format loader through recovered source, and
-  keep the game runnable.
-- Start with `.skel` or `.skin` (already verified).
+- [x] 32-bit `DINPUT8.dll` proxy; forwards `DirectInput8Create` to the real
+  system DLL and installs an inline detour.
+- [x] Replace `0x4663a0` (64-byte matrix reader) with C++.
+- [x] Run Free Mode → IGUANO → easy → Start with the hook active; reach a
+  playable park; 281,000 calls logged.
 - **Acceptance:** original game loads a dinosaur with the replacement loader
   and the function-status entry is `verified`.
 - **Depends on:** DEC-6, FMT-4.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
+  `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
+  `notes/park-hook.png`, `notes/hook-4663a0.log`.
 
 ## Phase 3 verification targets — world
 

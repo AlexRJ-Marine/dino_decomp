@@ -128,6 +128,14 @@ Updated: 2026-10-25
   - Rebinds persist and are loaded before the window starts.
   - Evidence: `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
     `tests/test_viewer_cpp.py`.
+- HYB-1 complete: first function replaced in the original exe.
+  - 32-bit `DINPUT8.dll` proxy in `run/`; forwards the single imported
+    `DirectInput8Create` to the real system DLL.
+  - Inline detour on `0x4663a0` (64-byte/16-float matrix reader) to recovered
+    C++; game reaches a playable park and logs 281,000 calls.
+  - Evidence: `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
+    `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
+    `notes/park-hook.png`, `notes/hook-4663a0.log`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -170,22 +178,21 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3: HYB-1 — hook the original `DinoIsland.exe` and replace the first
-  loader with recovered C++ while keeping the game runnable. Start with the
-  `.skel` reader `0x477890` or the `.mesh` body reader.
+- Phase 3: continue outside-in. Next targets are the simple stream readers
+  around the format loaders (`0x47d460` u16 array, `0x47cc90` child list), then
+  the full `.skel` reader `0x477890` and `.skin` record reader `0x47d880`.
 - QOL-2 (UI scaling) waits for the overlay/UI layer.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. Choose and document a hook mechanism in `docs/decomp/hybrid.md` (DLL proxy
-   vs. inline detour vs. import patching); keep `run/` as the only writable
-   copy.
-2. Replace the `.skel` reader `0x477890` (or `.mesh` body) with a C++ reader
-   that consumes the same memory stream; keep the original vtable contract.
-3. Run Free Mode under x32dbg, confirm a dinosaur/skeleton still loads, and
-   mark the entry `verified` in `docs/decomp/function-status.md`.
+1. Add the next inline detour to `src/hook/dinput8_proxy.cpp` (start with
+   `0x47d460`, the u16 array reader) and verify the park still loads.
+2. Document each replacement in `docs/decomp/hybrid.md` and mark it `replaced`
+   in `docs/decomp/function-status.md`.
+3. Work toward `0x477890` (`.skel`) / `0x47d880` (`.skin` records); these need
+   the container/vector object contracts.
 4. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
