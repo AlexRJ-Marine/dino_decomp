@@ -21,7 +21,8 @@ using DirectInput8CreateFn = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*,
 
 HMODULE g_real_dinput8 = nullptr;
 DirectInput8CreateFn g_real_create = nullptr;
-volatile LONG g_calls = 0;
+volatile LONG g_calls_4663a0 = 0;
+volatile LONG g_calls_4809a0 = 0;
 
 void log_line(const char* text) {
     HANDLE file = CreateFileA("dino_hook.log", FILE_APPEND_DATA, FILE_SHARE_READ,
@@ -47,7 +48,7 @@ using StreamReadFn = int(__thiscall*)(Stream*, void*, int, int);
 //   83 EC 0C 53 55  (sub esp,0xc; push ebx; push ebp)
 // so a 5-byte relative jump replaces the whole implementation.
 bool __thiscall hook_4663a0(void* buffer, Stream* stream) {
-    const LONG calls = InterlockedIncrement(&g_calls);
+    const LONG calls = InterlockedIncrement(&g_calls_4663a0);
     if (calls == 1 || (calls % 1000) == 0) {
         char line[96];
         std::snprintf(line, sizeof(line), "hook_4663a0: calls=%ld", static_cast<long>(calls));
@@ -60,19 +61,33 @@ bool __thiscall hook_4663a0(void* buffer, Stream* stream) {
     return read(stream, buffer, 4, 0x10) == 0x10;
 }
 
-bool install_hook() {
+// Replacement for FUN_004809a0: read 12 bytes (3 floats) for a normal.
+bool __thiscall hook_4809a0(void* buffer, Stream* stream) {
+    const LONG calls = InterlockedIncrement(&g_calls_4809a0);
+    if (calls == 1 || (calls % 1000) == 0) {
+        char line[96];
+        std::snprintf(line, sizeof(line), "hook_4809a0: calls=%ld", static_cast<long>(calls));
+        log_line(line);
+    }
+    if (stream == nullptr || stream->vtable == nullptr) {
+        return false;
+    }
+    auto read = reinterpret_cast<StreamReadFn>(stream->vtable[2]);
+    return read(stream, buffer, 4, 3) == 3;
+}
+
+bool install_detour(const char* name, std::uintptr_t rva, void* hook,
+                    const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
     if (base == nullptr) {
         log_line("hook: GetModuleHandle(NULL) failed");
         return false;
     }
-    // Retail VA 0x4663a0, image base 0x400000.
-    constexpr std::uintptr_t kRva = 0x4663A0 - 0x400000;
-    auto* target = base + kRva;
-    // Retail prologue: 8B C1 (mov eax,ecx), 6A 10 (push 0x10), 8B ...
-    static constexpr std::uint8_t kExpected[5] = {0x8B, 0xC1, 0x6A, 0x10, 0x8B};
-    if (std::memcmp(target, kExpected, sizeof(kExpected)) != 0) {
-        log_line("hook: target prologue mismatch, not patched");
+    auto* target = base + rva;
+    if (std::memcmp(target, expected, 5) != 0) {
+        char line[128];
+        std::snprintf(line, sizeof(line), "hook: %s prologue mismatch", name);
+        log_line(line);
         return false;
     }
 
@@ -82,7 +97,7 @@ bool install_hook() {
         return false;
     }
     const auto from = reinterpret_cast<std::intptr_t>(target) + 5;
-    const auto to = reinterpret_cast<std::intptr_t>(&hook_4663a0);
+    const auto to = reinterpret_cast<std::intptr_t>(hook);
     const auto relative = to - from;
     if (relative < INT32_MIN || relative > INT32_MAX) {
         VirtualProtect(target, 5, old_protect, &old_protect);
@@ -94,8 +109,24 @@ bool install_hook() {
     std::memcpy(target + 1, &rel32, sizeof(rel32));
     FlushInstructionCache(GetCurrentProcess(), target, 5);
     VirtualProtect(target, 5, old_protect, &old_protect);
-    log_line("hook: FUN_004663a0 patched");
+    char line[128];
+    std::snprintf(line, sizeof(line), "hook: %s patched", name);
+    log_line(line);
     return true;
+}
+
+bool install_hooks() {
+    // 0x4663a0: 64-byte matrix, prologue 8B C1 6A 10 8B.
+    static constexpr std::uint8_t kPrologue_4663a0[5] = {0x8B, 0xC1, 0x6A, 0x10, 0x8B};
+    // 0x4809a0: 12-byte normal, prologue 8B C1 6A 03 8B.
+    static constexpr std::uint8_t kPrologue_4809a0[5] = {0x8B, 0xC1, 0x6A, 0x03, 0x8B};
+    const bool a = install_detour("FUN_004663a0", 0x4663A0 - 0x400000,
+                                  reinterpret_cast<void*>(&hook_4663a0),
+                                  kPrologue_4663a0);
+    const bool b = install_detour("FUN_004809a0", 0x4809A0 - 0x400000,
+                                  reinterpret_cast<void*>(&hook_4809a0),
+                                  kPrologue_4809a0);
+    return a && b;
 }
 
 }  // namespace
@@ -125,11 +156,13 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         }
         log_line(g_real_create != nullptr ? "DINPUT8 real DLL loaded"
                                           : "DINPUT8 real DLL load FAILED");
-        install_hook();
+        install_hooks();
     } else if (reason == DLL_PROCESS_DETACH) {
         char line[128];
-        std::snprintf(line, sizeof(line), "hook_4663a0: total calls=%ld",
-                      static_cast<long>(g_calls));
+        std::snprintf(line, sizeof(line),
+                      "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld",
+                      static_cast<long>(g_calls_4663a0),
+                      static_cast<long>(g_calls_4809a0));
         log_line(line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);

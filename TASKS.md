@@ -246,7 +246,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
   `notes/park-hook.png`, `notes/hook-4663a0.log`.
 
-## Phase 3 verification targets — world
+### HYB-2: Replace the normal reader
+- [x] Detour `0x4809a0` (12-byte/3-float normal reader) with C++.
+- [x] Verify with the same park run; 97,000 calls, no crash.
+- **Acceptance:** the game still loads with the replacement active.
+- **Depends on:** HYB-1.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/decomp/hybrid.md`,
+  `notes/hook-4663a0-4809a0.log`.
+
+## Phase 3 verification targets - world
 
 ### WORLD-1: Island terrain
 - Load `.lnd` + `.raw`; build a heightmap mesh; place landscape objects.

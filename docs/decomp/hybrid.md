@@ -1,7 +1,7 @@
 # Hybrid decompilation
 
-Status: **HYB-1 complete** — the original exe runs with the first retail
-function replaced by recovered C++.
+Status: **HYB-1/2 complete** — the original exe runs with two retail functions
+replaced by recovered C++.
 
 ## Mechanism
 
@@ -22,7 +22,9 @@ Windows loads it from the application directory before the system DLL.
 Only `run/` is touched. `original/` and `game/` are never modified. Delete
 `run/DINPUT8.dll` to revert to the original code path.
 
-## First replacement: `FUN_004663a0`
+## Replacements
+
+### `FUN_004663a0` — 64-byte matrix reader
 
 `0x4663a0` reads 64 bytes (16 floats) from the retail memory stream:
 
@@ -39,8 +41,21 @@ It is used by the `.skel`, `.skin` and `.anim` readers.
 - Replacement signature matches the original `__thiscall`:
   `bool hook(void* buffer, Stream* stream)`.
 
-The proxy is verified to keep the game playable and the function is called
-hundreds of thousands of times during a park session.
+### `FUN_004809a0` — 12-byte normal reader
+
+`0x4809a0` reads 12 bytes (3 floats) for a normal:
+
+```c
+return stream->vtable->read(buffer, 4, 3) == 3;
+```
+
+- Retail VA: `0x4809a0` (RVA `0x809a0`).
+- Retail prologue: `8B C1 6A 03 8B`.
+- Same 5-byte detour, replacement `hook_4809a0`.
+- Used by the skin per-block normal arrays.
+
+The proxy is verified to keep the game playable. During a park session the
+matrix reader is called ~281,000 times and the normal reader ~97,000 times.
 
 ## Build/run
 
@@ -58,21 +73,25 @@ park, screenshots, and prints `run/dino_hook.log`.
 
 | File | Content |
 | --- | --- |
-| `notes/park-hook.png` | playable park reached with the hook active |
-| `notes/hook-4663a0.log` | proxy attach, patch, calls 1 → 281,000 |
-| `src/hook/dinput8_proxy.cpp` | proxy + replacement |
+| `notes/park-hook.png` | playable park reached with both hooks active |
+| `notes/hook-4663a0.log` | first hook only: calls 1 → 281,000 |
+| `notes/hook-4663a0-4809a0.log` | both hooks: 281k matrix + 97k normal calls |
+| `src/hook/dinput8_proxy.cpp` | proxy + replacements |
 | `scripts/build-hook.ps1` | 32-bit DLL build |
 | `scripts/play-freegame-direct.ps1` | direct-launch park smoke test |
 
-The log shows:
+The combined log shows:
 
 ```text
 DINPUT8 proxy attached
 DINPUT8 real DLL loaded
 hook: FUN_004663a0 patched
+hook: FUN_004809a0 patched
 hook_4663a0: calls=1
+hook_4809a0: calls=1
 ...
 hook_4663a0: calls=281000
+hook_4809a0: calls=97000
 ```
 
 ## Safety/revert
@@ -85,10 +104,11 @@ hook_4663a0: calls=281000
 
 ## Next
 
-1. Replace the next leaf/util function (e.g. the 4-byte stream reader or a
-   matrix helper) with C++ and verify the park still loads.
+1. Add the next detours: `0x47d460` (u16 array reader) and `0x47cc90` (child
+   index list) — these touch the engine's vector class, so port the vector
+   contract first.
 2. Work up to `0x477890` (`.skel`), `0x47d880` (`.skin` records), and
    `0x4839e0` (`.anim` bone records); these need the stream/container object
    contracts, not just the file format.
-3. Keep `docs/decomp/function-status.md` current; mark each entry `verified`
-   only after the running game exercises the replacement.
+3. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
+   only after the running game exercises it.

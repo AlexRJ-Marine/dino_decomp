@@ -128,14 +128,15 @@ Updated: 2026-10-25
   - Rebinds persist and are loaded before the window starts.
   - Evidence: `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
     `tests/test_viewer_cpp.py`.
-- HYB-1 complete: first function replaced in the original exe.
+- HYB-1/2 complete: two functions replaced in the original exe.
   - 32-bit `DINPUT8.dll` proxy in `run/`; forwards the single imported
     `DirectInput8Create` to the real system DLL.
-  - Inline detour on `0x4663a0` (64-byte/16-float matrix reader) to recovered
-    C++; game reaches a playable park and logs 281,000 calls.
+  - Inline detours on `0x4663a0` (64-byte/16-float matrix reader, 281k calls)
+    and `0x4809a0` (12-byte/3-float normal reader, 97k calls).
+  - Game reaches a playable park with both replacements active.
   - Evidence: `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
     `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
-    `notes/park-hook.png`, `notes/hook-4663a0.log`.
+    `notes/park-hook.png`, `notes/hook-4663a0-4809a0.log`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
