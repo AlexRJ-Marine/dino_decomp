@@ -51,6 +51,8 @@ class Mesh:
     indices: list[int] = field(default_factory=list)
     uvs: list[tuple[float, float]] = field(default_factory=list)
     normals: list[tuple[float, float, float]] = field(default_factory=list)
+    colors: list[tuple[int, int, int, int]] = field(default_factory=list)
+    material_offset: int = 0
     tail: bytes = b""
 
     @property
@@ -74,6 +76,7 @@ class Mesh:
             "triangles": self.triangle_count,
             "uvs": len(self.uvs),
             "normals": len(self.normals),
+            "vertex_colors": len(self.colors),
             "tail_bytes": len(self.tail),
             "bounds": self.bounds(),
         }
@@ -143,6 +146,17 @@ def read_mesh_body(
         normals = [struct.unpack_from("<3f", data, off + i * 12) for i in range(normal_count)]
         off += normal_count * 12
 
+    tail = data[off:]
+    colors: list[tuple[int, int, int, int]] = []
+    material_offset = 0
+    if len(tail) >= 5 and tail[0] == 1:
+        color_count = struct.unpack_from("<I", tail, 1)[0]
+        if color_count == vertex_count and len(tail) >= 5 + color_count * 4:
+            colors = [
+                struct.unpack_from("<4B", tail, 5 + i * 4) for i in range(color_count)
+            ]
+            material_offset = 5 + color_count * 4
+
     return Mesh(
         path=path,
         name=name,
@@ -152,7 +166,9 @@ def read_mesh_body(
         indices=indices,
         uvs=uvs,
         normals=normals,
-        tail=data[off:],
+        colors=colors,
+        material_offset=material_offset,
+        tail=tail,
     )
 
 

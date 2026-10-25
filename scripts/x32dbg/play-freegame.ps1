@@ -41,10 +41,8 @@ Send 'SetBreakpointCommand 0x475e30, "log SKEL_LOADER_ecx={p:ecx}; run"'
 Send 'bp 0x48b800'
 Send 'SetBreakpointCommand 0x48b800, "log MESH_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
 New-Item -ItemType Directory -Force C:\Tools\dino_dumps | Out-Null
-foreach ($a in @('0x477890','0x4762d0','0x43b8f0','0x454fc0','0x455030')) {
-    Send "bp $a"
-    Send ("SetBreakpointCommand $a, `"log VT_{0}_ecx={{p:ecx}}; run`"" -f $a)
-}
+Send 'bp 0x402bc0'
+Send 'SetBreakpointCommand 0x402bc0, "log SAVE_CALLED_ecx={p:ecx}; run"'
 Send 'run'
 Start-Sleep -Milliseconds 700
 Send 'run'
@@ -133,6 +131,28 @@ if (-not $game) {
         Save-Window $hwnd "park-loading2"
         Start-Sleep -Seconds 10
         Save-Window $hwnd "park-after2"
+        Write-Host "opening lab panel"
+        Click-Client $hwnd 757 46
+        Start-Sleep -Seconds 1
+        Save-Window $hwnd "lab-menu"
+        Write-Host "opening options panel"
+        Click-Client $hwnd 765 348
+        Start-Sleep -Seconds 1
+        Save-Window $hwnd "options-panel"
+        Write-Host "clicking save icon"
+        Click-Client $hwnd 340 72
+        Start-Sleep -Seconds 1
+        Save-Window $hwnd "save-panel"
+        Write-Host "typing save name"
+        Click-Client $hwnd 349 382
+        Start-Sleep -Milliseconds 300
+        [System.Windows.Forms.SendKeys]::SendWait("agenttest")
+        Start-Sleep -Milliseconds 500
+        Save-Window $hwnd "save-panel-named"
+        Write-Host "clicking green check"
+        Click-Client $hwnd 334 436
+        Start-Sleep -Seconds 2
+        Save-Window $hwnd "save-after"
     }
 }
 

@@ -28,11 +28,19 @@ tests pass, and `notes/STATE.md` records the evidence path.
   animation files are loaded.
 - **Evidence:** `notes/x32dbg-freegame.out.log`.
 
-### FMT-4b: Decode the live skeleton transform
-- [ ] Spawn a dinosaur so the 80-bone skeleton is live.
-- [ ] Dump the skeleton object after `0x4714b0` / the 64-byte reader.
-- [ ] Compare object blocks with `allo.skel`; derive the matrix layout.
+### FMT-4b: Decode the skeleton transform
+- [x] Decode the 64-byte bone record and hierarchy from reader `0x477890`
+  (live object dump no longer needed).
+- [x] Validate on all 64 files and by composing the 80-bone allosaurus.
+- **Evidence:** `docs/formats/skel.md`, `tools/formats/skel.py`,
+  `tests/test_skel.py`, `notes/skel-allo-views.png`.
 - **Depends on:** RUN-1, TEST-1.
+
+### RUN-2: Save/load smoke test
+- [x] Diagnose the silent save failure: `run\save` and `run\save\auto` were
+  missing and the game does not create directories.
+- [x] Create the folders; confirm `save/slot001.sav` and autosaves are written.
+- **Evidence:** `notes/STATE.md`, `run/save/slot001.sav` (gitignored).
 
 ### PATCH-1: No-CD startup patch
 - [x] Locate the drive scan (`GetDriveTypeA` / `GetVolumeInformationA`).
@@ -66,18 +74,30 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - [x] Parse per-bone blocks: bone name + mini-mesh + material.
 - [x] Parse the full-mesh block and match it to the `.mesh`.
 - [x] Confirm every `.skin` parses (104 files, 2,244 bone blocks).
+- [x] Assemble the 35 `allo` bone blocks with the solved `.skel` world
+  matrices; the result is a coherent bind-pose proxy.
 - [ ] Confirm rigid vs. weighted skinning and decode the full-mesh tail.
-- [ ] Decode the per-bone transform and assemble the bind pose.
+- [ ] Decode the per-block tail matrix and assemble the exact bind pose.
 - **Acceptance:** `allo_lod1` bone blocks transform into a coherent bind pose
   that matches the render mesh; all 104 `.skin` files parse.
 - **Depends on:** FMT-2.
-- **Evidence:** `docs/formats/skin.md`, `tests/test_skin.py`; 73 full meshes
-  match their `.mesh`.
+- **Evidence:** `docs/formats/skin.md`, `tests/test_skin.py`,
+  `notes/allo-render-side.png`; 73 full meshes match their `.mesh`.
+
+### FMT-3b: `.skin` bind matrices and weights
+- [ ] Decode the per-block tail (matrix/material) and the full-mesh tail.
+- [ ] Determine rigid vs. weighted skinning; implement the exact bind pose.
+- [ ] Compare the assembled bind mesh against `allo_lod1.mesh`.
+- **Depends on:** FMT-3, FMT-4.
 
 ### FMT-4: `.skel` skeleton
-- Parse bone hierarchy, names, local transforms.
+- [x] Parse 64-byte 4×4 bone matrices, child lists, parent table, names, flags.
+- [x] Compose `world = local @ parent_world`; validate all 64 files.
+- [x] Confirm the allosaurus transform by rendering the skeleton.
 - **Acceptance:** all 64 `.skel` files parse; hierarchy is acyclic.
 - **Depends on:** FMT-1.
+- **Evidence:** `docs/formats/skel.md`, `tools/formats/skel.py`,
+  `tests/test_skel.py`, 64/64 files, 2,113 bones.
 
 ### FMT-5: `.anim` animation
 - Parse tracks, keyframe times, values, interpolation.

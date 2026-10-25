@@ -10,6 +10,7 @@ from mesh import MeshFormatError, read_mesh, scan, write_obj  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
 COW = GAME / "Data" / "Graphics" / "Actors" / "animals" / "cow" / "cow_lod1.mesh"
+ALLO = GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "allo" / "allo_lod1.mesh"
 
 
 def test_cow_geometry():
@@ -37,6 +38,20 @@ def test_scan_all_meshes():
     assert not bad, bad[:5]
     assert totals["vertices"] == 47_171
     assert totals["triangles"] == 35_190
+
+
+def test_allo_vertex_colors():
+    if not ALLO.exists():
+        pytest.skip("retail sample not present")
+    m = read_mesh(ALLO)
+    assert len(m.colors) == 317
+    assert m.colors[0] == (230, 239, 241, 255)
+    assert all(c[3] == 255 for c in m.colors)
+    assert m.material_offset == 5 + 317 * 4
+    # Most meshes do not have a per-vertex color table.
+    cow = read_mesh(COW)
+    assert cow.colors == []
+    assert cow.material_offset == 0
 
 
 def test_obj_export(tmp_path):
