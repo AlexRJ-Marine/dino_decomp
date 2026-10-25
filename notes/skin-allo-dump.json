@@ -1,0 +1,350 @@
+﻿{
+  "path": "game\\%MAINDIR%\\Data\\Graphics\\Actors\\Dinos\\allo\\allo_lod1.skin",
+  "hash": "0x3f07e67b",
+  "block_count": 36,
+  "bone_blocks": 35,
+  "bone_vertices": 1105,
+  "bone_triangles": 614,
+  "full_mesh": {
+    "path": "",
+    "name": "dino_lod1",
+    "hash": "0x00000000",
+    "chunk_count": 1,
+    "vertices": 317,
+    "indices": 1146,
+    "triangles": 382,
+    "uvs": 317,
+    "normals": 317,
+    "tail_bytes": 6514,
+    "bounds": [
+      [
+        -104.54704284667969,
+        -369.1033630371094,
+        3.328817844390869
+      ],
+      [
+        104.54839324951172,
+        460.84344482421875,
+        499.0025634765625
+      ]
+    ]
+  },
+  "trailing_bytes": 6514,
+  "blocks": [
+    {
+      "name": "Bip01",
+      "offset": "0x11",
+      "geometry_end": "0xcb",
+      "vertices": 6,
+      "indices": 24,
+      "triangles": 8,
+      "tail_bytes": 169
+    },
+    {
+      "name": "Bip01_Footsteps",
+      "offset": "0x174",
+      "geometry_end": "0x25c",
+      "vertices": 9,
+      "indices": 24,
+      "triangles": 8,
+      "tail_bytes": 205
+    },
+    {
+      "name": "Bip01_Pelvis",
+      "offset": "0x329",
+      "geometry_end": "0x4f2",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Spine",
+      "offset": "0x67b",
+      "geometry_end": "0x9f3",
+      "vertices": 48,
+      "indices": 72,
+      "triangles": 24,
+      "tail_bytes": 705
+    },
+    {
+      "name": "Bip01_Spine1",
+      "offset": "0xcb4",
+      "geometry_end": "0x102d",
+      "vertices": 48,
+      "indices": 72,
+      "triangles": 24,
+      "tail_bytes": 705
+    },
+    {
+      "name": "Bip01_Spine2",
+      "offset": "0x12ee",
+      "geometry_end": "0x1667",
+      "vertices": 48,
+      "indices": 72,
+      "triangles": 24,
+      "tail_bytes": 705
+    },
+    {
+      "name": "Bip01_Spine3",
+      "offset": "0x1928",
+      "geometry_end": "0x1ca1",
+      "vertices": 48,
+      "indices": 72,
+      "triangles": 24,
+      "tail_bytes": 705
+    },
+    {
+      "name": "Bip01_Neck",
+      "offset": "0x1f62",
+      "geometry_end": "0x2129",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Neck1",
+      "offset": "0x22b2",
+      "geometry_end": "0x247a",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Neck2",
+      "offset": "0x2603",
+      "geometry_end": "0x27cb",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Head",
+      "offset": "0x2954",
+      "geometry_end": "0x32cb",
+      "vertices": 130,
+      "indices": 210,
+      "triangles": 70,
+      "tail_bytes": 1781
+    },
+    {
+      "name": "Bip01_Ponytail1",
+      "offset": "0x39c0",
+      "geometry_end": "0x3b8c",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Ponytail2",
+      "offset": "0x3d15",
+      "geometry_end": "0x3ee1",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_L_Clavicle",
+      "offset": "0x406a",
+      "geometry_end": "0x4237",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_L_UpperArm",
+      "offset": "0x43c0",
+      "geometry_end": "0x470d",
+      "vertices": 40,
+      "indices": 84,
+      "triangles": 28,
+      "tail_bytes": 617
+    },
+    {
+      "name": "Bip01_L_Forearm",
+      "offset": "0x4976",
+      "geometry_end": "0x4c02",
+      "vertices": 32,
+      "indices": 60,
+      "triangles": 20,
+      "tail_bytes": 505
+    },
+    {
+      "name": "Bip01_L_Hand",
+      "offset": "0x4dfb",
+      "geometry_end": "0x4fc4",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_L_Finger0",
+      "offset": "0x514d",
+      "geometry_end": "0x5319",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_R_Clavicle",
+      "offset": "0x54a2",
+      "geometry_end": "0x566f",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_R_UpperArm",
+      "offset": "0x57f8",
+      "geometry_end": "0x5b45",
+      "vertices": 40,
+      "indices": 84,
+      "triangles": 28,
+      "tail_bytes": 617
+    },
+    {
+      "name": "Bip01_R_Forearm",
+      "offset": "0x5dae",
+      "geometry_end": "0x603a",
+      "vertices": 32,
+      "indices": 60,
+      "triangles": 20,
+      "tail_bytes": 505
+    },
+    {
+      "name": "Bip01_R_Hand",
+      "offset": "0x6233",
+      "geometry_end": "0x63fc",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_R_Finger0",
+      "offset": "0x6585",
+      "geometry_end": "0x6751",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_L_Thigh",
+      "offset": "0x68da",
+      "geometry_end": "0x6c24",
+      "vertices": 40,
+      "indices": 84,
+      "triangles": 28,
+      "tail_bytes": 617
+    },
+    {
+      "name": "Bip01_L_Calf",
+      "offset": "0x6e8d",
+      "geometry_end": "0x7116",
+      "vertices": 32,
+      "indices": 60,
+      "triangles": 20,
+      "tail_bytes": 505
+    },
+    {
+      "name": "Bip01_L_Foot",
+      "offset": "0x730f",
+      "geometry_end": "0x74d8",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_L_Toe0",
+      "offset": "0x7661",
+      "geometry_end": "0x782a",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_R_Thigh",
+      "offset": "0x79b3",
+      "geometry_end": "0x7cfd",
+      "vertices": 40,
+      "indices": 84,
+      "triangles": 28,
+      "tail_bytes": 617
+    },
+    {
+      "name": "Bip01_R_Calf",
+      "offset": "0x7f66",
+      "geometry_end": "0x81ef",
+      "vertices": 32,
+      "indices": 60,
+      "triangles": 20,
+      "tail_bytes": 505
+    },
+    {
+      "name": "Bip01_R_Foot",
+      "offset": "0x83e8",
+      "geometry_end": "0x85b1",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_R_Toe0",
+      "offset": "0x873a",
+      "geometry_end": "0x8903",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Tail",
+      "offset": "0x8a8c",
+      "geometry_end": "0x8c53",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Tail1",
+      "offset": "0x8ddc",
+      "geometry_end": "0x8fa4",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Tail2",
+      "offset": "0x912d",
+      "geometry_end": "0x92f5",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 393
+    },
+    {
+      "name": "Bip01_Tail3",
+      "offset": "0x947e",
+      "geometry_end": "0x9646",
+      "vertices": 24,
+      "indices": 36,
+      "triangles": 12,
+      "tail_bytes": 15996
+    }
+  ]
+}

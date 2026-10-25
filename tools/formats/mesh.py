@@ -84,25 +84,16 @@ def _need(data: bytes, off: int, size: int, what: str) -> None:
         raise MeshFormatError(f"{what}: need {size} bytes at 0x{off:x}, file is 0x{len(data):x}")
 
 
-def read_mesh(path: Path) -> Mesh:
-    data = path.read_bytes()
-    if data[:5] != MAGIC:
-        raise MeshFormatError(f"bad magic at 0x00: {data[:5].hex(' ')}")
-
-    hash_, sentinel, chunk_count, name_len = struct.unpack_from("<4I", data, 5)
-    if sentinel != SENTINEL:
-        raise MeshFormatError(f"bad sentinel at 0x09: {sentinel:#010x}")
-    if not 1 <= name_len <= 128:
-        raise MeshFormatError(f"implausible name_len {name_len}")
-
-    name_start = 21
-    _need(data, name_start, name_len, "name")
-    raw_name = data[name_start : name_start + name_len]
-    if raw_name[-1] != 0:
-        raise MeshFormatError("name is not NUL-terminated")
-    name = raw_name[:-1].decode("latin-1")
-
-    off = name_start + name_len
+def read_mesh_body(
+    data: bytes,
+    off: int,
+    *,
+    name: str = "",
+    hash_: int = 0,
+    chunk_count: int = 1,
+    path: str = "",
+) -> Mesh:
+    """Parse a mesh body starting at a vertex_count u32."""
     _need(data, off, 4, "vertex_count")
     vertex_count = struct.unpack_from("<I", data, off)[0]
     off += 4
@@ -153,7 +144,7 @@ def read_mesh(path: Path) -> Mesh:
         off += normal_count * 12
 
     return Mesh(
-        path=str(path),
+        path=path,
         name=name,
         hash=hash_,
         chunk_count=chunk_count,
@@ -162,6 +153,34 @@ def read_mesh(path: Path) -> Mesh:
         uvs=uvs,
         normals=normals,
         tail=data[off:],
+    )
+
+
+def read_mesh(path: Path) -> Mesh:
+    data = path.read_bytes()
+    if data[:5] != MAGIC:
+        raise MeshFormatError(f"bad magic at 0x00: {data[:5].hex(' ')}")
+
+    hash_, sentinel, chunk_count, name_len = struct.unpack_from("<4I", data, 5)
+    if sentinel != SENTINEL:
+        raise MeshFormatError(f"bad sentinel at 0x09: {sentinel:#010x}")
+    if not 1 <= name_len <= 128:
+        raise MeshFormatError(f"implausible name_len {name_len}")
+
+    name_start = 21
+    _need(data, name_start, name_len, "name")
+    raw_name = data[name_start : name_start + name_len]
+    if raw_name[-1] != 0:
+        raise MeshFormatError("name is not NUL-terminated")
+    name = raw_name[:-1].decode("latin-1")
+
+    return read_mesh_body(
+        data,
+        name_start + name_len,
+        name=name,
+        hash_=hash_,
+        chunk_count=chunk_count,
+        path=str(path),
     )
 
 

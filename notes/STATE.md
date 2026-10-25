@@ -34,14 +34,25 @@ Updated: 2026-10-25
 
 ## In progress
 
-- FMT-4: `.skel` skeleton hierarchy and local transforms.
+- FMT-3: `.skin` reader complete (`tools/formats/skin.py`). 104 files parse;
+  2,244 bone blocks; 73 full meshes match their `.mesh`. `allo_lod1` has
+  35 bone blocks (1,105 verts / 614 tris) + full mesh `dino_lod1`
+  (317 verts / 382 tris, exact `.mesh` match).
+- FMT-4: `.skel` reader complete (`tools/formats/skel.py`). 64 files parse,
+  2,113 bones; `allo` = 80 bones / 0.01 global scale.
+- Transform experiment: chain-fit best is 3x3 record[0:9] + translation
+  record[16:19] at 0.01 scale, but the assembled render is a cross, so the
+  layout is not yet correct. Full-mesh tail is 6,514 bytes and likely holds
+  the skin mapping.
 
 ## Next action
 
-1. Claim FMT-4 (`.skel` skeleton): parse hierarchy and local transforms.
-2. Then FMT-3 (`.skin` weights) and FMT-5 (`.anim`).
-3. Decode the `.mesh` material tail and texture names.
-4. Start VIEW-1 (SDL3 + OpenGL window) in parallel once a few meshes export.
+1. Decode the `.skel`/`.skin` virtual read methods in Ghidra:
+   vtables `0x625f0c` (skel) and `0x625e8c` (skin); types `0x56789abc`
+   and `0x02468ace`.
+2. Decode the 6,514-byte full-mesh tail as the skin map.
+3. Re-fit the skeleton transform after the layout is known.
+4. Then FMT-5 (`.anim`) and VIEW-1 (SDL3 viewer).
 
 ## Blockers
 

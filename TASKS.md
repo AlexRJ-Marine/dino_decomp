@@ -32,9 +32,16 @@ tests pass, and `notes/STATE.md` records the evidence path.
   `tests/test_mesh.py`; 536/536 meshes, 47,171 vertices, 35,190 triangles.
 
 ### FMT-3: `.skin` skinning data
-- Parse bone list, inverse bind matrices, per-vertex weights/indices.
-- **Acceptance:** all 104 `.skin` files parse; weights sum to 1.0 within 1e-3.
+- [x] Parse per-bone blocks: bone name + mini-mesh + material.
+- [x] Parse the full-mesh block and match it to the `.mesh`.
+- [x] Confirm every `.skin` parses (104 files, 2,244 bone blocks).
+- [ ] Confirm rigid vs. weighted skinning and decode the full-mesh tail.
+- [ ] Decode the per-bone transform and assemble the bind pose.
+- **Acceptance:** `allo_lod1` bone blocks transform into a coherent bind pose
+  that matches the render mesh; all 104 `.skin` files parse.
 - **Depends on:** FMT-2.
+- **Evidence:** `docs/formats/skin.md`, `tests/test_skin.py`; 73 full meshes
+  match their `.mesh`.
 
 ### FMT-4: `.skel` skeleton
 - Parse bone hierarchy, names, local transforms.
