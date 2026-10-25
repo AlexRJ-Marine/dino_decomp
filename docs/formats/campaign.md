@@ -80,35 +80,35 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 0 | `treasury` | `0x00567c00` | target, [deadline] | below target fails when deadline <= 0 |
 | 1 | `marchandizing` | `0x00567c40` | target | merchandise income > target |
 | 2 | `dyingdinos` | `0x00569010` | max | death counters sum <= max |
-| 3 | `aggressivedinos` | `0x00568680` | threshold, percent | trait predicate open |
-| 4 | `genotypedinos` | `0x00568750` | species, count | 9-trait genotype match |
-| 5 | `cutedinos` | `0x00568770` | count, percent | trait predicate open |
-| 6 | `hybriddinos` | `0x00568840` | count, percent | trait predicate open |
+| 3 | `aggressivedinos` | `0x00568680` | count, percent | pattern[1] `+0xbc` aggression |
+| 4 | `genotypedinos` | `0x00568750` | species, count | 10-field genotype match |
+| 5 | `cutedinos` | `0x00568770` | count, percent | pattern[0] `+0x90` cuteness |
+| 6 | `hybriddinos` | `0x00568840` | count, percent | pattern[2] `+0x1e4` hybrid |
 | 7 | `notconnectedbuildings` | `0x00567170` | type, count | helper mode 0 |
 | 8 | `connectedbuildings` | `0x00567150` | type, count | helper mode 1 |
 | 9 | `visitors` | `0x00566590` | profile, count | `all` or a profile name |
-| 10 | `scaritydinos` | `0x00568910` | ? | unused |
-| 11 | `speeddinos` | `0x00568ab0` | flag, percent | trait predicate open |
-| 12 | `staminadinos` | `0x00568b80` | flag, percent | trait predicate open |
-| 13 | `cleverdinos` | `0x00568c50` | flag, percent | trait predicate open |
-| 14 | `sizedagilitydinos` | `0x00569040` | flag, percent | trait predicate open |
-| 15 | `franckstrangedinos` | `0x00569110` | count, percent | trait predicate open |
+| 10 | `scaritydinos` | `0x00568910` | count, percent | pattern[3] `+0x1e8` (unused) |
+| 11 | `speeddinos` | `0x00568ab0` | count, speed | pattern[6] `int(+0x7c)` |
+| 12 | `staminadinos` | `0x00568b80` | count, percent | pattern[7] `+0xc0` stamina |
+| 13 | `cleverdinos` | `0x00568c50` | count, percent | pattern[9] `+0x8c` intelligence |
+| 14 | `sizedagilitydinos` | `0x00569040` | size, agility | pattern[5] `+0x98`, pattern[8] `+0x1e0`; count fixed at 1 |
+| 15 | `franckstrangedinos` | `0x00569110` | age, score | `+0x1b0==1`, `+0x1b4==0`, `+0x190>=2`, `+0x6c<age`, `+0x3c>score` |
 | 16 | `employees` | `0x005665f0` | profile, count | never fails |
-| 17 | `hungrydinos` | `0x005689e0` | flag, percent | trait predicate open |
-| 18 | `isolateddinos` | `0x00568d20` | count | predicate open |
+| 17 | `hungrydinos` | `0x005689e0` | count, percent | pattern[4] `+0x244` food; count -1 = all |
+| 18 | `isolateddinos` | `0x00568d20` | max | pattern[1] `+0xbc`, fail-list count (-2) |
 | 19 | `happyvisitors` | `0x005665b0` | profile, percent | every visitor >= percent |
 | 20 | `keephappyvisitors` | `0x005665d0` | profile, percent | unused |
-| 21 | `carnivordinos` | `0x00568de0` | ? | unused |
-| 22 | `ornateddinos` | `0x00568ef0` | count | predicate open |
+| 21 | `carnivordinos` | `0x00568de0` | threshold | `+0x1b0==1`, `+0x70 < threshold` (unused) |
+| 22 | `ornateddinos` | `0x00568ef0` | count | dinos with a non-empty 23-slot `+0xE8` array |
 | 23 | `cameraaltitude` | `0x00569230` | height | camera altitude >= height |
-| 24 | `happyshow` | `0x00567710` | profile, percent | show result open |
-| 25 | `fightshow` | `0x005677b0` | ? | unused |
-| 26 | `scientificshow` | `0x005678b0` | threshold, percent | show result open |
-| 27 | `happydinoshow` | `0x00567b10` | count, duration | show result open |
+| 24 | `happyshow` | `0x00567710` | profile, score | any show, profile score >= score |
+| 25 | `fightshow` | `0x005677b0` | score | fight show, hooligan score (unused) |
+| 26 | `scientificshow` | `0x005678b0` | score, strangeness | show score > score and a dino with `+0x1e4` > strangeness |
+| 27 | `happydinoshow` | `0x00567b10` | score, participants | any show, score and dino count |
 | 28 | `delaylimit` | `0x00567bb0` | limit | clock <= load-time + limit |
 | 29 | `buyalldinos` | `0x00569280` | — | dino store empty |
-| 30 | `dinoexclusiveshow` | `0x005692a0` | — | show result open |
-| 31 | `prettystrangedino` | `0x005694c0` | count, percent | trait predicate open |
+| 30 | `dinoexclusiveshow` | `0x005692a0` | — | a show has a dino that no other show has |
+| 31 | `prettystrangedino` | `0x005694c0` | beauty, strange | `+0x40 > beauty`, `+0x194 < strange` |
 | 32 | `bankrupt` | `0x00567c80` | — | fails when the flag is set |
 
 The 89 CampaignList objectives use 28 of these; `scaritydinos`,
@@ -133,10 +133,73 @@ visitors       visitor count >= count (profile 'all' = total)
 happyvisitors  every visitor satisfaction >= percent
 ```
 
-`genotypedinos` is the bridge to `.gen`: `FUN_00567cb0` loads the design files
-from `Data/Design/scenario/genotype/` and compares nine dinosaur trait fields
-(`+0x90`, `+0xbc`, `+0x1e4`, `+0x1e8`, `+0x244`, `+0x98`, `+0xc0`, `+0x8c`,
-`+0x1e0`) against the requested pattern.
+### Trait pattern (10 fields)
+
+Most dinosaur-trait verbs build a 10-int pattern and call `FUN_00567cb0`
+(species filter, pattern, mode 2, required count, -1, 1). The evaluator sets
+one or two slots; the rest stay 0, so they are not constrained. The matcher
+compares these actor fields in order:
+
+| Slot | Actor field | Trait (verb that uses it) |
+| ---: | --- | --- |
+| 0 | `+0x90` | cuteness/beauty (`cutedinos`) |
+| 1 | `+0xbc` | aggression (`aggressivedinos`, `isolateddinos`) |
+| 2 | `+0x1e4` | hybrid/strangeness (`hybriddinos`) |
+| 3 | `+0x1e8` | scarcity/rarity (`scaritydinos`) |
+| 4 | `+0x244` | food need (`hungrydinos`) |
+| 5 | `+0x98` | size (`sizedagilitydinos`) |
+| 6 | `int(+0x7c)` | speed (`speeddinos`) |
+| 7 | `+0xc0` | stamina (`staminadinos`) |
+| 8 | `+0x1e0` | agility (`sizedagilitydinos`) |
+| 9 | `+0x8c` | intelligence (`cleverdinos`) |
+
+`genotypedinos` is the same matcher with an empty pattern (all 10 fields 0),
+so it filters by species only. It loads the design files from
+`Data/Design/scenario/genotype/`.
+
+`franckstrangedinos` and `prettystrangedino` do not use the pattern matcher:
+
+```text
+franckstrangedinos age score
+    dino+0x1b0 == 1, dino+0x1b4 == 0, dino+0x190 >= 2,
+    dino+0x6c < age, dino+0x3c > score
+
+prettystrangedino beauty strange
+    dino+0x40 > beauty, dino+0x194 < strange
+```
+
+### Show objectives
+
+`FUN_00567190` is the show query. Its show-type argument maps:
+
+| String | Id |
+| --- | ---: |
+| `race` | 1 |
+| `obstacle` | 2 |
+| `fight` | 3 |
+| `destruction` | 4 |
+| `team` | 5 |
+| `capture` | 6 |
+| `fence` | 7 |
+| `all` | any |
+
+It iterates shows of that type, filters by a visitor profile (`all` or a
+name), reads the show's per-profile score array (`show+0xEC -> +0x6c`), and
+counts shows whose score is >= the threshold. It also enforces a minimum
+number of participating dinosaurs (`show+0xB4 - show+0xB0 >> 2`).
+
+```text
+happyshow <profile> <score>       any show type, profile score >= score
+happydinoshow <score> <count>     any show, score >= score and >= count dinos
+fightshow <score>                 "fight" show, "hooligan" profile (unused)
+```
+
+`scientificshow` and `dinoexclusiveshow` have their own show loops.
+`dinoexclusiveshow` succeeds when a dinosaur appears in exactly one show's
+`show+0xAC` vector. `scientificshow <score> <strangeness>` requires a show
+whose per-type score is `> score` and a dinosaur in its `show+0xAC` list with
+`+0x1E4 > strangeness` (the same hybrid/strangeness field as
+`hybriddinos`).
 
 All 206 mission/briefing/objective loc IDs resolve in `MenuEng.loc` /
 `ParkEng.loc`.
@@ -144,11 +207,10 @@ All 206 mission/briefing/objective loc IDs resolve in `MenuEng.loc` /
 ## `.wld` initial worlds
 
 `WorldFile` is the campaign's initial park state, serialized with the same
-world format as `run/save/*.sav` (see `docs/formats/sav.md`). Version dwords:
-51 (Cpg01/02/06/08), 50 (Cpg03), 52 (Cpg05), 53 (Cpg04), 2 (Cpg07).
-The empty-ish 200-byte saves still contain a camera vector
-(`524.7, 433.5, 35.0` / `524.7, 443.5, 32.0` in Cpg01). World-object contents
-are decoded by the save research, not here.
+world format as `run/save/*.sav` (see `docs/formats/sav.md` and
+`docs/formats/wld.md`). Version dwords: 51 (Cpg01/02/06/08), 50 (Cpg03),
+52 (Cpg05), 53 (Cpg04), 2 (Cpg07). The empty-ish 200-byte saves still contain
+a camera vector (`524.7, 433.5, 35.0` / `524.7, 443.5, 32.0` in Cpg01).
 
 ## Reader
 
@@ -178,9 +240,7 @@ world files, Cpg07 anomaly, 33-verb table).
 
 ## Open
 
-- Exact predicates for the dino-trait verbs and the nine genotype fields.
-- Show evaluator internals (`happyshow`, `scientificshow`, …).
-- `scaritydinos` / `carnivordinos` argument semantics.
-- Difficulty variants (`*Medium`/`*Hard`) evaluation.
+- Human-readable names for the 10 trait fields, the show score and `+0x1e4`
+  strangeness.
+- Difficulty variants (`*Medium`/`*Hard`) evaluation and objective weighting.
 - Cpg07's role (cut campaign).
-- `.wld` world-object contents (shared with `.sav`).

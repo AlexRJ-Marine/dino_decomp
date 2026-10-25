@@ -2979,6 +2979,8 @@ int main(int argc, char** argv) {
     int park_hover_y = -1;
     int park_active_index = -1;
     int park_budget = free_game_budgets[0];
+    int park_layout_w = 800;
+    int park_layout_h = 600;
     dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
     float minimap_heading = 1e30f;
     float minimap_rendered_scale = -1.0f;
@@ -3000,10 +3002,8 @@ int main(int argc, char** argv) {
         const float dpi = logical_w > 0
                               ? static_cast<float>(view_w) / static_cast<float>(logical_w)
                               : 1.0f;
-        const float ox = (static_cast<float>(view_w) - 800.0f * dpi) * 0.5f;
-        const float oy = (static_cast<float>(view_h) - 600.0f * dpi) * 0.5f;
-        auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
-        auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+        auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+        auto py = [&](int value) { return static_cast<float>(value) * dpi; };
 
         std::vector<int> order;
         for (int i = 0; i < static_cast<int>(park.overlay.widgets.size()); ++i) {
@@ -3342,6 +3342,12 @@ int main(int argc, char** argv) {
 
         SDL_GetWindowSizeInPixels(window, &width, &height);
         SDL_GetWindowSize(window, &logical_width, &logical_height);
+        if (park.loaded() &&
+            (logical_width != park_layout_w || logical_height != park_layout_h)) {
+            park.overlay.layout_for_size(logical_width, logical_height);
+            park_layout_w = logical_width;
+            park_layout_h = logical_height;
+        }
         if (width <= 0 || height <= 0) {
             SDL_Delay(10);
             continue;
@@ -3637,16 +3643,24 @@ int main(int argc, char** argv) {
                             ? static_cast<float>(width) /
                                   static_cast<float>(logical_width)
                             : 1.0f;
-                    const float ox =
-                        (static_cast<float>(width) - 800.0f * dpi) * 0.5f;
-                    const float oy =
-                        (static_cast<float>(height) - 600.0f * dpi) * 0.5f;
-                    // MAP_RENDERVIEW: 136x136 at (652,451); the FBO texture is
-                    // bottom-up, so V is flipped.
+                    const dino::ui::Widget* map_widget =
+                        park.overlay.get("MAP_RENDERVIEW");
+                    const float map_x =
+                        static_cast<float>(map_widget ? map_widget->abs_x : 652) *
+                        dpi;
+                    const float map_y =
+                        static_cast<float>(map_widget ? map_widget->abs_y : 451) *
+                        dpi;
+                    const float map_w =
+                        static_cast<float>(map_widget ? map_widget->width : 136) *
+                        dpi;
+                    const float map_h =
+                        static_cast<float>(map_widget ? map_widget->height : 136) *
+                        dpi;
+                    // MAP_RENDERVIEW is a bottom-up FBO texture: flip V.
                     draw_ui_mesh(
                         menu_gpu,
-                        build_ui_quad(ox + 652.0f * dpi, oy + 451.0f * dpi,
-                                      136.0f * dpi, 136.0f * dpi, 0.0f, 1.0f,
+                        build_ui_quad(map_x, map_y, map_w, map_h, 0.0f, 1.0f,
                                       1.0f, 0.0f, {255, 255, 255, 255}),
                         minimap.color, 1.0f, 1, width, height);
 
@@ -3663,18 +3677,18 @@ int main(int argc, char** argv) {
                             dx * std::sin(angle) - dy * std::cos(angle);
                         const float sy =
                             dx * std::cos(angle) + dy * std::sin(angle);
-                        const float centre_x = ox + 720.0f * dpi;
-                        const float centre_y = oy + 519.0f * dpi;
-                        const float half_px = 68.0f * dpi;
+                        const float centre_x = map_x + map_w * 0.5f;
+                        const float centre_y = map_y + map_h * 0.5f;
+                        const float half_px = map_w * 0.5f;
                         const float marker_x =
                             centre_x + (sx / half) * half_px;
                         const float marker_y =
                             centre_y - (sy / half) * half_px;
                         const float inset = 4.0f * dpi;
-                        if (marker_x > ox + 652.0f * dpi + inset &&
-                            marker_x < ox + 788.0f * dpi - inset &&
-                            marker_y > oy + 451.0f * dpi + inset &&
-                            marker_y < oy + 587.0f * dpi - inset) {
+                        if (marker_x > map_x + inset &&
+                            marker_x < map_x + map_w - inset &&
+                            marker_y > map_y + inset &&
+                            marker_y < map_y + map_h - inset) {
                             draw_ui_mesh(
                                 menu_gpu,
                                 build_screen_rect(marker_x - 2.5f * dpi,

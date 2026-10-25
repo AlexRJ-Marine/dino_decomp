@@ -225,3 +225,11 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   is 1.0 everywhere. T-rex arm 0.235, Diplodocus tail 2.093, Brachio head
   1.1375. Pairs with the .gen head/armleg/body/tail species genes.
   Reader tools/formats/anim_trans.py --dump-proportion.
+- Objective trait/show predicates: dinosaur-trait verbs build a 10-slot
+  pattern compared against actor +0x90 (cute), +0xbc (aggression), +0x1e4
+  (hybrid), +0x1e8 (scarcity), +0x244 (food), +0x98 (size), +0x7c (speed),
+  +0xc0 (stamina), +0x1e0 (agility), +0x8c (intelligence). Show query
+  0x567190 maps race/obstacle/fight/destruction/team/capture/fence and
+  per-profile score arrays. carnivordinos, ornateddinos, scientificshow and dinoexclusiveshow are
+  decoded; all 33 evaluator predicates are solved. Only field names and
+  objective weighting remain. See notes/objectives-recon.md.

@@ -39,7 +39,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | Address | Purpose | Status | Evidence |
 | --- | --- | --- | --- |
 | `0x005bca20` | `moWidget::Load` — reads all INI properties, text/font fields and align bits | decompiled | `notes/ui-recon.md`, `docs/formats/overlay-ini.md` |
-| `0x005bc000` | `moWidget::OnResize` — fixed/right/down/stretch/center anchoring pass | decompiled | same; 800→1024 MAD check |
+| `0x005bc000` | `moWidget::OnResize` – fixed/right/down/stretch/center anchoring pass | decompiled, verified | same; 800→1024 MAD check; `src/ui/overlay.cpp` |
 | `0x005c5f00` | `moWidget::OnEvent` — property opcodes and flag setters (bits 9–15) | decompiled | same |
 | `0x004227d0` | `moFontCtrl` font cache/loader; calls `mgFontDx8::LoadFile` | decompiled | same |
 | `0x00517c60` | `mvwMenuStateManager` ctor — registers the nine menu pages in order | decompiled | same |
@@ -157,12 +157,25 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005658d0` | objective verb → id lookup (33 verbs) | decompiled | same |
 | `0x00566080` | objective visitor counter (`visitors`/`happyvisitors`) | decompiled | same |
 | `0x00566620` | objective building counter (`connectedbuildings`) | decompiled | same |
-| `0x00567cb0` | objective genotype matcher (9 dino traits) | decompiled | same |
+| `0x00567190` | objective show query (`happyshow`/`fightshow`/`happydinoshow`) | decompiled | same |
+| `0x00567cb0` | objective genotype/trait matcher (10 dino fields) | decompiled | same |
 | `0x005220e0` | `apEmployeeBehavior::Update` — job dispatcher | decompiled | `docs/decomp/employee-ai.md` |
 | `0x005224c0` | employee job-queue pop / target selection | decompiled | same |
 | `0x00522390` | employee kind-0xb work animation | decompiled | same |
 | `0x00522300` | employee state transitions | decompiled | same |
-| `0x00594b80` | `spScheduleManager` constructor | decompiled | same |
+| `0x00594b80` | `spScheduleManager` constructor | decompiled | `docs/decomp/park-time.md` |
+| `0x0058c1c0` | time-manager constructor / second-minute-hour conversions | decompiled | same |
+| `0x0058c2f0` | clock advance; new-hour and end-of-day flags | decompiled | same |
+| `0x0058c350` | clock read: hour / minute / day | decompiled | same |
+| `0x0058c390` | show start-window check | decompiled | same |
+| `0x0058c760` | 12-slot show scheduler on hour boundaries | decompiled | same |
+| `0x0058c210` / `0x0058c260` / `0x0058c620` / `0x0058c6b0` | schedule serialization | decompiled | same |
+| `0x00526010` | HUD time panel (`%.2d:%.2dAM/PM`, day+1) | decompiled | same |
+| `0x005234e0` | `PARK_CURRENT_TIME` / `PARK_CURRENT_DAY` widgets | decompiled | same |
+| `0x00524630` | park daily update / end-of-day trigger | decompiled | `docs/decomp/park-time.md` |
+| `0x0058c2d0` | day counter `+0x04 += 1`, clear flags, reset elapsed | decompiled | same |
+| `0x0058ae60` | daily actor/dino reset pass | decompiled | same |
+| `0x0058ad00` | daily economy settlement (triggered by `0x524630`) | decompiled | `docs/decomp/economy.md` |
 | `0x0053e060` | `actionlist.ini` loader; action IDs 0..63 | decompiled | `docs/decomp/dinosaur-actions.md` |
 | `0x005727b0` | `saDinosaur::ApplyActionEffect(action_id, …)` | decompiled | same |
 | `0x00571540` | `saDinosaur::Update` — rest decay, action countdown, activity table | decompiled | same |
@@ -199,12 +212,15 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | park HUD panel switching | `src/ui/park.cpp` | reimplemented, 12 HUD buttons + info pages + lab centres |
 | menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
 | minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
+| HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items
 
 - SFX/music playback port and the MPEG intro player — MEDIA-1 rest; the sound
   DB, music map and DirectShow pipeline are solved in `docs/decomp/media.md`.
+- Park day-counter increment source and the fixed economy-category labels —
+  `docs/decomp/park-time.md`, `docs/decomp/economy.md`.
 - 1024×768 HUD anchoring and dynamic sub-panel fields — UI-2 Phase C rest.
 - Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
   panel — UI-2 Phase D.

@@ -35,6 +35,10 @@ struct Widget {
     int y = 0;
     int width = 0;
     int height = 0;
+    int base_x = 0;
+    int base_y = 0;
+    int base_width = 0;
+    int base_height = 0;
     int priority = 0;
     float zpriority = 0.0f;
 
@@ -87,6 +91,9 @@ struct Overlay {
     bool load_interface(const std::string& interface_path,
                         const std::string& db_path, bool menu, std::string& error);
     void layout();
+    // Re-runs moWidget::OnResize for a park HUD at `view_w` x `view_h`
+    // (800x600 design space). Menu pages are not re-anchored.
+    void layout_for_size(int view_w, int view_h);
 
     // True when `widget` is on the current page and every ancestor is visible.
     bool visible_on_page(int widget_index, int page_index) const;

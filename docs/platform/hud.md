@@ -116,6 +116,16 @@ up. The visible world width is `2 * world_size * scale`:
   inside the map;
 - the FBO is refreshed only when the target, heading or scale changes.
 
+### Resolution and anchoring
+
+The park HUD is **re-anchored, not scaled** (`moWidget::OnResize`). The viewer
+keeps the 800×600 authoring rects and re-runs the align pass whenever the
+logical window size changes; at 1024×768 the right panel is at 931,168, the
+gauge at 293,737 and the map at 840,584. The minimap quad follows
+`MAP_RENDERVIEW`'s anchored rect. Menu pages still centre their 800×600
+screen. High-DPI uses the drawable/logical ratio for physical scaling after
+the logical anchoring pass.
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
@@ -130,6 +140,8 @@ up. The visible world width is `2 * world_size * scale`:
   the camera marker.
 - `notes/minimap-isl01-zoom-detail.png` - two scripted zoom-in clicks.
 - `notes/minimap-isl10-detail.png` - a different island (snow) in the map.
+- `notes/park-hud-1024.png` - the park HUD re-anchored at 1024×768.
+- `notes/hud-1024.png` - the Python/oracle HUD at the same size.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:
@@ -143,7 +155,7 @@ up. The visible world width is `2 * world_size * scale`:
 ## Open items
 
 - Kerning/advance beyond glyph width; coloured/shadowed text.
-- HUD scaling for high-DPI and park re-anchoring at 1024×768 (QOL-2).
+- High-DPI text sharpness at non-integer drawable/logical ratios.
 - Save/load panels and park button bindings (UI-2 Phase D).
 - Minimap detail-map water colour and exact partition contents.
 - `draw_ui_mesh` re-uploads its mesh per widget per frame; batching is the

@@ -6,7 +6,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
-from campaign import OBJECTIVE_VERBS, load_campaigns, read_campaign, scan  # noqa: E402
+from campaign import (  # noqa: E402
+    OBJECTIVE_VERBS,
+    TRAIT_PATTERN,
+    load_campaigns,
+    read_campaign,
+    scan,
+)
 from loc import read_loc  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
@@ -64,6 +70,23 @@ def test_objectives_and_verbs():
     assert len(data["verbs"]) == 28
     assert data["verbs"]["genotypedinos"] == 14
     assert data["verbs"]["happyvisitors"] == 10
+
+
+def test_objective_trait_pattern():
+    """The 10 genotype-comparison slots map to actor trait fields."""
+    assert sorted(TRAIT_PATTERN) == list(range(10))
+    assert TRAIT_PATTERN[0] == ("+0x90", "cuteness/beauty")
+    assert TRAIT_PATTERN[1] == ("+0xbc", "aggression")
+    assert TRAIT_PATTERN[4] == ("+0x244", "food need")
+    assert TRAIT_PATTERN[6] == ("int(+0x7c)", "speed")
+    assert TRAIT_PATTERN[9] == ("+0x8c", "intelligence")
+    # Each trait verb names the slot it constrains.
+    assert "pattern[0]" in OBJECTIVE_VERBS["cutedinos"].note
+    assert "pattern[1]" in OBJECTIVE_VERBS["aggressivedinos"].note
+    assert "pattern[2]" in OBJECTIVE_VERBS["hybriddinos"].note
+    assert "pattern[6]" in OBJECTIVE_VERBS["speeddinos"].note
+    assert OBJECTIVE_VERBS["speeddinos"].args == ("count:int", "speed:int")
+    assert OBJECTIVE_VERBS["hungrydinos"].args == ("count:int", "percent:int")
 
 
 def test_objective_verb_table():

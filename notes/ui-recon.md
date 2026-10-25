@@ -707,3 +707,31 @@ the exact detail-map texture/partition contents (actors unproven). Evidence:
 `notes/minimap-isl01.png`, `notes/minimap-isl01-detail.png`,
 `notes/minimap-isl01-zoom-detail.png`, `notes/minimap-isl10-detail.png`,
 `notes/retail-minimap-crop.png`.
+
+## 1024x768 park HUD anchoring (implementation follow-up)
+
+`Overlay::layout_for_size(view_w, view_h)` now implements
+`moWidget::OnResize` for the park HUD:
+
+- every widget is reset to its `BASE_X/Y/WIDTH/HEIGHT` (the 800x600 authoring
+  values);
+- roots resize against the 800x600 design space, children against their
+  parent's base size;
+- `ALIGN_CENTER` centres both axes; `ALIGN_LEFT+ALIGN_RIGHT` stretches width
+  by `newW-oldW`; right-only shifts x; the same rules apply vertically;
+- the park HUD is re-laid out whenever the logical window size changes; the
+  minimap quad and its marker use `MAP_RENDERVIEW`'s anchored rect.
+
+At 1024x768 this gives exactly the measured retail rects:
+
+```text
+NAVIGATION_PANEL  864  457    83x128
+RIGHT_PANEL       931  168    93x417
+GAUGE_PANEL       293  737   618x31
+MAP_PANEL         840  584   184x184
+MAP_RENDERVIEW    876  619   136x136
+```
+
+Port screenshot: `notes/park-hud-1024.png`; oracle: `notes/hud-1024.png`.
+Panel MAD at 1024: right 12.7, gauge 4.45 (nav background differs as before).
+Menu pages remain centred at 800x600 (unchanged).

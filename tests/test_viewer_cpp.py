@@ -948,3 +948,31 @@ def test_cpp_minimap_detail_view(tmp_path):
     diff = ImageChops.difference(map_area, zoomed).getbbox()
     assert diff is not None
     assert (diff[2] - diff[0]) * (diff[3] - diff[1]) > 1000
+
+def test_cpp_park_hud_1024_anchor(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "hud-1024.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--screenshot", str(shot),
+         "--width", "1024", "--height", "768", "--no-vsync", "--no-save-config",
+         "--no-hud", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--distance", "500"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    assert image.size == (1024, 768)
+    # Retail re-anchor: right panel at 931,168; gauge at 293,737; map at
+    # 840,584. The top-right corner is empty and the old 800x600 positions
+    # are scene pixels.
+    right = image.crop((931, 168, 1024, 585))
+    assert len(right.getcolors(maxcolors=1_000_000)) > 200
+    gauge = image.crop((293, 737, 911, 768))
+    assert len(gauge.getcolors(maxcolors=1_000_000)) > 100
+    map_area = image.crop((876, 619, 1012, 755))
+    assert len(map_area.getcolors(maxcolors=1_000_000)) > 500
+    # Top-right at the 800x600 panel position is no longer the panel.
+    assert image.getpixel((950, 100)) != image.getpixel((950, 250))
+    # Gauge starts at x=293, not x=69.
+    assert image.getpixel((280, 750)) != image.getpixel((300, 750))

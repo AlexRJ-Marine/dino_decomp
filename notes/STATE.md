@@ -299,7 +299,15 @@ Updated: 2026-10-25
     `notes/minimap-isl01.png`, `notes/minimap-isl01-detail.png`,
     `notes/minimap-isl01-zoom-detail.png`, `notes/minimap-isl10-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_minimap_detail_view`.
-- 194 tests pass; working tree committed (UI-2 Phase B rest plus
+- UI-2 Phase C anchoring complete: **park HUD re-anchors at 1024×768.**
+  - `Overlay::layout_for_size` implements `moWidget::OnResize` with the base
+    800×600 rects; right panel 931,168, gauge 293,737, map 840,584,
+    `MAP_RENDERVIEW` 876,619.
+  - Menu pages remain centred; the minimap quad follows the anchored rect.
+  - Evidence: `notes/ui-recon.md` ("1024x768 park HUD anchoring"),
+    `notes/park-hud-1024.png`, `notes/hud-1024.png`,
+    `tests/test_viewer_cpp.py::test_cpp_park_hud_1024_anchor`.
+- 196 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -411,7 +419,16 @@ Updated: 2026-10-25
     tri-state verdict (0 pending / 1 success / 2 failure). Simple evaluators
     (treasury, marchandizing, dyingdinos, employees, visitors, happyvisitors,
     buildings, camera altitude, delay limit, buy-all-dinos, bankrupt) decoded.
-    Trait/show predicates remain open.
+  - Dinosaur-trait verbs use a 10-slot pattern over actor fields `+0x90`
+    (cuteness), `+0xbc` (aggression), `+0x1e4` (hybrid), `+0x1e8` (scarcity),
+    `+0x244` (food), `+0x98` (size), `+0x7c` (speed), `+0xc0` (stamina),
+    `+0x1e0` (agility), `+0x8c` (intelligence). Show query `0x567190` maps
+    race/obstacle/fight/destruction/team/capture/fence and per-profile scores.
+    `carnivordinos` (`+0x1b0/+0x70`) and `ornateddinos` (23-slot `+0xE8`
+    array) are decoded; `scientificshow` requires show score > arg1 and a dino
+    `+0x1e4` > arg2, and `dinoexclusiveshow` a dinosaur unique to one show.
+    All 33 evaluator predicates are decoded; field names and objective
+    weighting remain.
   - Evidence: `tools/formats/campaign.py`, `docs/formats/campaign.md`,
     `tests/test_campaign.py`, `notes/campaign-recon.md`,
     `notes/objectives-recon.md`.
@@ -425,6 +442,25 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/anim_trans.py`,
     `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
     `notes/anim-trans-recon.md`.
+- PARK-TIME research: **clock and show scheduler decompiled.**
+  - `spScheduleManager` (`0x594b80`) owns a time manager and a 12-entry task
+    vector. Time manager: base hour `+0x00`, elapsed `+0x08`, new-hour
+    `+0x28`, end-of-day `+0x29`, hours/sec `+0x20`, minutes/sec `+0x18`.
+  - `0x58c2f0` advances the clock; the day ends at hour 11. `0x58c350`
+    returns H:M:S; `0x526010` formats `%.2d:%.2dAM/PM` in the HUD.
+  - `0x58c760` scans the 12 show slots on each hour boundary, checks show
+    flags `+0xd3`/`+0xe0`/`+0xe4`, and starts via `0x57b110`/`0x57b130`;
+    `0x58c390` computes the show window.
+  - `0x58dfc0` is the show render-record builder, not the clock.
+  - Day rollover: `0x524630` checks the end-of-day flag, calls `0x58ae60`
+    (daily actor reset), `0x58c2d0` (day++ / clock reset) and `0x58ad00`
+    (daily economy settlement). The day counter is `time+0x04`.
+  - Economy labels recovered from the budget panel `0x50fd30`: FOOD,
+    EFFECTIFS_FOOD, EFFECTIFS_SECU, DINOACHAT, LABOACTION, CONSTRUCTION,
+    ENTREES, RESTOS, BARAQUES, SOUVENIRS, BOITNOIRE, POINTDEVUE, GRADINS,
+    VENTES. The `spPark+0x1c` index-to-label order is still open.
+  - Evidence: `notes/park-time-recon.md`, `docs/decomp/park-time.md`,
+    `docs/decomp/economy.md`, `docs/decomp/function-status.md`.
 - MEDIA-1 recon complete: **sound DB, music and DirectShow movies.**
   - `MenuSoundDB.ini` (5 entries) and `ParkSoundDB.ini` (224); all filenames
     resolve except the documented `[bell]` retail typo.
@@ -548,10 +584,10 @@ Updated: 2026-10-25
 
 ## In progress
 
-- **UI-2 Phase C rest:** 1024×768 HUD re-anchoring (QOL-2), dynamic values
-  inside sub-panels (budget ledger rows, list snapshots, slider/checkbox
-  selection), minimap water colour/partition polish. Button bindings,
-  hover/pressed states, the menu→island handoff and the minimap are done.
+- **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,
+  list snapshots, slider/checkbox selection), minimap water colour/partition
+  polish. Button bindings, hover/pressed states, the menu→island handoff,
+  the minimap and 1024×768 anchoring are done.
 - **UI-2 Phase B polish:** the original park camera's initial framing is not
   yet recovered; the port still auto-frames with `bounds.extent() * 1.7`.
 - **UI-2 Phase D:** save/load panels, menu sounds, warning/request dialogs
@@ -565,8 +601,8 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-2 Phase C rest: 1024×768 HUD re-anchoring (QOL-2) and dynamic values in
-   sub-panels (budget ledger rows, list snapshots, sliders).
+1. UI-2 Phase C rest: dynamic values in sub-panels (budget ledger rows, list
+   snapshots, sliders) and minimap water/partition polish.
 2. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
    (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
 3. Capture a side-by-side comparison against the original game for WORLD-3.
@@ -577,8 +613,9 @@ Updated: 2026-10-25
 6. DEC-3 rest: decode populated lab records; the world object graph, unlock
    arrays and AI/camera tail are solved. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
-7. SIM-4 rest: name the fixed economy categories and the daily settlement
-   trigger; see `docs/decomp/economy.md`.
+7. SIM-4 rest: confirm the `spPark+0x1c` index-to-label order; the
+   category labels and the daily settlement trigger are solved. See
+   `docs/decomp/economy.md`.
 8. STAFF rest: decode job kind `0xb`, Nutritionist/Guard role assignment and
    staff wages; see `docs/decomp/employee-ai.md`.
 9. User: publish `docs/community/xentax-post.md` and record any replies.

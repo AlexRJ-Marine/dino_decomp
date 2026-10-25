@@ -1,7 +1,9 @@
 #include "overlay.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 
 #include "ini.h"
@@ -124,6 +126,10 @@ bool Overlay::load_interface(const std::string& interface_path,
             if (section.get("ALIGN_RIGHT") == "1") widget.align |= 4;
             if (section.get("ALIGN_DOWN") == "1") widget.align |= 8;
             if (section.get("ALIGN_CENTER") == "1") widget.align |= 16;
+            widget.base_x = widget.x;
+            widget.base_y = widget.y;
+            widget.base_width = widget.width;
+            widget.base_height = widget.height;
 
             index[widget.name] = static_cast<int>(widgets.size());
             widgets.push_back(std::move(widget));
@@ -191,23 +197,49 @@ bool Overlay::load_interface(const std::string& interface_path,
 }
 
 void Overlay::layout() {
-    const std::vector<int>& layout_roots = pages.empty() ? roots : pages;
-    for (const int root_index : layout_roots) {
-        Widget& root = widgets[static_cast<std::size_t>(root_index)];
-        root.abs_x = root.x;
-        root.abs_y = root.y;
-        std::vector<int> stack{root_index};
-        while (!stack.empty()) {
-            const int i = stack.back();
-            stack.pop_back();
-            const Widget& parent = widgets[static_cast<std::size_t>(i)];
-            for (const int child : parent.children) {
-                Widget& w = widgets[static_cast<std::size_t>(child)];
-                w.abs_x = parent.abs_x + w.x;
-                w.abs_y = parent.abs_y + w.y;
-                stack.push_back(child);
+    layout_for_size(800, 600);
+}
+
+void Overlay::layout_for_size(int view_w, int view_h) {
+    // Mirrors moWidget::OnResize (FUN_005bc000). Positions and sizes are
+    // relative to the parent; base_* hold the 800x600 authoring values.
+    std::function<void(int, int, int, int, int, int, int)> place =
+        [&](int index, int parent_x, int parent_y, int parent_new_w,
+            int parent_new_h, int parent_old_w, int parent_old_h) {
+            Widget& w = widgets[static_cast<std::size_t>(index)];
+            w.x = w.base_x;
+            w.y = w.base_y;
+            w.width = w.base_width;
+            w.height = w.base_height;
+
+            if ((w.align & 16) != 0) {
+                w.x = (parent_new_w - w.base_width) / 2;
+                w.y = (parent_new_h - w.base_height) / 2;
+            } else {
+                const int dw = parent_new_w - parent_old_w;
+                const int dh = parent_new_h - parent_old_h;
+                if ((w.align & 1) != 0 && (w.align & 4) != 0) {
+                    w.width = std::max(0, w.base_width + dw);
+                } else if ((w.align & 4) != 0) {
+                    w.x = w.base_x + dw;
+                }
+                if ((w.align & 2) != 0 && (w.align & 8) != 0) {
+                    w.height = std::max(0, w.base_height + dh);
+                } else if ((w.align & 8) != 0) {
+                    w.y = w.base_y + dh;
+                }
             }
-        }
+
+            w.abs_x = parent_x + w.x;
+            w.abs_y = parent_y + w.y;
+            for (const int child : w.children) {
+                place(child, w.abs_x, w.abs_y, w.width, w.height, w.base_width,
+                      w.base_height);
+            }
+        };
+
+    for (const int root_index : roots) {
+        place(root_index, 0, 0, view_w, view_h, 800, 600);
     }
 }
 

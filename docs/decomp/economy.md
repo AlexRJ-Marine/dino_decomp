@@ -1,7 +1,10 @@
 # Park budget and daily economy
 
-Status: **decompiled**; category labels, day trigger, and UI ledger mapping are
-still open.
+Status: **decompiled**; the fixed category labels and the day trigger are
+solved. The exact `spPark+0x1c` index-to-label mapping and the UI ledger
+rows are still partial.
+The day trigger: `0x00524630` fires `0x0058ad00` when the park clock's
+end-of-day flag is set (`docs/decomp/park-time.md`).
 
 ## Budget
 
@@ -62,8 +65,38 @@ Known call sites:
    - budget ≥ 0 → clear `+0x94`.
 5. Reset the shops' daily counters (`+0x38` → `+0x3c`) and attraction counters.
 
-The function is reached from the park interface update `0x00524630`; whether
-the real trigger is a day rollover or a UI refresh is still open.
+**Trigger.** `0x00524630` (park daily update) checks the schedule-manager
+time field `+0x29` (end of day). When set, it calls `0x0058ae60` (daily actor
+reset), `0x0058c2d0` (day counter `+0x04 += 1`, clear flags, reset elapsed
+time) and then `0x0058ad00`. The clock itself is documented in
+`docs/decomp/park-time.md`; the day ends at hour 11.
+
+## Fixed category labels
+
+The budget panel constructor `0x0050fd30` resolves 14 rows in this order
+(the widget pointers are assigned in the same order for the cost and quantity
+columns):
+
+| Row | Widget stem | Meaning |
+| ---: | --- | --- |
+| 0 | `BUDGET_FOOD` | food / feeding cost |
+| 1 | `BUDGET_EFFECTIFS_FOOD` | nutritionist staff |
+| 2 | `BUDGET_EFFECTIFS_SECU` | guard staff |
+| 3 | `BUDGET_DINOACHAT` | dinosaur purchase |
+| 4 | `BUDGET_LABOACTION` | laboratory action |
+| 5 | `BUDGET_CONSTRUCTION` | construction |
+| 6 | `BUDGET_ENTREES` | admissions / tickets |
+| 7 | `BUDGET_RESTOS` | restaurants |
+| 8 | `BUDGET_BARAQUES` | stalls |
+| 9 | `BUDGET_SOUVENIRS` | gift shops |
+| 10 | `BUDGET_BOITNOIRE` | "black box" (lab device) |
+| 11 | `BUDGET_POINTDEVUE` | viewpoint attraction |
+| 12 | `BUDGET_GRADINS` | grandstands |
+| 13 | `BUDGET_VENTES` | sales |
+
+The `spPark` per-category array at `+0x1c` has 13/14 counters; the exact
+index-to-row mapping is still to be confirmed against a populated save.
+The `VISITEURS` widget is the visitor total, not a spend row.
 
 ## Cumulative counters
 

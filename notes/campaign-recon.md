@@ -65,9 +65,10 @@ Dispatch solved: `FUN_005654f0` parses the line and stores the verb id at
 
 Simple evaluators decoded (treasury, marchandizing, dyingdinos, employees,
 visitors, happyvisitors, connected/not-connected buildings, camera altitude,
-delay limit, buy-all-dinos, bankrupt); trait and show predicates remain open.
-Full table and evidence: `notes/objectives-recon.md`,
-`docs/formats/campaign.md`.
+delay limit, buy-all-dinos, bankrupt); the 10-slot dinosaur trait pattern,
+the show query, `carnivordinos`, `ornateddinos`, `scientificshow` and
+`dinoexclusiveshow` are mapped (see `notes/objectives-recon.md`). All 33
+evaluator predicates are decoded; only field names and weighting are open.
 
 Data quirks: Cpg07's cut mission uses the typo `dyinddinos`; Cpg06_Mission1
 has `genotypedinos diplo 1""` (still parses). `scaritydinos`,

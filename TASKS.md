@@ -242,7 +242,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Simple evaluators (treasury, marchandizing, dyingdinos, employees,
   visitors, happyvisitors, connected buildings, camera altitude, delay limit,
   buy-all-dinos, bankrupt) decoded.
-- [ ] Trait-verb predicates, genotype field mapping and show evaluators.
+- [x] Dinosaur-trait verbs: 10-slot pattern mapped to actor fields
+  (`+0x90` cuteness, `+0xbc` aggression, `+0x1e4` hybrid, `+0x1e8` scarcity,
+  `+0x244` food, `+0x98` size, `+0x7c` speed, `+0xc0` stamina, `+0x1e0`
+  agility, `+0x8c` intelligence).
+- [x] Show query (`0x567190`): show types race/obstacle/fight/destruction/
+  team/capture/fence, per-profile score array, participant minimum.
+- [x] `scientificshow` (show score > arg1, dino `+0x1e4` > arg2) and
+  `dinoexclusiveshow` (a dinosaur unique to one show).
+- [ ] Human-readable names for the trait/show fields, difficulty variants and
+  objective weighting.
 - **Acceptance:** 7/7 campaigns and 39/39 missions parse; every mission verb
   resolves to the 33-verb table.
 - **Depends on:** FMT-7, FMT-8, FMT-9.
@@ -519,10 +528,22 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `spScheduleManager` (`0x5220e0`, `0x5224c0`, `0x522390`, `0x594b80`).
 - [ ] Name the fixed expense categories, day trigger, staff costs/role
   assignment and UI budget-ledger rows.
+- [x] Decode the park clock and show scheduler: `spScheduleManager` time
+  manager (`+0x00` base hour, `+0x08` elapsed, `+0x28` new-hour, `+0x29`
+  end-of-day), 12-entry task vector, `0x58c2f0` advance, `0x58c350` H:M:S,
+  `0x58c760` show scan and `0x58c390` show window.
+- [x] Locate the day rollover: `0x524630` -> `0x58ae60` (actor reset),
+  `0x58c2d0` (day++ / clock reset), `0x58ad00` (daily settlement).
+- [x] Recover the fixed economy-category labels from the budget panel:
+  FOOD, EFFECTIFS_FOOD, EFFECTIFS_SECU, DINOACHAT, LABOACTION, CONSTRUCTION,
+  ENTREES, RESTOS, BARAQUES, SOUVENIRS, BOITNOIRE, POINTDEVUE, GRADINS,
+  VENTES.
+- [ ] Confirm the `spPark+0x1c` index-to-label order against a populated save.
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 - **Evidence:** `notes/park-economy-recon.md`,
-  `docs/decomp/economy.md`, `notes/employee-ai-recon.md`,
+  `docs/decomp/economy.md`, `notes/park-time-recon.md`,
+  `docs/decomp/park-time.md`, `notes/employee-ai-recon.md`,
   `docs/decomp/employee-ai.md`, `docs/decomp/function-status.md`.
 
 ## Phase 3 verification targets — presentation
@@ -585,9 +606,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   map into an FBO, centred on the camera target, rotated with the camera
   heading; held zoom buttons change the 0.1..2.0 scale; red/yellow camera
   marker.
-- [ ] Phase C rest: 1024×768 re-anchoring, dynamic sub-panel fields (budget
-  ledger rows, list snapshots, sliders), minimap water colour/partition
-  polish.
+- [x] Phase C rest (anchoring): `Overlay::layout_for_size` implements
+  `moWidget::OnResize`; at 1024×768 the right panel is at 931,168, the gauge
+  at 293,737 and the map at 840,584 (matching the measured retail layout);
+  the minimap quad follows `MAP_RENDERVIEW`'s anchored rect.
+- [ ] Phase C rest: dynamic sub-panel fields (budget ledger rows, list
+  snapshots, sliders), minimap water colour/partition polish.
 - [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
@@ -597,14 +621,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/menu-pages-sheet.png`, `notes/menu-start-isl01.png`,
   `notes/menu-start-isl03.png`, `notes/menu-start-isl10.png`,
   `notes/minimap-isl01.png`, `notes/minimap-isl01-zoom-detail.png`,
-  `notes/minimap-isl10-detail.png`,
+  `notes/minimap-isl10-detail.png`, `notes/park-hud-1024.png`,
+  `notes/hud-1024.png`,
   `notes/park-hud.png`, `notes/park-budget.png`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
   `test_cpp_island_list_and_free_game_budgets`,
-  `test_cpp_minimap_detail_view`), `tools/formats/overlay.py`,
+  `test_cpp_minimap_detail_view`, `test_cpp_park_hud_1024_anchor`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video

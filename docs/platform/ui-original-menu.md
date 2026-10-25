@@ -336,11 +336,12 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       implementation").
 - [ ] Minimap polish: detail-map water colour and exact partition contents
       (actors unproven), marker clamp at the edge.
-- [ ] 1024×768 re-anchor pass: the original HUD re-anchors (right panel at
-      931,168; gauge at 293,737; map at 840,584) while menu pages centre.
-      The viewer currently centres the 800×600 HUD; QOL-2 decides.
-- [ ] Runtime fields inside sub-panels (budget ledger rows, list snapshots,
-      sliders) and panel-local selection state.
+- [x] 1024×768 re-anchor pass: `Overlay::layout_for_size` implements
+      `moWidget::OnResize`; the right panel lands at 931,168, the gauge at
+      293,737 and the map at 840,584, matching the measured retail layout.
+      Menu pages still centre their 800×600 screen.
+- [ ] Dynamic values inside sub-panels (budget ledger rows, list snapshots,
+      sliders).
 - [x] Keep the FPS/visitor debug text as an optional debug HUD (`F1`,
       `--no-hud`).
 

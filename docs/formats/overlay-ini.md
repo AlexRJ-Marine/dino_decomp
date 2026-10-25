@@ -288,10 +288,11 @@ same for y with UP/DOWN
 ```
 
 The retail UI is **not scaled**: a 1024×768 frame is the 800×600 layout
-shifted by (112, 84) — measured at MAD 1.0 versus MAD 40.3 for uniform
-scaling (`notes/ui-recon.md`). A port that wants pixel parity should render
-the 800×600 space centred (or anchored) rather than scale it; QOL-2 can add
-an opt-in scale for high-DPI.
+shifted by (112, 84) - measured at MAD 1.0 versus MAD 40.3 for uniform
+scaling (`notes/ui-recon.md`). The port implements this pass in
+`Overlay::layout_for_size` and uses it for the park HUD; menu pages remain
+centred at 800×600. High-DPI physical scaling is applied after the logical
+anchoring pass.
 
 ## Widget tree and page activation
 

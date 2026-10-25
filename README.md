@@ -1,64 +1,328 @@
-# Dino Island — agent workspace
+# Dino Island - reverse engineering and native port
 
-Reverse-engineering and native-port workspace for **Dino Island** (Monte Cristo,
-2002). See `notes/FINDINGS.md` for the evidence and `AGENTS.md` for the rules.
+Reverse-engineering and interoperability project for **Dino Island**
+(Monte Cristo, 2002). The retail game is a 32-bit MSVC 6 / DirectX 8 build.
+This repository contains:
 
-## What is here
+- tested parsers and format specifications for the retail data;
+- a portable C++20 + SDL3/OpenGL viewer and port in `src/`;
+- Ghidra research and a live hybrid-decompilation harness (`DINPUT8.dll`);
+- the evidence trail in `notes/` and `docs/`.
+
+**No retail data is included or committed.** `original/`, `game/`, `run/`,
+`analysis/`, `build/`, `.venv/` and `*.iso` are gitignored. Supply your own
+copy of the game to parse assets, run the viewer, or play the original.
+
+## Project status
+
+> Last updated: 2026-10-25. The authoritative running log is
+> [`notes/STATE.md`](notes/STATE.md); the task queue is [`TASKS.md`](TASKS.md).
+
+| Track | Status | Summary |
+|---|---|---|
+| Retail formats | Solved | 25 specs in `docs/formats/`; parsers validate the full retail sets. |
+| Asset tools | Working | Mesh/skeleton/animation/texture/audio/config readers plus CLI dumpers. |
+| Portable viewer | Working | 10 islands, vegetation, skinned dinosaurs, paths/fences, visitors, retail menu/HUD, minimap. |
+| Gameplay simulation | Early | Visitors only random-walk. Needs, economy, shows, labs and missions are researched but not ported. |
+| Decompilation | Research-heavy | 167 function entries documented; **2 functions replaced live**. |
+| Test suite | Green | **196 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
+
+### What works today
+
+- **Islands:** all 10 retail islands load from the retail menu. `isl01` renders
+  a 512x512 heightmap (522,242 triangles), basemap, 1,536 placed trees,
+  skybox and water.
+- **Actors:** `.mesh` + `.skel` + `.skin` + `.anim` load together; the
+  allosaurus is rigid-skinned and plays walk/idle/run clips.
+- **Camera:** orbit and free-fly modes, terrain clamping, mouse look,
+  rebindable keys.
+- **Building:** 4-unit path/fence grid, terrain ray-picking, undo, save/load.
+- **Visitors:** spawn on the path network and walk with a two-pose flipbook.
+- **UI:** retail main menu (114 widgets, 9 pages), Free Game island selection,
+  park HUD (2,694 widgets, 38 roots), panel switching, hover/pressed states,
+  lab centres, minimap, and 1024x768 HUD re-anchoring.
+- **Media/QoL:** WAV playback, windowed/fullscreen/borderless modes, persisted
+  window and key configuration, BMP screenshots.
+- **Stability:** 60,000-frame (~10 minute) runs at ~100 FPS with a flat
+  ~135 MB working set.
+
+### What is still missing
+
+- The full visitor loop: enter -> choose attraction -> travel -> use -> leave,
+  including visitor profiles, needs and the decompiled scoring function.
+- Dinosaur needs, action selection, eating/sleeping and reactions; employee
+  jobs, roles and wages.
+- Economy settlement, day clock and show scheduling in the port (the original
+  logic is decompiled).
+- Shows, labs/genetics, missions/campaigns, building and attraction placement.
+- Retail `.sav` save/load in the port; only path/fence placement persists today.
+- `scientificshow` is decoded with the other 33 objective predicates; the
+  remaining work is objective field names/weighting and the `spPark+0x1c`
+  category order.
+- Staff job kind `0xb`, populated lab records and LOD2/LOD3 bind poses remain
+  open.
+- Dynamic sub-panel values, save/load dialogs, menu sounds, culling/LOD2 and
+  final skybox/water parity.
+
+### Current focus
+
+1. UI-2 Phase C rest: dynamic values in sub-panels (budget ledger, list
+   snapshots, sliders) and minimap water/partition polish.
+2. SIM-2b: port the decompiled visitor choose -> travel -> use -> leave flow
+   and bind visitor profiles/needs.
+3. WORLD-3: capture a side-by-side comparison against the original game.
+4. Hybrid detours: `0x47d460` and `0x47cc90`, once the container contracts are
+   ported.
+
+## Format coverage
+
+A format is listed as solved when a parser round-trips the complete retail set
+and the header/layout is documented. Some semantic fields remain open even
+where the container is fully parsed.
+
+| Group | Formats / files |
+|---|---|
+| Geometry and animation | `.mesh`, `.skin`, `.skel`, `.anim`, `anim_trans.dic`, `proportion.dat` |
+| World and saves | `.lnd`, `.imp`, `.blf`, `.wld`, `.sav` (partial semantics) |
+| Text and UI | `.fnt`, `.loc`, `MenuInterface.Ini`, `ParkInterface.Ini`, `MenuGraphicDB.ini`, `ParkGraphicDB.ini` |
+| Gameplay data | `.shw`, `.gen`, `.bvi`, `.bbi`, `.bsi`, `.bni`, `.bei`, `.seq`, campaigns/missions |
+| Media | `.tga`, `.wav`, `MenuSoundDB.ini`, `ParkSoundDB.ini` |
+
+Validated scale: 536 meshes, 299 animations, 64 skeletons, 104 skins,
+649 TGA textures and 231 WAV files. The exact layouts and evidence are in
+[`docs/formats/`](docs/formats/).
+
+## Decompilation progress
+
+The retail executable has **7,273 functions** (725,709 instructions) in Ghidra.
+[`docs/decomp/function-status.md`](docs/decomp/function-status.md) currently
+tracks **167 functions** with address, purpose, status and evidence.
+
+Solved or documented:
+
+- **Loaders:** `.mesh`, `.skin`, `.skel`, `.anim` and font readers.
+- **UI:** `moWidget::Load`, anchoring/resize, event setters, the nine-page menu
+  state machine, park HUD binders and info-panel controller.
+- **Runtime/save:** manager load/save order, world object class IDs `0x12`-`0x18`,
+  the `.sav`/`.wld` object graph, simulation prefix, AI/camera tail.
+- **Simulation:** `lpScheduler` and the ten-task park frame order,
+  `spSimuManager`, `apBehaviorManager`, dinosaur action IDs 0-63, need gauges,
+  the `0x1f` idle sentinel, visitor attraction scoring, employee job AI,
+  park budget/daily settlement, park clock and show scheduler, and the
+  campaign objective evaluator (33 verbs/predicates).
+- **Presentation:** overlay INI semantics, sound database and DirectShow movie
+  playback paths.
+
+Only **two functions are replaced live** so far, both via the 32-bit
+`DINPUT8.dll` proxy:
+
+| Original | Purpose | Calls observed |
+|---|---|---|
+| `0x004663a0` | 64-byte (16-float) matrix reader | ~281,000 |
+| `0x004809a0` | 12-byte (3-float) normal reader | ~97,000 |
+
+The portable port is the primary implementation path; the hybrid layer is
+used to keep the original executable runnable while functions are recovered.
+See [`docs/decomp/hybrid.md`](docs/decomp/hybrid.md).
+
+## Repository layout
 
 | Path | Purpose |
 |---|---|
 | `original/` | Read-only ISO-derived files (installer, docs). Never edit. |
 | `game/%MAINDIR%/` | Extracted retail game tree. Read-only reference. |
-| `notes/` | Findings, logs, `STATE.md`. |
-| `tools/` | Extraction/triage scripts and format parsers. |
-| `src/` | The portable C++ port. |
-| `tests/` | Python and C++ tests. |
-| `analysis/` | Ghidra project and MCP artifacts. Do not edit. |
-| `.opencode/agents/` | Project-specific agents. |
+| `run/` | Local playable copy, patched exe and hook DLL. Gitignored. |
+| `notes/` | Findings, logs, evidence images, `STATE.md`. |
+| `docs/formats/` | Proven data-format specifications. |
+| `docs/decomp/` | Function map and subsystem research. |
+| `docs/platform/` | Viewer, terrain, UI, audio and QoL notes. |
+| `docs/patches/` | Documented runtime patches. |
+| `tools/formats/` | Python parsers and exporters. |
+| `src/` | Portable C++20 port and the hook DLL. |
+| `tests/` | Python and C++ integration tests. |
+| `scripts/` | Build, test, Ghidra, patch and play helpers. |
+| `.opencode/agents/` | Project-specific OpenCode agents. |
 
-## Quick start
+## Building the portable port
+
+This builds our port, **not the retail game**. The output is
+`build/mingw/dino_viewer.exe` plus `dino_tools.exe`. `run/DinoIsland.exe` is a
+copy of the retail executable used as an oracle; it is never built here.
+
+### Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| Windows 10/11 | The scripts are PowerShell. |
+| Python 3.11+ | A local `.venv` holds the Python tools. |
+| w64devkit | Extract to `C:\Tools\w64devkit`. Provides the 32/64-bit MinGW toolchain. |
+| SDL3 3.4.18 | `scripts/setup-sdl3.ps1` installs it under `C:\Tools\SDL3`. |
+| CMake + Ninja | Installed into `.venv` by `requirements.txt`. |
+| Ghidra 12.2 + JDK 25 | Only needed for reverse engineering, not for the viewer build. |
+
+### One-time setup
 
 ```powershell
-# 1. Verify the toolchain
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+.\scripts\setup-sdl3.ps1
 .\scripts\check-env.ps1
-
-# 2. Start the headless Ghidra MCP server (leave running)
-.\scripts\start-ghidra.ps1
-
-# 3. Build the C++ skeleton
-.\scripts\build.ps1
-
-# 4. Run the tests
-.\scripts\run-tests.ps1
-
-# 5. Open the project in OpenCode; the orchestrator agent is the default
-opencode
 ```
 
-## Ghidra MCP
+`check-env.ps1` validates the full reverse-engineering environment, including
+the retail executable and the Ghidra MCP server. If you only want to build the
+viewer, `scripts\build.ps1` needs just the venv, w64devkit and SDL3.
 
-The server is headless (`pyghidra-mcp`) and listens at
-`http://127.0.0.1:8000/mcp`. Ghidra 12.2 requires JDK 25
-(`C:\Tools\jdk25\jdk-25.0.4.1+1`); `start-ghidra.ps1` sets `JAVA_HOME` for you.
-OpenCode connects through `mcp-proxy` (stdio → Streamable HTTP) because the
-direct remote-HTTP client refused the loopback connection in this environment.
-`opencode mcp list` should print `✓ ghidra connected`.
-The Ghidra project is `analysis/ghidra/dino.gpr`; the binary is
-`game/%MAINDIR%/DinoIsland.exe`.
+### Build
 
-If the server is not running, the `ghidra` tools will be unavailable; start it
-with `scripts/start-ghidra.ps1` and check with `scripts/ghidra-smoke.ps1`.
+```powershell
+.\scripts\build.ps1
+```
 
-## Runtime patches
+The script configures `build/mingw` with Ninja and w64devkit, then builds:
 
-The retail executable checks for a CD-ROM at startup. A documented, reversible
-no-CD patch is in [`docs/patches/no-cd.md`](docs/patches/no-cd.md), with an IPS
-at `patches/dinoisland-nocd.ips` and a patcher at `tools/patch_nocd.py`.
-Apply it only to the `run/` copy, never to `game/` or `original/`.
+- `build/mingw/dino_viewer.exe` - SDL3/OpenGL viewer
+- `build/mingw/dino_tools.exe` - small CLI skeleton
+- `build/mingw/SDL3.dll` - copied next to the viewer
+
+### Run the island + dinosaur scene
+
+```powershell
+$G = "game/%MAINDIR%"
+
+.\build\mingw\dino_viewer.exe `
+  --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G `
+  --mesh "$G/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
+  --skel "$G/Data/Graphics/Actors/Dinos/allo/allo.skel" `
+  --skin "$G/Data/Graphics/Actors/Dinos/allo/allo_lod1.skin" `
+  --anim "$G/Data/Graphics/Actors/Dinos/animations/HeavyBiped/HeavyBiped_Walk.anim" `
+  --dino-texture "$G/Data/Graphics/Textures/actors/dinos/allo.tga" `
+  --dino-pos 512,512 --dino-angle 200 --time 1200 `
+  --yaw 35 --pitch 16 --distance 17
+```
+
+Controls: left-drag orbits, wheel zooms, `R` resets. `C` toggles free-fly
+(WASD, Q/E, Shift, mouse look). `F1` toggles the HUD, `F10`/`F11` change the
+window mode.
+
+### Run the retail-style menu
+
+```powershell
+.\build\mingw\dino_viewer.exe --menu `
+  --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G
+```
+
+Use `--menu-page 1` for the Free Game page and `--menu-click X,Y` to drive it
+from scripts or screenshots. Starting a game loads the selected island through
+`IslandList.ini`.
+
+### Useful viewer options
+
+| Option | Effect |
+|---|---|
+| `--validate` | Parse all inputs and print counts without opening a window. |
+| `--selftest` | Run the 18 grid/visitor/build logic checks and exit. |
+| `--free-camera` | Start in free-fly mode. |
+| `--build` | Enable path/fence placement (`1` path, `2` fence, `0` off, `U` undo). |
+| `--visitors N` | Spawn visitors on the placed path network. |
+| `--skybox DIR` | Six `front/back/left/right/top/bottom` PNG faces. |
+| `--frames N --screenshot out.bmp` | Deterministic headless capture. |
+| `--wav FILE --mute` | Play a retail WAV; `M` mutes. |
+
+Run `dino_viewer.exe --help` for the complete list.
+
+### Tests
+
+```powershell
+.\scripts\run-tests.ps1
+```
+
+The suite covers the Python parsers, the C++ viewers via deterministic
+subprocess runs, screenshot checks, and the viewer selftest. Tests that need
+retail data skip automatically when `game/%MAINDIR%` is absent.
+
+`scripts/verify.ps1` runs the environment check, the build and the tests in
+sequence.
+
+## Reverse engineering with Ghidra
+
+The project uses a headless `pyghidra-mcp` server at
+`http://127.0.0.1:8000/mcp`. Ghidra 12.2 requires JDK 25; `start-ghidra.ps1`
+sets `JAVA_HOME` for you. OpenCode reaches the server through `mcp-proxy`.
+
+```powershell
+.\scripts\start-ghidra.ps1
+.\scripts\ghidra-smoke.ps1
+
+# when finished
+.\scripts\stop-ghidra.ps1
+```
+
+The Ghidra project is `analysis/ghidra/dino.gpr`; the imported binary is the
+retail `game/%MAINDIR%/DinoIsland.exe` (SHA-256
+`7ba16f38db4fe9461e700e6005e29a37c0d7a6d9441a233880a7c4405bbd717c`).
+Start with [`docs/decomp/function-status.md`](docs/decomp/function-status.md)
+and [`notes/FINDINGS.md`](notes/FINDINGS.md).
+
+## Running the original game locally
+
+`run/` is a gitignored local copy of the retail tree. It is used only for
+dynamic testing of the original executable.
+
+- `run/DinoIsland.exe` is the retail executable with the documented six-byte
+  no-CD startup patch at `0x1BFC` (five bytes differ).
+- `run/DinoIsland.exe.orig` is the untouched retail backup (identical to
+  `game/%MAINDIR%/DinoIsland.exe`). Copy it back to revert.
+- `run/DINPUT8.dll` is our 32-bit proxy. It forwards `DirectInput8Create` and
+  installs the two live detours. Delete it to run the original code path.
+
+```powershell
+# apply / verify / revert the no-CD patch on the copy
+.\scripts\patch_nocd.ps1 -Target run\DinoIsland.exe
+.\.venv\Scripts\python.exe tools\patch_nocd.py --verify run\DinoIsland.exe
+.\.venv\Scripts\python.exe tools\patch_nocd.py --revert run\DinoIsland.exe
+
+# rebuild the hook proxy
+.\scripts\build-hook.ps1
+
+# launch Free Mode -> IGUANO -> easy -> Start and capture the park
+.\scripts\play-freegame-direct.ps1 -Seconds 55 -GameDir run -Shot notes\park-hook.png
+```
+
+The patch and hybrid mechanisms are documented in
+[`docs/patches/no-cd.md`](docs/patches/no-cd.md) and
+[`docs/decomp/hybrid.md`](docs/decomp/hybrid.md). The game runs under the
+dgVoodoo2 Direct3D 8 / DirectDraw wrappers already present in `run/`.
+
+## Documentation map
+
+| Start here | Contents |
+|---|---|
+| [`notes/STATE.md`](notes/STATE.md) | Done, in progress, next action, blockers, decisions. |
+| [`TASKS.md`](TASKS.md) | Task queue with acceptance criteria and evidence. |
+| [`notes/FINDINGS.md`](notes/FINDINGS.md) | Early inventory and evidence index. |
+| [`docs/formats/`](docs/formats/) | 25 byte-level format specifications. |
+| [`docs/decomp/`](docs/decomp/) | Function map, scheduler, AI, economy, save, media. |
+| [`docs/platform/`](docs/platform/) | Viewer, terrain, visitors, HUD, QoL and audio. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Four-phase roadmap and exit criteria. |
 
 ## Working method
 
-Read `AGENTS.md`, `notes/STATE.md`, and `TASKS.md` before starting. Pick one
-task. Keep `notes/STATE.md` current. Evidence over guesses.
+Read `AGENTS.md`, `notes/STATE.md` and `TASKS.md` before starting. Pick one
+task, do the smallest experiment that resolves the unknown, run the relevant
+tests, and record the evidence path. Format and behavior claims need a hex
+dump, a decompiled function, a trace, or a parser that round-trips real data.
 
-See `notes/ROADMAP.md` for throughput estimates and the critical path.
+The repository is set up for OpenCode agents: `orchestrator` is the default
+primary agent, with `formats`, `port`, `recon`, `ghidra` and `reviewer`
+subagents. See `.opencode/agents/`.
+
+## Legal
+
+This is a personal preservation and interoperability project. The repository
+does not contain retail game assets, extracted assets, or the patched
+executable. Do not redistribute `game/`, `original/`, `run/`, or any retail
+data; keep the original executable as the oracle and use the documented
+patches only on your own copy.
