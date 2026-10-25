@@ -76,18 +76,24 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - [x] Confirm every `.skin` parses (104 files, 2,244 bone blocks).
 - [x] Assemble the 35 `allo` bone blocks with the solved `.skel` world
   matrices; the result is a coherent bind-pose proxy.
-- [ ] Confirm rigid vs. weighted skinning and decode the full-mesh tail.
-- [ ] Decode the per-block tail matrix and assemble the exact bind pose.
+- [x] Decode the full-mesh tail: material, per-triangle material array,
+  and 35 rigid skin records (vertex partition, weight 1.0, inverse bind).
+- [x] Assemble the exact `.skin` bind mesh and validate a posed deformation.
 - **Acceptance:** `allo_lod1` bone blocks transform into a coherent bind pose
   that matches the render mesh; all 104 `.skin` files parse.
 - **Depends on:** FMT-2.
 - **Evidence:** `docs/formats/skin.md`, `tests/test_skin.py`,
-  `notes/allo-render-side.png`; 73 full meshes match their `.mesh`.
+  `notes/allo-skin-bind.png`, `notes/allo-skin-pose.png`; 73 full meshes,
+  60 dinosaur skin tables.
 
 ### FMT-3b: `.skin` bind matrices and weights
-- [ ] Decode the per-block tail (matrix/material) and the full-mesh tail.
-- [ ] Determine rigid vs. weighted skinning; implement the exact bind pose.
-- [ ] Compare the assembled bind mesh against `allo_lod1.mesh`.
+- [x] Decode the per-block tail (normals/colors/material) and the full-mesh
+  tail (triangle materials + skin records).
+- [x] Confirm rigid skinning: every full-mesh vertex in exactly one bone,
+  weight `1.0`.
+- [x] Verify `v_cm @ inverse_bind @ W_raw_bind == v_cm` on `allo_lod1`
+  (max error `5.7e-5` cm).
+- [ ] Retarget skeleton animation onto LOD2/LOD3 per-LOD bind poses.
 - **Depends on:** FMT-3, FMT-4.
 
 ### FMT-4: `.skel` skeleton

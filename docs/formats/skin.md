@@ -1,89 +1,198 @@
 # `.skin` format
 
-Status: **container + first block decoded**, full block grammar open.
+Status: **solved** — container, per-bone proxy blocks, and the full-mesh rigid
+skin table (vertex partition, weights, inverse-bind matrices).
 
 ## Key finding
 
-`.skin` is **not** a generic per-vertex weight table. It looks like the mesh
-split into **one chunk per bone**: each chunk starts with a bone name, then a
-mini-mesh (vertices, indices, normals), a material, and a matrix. That makes
-rigid per-bone skinning likely, which is much simpler than 4-weight skinning.
+`.skin` has two parts:
+
+1. **35 per-bone blocks** (one per skinned bone), each a small proxy mesh
+   (vertices + indices + normals + material). These are not the render mesh.
+2. **One full-mesh block** (`dino_lod1`) whose body matches the `.mesh`
+   topology and whose tail carries the **rigid skin table**: every full-mesh
+   vertex is assigned to exactly one bone, with weight `1.0` and a 4×4
+   inverse-bind matrix.
+
+All 60 dinosaur skins (20 dinosaurs × 3 LODs) use this scheme, always with
+35 skin records.
 
 ## Evidence
 
 - 104 `.skin` files; `allo_lod1.skin` = 60,137 bytes.
-- Header: magic `01 03 00 00 00`, hash, sentinel `0x02468ace`,
-  block_count `0x24` = 36.
-- First block:
-  - name length 6, `Bip01`
-  - vertex_count = 6
-  - 6 positions (3×f32)
-  - index_count = 24 (8 triangles)
-  - 24 u32 indices
-  - normal block (flag + count + 3×f32)
-  - material name `Material #2`
-  - matrix / tail
-  - next block name `Bip01_Footsteps`
-- Ghidra: `FUN_0048b870` constructs type `0x02468ace` and calls the generic
-  loader `FUN_004714b0`.
-- `read_skin` finds **35 bone blocks + 1 full-mesh block** in
-  `allo_lod1.skin`. The full block is named `dino_lod1` and contains
-  317 vertices / 382 triangles, exactly matching `allo_lod1.mesh`.
-- Bone-block union: 1,105 vertices / 614 triangles. This is a higher-resolution
-  bind mesh, not the 317-vertex render LOD.
-- The full-mesh block tail is 6,514 bytes (material + 6,340 bytes of other
-  data; a per-vertex or per-triangle mapping is still open).
-- 104 `.skin` files parse: 2,244 bone blocks, 76,923 vertices, 42,976
-  triangles; 73 full-mesh blocks match their `.mesh`.
-- 35 of the 80 `allo.skel` names appear as length-prefixed blocks in
-  `allo_lod1.skin`, at these offsets:
-  `0x11 Bip01`, `0x174 Bip01_Footsteps`, `0x329 Bip01_Pelvis`,
-  `0x67b Bip01_Spine`, `0xcb4 Bip01_Spine1`, `0x12ee Bip01_Spine2`,
-  `0x1928 Bip01_Spine3`, `0x1f62 Bip01_Neck`, `0x22b2 Bip01_Neck1`,
-  `0x2603 Bip01_Neck2`, `0x2954 Bip01_Head`, `0x39c0 Bip01_Ponytail1`,
-  `0x3d15 Bip01_Ponytail2`, `0x406a Bip01_L_Clavicle`,
-  `0x43c0 Bip01_L_UpperArm`, `0x4976 Bip01_L_Forearm`,
-  `0x4dfb Bip01_L_Hand`, `0x514d Bip01_L_Finger0`,
-  `0x54a2 Bip01_R_Clavicle`, `0x57f8 Bip01_R_UpperArm`,
-  `0x5dae Bip01_R_Forearm`, `0x6233 Bip01_R_Hand`,
-  `0x6585 Bip01_R_Finger0`, `0x68da Bip01_L_Thigh`,
-  `0x6e8d Bip01_L_Calf`, `0x730f Bip01_L_Foot`, `0x7661 Bip01_L_Toe0`,
-  `0x79b3 Bip01_R_Thigh`, `0x7f66 Bip01_R_Calf`, `0x83e8 Bip01_R_Foot`,
-  `0x873a Bip01_R_Toe0`, `0x8a8c Bip01_Tail`, `0x8ddc Bip01_Tail1`,
-  `0x912d Bip01_Tail2`, `0x947e Bip01_Tail3`.
-  The header count is 36, so one block is not a named skinned bone (likely
-  `Scene_Root` or a material-only block).
+- Header: magic `01 03 00 00 00`, hash, sentinel `0x02468ace`, block count
+  `0x24` = 36 at `0x0D`.
+- Ghidra:
+  - `FUN_00477b50` is the `mgVMeshXMdl` header reader; class vtable `0x626aac`.
+  - `FUN_00477f30` (vtable slot `+0x10`) reads the block count and an array
+    of 0xB8-byte block records.
+  - `FUN_004472240` is the per-block reader: name, vertices, indices, UVs,
+    normals, colors, materials.
+  - `FUN_0047d460` reads the `u16` per-triangle array.
+  - `FUN_0047d880` reads the skin bone records: name, vertex-index vector,
+    weight vector, 64-byte matrix.
+  - `FUN_004663a0` reads the 64-byte matrix (16 floats).
+- `FUN_0048b870` is the loader wrapper (`0x02468ace` + generic
+  `FUN_004714b0`).
 
-## Layout (first block, proven by offsets)
+## Block layout
+
+### Per-bone block
 
 ```text
-0x11  u32 6                 name length
-0x15  "Bip01\0"
-0x1b  u32 6                 vertex_count
-0x1f  6 × 3×f32             positions
-0x67  u32 24                index_count
-0x6b  24 × u32              indices
-0xcb  ...                   UV/normal flags and material
-0x140 u32 12                "Material #2" length
-0x144 "Material #2\0"
-0x174 u32 16                next name length
-0x178 "Bip01_Footsteps\0"
+u32 name_len + NUL-terminated name
+u32 vertex_count
+vertex_count × 3×f32 positions
+u32 index_count
+index_count × u32 indices
+u8  uv_flag
+u32 uv_count
+uv_count × 2×f32 UVs
+u8  normal_flag
+u32 normal_count
+normal_count × 3×f32 normals
+u8  color_flag
+u32 color_count
+color_count × 4×u8 colors
+u32 material_count
+material_count × material record
 ```
 
-The next block begins at `0x178`, so the first block is 0x163 = 355 bytes.
+The block tail has no bind matrix. Bind data lives only in the full-mesh tail.
+
+`allo_lod1`: 35 blocks, 1,105 vertices, 614 triangles; first `Bip01`, last
+`Bip01_Tail3`.
+
+### Material record
+
+Each material on disk is:
+
+```text
+21 bytes fixed  (two RGBA colors, a float 0.1, two more RGBA colors, flag)
+u32 texture_name_len + NUL-terminated texture name
+u32 material_name_len + NUL-terminated material name
+```
+
+`allo_lod1` material: texture `allo.tga`, name `Material #1`.
+
+### Full-mesh block
+
+The body is the same layout as `.mesh` (vertices, indices, UVs, normals).
+The tail starts after the normals:
+
+```text
+u8  color_flag
+u32 color_count
+color_count × 4×u8 colors
+u32 material_count
+material_count × material record
+u32 triangle_count
+triangle_count × u16 per-triangle material index
+u32 unknown0
+u32 unknown1
+u32 bone_count
+bone_count × skin bone record
+```
+
+For `allo_lod1` the tail is 6,514 bytes:
+
+| Offset | Content |
+| ---: | --- |
+| `+0x000` | color flag 0, count 0 |
+| `+0x005` | material count 1 |
+| `+0x009..0x03B` | `allo.tga`, `Material #1` |
+| `+0x03B` | triangle count 382 |
+| `+0x03F..0x33B` | 382 × `u16`, all `0` |
+| `+0x33B` | unknown `1, 0xFFFFFFFF, 35` |
+| `+0x347` | bone count 35 |
+| `+0x34B..0x1972` | 35 skin bone records |
+
+The full-mesh vertices are in **centimetres**; the matching `.mesh` is in
+metres. It is a separate bind mesh with the same vertex/triangle counts, not
+the same vertex positions.
+
+### Skin bone record
+
+```text
+u32 name_len + NUL-terminated bone name
+u32 vertex_count
+vertex_count × u32 full-mesh vertex indices
+u32 weight_count
+weight_count × f32 weights
+16 × f32 inverse-bind matrix (row-major)
+```
+
+For every one of the 60 dinosaur skins:
+
+- `vertex_count == weight_count` and all weights are `1.0`.
+- The vertex-index lists are a **partition** of the full mesh: every vertex
+  appears exactly once, no duplicates.
+- `allo_lod1`: 35 records, 317 vertices assigned, 317 unique.
+
+`allo_lod1` examples:
+
+| Bone | Vertices | Notes |
+| --- | ---: | --- |
+| `Bip01` | 0 | skeleton root, no render vertices |
+| `Bip01_Footsteps` | 0 | IK helper |
+| `Bip01_Spine` | 22 | |
+| `Bip01_Head` | 11 | |
+| `Bip01_Ponytail1` | 56 | |
+| `Bip01_Tail3` | 1 | |
+
+## Skinning math
+
+Let:
+
+- `v_cm` be a full-mesh bind vertex (centimetres).
+- `R_bone` be the record's inverse-bind matrix.
+- `W_raw_anim(bone)` be the bone's animated world matrix in raw centimetres
+  (skeleton local matrices composed root-to-leaf, root scale removed).
+
+Then rigid skinning is:
+
+```text
+v_skinned_cm = v_cm @ R_bone @ W_raw_anim(bone)
+v_world      = 0.01 * v_skinned_cm
+```
+
+At bind, `R_bone @ W_raw_bind(bone) = I`, so the bind mesh is reproduced.
+`R_bone` is the inverse of the **raw** world matrix, not the metre-scaled one.
+Verified on `allo_lod1`: max bind error `5.7e-5` cm.
+
+The `.skel` world matrices are in metres (`root_scale=0.01`). To get raw
+centimetres, scale the translation and basis by 100:
+
+```text
+W_raw = W_scaled @ diag(100, 100, 100, 1)
+```
+
+### LOD caveat
+
+For `LOD1`, `inv(R_bone)` matches the world matrices from `allo.skel` /
+`pachy.skel`. For some `LOD2`/`LOD3` skins, especially `pachy`, the stored
+bind pose differs from the skeleton file, so a naive `R @ W_scaled` skin
+does not reproduce that LOD's bind mesh. Deriving the per-LOD bind pose from
+`inv(R_bone)` is exact for static bind; retargeting skeleton animation onto
+those LODs is still open.
+
+## Reader/API
+
+`tools/formats/skin.py` exposes:
+
+- `Skin.blocks` — the 35 proxy blocks (name, positions, indices, tail).
+- `Skin.full_mesh` — the full-mesh block (cm vertices, UVs, normals).
+- `Skin.skin_data` — `SkinData` with materials, triangle materials, unknown
+  values, and `SkinBone` records.
+- `SkinBone.vertex_indices`, `.weights`, `.inverse_bind`.
+
+Renders: `notes/allo-skin-bind.png` (bind pose from the skin table) and
+`notes/allo-skin-pose.png` (head bone rotated 35°, rigid skinning applied).
 
 ## Open questions
 
-- Is every block one bone, and does the block's vertex set exactly partition
-  the `.mesh` vertices?
-- Are there per-vertex weights inside a block, or is skinning rigid?
-- What is the matrix at the end of each block (bind pose / offset)?
-- Does `.skin` carry the parent hierarchy that `.skel` lacks?
-
-## Next
-
-1. Write a block scanner that walks all 36 `allo_lod1` blocks by name length.
-2. Compare the union of block vertices/indices with `allo_lod1.mesh`.
-3. If it is a partition, implement rigid skinning: apply the named bone's
-   matrix to that block's vertices.
-4. If it is not, look for weight arrays inside each block.
+- Meaning of the three `u32` values after the triangle-material array
+  (`1, -1, 35`).
+- Full naming of the 21-byte material header.
+- Per-LOD bind-pose retargeting for `LOD2`/`LOD3`.
+- Purpose of the 35 proxy bone blocks (collision, shadow, or editor display).

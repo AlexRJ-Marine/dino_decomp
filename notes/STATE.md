@@ -30,7 +30,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 17 tests pass.
+  `dino_tools.exe`, and all 20 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -46,6 +46,23 @@ Updated: 2026-10-25
     array, not the child lists: 44 prop files store child indices one lower.
   - Evidence: `tools/formats/skel.py`, `docs/formats/skel.md`,
     `tests/test_skel.py`, `notes/skel-allo-views.png`.
+- FMT-3 complete: **`.skin` is solved.**
+  - 35 per-bone proxy blocks + one full-mesh block. The full-mesh tail carries
+    a material list, a per-triangle `u16` material array, and 35 skin records.
+  - Each skin record = bone name + vertex-index list + weight list + 64-byte
+    inverse-bind matrix. All 60 dinosaur skins (20 × 3 LOD) partition every
+    full-mesh vertex across the 35 bones; every weight is `1.0`.
+  - Rigid skinning in centimetres:
+    `v_cm @ inverse_bind @ W_raw_anim(bone)`, then `× 0.01` for metres.
+    `inverse_bind` is the inverse of the raw world matrix (root scale removed).
+  - `.skin` full-mesh vertices are in centimetres; the `.mesh` is in metres.
+  - Verified on `allo_lod1`: max bind error `5.7e-5` cm; a 35° head rotation
+    deforms only the head/neck. 60/60 dinosaur skins bind correctly at LOD1.
+  - LOD2/LOD3 mostly bind correctly; `pachy` LOD2/LOD3 store a different
+    per-LOD bind pose, so animation retargeting for those remains open.
+  - Evidence: `tools/formats/skin.py`, `docs/formats/skin.md`,
+    `tests/test_skin.py`, `notes/allo-skin-bind.png`,
+    `notes/allo-skin-pose.png`.
 - Allosaurus retail mesh rendered by our own parser/rasterizer:
   `notes/allo-3q-vc-flip.png`, `notes/allo-side-vc-flip.png`,
   `notes/allo-head-flip.png`. Uses `allo_lod1.mesh` (317 v / 382 tri),
@@ -77,26 +94,20 @@ Updated: 2026-10-25
 
 ## In progress
 
-- FMT-3: `.skin` reader complete (`tools/formats/skin.py`). 104 files parse;
-  2,244 bone blocks; 73 full meshes match their `.mesh`. `allo_lod1` has
-  35 bone blocks (1,105 verts / 614 tris) + full mesh `dino_lod1`
-  (317 verts / 382 tris, exact `.mesh` match).
-- The 35 `allo` bone blocks placed with the now-correct skeleton world
-  matrices form a coherent bind-pose proxy (`notes/allo-render-side.png`),
-  which independently confirms the `.skel` transform layout. It is blocky:
-  the per-block tail matrix/material and any per-vertex weights are not
-  decoded yet, and the full-mesh tail (6,514 bytes) is still open.
-- FMT-3 questions left: rigid vs. weighted skinning; exact bind matrix in each
-  block tail; full-mesh tail layout; whether block vertices need an inverse
-  bind transform.
+- FMT-5: `.anim` animation. 299 files. Next task: find the animation reader
+  vtable/loader, decode track/keyframe layout, and apply a clip to the 80-bone
+  `allo` skeleton. The skinning path is ready: rigid, one bone per vertex.
+- FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
+  bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. Decode the `.skin` per-block tail and the full-mesh tail; determine rigid
-   vs. weighted skinning and the exact bind transform.
-2. Update `tools/formats/skin.py`, `docs/formats/skin.md`, and
-   `tests/test_skin.py`; assemble the exact bind pose.
-3. FMT-5: `.anim` (299 files) — tracks, times, interpolation, apply to skeleton.
+1. FMT-5: decompile the `.anim` loader (same 5-byte magic; search for the
+   animation class vtable and the reader hit by `FUN_004714b0`).
+2. Parse one `allo` clip; identify bone name, keyframe count, times, and
+   transform values. Validate all 299 files.
+3. Apply the clip to `allo.skel`, drive the 35 skin records, and render a
+   few frames with the existing software rasterizer.
 4. VIEW-1/2: SDL3 + OpenGL viewer with the allosaurus mesh + texture; then
    skinned animation playback.
 
