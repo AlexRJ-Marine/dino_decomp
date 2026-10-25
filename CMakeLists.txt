@@ -14,3 +14,39 @@ if(MSVC)
 else()
     target_compile_options(dino_tools PRIVATE -Wall -Wextra)
 endif()
+
+# ---------------------------------------------------------------------------
+# Portable viewer (Phase 2): SDL3 + OpenGL
+# ---------------------------------------------------------------------------
+
+set(SDL3_ROOT "" CACHE PATH "SDL3 MinGW prefix (contains include/SDL3 and lib)")
+if(NOT SDL3_ROOT)
+    message(FATAL_ERROR
+        "SDL3_ROOT is not set. Run scripts/setup-sdl3.ps1, then configure with "
+        "-DSDL3_ROOT=C:/Tools/SDL3/SDL3-3.4.18/x86_64-w64-mingw32")
+endif()
+
+find_package(SDL3 CONFIG REQUIRED PATHS "${SDL3_ROOT}" NO_DEFAULT_PATH)
+
+add_executable(dino_viewer
+    src/viewer/main.cpp
+    src/formats/mesh.cpp
+    src/formats/tga.cpp
+)
+
+target_compile_features(dino_viewer PRIVATE cxx_std_20)
+target_compile_definitions(dino_viewer PRIVATE SDL_MAIN_HANDLED)
+target_link_libraries(dino_viewer PRIVATE SDL3::SDL3 opengl32)
+
+if(MSVC)
+    target_compile_options(dino_viewer PRIVATE /W4)
+else()
+    target_compile_options(dino_viewer PRIVATE -Wall -Wextra)
+endif()
+
+add_custom_command(TARGET dino_viewer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:SDL3::SDL3>
+        $<TARGET_FILE_DIR:dino_viewer>
+    COMMENT "Copying SDL3 runtime next to dino_viewer"
+)

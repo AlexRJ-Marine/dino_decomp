@@ -171,15 +171,26 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ## Phase 2 — platform layer
 
 ### VIEW-1: CMake + SDL3 + OpenGL window
-- Window, input, delta time, clean shutdown.
+- [x] SDL3 3.4.18 MinGW package + `scripts/setup-sdl3.ps1`.
+- [x] `dino_viewer` target: 1280×720 resizable window, OpenGL context,
+  input, delta time, clean shutdown.
+- [x] BMP screenshot path and 2-frame smoke test.
 - **Acceptance:** `scripts/build.ps1` builds; window opens for 5 seconds in a
   headless screenshot test or manual run.
 - **Depends on:** ENV-1.
+- **Evidence:** `src/viewer/main.cpp`, `docs/platform/sdl3-viewer.md`,
+  `tests/test_viewer_cpp.py`, `notes/viewer-window.png`.
 
 ### VIEW-2: Load one mesh + texture
-- Use the FMT-2 parser/output; render with a simple lit shader and camera.
+- [x] C++ `.mesh` reader (positions, indices, UVs, normals, colors).
+- [x] C++ `.tga` reader (24/32-bit, 8-bit, RLE).
+- [x] GLSL 3.3 lit pipeline, texture modulation, orbit camera, `--validate`.
+- [x] `allo_lod1.mesh` + `allo.tga` renders; screenshot in `notes/`.
 - **Acceptance:** `cow_lod1.mesh` + its TGA renders; screenshot in `notes/`.
 - **Depends on:** FMT-2, FMT-6, VIEW-1.
+- **Evidence:** `src/formats/mesh.cpp`, `src/formats/tga.cpp`,
+  `src/viewer/main.cpp`, `tests/test_viewer_cpp.py`,
+  `notes/viewer-allo.png`; 317 vertices / 382 triangles, 256×256 RGBA.
 
 ### VIEW-3: Skinned animation playback
 - Load `.skel` + `.skin` + `.anim`, apply skinning, play a clip.

@@ -8,6 +8,8 @@ Updated: 2026-10-25
 - Ghidra: `C:\Tools\ghidra_12.2_PUBLIC` + JDK 25 at `C:\Tools\jdk25\jdk-25.0.4.1+1`
 - Ghidra MCP: `http://127.0.0.1:8000/mcp` (headless, project `analysis/ghidra`)
 - C++: portable w64devkit MinGW-w64 in `C:\Tools\w64devkit`
+- SDL3: 3.4.18 MinGW under `C:\Tools\SDL3\SDL3-3.4.18\x86_64-w64-mingw32`
+  (`scripts/setup-sdl3.ps1`)
 - Build: CMake + Ninja from the venv
 - Extracted game: `game/%MAINDIR%/` (2,891 files, 397.5 MiB)
 - Original media: `original/` (read-only)
@@ -30,7 +32,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 51 tests pass.
+  `dino_tools.exe`, and all 54 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -88,6 +90,22 @@ Updated: 2026-10-25
     colors, bilinear texture sampling, supersampling.
   - Evidence: `tools/viewer/soft_render.py`, `tests/test_viewer.py`,
     `notes/view-allo.png`, `notes/view-cursor.png`.
+- VIEW-1 complete: portable SDL3 + OpenGL window.
+  - SDL3 3.4.18 MinGW installed via `scripts/setup-sdl3.ps1`; CMake target
+    `dino_viewer` links SDL3 + `opengl32`.
+  - Resizable 1280×720 window, OpenGL context, event loop, delta time, clean
+    shutdown, BMP screenshot.
+  - Evidence: `src/viewer/main.cpp`, `docs/platform/sdl3-viewer.md`,
+    `tests/test_viewer_cpp.py`, `notes/viewer-window.png`.
+- VIEW-2 complete: C++ mesh + texture renderer.
+  - `src/formats/mesh.cpp` and `tga.cpp` port the validated readers to C++.
+  - GLSL 3.3 lit pipeline with texture modulation, vertex colors, orbit camera,
+    resize handling and BMP screenshots.
+  - `--validate` confirms `allo_lod1.mesh` = 317 vertices / 382 triangles /
+    317 UVs / normals / colors; `allo.tga` = 256×256 RGBA.
+  - Evidence: `src/formats/mesh.cpp`, `src/formats/tga.cpp`,
+    `src/viewer/main.cpp`, `tests/test_viewer_cpp.py`,
+    `notes/viewer-allo.png`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -130,21 +148,19 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 1 formats/assets is complete except for publishing the XeNTaX/ZenHax
-  post. Moving into Phase 2: the portable platform layer.
+- Phase 2: VIEW-3 — load `.skel` + `.skin` + `.anim` in C++, add rigid
+  skinning to the GLSL pipeline and play the allosaurus clip.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. VIEW-1: CMake + SDL3 + OpenGL window with input, delta time and clean
-   shutdown; `scripts/build.ps1` must build it.
-2. VIEW-2: load one `.mesh` + `.tga` through the C++ layer and render it with a
-   lit shader and camera.
-3. VIEW-3: load `.skel` + `.skin` + `.anim`, apply the rigid skinning and play
-   the allosaurus clip.
-4. Then QOL-1..3 (resolution/widescreen/borderless, UI scaling, key rebinding).
-5. User: publish `docs/community/xentax-post.md` and record any replies.
+1. VIEW-3: port the `.skel` / `.skin` / `.anim` readers to C++ (or share the
+   validated Python output), upload bone indices/weights and per-bone matrices,
+   and add the skinning transform to the vertex shader.
+2. Animate `allo` with `HeavyBiped_Armor`; screenshot/GIF in `notes/`.
+3. QOL-1..3: resolution/widescreen/borderless, UI scaling, key rebinding.
+4. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

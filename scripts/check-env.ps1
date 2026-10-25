@@ -34,6 +34,12 @@ $gxx = Get-ChildItem "C:\Tools\w64devkit" -Recurse -Filter "g++.exe" -ErrorActio
     Select-Object -First 1
 Check "g++ (w64devkit)" ($null -ne $gxx) ($(if ($gxx) { $gxx.FullName } else { "not found under C:\Tools\w64devkit" }))
 
+$sdl3 = Get-ChildItem "C:\Tools\SDL3" -Directory -Filter "SDL3-*" -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -First 1
+$sdl3Prefix = if ($sdl3) { Join-Path $sdl3.FullName "x86_64-w64-mingw32" } else { "" }
+$sdl3Ok = $sdl3Prefix -and (Test-Path (Join-Path $sdl3Prefix "include\SDL3\SDL.h"))
+Check "SDL3 (MinGW)" $sdl3Ok ($(if ($sdl3Ok) { $sdl3Prefix } else { "not found (run scripts/setup-sdl3.ps1)" }))
+
 $jdk = Get-ChildItem "C:\Tools\jdk25" -Directory -Filter "jdk-*" -ErrorAction SilentlyContinue |
     Sort-Object Name -Descending | Select-Object -First 1
 $javaExe = if ($jdk) { Join-Path $jdk.FullName "bin\java.exe" } else { (Get-Command java -ErrorAction SilentlyContinue).Source }
