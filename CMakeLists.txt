@@ -34,6 +34,7 @@ add_executable(dino_viewer
     src/formats/mesh.cpp
     src/formats/tga.cpp
     src/formats/image.cpp
+    src/formats/fnt.cpp
     src/formats/skel.cpp
     src/formats/skin.cpp
     src/formats/anim.cpp

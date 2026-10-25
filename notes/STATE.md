@@ -186,8 +186,8 @@ Updated: 2026-10-25
   - Evidence: `docs/platform/environment.md`, `notes/world3-sky2.png`,
     `notes/world3-hero.png`, `notes/world3-up.png`,
     `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
-- Stability: **60,000 frames (~10 min) at ~100 FPS**, working set 134.1 MB
-  flat, exit 0.
+- Stability (initial slice): **60,000 frames (~10 min) at ~100 FPS**, working
+  set 134.1 MB flat, exit 0.
   - Evidence: `notes/stability.out.log`, `notes/stability-memory.csv`,
     `notes/stability-final.png`.
 - SIM-2 (walking part) complete: visitors on the path network.
@@ -204,6 +204,18 @@ Updated: 2026-10-25
 - `--selftest` added; it caught an undo bug (undo re-applied the new value
   instead of the previous one) which is fixed. 18 logic checks now run in
   `tests/test_viewer_cpp.py::test_cpp_selftest`.
+- UI-0 complete: C++ `.fnt` reader + on-screen HUD.
+  - Same layout as the Python parser (9-u32 header, `codes[i] -> metrics[i+2]`,
+    16-bit atlas); atlas uploaded as R8 from the high byte.
+  - Screen-space glyph quads, orthographic MVP, `u_unlit = 2` uses coverage as
+    alpha; F1 toggles the HUD, `--no-hud`/`--hud-font`.
+  - Evidence: `docs/platform/hud.md`, `src/formats/fnt.cpp`, `notes/hud.png`,
+    `tests/test_viewer_cpp.py::test_cpp_hud`.
+- Stability (full scene): **60,000 frames (~10 min) at ~100 FPS**, 12
+  visitors + 24 path cells + sky + water + dinosaur, working set 135.2 MB
+  flat, exit 0.
+  - Evidence: `notes/stability2.out.log`, `notes/stability2-memory.csv`,
+    `notes/stability2-final.png`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -247,25 +259,29 @@ Updated: 2026-10-25
 ## In progress
 
 - Phase 3 vertical slice is functionally complete: island, vegetation,
-  dinosaur, free camera, path/fence, sky/water, visitors, and a 10-minute run.
-- Next feature: SIM-2 needs/attraction use and an entrance/exit flow.
+  dinosaur, free camera, path/fence, sky/water, visitors, HUD, and two
+  10-minute runs.
+- Next feature: UI-1 (a small menu/panel layer on top of the HUD text path)
+  and SIM-2b (visitor needs/attraction use).
 - WORLD-3 polish remains: verify the skybox cube orientation against the
   original and tune water colour/animation.
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
   placements (1,536 vegetation instances already batch into 9 draws).
-- QOL-2 (UI scaling) waits for the overlay/UI layer.
+- QOL-2 (UI scaling) can now build on the `.fnt` renderer.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. SIM-2b: pick a visitor target (a placed attraction/point of interest), walk
+1. UI-1: a minimal start/pause panel (new game / resume / quit) and a build
+   toolbar using the HUD text path.
+2. SIM-2b: pick a visitor target (a placed attraction/point of interest), walk
    to it, wait, and leave; add a simple spawn/despawn at the entrance.
-2. Capture a side-by-side comparison against the original game for WORLD-3.
-3. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
-4. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
+3. Capture a side-by-side comparison against the original game for WORLD-3.
+4. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
+5. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
    the container/vector contracts are ported.
-5. User: publish `docs/community/xentax-post.md` and record any replies.
+6. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

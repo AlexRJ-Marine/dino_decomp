@@ -14,6 +14,7 @@
 #include "../formats/wav.h"
 #include "../formats/lnd.h"
 #include "../formats/image.h"
+#include "../formats/fnt.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -87,6 +88,8 @@ struct Options {
     std::string pick_test;
     bool no_input = false;
     bool selftest = false;
+    bool hud = true;
+    std::string hud_font_path;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -246,6 +249,10 @@ Options parse_args(int argc, char** argv) {
             opt.no_input = true;
         } else if (arg == "--selftest") {
             opt.selftest = true;
+        } else if (arg == "--no-hud") {
+            opt.hud = false;
+        } else if (arg == "--hud-font") {
+            opt.hud_font_path = next("--hud-font");
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -330,6 +337,8 @@ Options parse_args(int argc, char** argv) {
                 "  --pick-test X,Y      print the terrain cell under a pixel (first frame)\n"
                 "  --no-input           ignore all input (benchmark/stability runs)\n"
                 "  --selftest           run grid/visitor checks and exit\n"
+                "  --no-hud             hide the on-screen HUD\n"
+                "  --hud-font FILE      bitmap font for the HUD (default arial12.fnt)\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -572,8 +581,14 @@ void main() {
     float key = max(dot(n, u_light_dir), 0.0);
     float fill = max(dot(n, -u_light_dir), 0.0) * 0.25;
     vec3 base = v_color.rgb;
+    vec4 texel = vec4(1.0);
     if (u_use_texture != 0) {
-        base *= texture(u_texture, v_uv).rgb;
+        texel = texture(u_texture, v_uv);
+        base *= texel.rgb;
+    }
+    if (u_unlit == 2) {
+        frag_color = vec4(v_color.rgb, texel.r * u_alpha);
+        return;
     }
     vec3 color = base;
     if (u_unlit == 0) {
@@ -795,6 +810,74 @@ dino::Mesh make_sky_face(int index, float half_size) {
     mesh.normals.assign(4, normal);
     mesh.uvs = {{0.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}};
     mesh.indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
+}
+
+GLuint upload_font_atlas(const dino::Fnt& font) {
+    std::vector<std::uint8_t> alpha(
+        static_cast<std::size_t>(font.atlas_width) * font.atlas_height);
+    for (std::size_t i = 0; i < alpha.size(); ++i) {
+        alpha[i] = font.atlas[i * 2 + 1];
+    }
+    GLuint id = 0;
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, font.atlas_width, font.atlas_height, 0,
+                 GL_RED, GL_UNSIGNED_BYTE, alpha.data());
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    return id;
+}
+
+dino::Mesh build_text_mesh(const dino::Fnt& font, const std::string& text,
+                           float x, float y, float scale, dino::Color color) {
+    dino::Mesh mesh;
+    mesh.name = "hud";
+    const float inv_w = 1.0f / static_cast<float>(font.atlas_width);
+    const float inv_h = 1.0f / static_cast<float>(font.atlas_height);
+    float pen_x = x;
+    float pen_y = y;
+    for (const unsigned char ch : text) {
+        if (ch == '\n') {
+            pen_x = x;
+            pen_y += static_cast<float>(font.line_height) * scale;
+            continue;
+        }
+        const dino::FntGlyph* glyph = font.glyph(ch);
+        if (glyph == nullptr) {
+            pen_x += static_cast<float>(font.font_size) * 0.5f * scale;
+            continue;
+        }
+        const float w = static_cast<float>(glyph->width()) * scale;
+        const float h = static_cast<float>(glyph->height()) * scale;
+        const float u0 = static_cast<float>(glyph->x0) * inv_w;
+        const float u1 = static_cast<float>(glyph->x1 + 1) * inv_w;
+        const float v0 = static_cast<float>(glyph->y0) * inv_h;
+        const float v1 = static_cast<float>(glyph->y1 + 1) * inv_h;
+        const auto base = static_cast<std::uint32_t>(mesh.positions.size());
+        mesh.positions.push_back({pen_x, pen_y, 0.0f});
+        mesh.positions.push_back({pen_x + w, pen_y, 0.0f});
+        mesh.positions.push_back({pen_x + w, pen_y + h, 0.0f});
+        mesh.positions.push_back({pen_x, pen_y + h, 0.0f});
+        mesh.normals.insert(mesh.normals.end(), 4, {0.0f, 0.0f, 1.0f});
+        // build_vertices adds +1 to v, so pass v-1 to get the atlas coordinate.
+        mesh.uvs.push_back({u0, v0 - 1.0f});
+        mesh.uvs.push_back({u1, v0 - 1.0f});
+        mesh.uvs.push_back({u1, v1 - 1.0f});
+        mesh.uvs.push_back({u0, v1 - 1.0f});
+        mesh.colors.insert(mesh.colors.end(), 4, color);
+        mesh.indices.push_back(base + 0);
+        mesh.indices.push_back(base + 1);
+        mesh.indices.push_back(base + 2);
+        mesh.indices.push_back(base + 0);
+        mesh.indices.push_back(base + 2);
+        mesh.indices.push_back(base + 3);
+        pen_x += w;
+    }
     return mesh;
 }
 
@@ -1233,6 +1316,8 @@ int main(int argc, char** argv) {
     dino::Mesh visitor_pose1;
     dino::Mesh visitor_pose2;
     dino::Image visitor_image;
+    dino::Fnt hud_font;
+    bool hud_font_ready = false;
     bool build_ready = false;
     try {
         if (!opt.mesh_path.empty()) {
@@ -1415,6 +1500,21 @@ int main(int argc, char** argv) {
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "fence texture: %s\n", e.what());
             }
+        }
+    }
+
+    if (opt.hud) {
+        const std::string font_path =
+            opt.hud_font_path.empty()
+                ? resolve_asset(opt.asset_root, "Data/Fonte/arial12.fnt")
+                : opt.hud_font_path;
+        try {
+            hud_font = dino::load_fnt(font_path);
+            hud_font_ready = true;
+            std::printf("hud font %s: %zu glyphs\n", font_path.c_str(),
+                        hud_font.glyphs.size());
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "hud font: %s\n", e.what());
         }
     }
 
@@ -1635,6 +1735,10 @@ int main(int argc, char** argv) {
 
     const GLuint texture = image.width > 0 ? upload_texture(image) : 0;
     const GLuint dino_texture = dino_image.width > 0 ? upload_texture(dino_image) : 0;
+    const GLuint hud_font_texture =
+        (opt.hud && hud_font_ready) ? upload_font_atlas(hud_font) : 0;
+    bool hud_visible = true;
+    GpuMesh hud_gpu;
     const bool place_dino = skinned && !opt.lnd_path.empty();
     const float spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x : terrain.world_size * 0.5f;
     const float spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y : terrain.world_size * 0.5f;
@@ -1900,6 +2004,8 @@ int main(int argc, char** argv) {
                     if (free_camera) {
                         enter_free_camera();
                     }
+                } else if (key == SDLK_F1) {
+                    hud_visible = !hud_visible;
                 } else if (key == SDLK_1) {
                     build_tool = 1;
                     std::printf("build tool: path\n");
@@ -2149,6 +2255,44 @@ int main(int argc, char** argv) {
         draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
                    view_center, width, height);
 
+        if (hud_visible && hud_font_texture != 0) {
+            char line1[128];
+            char line2[192];
+            std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
+                          dt > 0.0 ? 1.0 / dt : 0.0);
+            std::snprintf(line2, sizeof(line2), "visitors %zu   paths %d   fences %d",
+                          visitor_system.visitors.size(), build_grid.path_count,
+                          build_grid.fence_count);
+            const std::string text = std::string(line1) + "\n" + line2;
+            const dino::Mesh hud_mesh = build_text_mesh(
+                hud_font, text, 12.0f, 8.0f, 1.0f, {235, 240, 245, 255});
+            hud_gpu.destroy(glfns);
+            hud_gpu = upload_mesh(hud_mesh, glfns);
+            dino::Mat4 ortho;
+            ortho.m[0] = 2.0f / static_cast<float>(width);
+            ortho.m[5] = -2.0f / static_cast<float>(height);
+            ortho.m[3] = -1.0f;
+            ortho.m[7] = 1.0f;
+            glfns.UseProgram(program);
+            glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                                ortho.m);
+            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), 2);
+            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"), 1);
+            glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), 0.95f);
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glfns.ActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, hud_font_texture);
+            glfns.BindVertexArray(hud_gpu.vao);
+            glDrawElements(GL_TRIANGLES, hud_gpu.index_count, GL_UNSIGNED_INT,
+                           nullptr);
+            glfns.BindVertexArray(0);
+            glDisable(GL_BLEND);
+            glEnable(GL_DEPTH_TEST);
+            glfns.UseProgram(0);
+        }
+
         if (!opt.capture_dir.empty()) {
             std::filesystem::create_directories(opt.capture_dir);
             char path[1024];
@@ -2211,6 +2355,10 @@ int main(int argc, char** argv) {
     fence_gpu.destroy(glfns);
     water_gpu.destroy(glfns);
     visitor_gpu.destroy(glfns);
+    hud_gpu.destroy(glfns);
+    if (hud_font_texture != 0) {
+        glDeleteTextures(1, &hud_font_texture);
+    }
     if (visitor_texture_id != 0) {
         glDeleteTextures(1, &visitor_texture_id);
     }

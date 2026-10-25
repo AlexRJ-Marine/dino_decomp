@@ -520,3 +520,30 @@ def test_cpp_selftest():
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "selftest: PASS (18 checks)" in result.stdout
+
+def test_cpp_hud(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    validate = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert validate.returncode == 0, validate.stderr
+    assert "hud font" in validate.stdout and "245 glyphs" in validate.stdout
+    shot = tmp_path / "hud.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", "600", "--height", "400", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--yaw", "35", "--pitch", "18", "--distance", "380"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    corner = image.crop((0, 0, 240, 40))
+    bright = sum(1 for p in corner.get_flattened_data()
+                 if p[0] > 200 and p[1] > 200 and p[2] > 200)
+    assert bright > 50

@@ -355,6 +355,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ## Phase 3 verification targets — presentation
 
+### UI-0: Bitmap font + HUD
+- [x] C++ `.fnt` reader (9-u32 header, 247 codes, +2 metrics, 16-bit atlas).
+- [x] R8 atlas upload, screen-space glyph quads, coverage alpha via `u_unlit=2`.
+- [x] Live HUD (FPS/visitors/paths/fences), F1 toggle, `--no-hud`, `--hud-font`.
+- **Acceptance:** `arial12.fnt` renders readable text over the island.
+- **Depends on:** FMT-7, VIEW-1.
+- **Evidence:** `docs/platform/hud.md`, `src/formats/fnt.cpp`,
+  `notes/hud.png`, `tests/test_viewer_cpp.py::test_cpp_hud`.
+
 ### UI-1: Menus and HUD
 - Main menu, park HUD, info panels.
 - **Acceptance:** start a new game, open/close panels, save.
