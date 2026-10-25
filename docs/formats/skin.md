@@ -176,6 +176,25 @@ does not reproduce that LOD's bind mesh. Deriving the per-LOD bind pose from
 `inv(R_bone)` is exact for static bind; retargeting skeleton animation onto
 those LODs is still open.
 
+### The `.skin` full mesh is not the visual rest pose
+
+The full-mesh block inside a `.skin` is stored in a **crouched bind pose**,
+different from the `.mesh` of the same model. On `allo_lod1` both have 317
+vertices and identical indices, but same-index vertex distances average
+**47.9 cm** (max 152.7 cm); e.g. vertex 0 is `(-37.1, -333.1, 485.6)` cm in
+the `.mesh` (scaled) and `(-35.4, -317.7, 459.5)` cm in the `.skin`.
+
+Because `R_bone = inv(W_raw_bind)`, any geometry can be skinned with these
+matrices: at bind, `v @ R_bone @ W_raw_bind = v`. The skin weights are
+therefore pose-independent, and using the `.mesh` vertices (×100 for
+centimetres) gives the **standing rest pose** while keeping the same rigid
+bindings. The viewer exposes this as `--skin-bind mesh`
+(default) vs `--skin-bind skin`.
+
+Evidence: `notes/isl01-dino-meshbind.png` (standing, `.mesh` bind) vs the
+earlier crouched `.skin` bind; `notes/isl01-dino-walk.png` shows
+`HeavyBiped_Walk` deforming the standing mesh cleanly.
+
 ## Reader/API
 
 `tools/formats/skin.py` exposes:

@@ -290,6 +290,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
 
+### SLICE-1: Island + dinosaur scene
+- [x] Combine `--lnd` terrain/vegetation with `--mesh/--skel/--skin/--anim`.
+- [x] Spawn the skinned allosaurus on the heightfield (`--dino-pos`,
+  `--dino-angle`, `--dino-texture`).
+- [x] Use the `.mesh` standing rest pose with the `.skin` rigid weights
+  (`--skin-bind mesh`), plus a soft contact shadow.
+- [x] `HeavyBiped_Walk` / `Neutral` / `Run` deform the standing mesh cleanly.
+- **Acceptance:** one scene shows island, trees and an animated dinosaur.
+- **Depends on:** WORLD-1, VIEW-3.
+- **Evidence:** `docs/platform/vertical-slice.md`,
+  `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
+  `tests/test_viewer_cpp.py` (`test_cpp_island_dino_*`).
+
 ## Phase 3 verification targets — simulation
 
 ### SIM-1: Path/fence placement

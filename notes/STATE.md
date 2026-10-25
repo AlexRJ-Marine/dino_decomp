@@ -156,6 +156,17 @@ Updated: 2026-10-25
     `docs/platform/terrain.md`, `docs/formats/{imp,blf}.md`,
     `tests/test_imp.py`, `tests/test_blf.py`, `tests/test_viewer_cpp.py`,
     `notes/isl01-vegetation.png`.
+- SLICE-1 complete: island + dinosaur in one scene.
+  - `--lnd` can now be combined with `--mesh/--skel/--skin/--anim`;
+    `--dino-pos`/`--dino-angle`/`--dino-texture` place the model on the
+    heightfield with a soft contact shadow.
+  - Important: the `.skin` full mesh is a crouched bind pose. The viewer uses
+    the `.mesh` standing rest pose with the same rigid weights
+    (`--skin-bind mesh`, default); `.skin` bind selectable for comparison.
+  - `HeavyBiped_Walk` at t=1200 renders a clean walk cycle on the island.
+  - Evidence: `docs/platform/vertical-slice.md`,
+    `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
+    `tests/test_viewer_cpp.py`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -198,8 +209,8 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3 vertical slice: combine the island and the dinosaur in one scene,
-  then add a free camera and path/fence placement.
+- Phase 3 vertical slice: add a free-fly camera (WASD + mouse look), then a
+  10-minute stability run, then path/fence placement (SIM-1).
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
   placements (1,536 vegetation instances already batch into 9 draws).
 - QOL-2 (UI scaling) waits for the overlay/UI layer.
@@ -208,12 +219,11 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. Add `--spawn dino=<name>,x,y` (or `--dino`) to place the skinned allosaurus
-   on the isl01 heightfield and animate it next to the terrain.
-2. Add a free-fly camera (WASD + mouse look, `--free-camera`) so the player can
-   move around the island; keep orbit as the default for asset inspection.
-3. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
-4. SIM-1: path/fence placement grid, validation and undo.
+1. Add `--free-camera`: WASD movement, mouse look, terrain-following height;
+   keep orbit as the default.
+2. Run a 10-minute stability test of the island + walking dinosaur scene.
+3. SIM-1: path/fence placement grid, validation and undo.
+4. WORLD-3: skybox + water plane for a closer match.
 5. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
    the container/vector contracts are ported.
 6. User: publish `docs/community/xentax-post.md` and record any replies.

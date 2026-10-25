@@ -82,6 +82,73 @@ def _skinned_args():
     ]
 
 
+def _dino_geometry_args():
+    return [
+        "--mesh", str(ALLO_MESH),
+        "--skel", str(ALLO_SKEL), "--skin", str(ALLO_SKIN),
+        "--anim", str(ALLO_ANIM),
+    ]
+
+
+def test_cpp_skin_bind_modes():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not all(p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
+        pytest.skip("retail samples not present")
+    default = subprocess.run(
+        [str(EXE), "--validate", *_skinned_args()],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert default.returncode == 0, default.stderr
+    assert "(.mesh bind)" in default.stdout
+    skin_bind = subprocess.run(
+        [str(EXE), "--validate", "--skin-bind", "skin", *_skinned_args()],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert skin_bind.returncode == 0, skin_bind.stderr
+    assert "(.skin bind)" in skin_bind.stdout
+
+
+def test_cpp_island_dino_validate():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists() or not all(
+            p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
+        pytest.skip("retail samples not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--dino-texture", str(ALLO_TEX), "--dino-pos", "512,512",
+         *_dino_geometry_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "vegetation: 9 groups, 1536 instances, 52291 triangles" in result.stdout
+    assert "dino texture" in result.stdout
+    assert "(.mesh bind)" in result.stdout
+
+
+def test_cpp_island_dino_window(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists() or not all(
+            p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
+        pytest.skip("retail samples not present")
+    shot = tmp_path / "island-dino.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", "480", "--height", "320", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--dino-texture", str(ALLO_TEX), "--dino-pos", "512,512",
+         "--distance", "17", "--pitch", "16",
+         *_dino_geometry_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert shot.exists()
+    assert Image.open(shot).size == (480, 320)
+    assert "spawn: x=512.0 y=512.0" in result.stdout
+
+
 def test_cpp_skinned_validate():
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")

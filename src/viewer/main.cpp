@@ -59,12 +59,17 @@ struct Options {
     std::string anim_path;
     std::string wav_path;
     std::string lnd_path;
+    std::string dino_texture_path;
+    float spawn_x = -1.0f;
+    float spawn_y = -1.0f;
+    float dino_angle = 0.0f;
     std::string asset_root = "game/%MAINDIR%";
     float terrain_size = 1024.0f;
     float height_scale = 1.0f;
     bool loop_audio = true;
     bool muted = false;
     bool no_vegetation = false;
+    bool skin_bind_from_skin = false;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -156,6 +161,19 @@ Options parse_args(int argc, char** argv) {
             opt.wav_path = next("--wav");
         } else if (arg == "--lnd") {
             opt.lnd_path = next("--lnd");
+        } else if (arg == "--dino-texture") {
+            opt.dino_texture_path = next("--dino-texture");
+        } else if (arg == "--dino-pos") {
+            const std::string value = next("--dino-pos");
+            const auto comma = value.find(',');
+            if (comma == std::string::npos) {
+                std::fprintf(stderr, "--dino-pos expects x,y\n");
+                std::exit(2);
+            }
+            opt.spawn_x = static_cast<float>(std::atof(value.substr(0, comma).c_str()));
+            opt.spawn_y = static_cast<float>(std::atof(value.substr(comma + 1).c_str()));
+        } else if (arg == "--dino-angle") {
+            opt.dino_angle = static_cast<float>(std::atof(next("--dino-angle")));
         } else if (arg == "--asset-root") {
             opt.asset_root = next("--asset-root");
         } else if (arg == "--terrain-size") {
@@ -164,6 +182,16 @@ Options parse_args(int argc, char** argv) {
             opt.height_scale = static_cast<float>(std::atof(next("--height-scale")));
         } else if (arg == "--no-vegetation") {
             opt.no_vegetation = true;
+        } else if (arg == "--skin-bind") {
+            const std::string value = next("--skin-bind");
+            if (value == "skin") {
+                opt.skin_bind_from_skin = true;
+            } else if (value == "mesh") {
+                opt.skin_bind_from_skin = false;
+            } else {
+                std::fprintf(stderr, "--skin-bind expects mesh or skin\n");
+                std::exit(2);
+            }
         } else if (arg == "--once") {
             opt.loop_audio = false;
         } else if (arg == "--mute") {
@@ -213,10 +241,14 @@ Options parse_args(int argc, char** argv) {
                 "  --anim FILE          retail .anim clip\n"
                 "  --wav FILE           retail .wav to play\n"
                 "  --lnd FILE           island .lnd (terrain + basemap)\n"
+                "  --dino-texture FILE  texture for the skinned mesh when --lnd is used\n"
+                "  --dino-pos X,Y       place the skinned mesh on the terrain (0..1024)\n"
+                "  --dino-angle DEG     Z rotation for the placed skinned mesh\n"
                 "  --asset-root DIR     root for paths inside .lnd (default game/%%MAINDIR%%)\n"
                 "  --terrain-size N     terrain world size (default 1024)\n"
                 "  --height-scale N     heightmap multiplier (default 1)\n"
                 "  --no-vegetation      skip the .imp/.blf placed objects\n"
+                "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --once               play the WAV once (default loops)\n"
                 "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
@@ -350,6 +382,7 @@ struct GlFns {
     PFNGLGETUNIFORMLOCATIONPROC GetUniformLocation = nullptr;
     PFNGLUNIFORMMATRIX4FVPROC UniformMatrix4fv = nullptr;
     PFNGLUNIFORM3FVPROC Uniform3fv = nullptr;
+    PFNGLUNIFORM1FPROC Uniform1f = nullptr;
     PFNGLUNIFORM1IPROC Uniform1i = nullptr;
     PFNGLACTIVETEXTUREPROC ActiveTexture = nullptr;
 
@@ -385,6 +418,7 @@ struct GlFns {
         LOAD(GetUniformLocation, "glGetUniformLocation")
         LOAD(UniformMatrix4fv, "glUniformMatrix4fv")
         LOAD(Uniform3fv, "glUniform3fv")
+        LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
 #undef LOAD
@@ -437,6 +471,7 @@ uniform int u_use_texture;
 uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
+uniform float u_alpha;
 out vec4 frag_color;
 void main() {
     vec3 n = normalize(v_normal);
@@ -449,7 +484,7 @@ void main() {
     }
     vec3 color = base * (u_ambient + u_light_color * (key + fill));
     color = pow(clamp(color, 0.0, 1.0), vec3(0.85));
-    frag_color = vec4(color, 1.0);
+    frag_color = vec4(color, u_alpha);
 }
 )GLSL";
     const GLuint vs = compile_shader(GL_VERTEX_SHADER, kVertex, gl);
@@ -630,13 +665,18 @@ dino::Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::
     return out;
 }
 
+struct DrawItem {
+    const GpuMesh* mesh = nullptr;
+    GLuint texture = 0;
+    float alpha = 1.0f;
+};
+
 void draw_scene(const GpuMesh& mesh, GLuint texture,
-                const std::vector<GpuMesh>& extras,
-                const std::vector<GLuint>& extra_textures,
+                const std::vector<DrawItem>& extras,
                 GLuint program,
-                const GlFns& gl, const Bounds& bounds, float yaw, float pitch,
+                const GlFns& gl, const dino::Vec3& center,
+                float yaw, float pitch,
                 float distance, int width, int height) {
-    const dino::Vec3 center = bounds.center();
     const float cp = std::cos(pitch * 3.14159265f / 180.0f);
     const float sp = std::sin(pitch * 3.14159265f / 180.0f);
     const float cy = std::cos(yaw * 3.14159265f / 180.0f);
@@ -666,6 +706,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform3fv(gl.GetUniformLocation(program, "u_ambient"), 1, ambient);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"), texture != 0 ? 1 : 0);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_texture"), 0);
+    gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
 
     if (texture != 0) {
         gl.ActiveTexture(GL_TEXTURE0);
@@ -675,14 +716,28 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, nullptr);
 
     const GLint use_texture_loc = gl.GetUniformLocation(program, "u_use_texture");
-    for (std::size_t i = 0; i < extras.size(); ++i) {
-        const GLuint extra_texture = i < extra_textures.size() ? extra_textures[i] : 0;
-        gl.Uniform1i(use_texture_loc, extra_texture != 0 ? 1 : 0);
-        if (extra_texture != 0) {
-            glBindTexture(GL_TEXTURE_2D, extra_texture);
+    const GLint alpha_loc = gl.GetUniformLocation(program, "u_alpha");
+    for (const DrawItem& item : extras) {
+        if (item.mesh == nullptr || item.mesh->vao == 0) {
+            continue;
         }
-        gl.BindVertexArray(extras[i].vao);
-        glDrawElements(GL_TRIANGLES, extras[i].index_count, GL_UNSIGNED_INT, nullptr);
+        gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
+        gl.Uniform1f(alpha_loc, item.alpha);
+        const bool blend = item.alpha < 1.0f;
+        if (blend) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
+        }
+        if (item.texture != 0) {
+            glBindTexture(GL_TEXTURE_2D, item.texture);
+        }
+        gl.BindVertexArray(item.mesh->vao);
+        glDrawElements(GL_TRIANGLES, item.mesh->index_count, GL_UNSIGNED_INT, nullptr);
+        if (blend) {
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+        }
     }
     gl.BindVertexArray(0);
     gl.UseProgram(0);
@@ -760,6 +815,58 @@ std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
 }
 
+// Moves a mesh (metres) onto the terrain (world units) at an .imp-style
+// position: x/y in 0..1024, Z rotation in degrees.
+// A disc at ground level so a placed model reads as standing on the terrain.
+dino::Mesh make_contact_shadow(float x, float y, float z, float radius) {
+    constexpr int kSegments = 40;
+    dino::Mesh mesh;
+    mesh.name = "contact_shadow";
+    const dino::Color color{26, 36, 22, 255};
+    mesh.positions.push_back({x, y, z});
+    mesh.normals.push_back({0.0f, 0.0f, 1.0f});
+    mesh.uvs.push_back({0.0f, 0.0f});
+    mesh.colors.push_back(color);
+    for (int i = 0; i < kSegments; ++i) {
+        const float angle = 2.0f * 3.14159265f * static_cast<float>(i) /
+                            static_cast<float>(kSegments);
+        mesh.positions.push_back({x + std::cos(angle) * radius,
+                                  y + std::sin(angle) * radius, z});
+        mesh.normals.push_back({0.0f, 0.0f, 1.0f});
+        mesh.uvs.push_back({0.0f, 0.0f});
+        mesh.colors.push_back(color);
+    }
+    for (int i = 0; i < kSegments; ++i) {
+        mesh.indices.push_back(0);
+        mesh.indices.push_back(static_cast<std::uint32_t>(1 + i));
+        mesh.indices.push_back(static_cast<std::uint32_t>(1 + (i + 1) % kSegments));
+    }
+    return mesh;
+}
+
+dino::Mesh place_on_terrain(dino::Mesh mesh, const dino::Terrain& terrain,
+                            float x, float y, float angle_degrees) {
+    const float half = terrain.world_size * 0.5f;
+    const float base_z = terrain.height_at(x - half, y - half);
+    const float radians = angle_degrees * 3.14159265f / 180.0f;
+    const float cs = std::cos(radians);
+    const float sn = std::sin(radians);
+    const bool has_normals = mesh.normals.size() == mesh.positions.size();
+    for (std::size_t i = 0; i < mesh.positions.size(); ++i) {
+        const dino::Vec3 p = mesh.positions[i];
+        mesh.positions[i] = {x - half + cs * p.x - sn * p.y,
+                             y - half + sn * p.x + cs * p.y,
+                             base_z + p.z};
+        if (has_normals) {
+            const dino::Vec3 n = mesh.normals[i];
+            mesh.normals[i] = dino::normalize({cs * n.x - sn * n.y,
+                                               sn * n.x + cs * n.y,
+                                               n.z});
+        }
+    }
+    return mesh;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -784,6 +891,7 @@ int main(int argc, char** argv) {
 
     dino::Mesh mesh;
     dino::Image image;
+    dino::Image dino_image;
     dino::Skeleton skeleton;
     dino::Skin skin;
     dino::Animation anim;
@@ -792,9 +900,6 @@ int main(int argc, char** argv) {
     dino::Terrain terrain;
     dino::Vegetation vegetation;
     try {
-        if (!opt.lnd_path.empty() && !opt.skin_path.empty()) {
-            throw std::runtime_error("choose --lnd or --skin, not both");
-        }
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
         }
@@ -815,6 +920,9 @@ int main(int argc, char** argv) {
         if (!opt.texture_path.empty()) {
             image = dino::load_tga(opt.texture_path);
         }
+        if (!opt.dino_texture_path.empty()) {
+            dino_image = dino::load_tga(opt.dino_texture_path);
+        }
         if (!opt.skel_path.empty()) {
             skeleton = dino::load_skel(opt.skel_path);
         }
@@ -826,6 +934,33 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("--skin requires --skel");
             }
             skin = dino::load_skin(opt.skin_path, mesh.name);
+            // The .skin full mesh is stored in a crouched bind pose. The
+            // inverse-bind matrices are inverse(skeleton bind), so any geometry
+            // can be skinned with them; using the .mesh restores the standing
+            // pose while keeping the same weights.
+            if (!opt.skin_bind_from_skin && !mesh.positions.empty()) {
+                if (skin.mesh.positions.size() == mesh.positions.size() &&
+                    skin.mesh.indices == mesh.indices) {
+                    for (std::size_t i = 0; i < mesh.positions.size(); ++i) {
+                        skin.mesh.positions[i] = {mesh.positions[i].x * 100.0f,
+                                                  mesh.positions[i].y * 100.0f,
+                                                  mesh.positions[i].z * 100.0f};
+                    }
+                    if (mesh.uvs.size() == mesh.positions.size()) {
+                        skin.mesh.uvs = mesh.uvs;
+                    }
+                    if (mesh.normals.size() == mesh.positions.size()) {
+                        skin.mesh.normals = mesh.normals;
+                    }
+                    if (mesh.colors.size() == mesh.positions.size()) {
+                        skin.mesh.colors = mesh.colors;
+                    }
+                } else {
+                    std::fprintf(stderr,
+                                 "warning: .skin topology differs from .mesh; "
+                                 "using the .skin bind pose\n");
+                }
+            }
         }
         if (!opt.anim_path.empty()) {
             if (opt.skel_path.empty()) {
@@ -853,6 +988,10 @@ int main(int argc, char** argv) {
             std::printf("texture %s: %dx%d RGBA\n", opt.texture_path.c_str(),
                         image.width, image.height);
         }
+        if (!opt.dino_texture_path.empty()) {
+            std::printf("dino texture %s: %dx%d RGBA\n", opt.dino_texture_path.c_str(),
+                        dino_image.width, dino_image.height);
+        }
         if (!opt.skel_path.empty()) {
             std::printf("skel %s: %zu bones\n", opt.skel_path.c_str(), skeleton.bones.size());
         }
@@ -861,9 +1000,10 @@ int main(int argc, char** argv) {
             for (const auto& bone : skin.bones) {
                 assigned += bone.vertices.size();
             }
-            std::printf("skin %s: %zu vertices, %zu bones, %zu assignments\n",
+            std::printf("skin %s: %zu vertices, %zu bones, %zu assignments (%s bind)\n",
                         opt.skin_path.c_str(), skin.mesh.positions.size(),
-                        skin.bones.size(), assigned);
+                        skin.bones.size(), assigned,
+                        opt.skin_bind_from_skin ? ".skin" : ".mesh");
         }
         if (!opt.anim_path.empty()) {
             std::size_t keys = 0;
@@ -1025,13 +1165,29 @@ int main(int argc, char** argv) {
     }
 
     const GLuint texture = image.width > 0 ? upload_texture(image) : 0;
+    const GLuint dino_texture = dino_image.width > 0 ? upload_texture(dino_image) : 0;
+    const bool place_dino = skinned && !opt.lnd_path.empty();
+    const float spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x : terrain.world_size * 0.5f;
+    const float spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y : terrain.world_size * 0.5f;
+
+    auto pose_dino = [&](double time) {
+        const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
+        dino::Mesh pose = build_skinned_mesh(skin.mesh, skin, skeleton, anim_ptr, time,
+                                             vertex_bone, bone_skel);
+        if (mesh.colors.size() == pose.positions.size()) {
+            pose.colors = mesh.colors;
+        }
+        return place_on_terrain(std::move(pose), terrain, spawn_x, spawn_y,
+                                opt.dino_angle);
+    };
+
     dino::Mesh display;
     if (!opt.lnd_path.empty()) {
         display = terrain.mesh;
     } else if (skinned) {
-        const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
-        const double initial_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
-        display = build_skinned_mesh(skin.mesh, skin, skeleton, anim_ptr, initial_time,
+        display = build_skinned_mesh(skin.mesh, skin, skeleton,
+                                     anim.bones.empty() ? nullptr : &anim,
+                                     opt.anim_time >= 0.0 ? opt.anim_time : 0.0,
                                      vertex_bone, bone_skel);
         if (mesh.colors.size() == display.positions.size()) {
             display.colors = mesh.colors;
@@ -1040,9 +1196,30 @@ int main(int argc, char** argv) {
         display = mesh;
     }
     GpuMesh gpu = upload_mesh(display, glfns);
+    GpuMesh dino_gpu;
+    GpuMesh shadow_gpu;
+    if (place_dino) {
+        dino_gpu = upload_mesh(pose_dino(opt.anim_time >= 0.0 ? opt.anim_time : 0.0),
+                               glfns);
+        const float half = terrain.world_size * 0.5f;
+        shadow_gpu = upload_mesh(
+            make_contact_shadow(spawn_x - half, spawn_y - half,
+                                terrain.height_at(spawn_x - half, spawn_y - half) + 0.06f,
+                                2.6f),
+            glfns);
+        std::printf("spawn: x=%.1f y=%.1f z=%.2f angle=%.1f\n", spawn_x, spawn_y,
+                    terrain.height_at(spawn_x - terrain.world_size * 0.5f,
+                                      spawn_y - terrain.world_size * 0.5f),
+                    opt.dino_angle);
+    }
     Bounds bounds;
     for (const auto& p : display.positions) {
         bounds.add(p);
+    }
+    if (place_dino) {
+        for (const auto& p : pose_dino(0.0).positions) {
+            bounds.add(p);
+        }
     }
 
     std::vector<GpuMesh> veg_gpu;
@@ -1065,7 +1242,27 @@ int main(int argc, char** argv) {
         }
     }
 
-    const float auto_distance = std::max(2.0f, bounds.extent() * 1.7f);
+    std::vector<DrawItem> extra_items;
+    extra_items.reserve(veg_gpu.size() + 1);
+    for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
+        extra_items.push_back({&veg_gpu[i], veg_textures[i]});
+    }
+    if (dino_gpu.vao != 0) {
+        if (shadow_gpu.vao != 0) {
+            extra_items.push_back({&shadow_gpu, 0, 0.35f});
+        }
+        extra_items.push_back({&dino_gpu, dino_texture});
+    }
+
+    const dino::Vec3 center = place_dino
+        ? dino::Vec3{spawn_x - terrain.world_size * 0.5f,
+                     spawn_y - terrain.world_size * 0.5f,
+                     terrain.height_at(spawn_x - terrain.world_size * 0.5f,
+                                       spawn_y - terrain.world_size * 0.5f) + 3.0f}
+        : bounds.center();
+
+    const float auto_distance = place_dino ? 22.0f
+        : std::max(2.0f, bounds.extent() * 1.7f);
     float distance = opt.distance > 0.0f ? opt.distance : auto_distance;
     float yaw = opt.yaw;
     float pitch = opt.pitch;
@@ -1184,10 +1381,16 @@ int main(int argc, char** argv) {
             if (mesh.colors.size() == deformed.positions.size()) {
                 deformed.colors = mesh.colors;
             }
-            update_mesh(gpu, deformed, glfns);
+            if (place_dino) {
+                deformed = place_on_terrain(std::move(deformed), terrain,
+                                            spawn_x, spawn_y, opt.dino_angle);
+                update_mesh(dino_gpu, deformed, glfns);
+            } else {
+                update_mesh(gpu, deformed, glfns);
+            }
         }
 
-        draw_scene(gpu, texture, veg_gpu, veg_textures, program, glfns, bounds,
+        draw_scene(gpu, texture, extra_items, program, glfns, center,
                    yaw, pitch, distance, width, height);
 
         if (!opt.capture_dir.empty()) {
@@ -1235,10 +1438,15 @@ int main(int argc, char** argv) {
     for (auto& group : veg_gpu) {
         group.destroy(glfns);
     }
+    dino_gpu.destroy(glfns);
+    shadow_gpu.destroy(glfns);
     for (const GLuint id : veg_textures) {
         if (id != 0) {
             glDeleteTextures(1, &id);
         }
+    }
+    if (dino_texture != 0) {
+        glDeleteTextures(1, &dino_texture);
     }
     gpu.destroy(glfns);
     if (texture != 0) {
