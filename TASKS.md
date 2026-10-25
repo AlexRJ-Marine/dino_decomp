@@ -12,6 +12,17 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - [ ] `scripts/build.ps1` builds the C++ skeleton.
 - **Evidence:** `notes/env-check.md` with command output.
 
+## Phase 0.5 — runtime
+
+### PATCH-1: No-CD startup patch
+- [x] Locate the drive scan (`GetDriveTypeA` / `GetVolumeInformationA`).
+- [x] Patch the `CD found` branch at `0x401BFC`.
+- [x] Document the patch and add an IPS + reversible Python patcher.
+- **Acceptance:** patched `run/DinoIsland.exe` passes the CD check under
+  x32dbg + dgVoodoo2 and reaches `Begin3D Success`.
+- **Evidence:** `docs/patches/no-cd.md`, `patches/dinoisland-nocd.ips`,
+  `notes/x32dbg-nocd.out.log`.
+
 ## Phase 1 — formats (quick wins first)
 
 ### FMT-1: `.mesh` header and file inventory

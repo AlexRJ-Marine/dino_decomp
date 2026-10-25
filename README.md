@@ -49,6 +49,13 @@ The Ghidra project is `analysis/ghidra/dino.gpr`; the binary is
 If the server is not running, the `ghidra` tools will be unavailable; start it
 with `scripts/start-ghidra.ps1` and check with `scripts/ghidra-smoke.ps1`.
 
+## Runtime patches
+
+The retail executable checks for a CD-ROM at startup. A documented, reversible
+no-CD patch is in [`docs/patches/no-cd.md`](docs/patches/no-cd.md), with an IPS
+at `patches/dinoisland-nocd.ips` and a patcher at `tools/patch_nocd.py`.
+Apply it only to the `run/` copy, never to `game/` or `original/`.
+
 ## Working method
 
 Read `AGENTS.md`, `notes/STATE.md`, and `TASKS.md` before starting. Pick one

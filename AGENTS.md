@@ -30,7 +30,10 @@ of the original architecture.
 5. Do not redistribute game assets or verbatim decompiled code. This is a
    personal preservation/interoperability project. Keep `game/` and `original/`
    out of version control.
-6. Build portable C++20 for the port (CMake + SDL3 + bgfx/OpenGL), not MSVC 6.
+6. Runtime patches live in `patches/`, are documented in `docs/patches/`, and
+   are applied only to a copy under `run/`. Never patch `game/` or `original/`.
+   The no-CD startup patch is `docs/patches/no-cd.md`.
+7. Build portable C++20 for the port (CMake + SDL3 + bgfx/OpenGL), not MSVC 6.
 
 ## Known architecture (from assert strings)
 

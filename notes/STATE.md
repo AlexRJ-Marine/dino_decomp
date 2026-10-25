@@ -44,6 +44,12 @@ Updated: 2026-10-25
   record[16:19] at 0.01 scale, but the assembled render is a cross, so the
   layout is not yet correct. Full-mesh tail is 6,514 bytes and likely holds
   the skin mapping.
+- No-CD startup patch found and verified: drive scan `C:`..`Z:` calls
+  `GetDriveTypeA`/`GetVolumeInformationA`; branch at `0x401BFC` patched from
+  `jne 0x401D4C` to `jmp 0x401D4C`. Documented in `docs/patches/no-cd.md`
+  with IPS at `patches/dinoisland-nocd.ips` and `tools/patch_nocd.py`.
+- Patched `run/` copy passes the CD check under x32dbg + dgVoodoo2, reaches
+  `Begin3D Success`, and loads menu assets. `run/` is gitignored.
 
 ## Next action
 

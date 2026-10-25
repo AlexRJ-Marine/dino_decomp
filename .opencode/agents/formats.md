@@ -12,6 +12,9 @@ permissions:
     resource: "docs/formats/**"
     effect: allow
   - action: edit
+    resource: "docs/patches/**"
+    effect: allow
+  - action: edit
     resource: "tests/**"
     effect: allow
   - action: edit

@@ -1,6 +1,7 @@
 # Retail data and extracted assets — never commit
 /original/
 /game/
+/run/
 *.iso
 *.ISO
 

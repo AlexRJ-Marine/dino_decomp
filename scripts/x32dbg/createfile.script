@@ -1,0 +1,8 @@
+// Log file opens and keep the script alive across debug events.
+log "X32 SCRIPT START"
+bp CreateFileA
+SetBreakpointCommand CreateFileA, "log \"CF {s:[esp+4]}\"; run"
+log "X32 BP SET"
+:loop
+run
+jmp loop
