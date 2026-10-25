@@ -52,7 +52,11 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00421630` | `moGraphicCtrl::Load` — GraphicDB entries, `NB_OBJECTS`, `SKIP_LIST` bitmask | decompiled | frame-strip section in `notes/ui-recon.md` |
 | `0x004219c0` | graphic lookup by name (returns atlas index) | decompiled | same |
 | `0x005c3a20` / `0x005c3a60` / `0x005c3a40` | widget texture index / `TEXTURE_FRAME` / `TEXTURE_MOSAIC` setters | decompiled | same |
-| `0x00527d30` | in-park HUD button binder (`OPEN_*` → state-manager handlers) | decompiled | `notes/ui-recon.md` |
+| `0x00527d30` | in-park HUD button binder (`OPEN_*` → state-manager handlers) | decompiled, verified | `notes/ui-recon.md`; `src/ui/park.cpp` |
+| `0x0050be00` | `ivwInfoPanelController::SetActivePanel` — pages 0..8 (dino/show/fence lists, stats, budget, visitors, mission, options, close) | decompiled, verified | `notes/ui-recon.md` ("Park HUD panel switching") |
+| `0x00529120` | registers the park state classes `0..0x14` (lab, neutral, selections, construction, purchase, selling) | decompiled | same |
+| `0x00532590` | `CONSTRUCTION_MAIN` binder — kit/fence/predefined sub-buttons | decompiled, verified | same |
+| `0x0052bd10` | state construction helper `(id, name, ...)` | decompiled | same |
 | `0x005c5bf0` | `moWidget::Draw` — self then child list (priority/insertion order) | decompiled | `notes/ui-recon.md` |
 | `0x005c5d60` | child draw thunk (`Draw` + `+0x3c`) | identified | same |
 | `0x005bae40` | widget manager add-child (priority-ordered list) | decompiled | same |
@@ -69,6 +73,28 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00598bad` | `SetCurrentDirectoryA` helper | decompiled | save-path investigation |
 | `0x004160c0` | change working directory | decompiled | save-path investigation |
 
+## Scheduler / simulation / AI (DEC-2)
+
+| Address | Purpose | Status | Evidence |
+| --- | --- | --- | --- |
+| `0x00506ec0` | `lpScheduler` constructor | decompiled | `notes/scheduler-recon.md` |
+| `0x00507050` | `lpScheduler::AddTask(name, callback, context)` | decompiled | same |
+| `0x00507490` | `lpScheduler::SetTaskEnabled(name, bool)` | decompiled | same |
+| `0x00507530` | `lpScheduler::Update` — fixed-order task tick | decompiled | same |
+| `0x0051d050` | park task registration (10 tasks, frame order) | decompiled | same |
+| `0x00596500` | menu task registration (3 tasks) | decompiled | same |
+| `0x005869e0` | `spSimuManager::Update` — actors, 5 s/10 s timers | decompiled | same |
+| `0x00589cd0` | park-wide simulation step (1 s ticks, visitors, economy, shows) | decompiled (partial) | same |
+| `0x0051fab0` | `apBehaviorManager::Update` — perception, reactions, AI order | decompiled | same |
+| `0x00521b30` | `apDinosaurBehavior` constructor / state fields | decompiled | same |
+| `0x00521d80` / `0x00521d10` / `0x00521d60` | dinosaur reaction state transitions (1/2/idle) | decompiled | same |
+| `0x005213f0` | behavior event callback; state 1 → 2 on target match | decompiled | same |
+| `0x00521760` / `0x00521790` | stop action / write target cell and insert path record | decompiled | same |
+| `0x0051fa10` / `0x0051f8d0` | dinosaur notify/attack and forced target reactions | decompiled | same |
+| `0x00571540` | `saDinosaur::Update` — need decay and action countdown | decompiled | same |
+| `0x00571190` | advance/complete the current need action | decompiled | same |
+| `0x005725e0` / `0x00571370` / `0x00571410` | 5 s and 10 s need passes | decompiled | same |
+
 ## C++ reimplementations
 
 These are readable ports used by the portable viewer. The first one is now
@@ -84,12 +110,16 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | `.mesh` body reader | `src/formats/mesh.cpp` | reimplemented, `--validate` |
 | `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
 | `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
+| park HUD panel switching | `src/ui/park.cpp` | reimplemented, 12 HUD buttons + info pages + lab centres |
+| overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items
 
 - `.fnt`, `.loc`, `.lnd`, audio loaders — FMT-6/FMT-7.
-- Overlay draw order (`PRIORITY`/`ZPRIORITY`) and button frame selection
-  (`NB_OBJECTS`/`SKIP_LIST`) — UI-2 Phase A.
-- Page-background creation helper and menu-page centring code path — UI-2.
-- Map the simulation scheduler (`lpScheduler`) and AI update order — DEC-2.
+- Park minimap render target, 1024×768 HUD anchoring and dynamic sub-panel
+  fields — UI-2 Phase C rest.
+- Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
+  panel — UI-2 Phase D.
+- Semantic names for the dinosaur need slots and the `0x2c0` action indices
+  (DEC-2 follow-up).
 - `.wld` save format — DEC-3.

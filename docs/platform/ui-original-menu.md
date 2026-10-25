@@ -299,17 +299,32 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       day 1. Normal state = frame 4 (frame 0 is the disabled art).
 - [x] Compare with the Python oracle at 800×600: right panel MAD 10.8,
       gauge 4.0, map 2.1 (oracle vs retail: 8.8 / 3.65).
+- [x] Button bindings and panel switching (`src/ui/park.cpp`):
+      - 12 right-panel/gauge buttons + the construction sub-buttons;
+      - one active state panel at a time (construction, info-controller page,
+        lab centre), matching the recovered `pvwParkStateManager`;
+      - `OPEN_PADDOCK_LIST_PANEL` opens `FENCE_LIST_PANEL` (info page 2);
+      - kit list/stats icons open `ATTRACTION_LIST_PANEL` /
+        `ATTRACTION_STATS_PANEL`;
+      - lab breed/modify/clone/fridge centres use their own 800×600 backdrop
+        and hide the park HUD;
+      - no dim backdrop: `DIALOG_BACKGROUND` belongs to
+        `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL` only.
+      CLI: `--park-click X,Y` (repeatable), `--park-hover X,Y`.
+      Evidence: `notes/ui-recon.md` ("Park HUD panel switching"),
+      `notes/park-budget.png`, `notes/park-construction-kit.png`,
+      `notes/park-lab-breed.png`.
 - [ ] Minimap: `MAP_RENDERVIEW` is a 136×136 RENDER target (absolute
       652,451), not a basemap crop. Render the terrain top-down with the park
       yaw (≈−45°); zoom buttons scale it. `FUN_00529880` binds it. See
       `notes/ui-recon.md` ("Minimap render view").
-- [ ] Button bindings (`OPEN_BUDGET_PANEL` etc.) and panel switching; the
-      widget→handler map is in `notes/ui-recon.md` ("Park HUD button
-      bindings").
 - [ ] 1024×768 re-anchor pass: the original HUD re-anchors (right panel at
       931,168; gauge at 293,737; map at 840,584) while menu pages centre.
       The viewer currently centres the 800×600 HUD; QOL-2 decides.
-- [ ] Keep the FPS/visitor debug text as an optional debug HUD.
+- [ ] Runtime fields inside sub-panels (budget ledger rows, list snapshots,
+      sliders) and panel-local selection state.
+- [x] Keep the FPS/visitor debug text as an optional debug HUD (`F1`,
+      `--no-hud`).
 
 ### Phase D — panels, save/load, audio
 

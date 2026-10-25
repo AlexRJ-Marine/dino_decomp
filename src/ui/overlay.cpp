@@ -248,6 +248,32 @@ bool Overlay::visible_in_tree(int widget_index) const {
     return true;
 }
 
+int Overlay::hit_test(int x, int y) const {
+    for (int i = static_cast<int>(widgets.size()) - 1; i >= 0; --i) {
+        const Widget& widget = widgets[static_cast<std::size_t>(i)];
+        if (widget.type != "BUTTON" && widget.type != "LIST") {
+            continue;
+        }
+        if (!widget.enable || !visible_in_tree(i)) {
+            continue;
+        }
+        if (x >= widget.abs_x && x < widget.abs_x + widget.width &&
+            y >= widget.abs_y && y < widget.abs_y + widget.height) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool Overlay::set_visible(const std::string& name, bool visible) {
+    const int i = find(name);
+    if (i < 0) {
+        return false;
+    }
+    widgets[static_cast<std::size_t>(i)].visible = visible;
+    return true;
+}
+
 std::string resolve_loc_text(const std::string& text, const dino::Loc& loc) {
     if (text.empty() || text.front() != '&') {
         return text;

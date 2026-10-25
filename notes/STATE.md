@@ -255,6 +255,22 @@ Updated: 2026-10-25
     map 2.1 (oracle vs retail 8.8 / 3.65).
   - Evidence: `docs/platform/hud.md`, `notes/park-hud.png`,
     `notes/hud-preview.png`, `tests/test_viewer_cpp.py::test_cpp_park_hud_*`.
+- UI-2 Phase C bindings complete: **park panel switching.**
+  - `src/ui/park.cpp` maps the 12 right-panel/gauge buttons, the 3
+    construction sub-buttons, the kit list/stats icons, the info-controller
+    pages, the 5 lab centres and each panel's close/cancel/validate/put-back
+    button. Exactly one state panel is visible at a time, matching
+    `pvwParkStateManager`; `OPEN_PADDOCK_LIST_PANEL` opens `FENCE_LIST_PANEL`.
+  - `DIALOG_BACKGROUND` is only used by warning/request/campaign-end dialogs,
+    so park panels do not dim the scene. Lab centres show their own 800×600
+    backdrop and hide the park HUD.
+  - Hover (frame 5) and pressed (frame 6) art; `--park-click X,Y`,
+    `--park-hover X,Y`.
+  - Evidence: `notes/ui-recon.md` ("Park HUD panel switching"),
+    `notes/park-budget.png`, `notes/park-construction-kit.png`,
+    `notes/park-lab-breed.png`,
+    `tests/test_viewer_cpp.py::test_cpp_park_panel*`,
+    `test_cpp_park_lab_shot`, `test_cpp_park_hover_shot`.
 - 112 tests pass; working tree committed.
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -294,6 +310,45 @@ Updated: 2026-10-25
   - Save catalog: cost and dimensions match all 39 records.
   - Evidence: `tools/formats/shw.py`, `docs/formats/shw.md`,
     `tests/test_shw.py`.
+- FMT-9 complete: **`.gen` genotypes.**
+  - 57 design files (18 genes) + 20 editor files (27 genes); 77/77 parse,
+    1,566 genes, 0 errors.
+  - 18-gene table decoded; expression/dominance from `simu_trans.dic`
+    (`min(a,b)` for dominant genes, average for skin-sub/carapace-sub/
+    Agre/Stam/Cour), plus rarity weights.
+  - Evidence: `tools/formats/gen.py`, `gene_trans.py`,
+    `docs/formats/gen.md`, `tests/test_gen.py`, `test_gene_trans.py`,
+    `notes/gen-recon.md`.
+- FMT-10 complete: **`.bvi` visitor profiles.**
+  - 24/24 parse, 10 personalities (`VisitorList.ini`), 624 mesh paths all
+    exist.
+  - Header: personality id, height 1.7, walk speed 1.2–2.5, five preference
+    weights; 26 meshes + texture per profile.
+  - Evidence: `tools/formats/bvi.py`, `docs/formats/bvi.md`,
+    `tests/test_bvi.py`, `notes/bvi-recon.md`.
+- FMT-11 complete: **`.bbi` building definitions.**
+  - 39/39 parse, one per `BuildingList.ini`; 390 mesh/skel/anim paths all
+    exist; 213 `CONSTRUC_*` UI names (212 resolve).
+  - Header hypothesis: footprint `w0×w1`, cost `w5`; tail carries texture
+    dir, explosions, sounds and build-panel widget names.
+  - Evidence: `tools/formats/bbi.py`, `docs/formats/bbi.md`,
+    `tests/test_bbi.py`, `notes/bbi-recon.md`.
+- DEC-2 complete: **simulation scheduler + AI update order decompiled.**
+  - `lpScheduler` (`0x506ec0` ctor, `0x507050` AddTask, `0x507490`
+    SetTaskEnabled, `0x507530` Update) runs a fixed-order task list with
+    variable dt, no priorities.
+  - Park frame order (`0x51d050`): ParkInterfaceProcess, ParkInterfaceUpdate,
+    SimulationManager, BehaviorManager, WorldManager, CampaignManager,
+    AnimationManager, ParkScene, AudioPark, ParkInterfaceDraw.
+  - Menu order (`0x596500`): MenuInterfaceProcess, MenuInterfaceUpdate,
+    MenuInterfaceDraw.
+  - `spSimuManager::Update` (`0x5869e0`) ticks actors, then the park-wide
+    step (`0x589cd0`); `apBehaviorManager::Update` (`0x51fab0`) runs
+    perception → actor update → reactions → visitor/employee AI.
+  - `saDinosaur::Update` (`0x571540`) decays two need slots; 5 s and 10 s
+    passes at `0x5725e0`/`0x571370`/`0x571410`. Need/action names remain.
+  - Evidence: `notes/scheduler-recon.md`, `docs/decomp/scheduler.md`,
+    `docs/decomp/function-status.md`.
 
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
@@ -337,18 +392,16 @@ Updated: 2026-10-25
 
 ## In progress
 
-- **UI-2 Phase B rest:** `FREE_START_BUTTON` should show `LOADING_PAGE`
-  (`loading_800x600.tga`) and build the selected island's scene, then hand
-  control to the park.
-- **UI-2 Phase A polish:** `ui_frame_rect` in `src/viewer/main.cpp` still
-  uses the old skip-count/row-major heuristic. The retail model is the
-  used-frame list, a horizontal/vertical strip, and normal frame **4**
-  (0 disabled, 5 hover, 6 pressed, 7 selected); frame 4 may be transparent.
-  This affects the normal list rows, Start/Cancel and difficulty selection.
-  See `notes/ui-frame-handoff.md`; the Python preview is the target.
-- **UI-2 Phase C:** park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
-  (always-on panels; live budget/visitor/time fields); then Phase D panels,
-  save/load and menu sounds.
+- **UI-2 Phase B rest:** `FREE_START_BUTTON` shows the loading page and
+  closes the menu, but the scene is still the `--lnd` island loaded at
+  startup; Start should build the selected island from the menu and switch
+  the park to it.
+- **UI-2 Phase C rest:** minimap render target (`MAP_RENDERVIEW`), 1024×768
+  HUD re-anchoring (QOL-2), and dynamic values inside sub-panels (budget
+  ledger rows, list snapshots, slider/checkbox selection). Button bindings
+  and hover/pressed states are done (`src/ui/park.cpp`).
+- **UI-2 Phase D:** save/load panels, menu sounds, warning/request dialogs
+  (`DIALOG_BACKGROUND` + `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL`).
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -358,15 +411,16 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-2 Phase B: Start → page 8 → build `isl01` from the `.lnd`/heightmap/
-  basemap/vegetation loaders already in the viewer; then set the park page.
-2. UI-2 Phase C: parse `ParkInterface.Ini`/`ParkGraphicDB.ini`, render the
-  always-on HUD panels at 800×600 with `ALIGN_*` anchoring, and bind
-  `&BudgetAmount`/`&VisitorAmount`/`&CurrentTime` to live state.
+1. UI-2 Phase B rest: make Start load the selected island at runtime (swap
+   terrain/vegetation/build/visitors), instead of the startup `--lnd`.
+2. UI-2 Phase C rest: render the minimap into `MAP_RENDERVIEW` (136×136,
+   absolute 652,451) and wire the zoom buttons; then QOL-2 anchoring.
 3. SIM-2b: visitor needs/attraction targets after the menu work.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
-6. User: publish `docs/community/xentax-post.md` and record any replies.
+6. DEC-2 follow-up: runtime-confirm the task order and name the dinosaur
+   need/action slots (`0x571540`, `0x571190`); see `docs/decomp/scheduler.md`.
+7. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

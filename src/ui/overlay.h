@@ -92,6 +92,10 @@ struct Overlay {
     bool visible_on_page(int widget_index, int page_index) const;
     bool visible_in_tree(int widget_index) const;
     int page_root(int widget_index) const;
+
+    // Topmost visible BUTTON/LIST at design-space point (x, y), or -1.
+    int hit_test(int x, int y) const;
+    bool set_visible(const std::string& name, bool visible);
 };
 
 std::string resolve_loc_text(const std::string& text, const dino::Loc& loc);

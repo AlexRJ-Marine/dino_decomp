@@ -75,16 +75,49 @@ visible at park start) and draws the always-on panels over the scene:
 At 800×600 this matches the Python oracle (`notes/hud-preview.png`):
 right panel MAD 10.8, gauge 4.0, map 2.1 (oracle vs retail: 8.8 / 3.65).
 
+### Panel switching
+
+`src/ui/park.cpp` owns the panel state. The original shows exactly one state
+panel at a time; the port follows that:
+
+- right-panel buttons: lab, construction bar, buildings, infrastructure,
+  buy-dino, options; gauge buttons: budget, visitors, dino list, show
+  calendar, paddock list;
+- info-controller panels share one slot (`BUDGET_PANEL`,
+  `VISITEURS_STATS_PANEL`, `OPTIONS_PANEL`, `ATTRACTION_LIST_PANEL`,
+  `FENCE_LIST_PANEL` for the paddock button, `DINO_LIST_PANEL`,
+  `ATTRACTION_STATS_PANEL`, `MISSION_PANEL`);
+- construction sub-buttons replace the bar with the kit/fence/ready-made-show
+  panel; the kit's list/stats icons open the info panels;
+- lab centres (`LAB_BREED/MODIFY/CLONE/FRIDGE_CENTER`) replace the main lab
+  screen, use their own 800×600 backdrop and hide the always-on HUD;
+- every panel closes through its own close/cancel/validate/put-back button
+  or by clicking the same opener again.
+
+`DIALOG_BACKGROUND` is **not** used here: it belongs to the warning, request
+and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
+while pressed (when the strip has those frames).
+
+CLI: `--park-click X,Y` applies a design-space click before the first frame
+(repeatable, useful for screenshots/tests); `--park-hover X,Y` sets the hover
+point; `--no-park-hud` disables the whole HUD.
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
 - `notes/menu-retail.png` — retail main menu.
 - `notes/menu-free.png` — retail Free Game page.
-- `notes/park-hud.png` — retail park HUD over isl01.
-- `notes/hud-preview.png` — Python oracle for the park HUD.
+- `notes/park-hud.png` - retail park HUD over isl01.
+- `notes/park-budget.png` - budget ledger from a `--park-click`.
+- `notes/park-construction-kit.png` - construction kit panel.
+- `notes/park-lab-breed.png` - breeding centre with its own lab backdrop.
+- `notes/park-hud-hover.png` - hover frame on the budget gauge button.
+- `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:
   - `test_cpp_hud` checks the font load line and bright glyph pixels.
   - `test_cpp_park_hud_load` / `test_cpp_park_hud_shot` check the park HUD.
+  - `test_cpp_park_panels` / `_panel_shot` / `_lab_shot` / `_hover_shot`
+    check panel switching, the lab backdrop and hover art.
   - `test_cpp_retail_menu_*` check the retail menu.
 - `src/formats/fnt.cpp`, `src/formats/fnt.h`.
 

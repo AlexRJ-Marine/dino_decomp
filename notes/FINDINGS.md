@@ -155,3 +155,24 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   cage->team slots. 43/43 parse (1,679 features, 174 team slots). Reader:
   `tools/formats/shw.py`, spec `docs/formats/shw.md`, tests `test_shw.py`.
   Save catalog cost/dimensions match all 39 records.
+- `.gen` genotypes are text: gene count + two ints per gene. 57 runtime files
+  under `Data/Design/Scenario/Genotype` have 18 genes (head/legs/body/tail,
+  dummies, skin, carapace, diet, aggression, stamina, courage); 20 editor
+  files under `Data/Edition/Genotype` have 27. Reader `tools/formats/gen.py`,
+  spec `docs/formats/gen.md`, tests `test_gen.py`.
+- `simu_trans.dic` holds the 18-gene expression tables: per gene a
+  translation list, an optional N?N dominance matrix and rarity weights.
+  Dominant genes use translation[min(a,b)]; SknSub/CarSub/Agre/Stam/Cour use
+  translation[(a+b)//2]. Reader `tools/formats/gene_trans.py`, tests
+  `test_gene_trans.py`; details in `docs/formats/gen.md`.
+- `.bvi` visitor profiles: 24 files, 10 personalities listed by
+  `VisitorList.ini`, 96-byte header (personality id, height 1.7, walk speed,
+  five preference weights), 26 mesh paths + texture. All 624 mesh paths
+  exist. Reader `tools/formats/bvi.py`, spec `docs/formats/bvi.md`, tests
+  `test_bvi.py`; preference and tail semantics remain open.
+- `.bbi` building definitions: 39 files matching `BuildingList.ini`, 121-byte
+  header, 10 mesh/skel/anim paths and a tail with texture/explosion/sound and
+  `CONSTRUC_*` build-panel widget names. 390 asset paths exist; 212/213 UI
+  names resolve (Security button missing). Header suggests footprint w0 x w1
+  and cost w5. Reader `tools/formats/bbi.py`, spec `docs/formats/bbi.md`,
+  tests `test_bbi.py`.

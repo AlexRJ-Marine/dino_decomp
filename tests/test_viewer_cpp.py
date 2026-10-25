@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = Path(os.environ.get("DINO_VIEWER_EXE",
@@ -741,3 +741,123 @@ def test_cpp_park_hud_shot(tmp_path):
     # The budget readout area is a UI panel, not the terrain.
     r, g, b = image.getpixel((120, 585))
     assert not (r < 40 and g > 100 and b < 80)
+
+def test_cpp_park_panels():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation",
+         "--park-click", "97,584", "--park-click", "429,482",
+         "--park-click", "750,120", "--park-click", "648,145",
+         "--park-click", "750,120", "--park-click", "678,145",
+         "--park-click", "750,120", "--park-click", "648,145",
+         "--park-click", "84,527",
+         "--park-click", "492,584", "--park-click", "492,584",
+         "--park-click", "302,584", "--park-click", "302,584",
+         "--park-click", "765,348", "--park-click", "765,298",
+         "--park-click", "757,46", "--park-click", "261,513",
+         "--park-click", "489,565"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "park click 97,584 -> open BUDGET_PANEL" in log
+    assert "park click 429,482 -> close BUDGET_PANEL" in log
+    assert "park click 750,120 -> open CONSTRUCTION_PANEL" in log
+    assert "park click 648,145 -> open CONSTRUCTION_KIT_PANEL" in log
+    assert "park click 678,145 -> open PREDEFINED_SHOW_PANEL" in log
+    assert "park click 84,527 -> open ATTRACTION_STATS_PANEL" in log
+    assert "park click 492,584 -> open FENCE_LIST_PANEL" in log
+    assert "park click 492,584 -> close FENCE_LIST_PANEL" in log
+    assert "park click 302,584 -> open DINO_LIST_PANEL" in log
+    assert "park click 302,584 -> close DINO_LIST_PANEL" in log
+    assert "park click 765,348 -> open OPTIONS_PANEL" in log
+    assert "park click 765,298 -> open DINO_ACHAT_SAVE_PANEL" in log
+    assert "park click 757,46 -> open DINO_LAB_MAIN_CENTER" in log
+    assert "park click 261,513 -> open LAB_BREED_CENTER" in log
+    assert "park click 489,565 -> close lab" in log
+    # Every panel is closed again; the base park HUD is back.
+    assert "park hud: loaded=1 widgets=2694 roots=38 visible=53" in log
+
+
+def test_cpp_park_panel_shot(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    budget = tmp_path / "budget.bmp"
+    closed = tmp_path / "closed.bmp"
+    common = [str(EXE), "--frames", "2", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+              "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (budget, ["--park-click", "97,584"]),
+        (closed, ["--park-click", "97,584", "--park-click", "429,482"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+    a = Image.open(base).convert("RGB")
+    b = Image.open(budget).convert("RGB")
+    c = Image.open(closed).convert("RGB")
+    # The info panels do not dim the scene (DIALOG_BACKGROUND is only used by
+    # warning/request/campaign-end dialogs).
+    assert a.getpixel((50, 300)) == b.getpixel((50, 300))
+    # The budget ledger covers the centre; closing restores the frame exactly.
+    assert b.getpixel((300, 300)) != a.getpixel((300, 300))
+    assert ImageChops.difference(a, c).getbbox() is None
+
+
+def test_cpp_park_lab_shot(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    lab = tmp_path / "lab.bmp"
+    common = [str(EXE), "--frames", "2", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config",
+              "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+              "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (lab, ["--park-click", "757,46", "--park-click", "261,513"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+    a = Image.open(base).convert("RGB")
+    b = Image.open(lab).convert("RGB")
+    # The breed centre has its own 800x600 lab backdrop and hides the HUD.
+    assert a.getpixel((400, 100)) != b.getpixel((400, 100))
+    assert a.crop((69, 569, 687, 600)).tobytes() != b.crop((69, 569, 687, 600)).tobytes()
+
+
+def test_cpp_park_hover_shot(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    hover = tmp_path / "hover.bmp"
+    common = [str(EXE), "--frames", "2", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config",
+              "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+              "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (hover, ["--park-hover", "97,584"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+    a = Image.open(base).convert("RGB")
+    b = Image.open(hover).convert("RGB")
+    box = (80, 567, 116, 602)
+    changed = ImageChops.difference(a.crop(box), b.crop(box)).getbbox()
+    assert changed is not None
+    assert (changed[2] - changed[0]) * (changed[3] - changed[1]) > 100

@@ -569,3 +569,59 @@ There are no duplicate section names in `MenuInterface.Ini` or
 - `game/%MAINDIR%/Data/Overlay/pics/Menu_hors_jeu/*.jpg`.
 - `game/%MAINDIR%/Data/Sound/MenuSoundDB.ini`.
 - Ghidra functions/addresses listed above; binary `/DinoIsland.exe-ebea17`.
+
+## Park HUD panel switching (implementation follow-up)
+
+The C++ `src/ui/park.cpp` now follows this recovered state model.
+
+`FUN_00527d30` binds the 12 right-panel/gauge buttons. Each handler runs
+`if (arg2 == 0)`, reads the state manager at `widget+0x5c`, and writes the
+next state id to `S+0x18` before calling `S->Deactivate()` (vtable `+8`):
+
+| Widget | Handler | Next state |
+| --- | --- | --- |
+| `OPEN_LABORATORY` | `0x005285e0` | `0` (LAB_MENU) |
+| `OPEN_CONSTRUCTION` | `0x00528510` | `0xC`, or `5` when already `0xC` |
+| `OPEN_BUILDING` | `0x005286a0` | `0x11`, or `5` |
+| `OPEN_TRANSPORT` | `0x00528770` | `0x10`, or `5` |
+| `OPEN_PURCHASE` | `0x00528840` | `0x13`, or `5` |
+| `OPEN_OPTIONS` | `0x00528910` | `5` + info page 7/8 |
+| `OPEN_BUDGET_PANEL` | `0x005289e0` | `5` + info page 4/8 |
+| `OPEN_VISITOR_PANEL` | `0x00528ab0` | `5` + info page 5/8 |
+| `OPEN_SHOW_LIST_PANEL` | `0x00528ba0` | `5` + info page 1/8 |
+| `OPEN_PADDOCK_LIST_PANEL` | `0x00528df0` | `5` + info page 2/8 |
+| `OPEN_DINO_LIST_PANEL` | `0x00529740` | `5`, info page 0/8 |
+| `OPEN_SELLING` | `0x00528f90` | `0x14` (VK_INSERT toggle) |
+
+The info-panel controller is `ivwInfoPanelController::SetActivePanel`
+`0x0050be00`; slots 0..8 map to `DINO_LIST_PANEL`, `ATTRACTION_LIST_PANEL`,
+`FENCE_LIST_PANEL`, `ATTRACTION_STATS_PANEL`, `BUDGET_PANEL`,
+`VISITEURS_STATS_PANEL`, `MISSION_PANEL`, `OPTIONS_PANEL`, "none".
+Consequences:
+
+- The info panels share **one** active slot: opening one closes the previous.
+- `OPEN_PADDOCK_LIST_PANEL` opens `FENCE_LIST_PANEL`, not `CAGE_LIST_PANEL`.
+  `CAGE_LIST_PANEL` is never selected by the HUD controller (legacy data).
+- `CONSTRUCTION_KIT_LIST_ICON` opens `ATTRACTION_LIST_PANEL`; the kit's stats
+  icon and `ATTRACTION_LIST_OUTCOME_STATS` open `ATTRACTION_STATS_PANEL`
+  (page 3); `ATTRACTION_STATS_OUTCOME_CANCEL` closes (page 8).
+- Construction sub-states `0xD` (kit), `0xE` (predefined show) and `0xF`
+  (fence) deactivate state `0xC`, so the three-button `CONSTRUCTION_PANEL`
+  bar is hidden while one of them is open. The bar is not a permanent tab
+  strip.
+- `DIALOG_BACKGROUND` is referenced by exactly one function (`0x00523ef3`)
+  and is cached as `iface+0xbc`; the only children of that root are
+  `WARNING_PANEL`, `REQUEST_PANEL` and `CPGEND_PANEL`. No info panel, lab or
+  purchase state shows it, so the port does not draw a dim backdrop behind
+  park panels.
+- Lab state 0 (`LAB_MENU`) shows `DINO_LAB_MAIN_CENTER` and activates
+  `LAB_MAIN_BACKGROUND`; its Deactivate hides both. Each sub-centre
+  (`LAB_BREED/MODIFY/FRIDGE/CLONE_CENTER`) has its own 800x600 background
+  (`LAB_*_BACKGROUND`, stored `VISIBLE=0` and shown by the state), so the
+  port shows exactly one lab centre at a time.
+- State `0x13` (`DINOSAUR_PURCHASE`) activates only `DINO_ACHAT_SAVE_PANEL`
+  and no lab background.
+
+Evidence: decompiled handlers above; `FUN_00529120` registers the state
+ctors; state table from `FUN_0052bd10(id, name, ...)` calls. The C++ table is
+`kOpeners` / `kClosers` / `kLabTabs` in `src/ui/park.cpp`.

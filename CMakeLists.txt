@@ -39,6 +39,7 @@ add_executable(dino_viewer
     src/ui/ini.cpp
     src/ui/overlay.cpp
     src/ui/menu.cpp
+    src/ui/park.cpp
     src/formats/skel.cpp
     src/formats/skin.cpp
     src/formats/anim.cpp

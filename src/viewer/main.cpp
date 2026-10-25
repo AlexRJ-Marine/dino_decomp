@@ -20,6 +20,7 @@
 #include "../world/build.h"
 #include "../world/visitors.h"
 #include "../ui/menu.h"
+#include "../ui/park.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -102,6 +103,8 @@ struct Options {
     std::string menu_hover;
     float menu_loading_time = 0.8f;
     bool park_hud = true;
+    std::string park_hover;
+    std::vector<std::string> park_clicks;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -289,6 +292,10 @@ Options parse_args(int argc, char** argv) {
             opt.force_menu = true;
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
+        } else if (arg == "--park-hover") {
+            opt.park_hover = next("--park-hover");
+        } else if (arg == "--park-click") {
+            opt.park_clicks.push_back(next("--park-click"));
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -383,6 +390,7 @@ Options parse_args(int argc, char** argv) {
                 "  --menu-click X,Y     click design-space point(s) before the first frame\n"
                 "  --menu-loading-time N  seconds to show the loading page (default 0.8)\n"
                 "  --menu-hover X,Y     set the hovered design-space point\n"
+                "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
@@ -1480,9 +1488,7 @@ int main(int argc, char** argv) {
 
     dino::ui::Menu menu;
     bool menu_loaded = false;
-    dino::ui::Overlay park_overlay;
-    dino::Loc park_loc;
-    bool park_loaded = false;
+    dino::ui::ParkHud park;
     if (opt.use_menu) {
         menu_loaded = menu.load(opt.asset_root);
         if (!menu_loaded) {
@@ -1493,16 +1499,21 @@ int main(int argc, char** argv) {
 
     if (opt.park_hud && !opt.lnd_path.empty()) {
         std::string park_error;
-        park_loaded = park_overlay.load_park(
+        const bool loaded = park.load(
             resolve_asset(opt.asset_root, "Data/Overlay/ParkInterface.Ini"),
             resolve_asset(opt.asset_root, "Data/Overlay/ParkGraphicDB.Ini"),
+            resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"),
             park_error);
-        if (park_loaded) {
-            try {
-                park_loc = dino::load_loc(
-                    resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"));
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "park loc: %s\n", e.what());
+        if (loaded) {
+            for (const auto& value : opt.park_clicks) {
+                int x = 0;
+                int y = 0;
+                if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
+                    std::string action;
+                    park.click(x, y, action);
+                    std::printf("park click %d,%d -> %s\n", x, y,
+                                action.empty() ? "consumed" : action.c_str());
+                }
             }
         } else {
             std::fprintf(stderr, "park hud: %s\n", park_error.c_str());
@@ -1769,16 +1780,16 @@ int main(int argc, char** argv) {
         }
         if (opt.park_hud) {
             int visible = 0;
-            for (int i = 0; i < static_cast<int>(park_overlay.widgets.size()); ++i) {
-                if (park_overlay.widgets[static_cast<std::size_t>(i)].name !=
+            for (int i = 0; i < static_cast<int>(park.overlay.widgets.size()); ++i) {
+                if (park.overlay.widgets[static_cast<std::size_t>(i)].name !=
                         "RENDERVIEW" &&
-                    park_overlay.visible_in_tree(i)) {
+                    park.overlay.visible_in_tree(i)) {
                     ++visible;
                 }
             }
             std::printf("park hud: loaded=%d widgets=%zu roots=%zu visible=%d\n",
-                        park_loaded ? 1 : 0, park_overlay.widgets.size(),
-                        park_overlay.roots.size(), visible);
+                        park.loaded() ? 1 : 0, park.overlay.widgets.size(),
+                        park.overlay.roots.size(), visible);
         }
         if (!opt.mesh_path.empty()) {
             std::printf("mesh %s: %zu vertices, %zu indices, %zu triangles, "
@@ -2503,11 +2514,24 @@ int main(int argc, char** argv) {
         enter_free_camera();
     }
 
+    int park_hover_x = -1;
+    int park_hover_y = -1;
+    int park_active_index = -1;
+    if (!opt.park_hover.empty() && park.loaded()) {
+        int x = 0, y = 0;
+        if (std::sscanf(opt.park_hover.c_str(), "%d,%d", &x, &y) == 2) {
+            park_hover_x = x;
+            park_hover_y = y;
+        }
+    }
+
     auto draw_park_hud = [&](int view_w, int view_h, int logical_w, int logical_h) {
         (void)logical_h;
-        if (!park_loaded) {
+        if (!park.loaded()) {
             return;
         }
+        const int hovered =
+            park_hover_x >= 0 ? park.overlay.hit_test(park_hover_x, park_hover_y) : -1;
         const float dpi = logical_w > 0
                               ? static_cast<float>(view_w) / static_cast<float>(logical_w)
                               : 1.0f;
@@ -2517,17 +2541,17 @@ int main(int argc, char** argv) {
         auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
 
         std::vector<int> order;
-        for (int i = 0; i < static_cast<int>(park_overlay.widgets.size()); ++i) {
-            if (park_overlay.widgets[static_cast<std::size_t>(i)].name ==
+        for (int i = 0; i < static_cast<int>(park.overlay.widgets.size()); ++i) {
+            if (park.overlay.widgets[static_cast<std::size_t>(i)].name ==
                     "RENDERVIEW" ||
-                !park_overlay.visible_in_tree(i)) {
+                !park.overlay.visible_in_tree(i)) {
                 continue;
             }
             order.push_back(i);
         }
         std::sort(order.begin(), order.end(), [&](int a, int b) {
-            const auto& wa = park_overlay.widgets[static_cast<std::size_t>(a)];
-            const auto& wb = park_overlay.widgets[static_cast<std::size_t>(b)];
+            const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
+            const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
             if (wa.priority != wb.priority) {
                 return wa.priority < wb.priority;
             }
@@ -2564,12 +2588,24 @@ int main(int argc, char** argv) {
 
         for (const int i : order) {
             const dino::ui::Widget& widget =
-                park_overlay.widgets[static_cast<std::size_t>(i)];
+                park.overlay.widgets[static_cast<std::size_t>(i)];
             if (!widget.texture.empty()) {
                 if (const dino::ui::Graphic* graphic =
-                        park_overlay.graphic(widget.texture)) {
+                        park.overlay.graphic(widget.texture)) {
                     if (UiTexture* texture = ui_texture(graphic->filename)) {
-                        const int frame = graphic->objects <= 1 ? 0 : 4;
+                        int frame = graphic->objects <= 1 ? 0 : 4;
+                        if (widget.type == "BUTTON" && graphic->objects > 1) {
+                            int wanted = -1;
+                            if (i == park_active_index) {
+                                wanted = 6;
+                            } else if (i == hovered) {
+                                wanted = 5;
+                            }
+                            if (wanted >= 0 &&
+                                ui_frame_rect(*texture, *graphic, wanted).valid) {
+                                frame = wanted;
+                            }
+                        }
                         const UiSourceRect source =
                             ui_frame_rect(*texture, *graphic, frame);
                         if (source.valid) {
@@ -2603,7 +2639,7 @@ int main(int argc, char** argv) {
 
             std::string text = runtime_text(widget.name);
             if (text.empty()) {
-                text = dino::ui::resolve_loc_text(widget.text, park_loc);
+                text = dino::ui::resolve_loc_text(widget.text, park.loc);
             }
             if (text.empty()) {
                 continue;
@@ -2630,6 +2666,7 @@ int main(int argc, char** argv) {
     }
     bool show_help = opt.force_help;
     bool dragging = false;
+    bool ui_click_consumed = false;
     float last_mx = 0.0f, last_my = 0.0f;
     int frame = 0;
     const std::uint64_t freq = SDL_GetPerformanceFrequency();
@@ -2639,6 +2676,14 @@ int main(int argc, char** argv) {
     int height = opt.height;
     int logical_width = opt.width;
     int logical_height = opt.height;
+
+    auto park_design = [&](float window_x, float window_y, int& design_x,
+                           int& design_y) {
+        design_x = static_cast<int>(
+            window_x - (static_cast<float>(logical_width) - 800.0f) * 0.5f);
+        design_y = static_cast<int>(
+            window_y - (static_cast<float>(logical_height) - 600.0f) * 0.5f);
+    };
 
     while (running) {
         SDL_Event event;
@@ -2745,19 +2790,52 @@ int main(int argc, char** argv) {
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_LEFT) {
+                if (park.loaded()) {
+                    int dx = 0, dy = 0;
+                    park_design(event.button.x, event.button.y, dx, dy);
+                    park_hover_x = dx;
+                    park_hover_y = dy;
+                    const int hit = park.overlay.hit_test(dx, dy);
+                    std::string action;
+                    if (park.click(dx, dy, action)) {
+                        if (hit >= 0) {
+                            park_active_index = hit;
+                        }
+                        ui_click_consumed = true;
+                        if (!action.empty()) {
+                            std::printf("park click %d,%d -> %s\n", dx, dy,
+                                        action.c_str());
+                        }
+                        continue;
+                    }
+                }
                 dragging = true;
                 drag_distance = 0.0f;
                 last_mx = event.button.x;
                 last_my = event.button.y;
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                        event.button.button == SDL_BUTTON_LEFT) {
+                park_active_index = -1;
                 dragging = false;
+                if (ui_click_consumed) {
+                    ui_click_consumed = false;
+                    continue;
+                }
                 if (build_tool != 0 && drag_distance < 5.0f) {
                     pending_click = true;
                     click_x = event.button.x;
                     click_y = event.button.y;
                 }
-            } else if (event.type == SDL_EVENT_MOUSE_MOTION && dragging) {
+            } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                if (park.loaded()) {
+                    int dx = 0, dy = 0;
+                    park_design(event.motion.x, event.motion.y, dx, dy);
+                    park_hover_x = dx;
+                    park_hover_y = dy;
+                }
+                if (!dragging) {
+                    continue;
+                }
                 const float dx = event.motion.x - last_mx;
                 const float dy = event.motion.y - last_my;
                 drag_distance += std::abs(dx) + std::abs(dy);
@@ -3028,7 +3106,7 @@ int main(int argc, char** argv) {
                         hud_font_texture, 1.0f, 2);
             }
         } else {
-            if (park_loaded) {
+            if (park.loaded()) {
                 draw_park_hud(width, height, logical_width, logical_height);
             }
             if (hud_visible && hud_font_texture != 0) {

@@ -159,6 +159,37 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `tools/formats/shw.py`, `docs/formats/shw.md`,
   `tests/test_shw.py`, `notes/save-recon.md`.
 
+### FMT-9: `.gen` genotypes
+- [x] Parse 57 design genotypes (18 genes) and 20 editor genotypes (27 genes).
+- [x] Decode the 18-gene table and observed allele ranges.
+- [x] Decode expression/dominance and rarity weights from `simu_trans.dic`
+  (`min` for dominant genes, average for skin-sub/carapace-sub/Agre/Stam/Cour).
+- **Acceptance:** 77/77 parse, 1,566 genes; 18/18 gene blocks valid.
+- **Depends on:** RUN-2.
+- **Evidence:** `tools/formats/gen.py`, `gene_trans.py`,
+  `docs/formats/gen.md`, `tests/test_gen.py`, `test_gene_trans.py`,
+  `notes/gen-recon.md`.
+
+### FMT-10: `.bvi` visitor profiles
+- [x] Parse 24 profiles: 96-byte header, 28 strings, personality ids.
+- [x] Map the 10 personalities and their walk speeds/preference vectors via
+  `VisitorList.ini`.
+- [ ] Decode the five preference weights and the 91–113-byte tail.
+- **Acceptance:** 24/24 parse, 624 mesh paths exist, 0 errors.
+- **Depends on:** RUN-2, DEC-2.
+- **Evidence:** `tools/formats/bvi.py`, `docs/formats/bvi.md`,
+  `tests/test_bvi.py`, `notes/bvi-recon.md`.
+
+### FMT-11: `.bbi` building definitions
+- [x] Parse 39 files: 121-byte header, 10 mesh/skel/anim paths, tail strings.
+- [x] Footprint/cost hypothesis from the header; 390 asset paths exist;
+  212/213 `CONSTRUC_*` UI names resolve.
+- [ ] Exact header/tail numeric semantics.
+- **Acceptance:** 39/39 parse, 0 errors, BuildingList maps 1:1.
+- **Depends on:** RUN-2, FMT-7.
+- **Evidence:** `tools/formats/bbi.py`, `docs/formats/bbi.md`,
+  `tests/test_bbi.py`, `notes/bbi-recon.md`.
+
 ### VIEW-0: Simple asset viewer
 - [x] Software renderer for one `.mesh` + `.tga` (views, supersampling,
   vertex colors, UV `v_tex = 1 + v`).
@@ -271,6 +302,23 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** HYB-1.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/decomp/hybrid.md`,
   `notes/hook-4663a0-4809a0.log`.
+
+### DEC-2: Simulation scheduler and AI update order
+- [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
+  `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).
+- [x] Recover the ten-task park frame order and the three-task menu order.
+- [x] Decompile `spSimuManager::Update` (`0x5869e0`), the park-wide step
+  (`0x589cd0`), and `apBehaviorManager::Update` (`0x51fab0`).
+- [x] Recover the `apDinosaurBehavior` reaction state machine
+  (`0x521b30`, `0x521d80`, `0x521d10`, `0x521d60`).
+- [x] Decode `saDinosaur::Update` need decay (`0x571540`) and the 5 s/10 s
+  passes (`0x5725e0`, `0x571370`, `0x571410`).
+- [ ] Runtime-confirm the task order and name the need/action slots.
+- **Acceptance:** a documented frame order and the scheduler/AI functions are
+  in `docs/decomp/function-status.md`.
+- **Depends on:** DEC-6.
+- **Evidence:** `notes/scheduler-recon.md`, `docs/decomp/scheduler.md`,
+  `docs/decomp/function-status.md`.
 
 ## Phase 3 verification targets - world
 
@@ -413,7 +461,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Phase B rest: build the selected island scene at runtime.
 - [x] Phase C (800×600): park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
   (2,694 widgets, 53 visible), runtime budget/visitor/dino/show/time/day.
-- [ ] Phase C rest: park button bindings, minimap, 1024×768 anchoring.
+- [x] Phase C rest (bindings): `src/ui/park.cpp` maps the 12 HUD buttons, the
+  construction sub-buttons, info-controller pages, lab centres and close
+  buttons; hover/pressed frames, `--park-click` / `--park-hover`.
+- [ ] Phase C rest: minimap render target, 1024×768 re-anchoring, dynamic
+  sub-panel fields (budget ledger rows, list snapshots, sliders).
 - [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
@@ -421,8 +473,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/ui-original-menu.md`,
   `notes/menu-retail.png`, `notes/menu-free.png`, `notes/menu-loading.png`,
   `notes/menu-pages-sheet.png`, `notes/park-hud.png`,
+  `notes/park-budget.png`, `notes/park-construction-kit.png`,
+  `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
-  `test_cpp_park_hud_*`), `tools/formats/overlay.py`,
+  `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
+  `test_cpp_park_hover_shot`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video
@@ -460,6 +515,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 - DEC-1: Map loader functions for `.mesh`, `.skin`, `.skel`, `.anim`, `.fnt`.
 - DEC-2: Map the simulation scheduler (`lpScheduler`) and AI update order.
+  **Done:** `docs/decomp/scheduler.md`, `notes/scheduler-recon.md`; runtime
+  confirmation and need-slot names remain.
 - DEC-3: Map the `.wld` save format. **Partial:** header + 39-show catalog
   solved; park-state graph open. See `docs/formats/sav.md`.
 - DEC-4: Recover the original assert-string source map into `docs/architecture.md`.
