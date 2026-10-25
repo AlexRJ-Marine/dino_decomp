@@ -1,0 +1,9 @@
+pyghidra-mcp==0.2.7
+pyghidra-mcp-cli
+pefile
+capstone
+construct
+pytest
+pillow
+cmake
+ninja

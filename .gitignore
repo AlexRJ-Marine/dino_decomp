@@ -1,0 +1,21 @@
+# Retail data and extracted assets — never commit
+/original/
+/game/
+*.iso
+*.ISO
+
+# Build output
+/build/
+/out/
+/.cache/
+
+# Agent/tool state
+/analysis/
+/.venv/
+
+# Local tool state
+*.log
+*.tmp
+__pycache__/
+*.pyc
+.pytest_cache/

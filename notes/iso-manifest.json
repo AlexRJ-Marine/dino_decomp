@@ -1,0 +1,252 @@
+[
+ {
+  "path": "ACROBAT_READER/ACROREADER51_ENU.EXE",
+  "size": 8839120,
+  "lba": 127924
+ },
+ {
+  "path": "AUTORUN.EXE",
+  "size": 49152,
+  "lba": 48
+ },
+ {
+  "path": "AUTORUN.INF",
+  "size": 50,
+  "lba": 72
+ },
+ {
+  "path": "BLUEMOON.NFO",
+  "size": 3663,
+  "lba": 73
+ },
+ {
+  "path": "DINO.ICO",
+  "size": 1206,
+  "lba": 75
+ },
+ {
+  "path": "DIRECTX/BDA.CAB",
+  "size": 695962,
+  "lba": 132240
+ },
+ {
+  "path": "DIRECTX/BDANT.CAB",
+  "size": 1149019,
+  "lba": 132580
+ },
+ {
+  "path": "DIRECTX/BDAXP.CAB",
+  "size": 968156,
+  "lba": 133142
+ },
+ {
+  "path": "DIRECTX/DIRECTX.CAB",
+  "size": 15443578,
+  "lba": 133615
+ },
+ {
+  "path": "DIRECTX/DSETUP.DLL",
+  "size": 60416,
+  "lba": 141156
+ },
+ {
+  "path": "DIRECTX/DSETUP32.DLL",
+  "size": 1983488,
+  "lba": 141186
+ },
+ {
+  "path": "DIRECTX/DXNT.CAB",
+  "size": 13160291,
+  "lba": 142155
+ },
+ {
+  "path": "DIRECTX/DXSETUP.EXE",
+  "size": 467456,
+  "lba": 148581
+ },
+ {
+  "path": "DIRECTX/MANAGEDDX.CAB",
+  "size": 5084784,
+  "lba": 148810
+ },
+ {
+  "path": "NECZ.NFO",
+  "size": 3796,
+  "lba": 76
+ },
+ {
+  "path": "README.TXT",
+  "size": 5898,
+  "lba": 78
+ },
+ {
+  "path": "RESOURCE/AUTORUN.INI",
+  "size": 2668,
+  "lba": 151293
+ },
+ {
+  "path": "RESOURCE/BACKGROUND.BMP",
+  "size": 1440054,
+  "lba": 151295
+ },
+ {
+  "path": "RESOURCE/BUTTON0/HIGHLIGHT0.BMP",
+  "size": 32454,
+  "lba": 152003
+ },
+ {
+  "path": "RESOURCE/BUTTON0/HIGHLIGHT1.BMP",
+  "size": 32454,
+  "lba": 152019
+ },
+ {
+  "path": "RESOURCE/BUTTON0/ONCLICK0.BMP",
+  "size": 32454,
+  "lba": 152019
+ },
+ {
+  "path": "RESOURCE/BUTTON0/ONCLICK1.BMP",
+  "size": 32454,
+  "lba": 152019
+ },
+ {
+  "path": "RESOURCE/BUTTON0/THUMBS.DB",
+  "size": 8704,
+  "lba": 152035
+ },
+ {
+  "path": "RESOURCE/BUTTON1/HIGHLIGHT0.BMP",
+  "size": 29214,
+  "lba": 152040
+ },
+ {
+  "path": "RESOURCE/BUTTON1/HIGHLIGHT1.BMP",
+  "size": 29214,
+  "lba": 152055
+ },
+ {
+  "path": "RESOURCE/BUTTON1/ONCLICK0.BMP",
+  "size": 29214,
+  "lba": 152055
+ },
+ {
+  "path": "RESOURCE/BUTTON1/ONCLICK1.BMP",
+  "size": 29214,
+  "lba": 152055
+ },
+ {
+  "path": "RESOURCE/BUTTON1/THUMBS.DB",
+  "size": 8704,
+  "lba": 152070
+ },
+ {
+  "path": "RESOURCE/BUTTON2/HIGHLIGHT0.BMP",
+  "size": 29214,
+  "lba": 152075
+ },
+ {
+  "path": "RESOURCE/BUTTON2/HIGHLIGHT1.BMP",
+  "size": 29214,
+  "lba": 152090
+ },
+ {
+  "path": "RESOURCE/BUTTON2/ONCLICK0.BMP",
+  "size": 29214,
+  "lba": 152090
+ },
+ {
+  "path": "RESOURCE/BUTTON2/ONCLICK1.BMP",
+  "size": 29214,
+  "lba": 152090
+ },
+ {
+  "path": "RESOURCE/BUTTON2/THUMBS.DB",
+  "size": 8704,
+  "lba": 152105
+ },
+ {
+  "path": "RESOURCE/BUTTON3/HIGHLIGHT0.BMP",
+  "size": 64998,
+  "lba": 152110
+ },
+ {
+  "path": "RESOURCE/BUTTON3/HIGHLIGHT1.BMP",
+  "size": 64998,
+  "lba": 152142
+ },
+ {
+  "path": "RESOURCE/BUTTON3/ONCLICK0.BMP",
+  "size": 64998,
+  "lba": 152142
+ },
+ {
+  "path": "RESOURCE/BUTTON3/ONCLICK1.BMP",
+  "size": 64998,
+  "lba": 152142
+ },
+ {
+  "path": "RESOURCE/BUTTON3/THUMBS.DB",
+  "size": 9728,
+  "lba": 152174
+ },
+ {
+  "path": "RESOURCE/BUTTON4/HIGHLIGHT0.BMP",
+  "size": 13054,
+  "lba": 152179
+ },
+ {
+  "path": "RESOURCE/BUTTON4/HIGHLIGHT1.BMP",
+  "size": 13054,
+  "lba": 152186
+ },
+ {
+  "path": "RESOURCE/BUTTON4/ONCLICK0.BMP",
+  "size": 13054,
+  "lba": 152186
+ },
+ {
+  "path": "RESOURCE/BUTTON4/ONCLICK1.BMP",
+  "size": 13054,
+  "lba": 152186
+ },
+ {
+  "path": "RESOURCE/BUTTON4/THUMBS.DB",
+  "size": 12288,
+  "lba": 152193
+ },
+ {
+  "path": "RESOURCE/BUTTON5/HIGHLIGHT0.BMP",
+  "size": 48114,
+  "lba": 152199
+ },
+ {
+  "path": "RESOURCE/BUTTON5/HIGHLIGHT1.BMP",
+  "size": 48114,
+  "lba": 152223
+ },
+ {
+  "path": "RESOURCE/BUTTON5/ONCLICK0.BMP",
+  "size": 48114,
+  "lba": 152223
+ },
+ {
+  "path": "RESOURCE/BUTTON5/ONCLICK1.BMP",
+  "size": 48114,
+  "lba": 152223
+ },
+ {
+  "path": "RESOURCE/BUTTON5/THUMBS.DB",
+  "size": 10752,
+  "lba": 152247
+ },
+ {
+  "path": "RESOURCE/THUMBS.DB",
+  "size": 8192,
+  "lba": 151999
+ },
+ {
+  "path": "SETUP.EXE",
+  "size": 261820943,
+  "lba": 81
+ }
+]
