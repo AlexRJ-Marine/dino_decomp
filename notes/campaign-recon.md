@@ -43,6 +43,24 @@ Cpg07  -      -       3       Cpg07_Save.wld  7712     2   (not in CampaignList)
 `genotypedinos coelo 2`, `dyingdinos 0`; building `PointOfView`; egg
 `Coelophysis coelo.gen`.
 
+## Difficulty selection
+
+`FUN_00561bb0` (mission INI applier) reads `mission+0x50` and selects:
+
+```text
+0 -> Budget / SellBackFactor / VisProfiles
+1 -> BudgetMedium / SellBackFactorMedium / VisProfilesMedium
+2 -> BudgetHard / SellBackFactorHard / VisProfilesHard
+```
+
+Only budget, sell-back and visitor profiles have difficulty variants; the
+allowed buildings/features/food/shows/dino-store lists do not. The campaign
+branch is gated by `FUN_00561bb0`'s fourth argument (free mode uses
+`FreeGame.ini`). **No retail mission overrides any `*Medium`/`*Hard` key**:
+all 39 inherit `Budget 0`, `SellBackFactor 1.0` and empty profiles, so the
+variants are effectively dead data. Where `mission+0x50` is set is still
+open.
+
 ## Objectives
 
 89 objective lines, 28 verbs:

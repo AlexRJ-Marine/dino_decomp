@@ -204,6 +204,28 @@ whose per-type score is `> score` and a dinosaur in its `show+0xAC` list with
 All 206 mission/briefing/objective loc IDs resolve in `MenuEng.loc` /
 `ParkEng.loc`.
 
+## Difficulty variants
+
+`FUN_00561bb0` (mission INI applier) reads the difficulty index at
+`mission+0x50` and selects the matching context/profile keys:
+
+| Index | Budget | Sell-back | Visitor profiles |
+| ---: | --- | --- | --- |
+| 0 | `Budget` | `SellBackFactor` | `VisProfiles` |
+| 1 | `BudgetMedium` | `SellBackFactorMedium` | `VisProfilesMedium` |
+| 2 | `BudgetHard` | `SellBackFactorHard` | `VisProfilesHard` |
+
+Only these three keys have difficulty variants; `Buildings`, `Features`,
+`FoodSources`, `Shows` and `DinoStore` are difficulty-independent. The
+campaign branch is gated by the fourth argument of `FUN_00561bb0` (free mode
+uses its own `FreeGame.ini` budgets).
+
+**No retail mission overrides any `*Medium`/`*Hard` key.** All 39 missions
+inherit the `MissionBase.ini` defaults (budget 0, sell-back 1.0, empty
+profiles), so the difficulty variants are effectively dead in the campaign;
+treat difficulty as 0 unless a future source proves otherwise. Where
+`mission+0x50` is set (campaign UI or save) is still open.
+
 ## `.wld` initial worlds
 
 `WorldFile` is the campaign's initial park state, serialized with the same
@@ -234,7 +256,9 @@ world files, Cpg07 anomaly, 33-verb table).
 - `Data/Config/Scenario.ini` is referenced by the exe but absent from the
   retail tree.
 - `FUN_005654f0` (`snoObjective::Load`), `FUN_005658d0` (verb lookup),
-  `FUN_00566080`/`FUN_00566620`/`FUN_00567cb0` (shared evaluators).
+  `FUN_00566080` (visitors), `FUN_00566620` (buildings),
+  `FUN_00567cb0` (trait/genotype pattern), `FUN_00567190` (shows).
+- `FUN_00561bb0` (mission INI applier) — difficulty key selection.
 - `notes/objectives-recon.md`, `tools/formats/campaign.py`,
   `tests/test_campaign.py`.
 
@@ -242,5 +266,6 @@ world files, Cpg07 anomaly, 33-verb table).
 
 - Human-readable names for the 10 trait fields, the show score and `+0x1e4`
   strangeness.
-- Difficulty variants (`*Medium`/`*Hard`) evaluation and objective weighting.
+- Where `mission+0x50` (difficulty 0/1/2) is set. No retail mission overrides
+  the `*Medium`/`*Hard` keys, so difficulty 1/2 would inherit zeros.
 - Cpg07's role (cut campaign).

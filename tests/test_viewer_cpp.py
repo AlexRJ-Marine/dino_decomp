@@ -976,3 +976,33 @@ def test_cpp_park_hud_1024_anchor(tmp_path):
     assert image.getpixel((950, 100)) != image.getpixel((950, 250))
     # Gauge starts at x=293, not x=69.
     assert image.getpixel((280, 750)) != image.getpixel((300, 750))
+
+def test_cpp_park_clock():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    for time, scale in (("09:44", "60"), ("12:05", "50"), ("18:59", "60")):
+        result = subprocess.run(
+            [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+             "--no-vegetation", "--park-time", time,
+             "--park-time-scale", scale],
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        assert f"park clock: scale={scale}.0 base=9 time={time} day=1" in result.stdout
+
+    # One game hour at scale 60 is 60 real seconds.
+    advanced = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--park-time", "10:00", "--park-advance", "60"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert advanced.returncode == 0, advanced.stderr
+    assert "park clock: scale=60.0 base=9 time=11:00 day=1" in advanced.stdout
+    # 19:59 + 2 s crosses the 11-hour day boundary and rolls to day 2, 09:00.
+    rolled = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--park-time", "19:59", "--park-advance", "2"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert rolled.returncode == 0, rolled.stderr
+    assert "park clock: scale=60.0 base=9 time=09:00 day=2" in rolled.stdout

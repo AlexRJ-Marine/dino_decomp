@@ -69,7 +69,8 @@ visible at park start) and draws the always-on panels over the scene:
 - visible roots and descendants only; `RENDERVIEW` is skipped;
 - normal state = frame 4 (frame 0 is the gray disabled art);
 - `.fnt` text with `TEXT_HEIGHT` scaling and `TEXT_JUSTIFY`;
-- runtime fields: budget 76050, visitor/dino/show counts, 09:44, day 1;
+- runtime fields: live budget, visitor/dino/show counts, park clock (hour and
+  day, from `Data/Config/Dino.ini` `GameSpeed`);
 - `--no-park-hud` disables it.
 
 At 800×600 this matches the Python oracle (`notes/hud-preview.png`):
@@ -126,6 +127,22 @@ gauge at 293,737 and the map at 840,584. The minimap quad follows
 screen. High-DPI uses the drawable/logical ratio for physical scaling after
 the logical anchoring pass.
 
+### Park clock
+
+The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
+`0x0058c1c0`/`0x0058c2f0`/`0x0058c350`:
+
+- `time_scale` is 60.0 (the schedule manager's float, not `Dino.ini`
+  `GameSpeed`); hours/sec = scale/3600, minutes/sec = scale/60;
+- the base hour is hard-coded 9 and the day counter starts at 0 (HUD day 1);
+- a day is 12 hours; reaching hour 11 sets the end-of-day flag, then the day
+  increments, elapsed resets and the HUD shows `day+1`;
+- the HUD formats `%02d:%02d` (the retail Free Game screenshot shows 09:44,
+  no AM/PM suffix; the engine clears the AM/PM flag);
+- `--park-time HH:MM` seeds the clock for screenshots/tests,
+  `--park-advance N` advances it N real seconds and
+  `--park-time-scale N` overrides 60.0.
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
@@ -142,6 +159,7 @@ the logical anchoring pass.
 - `notes/minimap-isl10-detail.png` - a different island (snow) in the map.
 - `notes/park-hud-1024.png` - the park HUD re-anchored at 1024×768.
 - `notes/hud-1024.png` - the Python/oracle HUD at the same size.
+- `notes/clock-0944.png` / `notes/clock-0944-detail.png` - park clock at 09:44.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:

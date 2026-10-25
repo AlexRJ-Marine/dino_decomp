@@ -60,11 +60,13 @@ Updated: 2026-10-25
   - `.skin` full-mesh vertices are in centimetres; the `.mesh` is in metres.
   - Verified on `allo_lod1`: max bind error `5.7e-5` cm; a 35° head rotation
     deforms only the head/neck. 60/60 dinosaur skins bind correctly at LOD1.
-  - LOD2/LOD3 mostly bind correctly; `pachy` LOD2/LOD3 store a different
-    per-LOD bind pose, so animation retargeting for those remains open.
+  - LOD2/LOD3 bind rule solved: `inv(inverse_bind)` equals the skeleton rest
+    for 58/60 dinosaur skins; only `pachy` LOD2/LOD3 store a bent-neck bind
+    pose. Use `inv(skeleton rest)` for the `.mesh` bind, `inverse_bind` for
+    the `.skin` bind.
   - Evidence: `tools/formats/skin.py`, `docs/formats/skin.md`,
-    `tests/test_skin.py`, `notes/allo-skin-bind.png`,
-    `notes/allo-skin-pose.png`.
+    `tests/test_skin.py`, `notes/lod-bind-recon.md`,
+    `notes/allo-skin-bind.png`, `notes/allo-skin-pose.png`.
 - FMT-5 complete: **`.anim` is solved.**
   - Header: magic/hash/sentinel `0xdef01234`, duration, start, bone count.
   - Per bone: name, key count, `u64` times, matrix count, 64-byte local 4×4
@@ -307,7 +309,17 @@ Updated: 2026-10-25
   - Evidence: `notes/ui-recon.md` ("1024x768 park HUD anchoring"),
     `notes/park-hud-1024.png`, `notes/hud-1024.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_hud_1024_anchor`.
-- 196 tests pass; working tree committed (UI-2 Phase B rest plus
+- UI-2 Phase C clock complete: **live park time/day in the HUD.**
+  - `ParkClock` mirrors `0x0058c1c0`/`0x0058c2f0`/`0x0058c350`: base hour 9,
+    time scale 60 (the schedule-manager float, not `GameSpeed`),
+    hours/sec = scale/3600, 12-hour day ending at hour 11, day rollover,
+    HUD `%02d:%02d` (24-hour) and `day+1`.
+  - `--park-time HH:MM` seeds the clock; `--park-time-scale N` overrides
+    60.0.
+  - Evidence: `notes/ui-recon.md` ("Park clock"),
+    `notes/clock-0944.png`, `notes/clock-0944-detail.png`,
+    `tests/test_viewer_cpp.py::test_cpp_park_clock`.
+- 212 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -427,8 +439,11 @@ Updated: 2026-10-25
     `carnivordinos` (`+0x1b0/+0x70`) and `ornateddinos` (23-slot `+0xE8`
     array) are decoded; `scientificshow` requires show score > arg1 and a dino
     `+0x1e4` > arg2, and `dinoexclusiveshow` a dinosaur unique to one show.
-    All 33 evaluator predicates are decoded; field names and objective
-    weighting remain.
+    Difficulty selection (`FUN_00561bb0`): `mission+0x50` 0/1/2 picks
+    `Budget`/`SellBackFactor`/`VisProfiles` and their `Medium`/`Hard`
+    variants; other content lists are difficulty-independent.
+    All 33 evaluator predicates are decoded; field names, objective weighting
+    and where `mission+0x50` is set remain.
   - Evidence: `tools/formats/campaign.py`, `docs/formats/campaign.md`,
     `tests/test_campaign.py`, `notes/campaign-recon.md`,
     `notes/objectives-recon.md`.
@@ -442,6 +457,15 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/anim_trans.py`,
     `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
     `notes/anim-trans-recon.md`.
+- FMT-18 partial: **`.bai` action header decoded.**
+  - 64/64 files parse; packed header `name[20]`, fields at `+0x14..+0x32`,
+    `params[8]` at `+0x36`, variable tail from `+0x56`.
+  - `field_20` high byte = special-action group (exploration 1, runaway 2,
+    sleep 3, dino attack 4, obstacle attack 5, victory 6); long names are
+    truncated to 19 chars in the file itself.
+  - Tail arrays and field semantics remain open.
+  - Evidence: `tools/formats/bai.py`, `docs/formats/bai.md`,
+    `tests/test_bai.py`.
 - PARK-TIME research: **clock and show scheduler decompiled.**
   - `spScheduleManager` (`0x594b80`) owns a time manager and a 12-entry task
     vector. Time manager: base hour `+0x00`, elapsed `+0x08`, new-hour
@@ -534,13 +558,28 @@ Updated: 2026-10-25
 - SIM-4 research: **park budget and daily economy decompiled.**
   - Budget at `spPark+0x08`; eight spend/income setters (`0x585c00`..
     `0x585de0`) and the `0x585e10` roll-up/bankruptcy pass.
-  - Daily settlement `0x58ad00`: shop/category costs, attraction gate costs,
-    visitor ticket income, counter reset.
-  - Park save block carries the same counters at `+0x9c..+0xb8` and the
-    per-category array at `+0x1c`.
-  - Remaining: expense-category labels, day trigger, staff costs, UI ledger.
+  - Daily settlement `0x58ad00`: employee wages (role buckets `+0x1c` /
+    `+0x20`), EFFECTIFS_SECU pass (`+0x14` / `+0x18`), visitor ticket income,
+    counter reset.
+  - Park save block carries the same counters; `+0x1c` is a two-entry staff
+    bucket array, not a 14-row array.
+  - **Budget panel mapping solved** (`0x50fd30` ctor, `0x510430` refresh):
+    FOOD `+0xc4/+0xc8`; EFFECTIFS_FOOD `+0xbc` + role-0 employee count;
+    EFFECTIFS_SECU `+0xcc/+0xd0`; DINOACHAT `+0x154/+0x150`; LABOACTION
+    `+0x164/+0x160`; CONSTRUCTION `+0x15c/+0x158`; ENTREES `+0x13c/+0x140`;
+    RESTOS..GRADINS = shop revenue `+0xd8..+0xec` / counts `+0x10c..+0x120`
+    (kinds 1..6); VENTES `+0x16c/+0x168`; totals `+0x144/+0x148/+0x14c`.
+    `0x585db0` is the shop-sale setter; `0x585c90` the FOOD setter.
+  - Employee roles solved: `employeelist.ini` + `.bei` `kind_id`
+    (Nutritionist 0 / Guard 1); hire and wage = the `+0x50` descriptor's
+    `[8]`. Guard bucket index still needs a runtime check.
+  - Fresh saves contain the `0xF00D0000` / `0xF00DBAAD` debug fill in the
+    yesterday/total counters (before the first day rollover);
+    `tools/formats/economy.py` masks it and `tests/test_economy.py` checks
+    the retail save.
   - Evidence: `notes/park-economy-recon.md`, `docs/decomp/economy.md`,
-    `docs/decomp/function-status.md`.
+    `docs/decomp/function-status.md`, `tools/formats/economy.py`,
+    `tests/test_economy.py`.
 
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
@@ -597,7 +636,8 @@ Updated: 2026-10-25
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
 - WORLD-2 remains: culling, LOD2, scenario/building placements.
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
-- FMT-3b follow-up (not blocking): LOD2/LOD3 bind poses (notably `pachy`).
+- FMT-3b C++ handoff (not blocking): apply the `.mesh` bind-matrix choice in
+  `build_skinned_mesh`; the rule and snippet are in `notes/lod-bind-recon.md`.
 
 ## Next action
 
@@ -613,11 +653,12 @@ Updated: 2026-10-25
 6. DEC-3 rest: decode populated lab records; the world object graph, unlock
    arrays and AI/camera tail are solved. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
-7. SIM-4 rest: confirm the `spPark+0x1c` index-to-label order; the
-   category labels and the daily settlement trigger are solved. See
+7. SIM-4 rest: runtime-verify the panel rows against a populated save; the
+   row mapping, category labels and daily settlement trigger are solved. See
    `docs/decomp/economy.md`.
-8. STAFF rest: decode job kind `0xb`, Nutritionist/Guard role assignment and
-   staff wages; see `docs/decomp/employee-ai.md`.
+8. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
+   wages are solved in `docs/decomp/economy.md`. See
+   `docs/decomp/employee-ai.md`.
 9. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers

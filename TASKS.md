@@ -105,7 +105,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   weight `1.0`.
 - [x] Verify `v_cm @ inverse_bind @ W_raw_bind == v_cm` on `allo_lod1`
   (max error `5.7e-5` cm).
-- [ ] Retarget skeleton animation onto LOD2/LOD3 per-LOD bind poses.
+- [x] Solve the LOD2/LOD3 bind rule: `inv(inverse_bind)` equals the skeleton
+  rest for 58/60 dinosaur skins; only pachy LOD2/LOD3 store a bent-neck pose.
+  Use `inv(skeleton rest)` as the `.mesh` bind, `inverse_bind` for the
+  `.skin` bind.
+- [ ] Apply the bind-matrix choice in `build_skinned_mesh` (snippet in
+  `notes/lod-bind-recon.md`).
+- **Evidence:** `notes/lod-bind-recon.md`, `tools/recon/analyze_lod_bind.py`,
+  `tests/test_skin.py::test_pachy_lod2_bind_pose_retarget`,
+  `test_only_pachy_lod23_bind_pose_differs`, `docs/formats/skin.md`.
 - **Depends on:** FMT-3, FMT-4.
 
 ### FMT-4: `.skel` skeleton
@@ -250,8 +258,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   team/capture/fence, per-profile score array, participant minimum.
 - [x] `scientificshow` (show score > arg1, dino `+0x1e4` > arg2) and
   `dinoexclusiveshow` (a dinosaur unique to one show).
-- [ ] Human-readable names for the trait/show fields, difficulty variants and
-  objective weighting.
+- [x] Difficulty selection: `mission+0x50` 0/1/2 picks `Budget`/
+  `SellBackFactor`/`VisProfiles` and their `Medium`/`Hard` variants.
+- [ ] Human-readable names for the trait/show fields, objective weighting and
+  where `mission+0x50` is set.
 - **Acceptance:** 7/7 campaigns and 39/39 missions parse; every mission verb
   resolves to the 33-verb table.
 - **Depends on:** FMT-7, FMT-8, FMT-9.
@@ -273,6 +283,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `tools/formats/anim_trans.py`,
   `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
   `notes/anim-trans-recon.md`.
+
+### FMT-18: `.bai` action definitions
+- [x] Decode the packed fixed header (name[20] + fields + `params[8]`),
+  64/64 files parse; names match `ActionList.ini` order.
+- [x] Decode the special-action group in the high byte of `field_20`
+  (exploration/runaway/sleep/attack/obstacle/victory).
+- [ ] Tail arrays (12-byte and 8-byte records pushed into the 0xac-byte
+  action record) and the semantics of `field_14/18/1c/2a/2e/32` plus the
+  eight params.
+- **Acceptance:** all 64 headers parse; the group map and name truncation are
+  checked against retail files.
+- **Depends on:** FMT-15.
+- **Evidence:** `tools/formats/bai.py`, `docs/formats/bai.md`,
+  `tests/test_bai.py`.
 
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
@@ -526,7 +550,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   daily settlement (`0x585c00`..`0x585e10`, `0x58ad00`).
 - [x] Decompile employee AI: job queue, travel, kind-0xb work action and
   `spScheduleManager` (`0x5220e0`, `0x5224c0`, `0x522390`, `0x594b80`).
-- [ ] Name the fixed expense categories, day trigger, staff costs/role
+- [x] Name the fixed expense categories, day trigger, staff costs/role
   assignment and UI budget-ledger rows.
 - [x] Decode the park clock and show scheduler: `spScheduleManager` time
   manager (`+0x00` base hour, `+0x08` elapsed, `+0x28` new-hour, `+0x29`
@@ -538,7 +562,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   FOOD, EFFECTIFS_FOOD, EFFECTIFS_SECU, DINOACHAT, LABOACTION, CONSTRUCTION,
   ENTREES, RESTOS, BARAQUES, SOUVENIRS, BOITNOIRE, POINTDEVUE, GRADINS,
   VENTES.
-- [ ] Confirm the `spPark+0x1c` index-to-label order against a populated save.
+- [x] Confirm the `spPark+0x1c` index-to-label order. Corrected: `+0x1c` is a
+  two-entry staff bucket array; the 14-row panel mapping is decoded from the
+  refresh `0x510430` (`docs/decomp/economy.md`).
+- [x] Employee roles/costs: `employeelist.ini` + `.bei` `kind_id`
+  (Nutritionist 0 / Guard 1); hire and daily wage use `def[8]`.
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 - **Evidence:** `notes/park-economy-recon.md`,
@@ -610,6 +638,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `moWidget::OnResize`; at 1024×768 the right panel is at 931,168, the gauge
   at 293,737 and the map at 840,584 (matching the measured retail layout);
   the minimap quad follows `MAP_RENDERVIEW`'s anchored rect.
+- [x] Phase C rest (clock): `ParkClock` mirrors the decompiled time manager
+  (base hour 9, time scale 60, 12-hour day ending at hour 11, day rollover);
+  the HUD `PARK_CURRENT_TIME`/`PARK_CURRENT_DAY` are live, with
+  `--park-time`/`--park-time-scale`.
 - [ ] Phase C rest: dynamic sub-panel fields (budget ledger rows, list
   snapshots, sliders), minimap water colour/partition polish.
 - [ ] Phase D: save/load panels, menu sounds.
@@ -622,14 +654,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/menu-start-isl03.png`, `notes/menu-start-isl10.png`,
   `notes/minimap-isl01.png`, `notes/minimap-isl01-zoom-detail.png`,
   `notes/minimap-isl10-detail.png`, `notes/park-hud-1024.png`,
-  `notes/hud-1024.png`,
+  `notes/hud-1024.png`, `notes/clock-0944.png`,
   `notes/park-hud.png`, `notes/park-budget.png`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
   `test_cpp_island_list_and_free_game_budgets`,
-  `test_cpp_minimap_detail_view`, `test_cpp_park_hud_1024_anchor`), `tools/formats/overlay.py`,
+  `test_cpp_minimap_detail_view`, `test_cpp_park_hud_1024_anchor`,
+  `test_cpp_park_clock`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video

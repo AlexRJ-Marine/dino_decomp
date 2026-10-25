@@ -104,6 +104,9 @@ struct Options {
     std::string menu_hover;
     float menu_loading_time = 0.8f;
     float minimap_scale = 0.25f;
+    float park_time_scale = 0.0f;
+    std::string park_time;
+    float park_advance = 0.0f;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -295,6 +298,14 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--minimap-scale") {
             opt.minimap_scale = static_cast<float>(
                 std::atof(next("--minimap-scale")));
+        } else if (arg == "--park-time") {
+            opt.park_time = next("--park-time");
+        } else if (arg == "--park-time-scale") {
+            opt.park_time_scale = static_cast<float>(
+                std::atof(next("--park-time-scale")));
+        } else if (arg == "--park-advance") {
+            opt.park_advance = static_cast<float>(
+                std::atof(next("--park-advance")));
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -396,6 +407,9 @@ Options parse_args(int argc, char** argv) {
                 "  --menu-loading-time N  seconds to show the loading page (default 0.8)\n"
                 "  --menu-hover X,Y     set the hovered design-space point\n"
                 "  --minimap-scale N    detail-map scale 0.1..2.0 (default 0.25)\n"
+                "  --park-time HH:MM    set the park clock for screenshots/tests\n"
+                "  --park-time-scale N  override the clock time scale (default 60)\n"
+                "  --park-advance N     advance the clock N real seconds at startup\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -510,6 +524,69 @@ struct Bounds {
     float extent() const {
         return std::max({max.x - min.x, max.y - min.y, max.z - min.z});
     }
+};
+
+// Park clock: mirrors spScheduleManager's time manager (0x0058c1c0 /
+// 0x0058c2f0 / 0x0058c350). A day is 12 hours; the 11th hour ends it.
+struct ParkClock {
+    int base_hour = 9;  // hardcoded PUSH 9 in spScheduleManager ctor
+    int day = 0;
+    double elapsed = 0.0;
+    // GeneralParams.bgd/clock object: 60.0 next to the 10 at +0x1a0;
+    // GameSpeed (Dino.ini) drives the scheduler timer, not this clock.
+    double time_scale = 60.0;
+    bool new_hour = false;
+    bool end_of_day = false;
+
+    double hours_per_second() const { return time_scale / 3600.0; }
+    double minutes_per_second() const { return time_scale / 60.0; }
+
+    int hour() const {
+        return static_cast<int>(elapsed * hours_per_second()) + base_hour;
+    }
+    int minute() const {
+        return static_cast<int>(elapsed * minutes_per_second()) % 60;
+    }
+
+    void advance(double dt) {
+        new_hour = false;
+        end_of_day = false;
+        const double next = elapsed + dt;
+        if (static_cast<int>(next * hours_per_second()) >= 11) {
+            end_of_day = true;
+            return;
+        }
+        if (static_cast<int>(next * hours_per_second()) !=
+            static_cast<int>(elapsed * hours_per_second())) {
+            new_hour = true;
+        }
+        elapsed = next;
+    }
+
+    void next_day() {
+        ++day;
+        new_hour = false;
+        end_of_day = false;
+        elapsed = 0.0;
+    }
+
+    std::string time_text(bool ampm) const {
+        int h = hour();
+        const int m = minute();
+        const char* suffix = "";
+        if (ampm) {
+            suffix = h < 12 ? "AM" : "PM";
+            h %= 12;
+            if (h == 0) {
+                h = 12;
+            }
+        }
+        char text[16];
+        std::snprintf(text, sizeof(text), "%02d:%02d%s", h, m, suffix);
+        return text;
+    }
+
+    std::string day_text() const { return std::to_string(day + 1); }
 };
 
 // ---------------------------------------------------------------------------
@@ -1639,6 +1716,30 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "free game scenario: %s\n", e.what());
     }
+
+    ParkClock park_clock;
+    park_clock.time_scale =
+        opt.park_time_scale > 0.0f ? opt.park_time_scale : 60.0;
+    if (!opt.park_time.empty()) {
+        int hour = 0;
+        int minute = 0;
+        if (std::sscanf(opt.park_time.c_str(), "%d:%d", &hour, &minute) == 2) {
+            const double target =
+                (hour - park_clock.base_hour) * 60.0 + minute;
+            park_clock.elapsed =
+                target > 0.0 ? target / park_clock.minutes_per_second() : 0.0;
+        }
+    }
+    if (opt.park_advance > 0.0f) {
+        park_clock.advance(opt.park_advance);
+        if (park_clock.end_of_day) {
+            park_clock.next_day();
+        }
+    }
+    std::printf("park clock: scale=%.1f base=%d time=%s day=%s\n",
+                park_clock.time_scale, park_clock.base_hour,
+                park_clock.time_text(false).c_str(),
+                park_clock.day_text().c_str());
 
     dino::ui::Menu menu;
     bool menu_loaded = false;
@@ -3043,10 +3144,10 @@ int main(int argc, char** argv) {
                 return "0";
             }
             if (name == "PARK_CURRENT_TIME") {
-                return "09:44";
+                return park_clock.time_text(false);
             }
             if (name == "PARK_CURRENT_DAY") {
-                return "1";
+                return park_clock.day_text();
             }
             return "";
         };
@@ -3382,6 +3483,13 @@ int main(int argc, char** argv) {
                         island_names[static_cast<std::size_t>(island_index)].c_str(),
                         difficulty, park_budget);
                 }
+            }
+        }
+
+        if (park.loaded() && !start_screen) {
+            park_clock.advance(dt);
+            if (park_clock.end_of_day) {
+                park_clock.next_day();
             }
         }
 

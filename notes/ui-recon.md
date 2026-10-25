@@ -735,3 +735,30 @@ MAP_RENDERVIEW    876  619   136x136
 Port screenshot: `notes/park-hud-1024.png`; oracle: `notes/hud-1024.png`.
 Panel MAD at 1024: right 12.7, gauge 4.45 (nav background differs as before).
 Menu pages remain centred at 800x600 (unchanged).
+
+## Park clock (implementation follow-up)
+
+`park_clock` in `src/viewer/main.cpp` mirrors the time manager:
+
+- `time_scale` is **not** `GameSpeed`: the schedule manager receives a float
+  from the park/scene object (`+0x1a0`); `GeneralParams.bgd` stores `60.0`
+  next to the `10` written at `+0x1a0`, and 60.0 matches the observed pace.
+  GameSpeed only sets the scheduler timer;
+  hours/sec = scale/3600, minutes/sec = scale/60;
+- `advance`: `int((elapsed+dt)*hours_per_sec) >= 11` sets the end-of-day flag
+  and returns; a changed integer hour sets `new_hour`; otherwise elapsed
+  advances (0x0058c2f0);
+- end of day: day++, flags clear, elapsed=0 (0x0058c2d0), matching
+  `0x00524630`; the simulation/economy daily passes are not simulated yet;
+- read: `hour = int(elapsed*hps)+base_hour`, `minute = int(elapsed*mps)%60`,
+  `day` (0x0058c350); HUD `time = "%02d:%02d"` and `day = day+1`
+  (0x00526010). The retail Free Game screenshot `notes/park-after2.png`
+  shows 09:44 with no AM/PM suffix; `0x5234e0` clears `panel+0x8d`, so the
+  port always uses 24-hour text;
+- the base hour is **9** (hardcoded `PUSH 9` in the schedule manager ctor);
+  the day counter starts at 0 (HUD day 1);
+- `--park-time HH:MM` seeds elapsed for screenshots/tests, and
+  `--park-time-scale N` overrides 60.0.
+
+Evidence: `notes/clock-0944.png`, `notes/clock-0944-detail.png`,
+`tests/test_viewer_cpp.py::test_cpp_park_clock`, `docs/decomp/park-time.md`.

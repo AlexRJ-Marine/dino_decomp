@@ -68,11 +68,15 @@ five variable weights land at record `+0x24..+0x34` (not `+0x1C..+0x2C`);
 the constant block lands at `+0xD0..+0xE8`. Runtime check with SurferMan:
 record `+0x24..0x34` = `0.0, 0.5, 1.0, −0.2, 0.0`, exactly file `0x1C..0x2C`.
 
-The consumer of the five variable weights is still open: a hardware read
-breakpoint on record `+0x24` produced no hits in an empty free-game park or
-in a loaded save with two visitors (15 s window), so it is probably read only
-at visitor creation or in a longer need cycle. The scorer does **not** read
-them.
+The consumer of the five variable weights is still open. One strong lead:
+`FUN_0058abf0` aggregates visitor needs by `visitor+0x68` (the attraction
+category index) using `+0x48`/`+0x4c`/`+0x50`, and the scorer reads the
+attraction's per-category array at `+0x18` with that index. The five profile
+weights are therefore likely the per-category weights that choose or bias
+`+0x68`, but a hardware read breakpoint on record `+0x24` produced no hits in
+an empty free-game park or a loaded two-visitor save (15 s window), so the
+read may happen only at visitor creation/deserialization, or the values may
+be editor-only. The scorer does **not** read them.
 
 ### Personalities
 
@@ -140,6 +144,7 @@ paths, and the constant scoring block).
 - `FUN_00544110` — profile → 0xEC list record (weights at `+0x24`, constants
   at `+0xD0`).
 - `FUN_0051f560` — publishes the constant block as `DAT_00675638`.
+- `FUN_0058abf0` — aggregates visitor needs by `visitor+0x68` category.
 - `notes/visitor-weights-runtime.md` — live x32dbg dump.
 - `tools/formats/bvi.py`, `tests/test_bvi.py`.
 

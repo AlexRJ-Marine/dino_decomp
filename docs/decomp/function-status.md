@@ -117,12 +117,17 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0051f290` / `0x0051f400` | AI manager load/save (5 lists, 17-byte entries) | decompiled | same |
 | `0x005e5b80` / `0x005e5ba0` | camera-switcher load/save (10 floats) | decompiled | same |
 | `0x005e5920` / `0x005e5940` | scenario-manager load/save wrapper | decompiled | same |
-| `0x00585c00` / `0x00585c40` | park budget subtract / generic income | decompiled | `docs/decomp/economy.md` |
-| `0x00585cc0` / `0x00585cf0` / `0x00585d20` | park expense category setters | decompiled | same |
-| `0x00585d50` / `0x00585d80` | attraction / per-category shop expenses | decompiled | same |
+| `0x00585c00` / `0x00585c40` | budget subtract / VENTES generic income | decompiled | `docs/decomp/economy.md` |
+| `0x00585c90` | FOOD expense (`+0x0c` / `+0x10`) | decompiled | same |
+| `0x00585cc0` / `0x00585cf0` / `0x00585d20` | DINOACHAT / LABOACTION / CONSTRUCTION groups | decompiled | same |
+| `0x00585d50` / `0x00585d80` | EFFECTIFS_SECU / staff-role expense buckets | decompiled | same |
+| `0x00585db0` | shop revenue `+0x24+kind*4` and count `+0x58+kind*4` | decompiled | same |
 | `0x00585de0` | ticket income (visitor entry) | decompiled | same |
 | `0x00585e10` | daily counter roll-up and bankruptcy flags | decompiled | same |
+| `0x00586070` | budget totals (`+0x144` / `+0x148` / `+0x14c`) | decompiled | same |
 | `0x0058ad00` | daily economy settlement | decompiled | same |
+| `0x0050fd30` / `0x00510430` | budget panel constructor / row refresh (14 rows) | decompiled | same |
+| `0x00541940` / `0x0053cf10` / `0x00588600` | `employeelist.ini`, employee create/add | decompiled | same |
 
 ## Scheduler / simulation / AI (DEC-2)
 
@@ -213,6 +218,7 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
 | minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
 | HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
+| park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, GameSpeed-driven 12 h day + HUD time/day |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items

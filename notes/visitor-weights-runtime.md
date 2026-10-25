@@ -78,8 +78,13 @@ A hardware read breakpoint on record `+0x24` (Surfer weight 0) and `+0x34`
 (weight 4) was armed after park load. x32dbg reported both as set, but no
 reads fired within 15 s in either an empty free-game park or a save loaded
 from `run/save/slot001.sav` (two visitors). So the five variable weights are
-not touched by the per-frame visitor AI; they are probably read at visitor
-creation or in a slower need cycle.
+not touched by the per-frame visitor AI.
+
+Refined lead: `FUN_0058abf0` aggregates needs by `visitor+0x68` (attraction
+category) using `+0x48`/`+0x4c`/`+0x50`; the scorer indexes the attraction's
+`+0x18` array with the same `+0x68`. The five profile weights are probably
+the category preferences that choose/bias `+0x68`, read at visitor
+creation/deserialization or not at all. They may also be editor-only data.
 
 ## Caveats
 

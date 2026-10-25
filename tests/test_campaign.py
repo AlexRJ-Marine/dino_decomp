@@ -87,6 +87,8 @@ def test_objective_trait_pattern():
     assert "pattern[6]" in OBJECTIVE_VERBS["speeddinos"].note
     assert OBJECTIVE_VERBS["speeddinos"].args == ("count:int", "speed:int")
     assert OBJECTIVE_VERBS["hungrydinos"].args == ("count:int", "percent:int")
+    assert OBJECTIVE_VERBS["scientificshow"].args == ("score:int", "strangeness:int")
+    assert "no other show" in OBJECTIVE_VERBS["dinoexclusiveshow"].note
 
 
 def test_objective_verb_table():
@@ -113,6 +115,22 @@ def test_objective_verb_table():
         if objective.verb not in OBJECTIVE_VERBS
     }
     assert not unknown, sorted(unknown)
+
+
+def test_no_mission_overrides_difficulty_variants():
+    """All 39 missions inherit the base difficulty placeholders."""
+    if not (SCENARIO / "CampaignList.ini").exists():
+        pytest.skip("retail sample not present")
+    for campaign in load_campaigns(SCENARIO):
+        for mission in campaign.missions:
+            context = mission.sections["CONTEXT"]
+            assert context["BUDGETMEDIUM"] == "0", mission.name
+            assert context["BUDGETHARD"] == "0", mission.name
+            assert context["SELLBACKFACTORMEDIUM"] == "1.0", mission.name
+            assert context["SELLBACKFACTORHARD"] == "1.0", mission.name
+            profiles = mission.sections["PROFILES"]
+            assert profiles["VISPROFILESMEDIUM"] == "", mission.name
+            assert profiles["VISPROFILESHARD"] == "", mission.name
 
 
 def test_world_files_and_cpg07():

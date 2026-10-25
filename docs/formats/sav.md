@@ -185,23 +185,39 @@ are open.
 `FUN_00585240` (park reader) starts at `block + 0x28`; the first `0x28` bytes
 are an object header.
 
+`FUN_00585240` reads the fields in this order (version > 52 shown):
+
 ```text
 relative +0x08   u32  budget (75,000 / 75,125 in retail)
-relative +0x0c   f32  1.0
-relative +0x10   u32
-relative +0x14   u32
-relative +0x18   u32
-relative +0x1c   u32
-relative +0x20   u32  125 manual / 0 auto (total visitors or income)
-relative +0x24   13 x u32; first is 2 manual / 0 auto
-relative +0x58   13 x u32
-relative +0x94   2 x u8 (version-gated)
-relative +0x98   version > 52 field
-...
+relative +0x98   f32  sellback factor (version > 52)
+relative +0x0c   u32  FOOD total
+relative +0x10   u32  FOOD count
+relative +0x14   u32  EFFECTIFS_SECU total
+relative +0x18   u32  EFFECTIFS_SECU count
+relative +0x8c   u32  ticket income total
+relative +0x90   u32  ticket income count
+relative +0x94   2 x u8  bankruptcy flags
+relative +0x1c   2 x u32 staff expense buckets (role 0 / role 1)
+relative +0x24   12/13 x u32  shop revenue, kind 0..12
+relative +0x58   12/13 x u32  shop sale counts, kind 0..12
+relative +0x9c..+0xb8  four spend/income total+count pairs
+relative +0xbc   2 x u32  yesterday staff buckets
+relative +0xc4..+0x138 yesterday FOOD/SECU/shop/ticket counters
+relative +0x13c..+0x16c yesterday totals and group counters
 ```
 
-`FUN_00585bd0` (park constructor setter) writes the same `+0x08` budget and
-`+0x98` field, confirming the budget offset.
+`+0x20` is the second staff bucket but is 125 in the manual save while the
+save has no employees; `+0x24` is 2, the visitor count. The exact second-bucket
+meaning is documented as open in `docs/decomp/economy.md`.
+
+**Fill pattern.** The yesterday block and the three computed totals
+(`+0x144/+0x148/+0x14c`) are not initialized at park creation. A save taken
+before the first day rollover contains the debug fill `0xF00D0000` /
+`0xF00DBAAD` (and a bogus net of `0xBAAD`). Both retail saves show this.
+`tools/formats/economy.py` masks it and reports the rows as unsettled.
+
+`FUN_00585bd0` (constructor setter) writes the same `+0x08` budget and
+`+0x98` sellback field, confirming the offsets.
 
 ### Dinosaur store
 
@@ -298,7 +314,9 @@ five AI-list counts, the 17-byte AI entries and the 10 camera floats. Tests:
 ## Open
 
 - World object list semantics and class names.
-- Park fields beyond budget; the `0x28`-byte block header.
+- The `0x28`-byte block header (still undecoded; the economy fields are known).
+- The second staff bucket (`+0x20`) and the Guard role index; see
+  `docs/decomp/economy.md`.
 - Dinosaur `store_id` meaning.
 - The AI/camera field split; the byte layout is solved.
 - Populated lab genotype records.

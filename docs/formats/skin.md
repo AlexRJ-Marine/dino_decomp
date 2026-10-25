@@ -1,7 +1,8 @@
 # `.skin` format
 
-Status: **solved** — container, per-bone proxy blocks, and the full-mesh rigid
-skin table (vertex partition, weights, inverse-bind matrices).
+Status: **solved** - container, per-bone proxy blocks, the full-mesh rigid
+skin table (vertex partition, weights, inverse-bind matrices), and the
+LOD2/LOD3 bind-pose retargeting rule.
 
 ## Key finding
 
@@ -167,14 +168,39 @@ centimetres, scale the translation and basis by 100:
 W_raw = W_scaled @ diag(100, 100, 100, 1)
 ```
 
-### LOD caveat
+### LOD bind pose and retargeting (solved)
 
-For `LOD1`, `inv(R_bone)` matches the world matrices from `allo.skel` /
-`pachy.skel`. For some `LOD2`/`LOD3` skins, especially `pachy`, the stored
-bind pose differs from the skeleton file, so a naive `R @ W_scaled` skin
-does not reproduce that LOD's bind mesh. Deriving the per-LOD bind pose from
-`inv(R_bone)` is exact for static bind; retargeting skeleton animation onto
-those LODs is still open.
+`inverse_bind` is `inv(W_bind)`, the inverse of the bone's raw world matrix at
+the **skin's** bind pose. For 59 of the 60 dinosaur LOD skins, `W_bind` is
+exactly the skeleton rest world matrix (`pachy.skel` etc.), so using
+`inverse_bind` on the `.mesh` rest pose is correct.
+
+The exception is **pachy LOD2/LOD3**: their bind pose has a bent neck/head
+(`Bip01_Neck2` ΔT 7.772 cm / ΔR 1.094; `Bip01_Neck1` 7.633 cm;
+`Bip01_Head`/`Ponytail1`/`Ponytail2` 4.316 cm). LOD2 and LOD3 store the same
+pose. Applying `inverse_bind` to the `.mesh` therefore adds a fixed head
+offset (4.316 cm at skeleton rest, 10.905 cm on a walk frame).
+
+Correct bind for the `.mesh` rest pose:
+
+```text
+v_skinned_cm = v_mesh_cm @ inv(W_skel_rest_raw) @ W_raw_anim
+```
+
+This is identical to `inverse_bind` for the 59 matching skins and removes the
+pachy offset. For `--skin-bind skin`, keep the skin's `inverse_bind`:
+
+```text
+v_skinned_cm = v_skin_cm @ inverse_bind @ W_raw_anim
+```
+
+The skin mode is exact at bind for every LOD; the pachy LOD2/LOD3 bind is
+simply the bent-neck pose. The bug was mixing the standing `.mesh` with the
+skin's LOD-specific bind.
+
+Evidence and the C++ hand-off are in `notes/lod-bind-recon.md`; regression
+tests are `tests/test_skin.py::test_pachy_lod2_bind_pose_retarget` and
+`test_only_pachy_lod23_bind_pose_differs`.
 
 ### The `.skin` full mesh is not the visual rest pose
 
@@ -184,12 +210,11 @@ vertices and identical indices, but same-index vertex distances average
 **47.9 cm** (max 152.7 cm); e.g. vertex 0 is `(-37.1, -333.1, 485.6)` cm in
 the `.mesh` (scaled) and `(-35.4, -317.7, 459.5)` cm in the `.skin`.
 
-Because `R_bone = inv(W_raw_bind)`, any geometry can be skinned with these
-matrices: at bind, `v @ R_bone @ W_raw_bind = v`. The skin weights are
-therefore pose-independent, and using the `.mesh` vertices (×100 for
-centimetres) gives the **standing rest pose** while keeping the same rigid
-bindings. The viewer exposes this as `--skin-bind mesh`
-(default) vs `--skin-bind skin`.
+Because `R_bone = inv(W_bind)`, the skin bind mesh is reproduced at `W_bind`.
+For the `.mesh` rest pose, use `inv(W_skel_rest_raw)` as the bind (see the
+LOD section above); this equals `R_bone` for 58/60 dinosaur skins and keeps
+the standing pose for pachy LOD2/LOD3. The viewer exposes the two choices as
+`--skin-bind mesh` (default) and `--skin-bind skin`.
 
 Evidence: `notes/isl01-dino-meshbind.png` (standing, `.mesh` bind) vs the
 earlier crouched `.skin` bind; `notes/isl01-dino-walk.png` shows
@@ -213,5 +238,6 @@ Renders: `notes/allo-skin-bind.png` (bind pose from the skin table) and
 - Meaning of the three `u32` values after the triangle-material array
   (`1, -1, 35`).
 - Full naming of the 21-byte material header.
-- Per-LOD bind-pose retargeting for `LOD2`/`LOD3`.
 - Purpose of the 35 proxy bone blocks (collision, shadow, or editor display).
+- Whether any prop skin (not dinosaur) stores a bind pose different from its
+  skeleton rest.

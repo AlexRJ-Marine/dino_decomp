@@ -4,7 +4,8 @@ Date: 2026-10-25
 Scope: static decompilation of the `spPark` economy API. No writes to `game/`.
 
 Status: **budget/spend/income API decoded; daily settlement ordering and
-counter fields mapped; exact UI category labels still open.**
+counter fields mapped; UI category labels and the complete panel row mapping
+solved (see section 7; sections 1–6 keep the original wording).**
 
 ## 1. Budget field
 
@@ -120,3 +121,73 @@ different purchases and diff `+0x9c..+0xb8` and the `+0x1c` array.
   `0x00585e10`, `0x005883f0`, `0x0058ad00`, `0x00585240`.
 - Save evidence: `notes/save-graph-recon.md`, `tools/formats/sav_graph.py`
   (budget at park block `+0x30`).
+
+## 7. Budget-panel row mapping (solved)
+
+The panel is not a flat `spPark+0x1c[14]` array. `FUN_0050fd30` builds a
+`0xa4`-byte panel object; `FUN_00510430` refreshes it and reads one exact
+counter per row. This closes the �index-to-label� question: the old `+0x1c`
+array is only a two-entry staff-expense bucket array.
+
+Panel layout (`0x0050fd30`):
+
+- `+0x1c` economy object (`*(park + 0x120)`)
+- `+0x20` title text
+- `+0x24 + row*4` count text, rows 0..13
+- `+0x5c + row*4` amount text, rows 0..13
+- `+0x98` / `+0x9c` / `+0xa0` total expenses / income / net
+- `+0x94` back-pointer to `spPark`
+
+`0x00586070` recomputes `+0x144` (expenses), `+0x148` (income) and `+0x14c`
+(net) and returns `economy + 0xbc`; `0x00510430` uses that as `EDI`.
+All row sources are the **yesterday** block (`+0xbc..+0x16c`), so the panel
+shows the last settled day:
+
+| Row | Label | Amount | Count |
+| ---: | --- | ---: | ---: |
+| 0 | FOOD | `+0xc4` | `+0xc8` |
+| 1 | EFFECTIFS_FOOD | `+0xbc` | count of employees with `def[0] == 0` |
+| 2 | EFFECTIFS_SECU | `+0xcc` | `+0xd0` |
+| 3 | DINOACHAT | `+0x154` | `+0x150` |
+| 4 | LABOACTION | `+0x164` | `+0x160` |
+| 5 | CONSTRUCTION | `+0x15c` | `+0x158` |
+| 6 | ENTREES | `+0x13c` | `+0x140` |
+| 7 | RESTOS | `+0xd8` | `+0x10c` |
+| 8 | BARAQUES | `+0xdc` | `+0x110` |
+| 9 | SOUVENIRS | `+0xe0` | `+0x114` |
+| 10 | BOITNOIRE | `+0xe4` | `+0x118` |
+| 11 | POINTDEVUE | `+0xe8` | `+0x11c` |
+| 12 | GRADINS | `+0xec` | `+0x120` |
+| 13 | VENTES | `+0x16c` | `+0x168` |
+| � | totals | `+0x144` / `+0x148` / `+0x14c` | � |
+
+The corresponding current-day sources are `+0x0c/+0x10`, `+0x1c`, `+0x14/+0x18`,
+`+0xa0/+0x9c`, `+0xb0/+0xac`, `+0xa8/+0xa4`, `+0x8c/+0x90`,
+`+0x24+kind*4` / `+0x58+kind*4` for kinds 1..6, and `+0xb8/+0xb4`.
+`0x585db0` is the shop-sale setter (`+0x24+kind*4` amount, `+0x58+kind*4`
+count, budget += amount); `0x585c90` is the FOOD setter (`+0x0c/+0x10`).
+Neither was in the original eight-setter table.
+
+### Employee roles
+
+`0x00541940` loads `employeelist.ini` into `0xb0`-byte graphics/profile
+records at `manager+0xf8`. The retail list has two entries; the matching
+`.bei` `kind_id` values are `0` = Nutritionist and `1` = Guard. `0x0053cf10`
+creates an employee; `0x00588600` pushes it into `spPark+0xe4..0xe8`, charges
+`entry->+0x50->[8]` (hire cost) and `0x58ad00` charges the same value as the
+daily wage. The panel's EFFECTIFS_FOOD count is the number of entries with
+`entry->+0x50->[0] == 0`.
+
+Caveat: the retail manual save has no employees but economy `+0x20` = 125
+and `+0x24` = 2 (visitor count), so the second staff bucket / Guard role
+index is not yet proven; see the runtime check in `docs/decomp/economy.md`.
+
+The `spPark+0x90..0x94` pass uses `obj->+0x40->+0x20` and feeds
+`+0x14/+0x18` (EFFECTIFS_SECU); the exact actor set of that vector is still
+worth a runtime check, but the panel-side mapping is proven.
+
+### Evidence
+
+- Ghidra: `0x0050fd30`, `0x00510430`, `0x00586070`, `0x00585c90`,
+  `0x00585db0`, `0x00541940`, `0x0053cf10`, `0x00588600`.
+- Retail `employeelist.ini` (2 entries) and `.bei` `kind_id` values.

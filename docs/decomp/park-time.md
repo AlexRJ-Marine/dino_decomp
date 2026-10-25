@@ -109,10 +109,26 @@ The settlement `0x0058ad00` is documented in `docs/decomp/economy.md`
 (shop/category costs, gate costs, ticket income, roll-up `0x00585e10`,
 shop daily counters `+0x38` → `+0x3c`).
 
+## Confirmed start values (follow-up)
+
+- The schedule manager ctor passes `PUSH 9` as the base hour and `PUSH 9` as
+  the timing-table size; `0x58c1c0` stores `9` in `+0x00`. Free Game starts at
+  **09:00**, not a scenario value.
+- The `time_scale` argument is a float from the park/scene object
+  (`+0x1a0`), not `Dino.ini GameSpeed`. `GeneralParams.bgd` contains `60.0`
+  adjacent to the `10` written at `+0x1a0`; 60.0 matches the observed pace and
+  is the port default. `GameSpeed` only drives the scheduler timer
+  (`0x00506d20`).
+- `0x5234e0` clears `panel+0x8d`, so the HUD uses `%.2d:%.2d` (24-hour, no
+  AM/PM) for Free Game.
+- The day counter has no explicit initializer; fresh zeroed memory gives 0
+  (HUD day 1).
+
 ## Open
 
 - The fixed economy-category labels; see `docs/decomp/economy.md`.
-- The exact `+0x00` base hour per island/campaign.
+- Runtime confirmation of the 60.0 time scale (the static owner of the
+  `+0x1a0` float is not fully resolved).
 
 ## Evidence
 

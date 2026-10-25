@@ -233,3 +233,16 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   per-profile score arrays. carnivordinos, ornateddinos, scientificshow and dinoexclusiveshow are
   decoded; all 33 evaluator predicates are solved. Only field names and
   objective weighting remain. See notes/objectives-recon.md.
+- Campaign difficulty: FUN_00561bb0 reads mission+0x50 (0/1/2) and selects
+  Budget/SellBackFactor/VisProfiles plus their Medium/Hard variants. Only
+  those three keys vary; Buildings/Features/FoodSources/Shows/DinoStore are
+  difficulty-independent. All 33 objective predicates are now decoded
+  (scientificshow = show score > arg1 and dino +0x1e4 > arg2;
+  dinoexclusiveshow = a dino unique to one show).
+- LOD2/LOD3 skin bind: inv(inverse_bind) equals the skeleton rest for 58/60
+  dinosaur LOD skins. Only pachy LOD2/LOD3 differ, and only in the neck/head
+  chain (Neck2 7.772 cm / rot 1.094, Neck1 7.633 cm, Head/Ponytail 4.316 cm).
+  Using the skin inverse_bind on the .mesh adds a fixed head offset (4.316 cm
+  at rest, 10.905 cm on a walk frame). Fix: use inv(skeleton rest) for the
+  .mesh bind and inverse_bind for the .skin bind. Evidence:
+  notes/lod-bind-recon.md, tools/recon/analyze_lod_bind.py, tests/test_skin.py.
