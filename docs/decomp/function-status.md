@@ -34,6 +34,25 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00477890` | skeleton reader: matrices, children, parents, names, flags | decompiled, verified | 64/64 `.skel` files |
 | `0x00477610` | skeleton writer/export counterpart | decompiled (partial) | `.skel` doc |
 
+## Overlay / menu (UI-2)
+
+| Address | Purpose | Status | Evidence |
+| --- | --- | --- | --- |
+| `0x005bca20` | `moWidget::Load` — reads all INI properties, text/font fields and align bits | decompiled | `notes/ui-recon.md`, `docs/formats/overlay-ini.md` |
+| `0x005bc000` | `moWidget::OnResize` — fixed/right/down/stretch/center anchoring pass | decompiled | same; 800→1024 MAD check |
+| `0x005c5f00` | `moWidget::OnEvent` — property opcodes and flag setters (bits 9–15) | decompiled | same |
+| `0x004227d0` | `moFontCtrl` font cache/loader; calls `mgFontDx8::LoadFile` | decompiled | same |
+| `0x00517c60` | `mvwMenuStateManager` ctor — registers the nine menu pages in order | decompiled | same |
+| `0x0051c510` | menu page base ctor (page index + display name) | decompiled | same |
+| `0x0051bbf0` | `MAIN_MENU_PAGE` page ctor; binds seven buttons by name | decompiled | same |
+| `0x0051b120` | `FREE_GAME_PAGE` page ctor; island list, difficulty, start | decompiled | same |
+| `0x0051aa90` / `0x0051a560` / `0x00519ba0` | campaign select/info, load-game page ctors | decompiled (strings) | same |
+| `0x00518830` / `0x00518210` / `0x00517fe0` / `0x00517e90` | options, cinematics, credits, loading page ctors | decompiled (strings) | same |
+| `0x0051be70` … | button handlers; set `page + 0x18 = next state` | identified | transition table in `notes/ui-recon.md` |
+| `0x00421630` | `moGraphicCtrl::Load` — GraphicDB entries, `NB_OBJECTS`, `SKIP_LIST` bitmask | decompiled | frame-strip section in `notes/ui-recon.md` |
+| `0x004219c0` | graphic lookup by name (returns atlas index) | decompiled | same |
+| `0x005c3a20` / `0x005c3a60` / `0x005c3a40` | widget texture index / `TEXTURE_FRAME` / `TEXTURE_MOSAIC` setters | decompiled | same |
+
 ## Runtime / save / startup
 
 | Address | Purpose | Status | Evidence |
@@ -61,5 +80,8 @@ hooked into the original exe (Phase 3 `HYB-1`).
 ## Open items
 
 - `.fnt`, `.loc`, `.lnd`, audio loaders — FMT-6/FMT-7.
+- Overlay draw order (`PRIORITY`/`ZPRIORITY`) and button frame selection
+  (`NB_OBJECTS`/`SKIP_LIST`) — UI-2 Phase A.
+- Page-background creation helper and menu-page centring code path — UI-2.
 - Map the simulation scheduler (`lpScheduler`) and AI update order — DEC-2.
 - `.wld` save format — DEC-3.
