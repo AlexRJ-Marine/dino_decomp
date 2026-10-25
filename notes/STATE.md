@@ -169,6 +169,27 @@ Updated: 2026-10-25
   - Evidence: `docs/platform/vertical-slice.md`,
     `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
     `tests/test_viewer_cpp.py`.
+- SIM-1 complete: grid path/fence placement.
+  - 4-unit grid, canonical south/east fence edges, undo stack.
+  - Terrain ray-pick + click placement (`1`/`2`/`0`/`U`), retail paddock
+    fence mesh and `ground.tga` path tiles.
+  - Placement save/load text format; `--place-path`/`--place-fence`.
+  - Evidence: `docs/platform/build.md`, `src/world/build.cpp`,
+    `notes/build-preview.png`, `notes/build-preview2.png`,
+    `tests/test_viewer_cpp.py`.
+- WORLD-3 complete: skybox + water.
+  - Six 128×128 PNG skybox faces via vendored `stb_image`; unlit cube drawn
+    before the terrain (`src/third_party/stb_image.h`,
+    `src/formats/image.cpp`).
+  - Tiled `Water.tga` plane at the `.lnd` float level (16.0), alpha 0.78,
+    repeat wrap, extending to the skybox horizon.
+  - Evidence: `docs/platform/environment.md`, `notes/world3-sky2.png`,
+    `notes/world3-hero.png`, `notes/world3-up.png`,
+    `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
+- Stability: **60,000 frames (~10 min) at ~100 FPS**, working set 134.1 MB
+  flat, exit 0.
+  - Evidence: `notes/stability.out.log`, `notes/stability-memory.csv`,
+    `notes/stability-final.bmp`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -211,8 +232,11 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3 vertical slice: 10-minute stability run of the island + walking
-  dinosaur scene, then path/fence placement (SIM-1).
+- Phase 3 vertical slice is functionally complete: island, vegetation,
+  dinosaur, free camera, path/fence, sky/water, and a 10-minute run.
+- Next feature: SIM-2 visitor agents walking the placed path network.
+- WORLD-3 polish remains: verify the skybox cube orientation against the
+  original and tune water colour/animation.
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
   placements (1,536 vegetation instances already batch into 9 draws).
 - QOL-2 (UI scaling) waits for the overlay/UI layer.
@@ -221,10 +245,10 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. Run a 10-minute stability test with `--frames 36000 --capture-dir` (or a
-   timed loop) and check memory/handle growth.
-2. SIM-1: path/fence placement grid, validation and undo.
-3. WORLD-3: skybox + water plane for a closer match.
+1. SIM-2: spawn visitors at the island entrance and walk them along placed path
+   cells (grid BFS), with a simple body mesh + walk animation.
+2. Capture a side-by-side comparison against the original game for WORLD-3.
+3. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
 4. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
    the container/vector contracts are ported.
 5. User: publish `docs/community/xentax-post.md` and record any replies.

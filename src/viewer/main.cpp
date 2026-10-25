@@ -13,11 +13,14 @@
 #include "../formats/anim.h"
 #include "../formats/wav.h"
 #include "../formats/lnd.h"
+#include "../formats/image.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
+#include "../world/build.h"
 #include "keymap.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -71,6 +74,20 @@ struct Options {
     bool no_vegetation = false;
     bool skin_bind_from_skin = false;
     bool free_camera = false;
+    bool build_mode = false;
+    float build_cell = 4.0f;
+    std::string path_texture_path;
+    std::string fence_mesh_path;
+    std::string fence_texture_path;
+    std::string build_load_path;
+    std::string build_save_path;
+    std::vector<std::string> place_paths;
+    std::vector<std::string> place_fences;
+    std::string pick_test;
+    bool no_input = false;
+    std::string skybox_dir;
+    bool water = true;
+    float water_level = -1.0f;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -195,6 +212,38 @@ Options parse_args(int argc, char** argv) {
             }
         } else if (arg == "--free-camera") {
             opt.free_camera = true;
+        } else if (arg == "--build") {
+            opt.build_mode = true;
+        } else if (arg == "--build-cell") {
+            opt.build_cell = static_cast<float>(std::atof(next("--build-cell")));
+        } else if (arg == "--path-texture") {
+            opt.path_texture_path = next("--path-texture");
+        } else if (arg == "--fence-mesh") {
+            opt.fence_mesh_path = next("--fence-mesh");
+        } else if (arg == "--fence-texture") {
+            opt.fence_texture_path = next("--fence-texture");
+        } else if (arg == "--build-load") {
+            opt.build_load_path = next("--build-load");
+            opt.build_mode = true;
+        } else if (arg == "--build-save") {
+            opt.build_save_path = next("--build-save");
+            opt.build_mode = true;
+        } else if (arg == "--place-path") {
+            opt.place_paths.push_back(next("--place-path"));
+            opt.build_mode = true;
+        } else if (arg == "--place-fence") {
+            opt.place_fences.push_back(next("--place-fence"));
+            opt.build_mode = true;
+        } else if (arg == "--pick-test") {
+            opt.pick_test = next("--pick-test");
+        } else if (arg == "--no-input") {
+            opt.no_input = true;
+        } else if (arg == "--no-water") {
+            opt.water = false;
+        } else if (arg == "--water-level") {
+            opt.water_level = static_cast<float>(std::atof(next("--water-level")));
+        } else if (arg == "--skybox") {
+            opt.skybox_dir = next("--skybox");
         } else if (arg == "--once") {
             opt.loop_audio = false;
         } else if (arg == "--mute") {
@@ -253,6 +302,20 @@ Options parse_args(int argc, char** argv) {
                 "  --no-vegetation      skip the .imp/.blf placed objects\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --free-camera        start in free-fly camera mode (C toggles)\n"
+                "  --build              path/fence placement (1=path, 2=fence, 0=off, U=undo)\n"
+                "  --build-cell N       grid cell size in world units (default 4)\n"
+                "  --path-texture FILE  texture for path tiles (default ground.tga)\n"
+                "  --fence-mesh FILE    fence segment mesh (default paddock fence)\n"
+                "  --fence-texture FILE fence texture (default from the mesh material)\n"
+                "  --build-load FILE    load placements\n"
+                "  --build-save FILE    save placements on exit\n"
+                "  --place-path X,Y     add a path cell (repeatable)\n"
+                "  --place-fence X,Y,E  add a fence edge, E=0 south / 1 east (repeatable)\n"
+                "  --pick-test X,Y      print the terrain cell under a pixel (first frame)\n"
+                "  --no-input           ignore all input (benchmark/stability runs)\n"
+                "  --no-water           skip the water plane\n"
+                "  --water-level N      override the .lnd water level\n"
+                "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --once               play the WAV once (default loops)\n"
                 "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
@@ -476,6 +539,7 @@ uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
 uniform float u_alpha;
+uniform int u_unlit;
 out vec4 frag_color;
 void main() {
     vec3 n = normalize(v_normal);
@@ -486,8 +550,11 @@ void main() {
     if (u_use_texture != 0) {
         base *= texture(u_texture, v_uv).rgb;
     }
-    vec3 color = base * (u_ambient + u_light_color * (key + fill));
-    color = pow(clamp(color, 0.0, 1.0), vec3(0.85));
+    vec3 color = base;
+    if (u_unlit == 0) {
+        color = base * (u_ambient + u_light_color * (key + fill));
+        color = pow(clamp(color, 0.0, 1.0), vec3(0.85));
+    }
     frag_color = vec4(color, u_alpha);
 }
 )GLSL";
@@ -536,6 +603,12 @@ struct GpuMesh {
         ebo = vbo = vao = 0;
         index_count = 0;
     }
+};
+
+struct SkyboxGL {
+    std::array<GpuMesh, 6> faces;
+    std::array<GLuint, 6> textures{};
+    bool ready = false;
 };
 
 std::vector<Vertex> build_vertices(const dino::Mesh& mesh) {
@@ -625,17 +698,73 @@ void update_mesh(GpuMesh& gpu, const dino::Mesh& mesh, const GlFns& gl) {
     gl.BindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-GLuint upload_texture(const dino::Image& image) {
+GLuint upload_texture_wrapped(const dino::Image& image, GLint wrap) {
     GLuint id = 0;
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.width, image.height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, image.rgba.data());
     return id;
+}
+
+GLuint upload_texture(const dino::Image& image) {
+    return upload_texture_wrapped(image, GL_CLAMP_TO_EDGE);
+}
+
+dino::Mesh make_water_plane(float half_size, float z, float tiles) {
+    dino::Mesh mesh;
+    mesh.name = "water";
+    mesh.positions = {{-half_size, -half_size, z},
+                      {half_size, -half_size, z},
+                      {half_size, half_size, z},
+                      {-half_size, half_size, z}};
+    mesh.normals = {{0, 0, 1}, {0, 0, 1}, {0, 0, 1}, {0, 0, 1}};
+    // build_vertices adds +1 to v; final UVs are 0..tiles.
+    mesh.uvs = {{0.0f, -1.0f}, {tiles, -1.0f}, {tiles, tiles - 1.0f},
+                {0.0f, tiles - 1.0f}};
+    mesh.indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
+}
+
+dino::Mesh make_sky_face(int index, float half_size) {
+    const float h = half_size;
+    dino::Mesh mesh;
+    mesh.name = "skybox";
+    dino::Vec3 normal{0, 0, 1};
+    switch (index) {
+        case 0:  // front (+Y)
+            mesh.positions = {{-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h}};
+            normal = {0, -1, 0};
+            break;
+        case 1:  // back (-Y)
+            mesh.positions = {{h, -h, h}, {-h, -h, h}, {-h, -h, -h}, {h, -h, -h}};
+            normal = {0, 1, 0};
+            break;
+        case 2:  // left (-X)
+            mesh.positions = {{-h, h, h}, {-h, -h, h}, {-h, -h, -h}, {-h, h, -h}};
+            normal = {1, 0, 0};
+            break;
+        case 3:  // right (+X)
+            mesh.positions = {{h, -h, h}, {h, h, h}, {h, h, -h}, {h, -h, -h}};
+            normal = {-1, 0, 0};
+            break;
+        case 4:  // top (+Z)
+            mesh.positions = {{-h, h, h}, {h, h, h}, {h, -h, h}, {-h, -h, h}};
+            normal = {0, 0, -1};
+            break;
+        default:  // bottom (-Z)
+            mesh.positions = {{-h, -h, -h}, {h, -h, -h}, {h, h, -h}, {-h, h, -h}};
+            normal = {0, 0, 1};
+            break;
+    }
+    mesh.normals.assign(4, normal);
+    mesh.uvs = {{0.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}};
+    mesh.indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
 }
 
 dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
@@ -677,6 +806,7 @@ struct DrawItem {
 
 void draw_scene(const GpuMesh& mesh, GLuint texture,
                 const std::vector<DrawItem>& extras,
+                const SkyboxGL& skybox,
                 GLuint program,
                 const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
                 int width, int height) {
@@ -702,6 +832,28 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"), texture != 0 ? 1 : 0);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_texture"), 0);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
+
+    const GLint unlit_loc = gl.GetUniformLocation(program, "u_unlit");
+    if (skybox.ready) {
+        gl.Uniform1i(unlit_loc, 1);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"), 1);
+        for (int i = 0; i < 6; ++i) {
+            if (skybox.faces[i].vao == 0 || skybox.textures[i] == 0) {
+                continue;
+            }
+            glBindTexture(GL_TEXTURE_2D, skybox.textures[i]);
+            gl.BindVertexArray(skybox.faces[i].vao);
+            glDrawElements(GL_TRIANGLES, skybox.faces[i].index_count,
+                           GL_UNSIGNED_INT, nullptr);
+        }
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"),
+                     texture != 0 ? 1 : 0);
+    }
+    gl.Uniform1i(unlit_loc, 0);
 
     if (texture != 0) {
         gl.ActiveTexture(GL_TEXTURE0);
@@ -810,6 +962,55 @@ std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
 }
 
+// Ray-marches the heightfield from the camera through a screen pixel.
+bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
+                  const dino::Vec3& target, float mouse_x, float mouse_y,
+                  int width, int height, dino::Vec3& hit) {
+    if (terrain.world_size <= 0.0f) {
+        return false;
+    }
+    const dino::Vec3 forward = dino::normalize({target.x - eye.x, target.y - eye.y,
+                                                target.z - eye.z});
+    const dino::Vec3 right = dino::normalize(cross(forward, {0.0f, 0.0f, 1.0f}));
+    const dino::Vec3 up = cross(right, forward);
+    const float tan_half = std::tan(33.0f * 3.14159265f / 360.0f);
+    const float aspect = static_cast<float>(width) / static_cast<float>(std::max(1, height));
+    const float ndc_x = (2.0f * mouse_x / static_cast<float>(width) - 1.0f) *
+                        tan_half * aspect;
+    const float ndc_y = (1.0f - 2.0f * mouse_y / static_cast<float>(height)) * tan_half;
+    const dino::Vec3 dir = dino::normalize({forward.x + right.x * ndc_x + up.x * ndc_y,
+                                            forward.y + right.y * ndc_x + up.y * ndc_y,
+                                            forward.z + right.z * ndc_x + up.z * ndc_y});
+
+    auto at = [&](float t) {
+        return dino::Vec3{eye.x + dir.x * t, eye.y + dir.y * t, eye.z + dir.z * t};
+    };
+    auto above = [&](const dino::Vec3& p) {
+        return p.z - terrain.height_at(p.x, p.y);
+    };
+    float previous_t = 0.5f;
+    for (float t = 1.0f; t < 2500.0f; t += 2.0f) {
+        const dino::Vec3 p = at(t);
+        if (above(p) <= 0.0f) {
+            float lo = previous_t;
+            float hi = t;
+            for (int i = 0; i < 24; ++i) {
+                const float mid = (lo + hi) * 0.5f;
+                if (above(at(mid)) <= 0.0f) {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            hit = at(hi);
+            const float half = terrain.world_size * 0.5f;
+            return hit.x >= -half && hit.x <= half && hit.y >= -half && hit.y <= half;
+        }
+        previous_t = t;
+    }
+    return false;
+}
+
 // Moves a mesh (metres) onto the terrain (world units) at an .imp-style
 // position: x/y in 0..1024, Z rotation in degrees.
 // A disc at ground level so a placed model reads as standing on the terrain.
@@ -894,6 +1095,14 @@ int main(int argc, char** argv) {
     dino::Lnd lnd;
     dino::Terrain terrain;
     dino::Vegetation vegetation;
+    dino::BuildGrid build_grid;
+    dino::Mesh fence_source;
+    dino::Image path_image;
+    dino::Image fence_image;
+    std::array<dino::Image, 6> sky_images;
+    dino::Image water_image;
+    float water_z = 0.0f;
+    bool build_ready = false;
     try {
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
@@ -910,6 +1119,60 @@ int main(int argc, char** argv) {
             }
             if (!opt.no_vegetation) {
                 vegetation = dino::load_vegetation(opt.asset_root, lnd, terrain);
+            }
+            if (opt.build_mode) {
+                build_grid.init(opt.build_cell, terrain.world_size);
+                if (!opt.build_load_path.empty()) {
+                    dino::load_build(build_grid, opt.build_load_path);
+                }
+                for (const auto& value : opt.place_paths) {
+                    int x = 0, y = 0, edge = 0;
+                    if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
+                        build_grid.set_path(x, y, true);
+                    } else {
+                        std::fprintf(stderr, "bad --place-path %s\n", value.c_str());
+                    }
+                }
+                for (const auto& value : opt.place_fences) {
+                    int x = 0, y = 0, edge = 0;
+                    if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
+                        build_grid.set_fence(x, y, edge, true);
+                    } else {
+                        std::fprintf(stderr, "bad --place-fence %s\n", value.c_str());
+                    }
+                }
+                build_grid.undo_stack.clear();
+                const std::string fence_mesh =
+                    opt.fence_mesh_path.empty()
+                        ? resolve_asset(opt.asset_root,
+                                        "Data/Graphics/paddock/fences/"
+                                        "fence_paddock_lod1.mesh")
+                        : opt.fence_mesh_path;
+                fence_source = dino::load_mesh(fence_mesh);
+                build_ready = true;
+            }
+            const std::string sky_dir =
+                opt.skybox_dir.empty()
+                    ? resolve_asset(opt.asset_root, lnd.skybox)
+                    : opt.skybox_dir;
+            static const char* kFaceNames[6] = {"front", "back", "left",
+                                                "right", "top", "bottom"};
+            for (int i = 0; i < 6; ++i) {
+                try {
+                    sky_images[i] = dino::load_image(
+                        sky_dir + "/" + kFaceNames[i] + ".PNG");
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "skybox face %s: %s\n", kFaceNames[i],
+                                 e.what());
+                }
+            }
+            water_z = opt.water_level >= 0.0f ? opt.water_level : lnd.unknown_float;
+            if (opt.water && !lnd.water.empty()) {
+                try {
+                    water_image = dino::load_image(resolve_asset(opt.asset_root, lnd.water));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "water texture: %s\n", e.what());
+                }
             }
         }
         if (!opt.texture_path.empty()) {
@@ -971,6 +1234,32 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (build_ready) {
+        const std::string path_texture =
+            opt.path_texture_path.empty()
+                ? resolve_asset(opt.asset_root,
+                                "Data/Graphics/Textures/buildings/ground.tga")
+                : opt.path_texture_path;
+        try {
+            path_image = dino::load_tga(path_texture);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "path texture: %s\n", e.what());
+        }
+        std::string fence_texture = opt.fence_texture_path;
+        if (fence_texture.empty() && !fence_source.texture_name().empty()) {
+            fence_texture = resolve_asset(
+                opt.asset_root,
+                "Data/Graphics/Textures/buildings/" + fence_source.texture_name());
+        }
+        if (!fence_texture.empty()) {
+            try {
+                fence_image = dino::load_tga(fence_texture);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "fence texture: %s\n", e.what());
+            }
+        }
+    }
+
     if (opt.validate) {
         if (!opt.mesh_path.empty()) {
             std::printf("mesh %s: %zu vertices, %zu indices, %zu triangles, "
@@ -1017,6 +1306,18 @@ int main(int argc, char** argv) {
             std::printf("lnd %s: %s, %ux%u, float=%.1f, music=%s, vegetation=%zu\n",
                         opt.lnd_path.c_str(), lnd.name_key.c_str(), lnd.width, lnd.height,
                         lnd.unknown_float, lnd.music.c_str(), lnd.vegetation.size());
+            int sky_faces = 0;
+            for (const auto& face : sky_images) {
+                if (face.width > 0) {
+                    ++sky_faces;
+                }
+            }
+            std::printf("environment: skybox %d/6 faces, water %s at z=%.1f",
+                        sky_faces, water_image.width > 0 ? "yes" : "no", water_z);
+            if (water_image.width > 0) {
+                std::printf(" (%dx%d)", water_image.width, water_image.height);
+            }
+            std::printf("\n");
             std::printf("terrain: %dx%d heights %u..%u, %zu vertices, %zu triangles\n",
                         terrain.width, terrain.height, terrain.min_height,
                         terrain.max_height, terrain.mesh.positions.size(),
@@ -1052,6 +1353,18 @@ int main(int argc, char** argv) {
             };
             print_bounds("skin bind", bind);
             print_bounds("skin pose", pose);
+        }
+        if (build_ready) {
+            const dino::BuildMeshes meshes =
+                dino::build_placement_meshes(build_grid, terrain, fence_source);            std::printf("build: cell %.1f, grid %dx%d, %d path cells, %d fences; "
+                        "mesh %d tiles, %d segments\n",
+                        build_grid.cell_size, build_grid.width, build_grid.height,
+                        build_grid.path_count, build_grid.fence_count,
+                        meshes.path_tiles, meshes.fence_segments);
+            if (!opt.build_save_path.empty()) {
+                dino::save_build(build_grid, opt.build_save_path);
+                std::printf("build saved: %s\n", opt.build_save_path.c_str());
+            }
         }
         return 0;
     }
@@ -1237,17 +1550,85 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::vector<DrawItem> extra_items;
-    extra_items.reserve(veg_gpu.size() + 1);
-    for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
-        extra_items.push_back({&veg_gpu[i], veg_textures[i]});
+    GpuMesh path_gpu;
+    GpuMesh fence_gpu;
+    GLuint path_texture = 0;
+    GLuint fence_texture = 0;
+    if (build_ready) {
+        path_texture = path_image.width > 0 ? upload_texture(path_image) : 0;
+        fence_texture = fence_image.width > 0 ? upload_texture(fence_image) : 0;
+        const dino::BuildMeshes meshes =
+            dino::build_placement_meshes(build_grid, terrain, fence_source);
+        path_gpu = upload_mesh(meshes.paths, glfns);
+        fence_gpu = upload_mesh(meshes.fences, glfns);
     }
-    if (dino_gpu.vao != 0) {
-        if (shadow_gpu.vao != 0) {
-            extra_items.push_back({&shadow_gpu, 0, 0.35f});
+
+    SkyboxGL skybox;
+    int sky_faces = 0;
+    for (int i = 0; i < 6; ++i) {
+        if (sky_images[i].width <= 0) {
+            continue;
         }
-        extra_items.push_back({&dino_gpu, dino_texture});
+        skybox.faces[i] = upload_mesh(make_sky_face(i, 5000.0f), glfns);
+        skybox.textures[i] = upload_texture(sky_images[i]);
+        if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
+            ++sky_faces;
+        }
     }
+    skybox.ready = sky_faces == 6;
+
+    GLuint water_texture = 0;
+    GpuMesh water_gpu;
+    if (water_image.width > 0 && terrain.world_size > 0.0f) {
+        water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
+        water_gpu = upload_mesh(
+            make_water_plane(terrain.world_size * 6.0f, water_z, 48.0f), glfns);
+    }
+
+    std::vector<DrawItem> extra_items;
+    auto rebuild_extra_items = [&]() {
+        extra_items.clear();
+        for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
+            extra_items.push_back({&veg_gpu[i], veg_textures[i]});
+        }
+        if (path_gpu.vao != 0) {
+            extra_items.push_back({&path_gpu, path_texture});
+        }
+        if (fence_gpu.vao != 0) {
+            extra_items.push_back({&fence_gpu, fence_texture});
+        }
+        if (water_gpu.vao != 0) {
+            extra_items.push_back({&water_gpu, water_texture, 0.78f});
+        }
+        if (dino_gpu.vao != 0) {
+            if (shadow_gpu.vao != 0) {
+                extra_items.push_back({&shadow_gpu, 0, 0.35f});
+            }
+            extra_items.push_back({&dino_gpu, dino_texture});
+        }
+    };
+    rebuild_extra_items();
+
+    auto rebuild_build_meshes = [&]() {
+        if (!build_ready) {
+            return;
+        }
+        const dino::BuildMeshes meshes =
+            dino::build_placement_meshes(build_grid, terrain, fence_source);
+        path_gpu.destroy(glfns);
+        fence_gpu.destroy(glfns);
+        path_gpu = upload_mesh(meshes.paths, glfns);
+        fence_gpu = upload_mesh(meshes.fences, glfns);
+        rebuild_extra_items();
+        std::printf("build: %d path cells, %d fences\n", build_grid.path_count,
+                    build_grid.fence_count);
+    };
+
+    int build_tool = opt.build_mode ? 1 : 0;
+    bool pending_click = false;
+    float click_x = 0.0f;
+    float click_y = 0.0f;
+    float drag_distance = 0.0f;
 
     const dino::Vec3 center = place_dino
         ? dino::Vec3{spawn_x - terrain.world_size * 0.5f,
@@ -1301,6 +1682,9 @@ int main(int argc, char** argv) {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            if (opt.no_input) {
+                continue;
+            }
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
@@ -1339,18 +1723,38 @@ int main(int argc, char** argv) {
                     if (free_camera) {
                         enter_free_camera();
                     }
+                } else if (key == SDLK_1) {
+                    build_tool = 1;
+                    std::printf("build tool: path\n");
+                } else if (key == SDLK_2) {
+                    build_tool = 2;
+                    std::printf("build tool: fence\n");
+                } else if (key == SDLK_0) {
+                    build_tool = 0;
+                    std::printf("build tool: off\n");
+                } else if (key == SDLK_U) {
+                    if (build_grid.undo()) {
+                        rebuild_build_meshes();
+                    }
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_LEFT) {
                 dragging = true;
+                drag_distance = 0.0f;
                 last_mx = event.button.x;
                 last_my = event.button.y;
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                        event.button.button == SDL_BUTTON_LEFT) {
                 dragging = false;
+                if (build_tool != 0 && drag_distance < 5.0f) {
+                    pending_click = true;
+                    click_x = event.button.x;
+                    click_y = event.button.y;
+                }
             } else if (event.type == SDL_EVENT_MOUSE_MOTION && dragging) {
                 const float dx = event.motion.x - last_mx;
                 const float dy = event.motion.y - last_my;
+                drag_distance += std::abs(dx) + std::abs(dy);
                 if (free_camera) {
                     free_yaw += dx * 0.3f;
                     free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
@@ -1382,7 +1786,7 @@ int main(int argc, char** argv) {
         last = now;
         elapsed += dt;
 
-        if (free_camera) {
+        if (free_camera && !opt.no_input) {
             const bool* keys = SDL_GetKeyboardState(nullptr);
             auto held = [&](dino::KeyAction action) {
                 const SDL_Scancode scancode =
@@ -1489,8 +1893,76 @@ int main(int argc, char** argv) {
             view_center = center;
         }
 
-        draw_scene(gpu, texture, extra_items, program, glfns, eye, view_center,
-                   width, height);
+        if (pending_click) {
+            pending_click = false;
+            if (build_ready && build_tool != 0) {                dino::Vec3 hit;
+                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                                 width, height, hit)) {
+                    int cx = 0;
+                    int cy = 0;
+                    if (build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                        const int before = build_grid.path_count + build_grid.fence_count;
+                        if (build_tool == 1) {
+                            build_grid.set_path(cx, cy, !build_grid.path_at(cx, cy));
+                        } else {
+                            const float cs = build_grid.cell_size;
+                            const float half = terrain.world_size * 0.5f;
+                            const float x0 = -half + static_cast<float>(cx) * cs;
+                            const float y0 = -half + static_cast<float>(cy) * cs;
+                            float best = 1e30f;
+                            int ex = cx;
+                            int ey = cy;
+                            int edge = 0;
+                            auto consider = [&](float distance, int gx, int gy, int e) {
+                                if (distance < best) {
+                                    best = distance;
+                                    ex = gx;
+                                    ey = gy;
+                                    edge = e;
+                                }
+                            };
+                            if (cx > 0) {
+                                consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
+                            }
+                            if (cx + 1 < build_grid.width) {
+                                consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
+                            }
+                            consider(std::fabs(hit.y - y0), cx, cy, 0);
+                            if (cy + 1 < build_grid.height) {
+                                consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
+                            }
+                            build_grid.set_fence(ex, ey, edge,
+                                                 !build_grid.fence_at(ex, ey, edge));
+                        }
+                        if (build_grid.path_count + build_grid.fence_count != before) {
+                            rebuild_build_meshes();
+                        }
+                    }
+                }
+            }
+        }
+
+        if (frame == 0 && !opt.pick_test.empty()) {
+            int mx = 0;
+            int my = 0;
+            if (std::sscanf(opt.pick_test.c_str(), "%d,%d", &mx, &my) == 2) {
+                dino::Vec3 hit;
+                if (pick_terrain(terrain, eye, view_center, static_cast<float>(mx),
+                                 static_cast<float>(my), width, height, hit)) {
+                    const float half = terrain.world_size * 0.5f;
+                    const float cs = build_ready ? build_grid.cell_size : 4.0f;
+                    const int cx = static_cast<int>(std::floor((hit.x + half) / cs));
+                    const int cy = static_cast<int>(std::floor((hit.y + half) / cs));
+                    std::printf("pick: %.2f %.2f %.2f cell %d %d\n", hit.x, hit.y,
+                                hit.z, cx, cy);
+                } else {
+                    std::printf("pick: none\n");
+                }
+            }
+        }
+
+        draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
+                   view_center, width, height);
 
         if (!opt.capture_dir.empty()) {
             std::filesystem::create_directories(opt.capture_dir);
@@ -1531,6 +2003,17 @@ int main(int argc, char** argv) {
         save_config(opt.config_path, opt);
     }
 
+    if (build_ready && !opt.build_save_path.empty()) {
+        try {
+            dino::save_build(build_grid, opt.build_save_path);
+            std::printf("build saved: %s (%d paths, %d fences)\n",
+                        opt.build_save_path.c_str(), build_grid.path_count,
+                        build_grid.fence_count);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "build save: %s\n", e.what());
+        }
+    }
+
     if (audio != nullptr) {
         SDL_DestroyAudioStream(audio);
     }
@@ -1539,6 +2022,24 @@ int main(int argc, char** argv) {
     }
     dino_gpu.destroy(glfns);
     shadow_gpu.destroy(glfns);
+    path_gpu.destroy(glfns);
+    fence_gpu.destroy(glfns);
+    water_gpu.destroy(glfns);
+    for (int i = 0; i < 6; ++i) {
+        skybox.faces[i].destroy(glfns);
+        if (skybox.textures[i] != 0) {
+            glDeleteTextures(1, &skybox.textures[i]);
+        }
+    }
+    if (water_texture != 0) {
+        glDeleteTextures(1, &water_texture);
+    }
+    if (path_texture != 0) {
+        glDeleteTextures(1, &path_texture);
+    }
+    if (fence_texture != 0) {
+        glDeleteTextures(1, &fence_texture);
+    }
     for (const GLuint id : veg_textures) {
         if (id != 0) {
             glDeleteTextures(1, &id);

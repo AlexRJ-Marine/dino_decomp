@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -5,7 +6,8 @@ import pytest
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / "build" / "mingw" / "dino_viewer.exe"
+EXE = Path(os.environ.get("DINO_VIEWER_EXE",
+                          ROOT / "build" / "mingw" / "dino_viewer.exe"))
 GAME = ROOT / "game" / "%MAINDIR%"
 ALLO_MESH = GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "allo" / "allo_lod1.mesh"
 ALLO_TEX = GAME / "Data" / "Graphics" / "Textures" / "actors" / "dinos" / "allo.tga"
@@ -180,6 +182,57 @@ def test_cpp_keymap_has_free_camera_actions():
     for action in ("move_forward", "move_back", "move_left", "move_right",
                    "move_up", "move_down", "sprint", "toggle_camera"):
         assert action in result.stdout
+
+
+def test_cpp_build_save_load(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    save = tmp_path / "park.txt"
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--build", "--place-path", "128,128",
+         "--place-path", "129,128", "--place-fence", "128,128,0",
+         "--build-save", str(save)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "2 path cells, 1 fences" in result.stdout
+    assert "mesh 2 tiles, 1 segments" in result.stdout
+    text = save.read_text()
+    assert "path 128 128" in text and "path 129 128" in text
+    assert "fence 128 128 0" in text
+
+    reload = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--build-load", str(save)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert reload.returncode == 0, reload.stderr
+    assert "2 path cells, 1 fences" in reload.stdout
+
+
+def test_cpp_pick_terrain(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists() or not all(
+            p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN)):
+        pytest.skip("retail samples not present")
+    shot = tmp_path / "pick.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "1", "--screenshot", str(shot),
+         "--width", "1200", "--height", "760", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--yaw", "35", "--pitch", "22", "--distance", "24",
+         "--pick-test", "600,380", "--dino-pos", "512,512",
+         *_dino_geometry_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "pick: " in result.stdout
+    assert "cell " in result.stdout
+    assert shot.exists()
 
 
 def test_cpp_skinned_validate():
@@ -412,3 +465,17 @@ def test_cpp_terrain_window(tmp_path):
         if abs(data[i] - bg[0]) + abs(data[i + 1] - bg[1]) + abs(data[i + 2] - bg[2]) > 30
     )
     assert foreground > 1000
+
+def test_cpp_skybox_and_water():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "environment: skybox 6/6 faces" in result.stdout
+    assert "water yes at z=16.0 (256x256)" in result.stdout

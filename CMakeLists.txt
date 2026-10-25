@@ -33,6 +33,7 @@ add_executable(dino_viewer
     src/viewer/keymap.cpp
     src/formats/mesh.cpp
     src/formats/tga.cpp
+    src/formats/image.cpp
     src/formats/skel.cpp
     src/formats/skin.cpp
     src/formats/anim.cpp
@@ -42,6 +43,7 @@ add_executable(dino_viewer
     src/formats/blf.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
+    src/world/build.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

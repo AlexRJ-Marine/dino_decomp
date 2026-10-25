@@ -286,9 +286,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   frustum culling and the scenario/building placements remain.
 
 ### WORLD-3: Skybox, water, lighting
-- Match the original look closely enough for comparison screenshots.
+- [x] PNG skybox faces (`front/back/left/right/top/bottom`) via stb_image;
+  unlit cube drawn before the terrain.
+- [x] Tiled water plane at the `.lnd` float level, alpha-blended after the
+  terrain; `--no-water`, `--water-level`, `--skybox`.
+- [ ] Match the original look closely enough for comparison screenshots
+  (cube orientation and water colour still open).
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
+- **Evidence:** `docs/platform/environment.md`,
+  `src/formats/image.cpp`, `src/third_party/stb_image.h`,
+  `notes/world3-sky2.png`, `notes/world3-hero.png`,
+  `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
 
 ### SLICE-1: Island + dinosaur scene
 - [x] Combine `--lnd` terrain/vegetation with `--mesh/--skel/--skin/--anim`.
@@ -310,9 +319,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ## Phase 3 verification targets — simulation
 
 ### SIM-1: Path/fence placement
-- Grid-based placement, validation, undo.
+- [x] 4-unit grid over the island; paths own cells, fences own canonical
+  south/east edges; undo stack.
+- [x] Terrain ray-pick (march + bisect) and click placement
+  (`1` path, `2` fence, `0` off, `U` undo).
+- [x] Retail paddock fence mesh + `ground.tga` path tiles, baked per type.
+- [x] Save/load placement files; CLI `--place-path` / `--place-fence`.
 - **Acceptance:** place/remove a path and a fence; state survives save/load.
-- **Depends on:** WORLD-2.
+- **Depends on:** WORLD-1.
+- **Evidence:** `docs/platform/build.md`, `src/world/build.cpp`,
+  `notes/build-preview.png`, `notes/build-preview2.png`,
+  `tests/test_viewer_cpp.py` (`test_cpp_build_save_load`,
+  `test_cpp_pick_terrain`).
 
 ### SIM-2: Visitor agents
 - Spawn visitors, pathfinding, needs, attraction use.
