@@ -13,6 +13,7 @@ ALLO_SKEL = GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "allo" / "allo.ske
 ALLO_SKIN = GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "allo" / "allo_lod1.skin"
 ALLO_ANIM = (GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "animations"
              / "HeavyBiped" / "HeavyBiped_Armor.anim")
+ISL01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
 
 
 def test_viewer_window_smoke(tmp_path):
@@ -253,3 +254,61 @@ def test_cpp_wav_window(tmp_path):
     assert result.returncode == 0, result.stderr
     assert shot.exists()
     assert Image.open(shot).size == (320, 240)
+
+
+def test_cpp_lnd_validate():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "520x376" in result.stdout
+    assert "terrain: 512x512" in result.stdout
+    assert "262144 vertices" in result.stdout
+    assert "522242 triangles" in result.stdout
+    assert "vegetation=25" in result.stdout
+    assert "vegetation: 9 groups, 1536 instances, 52291 triangles" in result.stdout
+
+
+def test_cpp_lnd_no_vegetation():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "vegetation:" not in result.stdout
+
+
+def test_cpp_terrain_window(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    shot = tmp_path / "isl01.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--yaw", "35", "--pitch", "35"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert shot.exists()
+    image = Image.open(shot).convert("RGB")
+    assert image.size == (400, 300)
+    bg = image.getpixel((0, 0))
+    data = image.tobytes()
+    foreground = sum(
+        1 for i in range(0, len(data), 3)
+        if abs(data[i] - bg[0]) + abs(data[i + 1] - bg[1]) + abs(data[i + 2] - bg[2]) > 30
+    )
+    assert foreground > 1000

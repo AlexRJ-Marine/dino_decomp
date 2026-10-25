@@ -19,6 +19,11 @@ struct Color {
     std::uint8_t r = 255, g = 255, b = 255, a = 255;
 };
 
+struct Material {
+    std::string texture;
+    std::string name;
+};
+
 struct Mesh {
     std::string name;
     std::uint32_t hash = 0;
@@ -27,8 +32,15 @@ struct Mesh {
     std::vector<Vec2> uvs;
     std::vector<Vec3> normals;
     std::vector<Color> colors;
+    std::vector<Material> materials;
 
     std::size_t triangle_count() const { return indices.size() / 3; }
+
+    // Texture of the first material, if the tail carried a material table.
+    const std::string& texture_name() const {
+        static const std::string empty;
+        return materials.empty() ? empty : materials.front().texture;
+    }
 };
 
 struct MeshBody {

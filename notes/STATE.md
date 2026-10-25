@@ -143,6 +143,19 @@ Updated: 2026-10-25
   - Evidence: `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
     `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
     `notes/park-hook.png`, `notes/hook-4663a0-4809a0.log`.
+- WORLD-1 complete: **isl01 terrain + 1,536 placed trees.**
+  - `.lnd` + 512×512 8-bit heightmap → 1024-unit terrain (522,242 triangles),
+    basemap TGA, bilinear heights.
+  - `.imp` solved: `u32 path, model path, u32 count, count × (x, y, scale,
+    angle)`; 78/78 files, 17,059 instances, all coordinates 0..1024.
+  - `.blf` solved: version/LOD/texture counts, 2 mesh paths + texture dir;
+    24/24 files, all 48 LOD paths exist.
+  - C++ bakes every instance per entry (9 groups, 52,291 triangles) using the
+    material texture from the mesh tail + `.blf` texture dir.
+  - Evidence: `src/world/{terrain,vegetation}.cpp`, `src/formats/{imp,blf}.cpp`,
+    `docs/platform/terrain.md`, `docs/formats/{imp,blf}.md`,
+    `tests/test_imp.py`, `tests/test_blf.py`, `tests/test_viewer_cpp.py`,
+    `notes/isl01-vegetation.png`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -185,22 +198,25 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3: continue outside-in. Next targets are the simple stream readers
-  around the format loaders (`0x47d460` u16 array, `0x47cc90` child list), then
-  the full `.skel` reader `0x477890` and `.skin` record reader `0x47d880`.
+- Phase 3 vertical slice: combine the island and the dinosaur in one scene,
+  then add a free camera and path/fence placement.
+- WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
+  placements (1,536 vegetation instances already batch into 9 draws).
 - QOL-2 (UI scaling) waits for the overlay/UI layer.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. Add the next inline detour to `src/hook/dinput8_proxy.cpp` (start with
-   `0x47d460`, the u16 array reader) and verify the park still loads.
-2. Document each replacement in `docs/decomp/hybrid.md` and mark it `replaced`
-   in `docs/decomp/function-status.md`.
-3. Work toward `0x477890` (`.skel`) / `0x47d880` (`.skin` records); these need
-   the container/vector object contracts.
-4. User: publish `docs/community/xentax-post.md` and record any replies.
+1. Add `--spawn dino=<name>,x,y` (or `--dino`) to place the skinned allosaurus
+   on the isl01 heightfield and animate it next to the terrain.
+2. Add a free-fly camera (WASD + mouse look, `--free-camera`) so the player can
+   move around the island; keep orbit as the default for asset inspection.
+3. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
+4. SIM-1: path/fence placement grid, validation and undo.
+5. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
+   the container/vector contracts are ported.
+6. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "bytes.h"
+
 namespace dino {
 namespace {
 
@@ -130,7 +132,9 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& d, std::size_t off,
 
     const std::size_t tail_offset = off;
 
-    // Optional per-vertex RGBA table in the tail (65 dinosaur meshes).
+    // Optional per-vertex RGBA table in the tail (65 dinosaur meshes). The
+    // block is a u8 flag followed by a u32 count, always present in retail
+    // meshes (flag 0 on the landscape meshes).
     if (off + 5 <= d.size() && d[off] == 1) {
         const std::uint32_t color_count = u32(d, off + 1, "color_count");
         if (color_count == vertex_count &&
@@ -142,6 +146,41 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& d, std::size_t off,
                 c += 4;
             }
         }
+    }
+
+    // Material table: u32 count, then per material 21 bytes + texture name +
+    // material name. The two candidate offsets cover the colour-block flag
+    // byte being present (retail) or absent (defensive).
+    auto parse_materials = [&](std::size_t start) -> bool {
+        if (start + 4 > d.size()) {
+            return false;
+        }
+        const std::uint32_t material_count = u32(d, start, "material_count");
+        if (material_count == 0 || material_count > 64) {
+            return false;
+        }
+        std::size_t pos = start + 4;
+        std::vector<Material> parsed;
+        try {
+            for (std::uint32_t i = 0; i < material_count; ++i) {
+                need(d, pos, 21, "material header");
+                pos += 21;
+                Material material;
+                material.texture = read_string(d, pos, "material texture");
+                material.name = read_string(d, pos, "material name");
+                parsed.push_back(std::move(material));
+            }
+        } catch (const std::exception&) {
+            return false;
+        }
+        if (parsed.empty()) {
+            return false;
+        }
+        mesh.materials = std::move(parsed);
+        return true;
+    };
+    if (!parse_materials(tail_offset + 5)) {
+        (void)parse_materials(tail_offset);
     }
     return MeshBody{std::move(mesh), tail_offset};
 }

@@ -265,15 +265,25 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ## Phase 3 verification targets - world
 
-### WORLD-1: Island terrain
-- Load `.lnd` + `.raw`; build a heightmap mesh; place landscape objects.
+### WORLD-1: Island terrain + placed vegetation
+- [x] `.lnd` + 512×512 8-bit `.raw` heightmap → 1024-unit terrain mesh.
+- [x] Basemap TGA, bilinear height sampling, 522,242 triangles.
+- [x] `.imp` placements + `.blf` descriptors + lod1 meshes baked per entry.
+- [x] isl01: 9 groups, 1,536 instances, 52,291 triangles, textures from the
+  `.blf` texture directory.
 - **Acceptance:** island `isl01` loads with correct bounds and textures.
 - **Depends on:** FMT-6, FMT-7, VIEW-2.
+- **Evidence:** `docs/platform/terrain.md`, `docs/formats/imp.md`,
+  `docs/formats/blf.md`, `src/world/{terrain,vegetation}.cpp`,
+  `notes/isl01-terrain.png`, `notes/isl01-vegetation.png`,
+  `tests/test_viewer_cpp.py`, `tests/test_imp.py`, `tests/test_blf.py`.
 
 ### WORLD-2: Object placement and frustum culling
 - Read scenario/landscape placement data; instance meshes; cull.
 - **Acceptance:** 1,000+ instances render at interactive FPS.
 - **Depends on:** WORLD-1.
+- **Status:** placement and batching done (1,536 instances in 9 draws);
+  frustum culling and the scenario/building placements remain.
 
 ### WORLD-3: Skybox, water, lighting
 - Match the original look closely enough for comparison screenshots.

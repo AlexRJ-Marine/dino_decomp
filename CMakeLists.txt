@@ -37,6 +37,11 @@ add_executable(dino_viewer
     src/formats/skin.cpp
     src/formats/anim.cpp
     src/formats/wav.cpp
+    src/formats/lnd.cpp
+    src/formats/imp.cpp
+    src/formats/blf.cpp
+    src/world/terrain.cpp
+    src/world/vegetation.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

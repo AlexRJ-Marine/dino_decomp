@@ -12,6 +12,9 @@
 #include "../formats/skin.h"
 #include "../formats/anim.h"
 #include "../formats/wav.h"
+#include "../formats/lnd.h"
+#include "../world/terrain.h"
+#include "../world/vegetation.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -55,8 +58,13 @@ struct Options {
     std::string skin_path;
     std::string anim_path;
     std::string wav_path;
+    std::string lnd_path;
+    std::string asset_root = "game/%MAINDIR%";
+    float terrain_size = 1024.0f;
+    float height_scale = 1.0f;
     bool loop_audio = true;
     bool muted = false;
+    bool no_vegetation = false;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -146,6 +154,16 @@ Options parse_args(int argc, char** argv) {
             opt.anim_path = next("--anim");
         } else if (arg == "--wav") {
             opt.wav_path = next("--wav");
+        } else if (arg == "--lnd") {
+            opt.lnd_path = next("--lnd");
+        } else if (arg == "--asset-root") {
+            opt.asset_root = next("--asset-root");
+        } else if (arg == "--terrain-size") {
+            opt.terrain_size = static_cast<float>(std::atof(next("--terrain-size")));
+        } else if (arg == "--height-scale") {
+            opt.height_scale = static_cast<float>(std::atof(next("--height-scale")));
+        } else if (arg == "--no-vegetation") {
+            opt.no_vegetation = true;
         } else if (arg == "--once") {
             opt.loop_audio = false;
         } else if (arg == "--mute") {
@@ -194,6 +212,11 @@ Options parse_args(int argc, char** argv) {
                 "  --skin FILE          retail .skin (requires --mesh for the name)\n"
                 "  --anim FILE          retail .anim clip\n"
                 "  --wav FILE           retail .wav to play\n"
+                "  --lnd FILE           island .lnd (terrain + basemap)\n"
+                "  --asset-root DIR     root for paths inside .lnd (default game/%%MAINDIR%%)\n"
+                "  --terrain-size N     terrain world size (default 1024)\n"
+                "  --height-scale N     heightmap multiplier (default 1)\n"
+                "  --no-vegetation      skip the .imp/.blf placed objects\n"
                 "  --once               play the WAV once (default loops)\n"
                 "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
@@ -607,7 +630,10 @@ dino::Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::
     return out;
 }
 
-void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
+void draw_scene(const GpuMesh& mesh, GLuint texture,
+                const std::vector<GpuMesh>& extras,
+                const std::vector<GLuint>& extra_textures,
+                GLuint program,
                 const GlFns& gl, const Bounds& bounds, float yaw, float pitch,
                 float distance, int width, int height) {
     const dino::Vec3 center = bounds.center();
@@ -621,7 +647,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
 
     const dino::Mat4 proj = perspective(33.0f,
                                         static_cast<float>(width) / std::max(1, height),
-                                        0.1f, 2000.0f);
+                                        0.1f, 10000.0f);
     const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
     const dino::Mat4 mvp = dino::multiply(proj, view);
 
@@ -647,6 +673,17 @@ void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
     }
     gl.BindVertexArray(mesh.vao);
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, nullptr);
+
+    const GLint use_texture_loc = gl.GetUniformLocation(program, "u_use_texture");
+    for (std::size_t i = 0; i < extras.size(); ++i) {
+        const GLuint extra_texture = i < extra_textures.size() ? extra_textures[i] : 0;
+        gl.Uniform1i(use_texture_loc, extra_texture != 0 ? 1 : 0);
+        if (extra_texture != 0) {
+            glBindTexture(GL_TEXTURE_2D, extra_texture);
+        }
+        gl.BindVertexArray(extras[i].vao);
+        glDrawElements(GL_TRIANGLES, extras[i].index_count, GL_UNSIGNED_INT, nullptr);
+    }
     gl.BindVertexArray(0);
     gl.UseProgram(0);
 }
@@ -719,6 +756,10 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
     return out;
 }
 
+std::string resolve_asset(const std::string& root, const std::string& path) {
+    return dino::asset_path(root, path);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -747,9 +788,29 @@ int main(int argc, char** argv) {
     dino::Skin skin;
     dino::Animation anim;
     dino::Wav wav;
+    dino::Lnd lnd;
+    dino::Terrain terrain;
+    dino::Vegetation vegetation;
     try {
+        if (!opt.lnd_path.empty() && !opt.skin_path.empty()) {
+            throw std::runtime_error("choose --lnd or --skin, not both");
+        }
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
+        }
+        if (!opt.lnd_path.empty()) {
+            lnd = dino::load_lnd(opt.lnd_path);
+            int hm_width = 0, hm_height = 0;
+            const auto heights = dino::load_raw_u8(
+                resolve_asset(opt.asset_root, lnd.heightmap), hm_width, hm_height);
+            terrain = dino::build_terrain(heights, hm_width, hm_height,
+                                          opt.terrain_size, opt.height_scale);
+            if (opt.texture_path.empty() && !lnd.basemap.empty()) {
+                image = dino::load_tga(resolve_asset(opt.asset_root, lnd.basemap));
+            }
+            if (!opt.no_vegetation) {
+                vegetation = dino::load_vegetation(opt.asset_root, lnd, terrain);
+            }
         }
         if (!opt.texture_path.empty()) {
             image = dino::load_tga(opt.texture_path);
@@ -816,6 +877,23 @@ int main(int argc, char** argv) {
             std::printf("wav %s: %u ch, %u Hz, %u-bit, %u frames, %.3fs\n",
                         opt.wav_path.c_str(), wav.channels, wav.sample_rate,
                         wav.bits_per_sample, wav.frames, wav.duration);
+        }
+        if (!opt.lnd_path.empty()) {
+            std::printf("lnd %s: %s, %ux%u, float=%.1f, music=%s, vegetation=%zu\n",
+                        opt.lnd_path.c_str(), lnd.name_key.c_str(), lnd.width, lnd.height,
+                        lnd.unknown_float, lnd.music.c_str(), lnd.vegetation.size());
+            std::printf("terrain: %dx%d heights %u..%u, %zu vertices, %zu triangles\n",
+                        terrain.width, terrain.height, terrain.min_height,
+                        terrain.max_height, terrain.mesh.positions.size(),
+                        terrain.mesh.triangle_count());
+            if (!opt.no_vegetation) {
+                std::printf("vegetation: %zu groups, %zu instances, %zu triangles\n",
+                            vegetation.groups.size(), vegetation.instances,
+                            vegetation.triangles);
+                for (const auto& warning : vegetation.warnings) {
+                    std::printf("vegetation warning: %s\n", warning.c_str());
+                }
+            }
         }
         if (!opt.skin_path.empty() && !opt.skel_path.empty()) {
             std::vector<int> vertex_bone;
@@ -937,7 +1015,7 @@ int main(int argc, char** argv) {
         build_skin_mapping(skin, skeleton, vertex_bone, bone_skel);
     }
 
-    if (mesh.positions.empty() && !skinned) {
+    if (mesh.positions.empty() && !skinned && opt.lnd_path.empty()) {
         dino::Mesh fallback;
         fallback.positions = {{-0.62f, -0.52f, 0.0f}, {0.02f, 0.68f, 0.0f}, {0.68f, -0.44f, 0.0f}};
         fallback.normals = {{0, 0, 1}, {0, 0, 1}, {0, 0, 1}};
@@ -948,7 +1026,9 @@ int main(int argc, char** argv) {
 
     const GLuint texture = image.width > 0 ? upload_texture(image) : 0;
     dino::Mesh display;
-    if (skinned) {
+    if (!opt.lnd_path.empty()) {
+        display = terrain.mesh;
+    } else if (skinned) {
         const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
         const double initial_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
         display = build_skinned_mesh(skin.mesh, skin, skeleton, anim_ptr, initial_time,
@@ -964,6 +1044,27 @@ int main(int argc, char** argv) {
     for (const auto& p : display.positions) {
         bounds.add(p);
     }
+
+    std::vector<GpuMesh> veg_gpu;
+    std::vector<GLuint> veg_textures;
+    veg_gpu.reserve(vegetation.groups.size());
+    veg_textures.reserve(vegetation.groups.size());
+    for (const auto& group : vegetation.groups) {
+        veg_gpu.push_back(upload_mesh(group.mesh, glfns));
+        GLuint group_texture = 0;
+        if (!group.texture_path.empty() && std::filesystem::exists(group.texture_path)) {
+            try {
+                group_texture = upload_texture(dino::load_tga(group.texture_path));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+            }
+        }
+        veg_textures.push_back(group_texture);
+        for (const auto& p : group.mesh.positions) {
+            bounds.add(p);
+        }
+    }
+
     const float auto_distance = std::max(2.0f, bounds.extent() * 1.7f);
     float distance = opt.distance > 0.0f ? opt.distance : auto_distance;
     float yaw = opt.yaw;
@@ -1086,8 +1187,8 @@ int main(int argc, char** argv) {
             update_mesh(gpu, deformed, glfns);
         }
 
-        draw_scene(gpu, texture, program, glfns, bounds, yaw, pitch, distance,
-                   width, height);
+        draw_scene(gpu, texture, veg_gpu, veg_textures, program, glfns, bounds,
+                   yaw, pitch, distance, width, height);
 
         if (!opt.capture_dir.empty()) {
             std::filesystem::create_directories(opt.capture_dir);
@@ -1130,6 +1231,14 @@ int main(int argc, char** argv) {
 
     if (audio != nullptr) {
         SDL_DestroyAudioStream(audio);
+    }
+    for (auto& group : veg_gpu) {
+        group.destroy(glfns);
+    }
+    for (const GLuint id : veg_textures) {
+        if (id != 0) {
+            glDeleteTextures(1, &id);
+        }
     }
     gpu.destroy(glfns);
     if (texture != 0) {
