@@ -1,0 +1,6 @@
+=== validate ===
+wav game\%MAINDIR%\Data\Sound\Actors\Dinos\avoidance.wav: 1 ch, 44100 Hz, 16-bit, 4410 frames, 0.100s
+=== playback ===
+audio: game\%MAINDIR%\Data\Sound\Actors\Dinos\avoidance.wav, 44100 Hz, 1 ch, 0.100s (loop)
+SDL 3.4.18 | GL 3.3.0 NVIDIA 582.78 | NVIDIA GeForce GTX 1070 Ti/PCIe/SSE2 | NVIDIA Corporation
+wrote screenshot notes\audio-test.bmp (320x240)

@@ -203,6 +203,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `tests/test_viewer_cpp.py`, `notes/viewer-anim-1600.png`,
   `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
 
+### AUDIO-1: SDL3 WAV playback
+- [x] C++ RIFF/WAVE PCM reader; SDL3 audio device stream; loop/mute.
+- [x] `--wav`, `--once`, `--mute`; key-map action `mute=M`.
+- **Acceptance:** a retail WAV plays and the viewer keeps running if no audio
+  device is available.
+- **Depends on:** FMT-6, VIEW-1.
+- **Evidence:** `src/formats/wav.cpp`, `docs/platform/audio.md`,
+  `tests/test_viewer_cpp.py`, `notes/audio-smoke.txt`.
+
 ### QOL-1: Resolution, widescreen, borderless
 - [x] Windowed / fullscreen / borderless modes; F10/F11 toggles.
 - [x] Persisted `dino_viewer.cfg` (size, mode, vsync); CLI overrides.

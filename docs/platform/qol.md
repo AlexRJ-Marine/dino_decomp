@@ -40,7 +40,7 @@ orbit_left=LEFT      orbit_right=RIGHT
 orbit_up=UP          orbit_down=DOWN
 zoom_in=PLUS         zoom_out=MINUS
 reset=R
-fullscreen=F11       borderless=F10      quit=ESC
+fullscreen=F11       borderless=F10      mute=M       quit=ESC
 ```
 
 - `--keys FILE` chooses another map.

@@ -17,6 +17,7 @@ enum class KeyAction {
     Reset,
     Fullscreen,
     Borderless,
+    Mute,
     Quit,
     Count
 };

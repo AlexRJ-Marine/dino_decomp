@@ -11,6 +11,7 @@
 #include "../formats/skel.h"
 #include "../formats/skin.h"
 #include "../formats/anim.h"
+#include "../formats/wav.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -53,6 +54,9 @@ struct Options {
     std::string skel_path;
     std::string skin_path;
     std::string anim_path;
+    std::string wav_path;
+    bool loop_audio = true;
+    bool muted = false;
     double anim_time = -1.0;   // < 0 = animate with elapsed time
     double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
@@ -140,6 +144,12 @@ Options parse_args(int argc, char** argv) {
             opt.skin_path = next("--skin");
         } else if (arg == "--anim") {
             opt.anim_path = next("--anim");
+        } else if (arg == "--wav") {
+            opt.wav_path = next("--wav");
+        } else if (arg == "--once") {
+            opt.loop_audio = false;
+        } else if (arg == "--mute") {
+            opt.muted = true;
         } else if (arg == "--time") {
             opt.anim_time = std::atof(next("--time"));
         } else if (arg == "--speed") {
@@ -183,6 +193,9 @@ Options parse_args(int argc, char** argv) {
                 "  --skel FILE          retail .skel skeleton\n"
                 "  --skin FILE          retail .skin (requires --mesh for the name)\n"
                 "  --anim FILE          retail .anim clip\n"
+                "  --wav FILE           retail .wav to play\n"
+                "  --once               play the WAV once (default loops)\n"
+                "  --mute               start muted\n"
                 "  --time N             fixed animation time (default: animate)\n"
                 "  --speed N            animation speed multiplier (default 1)\n"
                 "  --width N --height N window size (default 1280x720)\n"
@@ -733,6 +746,7 @@ int main(int argc, char** argv) {
     dino::Skeleton skeleton;
     dino::Skin skin;
     dino::Animation anim;
+    dino::Wav wav;
     try {
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
@@ -757,6 +771,9 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("--anim requires --skel");
             }
             anim = dino::load_anim(opt.anim_path);
+        }
+        if (!opt.wav_path.empty()) {
+            wav = dino::load_wav(opt.wav_path);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "load error: %s\n", e.what());
@@ -795,6 +812,11 @@ int main(int argc, char** argv) {
             std::printf("anim %s: %zu bones, %u duration, %zu keys\n",
                         opt.anim_path.c_str(), anim.bones.size(), anim.duration, keys);
         }
+        if (!opt.wav_path.empty()) {
+            std::printf("wav %s: %u ch, %u Hz, %u-bit, %u frames, %.3fs\n",
+                        opt.wav_path.c_str(), wav.channels, wav.sample_rate,
+                        wav.bits_per_sample, wav.frames, wav.duration);
+        }
         if (!opt.skin_path.empty() && !opt.skel_path.empty()) {
             std::vector<int> vertex_bone;
             std::vector<int> bone_skel;
@@ -821,7 +843,11 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+    Uint32 init_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
+    if (!opt.wav_path.empty()) {
+        init_flags |= SDL_INIT_AUDIO;
+    }
+    if (!SDL_Init(init_flags)) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
     }
@@ -874,6 +900,27 @@ int main(int argc, char** argv) {
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
+    }
+
+    SDL_AudioStream* audio = nullptr;
+    if (!wav.data.empty()) {
+        SDL_AudioSpec spec{};
+        spec.format = wav.bits_per_sample == 16 ? SDL_AUDIO_S16 : SDL_AUDIO_U8;
+        spec.channels = wav.channels;
+        spec.freq = static_cast<int>(wav.sample_rate);
+        audio = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
+                                          nullptr, nullptr);
+        if (audio != nullptr) {
+            SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
+            SDL_ResumeAudioStreamDevice(audio);
+            SDL_PutAudioStreamData(audio, wav.data.data(),
+                                   static_cast<int>(wav.data.size()));
+            std::printf("audio: %s, %u Hz, %u ch, %.3fs%s\n",
+                        opt.wav_path.c_str(), wav.sample_rate, wav.channels,
+                        wav.duration, opt.loop_audio ? " (loop)" : "");
+        } else {
+            std::fprintf(stderr, "audio open failed: %s\n", SDL_GetError());
+        }
     }
 
     const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
@@ -963,6 +1010,11 @@ int main(int argc, char** argv) {
                 } else if (key == keymap[dino::KeyAction::Borderless]) {
                     opt.borderless = !opt.borderless;
                     SDL_SetWindowBordered(window, !opt.borderless);
+                } else if (key == keymap[dino::KeyAction::Mute]) {
+                    opt.muted = !opt.muted;
+                    if (audio != nullptr) {
+                        SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
+                    }
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_LEFT) {
@@ -998,6 +1050,14 @@ int main(int argc, char** argv) {
         const double dt = static_cast<double>(now - last) / static_cast<double>(freq);
         last = now;
         elapsed += dt;
+
+        if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
+            const int queued = SDL_GetAudioStreamQueued(audio);
+            if (queued < static_cast<int>(wav.data.size() / 2)) {
+                SDL_PutAudioStreamData(audio, wav.data.data(),
+                                       static_cast<int>(wav.data.size()));
+            }
+        }
 
         const float pulse = 0.5f + 0.5f * SDL_sinf(static_cast<float>(elapsed) * 1.5f);
         glClearColor(0.055f + 0.02f * pulse, 0.09f + 0.03f * pulse,
@@ -1068,6 +1128,9 @@ int main(int argc, char** argv) {
         save_config(opt.config_path, opt);
     }
 
+    if (audio != nullptr) {
+        SDL_DestroyAudioStream(audio);
+    }
     gpu.destroy(glfns);
     if (texture != 0) {
         glDeleteTextures(1, &texture);

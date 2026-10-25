@@ -217,3 +217,39 @@ def test_cpp_keymap_rejects_unknown_action():
     )
     assert result.returncode == 2
     assert "unknown action" in result.stderr
+
+
+def test_cpp_wav_validate():
+    wav = GAME / "Data" / "Sound" / "Actors" / "Dinos" / "avoidance.wav"
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not wav.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--wav", str(wav)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "44100 Hz" in result.stdout
+    assert "1 ch" in result.stdout
+    assert "16-bit" in result.stdout
+    assert "4410 frames" in result.stdout
+    assert "0.100s" in result.stdout
+
+
+def test_cpp_wav_window(tmp_path):
+    wav = GAME / "Data" / "Sound" / "Actors" / "Dinos" / "avoidance.wav"
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not wav.exists():
+        pytest.skip("retail sample not present")
+    shot = tmp_path / "audio.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", "320", "--height", "240", "--no-vsync", "--no-save-config",
+         "--mute", "--wav", str(wav)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert shot.exists()
+    assert Image.open(shot).size == (320, 240)

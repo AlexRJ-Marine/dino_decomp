@@ -36,6 +36,7 @@ add_executable(dino_viewer
     src/formats/skel.cpp
     src/formats/skin.cpp
     src/formats/anim.cpp
+    src/formats/wav.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

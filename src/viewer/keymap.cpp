@@ -60,6 +60,7 @@ const KeyName action_names[] = {
     {"reset", static_cast<SDL_Keycode>(0)},
     {"fullscreen", static_cast<SDL_Keycode>(0)},
     {"borderless", static_cast<SDL_Keycode>(0)},
+    {"mute", static_cast<SDL_Keycode>(0)},
     {"quit", static_cast<SDL_Keycode>(0)},
 };
 
@@ -75,6 +76,7 @@ KeyMap::KeyMap() {
     (*this)[KeyAction::Reset] = SDLK_R;
     (*this)[KeyAction::Fullscreen] = SDLK_F11;
     (*this)[KeyAction::Borderless] = SDLK_F10;
+    (*this)[KeyAction::Mute] = SDLK_M;
     (*this)[KeyAction::Quit] = SDLK_ESCAPE;
 }
 

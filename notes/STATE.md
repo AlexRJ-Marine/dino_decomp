@@ -32,7 +32,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 61 tests pass.
+  `dino_tools.exe`, and all 63 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -128,6 +128,12 @@ Updated: 2026-10-25
   - Rebinds persist and are loaded before the window starts.
   - Evidence: `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
     `tests/test_viewer_cpp.py`.
+- AUDIO-1 complete: SDL3 WAV playback.
+  - C++ RIFF/WAVE PCM reader (8/16-bit, mono/stereo), SDL3 audio device
+    stream, loop and mute (`M`).
+  - `--wav`, `--once`, `--mute`; graceful if no audio device.
+  - Evidence: `src/formats/wav.cpp`, `docs/platform/audio.md`,
+    `tests/test_viewer_cpp.py`, `notes/audio-smoke.txt`.
 - HYB-1/2 complete: two functions replaced in the original exe.
   - 32-bit `DINPUT8.dll` proxy in `run/`; forwards the single imported
     `DirectInput8Create` to the real system DLL.
