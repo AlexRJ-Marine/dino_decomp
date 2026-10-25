@@ -3,6 +3,18 @@
 One task at a time. A task is done only when its acceptance criteria are met,
 tests pass, and `notes/STATE.md` records the evidence path.
 
+## Roadmap alignment
+
+Four phases, tracked in `docs/ROADMAP.md`:
+
+1. **Formats and assets** — FMT-1..7, VIEW-0, OUTREACH-1.
+2. **Platform layer** — VIEW-1..3, QOL-1..3.
+3. **Hybrid decompilation** — DEC-6 function list, HYB-1 hook/replace, then the
+   WORLD/SIM/UI/SAVE tasks as verification targets.
+4. **Remove the original exe** — PAR-1/PAR-2 and portability.
+
+Current focus: **Phase 1, FMT-5 `.anim`**.
+
 ## Phase 0 — environment
 
 ### ENV-1: Verify the agent environment
@@ -51,7 +63,7 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Evidence:** `docs/patches/no-cd.md`, `patches/dinoisland-nocd.ips`,
   `notes/x32dbg-nocd.out.log`.
 
-## Phase 1 — formats (quick wins first)
+## Phase 1 — formats and assets
 
 ### FMT-1: `.mesh` header and file inventory
 - [x] Parse the shared header across all 536 `.mesh` files.
@@ -106,10 +118,15 @@ tests pass, and `notes/STATE.md` records the evidence path.
   `tests/test_skel.py`, 64/64 files, 2,113 bones.
 
 ### FMT-5: `.anim` animation
-- Parse tracks, keyframe times, values, interpolation.
+- [x] Parse the 8-byte duration/start header, bone blocks, `u64` key times,
+  and local 4×4 matrices.
+- [x] Validate all 299 files: 9,129 tracks, 285,507 keys, monotonic times.
+- [x] Apply `HeavyBiped_Armor` to `allo.skel` + `allo_lod1.skin`; render frames.
 - **Acceptance:** all 299 `.anim` files parse; times are monotonic; a clip
   applied to a skeleton produces plausible motion.
 - **Depends on:** FMT-3, FMT-4.
+- **Evidence:** `tools/formats/anim.py`, `docs/formats/anim.md`,
+  `tests/test_anim.py`, `notes/allo-anim.gif`.
 
 ### FMT-6: Simple asset loaders
 - `.tga` (16/24/32-bit), `.wav` (PCM), `.mpg` (MPEG-1), `.png`, `.jpg`.
@@ -122,7 +139,20 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Acceptance:** parser round-trips a sample; font renders a reference string.
 - **Depends on:** ENV-1.
 
-## Phase 2 — first viewer
+### VIEW-0: Simple asset viewer
+- CLI/GUI viewer for one `.mesh` + `.tga`, one texture, and one sound.
+- **Acceptance:** opens `allo_lod1.mesh` + `allo.tga`, a standalone TGA, and a
+  WAV; writes a PNG screenshot/preview.
+- **Depends on:** FMT-2, FMT-6.
+
+### OUTREACH-1: XeNTaX / ZenHax post
+- [x] Draft the format summary and questions in
+  `docs/community/xentax-post.md` (the user publishes it; the agent has no
+  forum account).
+- [ ] Publish and record any replies.
+- **Depends on:** FMT-2, FMT-3, FMT-4.
+
+## Phase 2 — platform layer
 
 ### VIEW-1: CMake + SDL3 + OpenGL window
 - Window, input, delta time, clean shutdown.
@@ -140,7 +170,38 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Acceptance:** `allo` walk/idle plays smoothly; screenshot/gif in `notes/`.
 - **Depends on:** FMT-3, FMT-4, FMT-5, VIEW-2.
 
-## Phase 3 — world
+### QOL-1: Resolution, widescreen, borderless
+- Windowed/borderless/fullscreen, arbitrary resolution, widescreen FOV.
+- **Acceptance:** config persists; 16:9 and 4:3 screenshots match expected framing.
+- **Depends on:** VIEW-1.
+
+### QOL-2: UI scaling
+- Scale the original overlay layout for high-DPI and widescreen.
+- **Acceptance:** menus remain readable at 1080p/1440p/4K.
+- **Depends on:** VIEW-2.
+
+### QOL-3: Key rebinding
+- Read/write a portable key map; replace `KeyMapper.ini` semantics.
+- **Acceptance:** rebind one camera and one movement action; persists.
+- **Depends on:** VIEW-1.
+
+## Phase 3 — hybrid decompilation
+
+### DEC-6: Function status list
+- [x] Create `docs/decomp/function-status.md` with `identified` /
+  `decompiled` / `verified` states.
+- [ ] Keep it current as functions are replaced.
+- **Depends on:** Ghidra import.
+
+### HYB-1: Hook and replace the first loader
+- Hook the original exe, route one format loader through recovered source, and
+  keep the game runnable.
+- Start with `.skel` or `.skin` (already verified).
+- **Acceptance:** original game loads a dinosaur with the replacement loader
+  and the function-status entry is `verified`.
+- **Depends on:** DEC-6, FMT-4.
+
+## Phase 3 verification targets — world
 
 ### WORLD-1: Island terrain
 - Load `.lnd` + `.raw`; build a heightmap mesh; place landscape objects.
@@ -157,7 +218,7 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
 
-## Phase 4 — simulation
+## Phase 3 verification targets — simulation
 
 ### SIM-1: Path/fence placement
 - Grid-based placement, validation, undo.
@@ -179,7 +240,7 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 
-## Phase 5 — presentation
+## Phase 3 verification targets — presentation
 
 ### UI-1: Menus and HUD
 - Main menu, park HUD, info panels.
@@ -196,7 +257,7 @@ tests pass, and `notes/STATE.md` records the evidence path.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
-## Phase 6 — parity and release
+## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness
 - Run original under dgVoodoo2/DXVK; capture screenshots and traces.

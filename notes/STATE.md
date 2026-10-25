@@ -30,7 +30,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 20 tests pass.
+  `dino_tools.exe`, and all 24 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -63,6 +63,16 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/skin.py`, `docs/formats/skin.md`,
     `tests/test_skin.py`, `notes/allo-skin-bind.png`,
     `notes/allo-skin-pose.png`.
+- FMT-5 complete: **`.anim` is solved.**
+  - Header: magic/hash/sentinel `0xdef01234`, duration, start, bone count.
+  - Per bone: name, key count, `u64` times, matrix count, 64-byte local 4×4
+    matrices (row-vector: rotation in the 3×3, translation in row 3).
+  - 299/299 files parse: 9,129 tracks, 285,507 keys, monotonic times.
+  - 255 clips are 35 bones × 31 keys over 0..4,800; six are empty 25-byte clips.
+  - `HeavyBiped_Armor` applied to `allo.skel` + `allo_lod1.skin` produces a
+    rearing loop; `t=0` and `t=4800` match within `1e-6` m.
+  - Evidence: `tools/formats/anim.py`, `docs/formats/anim.md`,
+    `tests/test_anim.py`, `notes/allo-anim.gif`.
 - Allosaurus retail mesh rendered by our own parser/rasterizer:
   `notes/allo-3q-vc-flip.png`, `notes/allo-side-vc-flip.png`,
   `notes/allo-head-flip.png`. Uses `allo_lod1.mesh` (317 v / 382 tri),
@@ -94,22 +104,21 @@ Updated: 2026-10-25
 
 ## In progress
 
-- FMT-5: `.anim` animation. 299 files. Next task: find the animation reader
-  vtable/loader, decode track/keyframe layout, and apply a clip to the 80-bone
-  `allo` skeleton. The skinning path is ready: rigid, one bone per vertex.
+- Phase 1 remaining: FMT-6 simple asset loaders (TGA/WAV), FMT-7 text/config
+  formats, VIEW-0 simple asset viewer, and publishing the XeNTaX post.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. FMT-5: decompile the `.anim` loader (same 5-byte magic; search for the
-   animation class vtable and the reader hit by `FUN_004714b0`).
-2. Parse one `allo` clip; identify bone name, keyframe count, times, and
-   transform values. Validate all 299 files.
-3. Apply the clip to `allo.skel`, drive the 35 skin records, and render a
-   few frames with the existing software rasterizer.
-4. VIEW-1/2: SDL3 + OpenGL viewer with the allosaurus mesh + texture; then
-   skinned animation playback.
+1. FMT-6: TGA (16/24/32-bit) and WAV (PCM) loaders; batch-validate 10 samples
+   of each and report dimensions/duration.
+2. VIEW-0: promote the software rasterizer into a small asset viewer CLI.
+   Open `allo_lod1.mesh` + `allo.tga`, a standalone TGA, and a WAV; write a PNG
+   preview. This is the Phase 1 "check by eye" tool.
+3. FMT-7: `.loc`, `.lnd`, `.fnt`; font renderer for a reference string.
+4. Phase 2: VIEW-1/2/3 (SDL3 + OpenGL window, mesh/texture, skinned animation).
+5. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 
@@ -117,10 +126,15 @@ Updated: 2026-10-25
 
 ## Decisions
 
-- Recommended path is a **reimplementation** with original assets, not a full
-  binary-to-source decompilation. Decompilation is used for targeted algorithms.
-- Full decompilation remains the long-term goal; a playable vertical slice
-  comes first. First playable target: one island, camera, path/fence, one
-  animated dinosaur, 10-minute session.
+- Four-phase roadmap in `docs/ROADMAP.md`: (1) formats/assets, (2) platform
+  layer, (3) hybrid decompilation, (4) remove the original exe.
+- Long-term path is **hybrid decompilation**: hook the original exe and replace
+  functions one at a time with recovered C++, keeping the game runnable
+  throughout. The portable SDL/OpenGL layer is built alongside it. Function
+  status is tracked in `docs/decomp/function-status.md`.
+- A playable vertical slice still comes first: one island, camera, path/fence,
+  one animated dinosaur, 10-minute session.
+- Phase 1 also includes a simple asset viewer and a XeNTaX/ZenHax post
+  (`docs/community/xentax-post.md`, drafted; the user publishes it).
 - Use headless `pyghidra-mcp` over HTTP rather than GUI GhidraMCP; the agent
   environment must be reproducible and unattended.
