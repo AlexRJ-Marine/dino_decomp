@@ -364,6 +364,26 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/hud.md`, `src/formats/fnt.cpp`,
   `notes/hud.png`, `tests/test_viewer_cpp.py::test_cpp_hud`.
 
+### UI-RECON: Retail overlay and menu research
+- [x] Inventory the overlay INIs: `MenuInterface.Ini` (114 widgets, 9 pages),
+  `ParkInterface.Ini` (137 + 9 includes), the lab/list/construction panels.
+- [x] Recover widget semantics in `moWidget::Load` (`0x5bca20`) and the
+  anchoring pass (`0x5bc000`), including `TEXT_JUSTIFY` bits and
+  `ALIGN_*`/`ALIGN_CENTER`.
+- [x] Recover the menu state machine: nine pages, state indices, button
+  handlers and next states (`mvwMenuStateManager` at `0x517c60`).
+- [x] Map `TEXTURE` names through `MenuGraphicDB.ini`/`ParkGraphicDB.ini` to
+  TGA atlas rectangles; verify all menu textures exist.
+- [x] Prove the 800×600 UI is re-anchored, not scaled, at 1024×768 using the
+  retail reference screenshots (MAD 1.0 vs 40.3).
+- [x] Answer the seven UI-2 questions in
+  `docs/platform/ui-original-menu.md`.
+- **Acceptance:** the port can build the retail main menu and park HUD from
+  data alone, with no guessed layout.
+- **Depends on:** FMT-7, UI-0.
+- **Evidence:** `notes/ui-recon.md`, `docs/formats/overlay-ini.md`,
+  `docs/platform/ui-original-menu.md`.
+
 ### UI-1: Menus and HUD
 - [x] Live HUD (FPS/visitors/paths/fences) and `.fnt` text.
 - [x] Start screen (ENTER to begin) and Tab controls panel.
@@ -375,15 +395,22 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_help_panel`.
 
 ### UI-2: Original menu parity
-- **Blocked on menu research (another agent).** Replace the placeholder start
-  screen with the retail overlay: `MenuInterface.Ini` layout,
-  `MenuGraphicDB.ini` rectangles, `MenuEng.loc` strings, original art/audio,
-  main-menu state machine, Free Game → island → park flow, save/load panels.
+- [x] Phase A: parse `MenuInterface.Ini` + `MenuGraphicDB.ini` into
+  `src/ui/` (INI/tree/graphics), render the retail main menu at 800×600,
+  wire pages 0..8 and the recovered transitions.
+- [x] Phase B (partial): Free Game island list (10 names), island picture,
+  difficulty buttons, Start/Cancel; Start closes the menu.
+- [ ] Phase B rest: loading page + build the selected island scene.
+- [ ] Phase C: park HUD from `ParkInterface.Ini`.
+- [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
-- **Depends on:** UI-1, UI-0, research handoff in
-  `docs/platform/ui-original-menu.md`.
-- **Status:** not started; current `--menu` is placeholder only.
+- **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
+- **Evidence:** `docs/platform/ui-original-menu.md`,
+  `notes/menu-retail.png`, `notes/menu-free.png`,
+  `notes/menu-pages-sheet.png`, `tests/test_viewer_cpp.py`
+  (`test_cpp_retail_menu_*`), `tools/formats/overlay.py`,
+  `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video
 - DirectSound-equivalent playback, music, MPEG intro.

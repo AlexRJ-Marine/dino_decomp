@@ -19,6 +19,7 @@
 #include "../world/vegetation.h"
 #include "../world/build.h"
 #include "../world/visitors.h"
+#include "../ui/menu.h"
 #include "keymap.h"
 
 #include <algorithm>
@@ -34,6 +35,7 @@
 #include <functional>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -93,6 +95,10 @@ struct Options {
     bool no_menu = false;
     bool force_menu = false;
     bool force_help = false;
+    bool placeholder_menu = false;
+    bool use_menu = true;
+    int menu_page = -1;
+    std::vector<std::string> menu_clicks;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -258,10 +264,20 @@ Options parse_args(int argc, char** argv) {
             opt.hud_font_path = next("--hud-font");
         } else if (arg == "--no-menu") {
             opt.no_menu = true;
+            opt.use_menu = false;
+        } else if (arg == "--placeholder-menu") {
+            opt.placeholder_menu = true;
+            opt.use_menu = false;
         } else if (arg == "--menu") {
             opt.force_menu = true;
         } else if (arg == "--help-panel") {
             opt.force_help = true;
+        } else if (arg == "--menu-page") {
+            opt.menu_page = std::atoi(next("--menu-page"));
+            opt.force_menu = true;
+        } else if (arg == "--menu-click") {
+            opt.menu_clicks.push_back(next("--menu-click"));
+            opt.force_menu = true;
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -350,7 +366,10 @@ Options parse_args(int argc, char** argv) {
                 "  --hud-font FILE      bitmap font for the HUD (default arial12.fnt)\n"
                 "  --no-menu            skip the start screen\n"
                 "  --menu               force the start screen (for screenshots)\n"
+                "  --placeholder-menu   use the old placeholder start screen\n"
                 "  --help-panel         show the controls panel at startup\n"
+                "  --menu-page N        start the retail menu on page 0..8\n"
+                "  --menu-click X,Y     click design-space point(s) before the first frame\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -607,7 +626,11 @@ void main() {
         color = base * (u_ambient + u_light_color * (key + fill));
         color = pow(clamp(color, 0.0, 1.0), vec3(0.85));
     }
-    frag_color = vec4(color, u_alpha);
+    float out_alpha = u_alpha * v_color.a;
+    if (u_use_texture != 0) {
+        out_alpha *= texel.a;
+    }
+    frag_color = vec4(color, out_alpha);
 }
 )GLSL";
     const GLuint vs = compile_shader(GL_VERTEX_SHADER, kVertex, gl);
@@ -915,6 +938,156 @@ dino::Mesh build_screen_rect(float x, float y, float w, float h,
     mesh.colors.assign(4, color);
     mesh.indices = {0, 1, 2, 0, 2, 3};
     return mesh;
+}
+
+struct UiTexture {
+    GLuint id = 0;
+    int width = 0;
+    int height = 0;
+    dino::Image image;
+};
+
+struct UiSourceRect {
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
+    bool valid = true;
+};
+
+UiSourceRect ui_frame_rect(const UiTexture& texture, const dino::ui::Graphic& graphic,
+                           int frame) {
+    UiSourceRect rect{graphic.rect.x, graphic.rect.y, graphic.rect.width,
+                      graphic.rect.height};
+    if (texture.width <= 0 || texture.height <= 0 || graphic.rect.width <= 0 ||
+        graphic.rect.height <= 0) {
+        return rect;
+    }
+    int origin_y = graphic.rect.y;
+    if (graphic.objects > 1 && !texture.image.rgba.empty()) {
+        const int max_y = std::min(texture.height,
+                                   graphic.rect.y + graphic.rect.height * 2);
+        bool found = false;
+        for (int y = graphic.rect.y; y < max_y && !found; ++y) {
+            for (int x = graphic.rect.x;
+                 x < graphic.rect.x + graphic.rect.width && x < texture.width;
+                 ++x) {
+                const std::size_t index =
+                    (static_cast<std::size_t>(y) * texture.width + x) * 4 + 3;
+                if (index < texture.image.rgba.size() &&
+                    texture.image.rgba[index] > 8) {
+                    origin_y = y;
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+    const int columns = std::max(1, texture.width / graphic.rect.width);
+    const int x = graphic.rect.x + (frame % columns) * graphic.rect.width;
+    const int y = origin_y + (frame / columns) * graphic.rect.height;
+    if (x + graphic.rect.width <= texture.width &&
+        y + graphic.rect.height <= texture.height) {
+        rect.x = x;
+        rect.y = y;
+    } else {
+        rect.valid = false;
+    }
+    return rect;
+}
+
+bool ui_rect_has_ink(const UiTexture& texture, const UiSourceRect& rect) {
+    if (!rect.valid || texture.width <= 0 || texture.height <= 0 ||
+        texture.image.rgba.empty()) {
+        return false;
+    }
+    for (int y = rect.y; y < rect.y + rect.h && y < texture.height; ++y) {
+        for (int x = rect.x; x < rect.x + rect.w && x < texture.width; ++x) {
+            const std::size_t index =
+                (static_cast<std::size_t>(y) * texture.width + x) * 4 + 3;
+            if (index < texture.image.rgba.size() &&
+                texture.image.rgba[index] > 8) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int ui_last_visible_frame(const UiTexture& texture, const dino::ui::Graphic& graphic) {
+    const int used = std::max(1, graphic.objects - static_cast<int>(graphic.skip.size()));
+    for (int frame = used - 1; frame >= 0; --frame) {
+        if (ui_rect_has_ink(texture, ui_frame_rect(texture, graphic, frame))) {
+            return frame;
+        }
+    }
+    return 0;
+}
+
+dino::Mesh build_ui_quad(float x, float y, float w, float h, float u0, float v0,
+                         float u1, float v1, dino::Color color) {
+    dino::Mesh mesh;
+    mesh.name = "ui_quad";
+    mesh.positions = {{x, y, 0}, {x + w, y, 0}, {x + w, y + h, 0}, {x, y + h, 0}};
+    mesh.normals.assign(4, {0.0f, 0.0f, 1.0f});
+    // build_vertices adds +1 to v.
+    mesh.uvs = {{u0, v0 - 1.0f}, {u1, v0 - 1.0f}, {u1, v1 - 1.0f}, {u0, v1 - 1.0f}};
+    mesh.colors.assign(4, color);
+    mesh.indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
+}
+
+void append_mesh(dino::Mesh& dst, const dino::Mesh& src) {
+    const auto base = static_cast<std::uint32_t>(dst.positions.size());
+    dst.positions.insert(dst.positions.end(), src.positions.begin(), src.positions.end());
+    dst.normals.insert(dst.normals.end(), src.normals.begin(), src.normals.end());
+    dst.uvs.insert(dst.uvs.end(), src.uvs.begin(), src.uvs.end());
+    dst.colors.insert(dst.colors.end(), src.colors.begin(), src.colors.end());
+    for (const std::uint32_t index : src.indices) {
+        dst.indices.push_back(base + index);
+    }
+}
+
+dino::Mesh build_text_block(const dino::Fnt& font, const std::string& text,
+                            float x, float y, float scale, dino::Color color,
+                            const std::string& justify, float box_w, float box_h) {
+    dino::Mesh out;
+    out.name = "ui_text";
+    std::vector<std::string> lines;
+    std::string line;
+    for (const char ch : text) {
+        if (ch == '\n') {
+            lines.push_back(line);
+            line.clear();
+        } else {
+            line.push_back(ch);
+        }
+    }
+    lines.push_back(line);
+    const float line_height = static_cast<float>(font.line_height) * scale;
+    const float total_height = line_height * static_cast<float>(lines.size());
+    float start_y = y;
+    if (justify.find("DOWN") != std::string::npos) {
+        start_y = y + box_h - total_height;
+    } else if (justify.find("CENTER") != std::string::npos ||
+               justify.find("Y") != std::string::npos) {
+        start_y = y + (box_h - total_height) * 0.5f;
+    }
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        const float width = text_width(font, lines[i], scale);
+        float line_x = x;
+        if (justify.find("RIGHT") != std::string::npos) {
+            line_x = x + box_w - width;
+        } else if (justify.find("CENTER") != std::string::npos ||
+                   justify.find("X") != std::string::npos) {
+            line_x = x + (box_w - width) * 0.5f;
+        }
+        const dino::Mesh glyphs = build_text_mesh(
+            font, lines[i], line_x, start_y + static_cast<float>(i) * line_height,
+            scale, color);
+        append_mesh(out, glyphs);
+    }
+    return out;
 }
 
 dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
@@ -1331,6 +1504,29 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    dino::ui::Menu menu;
+    bool menu_loaded = false;
+    if (opt.use_menu) {
+        menu_loaded = menu.load(opt.asset_root);
+        if (!menu_loaded) {
+            std::fprintf(stderr, "menu: %s (falling back to placeholder)\n",
+                         menu.error.c_str());
+        }
+    }
+
+    if (menu_loaded) {
+        if (opt.menu_page >= 0) {
+            menu.page = std::clamp(opt.menu_page, 0, 8);
+        }
+        for (const auto& value : opt.menu_clicks) {
+            int x = 0;
+            int y = 0;
+            if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
+                menu.click(x, y);
+            }
+        }
+    }
+
     dino::Mesh mesh;
     dino::Image image;
     dino::Image dino_image;
@@ -1555,6 +1751,19 @@ int main(int argc, char** argv) {
     }
 
     if (opt.validate) {
+        if (opt.use_menu) {
+            std::printf("menu: loaded=%d widgets=%zu pages=%zu graphics=%zu\n",
+                        menu_loaded ? 1 : 0, menu.overlay.widgets.size(),
+                        menu.overlay.pages.size(), menu.overlay.graphics.size());
+            if (menu_loaded) {
+                std::printf("menu page=%d active=%d island=%d difficulty=%d\n",
+                            menu.page, menu.active ? 1 : 0, menu.island,
+                            menu.difficulty);
+            }
+            if (!menu_loaded) {
+                std::printf("menu error: %s\n", menu.error.c_str());
+            }
+        }
         if (!opt.mesh_path.empty()) {
             std::printf("mesh %s: %zu vertices, %zu indices, %zu triangles, "
                         "%zu uvs, %zu normals, %zu colors\n",
@@ -1775,6 +1984,286 @@ int main(int argc, char** argv) {
         (opt.hud && hud_font_ready) ? upload_font_atlas(hud_font) : 0;
     bool hud_visible = true;
     GpuMesh hud_gpu;
+    GpuMesh menu_gpu;
+    std::unordered_map<std::string, UiTexture> ui_textures;
+    std::unordered_map<std::string, dino::Fnt> ui_fonts;
+    std::unordered_map<std::string, GLuint> ui_font_atlases;
+
+    auto ui_texture = [&](const std::string& filename) -> UiTexture* {
+        if (filename.empty()) {
+            return nullptr;
+        }
+        auto it = ui_textures.find(filename);
+        if (it != ui_textures.end()) {
+            return &it->second;
+        }
+        try {
+            dino::Image img = dino::load_image(resolve_asset(opt.asset_root, filename));
+            UiTexture texture;
+            texture.id = upload_texture(img);
+            texture.width = img.width;
+            texture.height = img.height;
+            texture.image = std::move(img);
+            const auto result = ui_textures.emplace(filename, std::move(texture));
+            return &result.first->second;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "menu texture: %s\n", e.what());
+            return nullptr;
+        }
+    };
+
+    auto ui_font = [&](const std::string& path, int text_height,
+                       float& scale_out, GLuint& atlas_out) -> const dino::Fnt* {
+        const std::string font_path =
+            path.empty() ? resolve_asset(opt.asset_root, "Data/Fonte/arial12.fnt")
+                         : resolve_asset(opt.asset_root, path);
+        auto it = ui_fonts.find(font_path);
+        if (it == ui_fonts.end()) {
+            try {
+                dino::Fnt font = dino::load_fnt(font_path);
+                it = ui_fonts.emplace(font_path, std::move(font)).first;
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "menu font: %s\n", e.what());
+                return nullptr;
+            }
+        }
+        const dino::Fnt& font = it->second;
+        scale_out = text_height > 0 && font.font_size > 0
+                        ? static_cast<float>(text_height) /
+                              static_cast<float>(font.font_size)
+                        : 1.0f;
+        auto at = ui_font_atlases.find(font_path);
+        if (at == ui_font_atlases.end()) {
+            at = ui_font_atlases.emplace(font_path, upload_font_atlas(font)).first;
+        }
+        atlas_out = at->second;
+        return &font;
+    };
+
+    auto draw_ui_mesh = [&](GpuMesh& target, const dino::Mesh& mesh, GLuint texture_id,
+                            float alpha, int unlit, int view_w, int view_h) {
+        target.destroy(glfns);
+        target = upload_mesh(mesh, glfns);
+        if (target.vao == 0) {
+            return;
+        }
+        dino::Mat4 ortho;
+        ortho.m[0] = 2.0f / static_cast<float>(view_w);
+        ortho.m[5] = -2.0f / static_cast<float>(view_h);
+        ortho.m[3] = -1.0f;
+        ortho.m[7] = 1.0f;
+        glfns.UseProgram(program);
+        glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                               ortho.m);
+        glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), unlit);
+        glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
+                        texture_id != 0 ? 1 : 0);
+        glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), alpha);
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (texture_id != 0) {
+            glfns.ActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture_id);
+        }
+        glfns.BindVertexArray(target.vao);
+        glDrawElements(GL_TRIANGLES, target.index_count, GL_UNSIGNED_INT, nullptr);
+        glfns.BindVertexArray(0);
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+        glfns.UseProgram(0);
+    };
+
+    auto draw_menu = [&](int view_w, int view_h, int logical_w, int logical_h) {
+        (void)logical_h;
+        if (!menu_loaded) {
+            return;
+        }
+        const float dpi = logical_w > 0
+                              ? static_cast<float>(view_w) / static_cast<float>(logical_w)
+                              : 1.0f;
+        const float ox = (static_cast<float>(view_w) - 800.0f * dpi) * 0.5f;
+        const float oy = (static_cast<float>(view_h) - 600.0f * dpi) * 0.5f;
+        auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
+        auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+
+        if (const dino::ui::Graphic* background =
+                menu.overlay.graphic(menu.background())) {
+            if (UiTexture* texture = ui_texture(background->filename)) {
+                draw_ui_mesh(menu_gpu,
+                             build_ui_quad(ox, oy, 800.0f * dpi, 600.0f * dpi, 0.0f,
+                                           0.0f, 1.0f, 1.0f, {255, 255, 255, 255}),
+                             texture->id, 1.0f, 1, view_w, view_h);
+            }
+        }
+
+        for (int i = 0; i < static_cast<int>(menu.overlay.widgets.size()); ++i) {
+            const dino::ui::Widget& widget =
+                menu.overlay.widgets[static_cast<std::size_t>(i)];
+            bool visible = menu.widget_visible(i);
+            const std::string island_prefix = "FREE_GAME_ISLAND_PIC_isl";
+            if (widget.name.rfind(island_prefix, 0) == 0) {
+                const int index = std::atoi(widget.name.c_str() + island_prefix.size());
+                visible = menu.page == 1 &&
+                          menu.overlay.page_root(i) ==
+                              static_cast<int>(menu.overlay.pages[1]) &&
+                          index == menu.island + 1;
+            }
+            if (!visible) {
+                continue;
+            }
+
+            int frame = i == menu.hover ? 1 : 0;
+            if ((widget.name == "FREE_EASY_BUTTON" && menu.difficulty == 0) ||
+                (widget.name == "FREE_MIDDLE_BUTTON" && menu.difficulty == 1) ||
+                (widget.name == "FREE_HARD_BUTTON" && menu.difficulty == 2)) {
+                frame = 1;
+            }
+
+            if (!widget.texture.empty()) {
+                if (const dino::ui::Graphic* graphic =
+                        menu.overlay.graphic(widget.texture)) {
+                    if (UiTexture* texture = ui_texture(graphic->filename)) {
+                        const UiSourceRect source =
+                            ui_frame_rect(*texture, *graphic, frame);
+                        if (source.valid) {
+                            const float u0 = static_cast<float>(source.x) / texture->width;
+                            const float v0 = static_cast<float>(source.y) / texture->height;
+                            const float u1 = static_cast<float>(source.x + source.w) /
+                                             texture->width;
+                            const float v1 = static_cast<float>(source.y + source.h) /
+                                             texture->height;
+                            draw_ui_mesh(
+                                menu_gpu,
+                                build_ui_quad(px(widget.abs_x), py(widget.abs_y),
+                                              static_cast<float>(widget.width) * dpi,
+                                              static_cast<float>(widget.height) * dpi,
+                                              u0, v0, u1, v1, {255, 255, 255, 255}),
+                                texture->id, 1.0f, 1, view_w, view_h);
+                        }
+                    }
+                }
+            } else if (widget.has_back_color) {
+                draw_ui_mesh(menu_gpu,
+                             build_screen_rect(px(widget.abs_x), py(widget.abs_y),
+                                               static_cast<float>(widget.width) * dpi,
+                                               static_cast<float>(widget.height) * dpi,
+                                               widget.back_color),
+                             0, 1.0f, 1, view_w, view_h);
+            }
+
+            if (widget.type == "LIST") {
+                const int line_h =
+                    widget.list_line_height > 0 ? widget.list_line_height : 34;
+                const int row_w =
+                    widget.list_column0_width > 0
+                        ? widget.list_column0_width
+                        : widget.width - widget.list_scroll_width;
+                const int rows = std::min(
+                    10, line_h > 0 ? widget.height / line_h : 0);
+                const dino::ui::Graphic* row_graphic =
+                    menu.overlay.graphic("ISLAND_LIST_BUTTON");
+                UiTexture* row_texture =
+                    row_graphic != nullptr ? ui_texture(row_graphic->filename)
+                                           : nullptr;
+                const int selected_frame =
+                    row_texture != nullptr && row_graphic != nullptr
+                        ? ui_last_visible_frame(*row_texture, *row_graphic)
+                        : 0;
+                float list_scale = 1.0f;
+                GLuint list_atlas = 0;
+                const dino::Fnt* list_font = ui_font(
+                    widget.font, widget.text_height, list_scale, list_atlas);
+                const std::string list_justify =
+                    widget.justify.empty() ? "CENTER" : widget.justify;
+                for (int row = 0; row < rows; ++row) {
+                    const float row_y =
+                        py(widget.abs_y) + static_cast<float>(row) * line_h * dpi;
+                    if (row_texture != nullptr && row_graphic != nullptr) {
+                        const int frame = row == menu.island ? selected_frame : 0;
+                        const UiSourceRect source =
+                            ui_frame_rect(*row_texture, *row_graphic, frame);
+                        if (source.valid) {
+                            const float u0 =
+                                static_cast<float>(source.x) / row_texture->width;
+                            const float v0 =
+                                static_cast<float>(source.y) / row_texture->height;
+                            const float u1 = static_cast<float>(source.x + source.w) /
+                                             row_texture->width;
+                            const float v1 = static_cast<float>(source.y + source.h) /
+                                             row_texture->height;
+                            draw_ui_mesh(
+                                menu_gpu,
+                                build_ui_quad(px(widget.abs_x), row_y,
+                                              static_cast<float>(row_w) * dpi,
+                                              static_cast<float>(line_h) * dpi, u0,
+                                              v0, u1, v1, {255, 255, 255, 255}),
+                                row_texture->id, 1.0f, 1, view_w, view_h);
+                        }
+                    }
+                    if (list_font != nullptr) {
+                        char field[32];
+                        std::snprintf(field, sizeof(field), "&Isl%02d_Name", row + 1);
+                        const std::string name =
+                            dino::ui::resolve_loc_text(field, menu.loc);
+                        const dino::Mesh block = build_text_block(
+                            *list_font, name, px(widget.abs_x), row_y,
+                            list_scale * dpi, widget.text_color, list_justify,
+                            static_cast<float>(row_w) * dpi,
+                            static_cast<float>(line_h) * dpi);
+                        draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2, view_w,
+                                     view_h);
+                    }
+                }
+                if (widget.list_scroll_width > 0) {
+                    if (const dino::ui::Graphic* lift =
+                            menu.overlay.graphic("CAMPAIGN_TEXT_LIFT")) {
+                        if (UiTexture* lift_texture = ui_texture(lift->filename)) {
+                            const UiSourceRect source =
+                                ui_frame_rect(*lift_texture, *lift, 0);
+                            if (source.valid) {
+                                const float u0 = static_cast<float>(source.x) /
+                                                 lift_texture->width;
+                                const float v0 = static_cast<float>(source.y) /
+                                                 lift_texture->height;
+                                const float u1 =
+                                    static_cast<float>(source.x + source.w) /
+                                    lift_texture->width;
+                                const float v1 =
+                                    static_cast<float>(source.y + source.h) /
+                                    lift_texture->height;
+                                draw_ui_mesh(
+                                    menu_gpu,
+                                    build_ui_quad(
+                                        px(widget.abs_x + row_w),
+                                        py(widget.abs_y),
+                                        static_cast<float>(widget.list_scroll_width) *
+                                            dpi,
+                                        static_cast<float>(widget.height) * dpi, u0,
+                                        v0, u1, v1, {255, 255, 255, 255}),
+                                    lift_texture->id, 1.0f, 1, view_w, view_h);
+                            }
+                        }
+                    }
+                }
+            }
+
+            const std::string text = menu.text_for(widget);
+            if (!text.empty()) {
+                float scale = 1.0f;
+                GLuint atlas = 0;
+                if (const dino::Fnt* font =
+                        ui_font(widget.font, widget.text_height, scale, atlas)) {
+                    const dino::Mesh block = build_text_block(
+                        *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
+                        widget.text_color, widget.justify,
+                        static_cast<float>(widget.width) * dpi,
+                        static_cast<float>(widget.height) * dpi);
+                    draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
+                }
+            }
+        }
+    };
     const bool place_dino = skinned && !opt.lnd_path.empty();
     const float spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x : terrain.world_size * 0.5f;
     const float spawn_y = opt.spawn_y >= 0.0f ? opt.spawn_y : terrain.world_size * 0.5f;
@@ -1987,6 +2476,9 @@ int main(int argc, char** argv) {
     bool running = true;
     bool start_screen = opt.force_menu ||
         (opt.frames == 0 && opt.screenshot.empty() && !opt.no_menu);
+    if (menu_loaded && opt.use_menu && !menu.active) {
+        start_screen = false;
+    }
     bool show_help = opt.force_help;
     bool dragging = false;
     float last_mx = 0.0f, last_my = 0.0f;
@@ -2008,6 +2500,35 @@ int main(int argc, char** argv) {
             if (start_screen) {
                 if (event.type == SDL_EVENT_QUIT) {
                     running = false;
+                } else if (menu_loaded && opt.use_menu) {
+                    const float off_x =
+                        (static_cast<float>(logical_width) - 800.0f) * 0.5f;
+                    const float off_y =
+                        (static_cast<float>(logical_height) - 600.0f) * 0.5f;
+                    if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                        menu.move(static_cast<int>(event.motion.x - off_x),
+                                  static_cast<int>(event.motion.y - off_y));
+                    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                               event.button.button == SDL_BUTTON_LEFT) {
+                        menu.click(static_cast<int>(event.button.x - off_x),
+                                   static_cast<int>(event.button.y - off_y));
+                        if (menu.quit) {
+                            running = false;
+                        }
+                        if (!menu.active) {
+                            start_screen = false;
+                        }
+                    } else if (event.type == SDL_EVENT_KEY_DOWN &&
+                               !event.key.repeat) {
+                        if (event.key.key == SDLK_ESCAPE) {
+                            menu.escape();
+                            if (menu.quit) {
+                                running = false;
+                            }
+                        } else if (event.key.key == SDLK_RETURN && menu.page == 0) {
+                            menu.page = 1;
+                        }
+                    }
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
                     if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
                         start_screen = false;
@@ -2310,97 +2831,74 @@ int main(int argc, char** argv) {
 
         auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
                            int unlit) {
-            hud_gpu.destroy(glfns);
-            hud_gpu = upload_mesh(mesh, glfns);
-            if (hud_gpu.vao == 0) {
-                return;
-            }
-            dino::Mat4 ortho;
-            ortho.m[0] = 2.0f / static_cast<float>(width);
-            ortho.m[5] = -2.0f / static_cast<float>(height);
-            ortho.m[3] = -1.0f;
-            ortho.m[7] = 1.0f;
-            glfns.UseProgram(program);
-            glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1,
-                                   GL_TRUE, ortho.m);
-            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), unlit);
-            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
-                            texture_id != 0 ? 1 : 0);
-            glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), alpha);
-            glDisable(GL_DEPTH_TEST);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            if (texture_id != 0) {
-                glfns.ActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_id);
-            }
-            glfns.BindVertexArray(hud_gpu.vao);
-            glDrawElements(GL_TRIANGLES, hud_gpu.index_count, GL_UNSIGNED_INT,
-                           nullptr);
-            glfns.BindVertexArray(0);
-            glDisable(GL_BLEND);
-            glEnable(GL_DEPTH_TEST);
-            glfns.UseProgram(0);
+            draw_ui_mesh(hud_gpu, mesh, texture_id, alpha, unlit, width, height);
         };
 
-        if (!start_screen && hud_visible && hud_font_texture != 0) {
-            char line1[128];
-            char line2[192];
-            std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
-                          dt > 0.0 ? 1.0 / dt : 0.0);
-            std::snprintf(line2, sizeof(line2), "visitors %zu   paths %d   fences %d",
-                          visitor_system.visitors.size(), build_grid.path_count,
-                          build_grid.fence_count);
-            const std::string text = std::string(line1) + "\n" + line2;
-            draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
-                                    {235, 240, 245, 255}),
-                    hud_font_texture, 0.95f, 2);
-        }
-
-        if (start_screen && hud_font_texture != 0) {
-            draw_2d(build_screen_rect(0.0f, 0.0f, static_cast<float>(width),
-                                      static_cast<float>(height),
-                                      {8, 12, 18, 255}),
-                    0, 0.55f, 1);
-            const std::string title = "DINO ISLAND";
-            const float title_scale = 4.0f;
-            const float title_width = text_width(hud_font, title, title_scale);
-            draw_2d(build_text_mesh(hud_font, title,
-                                    (static_cast<float>(width) - title_width) * 0.5f,
-                                    static_cast<float>(height) * 0.30f,
-                                    title_scale, {240, 236, 220, 255}),
-                    hud_font_texture, 1.0f, 2);
-            const std::string subtitle = "Press ENTER to begin";
-            const float subtitle_scale = 1.6f;
-            const float subtitle_width =
-                text_width(hud_font, subtitle, subtitle_scale);
-            draw_2d(build_text_mesh(
-                        hud_font, subtitle,
-                        (static_cast<float>(width) - subtitle_width) * 0.5f,
-                        static_cast<float>(height) * 0.52f, subtitle_scale,
-                        {220, 228, 236, 255}),
-                    hud_font_texture, 1.0f, 2);
-            const std::string hint = "Esc quits    Tab help";
-            const float hint_width = text_width(hud_font, hint, 1.2f);
-            draw_2d(build_text_mesh(
-                        hud_font, hint,
-                        (static_cast<float>(width) - hint_width) * 0.5f,
-                        static_cast<float>(height) * 0.66f, 1.2f,
-                        {170, 185, 200, 255}),
-                    hud_font_texture, 1.0f, 2);
-        } else if (show_help && hud_font_texture != 0) {
-            const float panel_w = std::min(640.0f, static_cast<float>(width) - 80.0f);
-            draw_2d(build_screen_rect(40.0f, 60.0f, panel_w, 230.0f,
-                                      {10, 14, 20, 255}),
-                    0, 0.80f, 1);
-            draw_2d(build_text_mesh(
-                        hud_font,
-                        "CONTROLS\n\n"
-                        "WASD move    C camera    Shift sprint\n"
-                        "1 path    2 fence    0 off    U undo    click place\n"
-                        "F1 HUD    Tab close    Esc quit",
-                        64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
-                    hud_font_texture, 1.0f, 2);
+        if (start_screen) {
+            if (menu_loaded && opt.use_menu) {
+                draw_menu(width, height, logical_width, logical_height);
+            } else if (hud_font_texture != 0) {
+                draw_2d(build_screen_rect(0.0f, 0.0f, static_cast<float>(width),
+                                          static_cast<float>(height),
+                                          {8, 12, 18, 255}),
+                        0, 0.55f, 1);
+                const std::string title = "DINO ISLAND";
+                const float title_scale = 4.0f;
+                const float title_width = text_width(hud_font, title, title_scale);
+                draw_2d(build_text_mesh(hud_font, title,
+                                        (static_cast<float>(width) - title_width) * 0.5f,
+                                        static_cast<float>(height) * 0.30f,
+                                        title_scale, {240, 236, 220, 255}),
+                        hud_font_texture, 1.0f, 2);
+                const std::string subtitle = "Press ENTER to begin";
+                const float subtitle_scale = 1.6f;
+                const float subtitle_width =
+                    text_width(hud_font, subtitle, subtitle_scale);
+                draw_2d(build_text_mesh(
+                            hud_font, subtitle,
+                            (static_cast<float>(width) - subtitle_width) * 0.5f,
+                            static_cast<float>(height) * 0.52f, subtitle_scale,
+                            {220, 228, 236, 255}),
+                        hud_font_texture, 1.0f, 2);
+                const std::string hint = "Esc quits    Tab help";
+                const float hint_width = text_width(hud_font, hint, 1.2f);
+                draw_2d(build_text_mesh(
+                            hud_font, hint,
+                            (static_cast<float>(width) - hint_width) * 0.5f,
+                            static_cast<float>(height) * 0.66f, 1.2f,
+                            {170, 185, 200, 255}),
+                        hud_font_texture, 1.0f, 2);
+            }
+        } else {
+            if (hud_visible && hud_font_texture != 0) {
+                char line1[128];
+                char line2[192];
+                std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
+                              dt > 0.0 ? 1.0 / dt : 0.0);
+                std::snprintf(line2, sizeof(line2),
+                              "visitors %zu   paths %d   fences %d",
+                              visitor_system.visitors.size(), build_grid.path_count,
+                              build_grid.fence_count);
+                const std::string text = std::string(line1) + "\n" + line2;
+                draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
+                                        {235, 240, 245, 255}),
+                        hud_font_texture, 0.95f, 2);
+            }
+            if (show_help && hud_font_texture != 0) {
+                const float panel_w =
+                    std::min(640.0f, static_cast<float>(width) - 80.0f);
+                draw_2d(build_screen_rect(40.0f, 60.0f, panel_w, 230.0f,
+                                          {10, 14, 20, 255}),
+                        0, 0.80f, 1);
+                draw_2d(build_text_mesh(
+                            hud_font,
+                            "CONTROLS\n\n"
+                            "WASD move    C camera    Shift sprint\n"
+                            "1 path    2 fence    0 off    U undo    click place\n"
+                            "F1 HUD    Tab close    Esc quit",
+                            64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
+                        hud_font_texture, 1.0f, 2);
+            }
         }
 
         if (!opt.capture_dir.empty()) {
@@ -2466,6 +2964,17 @@ int main(int argc, char** argv) {
     water_gpu.destroy(glfns);
     visitor_gpu.destroy(glfns);
     hud_gpu.destroy(glfns);
+    menu_gpu.destroy(glfns);
+    for (auto& entry : ui_textures) {
+        if (entry.second.id != 0) {
+            glDeleteTextures(1, &entry.second.id);
+        }
+    }
+    for (auto& entry : ui_font_atlases) {
+        if (entry.second != 0) {
+            glDeleteTextures(1, &entry.second);
+        }
+    }
     if (hud_font_texture != 0) {
         glDeleteTextures(1, &hud_font_texture);
     }

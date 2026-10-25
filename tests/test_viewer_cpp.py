@@ -580,3 +580,70 @@ def test_cpp_help_panel(tmp_path):
     bright = sum(1 for p in panel.get_flattened_data()
                  if p[0] > 180 and p[1] > 180 and p[2] > 170)
     assert bright > 150
+
+def test_cpp_retail_menu_load():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "menu: loaded=1 widgets=114 pages=9 graphics=53" in result.stdout
+    assert "menu page=0 active=1 island=0 difficulty=1" in result.stdout
+
+
+def test_cpp_retail_menu_pages():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    for page in (0, 1, 2, 4, 5, 7, 8):
+        result = subprocess.run(
+            [str(EXE), "--validate", "--lnd", str(ISL01),
+             "--asset-root", str(GAME), "--no-vegetation",
+             "--menu-page", str(page)],
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        assert f"menu page={page} active=1" in result.stdout
+
+
+def test_cpp_retail_menu_clicks():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    free = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--menu-click", "395,234"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert free.returncode == 0, free.stderr
+    assert "menu page=1 active=1" in free.stdout
+
+    start = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--menu-click", "395,234",
+         "--menu-click", "526,531"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert start.returncode == 0, start.stderr
+    assert "menu page=1 active=0" in start.stdout
+
+
+def test_cpp_retail_menu_shot(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "menu.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--menu", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    assert image.size == (800, 600)
+    # FREE_GAME_BUTTON normal bar colour in menu_outcome4.tga.
+    r, g, b = image.getpixel((400, 235))
+    assert r < 30 and abs(g - 113) < 30 and abs(b - 150) < 30
+    # The menu art is not a flat scene.
+    assert len(image.getcolors(maxcolors=1_000_000)) > 500

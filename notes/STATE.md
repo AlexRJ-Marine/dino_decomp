@@ -223,7 +223,47 @@ Updated: 2026-10-25
   - Evidence: `docs/platform/hud.md`, `notes/menu.png`,
     `notes/menu-help.png`, `tests/test_viewer_cpp.py::test_cpp_start_menu`,
     `test_cpp_help_panel`.
-- 86 tests pass; working tree committed.
+- UI-2 Phase A complete: **retail menu rendered from data.**
+  - `src/ui/ini.cpp` (INI/#INCLUDE), `overlay.cpp` (114 widgets, 9 pages,
+    53 graphics, absolute rects), `menu.cpp` (page state machine, hit-test,
+    transitions), `src/formats/loc.cpp` (`MenuEng.loc`).
+  - Viewer: 800×600 design space centred in the window, `BACKGROUND_*`,
+    compact button frame strips (`NB_OBJECTS`/`SKIP_LIST`), `.fnt` text with
+    `TEXT_HEIGHT`/`TEXT_JUSTIFY`.
+  - Free Game page: 10-island list, island picture, difficulty, Start/Cancel.
+    Pages 2–8 render their retail backgrounds/widgets; Start closes the menu.
+  - CLI: `--menu`, `--menu-page N`, `--menu-click X,Y`,
+    `--placeholder-menu`, `--no-menu`.
+  - Cross-checked against the Python parser/preview (`tools/formats/overlay.py`,
+    `notes/menu-preview.png`) and the 800×600 retail reference.
+  - Evidence: `docs/platform/ui-original-menu.md`, `notes/menu-retail.png`,
+    `notes/menu-free.png`, `notes/menu-pages-sheet.png`,
+    `tests/test_viewer_cpp.py::test_cpp_retail_menu_*`.
+- 100 tests pass; working tree committed.
+- UI-RECON complete: **retail overlay/menu research delivered.**
+  - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
+    9 pages), `ParkInterface.Ini` (137 + 9 includes), `MenuGraphicDB.ini`
+    (53) and `ParkGraphicDB.ini` (605 unique), `MenuEng.loc`/`ParkEng.loc`.
+  - Widget semantics recovered: `moWidget::Load` `0x5bca20` (flags,
+    `TEXT_JUSTIFY` bits), `moWidget::OnResize` `0x5bc000` (anchor/stretch/
+    center), event setters `0x5c5f00`.
+  - Menu state machine: nine pages, state index 0..8, button handlers and
+    next states (`mvwMenuStateManager` `0x517c60`; page ctors
+    `0x51bbf0`, `0x51b120`, …).
+  - 1024×768 retail reference proves the UI is re-anchored, not scaled
+    (MAD 1.0 vs 40.3).
+  - Follow-up: frame strips (`SKIP_LIST` is a bitmask; skipped frames are not
+    stored), observed normal-state frames per control family,
+    `ALIGN_USER_DEFINED`, `SIZE`, `TEXTURE_FRAME`.
+  - Python oracle: `tools/formats/overlay.py` + `tools/viewer/overlay_preview.py`
+    with `tests/test_overlay.py`, `tests/test_overlay_preview.py` (13 tests).
+    Previews: `notes/menu-preview.png`, `notes/menu-freegame-preview.png`,
+    `notes/hud-preview.png`; HUD matches the retail 800×600 screenshot
+    (right panel MAD 8.8, gauge 12.0).
+  - Evidence: `notes/ui-recon.md`, `notes/ui-frame-handoff.md`,
+    `docs/formats/overlay-ini.md`,
+    `docs/platform/ui-original-menu.md` (the seven UI-2 questions answered).
+
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -266,16 +306,14 @@ Updated: 2026-10-25
 
 ## In progress
 
-- **Menu parity (UI-2) is blocked on the menu research agent.** The current
-  start screen and Tab panel are placeholder UI only (see
-  `docs/platform/ui-original-menu.md`). Retail assets are inventoried there:
-  `MenuInterface.Ini` widget schema, `MenuGraphicDB.ini`, `RadialMenu.Ini`,
-  `MenuEng.loc`, menu art/textures and reference screenshots.
-- Phase 3 vertical slice is otherwise functionally complete: island,
-  vegetation, dinosaur, free camera, path/fence, sky/water, visitors, HUD.
-- Next feature once the research lands: parse `MenuInterface.Ini` into a widget
-  tree and replace the placeholder with the original main menu, then the
-  Free Game → island → park flow.
+- **UI-2 Phase B rest:** `FREE_START_BUTTON` should show `LOADING_PAGE`
+  (`loading_800x600.tga`) and build the selected island's scene, then hand
+  control to the park.
+- **UI-2 Phase C:** park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
+  (always-on panels; live budget/visitor/time fields); then Phase D panels,
+  save/load and menu sounds.
+- Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
+  camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
 - WORLD-2 remains: culling, LOD2, scenario/building placements.
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
@@ -283,19 +321,20 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. Read the menu research when it arrives; confirm the screen list, widget
-   layout, action IDs and input handling against `MenuInterface.Ini`.
-2. Implement `src/ui/` widget parsing + hit-testing and the main-menu state
-   machine; keep `--no-menu` for tests.
-3. SIM-2b: visitor needs/attraction targets after the menu work or in parallel.
+1. UI-2 Phase B: Start → page 8 → build `isl01` from the `.lnd`/heightmap/
+  basemap/vegetation loaders already in the viewer; then set the park page.
+2. UI-2 Phase C: parse `ParkInterface.Ini`/`ParkGraphicDB.ini`, render the
+  always-on HUD panels at 800×600 with `ALIGN_*` anchoring, and bind
+  `&BudgetAmount`/`&VisitorAmount`/`&CurrentTime` to live state.
+3. SIM-2b: visitor needs/attraction targets after the menu work.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
 6. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 
-- None hard. UI-2 (original menu) is waiting on the external menu research;
-  everything else can proceed independently.
+- None. The menu research handoff is complete
+  (`docs/platform/ui-original-menu.md`); UI-2 can start.
 
 ## Decisions
 

@@ -35,6 +35,10 @@ add_executable(dino_viewer
     src/formats/tga.cpp
     src/formats/image.cpp
     src/formats/fnt.cpp
+    src/formats/loc.cpp
+    src/ui/ini.cpp
+    src/ui/overlay.cpp
+    src/ui/menu.cpp
     src/formats/skel.cpp
     src/formats/skin.cpp
     src/formats/anim.cpp

@@ -3,10 +3,10 @@
 Status: **working** — retail `.fnt` text renders on screen, with a live HUD,
 a start screen and a controls panel.
 
-> **Placeholder menu:** the start screen and controls panel are standalone
-> placeholder UI, not the original menu system. They use no retail layout,
-> art, sounds or actions. The real menu work and its asset inventory are in
-> `docs/platform/ui-original-menu.md` (UI-2).
+> **Retail menu is now the default.** `--menu` and interactive launches use the
+> original `MenuInterface.Ini` overlay; see
+> `docs/platform/ui-original-menu.md`. The old DINO ISLAND screen is available
+> only with `--placeholder-menu`; the Tab controls panel is still port-style.
 
 ## `.fnt` reader
 
