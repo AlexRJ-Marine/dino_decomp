@@ -242,7 +242,20 @@ Updated: 2026-10-25
     `notes/menu-free.png`, `notes/menu-loading.png`,
     `notes/menu-pages-sheet.png`,
     `tests/test_viewer_cpp.py::test_cpp_retail_menu_*`.
-- 104 tests pass; working tree committed.
+- UI-2 Phase C complete at 800×600: **retail park HUD from data.**
+  - `ParkInterface.Ini` + `ParkGraphicDB.Ini` (includes expanded):
+    2,694 widgets, 38 roots, 53 visible at park start.
+  - Always-on roots rendered over the scene (`RIGHT_PANEL`,
+    `NAVIGATION_PANEL`, `GAUGE_PANEL`, `MAP_PANEL`, `MESSAGE_PANEL`);
+    `RENDERVIEW` skipped. Runtime budget/visitor/dino/show/time/day fields.
+  - Frame model aligned with the research: normal=4 (frame 0 disabled),
+    hover=5, pressed=6, selected=7; `ISLAND_LIST_BUTTON` rows normal 4,
+    selected 7; compact horizontal/vertical strips.
+  - Python-oracle parity at 800×600: right panel MAD 10.8, gauge 4.0,
+    map 2.1 (oracle vs retail 8.8 / 3.65).
+  - Evidence: `docs/platform/hud.md`, `notes/park-hud.png`,
+    `notes/hud-preview.png`, `tests/test_viewer_cpp.py::test_cpp_park_hud_*`.
+- 112 tests pass; working tree committed.
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
     9 pages), `ParkInterface.Ini` (137 + 9 includes), `MenuGraphicDB.ini`
@@ -266,6 +279,14 @@ Updated: 2026-10-25
   - Evidence: `notes/ui-recon.md`, `notes/ui-frame-handoff.md`,
     `docs/formats/overlay-ini.md`,
     `docs/platform/ui-original-menu.md` (the seven UI-2 questions answered).
+- SAVE-RECON (partial): **`.sav` header + 39-show catalog parsed.**
+  - Header: version 53, slot, length-prefixed UTF-16 save name, variable block.
+  - Show records: ASCII `.shw` path + UTF-16 name + 6 u32 params; 39 records
+    in both manual and auto saves.
+  - Park-state object graph (3,023 / 2,829 bytes) remains open; writer/reader
+    classes (`pwdWorldManager`) identified but not decompiled.
+  - Evidence: `notes/save-recon.md`, `docs/formats/sav.md`,
+    `tools/formats/sav.py`, `tests/test_sav.py`.
 
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
@@ -312,6 +333,12 @@ Updated: 2026-10-25
 - **UI-2 Phase B rest:** `FREE_START_BUTTON` should show `LOADING_PAGE`
   (`loading_800x600.tga`) and build the selected island's scene, then hand
   control to the park.
+- **UI-2 Phase A polish:** `ui_frame_rect` in `src/viewer/main.cpp` still
+  uses the old skip-count/row-major heuristic. The retail model is the
+  used-frame list, a horizontal/vertical strip, and normal frame **4**
+  (0 disabled, 5 hover, 6 pressed, 7 selected); frame 4 may be transparent.
+  This affects the normal list rows, Start/Cancel and difficulty selection.
+  See `notes/ui-frame-handoff.md`; the Python preview is the target.
 - **UI-2 Phase C:** park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
   (always-on panels; live budget/visitor/time fields); then Phase D panels,
   save/load and menu sounds.

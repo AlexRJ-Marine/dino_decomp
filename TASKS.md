@@ -399,23 +399,36 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `src/ui/` (INI/tree/graphics), render the retail main menu at 800×600,
   wire pages 0..8 and the recovered transitions.
 - [x] Phase B (partial): Free Game island list (10 names), island picture,
-  difficulty buttons, Start/Cancel; Start closes the menu.
-- [ ] Phase B rest: loading page + build the selected island scene.
-- [ ] Phase C: park HUD from `ParkInterface.Ini`.
+  difficulty buttons, Start/Cancel; Start shows the loading page, then closes
+  the menu.
+- [ ] Phase B rest: build the selected island scene at runtime.
+- [x] Phase C (800×600): park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
+  (2,694 widgets, 53 visible), runtime budget/visitor/dino/show/time/day.
+- [ ] Phase C rest: park button bindings, minimap, 1024×768 anchoring.
 - [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
 - **Evidence:** `docs/platform/ui-original-menu.md`,
-  `notes/menu-retail.png`, `notes/menu-free.png`,
-  `notes/menu-pages-sheet.png`, `tests/test_viewer_cpp.py`
-  (`test_cpp_retail_menu_*`), `tools/formats/overlay.py`,
+  `notes/menu-retail.png`, `notes/menu-free.png`, `notes/menu-loading.png`,
+  `notes/menu-pages-sheet.png`, `notes/park-hud.png`,
+  `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
+  `test_cpp_park_hud_*`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video
 - DirectSound-equivalent playback, music, MPEG intro.
 - **Acceptance:** music loops, SFX trigger, intro plays.
 - **Depends on:** VIEW-1.
+
+### SAVE-RECON: Retail `.sav` research
+- [x] Parse the header and the 39-record show catalog in `slot001.sav` and
+  `auto.sav`; name, `.shw` paths and 6-u32 params recovered.
+- [x] Reusable reader `tools/formats/sav.py`; tests on retail + synthetic saves.
+- [ ] Park-state object graph and serializer classes (`pwdWorldManager`).
+- **Depends on:** RUN-2.
+- **Evidence:** `notes/save-recon.md`, `docs/formats/sav.md`,
+  `tools/formats/sav.py`, `tests/test_sav.py`.
 
 ### SAVE-1: Save/load
 - Reproduce enough of `.wld`/save semantics or define a new format.
@@ -438,6 +451,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 - DEC-1: Map loader functions for `.mesh`, `.skin`, `.skel`, `.anim`, `.fnt`.
 - DEC-2: Map the simulation scheduler (`lpScheduler`) and AI update order.
-- DEC-3: Map the `.wld` save format.
+- DEC-3: Map the `.wld` save format. **Partial:** header + 39-show catalog
+  solved; park-state graph open. See `docs/formats/sav.md`.
 - DEC-4: Recover the original assert-string source map into `docs/architecture.md`.
 - DEC-5: Determine whether `Pathmap.bin` is generated at runtime.
+  **Resolved:** 0 bytes in retail and after Free Mode; no exe string.

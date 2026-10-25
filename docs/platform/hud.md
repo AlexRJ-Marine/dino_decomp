@@ -60,19 +60,39 @@ visitors 12   paths 24   fences 0
 - The HUD is rebuilt each frame; this is a small mesh (212 verts for the
   current two lines) but a dynamic-buffer path is a future optimisation.
 
+## Park HUD (`ParkInterface.Ini`)
+
+When an island is loaded, the viewer also loads
+`ParkInterface.Ini` + `ParkGraphicDB.Ini` (2,694 widgets, 38 roots, 53
+visible at park start) and draws the always-on panels over the scene:
+
+- visible roots and descendants only; `RENDERVIEW` is skipped;
+- normal state = frame 4 (frame 0 is the gray disabled art);
+- `.fnt` text with `TEXT_HEIGHT` scaling and `TEXT_JUSTIFY`;
+- runtime fields: budget 76050, visitor/dino/show counts, 09:44, day 1;
+- `--no-park-hud` disables it.
+
+At 800×600 this matches the Python oracle (`notes/hud-preview.png`):
+right panel MAD 10.8, gauge 4.0, map 2.1 (oracle vs retail: 8.8 / 3.65).
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
-- `notes/menu.png` — start screen over the island.
-- `notes/menu-help.png` — Tab controls panel.
+- `notes/menu-retail.png` — retail main menu.
+- `notes/menu-free.png` — retail Free Game page.
+- `notes/park-hud.png` — retail park HUD over isl01.
+- `notes/hud-preview.png` — Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:
   - `test_cpp_hud` checks the font load line and bright glyph pixels.
-  - `test_cpp_start_menu` and `test_cpp_help_panel` check the overlay text.
+  - `test_cpp_park_hud_load` / `test_cpp_park_hud_shot` check the park HUD.
+  - `test_cpp_retail_menu_*` check the retail menu.
 - `src/formats/fnt.cpp`, `src/formats/fnt.h`.
 
 ## Open items
 
 - Kerning/advance beyond glyph width; coloured/shadowed text.
-- HUD scaling for high-DPI (QOL-2).
-- Menus with mouse-driven buttons, new game/load/save panels (UI-1 rest).
-- `draw_2d` re-uploads its mesh every frame; cache static panels.
+- HUD scaling for high-DPI and park re-anchoring at 1024×768 (QOL-2).
+- Save/load panels and park button bindings (UI-2 Phase D).
+- Minimap render target.
+- `draw_ui_mesh` re-uploads its mesh per widget per frame; batching is the
+  next performance step for the park HUD.

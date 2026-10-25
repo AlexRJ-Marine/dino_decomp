@@ -22,6 +22,13 @@ Research details: `notes/ui-recon.md` (evidence) and
   window (pixels, not scaled); background from `BACKGROUND_*`; sprite frames
   packed per `NB_OBJECTS`/`SKIP_LIST` (compactly, horizontal or vertical);
   `.fnt` text with `TEXT_HEIGHT/font_size` scaling and `TEXT_JUSTIFY`.
+- **Frame-helper review:** the current `ui_frame_rect` still assumes skipped
+  frames are removed from the end and uses row-major packing; the retail
+  model is the used-frame list, a horizontal/vertical strip, and the state
+  mapping **0 disabled / 4 normal / 5 hover / 6 pressed / 7 selected**.
+  Frame 4 may be transparent (menu/list bars). See
+  `notes/ui-frame-handoff.md`; the Python `Graphic.frame_rect` and
+  `state_frame` are the reference.
 - CLI: `--menu`, `--menu-page N`, `--menu-click X,Y` (deterministic tests),
   `--placeholder-menu`, `--no-menu`.
 
@@ -232,6 +239,11 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `PauseGame` (bound in `FUN_005257a0`, handler `LAB_00525e80`) opens it, and
   `OPTIONS_MENU_PANEL` switches between `OPTIONS_OPTIONS_PANEL` and
   `OPTIONS_SAVE_PANEL`. Controller: `FUN_0050c1a0`.
+- Geometry: `OPTIONS_PANEL` 250,50 250×411; tabs 292,50 112×48; settings
+  tab 250,110 250×351; save tab 250,100 250×361; list 282,125 143×216;
+  name edit 285,375 128×14; validate/unvalidate 320/350,422 (28×28).
+  `notes/save-panel.png` is the `DINO_ACHAT` purchase panel, **not** the
+  save panel.
 - The port's `save_build`/`load_build` placement format is unrelated and can
   back the same panel later.
 
@@ -277,22 +289,27 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - [ ] Acceptance: the harness click sequence reaches the park through the real
       screens.
 
-### Phase C — park HUD
+### Phase C — park HUD (done at 800×600)
 
-1. Load `ParkInterface.Ini` + `ParkGraphicDB.ini`; render the always-on
-   panels (`GAUGE_PANEL`, `RIGHT_PANEL`, `NAVIGATION_PANEL`, `MAP_PANEL`,
-   `DECO_BOUT_GAUCHE`).
-2. Bind `&BudgetAmount`/`&VisitorAmount`/`&dinoAmount`/`&ShowAmount` and the
-   clock/day to live state.
-3. Buttons are visual only first; then open the included panels (build,
-   lists, lab) as they are implemented.
-4. Minimap: render the existing terrain top-down into `MAP_RENDERVIEW`
-   (136×136).
-5. Keep the FPS/visitor debug text as an optional debug HUD.
-6. Use `python tools/viewer/overlay_preview.py --hud` as the golden target:
-   it matches `notes/park-after2.png` panel-for-panel. Right-panel and nav
-   icons need normal frame 4 (frame 0 is the gray disabled art), not the
-   first stored frame.
+- [x] Load `ParkInterface.Ini` + `ParkGraphicDB.ini` (includes expanded):
+      2,694 widgets, 38 roots, 53 visible at park start.
+- [x] Render the always-on roots (`RIGHT_PANEL`, `NAVIGATION_PANEL`,
+      `GAUGE_PANEL`, `MAP_PANEL`, `MESSAGE_PANEL`); skip `RENDERVIEW`.
+- [x] Runtime fields: budget, visitors, dinos, shows/paddocks, time 09:44,
+      day 1. Normal state = frame 4 (frame 0 is the disabled art).
+- [x] Compare with the Python oracle at 800×600: right panel MAD 10.8,
+      gauge 4.0, map 2.1 (oracle vs retail: 8.8 / 3.65).
+- [ ] Minimap: `MAP_RENDERVIEW` is a 136×136 RENDER target (absolute
+      652,451), not a basemap crop. Render the terrain top-down with the park
+      yaw (≈−45°); zoom buttons scale it. `FUN_00529880` binds it. See
+      `notes/ui-recon.md` ("Minimap render view").
+- [ ] Button bindings (`OPEN_BUDGET_PANEL` etc.) and panel switching; the
+      widget→handler map is in `notes/ui-recon.md` ("Park HUD button
+      bindings").
+- [ ] 1024×768 re-anchor pass: the original HUD re-anchors (right panel at
+      931,168; gauge at 293,737; map at 840,584) while menu pages centre.
+      The viewer currently centres the 800×600 HUD; QOL-2 decides.
+- [ ] Keep the FPS/visitor debug text as an optional debug HUD.
 
 ### Phase D — panels, save/load, audio
 
@@ -301,7 +318,10 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 2. In-park `OPTIONS_PANEL` pause overlay (Options / Save / Load tabs);
    `LOAD_GAME_PAGE` + `OPTIONS_SAVE_PANEL` wired to save files.
 3. `MenuSoundDB` clicks/music; optional intro movie.
-4. `RadialMenu.Ini` for the in-park radial menu.
+4. ~~`RadialMenu.Ini`~~ — **legacy/unused**: no executable string references
+   its sections or the `RadialMenu` file, and none of its 15 icon names exist
+   in `MenuGraphicDB`/`ParkGraphicDB`/`LabGraphicDB`. Do not implement; the
+   live build UI is the right-panel + `ConstructionInterface` flow.
 
 ## Tests
 
@@ -326,12 +346,15 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 
 - Exact selected-vs-pressed frame on bars (6/7) and the `INTRO_BUTTON`
   strip wrap.
-- `PRIORITY`/`ZPRIORITY` draw comparator.
+- `ZPRIORITY`'s exact helper role in `moWidget::Draw` (render hint; the
+  traversal order is solved: `PRIORITY` + declaration order).
 - The code path that centres menu pages (no `ALIGN_CENTER` in the INI).
 - Exact save-slot validation/naming handler internals (`LAB_0050cc10`,
   `LAB_0050caf0`) and the `PauseGame` key binding.
 - Missing `TEMP_jaugebas.tga` (skip the affected `TEMP_*` widgets).
 - `TEXTURE_MOSAIC` tiling rule.
+- Minimap camera constants (`FUN_00527650`) and zoom mapping
+  (`0x00529a90`/`0x00529b60`).
 
 ## Evidence
 

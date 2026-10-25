@@ -63,6 +63,17 @@ const Widget* Overlay::get(const std::string& name) const {
 
 bool Overlay::load_menu(const std::string& interface_path,
                         const std::string& db_path, std::string& error) {
+    return load_interface(interface_path, db_path, true, error);
+}
+
+bool Overlay::load_park(const std::string& interface_path,
+                        const std::string& db_path, std::string& error) {
+    return load_interface(interface_path, db_path, false, error);
+}
+
+bool Overlay::load_interface(const std::string& interface_path,
+                             const std::string& db_path, bool menu,
+                             std::string& error) {
     try {
         IniFile ini = load_ini(interface_path);
         IniFile db = load_ini(db_path);
@@ -131,15 +142,24 @@ bool Overlay::load_menu(const std::string& interface_path,
             }
         }
 
-        for (const char* name : kPageNames) {
-            const int i = find(name);
-            if (i >= 0) {
-                pages.push_back(i);
+        roots.clear();
+        for (int i = 0; i < static_cast<int>(widgets.size()); ++i) {
+            if (widgets[static_cast<std::size_t>(i)].parent_index < 0) {
+                roots.push_back(i);
             }
         }
-        if (pages.size() != 9) {
-            error = "menu: expected 9 pages, got " + std::to_string(pages.size());
-            return false;
+        if (menu) {
+            for (const char* name : kPageNames) {
+                const int i = find(name);
+                if (i >= 0) {
+                    pages.push_back(i);
+                }
+            }
+            if (pages.size() != 9) {
+                error = "menu: expected 9 pages, got " +
+                        std::to_string(pages.size());
+                return false;
+            }
         }
 
         for (const auto& section : db.sections) {
@@ -171,11 +191,12 @@ bool Overlay::load_menu(const std::string& interface_path,
 }
 
 void Overlay::layout() {
-    for (const int page : pages) {
-        Widget& root = widgets[static_cast<std::size_t>(page)];
-        root.abs_x = 0;
-        root.abs_y = 0;
-        std::vector<int> stack{page};
+    const std::vector<int>& layout_roots = pages.empty() ? roots : pages;
+    for (const int root_index : layout_roots) {
+        Widget& root = widgets[static_cast<std::size_t>(root_index)];
+        root.abs_x = root.x;
+        root.abs_y = root.y;
+        std::vector<int> stack{root_index};
         while (!stack.empty()) {
             const int i = stack.back();
             stack.pop_back();
@@ -209,6 +230,17 @@ bool Overlay::visible_on_page(int widget_index, int page_index) const {
     int i = widget_index;
     while (i >= 0) {
         if (i != active_root && !widgets[static_cast<std::size_t>(i)].visible) {
+            return false;
+        }
+        i = widgets[static_cast<std::size_t>(i)].parent_index;
+    }
+    return true;
+}
+
+bool Overlay::visible_in_tree(int widget_index) const {
+    int i = widget_index;
+    while (i >= 0) {
+        if (!widgets[static_cast<std::size_t>(i)].visible) {
             return false;
         }
         i = widgets[static_cast<std::size_t>(i)].parent_index;

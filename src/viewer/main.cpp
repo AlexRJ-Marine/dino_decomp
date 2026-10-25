@@ -99,7 +99,9 @@ struct Options {
     bool use_menu = true;
     int menu_page = -1;
     std::vector<std::string> menu_clicks;
+    std::string menu_hover;
     float menu_loading_time = 0.8f;
+    bool park_hud = true;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -282,6 +284,11 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--menu-loading-time") {
             opt.menu_loading_time = static_cast<float>(std::atof(next("--menu-loading-time")));
             opt.force_menu = true;
+        } else if (arg == "--menu-hover") {
+            opt.menu_hover = next("--menu-hover");
+            opt.force_menu = true;
+        } else if (arg == "--no-park-hud") {
+            opt.park_hud = false;
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -375,6 +382,8 @@ Options parse_args(int argc, char** argv) {
                 "  --menu-page N        start the retail menu on page 0..8\n"
                 "  --menu-click X,Y     click design-space point(s) before the first frame\n"
                 "  --menu-loading-time N  seconds to show the loading page (default 0.8)\n"
+                "  --menu-hover X,Y     set the hovered design-space point\n"
+                "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -623,7 +632,7 @@ void main() {
         base *= texel.rgb;
     }
     if (u_unlit == 2) {
-        frag_color = vec4(v_color.rgb, texel.r * u_alpha);
+        frag_color = vec4(v_color.rgb, texel.r * u_alpha * v_color.a);
         return;
     }
     vec3 color = base;
@@ -949,7 +958,6 @@ struct UiTexture {
     GLuint id = 0;
     int width = 0;
     int height = 0;
-    dino::Image image;
 };
 
 struct UiSourceRect {
@@ -961,72 +969,33 @@ struct UiSourceRect {
 };
 
 UiSourceRect ui_frame_rect(const UiTexture& texture, const dino::ui::Graphic& graphic,
-                           int frame) {
+                           int logical_frame) {
     UiSourceRect rect{graphic.rect.x, graphic.rect.y, graphic.rect.width,
                       graphic.rect.height};
-    if (texture.width <= 0 || texture.height <= 0 || graphic.rect.width <= 0 ||
-        graphic.rect.height <= 0) {
-        return rect;
-    }
-    int origin_y = graphic.rect.y;
-    if (graphic.objects > 1 && !texture.image.rgba.empty()) {
-        const int max_y = std::min(texture.height,
-                                   graphic.rect.y + graphic.rect.height * 2);
-        bool found = false;
-        for (int y = graphic.rect.y; y < max_y && !found; ++y) {
-            for (int x = graphic.rect.x;
-                 x < graphic.rect.x + graphic.rect.width && x < texture.width;
-                 ++x) {
-                const std::size_t index =
-                    (static_cast<std::size_t>(y) * texture.width + x) * 4 + 3;
-                if (index < texture.image.rgba.size() &&
-                    texture.image.rgba[index] > 8) {
-                    origin_y = y;
-                    found = true;
-                    break;
-                }
-            }
+    std::vector<int> used;
+    for (int frame = 0; frame < graphic.objects; ++frame) {
+        if (std::find(graphic.skip.begin(), graphic.skip.end(), frame) ==
+            graphic.skip.end()) {
+            used.push_back(frame);
         }
     }
-    const int columns = std::max(1, texture.width / graphic.rect.width);
-    const int x = graphic.rect.x + (frame % columns) * graphic.rect.width;
-    const int y = origin_y + (frame / columns) * graphic.rect.height;
-    if (x + graphic.rect.width <= texture.width &&
-        y + graphic.rect.height <= texture.height) {
-        rect.x = x;
-        rect.y = y;
-    } else {
+    const auto it = std::find(used.begin(), used.end(), logical_frame);
+    if (it == used.end() || graphic.rect.width <= 0 || graphic.rect.height <= 0) {
+        rect.valid = false;
+        return rect;
+    }
+    const int slot = static_cast<int>(it - used.begin());
+    const bool horizontal =
+        graphic.rect.x + static_cast<int>(used.size()) * graphic.rect.width <=
+        texture.width;
+    rect.x = horizontal ? graphic.rect.x + slot * graphic.rect.width
+                        : graphic.rect.x;
+    rect.y = horizontal ? graphic.rect.y
+                        : graphic.rect.y + slot * graphic.rect.height;
+    if (rect.x + rect.w > texture.width || rect.y + rect.h > texture.height) {
         rect.valid = false;
     }
     return rect;
-}
-
-bool ui_rect_has_ink(const UiTexture& texture, const UiSourceRect& rect) {
-    if (!rect.valid || texture.width <= 0 || texture.height <= 0 ||
-        texture.image.rgba.empty()) {
-        return false;
-    }
-    for (int y = rect.y; y < rect.y + rect.h && y < texture.height; ++y) {
-        for (int x = rect.x; x < rect.x + rect.w && x < texture.width; ++x) {
-            const std::size_t index =
-                (static_cast<std::size_t>(y) * texture.width + x) * 4 + 3;
-            if (index < texture.image.rgba.size() &&
-                texture.image.rgba[index] > 8) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-int ui_last_visible_frame(const UiTexture& texture, const dino::ui::Graphic& graphic) {
-    const int used = std::max(1, graphic.objects - static_cast<int>(graphic.skip.size()));
-    for (int frame = used - 1; frame >= 0; --frame) {
-        if (ui_rect_has_ink(texture, ui_frame_rect(texture, graphic, frame))) {
-            return frame;
-        }
-    }
-    return 0;
 }
 
 dino::Mesh build_ui_quad(float x, float y, float w, float h, float u0, float v0,
@@ -1511,11 +1480,32 @@ int main(int argc, char** argv) {
 
     dino::ui::Menu menu;
     bool menu_loaded = false;
+    dino::ui::Overlay park_overlay;
+    dino::Loc park_loc;
+    bool park_loaded = false;
     if (opt.use_menu) {
         menu_loaded = menu.load(opt.asset_root);
         if (!menu_loaded) {
             std::fprintf(stderr, "menu: %s (falling back to placeholder)\n",
                          menu.error.c_str());
+        }
+    }
+
+    if (opt.park_hud && !opt.lnd_path.empty()) {
+        std::string park_error;
+        park_loaded = park_overlay.load_park(
+            resolve_asset(opt.asset_root, "Data/Overlay/ParkInterface.Ini"),
+            resolve_asset(opt.asset_root, "Data/Overlay/ParkGraphicDB.Ini"),
+            park_error);
+        if (park_loaded) {
+            try {
+                park_loc = dino::load_loc(
+                    resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "park loc: %s\n", e.what());
+            }
+        } else {
+            std::fprintf(stderr, "park hud: %s\n", park_error.c_str());
         }
     }
 
@@ -1529,6 +1519,13 @@ int main(int argc, char** argv) {
             int y = 0;
             if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                 menu.click(x, y);
+            }
+        }
+        if (!opt.menu_hover.empty()) {
+            int x = 0;
+            int y = 0;
+            if (std::sscanf(opt.menu_hover.c_str(), "%d,%d", &x, &y) == 2) {
+                menu.move(x, y);
             }
         }
     }
@@ -1770,6 +1767,19 @@ int main(int argc, char** argv) {
                 std::printf("menu error: %s\n", menu.error.c_str());
             }
         }
+        if (opt.park_hud) {
+            int visible = 0;
+            for (int i = 0; i < static_cast<int>(park_overlay.widgets.size()); ++i) {
+                if (park_overlay.widgets[static_cast<std::size_t>(i)].name !=
+                        "RENDERVIEW" &&
+                    park_overlay.visible_in_tree(i)) {
+                    ++visible;
+                }
+            }
+            std::printf("park hud: loaded=%d widgets=%zu roots=%zu visible=%d\n",
+                        park_loaded ? 1 : 0, park_overlay.widgets.size(),
+                        park_overlay.roots.size(), visible);
+        }
         if (!opt.mesh_path.empty()) {
             std::printf("mesh %s: %zu vertices, %zu indices, %zu triangles, "
                         "%zu uvs, %zu normals, %zu colors\n",
@@ -2009,7 +2019,6 @@ int main(int argc, char** argv) {
             texture.id = upload_texture(img);
             texture.width = img.width;
             texture.height = img.height;
-            texture.image = std::move(img);
             const auto result = ui_textures.emplace(filename, std::move(texture));
             return &result.first->second;
         } catch (const std::exception& e) {
@@ -2103,6 +2112,30 @@ int main(int argc, char** argv) {
             }
         }
 
+        auto draw_sprite = [&](const char* name, float x, float y, float w, float h,
+                               int frame) {
+            const dino::ui::Graphic* graphic = menu.overlay.graphic(name);
+            if (graphic == nullptr) {
+                return;
+            }
+            UiTexture* texture = ui_texture(graphic->filename);
+            if (texture == nullptr) {
+                return;
+            }
+            const UiSourceRect source = ui_frame_rect(*texture, *graphic, frame);
+            if (!source.valid) {
+                return;
+            }
+            const float u0 = static_cast<float>(source.x) / texture->width;
+            const float v0 = static_cast<float>(source.y) / texture->height;
+            const float u1 = static_cast<float>(source.x + source.w) / texture->width;
+            const float v1 = static_cast<float>(source.y + source.h) / texture->height;
+            draw_ui_mesh(menu_gpu,
+                         build_ui_quad(x, y, w, h, u0, v0, u1, v1,
+                                       {255, 255, 255, 255}),
+                         texture->id, 1.0f, 1, view_w, view_h);
+        };
+
         for (int i = 0; i < static_cast<int>(menu.overlay.widgets.size()); ++i) {
             const dino::ui::Widget& widget =
                 menu.overlay.widgets[static_cast<std::size_t>(i)];
@@ -2119,19 +2152,21 @@ int main(int argc, char** argv) {
                 continue;
             }
 
-            int frame = i == menu.hover ? 1 : 0;
+            int frame = i == menu.hover ? 5 : 4;
             if ((widget.name == "FREE_EASY_BUTTON" && menu.difficulty == 0) ||
                 (widget.name == "FREE_MIDDLE_BUTTON" && menu.difficulty == 1) ||
                 (widget.name == "FREE_HARD_BUTTON" && menu.difficulty == 2)) {
-                frame = 1;
+                frame = 7;
             }
 
             if (!widget.texture.empty()) {
                 if (const dino::ui::Graphic* graphic =
                         menu.overlay.graphic(widget.texture)) {
                     if (UiTexture* texture = ui_texture(graphic->filename)) {
+                        const int sprite_frame =
+                            graphic->objects <= 1 ? 0 : frame;
                         const UiSourceRect source =
-                            ui_frame_rect(*texture, *graphic, frame);
+                            ui_frame_rect(*texture, *graphic, sprite_frame);
                         if (source.valid) {
                             const float u0 = static_cast<float>(source.x) / texture->width;
                             const float v0 = static_cast<float>(source.y) / texture->height;
@@ -2172,10 +2207,8 @@ int main(int argc, char** argv) {
                 UiTexture* row_texture =
                     row_graphic != nullptr ? ui_texture(row_graphic->filename)
                                            : nullptr;
-                const int selected_frame =
-                    row_texture != nullptr && row_graphic != nullptr
-                        ? ui_last_visible_frame(*row_texture, *row_graphic)
-                        : 0;
+                const int selected_frame = 7;
+                const int normal_frame = 4;
                 float list_scale = 1.0f;
                 GLuint list_atlas = 0;
                 const dino::Fnt* list_font = ui_font(
@@ -2186,7 +2219,8 @@ int main(int argc, char** argv) {
                     const float row_y =
                         py(widget.abs_y) + static_cast<float>(row) * line_h * dpi;
                     if (row_texture != nullptr && row_graphic != nullptr) {
-                        const int frame = row == menu.island ? selected_frame : 0;
+                        const int frame =
+                            row == menu.island ? selected_frame : normal_frame;
                         const UiSourceRect source =
                             ui_frame_rect(*row_texture, *row_graphic, frame);
                         if (source.valid) {
@@ -2222,35 +2256,25 @@ int main(int argc, char** argv) {
                     }
                 }
                 if (widget.list_scroll_width > 0) {
-                    if (const dino::ui::Graphic* lift =
-                            menu.overlay.graphic("CAMPAIGN_TEXT_LIFT")) {
-                        if (UiTexture* lift_texture = ui_texture(lift->filename)) {
-                            const UiSourceRect source =
-                                ui_frame_rect(*lift_texture, *lift, 0);
-                            if (source.valid) {
-                                const float u0 = static_cast<float>(source.x) /
-                                                 lift_texture->width;
-                                const float v0 = static_cast<float>(source.y) /
-                                                 lift_texture->height;
-                                const float u1 =
-                                    static_cast<float>(source.x + source.w) /
-                                    lift_texture->width;
-                                const float v1 =
-                                    static_cast<float>(source.y + source.h) /
-                                    lift_texture->height;
-                                draw_ui_mesh(
-                                    menu_gpu,
-                                    build_ui_quad(
-                                        px(widget.abs_x + row_w),
-                                        py(widget.abs_y),
-                                        static_cast<float>(widget.list_scroll_width) *
-                                            dpi,
-                                        static_cast<float>(widget.height) * dpi, u0,
-                                        v0, u1, v1, {255, 255, 255, 255}),
-                                    lift_texture->id, 1.0f, 1, view_w, view_h);
-                            }
-                        }
-                    }
+                    const float scroll_x = px(widget.abs_x + row_w);
+                    const float scroll_y = py(widget.abs_y);
+                    const float scroll_w =
+                        static_cast<float>(widget.list_scroll_width) * dpi;
+                    const float scroll_h = static_cast<float>(widget.height) * dpi;
+                    draw_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y, scroll_w,
+                                scroll_h, 0);
+                    draw_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x, scroll_y,
+                                scroll_w, 22.0f * dpi, 4);
+                    draw_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
+                                scroll_y + scroll_h - 22.0f * dpi, scroll_w,
+                                22.0f * dpi, 4);
+                    const float free_height =
+                        std::max(0.0f, scroll_h - 76.0f * dpi);
+                    const float thumb_y =
+                        scroll_y + 22.0f * dpi +
+                        free_height * (static_cast<float>(menu.island) / 9.0f);
+                    draw_sprite("CAMPAIGN_TEXT_THUMB", scroll_x, thumb_y, scroll_w,
+                                32.0f * dpi, 4);
                 }
             }
 
@@ -2478,6 +2502,125 @@ int main(int argc, char** argv) {
     if (free_camera) {
         enter_free_camera();
     }
+
+    auto draw_park_hud = [&](int view_w, int view_h, int logical_w, int logical_h) {
+        (void)logical_h;
+        if (!park_loaded) {
+            return;
+        }
+        const float dpi = logical_w > 0
+                              ? static_cast<float>(view_w) / static_cast<float>(logical_w)
+                              : 1.0f;
+        const float ox = (static_cast<float>(view_w) - 800.0f * dpi) * 0.5f;
+        const float oy = (static_cast<float>(view_h) - 600.0f * dpi) * 0.5f;
+        auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
+        auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+
+        std::vector<int> order;
+        for (int i = 0; i < static_cast<int>(park_overlay.widgets.size()); ++i) {
+            if (park_overlay.widgets[static_cast<std::size_t>(i)].name ==
+                    "RENDERVIEW" ||
+                !park_overlay.visible_in_tree(i)) {
+                continue;
+            }
+            order.push_back(i);
+        }
+        std::sort(order.begin(), order.end(), [&](int a, int b) {
+            const auto& wa = park_overlay.widgets[static_cast<std::size_t>(a)];
+            const auto& wb = park_overlay.widgets[static_cast<std::size_t>(b)];
+            if (wa.priority != wb.priority) {
+                return wa.priority < wb.priority;
+            }
+            if (wa.zpriority != wb.zpriority) {
+                return wa.zpriority < wb.zpriority;
+            }
+            return a < b;
+        });
+
+        auto runtime_text = [&](const std::string& name) -> std::string {
+            if (name == "BUDGET_AMOUNT") {
+                return "76050";
+            }
+            if (name == "VISITOR_AMOUNT") {
+                return std::to_string(visitor_system.visitors.size());
+            }
+            if (name == "DINO_AMOUNT") {
+                return place_dino ? "1" : "0";
+            }
+            if (name == "SHOW_AMOUNT") {
+                return "0";
+            }
+            if (name == "PADDOCK_AMOUNT") {
+                return "0";
+            }
+            if (name == "PARK_CURRENT_TIME") {
+                return "09:44";
+            }
+            if (name == "PARK_CURRENT_DAY") {
+                return "1";
+            }
+            return "";
+        };
+
+        for (const int i : order) {
+            const dino::ui::Widget& widget =
+                park_overlay.widgets[static_cast<std::size_t>(i)];
+            if (!widget.texture.empty()) {
+                if (const dino::ui::Graphic* graphic =
+                        park_overlay.graphic(widget.texture)) {
+                    if (UiTexture* texture = ui_texture(graphic->filename)) {
+                        const int frame = graphic->objects <= 1 ? 0 : 4;
+                        const UiSourceRect source =
+                            ui_frame_rect(*texture, *graphic, frame);
+                        if (source.valid) {
+                            const float u0 =
+                                static_cast<float>(source.x) / texture->width;
+                            const float v0 =
+                                static_cast<float>(source.y) / texture->height;
+                            const float u1 = static_cast<float>(source.x + source.w) /
+                                             texture->width;
+                            const float v1 = static_cast<float>(source.y + source.h) /
+                                             texture->height;
+                            draw_ui_mesh(
+                                menu_gpu,
+                                build_ui_quad(px(widget.abs_x), py(widget.abs_y),
+                                              static_cast<float>(widget.width) * dpi,
+                                              static_cast<float>(widget.height) * dpi,
+                                              u0, v0, u1, v1,
+                                              {255, 255, 255, 255}),
+                                texture->id, 1.0f, 1, view_w, view_h);
+                        }
+                    }
+                }
+            } else if (widget.has_back_color) {
+                draw_ui_mesh(menu_gpu,
+                             build_screen_rect(px(widget.abs_x), py(widget.abs_y),
+                                               static_cast<float>(widget.width) * dpi,
+                                               static_cast<float>(widget.height) * dpi,
+                                               widget.back_color),
+                             0, 1.0f, 1, view_w, view_h);
+            }
+
+            std::string text = runtime_text(widget.name);
+            if (text.empty()) {
+                text = dino::ui::resolve_loc_text(widget.text, park_loc);
+            }
+            if (text.empty()) {
+                continue;
+            }
+            float scale = 1.0f;
+            GLuint atlas = 0;
+            if (const dino::Fnt* font =
+                    ui_font(widget.font, widget.text_height, scale, atlas)) {
+                const dino::Mesh block = build_text_block(
+                    *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
+                    widget.text_color, widget.justify,
+                    static_cast<float>(widget.width) * dpi,
+                    static_cast<float>(widget.height) * dpi);
+                draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
+            }
+        }
+    };
 
     bool running = true;
     bool start_screen = opt.force_menu ||
@@ -2885,6 +3028,9 @@ int main(int argc, char** argv) {
                         hud_font_texture, 1.0f, 2);
             }
         } else {
+            if (park_loaded) {
+                draw_park_hud(width, height, logical_width, logical_height);
+            }
             if (hud_visible && hud_font_texture != 0) {
                 char line1[128];
                 char line2[192];

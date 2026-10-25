@@ -661,8 +661,83 @@ def test_cpp_retail_menu_shot(tmp_path):
     assert result.returncode == 0, result.stderr
     image = Image.open(shot).convert("RGB")
     assert image.size == (800, 600)
-    # FREE_GAME_BUTTON normal bar colour in menu_outcome4.tga.
+    # Normal buttons have no frame-4 bar; this is the background screen.
     r, g, b = image.getpixel((400, 235))
-    assert r < 30 and abs(g - 113) < 30 and abs(b - 150) < 30
+    assert r < 30 and abs(g - 83) < 30 and abs(b - 117) < 30
     # The menu art is not a flat scene.
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
+
+
+def test_cpp_retail_menu_hover(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "hover.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--menu", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--menu-hover", "400,235"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    r, g, b = Image.open(shot).convert("RGB").getpixel((400, 235))
+    # Hover frame 5 of MAIN_MENU_BUTTON.
+    assert r < 30 and abs(g - 113) < 30 and abs(b - 149) < 30
+
+
+def test_cpp_retail_menu_free_rows(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "free.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--menu-page", "1", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    # ISLAND_LIST normal row frame 5 is a blue strip.
+    r, g, b = image.getpixel((210, 220))
+    assert r < 40 and g > 50 and b > 90
+
+def test_cpp_park_hud_load():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "park hud: loaded=1 widgets=2694 roots=38 visible=53" in result.stdout
+    disabled = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-park-hud"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert disabled.returncode == 0, disabled.stderr
+    assert "park hud:" not in disabled.stdout
+
+
+def test_cpp_park_hud_shot(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "park-hud.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--distance", "500"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    image = Image.open(shot).convert("RGB")
+    assert image.size == (800, 600)
+    right = image.crop((707, 0, 800, 417))
+    gauge = image.crop((69, 569, 687, 600))
+    assert len(right.getcolors(maxcolors=1_000_000)) > 200
+    assert len(gauge.getcolors(maxcolors=1_000_000)) > 100
+    # The budget readout area is a UI panel, not the terrain.
+    r, g, b = image.getpixel((120, 585))
+    assert not (r < 40 and g > 100 and b < 80)

@@ -70,6 +70,7 @@ struct Overlay {
     std::unordered_map<std::string, int> index;
     std::unordered_map<std::string, Graphic> graphics;
     std::vector<int> pages;  // menu state order (0..8)
+    std::vector<int> roots;  // all PARENT=ROOT widgets
 
     int find(const std::string& name) const;
     const Graphic* graphic(const std::string& name) const;
@@ -80,10 +81,16 @@ struct Overlay {
     // root used to resolve texture filenames.
     bool load_menu(const std::string& interface_path, const std::string& db_path,
                    std::string& error);
+    // Reads ParkInterface.Ini + ParkGraphicDB.ini (all roots, no pages).
+    bool load_park(const std::string& interface_path, const std::string& db_path,
+                   std::string& error);
+    bool load_interface(const std::string& interface_path,
+                        const std::string& db_path, bool menu, std::string& error);
     void layout();
 
     // True when `widget` is on the current page and every ancestor is visible.
     bool visible_on_page(int widget_index, int page_index) const;
+    bool visible_in_tree(int widget_index) const;
     int page_root(int widget_index) const;
 };
 
