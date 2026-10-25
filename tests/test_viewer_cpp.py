@@ -511,3 +511,12 @@ def test_cpp_visitors_validate():
     assert "visitors: 8 spawned on 24 path cells" in result.stdout
     assert "build: cell 4.0, grid 256x256, 24 path cells" in result.stdout
     assert "visitors: 8" in result.stdout
+
+def test_cpp_selftest():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    result = subprocess.run(
+        [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "selftest: PASS (18 checks)" in result.stdout

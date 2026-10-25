@@ -100,22 +100,25 @@ bool BuildGrid::undo() {
     }
     const Change change = undo_stack.back();
     undo_stack.pop_back();
+    // Changes are only recorded when the value actually changed, so undo always
+    // restores the opposite value.
+    const bool restore = !change.value;
     if (change.kind == 0) {
         auto& cell = path[static_cast<std::size_t>(change.y) * width + change.x];
         const bool current = cell != 0;
-        if (current != change.value) {
-            cell = change.value ? 1 : 0;
-            path_count += change.value ? 1 : -1;
+        if (current != restore) {
+            cell = restore ? 1 : 0;
+            path_count += restore ? 1 : -1;
         }
     } else {
         const int edge = change.kind - 1;
         auto& cell = fences[static_cast<std::size_t>(change.y) * width + change.x];
         const std::uint8_t mask = static_cast<std::uint8_t>(1u << edge);
         const bool current = (cell & mask) != 0;
-        if (current != change.value) {
-            cell = static_cast<std::uint8_t>(change.value ? (cell | mask)
-                                                          : (cell & ~mask));
-            fence_count += change.value ? 1 : -1;
+        if (current != restore) {
+            cell = static_cast<std::uint8_t>(restore ? (cell | mask)
+                                                     : (cell & ~mask));
+            fence_count += restore ? 1 : -1;
         }
     }
     return true;

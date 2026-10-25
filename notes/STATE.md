@@ -201,6 +201,9 @@ Updated: 2026-10-25
   sizes, initial pitch/distance clamps, shader leak on failed compile,
   high-DPI picking uses logical window size, exact pick-cell and dino-visible
   test assertions.
+- `--selftest` added; it caught an undo bug (undo re-applied the new value
+  instead of the previous one) which is fixed. 18 logic checks now run in
+  `tests/test_viewer_cpp.py::test_cpp_selftest`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.

@@ -86,6 +86,7 @@ struct Options {
     std::vector<std::string> place_fences;
     std::string pick_test;
     bool no_input = false;
+    bool selftest = false;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -243,6 +244,8 @@ Options parse_args(int argc, char** argv) {
             opt.pick_test = next("--pick-test");
         } else if (arg == "--no-input") {
             opt.no_input = true;
+        } else if (arg == "--selftest") {
+            opt.selftest = true;
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -326,6 +329,7 @@ Options parse_args(int argc, char** argv) {
                 "  --place-fence X,Y,E  add a fence edge, E=0 south / 1 east (repeatable)\n"
                 "  --pick-test X,Y      print the terrain cell under a pixel (first frame)\n"
                 "  --no-input           ignore all input (benchmark/stability runs)\n"
+                "  --selftest           run grid/visitor checks and exit\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -1090,10 +1094,106 @@ dino::Mesh place_on_terrain(dino::Mesh mesh, const dino::Terrain& terrain,
     return mesh;
 }
 
+int run_selftest() {
+    int checks = 0;
+    int failures = 0;
+    auto check = [&](bool ok, const char* what) {
+        ++checks;
+        if (!ok) {
+            std::printf("selftest: FAIL %s\n", what);
+            ++failures;
+        }
+    };
+
+    dino::BuildGrid grid;
+    grid.init(4.0f, 1024.0f);
+    check(grid.width == 256 && grid.height == 256, "grid size");
+    check(grid.origin_x == -512.0f && grid.origin_y == -512.0f, "grid origin");
+    check(!grid.path_at(10, 10), "grid empty");
+
+    grid.set_path(10, 10, true);
+    check(grid.path_count == 1 && grid.path_at(10, 10), "path set");
+    grid.set_path(10, 10, true);
+    check(grid.path_count == 1, "path idempotent");
+    grid.set_fence(10, 10, 0, true);
+    check(grid.fence_count == 1 && grid.fence_at(10, 10, 0), "fence south");
+    grid.set_fence(10, 10, 1, true);
+    check(grid.fence_count == 2 && grid.fence_at(10, 10, 1), "fence east");
+    grid.set_fence(10, 10, 0, false);
+    check(grid.fence_count == 1 && !grid.fence_at(10, 10, 0), "fence clear");
+    check(grid.undo() && grid.fence_count == 2 && grid.fence_at(10, 10, 0),
+          "undo restores south fence");
+    check(grid.undo() && grid.fence_count == 1, "undo restores east fence");
+
+    int cx = 0;
+    int cy = 0;
+    check(grid.cells_for_world(-512.0f + 10.5f * 4.0f,
+                               -512.0f + 10.5f * 4.0f, cx, cy) &&
+              cx == 10 && cy == 10, "world to cell");
+
+    dino::Terrain terrain;
+    terrain.width = 16;
+    terrain.height = 16;
+    terrain.world_size = 1024.0f;
+    terrain.height_scale = 1.0f;
+    terrain.heights.assign(16 * 16, 0);
+
+    for (int i = 100; i <= 110; ++i) {
+        grid.set_path(i, 100, true);
+        grid.set_path(i, 110, true);
+        grid.set_path(100, i, true);
+        grid.set_path(110, i, true);
+    }
+    check(grid.path_count == 41, "loop cells (40 + one earlier)");
+
+    dino::VisitorSystem visitors;
+    check(visitors.spawn(grid, 12) == 12, "visitor spawn count");
+    const float start_x = visitors.visitors.empty() ? 0.0f : visitors.visitors[0].x;
+    const float start_y = visitors.visitors.empty() ? 0.0f : visitors.visitors[0].y;
+    for (int i = 0; i < 900; ++i) {
+        visitors.update(grid, terrain, 1.0f / 60.0f);
+    }
+    bool moved = false;
+    bool on_path = true;
+    for (const auto& visitor : visitors.visitors) {
+        if (std::fabs(visitor.x - start_x) > 0.1f ||
+            std::fabs(visitor.y - start_y) > 0.1f) {
+            moved = true;
+        }
+        if (!grid.path_at(visitor.cell_x, visitor.cell_y)) {
+            on_path = false;
+        }
+    }
+    check(moved, "visitors moved");
+    check(on_path, "visitors stay on path cells");
+
+    const dino::Mesh empty_pose;
+    check(visitors.build_mesh(grid, terrain, empty_pose, empty_pose)
+              .positions.empty(), "empty pose builds empty mesh");
+
+    dino::Mesh fence_source;
+    fence_source.positions = {{0, 0, 0}, {0, 1, 0}, {0, 1, 1}, {0, 0, 1}};
+    fence_source.indices = {0, 1, 2, 0, 2, 3};
+    grid.set_fence(10, 10, 0, true);
+    const dino::BuildMeshes meshes =
+        dino::build_placement_meshes(grid, terrain, fence_source);
+    check(meshes.path_tiles == grid.path_count, "path mesh tiles");
+    check(meshes.fence_segments == grid.fence_count, "fence mesh segments");
+
+    if (failures == 0) {
+        std::printf("selftest: PASS (%d checks)\n", checks);
+    }
+    return failures == 0 ? 0 : 1;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
     Options opt = parse_args(argc, argv);
+
+    if (opt.selftest) {
+        return run_selftest();
+    }
 
     dino::KeyMap keymap;
     dino::load_keymap(opt.keys_path, keymap);

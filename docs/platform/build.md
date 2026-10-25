@@ -12,8 +12,8 @@ retail fence/path visuals.
   edge are stored, so a shared edge has one canonical owner:
   - south edge `(x, y)` == north edge of `(x, y-1)`
   - east edge `(x, y)` == west edge of `(x+1, y)`
-- `BuildGrid` keeps a change stack for undo; `undo()` restores the previous
-  state and counts.
+- `BuildGrid` keeps a change stack for undo; only actual toggles are recorded,
+  so `undo()` restores the opposite value and fixes the counts.
 
 ## Interaction
 
@@ -54,7 +54,13 @@ cell edge (west/east/south/north) and toggles its canonical edge.
 --place-path X,Y         add a path cell (cell coordinates, repeatable)
 --place-fence X,Y,E      add a fence edge, E=0 south / 1 east (repeatable)
 --pick-test X,Y          print the terrain cell under a pixel on frame 0
+--selftest               run grid/visitor logic checks and exit
 ```
+
+`--selftest` builds a grid, toggles paths/fences, checks undo and world→cell
+mapping, spawns 12 visitors on a 40-cell loop for 900 update steps, verifies
+they moved and stayed on path cells, and checks the baked mesh counts. It
+prints `selftest: PASS (18 checks)` and is covered by pytest.
 
 Placement file (`notes/build-test.txt` style):
 
