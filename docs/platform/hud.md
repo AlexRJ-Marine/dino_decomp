@@ -3,6 +3,11 @@
 Status: **working** — retail `.fnt` text renders on screen, with a live HUD,
 a start screen and a controls panel.
 
+> **Placeholder menu:** the start screen and controls panel are standalone
+> placeholder UI, not the original menu system. They use no retail layout,
+> art, sounds or actions. The real menu work and its asset inventory are in
+> `docs/platform/ui-original-menu.md` (UI-2).
+
 ## `.fnt` reader
 
 `src/formats/fnt.cpp` mirrors the validated Python parser

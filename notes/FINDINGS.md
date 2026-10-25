@@ -103,3 +103,29 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
 - `notes/` holds raw logs (`wise-file-list.txt`, `wise-extract.log`, `exe-intel.txt`,
   `exe-strings.txt`, `iso-manifest.json`).
 - Nothing has been decompiled yet.
+
+## Overlay UI / original menu assets (2026-10-25)
+
+- The original menus are data-driven. `Data/Overlay/MenuInterface.Ini` (47,955
+  bytes) documents its own schema in the header: widget types (`WIDGET`,
+  `BUTTON`, `COMBO`, `EDIT`, `CURVE`, `GROUP`, `HSCROLL`, `LIST`, `PROGRESS`,
+  `RENDER`, `VSCROLL`, `WINDOW`), per-object fields (`TYPE`, `PARENT`,
+  `PRIORITY`, `ZPRIORITY`, `EQUIVALENT`, `X`, `Y`, `WIDTH`, `HEIGHT`,
+  `VISIBLE`, `ENABLE`, `TEXTURE`, `TEXT_COLOR`, `TEXT_HEIGHT`, `TEXT_FONT`,
+  `TEXT_JUSTIFY`, `TEXT`, `HINT`, `USER_ID`), and button sub-types
+  (`NORMAL`, `SWITCH`, `CHECK_BOX`).
+- `MenuGraphicDB.ini` (9,685 bytes) defines named atlas rectangles:
+  `[NAME] X, Y, WIDTH, HEIGHT, FILENAME, NB_OBJECTS, SKIP_LIST` (e.g.
+  `[MENU_DUMMY]` uses `./DATA/OVERLAY/TEXTURES/menu_choix_dino.tga`).
+- `RadialMenu.Ini` (12,093 bytes) defines the radial build menu.
+- `ParkInterface.Ini` (54,052 bytes) is the in-park HUD/panel layout; the other
+  `*Interface*.Ini` files cover lab/list/info/construction/mission panels.
+- Localised strings: `MenuEng.loc` (56 records) / `ParkEng.loc` (702), parsed
+  by `tools/formats/loc.py`.
+- Menu art: `Overlay/textures/campagne_800x600.tga`,
+  `cinematics_800x600.tga`, island maps, and reference JPGs in
+  `Overlay/pics/Menu_hors_jeu/` (main, free game, campaign, options).
+- The x32dbg Free Mode path clicks 395,234 (Free Mode), 260,183 (IGUANO),
+  494,451 (easy), 526,531 (Start) — see `scripts/x32dbg/play-freegame.ps1`.
+- Current port menu is placeholder only; handoff/questions in
+  `docs/platform/ui-original-menu.md`.

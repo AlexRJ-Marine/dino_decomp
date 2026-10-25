@@ -374,6 +374,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/menu-help.png`, `tests/test_viewer_cpp.py::test_cpp_start_menu`,
   `test_cpp_help_panel`.
 
+### UI-2: Original menu parity
+- **Blocked on menu research (another agent).** Replace the placeholder start
+  screen with the retail overlay: `MenuInterface.Ini` layout,
+  `MenuGraphicDB.ini` rectangles, `MenuEng.loc` strings, original art/audio,
+  main-menu state machine, Free Game → island → park flow, save/load panels.
+- **Acceptance:** startup shows the original main menu; Free Mode → island →
+  Start reaches a park through the real screens.
+- **Depends on:** UI-1, UI-0, research handoff in
+  `docs/platform/ui-original-menu.md`.
+- **Status:** not started; current `--menu` is placeholder only.
+
 ### MEDIA-1: Audio and video
 - DirectSound-equivalent playback, music, MPEG intro.
 - **Acceptance:** music loops, SFX trigger, intro plays.

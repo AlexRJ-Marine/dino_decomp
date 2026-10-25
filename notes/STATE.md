@@ -266,34 +266,36 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 3 vertical slice is functionally complete: island, vegetation,
-  dinosaur, free camera, path/fence, sky/water, visitors, HUD, start screen,
-  controls panel, and two 10-minute runs.
-- Next feature: UI-1 rest (mouse-driven new game/load/save panels) and
-  SIM-2b (visitor needs/attraction use).
-- WORLD-3 polish remains: verify the skybox cube orientation against the
-  original and tune water colour/animation.
-- WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
-  placements (1,536 vegetation instances already batch into 9 draws).
-- QOL-2 (UI scaling) can now build on the `.fnt` renderer.
-- FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
-  bind poses that differ from the `.skel` bind (notably `pachy`).
+- **Menu parity (UI-2) is blocked on the menu research agent.** The current
+  start screen and Tab panel are placeholder UI only (see
+  `docs/platform/ui-original-menu.md`). Retail assets are inventoried there:
+  `MenuInterface.Ini` widget schema, `MenuGraphicDB.ini`, `RadialMenu.Ini`,
+  `MenuEng.loc`, menu art/textures and reference screenshots.
+- Phase 3 vertical slice is otherwise functionally complete: island,
+  vegetation, dinosaur, free camera, path/fence, sky/water, visitors, HUD.
+- Next feature once the research lands: parse `MenuInterface.Ini` into a widget
+  tree and replace the placeholder with the original main menu, then the
+  Free Game → island → park flow.
+- WORLD-3 polish remains: skybox orientation vs the original, water tuning.
+- WORLD-2 remains: culling, LOD2, scenario/building placements.
+- QOL-2 (UI scaling) builds on the `.fnt` renderer.
+- FMT-3b follow-up (not blocking): LOD2/LOD3 bind poses (notably `pachy`).
 
 ## Next action
 
-1. UI-1 rest: mouse-driven buttons for New Game / Resume / Quit and a
-   Save/Load panel wired to `save_build`/`load_build`.
-2. SIM-2b: pick a visitor target (a placed attraction/point of interest), walk
-   to it, wait, and leave; add a simple spawn/despawn at the entrance.
-3. Capture a side-by-side comparison against the original game for WORLD-3.
-4. Add distance culling / LOD2 for vegetation and measure FPS at 1080p.
-5. Continue hybrid detours (`0x47d460` u16 array, `0x47cc90` child list) when
-   the container/vector contracts are ported.
+1. Read the menu research when it arrives; confirm the screen list, widget
+   layout, action IDs and input handling against `MenuInterface.Ini`.
+2. Implement `src/ui/` widget parsing + hit-testing and the main-menu state
+   machine; keep `--no-menu` for tests.
+3. SIM-2b: visitor needs/attraction targets after the menu work or in parallel.
+4. Capture a side-by-side comparison against the original game for WORLD-3.
+5. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
 6. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 
-- None.
+- None hard. UI-2 (original menu) is waiting on the external menu research;
+  everything else can proceed independently.
 
 ## Decisions
 
