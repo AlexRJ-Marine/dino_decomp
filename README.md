@@ -9,9 +9,10 @@ This repository contains:
 - Ghidra research and a live hybrid-decompilation harness (`DINPUT8.dll`);
 - the evidence trail in `notes/` and `docs/`.
 
-**No retail data is included or committed.** `original/`, `game/`, `run/`,
-`analysis/`, `build/`, `.venv/` and `*.iso` are gitignored. Supply your own
-copy of the game to parse assets, run the viewer, or play the original.
+**No retail game files or extracted assets are included or committed.**
+`original/`, `game/`, `run/`, `analysis/`, `build/`, `.venv/` and `*.iso` are
+gitignored. Supply your own copy of the game to parse assets, run the viewer,
+or play the original.
 
 ## Project status
 
@@ -56,11 +57,8 @@ copy of the game to parse assets, run the viewer, or play the original.
   logic is decompiled).
 - Shows, labs/genetics, missions/campaigns, building and attraction placement.
 - Retail `.sav` save/load in the port; only path/fence placement persists today.
-- `scientificshow` is decoded with the other 33 objective predicates; the
-  remaining work is objective field names/weighting and the `spPark+0x1c`
-  category order.
-- Staff job kind `0xb`, populated lab records and LOD2/LOD3 bind poses remain
-  open.
+- Objective field names/weighting, the `spPark+0x1c` category order, staff job
+  kind `0xb`, populated lab records and LOD2/LOD3 bind poses.
 - Dynamic sub-panel values, save/load dialogs, menu sounds, culling/LOD2 and
   final skybox/water parity.
 
@@ -96,7 +94,7 @@ Validated scale: 536 meshes, 299 animations, 64 skeletons, 104 skins,
 
 The retail executable has **7,273 functions** (725,709 instructions) in Ghidra.
 [`docs/decomp/function-status.md`](docs/decomp/function-status.md) currently
-tracks **167 functions** with address, purpose, status and evidence.
+tracks **167 entries** with address, purpose, status and evidence.
 
 Solved or documented:
 
@@ -121,9 +119,9 @@ Only **two functions are replaced live** so far, both via the 32-bit
 | `0x004663a0` | 64-byte (16-float) matrix reader | ~281,000 |
 | `0x004809a0` | 12-byte (3-float) normal reader | ~97,000 |
 
-The portable port is the primary implementation path; the hybrid layer is
-used to keep the original executable runnable while functions are recovered.
-See [`docs/decomp/hybrid.md`](docs/decomp/hybrid.md).
+The portable port is the main deliverable; the hybrid layer keeps the original
+executable runnable while functions are recovered. See
+[`docs/decomp/hybrid.md`](docs/decomp/hybrid.md).
 
 ## Repository layout
 
@@ -155,7 +153,7 @@ copy of the retail executable used as an oracle; it is never built here.
 |---|---|
 | Windows 10/11 | The scripts are PowerShell. |
 | Python 3.11+ | A local `.venv` holds the Python tools. |
-| w64devkit | Extract to `C:\Tools\w64devkit`. Provides the 32/64-bit MinGW toolchain. |
+| w64devkit | Extract to `C:\Tools\w64devkit`. MinGW-w64 toolchain for the viewer and the 32-bit hook DLL. |
 | SDL3 3.4.18 | `scripts/setup-sdl3.ps1` installs it under `C:\Tools\SDL3`. |
 | CMake + Ninja | Installed into `.venv` by `requirements.txt`. |
 | Ghidra 12.2 + JDK 25 | Only needed for reverse engineering, not for the viewer build. |
@@ -168,12 +166,13 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
 .\scripts\setup-sdl3.ps1
-.\scripts\check-env.ps1
+.\scripts\build.ps1
 ```
 
-`check-env.ps1` validates the full reverse-engineering environment, including
-the retail executable and the Ghidra MCP server. If you only want to build the
-viewer, `scripts\build.ps1` needs just the venv, w64devkit and SDL3.
+`check-env.ps1` validates the full reverse-engineering environment. It expects
+the retail executable and a running Ghidra MCP server, so start Ghidra first,
+then run `.\scripts\check-env.ps1`. If you only want to build the viewer,
+`scripts\build.ps1` needs just the venv, w64devkit and SDL3.
 
 ### Build
 
@@ -210,6 +209,8 @@ window mode.
 ### Run the retail-style menu
 
 ```powershell
+$G = "game/%MAINDIR%"
+
 .\build\mingw\dino_viewer.exe --menu `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G
 ```
@@ -239,7 +240,7 @@ Run `dino_viewer.exe --help` for the complete list.
 .\scripts\run-tests.ps1
 ```
 
-The suite covers the Python parsers, the C++ viewers via deterministic
+The suite covers the Python parsers, the C++ viewer via deterministic
 subprocess runs, screenshot checks, and the viewer selftest. Tests that need
 retail data skip automatically when `game/%MAINDIR%` is absent.
 
@@ -306,7 +307,7 @@ dgVoodoo2 Direct3D 8 / DirectDraw wrappers already present in `run/`.
 | [`docs/formats/`](docs/formats/) | 25 byte-level format specifications. |
 | [`docs/decomp/`](docs/decomp/) | Function map, scheduler, AI, economy, save, media. |
 | [`docs/platform/`](docs/platform/) | Viewer, terrain, visitors, HUD, QoL and audio. |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Four-phase roadmap and exit criteria. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Four-phase plan and exit criteria; task status lives in `notes/STATE.md`. |
 
 ## Working method
 
