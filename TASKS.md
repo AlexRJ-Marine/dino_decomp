@@ -150,6 +150,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_lnd.py`, `test_fnt.py`, `notes/font-arial12-sample.png`; 2 `.loc`
   (758 records), 10 `.lnd`, 5 `.fnt` (1,225 glyphs).
 
+### FMT-8: `.shw` show scenarios
+- [x] Parse all 43 text files: 11 `//` sections, feature grid and team slots.
+- [x] Validate every feature/team count; correlate with the save catalog
+  (cost and dimensions match all 39 records).
+- **Acceptance:** 43/43 parse, 0 errors; 1,679 features, 174 team slots.
+- **Depends on:** RUN-2.
+- **Evidence:** `tools/formats/shw.py`, `docs/formats/shw.md`,
+  `tests/test_shw.py`, `notes/save-recon.md`.
+
 ### VIEW-0: Simple asset viewer
 - [x] Software renderer for one `.mesh` + `.tga` (views, supersampling,
   vertex colors, UV `v_tex = 1 + v`).

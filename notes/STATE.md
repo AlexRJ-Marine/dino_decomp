@@ -287,6 +287,13 @@ Updated: 2026-10-25
     classes (`pwdWorldManager`) identified but not decompiled.
   - Evidence: `notes/save-recon.md`, `docs/formats/sav.md`,
     `tools/formats/sav.py`, `tests/test_sav.py`.
+- FMT-8 complete: **`.shw` show scenarios.**
+  - Plain text `//` sections: name, cost, judge kind, cage size, dimensions,
+    wall type, 4-int feature grid, cage→team list.
+  - 43/43 files parse, 1,679 features, 174 team slots, 0 errors.
+  - Save catalog: cost and dimensions match all 39 records.
+  - Evidence: `tools/formats/shw.py`, `docs/formats/shw.md`,
+    `tests/test_shw.py`.
 
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,

@@ -150,3 +150,8 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
 - The original menu is now implemented (UI-2 Phase A); the data-driven layout,
   frame strips and preview oracle are in `docs/formats/overlay-ini.md`,
   `notes/ui-recon.md` and `tools/viewer/overlay_preview.py`.
+- `.shw` show scenarios are plain text (43 files) with `//` sections: name,
+  cost, judge kind, cage size, dimensions, wall type, 4-int feature grid and
+  cage->team slots. 43/43 parse (1,679 features, 174 team slots). Reader:
+  `tools/formats/shw.py`, spec `docs/formats/shw.md`, tests `test_shw.py`.
+  Save catalog cost/dimensions match all 39 records.
