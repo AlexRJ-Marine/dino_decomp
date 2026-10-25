@@ -271,7 +271,8 @@ Updated: 2026-10-25
     `notes/park-lab-breed.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_panel*`,
     `test_cpp_park_lab_shot`, `test_cpp_park_hover_shot`.
-- 112 tests pass; working tree committed.
+- 142 tests pass; working tree committed (UI-2 Phase C bindings plus
+  FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
     9 pages), `ParkInterface.Ini` (137 + 9 includes), `MenuGraphicDB.ini`
