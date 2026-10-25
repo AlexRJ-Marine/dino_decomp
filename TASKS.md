@@ -193,9 +193,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/viewer-allo.png`; 317 vertices / 382 triangles, 256×256 RGBA.
 
 ### VIEW-3: Skinned animation playback
-- Load `.skel` + `.skin` + `.anim`, apply skinning, play a clip.
+- [x] C++ `.skel` (80 bones), `.skin` (35 rigid records, 317 assignments),
+  `.anim` (35 bones, 1,085 keys) readers.
+- [x] CPU rigid skinning per frame, quaternion-slerp sampling, VBO update.
+- [x] Playable loop plus deterministic 25-frame capture.
 - **Acceptance:** `allo` walk/idle plays smoothly; screenshot/gif in `notes/`.
 - **Depends on:** FMT-3, FMT-4, FMT-5, VIEW-2.
+- **Evidence:** `src/formats/{skel,skin,anim}.cpp`, `src/viewer/main.cpp`,
+  `tests/test_viewer_cpp.py`, `notes/viewer-anim-1600.png`,
+  `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
 
 ### QOL-1: Resolution, widescreen, borderless
 - Windowed/borderless/fullscreen, arbitrary resolution, widescreen FOV.

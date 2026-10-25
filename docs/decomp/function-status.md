@@ -39,6 +39,20 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00598bad` | `SetCurrentDirectoryA` helper | decompiled | save-path investigation |
 | `0x004160c0` | change working directory | decompiled | save-path investigation |
 
+## C++ reimplementations
+
+These are readable ports used by the portable viewer. They are not yet hooked
+into the original exe; that is Phase 3 (`HYB-1`).
+
+| Original | C++ | Status |
+| --- | --- | --- |
+| `0x477890` skeleton reader | `src/formats/skel.cpp` | reimplemented, tested on 80-bone allo |
+| `0x47d880` skin bone records | `src/formats/skin.cpp` | reimplemented, 317 assignments |
+| `0x475990` / `0x4839e0` animation reader | `src/formats/anim.cpp` | reimplemented, quaternion sampling |
+| `.mesh` body reader | `src/formats/mesh.cpp` | reimplemented, `--validate` |
+| `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
+| `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
+
 ## Open items
 
 - `.fnt`, `.loc`, `.lnd`, audio loaders — FMT-6/FMT-7.

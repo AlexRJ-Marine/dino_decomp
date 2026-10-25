@@ -8,6 +8,9 @@
 
 #include "../formats/mesh.h"
 #include "../formats/tga.h"
+#include "../formats/skel.h"
+#include "../formats/skin.h"
+#include "../formats/anim.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,7 +19,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -32,8 +37,15 @@ struct Options {
     bool validate = false;
     std::string title = "Dino Island - portable viewer";
     std::string screenshot;
+    std::string capture_dir;
+    std::string capture_prefix = "frame";
     std::string mesh_path;
     std::string texture_path;
+    std::string skel_path;
+    std::string skin_path;
+    std::string anim_path;
+    double anim_time = -1.0;   // < 0 = animate with elapsed time
+    double anim_speed = 1.0;   // 1.0 = 4800 time units per second
     float yaw = 35.0f;
     float pitch = 20.0f;
     float distance = 0.0f;
@@ -58,12 +70,26 @@ Options parse_args(int argc, char** argv) {
             opt.frames = std::atoi(next("--frames"));
         } else if (arg == "--screenshot") {
             opt.screenshot = next("--screenshot");
+        } else if (arg == "--capture-dir") {
+            opt.capture_dir = next("--capture-dir");
+        } else if (arg == "--capture-prefix") {
+            opt.capture_prefix = next("--capture-prefix");
         } else if (arg == "--title") {
             opt.title = next("--title");
         } else if (arg == "--mesh") {
             opt.mesh_path = next("--mesh");
         } else if (arg == "--texture") {
             opt.texture_path = next("--texture");
+        } else if (arg == "--skel") {
+            opt.skel_path = next("--skel");
+        } else if (arg == "--skin") {
+            opt.skin_path = next("--skin");
+        } else if (arg == "--anim") {
+            opt.anim_path = next("--anim");
+        } else if (arg == "--time") {
+            opt.anim_time = std::atof(next("--time"));
+        } else if (arg == "--speed") {
+            opt.anim_speed = std::atof(next("--speed"));
         } else if (arg == "--yaw") {
             opt.yaw = static_cast<float>(std::atof(next("--yaw")));
         } else if (arg == "--pitch") {
@@ -79,9 +105,16 @@ Options parse_args(int argc, char** argv) {
                 "usage: dino_viewer [options]\n"
                 "  --mesh FILE          retail .mesh to draw\n"
                 "  --texture FILE       retail .tga texture\n"
+                "  --skel FILE          retail .skel skeleton\n"
+                "  --skin FILE          retail .skin (requires --mesh for the name)\n"
+                "  --anim FILE          retail .anim clip\n"
+                "  --time N             fixed animation time (default: animate)\n"
+                "  --speed N            animation speed multiplier (default 1)\n"
                 "  --width N --height N window size (default 1280x720)\n"
                 "  --frames N           exit after N frames (0 = interactive)\n"
                 "  --screenshot FILE.bmp save the last frame\n"
+                "  --capture-dir DIR    save every frame (fixed animation step)\n"
+                "  --capture-prefix P   frame filename prefix (default frame)\n"
                 "  --yaw DEG --pitch DEG --distance N  camera\n"
                 "  --validate           parse inputs and print counts, no window\n"
                 "  --no-vsync           disable vsync\n");
@@ -346,12 +379,8 @@ struct GpuMesh {
     }
 };
 
-GpuMesh upload_mesh(const dino::Mesh& mesh, const GlFns& gl) {
-    GpuMesh gpu;
+std::vector<Vertex> build_vertices(const dino::Mesh& mesh) {
     const std::size_t count = mesh.positions.size();
-    if (count == 0) {
-        return gpu;
-    }
     std::vector<Vertex> vertices;
     vertices.reserve(count);
     const bool has_n = mesh.normals.size() == count;
@@ -378,6 +407,16 @@ GpuMesh upload_mesh(const dino::Mesh& mesh, const GlFns& gl) {
         }
         vertices.push_back(v);
     }
+    return vertices;
+}
+
+GpuMesh upload_mesh(const dino::Mesh& mesh, const GlFns& gl) {
+    GpuMesh gpu;
+    const std::size_t count = mesh.positions.size();
+    if (count == 0) {
+        return gpu;
+    }
+    std::vector<Vertex> vertices = build_vertices(mesh);
     std::vector<std::uint32_t> indices = mesh.indices;
     if (indices.empty()) {
         indices.resize(count);
@@ -415,6 +454,18 @@ GpuMesh upload_mesh(const dino::Mesh& mesh, const GlFns& gl) {
     return gpu;
 }
 
+void update_mesh(GpuMesh& gpu, const dino::Mesh& mesh, const GlFns& gl) {
+    if (gpu.vbo == 0) {
+        return;
+    }
+    const std::vector<Vertex> vertices = build_vertices(mesh);
+    gl.BindBuffer(GL_ARRAY_BUFFER, gpu.vbo);
+    gl.BufferData(GL_ARRAY_BUFFER,
+                  static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                  vertices.data(), GL_DYNAMIC_DRAW);
+    gl.BindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 GLuint upload_texture(const dino::Image& image) {
     GLuint id = 0;
     glGenTextures(1, &id);
@@ -428,41 +479,17 @@ GLuint upload_texture(const dino::Image& image) {
     return id;
 }
 
-struct Mat4 {
-    float m[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-};
-
-Mat4 multiply(const Mat4& a, const Mat4& b) {
-    Mat4 out;
-    for (int col = 0; col < 4; ++col) {
-        for (int row = 0; row < 4; ++row) {
-            float sum = 0.0f;
-            for (int k = 0; k < 4; ++k) {
-                sum += a.m[k * 4 + row] * b.m[col * 4 + k];
-            }
-            out.m[col * 4 + row] = sum;
-        }
-    }
-    return out;
-}
-
-Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
-    Mat4 out;
+dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
+    dino::Mat4 out;
     const float f = 1.0f / std::tan(fov_deg * 3.14159265f / 360.0f);
     out.m[0] = f / aspect;
     out.m[5] = f;
     out.m[10] = (far_plane + near_plane) / (near_plane - far_plane);
-    out.m[11] = -1.0f;
-    out.m[14] = (2.0f * far_plane * near_plane) / (near_plane - far_plane);
+    out.m[14] = -1.0f;
+    out.m[11] = (2.0f * far_plane * near_plane) / (near_plane - far_plane);
     out.m[15] = 0.0f;
     return out;
 }
-
-dino::Vec3 normalize(const dino::Vec3& v) {
-    const float n = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-    return n > 0.0f ? dino::Vec3{v.x / n, v.y / n, v.z / n} : dino::Vec3{0, 0, 0};
-}
-
 dino::Vec3 cross(const dino::Vec3& a, const dino::Vec3& b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
@@ -471,18 +498,15 @@ float dot(const dino::Vec3& a, const dino::Vec3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::Vec3& up) {
-    const dino::Vec3 f = normalize({target.x - eye.x, target.y - eye.y, target.z - eye.z});
-    const dino::Vec3 s = normalize(cross(f, up));
+dino::Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::Vec3& up) {
+    const dino::Vec3 f = dino::normalize({target.x - eye.x, target.y - eye.y, target.z - eye.z});
+    const dino::Vec3 s = dino::normalize(cross(f, up));
     const dino::Vec3 u = cross(s, f);
-    Mat4 out;
-    out.m[0] = s.x;  out.m[1] = u.x;  out.m[2] = -f.x; out.m[3] = 0.0f;
-    out.m[4] = s.y;  out.m[5] = u.y;  out.m[6] = -f.y; out.m[7] = 0.0f;
-    out.m[8] = s.z;  out.m[9] = u.z;  out.m[10] = -f.z; out.m[11] = 0.0f;
-    out.m[12] = -dot(s, eye);
-    out.m[13] = -dot(u, eye);
-    out.m[14] = dot(f, eye);
-    out.m[15] = 1.0f;
+    dino::Mat4 out;
+    out.m[0] = s.x;  out.m[1] = s.y;  out.m[2] = s.z;  out.m[3] = -dot(s, eye);
+    out.m[4] = u.x;  out.m[5] = u.y;  out.m[6] = u.z;  out.m[7] = -dot(u, eye);
+    out.m[8] = -f.x; out.m[9] = -f.y; out.m[10] = -f.z; out.m[11] = dot(f, eye);
+    out.m[12] = 0.0f; out.m[13] = 0.0f; out.m[14] = 0.0f; out.m[15] = 1.0f;
     return out;
 }
 
@@ -498,11 +522,11 @@ void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
                          center.y + distance * cp * sy,
                          center.z + distance * sp};
 
-    const Mat4 proj = perspective(33.0f,
-                                  static_cast<float>(width) / std::max(1, height),
-                                  0.1f, 2000.0f);
-    const Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
-    const Mat4 mvp = multiply(proj, view);
+    const dino::Mat4 proj = perspective(33.0f,
+                                        static_cast<float>(width) / std::max(1, height),
+                                        0.1f, 2000.0f);
+    const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
+    const dino::Mat4 mvp = dino::multiply(proj, view);
 
     glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -510,7 +534,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
     glDepthFunc(GL_LEQUAL);
 
     gl.UseProgram(program);
-    gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_FALSE, mvp.m);
+    gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE, mvp.m);
     const float light[3] = {-0.35f, -0.68f, 0.72f};
     const float light_color[3] = {0.92f, 0.93f, 0.95f};
     const float ambient[3] = {0.62f, 0.64f, 0.68f};
@@ -530,6 +554,74 @@ void draw_scene(const GpuMesh& mesh, GLuint texture, GLuint program,
     gl.UseProgram(0);
 }
 
+void build_skin_mapping(const dino::Skin& skin, const dino::Skeleton& skeleton,
+                        std::vector<int>& vertex_bone, std::vector<int>& bone_skel) {
+    vertex_bone.assign(skin.mesh.positions.size(), -1);
+    bone_skel.assign(skin.bones.size(), -1);
+    for (std::size_t b = 0; b < skin.bones.size(); ++b) {
+        const int index = skeleton.index_of(skin.bones[b].name);
+        if (index < 0) {
+            throw std::runtime_error("skin bone '" + skin.bones[b].name +
+                                     "' is not in the skeleton");
+        }
+        bone_skel[b] = index;
+        for (const std::uint32_t v : skin.bones[b].vertices) {
+            vertex_bone[v] = static_cast<int>(b);
+        }
+    }
+}
+
+dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
+                              const dino::Skeleton& skeleton,
+                              const dino::Animation* anim, double time,
+                              const std::vector<int>& vertex_bone,
+                              const std::vector<int>& bone_skel) {
+    std::vector<dino::Mat4> locals;
+    locals.reserve(skeleton.bones.size());
+    for (const auto& bone : skeleton.bones) {
+        locals.push_back(bone.local);
+    }
+    if (anim != nullptr) {
+        for (const auto& bone : anim->bones) {
+            const int index = skeleton.index_of(bone.name);
+            if (index >= 0) {
+                locals[static_cast<std::size_t>(index)] = bone.sample(time);
+            }
+        }
+    }
+    const auto world = skeleton.world_matrices(locals);
+    std::vector<dino::Mat4> raw;
+    raw.reserve(world.size());
+    for (const auto& matrix : world) {
+        raw.push_back(dino::raw_centimetres(matrix));
+    }
+    std::vector<dino::Mat4> skin_matrices(skin.bones.size());
+    for (std::size_t i = 0; i < skin.bones.size(); ++i) {
+        const int skel_index = bone_skel[i];
+        skin_matrices[i] = skel_index >= 0
+            ? dino::multiply(skin.bones[i].inverse_bind, raw[static_cast<std::size_t>(skel_index)])
+            : dino::identity();
+    }
+
+    dino::Mesh out = bind;
+    const bool has_normals = bind.normals.size() == bind.positions.size();
+    for (std::size_t v = 0; v < bind.positions.size(); ++v) {
+        const int bone = vertex_bone[v];
+        dino::Vec3 p = bind.positions[v];
+        dino::Vec3 n = has_normals ? bind.normals[v] : dino::Vec3{0, 0, 1};
+        if (bone >= 0) {
+            const dino::Mat4& m = skin_matrices[static_cast<std::size_t>(bone)];
+            p = dino::transform_point(m, p);
+            n = dino::normalize(dino::transform_direction(m, n));
+        }
+        out.positions[v] = {p.x * 0.01f, p.y * 0.01f, p.z * 0.01f};
+        if (has_normals) {
+            out.normals[v] = n;
+        }
+    }
+    return out;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -537,12 +629,33 @@ int main(int argc, char** argv) {
 
     dino::Mesh mesh;
     dino::Image image;
+    dino::Skeleton skeleton;
+    dino::Skin skin;
+    dino::Animation anim;
     try {
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
         }
         if (!opt.texture_path.empty()) {
             image = dino::load_tga(opt.texture_path);
+        }
+        if (!opt.skel_path.empty()) {
+            skeleton = dino::load_skel(opt.skel_path);
+        }
+        if (!opt.skin_path.empty()) {
+            if (opt.mesh_path.empty()) {
+                throw std::runtime_error("--skin requires --mesh so the full-mesh block name is known");
+            }
+            if (opt.skel_path.empty()) {
+                throw std::runtime_error("--skin requires --skel");
+            }
+            skin = dino::load_skin(opt.skin_path, mesh.name);
+        }
+        if (!opt.anim_path.empty()) {
+            if (opt.skel_path.empty()) {
+                throw std::runtime_error("--anim requires --skel");
+            }
+            anim = dino::load_anim(opt.anim_path);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "load error: %s\n", e.what());
@@ -560,6 +673,49 @@ int main(int argc, char** argv) {
         if (!opt.texture_path.empty()) {
             std::printf("texture %s: %dx%d RGBA\n", opt.texture_path.c_str(),
                         image.width, image.height);
+        }
+        if (!opt.skel_path.empty()) {
+            std::printf("skel %s: %zu bones\n", opt.skel_path.c_str(), skeleton.bones.size());
+        }
+        if (!opt.skin_path.empty()) {
+            std::size_t assigned = 0;
+            for (const auto& bone : skin.bones) {
+                assigned += bone.vertices.size();
+            }
+            std::printf("skin %s: %zu vertices, %zu bones, %zu assignments\n",
+                        opt.skin_path.c_str(), skin.mesh.positions.size(),
+                        skin.bones.size(), assigned);
+        }
+        if (!opt.anim_path.empty()) {
+            std::size_t keys = 0;
+            for (const auto& bone : anim.bones) {
+                keys += bone.times.size();
+            }
+            std::printf("anim %s: %zu bones, %u duration, %zu keys\n",
+                        opt.anim_path.c_str(), anim.bones.size(), anim.duration, keys);
+        }
+        if (!opt.skin_path.empty() && !opt.skel_path.empty()) {
+            std::vector<int> vertex_bone;
+            std::vector<int> bone_skel;
+            build_skin_mapping(skin, skeleton, vertex_bone, bone_skel);
+            const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
+            const double t = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
+            const dino::Mesh bind = build_skinned_mesh(skin.mesh, skin, skeleton,
+                                                       nullptr, 0.0, vertex_bone, bone_skel);
+            const dino::Mesh pose = build_skinned_mesh(skin.mesh, skin, skeleton,
+                                                       anim_ptr, t, vertex_bone, bone_skel);
+            auto print_bounds = [](const char* label, const dino::Mesh& m) {
+                dino::Vec3 lo{1e30f, 1e30f, 1e30f};
+                dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
+                for (const auto& p : m.positions) {
+                    lo.x = std::min(lo.x, p.x); lo.y = std::min(lo.y, p.y); lo.z = std::min(lo.z, p.z);
+                    hi.x = std::max(hi.x, p.x); hi.y = std::max(hi.y, p.y); hi.z = std::max(hi.z, p.z);
+                }
+                std::printf("%s bounds: (%.3f %.3f %.3f) .. (%.3f %.3f %.3f)\n",
+                            label, lo.x, lo.y, lo.z, hi.x, hi.y, hi.z);
+            };
+            print_bounds("skin bind", bind);
+            print_bounds("skin pose", pose);
         }
         return 0;
     }
@@ -619,7 +775,14 @@ int main(int argc, char** argv) {
                 SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_MICRO_VERSION,
                 version ? version : "?", renderer ? renderer : "?", vendor ? vendor : "?");
 
-    if (mesh.positions.empty()) {
+    const bool skinned = !skin.bones.empty();
+    std::vector<int> vertex_bone;
+    std::vector<int> bone_skel;
+    if (skinned) {
+        build_skin_mapping(skin, skeleton, vertex_bone, bone_skel);
+    }
+
+    if (mesh.positions.empty() && !skinned) {
         dino::Mesh fallback;
         fallback.positions = {{-0.62f, -0.52f, 0.0f}, {0.02f, 0.68f, 0.0f}, {0.68f, -0.44f, 0.0f}};
         fallback.normals = {{0, 0, 1}, {0, 0, 1}, {0, 0, 1}};
@@ -629,9 +792,21 @@ int main(int argc, char** argv) {
     }
 
     const GLuint texture = image.width > 0 ? upload_texture(image) : 0;
-    GpuMesh gpu = upload_mesh(mesh, glfns);
+    dino::Mesh display;
+    if (skinned) {
+        const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
+        const double initial_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
+        display = build_skinned_mesh(skin.mesh, skin, skeleton, anim_ptr, initial_time,
+                                     vertex_bone, bone_skel);
+        if (mesh.colors.size() == display.positions.size()) {
+            display.colors = mesh.colors;
+        }
+    } else {
+        display = mesh;
+    }
+    GpuMesh gpu = upload_mesh(display, glfns);
     Bounds bounds;
-    for (const auto& p : mesh.positions) {
+    for (const auto& p : display.positions) {
         bounds.add(p);
     }
     const float auto_distance = std::max(2.0f, bounds.extent() * 1.7f);
@@ -717,8 +892,42 @@ int main(int argc, char** argv) {
         const float pulse = 0.5f + 0.5f * SDL_sinf(static_cast<float>(elapsed) * 1.5f);
         glClearColor(0.055f + 0.02f * pulse, 0.09f + 0.03f * pulse,
                      0.14f + 0.04f * pulse, 1.0f);
+
+        if (skinned) {
+            double anim_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
+            if (opt.anim_time < 0.0 && anim.duration > 0) {
+                if (!opt.capture_dir.empty() && opt.frames > 0) {
+                    anim_time = std::fmod(static_cast<double>(frame) *
+                                              static_cast<double>(anim.duration) /
+                                              static_cast<double>(opt.frames),
+                                          static_cast<double>(anim.duration));
+                } else {
+                    anim_time = std::fmod(elapsed * 4800.0 * opt.anim_speed,
+                                          static_cast<double>(anim.duration));
+                }
+            }
+            const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
+            dino::Mesh deformed = build_skinned_mesh(skin.mesh, skin, skeleton,
+                                                     anim_ptr, anim_time,
+                                                     vertex_bone, bone_skel);
+            if (mesh.colors.size() == deformed.positions.size()) {
+                deformed.colors = mesh.colors;
+            }
+            update_mesh(gpu, deformed, glfns);
+        }
+
         draw_scene(gpu, texture, program, glfns, bounds, yaw, pitch, distance,
                    width, height);
+
+        if (!opt.capture_dir.empty()) {
+            std::filesystem::create_directories(opt.capture_dir);
+            char path[1024];
+            std::snprintf(path, sizeof(path), "%s/%s_%04d.bmp",
+                          opt.capture_dir.c_str(), opt.capture_prefix.c_str(), frame);
+            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            write_bmp(path, width, height, pixels);
+        }
 
         if (!opt.screenshot.empty() &&
             (opt.frames <= 0 ? false : frame + 1 >= opt.frames)) {

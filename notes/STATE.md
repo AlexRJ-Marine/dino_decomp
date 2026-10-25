@@ -32,7 +32,7 @@ Updated: 2026-10-25
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
 - Environment verified end-to-end: `scripts/check-env.ps1` passes,
   `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
-  `dino_tools.exe`, and all 54 tests pass.
+  `dino_tools.exe`, and all 57 tests pass.
 - FMT-4 complete: **`.skel` is solved.**
   - 64-byte bone record is a row-major 4×4 float matrix (3ds Max row-vector
     convention): rotation/scale in the upper 3×3, translation in row 3.
@@ -106,6 +106,15 @@ Updated: 2026-10-25
   - Evidence: `src/formats/mesh.cpp`, `src/formats/tga.cpp`,
     `src/viewer/main.cpp`, `tests/test_viewer_cpp.py`,
     `notes/viewer-allo.png`.
+- VIEW-3 complete: skinned animation in the C++ viewer.
+  - `src/formats/skel.cpp` (80 bones), `skin.cpp` (35 rigid records,
+    317 assignments), `anim.cpp` (35 bones, 1,085 keys, quaternion slerp).
+  - CPU rigid skinning: `v_cm @ inverse_bind @ W_raw_anim`, then `× 0.01`;
+    normals transformed and renormalised; VBO updated per frame.
+  - Fixed-time poses and deterministic 25-frame capture work.
+  - Evidence: `src/formats/{skel,skin,anim}.cpp`, `src/viewer/main.cpp`,
+    `tests/test_viewer_cpp.py`, `notes/viewer-anim-1600.png`,
+    `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -148,19 +157,20 @@ Updated: 2026-10-25
 
 ## In progress
 
-- Phase 2: VIEW-3 — load `.skel` + `.skin` + `.anim` in C++, add rigid
-  skinning to the GLSL pipeline and play the allosaurus clip.
+- Phase 2 QoL: QOL-1 resolution/widescreen/borderless, then QOL-2 UI scaling
+  and QOL-3 key rebinding.
 - FMT-3b follow-up (not blocking): retarget skeleton animation onto LOD2/LOD3
   bind poses that differ from the `.skel` bind (notably `pachy`).
 
 ## Next action
 
-1. VIEW-3: port the `.skel` / `.skin` / `.anim` readers to C++ (or share the
-   validated Python output), upload bone indices/weights and per-bone matrices,
-   and add the skinning transform to the vertex shader.
-2. Animate `allo` with `HeavyBiped_Armor`; screenshot/GIF in `notes/`.
-3. QOL-1..3: resolution/widescreen/borderless, UI scaling, key rebinding.
-4. User: publish `docs/community/xentax-post.md` and record any replies.
+1. QOL-1: windowed/borderless/fullscreen, arbitrary resolution, widescreen
+   projection; persist the choice.
+2. QOL-2: scale the original overlay layout for high-DPI/widescreen.
+3. QOL-3: portable key map and rebinding.
+4. Phase 3: hook the original exe and replace loaders one at a time; keep
+   `docs/decomp/function-status.md` current.
+5. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

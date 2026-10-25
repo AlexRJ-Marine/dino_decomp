@@ -1,7 +1,8 @@
 # SDL3 + OpenGL viewer
 
-Status: **VIEW-1 + VIEW-2 complete** — the window opens, loads a retail
-`.mesh` + `.tga`, and draws it with a GLSL 3.3 lit pipeline and orbit camera.
+Status: **VIEW-1 + VIEW-2 + VIEW-3 complete** — the window opens, loads a
+retail `.mesh` + `.tga`, and draws a textured, lit, **rigid-skinned animated**
+allosaurus with an orbit camera.
 
 ## Toolchain
 
@@ -31,12 +32,19 @@ Options:
 ```text
 --mesh FILE              retail .mesh to draw
 --texture FILE           retail .tga texture
+--skel FILE              retail .skel skeleton (required for skinning)
+--skin FILE              retail .skin rigid-skin table
+--anim FILE              retail .anim clip
+--time N                 fixed animation time (default: play the loop)
+--speed N                animation speed multiplier (default 1)
 --width N --height N     window size (default 1280x720)
 --frames N               exit after N frames (0 = run until closed)
 --screenshot FILE.bmp    save the last frame as a 24-bit BMP
---yaw DEG --pitch DEG     initial orbit camera
+--capture-dir DIR        save every frame (fixed animation step)
+--capture-prefix P       frame filename prefix (default frame)
+--yaw DEG --pitch DEG    initial orbit camera
 --distance N             camera distance (0 = auto)
---validate               parse inputs and print counts, no window
+--validate               parse inputs and print counts/bounds, no window
 --title TEXT             window title
 --no-vsync               disable vsync
 ```
@@ -44,17 +52,28 @@ Options:
 Controls: **left-drag** orbit, **wheel** zoom, **arrows** orbit, **R** reset,
 **Esc** or the close button quits.
 
-Example smoke run:
+Example animated run:
 
 ```powershell
-.\build\mingw\dino_viewer.exe --frames 3 `
-  --screenshot notes\viewer-allo.bmp --width 1200 --height 760 --no-vsync `
+.\build\mingw\dino_viewer.exe `
   --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
-  --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga"
+  --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga" `
+  --skel "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo.skel" `
+  --skin "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.skin" `
+  --anim "game/%MAINDIR%/Data/Graphics/Actors/Dinos/animations/HeavyBiped/HeavyBiped_Armor.anim"
 ```
 
-Result: `notes/viewer-allo.png`, OpenGL 3.3 core (NVIDIA), SDL 3.4.18,
-317 vertices / 382 triangles.
+Deterministic 25-frame capture:
+
+```powershell
+.\build\mingw\dino_viewer.exe --frames 25 `
+  --capture-dir notes\anim-cpp --capture-prefix allo `
+  --width 600 --height 400 --no-vsync --distance 16 `
+  --mesh ... --texture ... --skel ... --skin ... --anim ...
+```
+
+Result: `notes/viewer-anim-1600.png`, `notes/viewer-anim-sheet.png`,
+`notes/viewer-anim-cpp.gif`.
 
 ## Implementation notes
 
@@ -69,11 +88,26 @@ Result: `notes/viewer-allo.png`, OpenGL 3.3 core (NVIDIA), SDL 3.4.18,
     texture modulation, key + fill lighting and a small gamma lift.
   - Interleaved VBO/VAO + EBO; UV `v_tex = 1 + v` as in the Python renderer.
   - Orbit camera, resize handling, `glReadPixels` BMP screenshots.
+- `src/formats/skel.cpp` reads the 80-bone skeleton (64-byte row-major
+  matrices, parent table, names).
+- `src/formats/skin.cpp` locates the full-mesh block by name, reads its
+  centimetre vertices, and parses the 35 rigid skin records
+  (vertex partition, weights, inverse-bind matrices).
+- `src/formats/anim.cpp` reads the 35-bone clip (`u64` times + local 4×4
+  matrices) and samples it with quaternion slerp.
+- CPU rigid skinning per frame:
+  `v_cm @ inverse_bind @ W_raw_anim`, then `× 0.01` for metres. Normals are
+  transformed by the same 3×3 and renormalised. The 317-vertex VBO is updated
+  with `glBufferData` each frame.
 - `tests/test_viewer_cpp.py` checks the window smoke test, `.mesh`/`.tga`
-  validation and a textured mesh screenshot.
+  validation, skinned validation, a fixed animation pose, and frame capture.
 
 ## Next
 
-VIEW-3: load `.skel` + `.skin` + `.anim`, add bone indices/weights and the
-rigid skinning matrix to the shader, and play the allosaurus clip.
+Phase 2 QoL:
+- QOL-1 resolution/widescreen/borderless.
+- QOL-2 UI scaling.
+- QOL-3 key rebinding.
+
+Then Phase 3: hook the original exe and replace loaders one at a time.
 

@@ -32,6 +32,9 @@ add_executable(dino_viewer
     src/viewer/main.cpp
     src/formats/mesh.cpp
     src/formats/tga.cpp
+    src/formats/skel.cpp
+    src/formats/skin.cpp
+    src/formats/anim.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)
