@@ -6,12 +6,17 @@
   "mcp": {
     "servers": {
       "ghidra": {
-        "type": "remote",
-        "url": "http://127.0.0.1:8000/mcp",
-        "oauth": false,
+        "type": "local",
+        "command": [
+          "C:\\Users\\Alex\\Documents\\Dino decomp\\.venv\\Scripts\\mcp-proxy.exe",
+          "--transport",
+          "streamablehttp",
+          "http://127.0.0.1:8000/mcp"
+        ],
+        "cwd": "C:\\Users\\Alex\\Documents\\Dino decomp",
         "timeout": {
-          "startup": 60000,
-          "catalog": 60000,
+          "startup": 120000,
+          "catalog": 120000,
           "execution": 1800000
         }
       }

@@ -21,7 +21,7 @@ if (Test-Path $py) {
     Check "python packages" ($LASTEXITCODE -eq 0) $mods
 }
 
-foreach ($exe in @("pyghidra-mcp.exe", "pytest.exe", "cmake.exe", "ninja.exe")) {
+foreach ($exe in @("pyghidra-mcp.exe", "mcp-proxy.exe", "pytest.exe", "cmake.exe", "ninja.exe")) {
     $p = Join-Path $root ".venv\Scripts\$exe"
     Check $exe (Test-Path $p) $p
 }

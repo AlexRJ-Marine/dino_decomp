@@ -28,10 +28,13 @@ Updated: 2026-10-25
   (`tools/formats/mesh.py`, `docs/formats/mesh.md`, `tests/test_mesh.py`).
 - Ghidra 12.2 + JDK 25 + pyghidra-mcp running on port 8000 with
   `DinoIsland.exe` imported (`/DinoIsland.exe-ebea17`).
+- Environment verified end-to-end: `scripts/check-env.ps1` passes,
+  `opencode mcp list` shows `✓ ghidra connected`, `scripts/build.ps1` builds
+  `dino_tools.exe`, and all 9 tests pass.
 
 ## In progress
 
-- ENV-1: install Ghidra 12.2, pyghidra-mcp, w64devkit; verify build.
+- FMT-4: `.skel` skeleton hierarchy and local transforms.
 
 ## Next action
 

@@ -1,5 +1,6 @@
 pyghidra-mcp==0.2.7
 pyghidra-mcp-cli
+mcp-proxy
 pefile
 capstone
 construct

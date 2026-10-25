@@ -59,6 +59,8 @@ of the original architecture.
   pillow, cmake, ninja).
 - Ghidra: `C:\Tools\ghidra_12.2_PUBLIC`; MCP at `http://127.0.0.1:8000/mcp`.
   Ghidra 12.2 requires JDK 25: `C:\Tools\jdk25\jdk-25.0.4.1+1`.
+  OpenCode reaches it through `mcp-proxy` (stdio → HTTP); `opencode mcp list`
+  should say `✓ ghidra connected`.
 - C++: portable w64devkit in `C:\Tools\w64devkit`; CMake + Ninja from the venv.
 - Verify: `scripts/check-env.ps1`; build: `scripts/build.ps1`;
   tests: `scripts/run-tests.ps1`; Ghidra: `scripts/start-ghidra.ps1`.

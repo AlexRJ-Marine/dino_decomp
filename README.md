@@ -40,7 +40,9 @@ opencode
 The server is headless (`pyghidra-mcp`) and listens at
 `http://127.0.0.1:8000/mcp`. Ghidra 12.2 requires JDK 25
 (`C:\Tools\jdk25\jdk-25.0.4.1+1`); `start-ghidra.ps1` sets `JAVA_HOME` for you.
-OpenCode connects to it as a remote MCP server.
+OpenCode connects through `mcp-proxy` (stdio → Streamable HTTP) because the
+direct remote-HTTP client refused the loopback connection in this environment.
+`opencode mcp list` should print `✓ ghidra connected`.
 The Ghidra project is `analysis/ghidra/dino.gpr`; the binary is
 `game/%MAINDIR%/DinoIsland.exe`.
 
