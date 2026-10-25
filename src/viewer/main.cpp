@@ -90,6 +90,9 @@ struct Options {
     bool selftest = false;
     bool hud = true;
     std::string hud_font_path;
+    bool no_menu = false;
+    bool force_menu = false;
+    bool force_help = false;
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -253,6 +256,12 @@ Options parse_args(int argc, char** argv) {
             opt.hud = false;
         } else if (arg == "--hud-font") {
             opt.hud_font_path = next("--hud-font");
+        } else if (arg == "--no-menu") {
+            opt.no_menu = true;
+        } else if (arg == "--menu") {
+            opt.force_menu = true;
+        } else if (arg == "--help-panel") {
+            opt.force_help = true;
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -339,6 +348,9 @@ Options parse_args(int argc, char** argv) {
                 "  --selftest           run grid/visitor checks and exit\n"
                 "  --no-hud             hide the on-screen HUD\n"
                 "  --hud-font FILE      bitmap font for the HUD (default arial12.fnt)\n"
+                "  --no-menu            skip the start screen\n"
+                "  --menu               force the start screen (for screenshots)\n"
+                "  --help-panel         show the controls panel at startup\n"
                 "  --no-water           skip the water plane\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
@@ -878,6 +890,30 @@ dino::Mesh build_text_mesh(const dino::Fnt& font, const std::string& text,
         mesh.indices.push_back(base + 3);
         pen_x += w;
     }
+    return mesh;
+}
+
+float text_width(const dino::Fnt& font, const std::string& text, float scale) {
+    float width = 0.0f;
+    for (const unsigned char ch : text) {
+        if (ch == '\n') {
+            continue;
+        }
+        const dino::FntGlyph* glyph = font.glyph(ch);
+        width += glyph != nullptr ? static_cast<float>(glyph->width()) * scale
+                                  : static_cast<float>(font.font_size) * 0.5f * scale;
+    }
+    return width;
+}
+
+dino::Mesh build_screen_rect(float x, float y, float w, float h,
+                             dino::Color color) {
+    dino::Mesh mesh;
+    mesh.name = "screen_rect";
+    mesh.positions = {{x, y, 0}, {x + w, y, 0}, {x + w, y + h, 0}, {x, y + h, 0}};
+    mesh.normals.assign(4, {0.0f, 0.0f, 1.0f});
+    mesh.colors.assign(4, color);
+    mesh.indices = {0, 1, 2, 0, 2, 3};
     return mesh;
 }
 
@@ -1949,6 +1985,9 @@ int main(int argc, char** argv) {
     }
 
     bool running = true;
+    bool start_screen = opt.force_menu ||
+        (opt.frames == 0 && opt.screenshot.empty() && !opt.no_menu);
+    bool show_help = opt.force_help;
     bool dragging = false;
     float last_mx = 0.0f, last_my = 0.0f;
     int frame = 0;
@@ -1964,6 +2003,18 @@ int main(int argc, char** argv) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (opt.no_input) {
+                continue;
+            }
+            if (start_screen) {
+                if (event.type == SDL_EVENT_QUIT) {
+                    running = false;
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+                    if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
+                        start_screen = false;
+                    } else if (event.key.key == SDLK_ESCAPE) {
+                        running = false;
+                    }
+                }
                 continue;
             }
             if (event.type == SDL_EVENT_QUIT) {
@@ -2006,6 +2057,8 @@ int main(int argc, char** argv) {
                     }
                 } else if (key == SDLK_F1) {
                     hud_visible = !hud_visible;
+                } else if (key == SDLK_TAB) {
+                    show_help = !show_help;
                 } else if (key == SDLK_1) {
                     build_tool = 1;
                     std::printf("build tool: path\n");
@@ -2255,7 +2308,42 @@ int main(int argc, char** argv) {
         draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
                    view_center, width, height);
 
-        if (hud_visible && hud_font_texture != 0) {
+        auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
+                           int unlit) {
+            hud_gpu.destroy(glfns);
+            hud_gpu = upload_mesh(mesh, glfns);
+            if (hud_gpu.vao == 0) {
+                return;
+            }
+            dino::Mat4 ortho;
+            ortho.m[0] = 2.0f / static_cast<float>(width);
+            ortho.m[5] = -2.0f / static_cast<float>(height);
+            ortho.m[3] = -1.0f;
+            ortho.m[7] = 1.0f;
+            glfns.UseProgram(program);
+            glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1,
+                                   GL_TRUE, ortho.m);
+            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), unlit);
+            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
+                            texture_id != 0 ? 1 : 0);
+            glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), alpha);
+            glDisable(GL_DEPTH_TEST);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            if (texture_id != 0) {
+                glfns.ActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture_id);
+            }
+            glfns.BindVertexArray(hud_gpu.vao);
+            glDrawElements(GL_TRIANGLES, hud_gpu.index_count, GL_UNSIGNED_INT,
+                           nullptr);
+            glfns.BindVertexArray(0);
+            glDisable(GL_BLEND);
+            glEnable(GL_DEPTH_TEST);
+            glfns.UseProgram(0);
+        };
+
+        if (!start_screen && hud_visible && hud_font_texture != 0) {
             char line1[128];
             char line2[192];
             std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
@@ -2264,33 +2352,55 @@ int main(int argc, char** argv) {
                           visitor_system.visitors.size(), build_grid.path_count,
                           build_grid.fence_count);
             const std::string text = std::string(line1) + "\n" + line2;
-            const dino::Mesh hud_mesh = build_text_mesh(
-                hud_font, text, 12.0f, 8.0f, 1.0f, {235, 240, 245, 255});
-            hud_gpu.destroy(glfns);
-            hud_gpu = upload_mesh(hud_mesh, glfns);
-            dino::Mat4 ortho;
-            ortho.m[0] = 2.0f / static_cast<float>(width);
-            ortho.m[5] = -2.0f / static_cast<float>(height);
-            ortho.m[3] = -1.0f;
-            ortho.m[7] = 1.0f;
-            glfns.UseProgram(program);
-            glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
-                                ortho.m);
-            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), 2);
-            glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"), 1);
-            glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), 0.95f);
-            glDisable(GL_DEPTH_TEST);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glfns.ActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, hud_font_texture);
-            glfns.BindVertexArray(hud_gpu.vao);
-            glDrawElements(GL_TRIANGLES, hud_gpu.index_count, GL_UNSIGNED_INT,
-                           nullptr);
-            glfns.BindVertexArray(0);
-            glDisable(GL_BLEND);
-            glEnable(GL_DEPTH_TEST);
-            glfns.UseProgram(0);
+            draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
+                                    {235, 240, 245, 255}),
+                    hud_font_texture, 0.95f, 2);
+        }
+
+        if (start_screen && hud_font_texture != 0) {
+            draw_2d(build_screen_rect(0.0f, 0.0f, static_cast<float>(width),
+                                      static_cast<float>(height),
+                                      {8, 12, 18, 255}),
+                    0, 0.55f, 1);
+            const std::string title = "DINO ISLAND";
+            const float title_scale = 4.0f;
+            const float title_width = text_width(hud_font, title, title_scale);
+            draw_2d(build_text_mesh(hud_font, title,
+                                    (static_cast<float>(width) - title_width) * 0.5f,
+                                    static_cast<float>(height) * 0.30f,
+                                    title_scale, {240, 236, 220, 255}),
+                    hud_font_texture, 1.0f, 2);
+            const std::string subtitle = "Press ENTER to begin";
+            const float subtitle_scale = 1.6f;
+            const float subtitle_width =
+                text_width(hud_font, subtitle, subtitle_scale);
+            draw_2d(build_text_mesh(
+                        hud_font, subtitle,
+                        (static_cast<float>(width) - subtitle_width) * 0.5f,
+                        static_cast<float>(height) * 0.52f, subtitle_scale,
+                        {220, 228, 236, 255}),
+                    hud_font_texture, 1.0f, 2);
+            const std::string hint = "Esc quits    Tab help";
+            const float hint_width = text_width(hud_font, hint, 1.2f);
+            draw_2d(build_text_mesh(
+                        hud_font, hint,
+                        (static_cast<float>(width) - hint_width) * 0.5f,
+                        static_cast<float>(height) * 0.66f, 1.2f,
+                        {170, 185, 200, 255}),
+                    hud_font_texture, 1.0f, 2);
+        } else if (show_help && hud_font_texture != 0) {
+            const float panel_w = std::min(640.0f, static_cast<float>(width) - 80.0f);
+            draw_2d(build_screen_rect(40.0f, 60.0f, panel_w, 230.0f,
+                                      {10, 14, 20, 255}),
+                    0, 0.80f, 1);
+            draw_2d(build_text_mesh(
+                        hud_font,
+                        "CONTROLS\n\n"
+                        "WASD move    C camera    Shift sprint\n"
+                        "1 path    2 fence    0 off    U undo    click place\n"
+                        "F1 HUD    Tab close    Esc quit",
+                        64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
+                    hud_font_texture, 1.0f, 2);
         }
 
         if (!opt.capture_dir.empty()) {

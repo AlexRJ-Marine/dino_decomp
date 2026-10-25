@@ -547,3 +547,36 @@ def test_cpp_hud(tmp_path):
     bright = sum(1 for p in corner.get_flattened_data()
                  if p[0] > 200 and p[1] > 200 and p[2] > 200)
     assert bright > 50
+
+def _ui_shot(tmp_path, extra, size=(600, 400)):
+    shot = tmp_path / "ui.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--screenshot", str(shot),
+         "--width", str(size[0]), "--height", str(size[1]),
+         "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+         "--asset-root", str(GAME), "--no-vegetation",
+         "--yaw", "35", "--pitch", "18", "--distance", "380", *extra],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    return Image.open(shot).convert("RGB")
+
+
+def test_cpp_start_menu(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    image = _ui_shot(tmp_path, ["--menu"])
+    band = image.crop((100, 110, 500, 170))
+    bright = sum(1 for p in band.get_flattened_data()
+                 if p[0] > 180 and p[1] > 180 and p[2] > 170)
+    assert bright > 200
+
+
+def test_cpp_help_panel(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    image = _ui_shot(tmp_path, ["--help-panel"])
+    panel = image.crop((50, 70, 400, 180))
+    bright = sum(1 for p in panel.get_flattened_data()
+                 if p[0] > 180 and p[1] > 180 and p[2] > 170)
+    assert bright > 150

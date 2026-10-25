@@ -216,6 +216,14 @@ Updated: 2026-10-25
   flat, exit 0.
   - Evidence: `notes/stability2.out.log`, `notes/stability2-memory.csv`,
     `notes/stability2-final.png`.
+- UI-1 (partial): start screen and controls panel.
+  - Start screen over the island (`--menu`), ENTER/SPACE begins, ESC quits;
+    Tab toggles the controls panel (`--help-panel` for screenshots).
+  - Shared `draw_2d` path for translucent rectangles + text.
+  - Evidence: `docs/platform/hud.md`, `notes/menu.png`,
+    `notes/menu-help.png`, `tests/test_viewer_cpp.py::test_cpp_start_menu`,
+    `test_cpp_help_panel`.
+- 86 tests pass; working tree committed.
 - FMT-7 complete: **`.loc` / `.lnd` / `.fnt`.**
   - `.loc`: UTF-16LE records (`FIELD_ID`, `TEXT`, `LAST_MODIFIED`); 2 files,
     758 records.
@@ -259,10 +267,10 @@ Updated: 2026-10-25
 ## In progress
 
 - Phase 3 vertical slice is functionally complete: island, vegetation,
-  dinosaur, free camera, path/fence, sky/water, visitors, HUD, and two
-  10-minute runs.
-- Next feature: UI-1 (a small menu/panel layer on top of the HUD text path)
-  and SIM-2b (visitor needs/attraction use).
+  dinosaur, free camera, path/fence, sky/water, visitors, HUD, start screen,
+  controls panel, and two 10-minute runs.
+- Next feature: UI-1 rest (mouse-driven new game/load/save panels) and
+  SIM-2b (visitor needs/attraction use).
 - WORLD-3 polish remains: verify the skybox cube orientation against the
   original and tune water colour/animation.
 - WORLD-2 remains: frustum/distance culling, LOD2 switch, scenario/building
@@ -273,8 +281,8 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-1: a minimal start/pause panel (new game / resume / quit) and a build
-   toolbar using the HUD text path.
+1. UI-1 rest: mouse-driven buttons for New Game / Resume / Quit and a
+   Save/Load panel wired to `save_build`/`load_build`.
 2. SIM-2b: pick a visitor target (a placed attraction/point of interest), walk
    to it, wait, and leave; add a simple spawn/despawn at the entrance.
 3. Capture a side-by-side comparison against the original game for WORLD-3.

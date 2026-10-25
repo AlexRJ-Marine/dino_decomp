@@ -365,9 +365,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/hud.png`, `tests/test_viewer_cpp.py::test_cpp_hud`.
 
 ### UI-1: Menus and HUD
-- Main menu, park HUD, info panels.
+- [x] Live HUD (FPS/visitors/paths/fences) and `.fnt` text.
+- [x] Start screen (ENTER to begin) and Tab controls panel.
+- [ ] New game/load/save flows and mouse-driven info panels.
 - **Acceptance:** start a new game, open/close panels, save.
 - **Depends on:** SIM-4.
+- **Evidence:** `docs/platform/hud.md`, `notes/menu.png`,
+  `notes/menu-help.png`, `tests/test_viewer_cpp.py::test_cpp_start_menu`,
+  `test_cpp_help_panel`.
 
 ### MEDIA-1: Audio and video
 - DirectSound-equivalent playback, music, MPEG intro.

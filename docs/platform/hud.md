@@ -1,7 +1,7 @@
 # HUD and bitmap text (UI-0)
 
-Status: **working** — the retail `.fnt` font renders on screen and the viewer
-shows a live HUD.
+Status: **working** — retail `.fnt` text renders on screen, with a live HUD,
+a start screen and a controls panel.
 
 ## `.fnt` reader
 
@@ -32,6 +32,16 @@ shows a live HUD.
   `m[3]`/`m[7]` for this upload convention.
 - Text uses alpha blending, depth test off; state is restored afterwards.
 
+## Start screen and panels
+
+- Interactive runs (`--frames 0`, no screenshot) open a start screen over the
+  island: `DINO ISLAND`, `Press ENTER to begin`, `Esc quits  Tab help`.
+  ENTER/SPACE starts, ESC quits.
+- `--menu` forces the start screen for screenshots; `--no-menu` skips it.
+- **Tab** toggles a controls panel (also `--help-panel` for screenshots).
+- Both use the same `draw_2d` path: a translucent screen-space rectangle plus
+  text quads.
+
 ## HUD
 
 ```text
@@ -48,12 +58,16 @@ visitors 12   paths 24   fences 0
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.
-- `tests/test_viewer_cpp.py::test_cpp_hud` checks the font load line and that
-  the top-left corner contains bright glyph pixels.
+- `notes/menu.png` — start screen over the island.
+- `notes/menu-help.png` — Tab controls panel.
+- `tests/test_viewer_cpp.py`:
+  - `test_cpp_hud` checks the font load line and bright glyph pixels.
+  - `test_cpp_start_menu` and `test_cpp_help_panel` check the overlay text.
 - `src/formats/fnt.cpp`, `src/formats/fnt.h`.
 
 ## Open items
 
 - Kerning/advance beyond glyph width; coloured/shadowed text.
 - HUD scaling for high-DPI (QOL-2).
-- Menus/panels (UI-1) on top of this text path.
+- Menus with mouse-driven buttons, new game/load/save panels (UI-1 rest).
+- `draw_2d` re-uploads its mesh every frame; cache static panels.
