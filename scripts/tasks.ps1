@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $root = Split-Path $PSScriptRoot -Parent
 $tasksPath = Join-Path $root "TASKS.md"
 if (-not (Test-Path $tasksPath)) { throw "missing TASKS.md" }

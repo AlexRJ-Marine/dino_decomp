@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $root = Split-Path $PSScriptRoot -Parent
 $nowPath = Join-Path $root "notes\NOW.md"
 $historyDir = Join-Path $root "notes\history"

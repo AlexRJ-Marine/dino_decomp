@@ -2,6 +2,9 @@
 
 Updated: 2026-10-26
 
+> Short dashboard and next actions: `notes/NOW.md`. Open tasks:
+> `notes/OPEN-TASKS.md`. This file is the long archive; append, do not rewrite.
+
 ## Environment
 
 - Python: `.venv/` (pyghidra-mcp, pefile, capstone, construct, pytest, pillow, cmake, ninja)
