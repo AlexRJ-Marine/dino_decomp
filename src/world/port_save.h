@@ -22,6 +22,9 @@ struct PortVisitorState {
     int target_y = 0;
     int prev_x = -1;
     int prev_y = -1;
+    // Optional tail added after the first format; older saves omit it.
+    int profile = 0;
+    std::array<int, 3> needs{39, 99, 99};
 };
 
 struct PortFenceState {

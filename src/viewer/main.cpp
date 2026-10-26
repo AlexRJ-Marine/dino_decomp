@@ -4968,6 +4968,8 @@ int main(int argc, char** argv) {
             saved.target_y = visitor.target_y;
             saved.prev_x = visitor.prev_x;
             saved.prev_y = visitor.prev_y;
+            saved.profile = visitor.profile;
+            saved.needs = {visitor.need0, visitor.need1, visitor.need2};
             state.visitors.push_back(saved);
         }
         state.buildings = building_instances;
@@ -5127,12 +5129,14 @@ int main(int argc, char** argv) {
             visitor.prev_y = saved.prev_y;
             visitor.profile = visitor_profiles.empty()
                                   ? 0
-                                  : static_cast<int>(
-                                        visitor_system.visitors.size() %
-                                        visitor_profiles.size());
-            visitor.need0 = 39;
-            visitor.need1 = 99;
-            visitor.need2 = 99;
+                                  : std::clamp(
+                                        saved.profile, 0,
+                                        static_cast<int>(
+                                            visitor_profiles.size()) -
+                                            1);
+            visitor.need0 = saved.needs[0];
+            visitor.need1 = saved.needs[1];
+            visitor.need2 = saved.needs[2];
             visitor.state = dino::VisitorState::Choose;
             visitor.rng = 0x51ce5eedu ^
                           static_cast<unsigned>(

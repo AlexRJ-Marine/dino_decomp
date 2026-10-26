@@ -1176,9 +1176,10 @@ Updated: 2026-10-26
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
 - **UI-2 Phase D:** `OPTIONS_NAME_SLOT` text entry, the dialog family,
-  Save/Load, building placement and the imported dinos' actor state
-  (needs/action id/remaining seconds) are all stored/restored. The visitor
-  needs/targets and the clip playback phase are not stored.
+  Save/Load, building placement, the imported dinos' actor state
+  (needs/action id/remaining seconds) and the visitors' profile/needs are
+  stored/restored. Visitor travel state and the clip playback phase are not
+  stored.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3: the skybox face order/UVs now match the retail builder
@@ -1192,7 +1193,7 @@ Updated: 2026-10-26
 
 ## Next action
 
-1. UI-2 Phase D is closed except visitor needs/targets and the dino clip
+1. UI-2 Phase D is closed except visitor travel state and the dino clip
    playback phase; add those if the save fidelity matters.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.

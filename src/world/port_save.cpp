@@ -52,7 +52,9 @@ void save_port_state(const PortState& state, const std::string& path) {
             << visitor.angle << " " << visitor.phase << " " << visitor.cell_x
             << " " << visitor.cell_y << " " << visitor.target_x << " "
             << visitor.target_y << " " << visitor.prev_x << " "
-            << visitor.prev_y << "\n";
+            << visitor.prev_y << " " << visitor.profile << " "
+            << visitor.needs[0] << " " << visitor.needs[1] << " "
+            << visitor.needs[2] << "\n";
     }
     for (const PortBuildingState& building : state.buildings) {
         out << "building " << building.kind << " " << building.cell_x << " "
@@ -143,6 +145,15 @@ PortState load_port_state(const std::string& path) {
                 visitor.target_x >> visitor.target_y >> visitor.prev_x >>
                 visitor.prev_y;
             require(parts, key, path);
+            int profile = 0;
+            std::array<int, 3> needs{39, 99, 99};
+            if (parts >> profile >> needs[0] >> needs[1] >> needs[2]) {
+                visitor.profile = std::max(0, profile);
+                for (int& need : needs) {
+                    need = std::clamp(need, 0, 99);
+                }
+                visitor.needs = needs;
+            }
             state.visitors.push_back(visitor);
         } else if (key == "building") {
             PortBuildingState building;

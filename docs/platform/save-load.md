@@ -15,7 +15,8 @@ scene between sessions.
 - 4-unit build grid: cell size, origin, dimensions, every path cell and every
   canonical south/east fence edge;
 - every visitor: world position, angle, walk phase, current/target/previous
-  cells;
+  cells, profile index and the three needs (older saves omit the tail and
+  restore `39/99/99`);
 - every placed building: `BuildingList.ini` kind, min-corner cell and
   orientation state;
 - every imported dinosaur: species/family/clip, position, angle, the four
@@ -40,7 +41,7 @@ free <x> <y> <z> <yaw> <pitch>
 grid <cell_size> <origin_x> <origin_y> <width> <height>
 path <x> <y>
 fence <x> <y> <edge>          # edge 0 south, 1 east
-visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y>
+visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y> <profile> <need0> <need1> <need2>
 building <kind> <cell_x> <cell_y> <state>
 dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm>
 ```
@@ -127,5 +128,6 @@ action seconds.
 
 - The port save is not a retail `.sav` writer; retail parks are imported at
   startup with `--sav-park`.
-- Visitor needs/targets and the dinosaur clip playback phase are not stored;
-  visitors restart in Choose and restored actions restart their clip at 0.
+- Visitor travel targets/state and the dinosaur clip playback phase are not
+  stored; visitors restart in Choose and restored actions restart their clip
+  at 0.

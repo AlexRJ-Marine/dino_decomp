@@ -1067,6 +1067,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dinosaur (species/family/clip, position, four needs, action id and
   remaining seconds); `DinoActionLoop::restore` resumes without re-scoring.
   Test `test_cpp_port_save_dino_state` (Cpg04, 20 dinos → Eat 9009 on load).
+- [x] Visitor profile + needs in `DINOPSAV` (optional tail; older saves
+  restore `39/99/99`); the round-trip test checks `needs=39.0/99.0/99.0`
+  after load.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

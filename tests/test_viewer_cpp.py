@@ -1475,13 +1475,19 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "path 100 100" in text and "path 100 101" in text
     assert "fence 100 100 0" in text
     assert "building 9 500 500 1" in text
-    assert sum(1 for ln in text.splitlines() if ln.startswith("visitor ")) == 3
+    visitor_lines = [ln for ln in text.splitlines() if ln.startswith("visitor ")]
+    assert len(visitor_lines) == 3
+    # profile + three needs are the optional tail; the wander spawn uses the
+    # free-game easy profile table (indices 0..5).
+    assert all(ln.split()[12:15] == ["39", "99", "99"]
+               for ln in visitor_lines)
+    assert all(0 <= int(ln.split()[11]) < 6 for ln in visitor_lines)
 
     load = subprocess.run(
         [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
          "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
          "--lnd", str(isl01), "--asset-root", str(GAME), "--no-vegetation",
-         "--load-port", str(target)],
+         "--load-port", str(target), "--visitor-stats"],
         capture_output=True, text=True, timeout=180,
     )
     assert load.returncode == 0, load.stderr
@@ -1491,6 +1497,8 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "build: 2 path cells, 1 fences" in load.stdout
     assert ("building: Entrance mesh=" in load.stdout and
             "cell=500.0,500.0" in load.stdout)
+    assert "visitor stats: count=3 " in load.stdout
+    assert "needs=39.0/99.0/99.0" in load.stdout
 
 
 def test_cpp_port_save_dino_state(tmp_path):
