@@ -727,10 +727,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Wire the `NAVIGATION_PANEL` buttons to the same actions
   (`GOTOP/GOBOTTOM/GOLEFT/GORIGHT`, `TURNLEFT/TURNRIGHT`,
   `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.
+- [x] Read `Data/Config/camera.ini` `[Config1]` and drive the pan, rotation,
+  zoom, elevation/distance limits and height smoothing from it
+  (`src/viewer/camera_config.*`).
+- [x] Port the `FUN_00529d00` target-height smoothing (0.1 step at 60 Hz)
+  using `PositionHardness`.
 - [x] Verify with synthetic scan-code input and `DINO_DEBUG_CAMERA=1`
-  (`target` moved, `yaw` -180.9 after 2 s, distance 65.6 -> 10.0).
-- [ ] Port the active-camera rotation object (`camSwitcher+0x20/+0x24`) and
-  the `TargetHardness`/`PositionHardness` smoothing.
+  (`target` -23.3 after 2 s, `yaw` -181.1 after 2 s, distance 65.6 -> 47.3
+  after 1 s).
+- [ ] Port the active-camera rotation/transition object
+  (`camSwitcher+0x20/+0x24`) and the `TargetHardness` clamp semantics.
 - **Acceptance:** the retail key map drives the camera; rotation is
   `pi/2` rad/s; a side-by-side matches the original at the start camera.
 - **Depends on:** FMT-30, UI-2 camera research.

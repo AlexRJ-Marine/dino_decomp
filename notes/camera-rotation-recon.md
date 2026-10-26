@@ -89,10 +89,20 @@ The `dino_keys.cfg` actions `orbit_left/right/up/down` now mean the four
 arrow pan keys; holding Shift converts the same key to the corresponding
 rotation action, matching `KeyMapper.ini`.
 
+The port now reads `Data/Config/camera.ini` `[Config1]` directly
+(`src/viewer/camera_config.*`): `MoveSpeed 1..20`, `ProgressSpeed 0.05..0.2`,
+`RotationSpeed pi/2`, `Elevation 3..500`, `Distance 10..300`, and
+`Target/PositionHardness 6..2`. Progress is recovered from the current
+horizontal distance; pan is `MoveSpeed(progress) * 4` world units/s, rotation
+is `RotationSpeed(progress)` rad/s, and zoom is
+`ProgressSpeed(progress) * 290` units/s. The target height uses the
+`FUN_00529d00` 0.1-per-60-Hz-frame smoothing with `PositionHardness`.
+
 Verification: synthetic scan-code input with `DINO_DEBUG_CAMERA=1` gave
-`target=(0,-80.5)` after two seconds of plain Left, `yaw=-180.9` after two
-seconds of Shift+Left (90 deg/s), and `distance 65.6 -> 10.0` after one
-second of `+`. Evidence: `notes/camera-retail-controls.txt`,
+`target=(0,-23.3)` after two seconds of plain Left (11.6 units/s at
+progress 0.1), `yaw=-181.1` after two seconds of Shift+Left (90 deg/s), and
+`distance 65.6 -> 47.3` after one second of `+` (18.9 units/s).
+Evidence: `notes/camera-retail-controls.txt`,
 `notes/camera-retail-start.png`, `notes/camera-retail-pan-left.png`,
 `notes/camera-retail-rotate-left.png`, `notes/camera-retail-zoom-in.png`.
 The on-screen `NAVIGATION_PANEL` path was verified with
@@ -102,8 +112,9 @@ Full viewer suite: 394 passed.
 
 ## Remaining open items
 
-The active-camera rotation object (`camSwitcher+0x20/+0x24`, vtable update)
-and the `TargetHardness`/`PositionHardness` smoothing are not yet ported;
+The height smoothing is now ported from `FUN_00529d00`, but the
+active-camera rotation/transition object (`camSwitcher+0x20/+0x24`, vtable
+update) and the exact `TargetHardness` clamp/transition semantics remain;
 the current rotation is linear at the recovered speed. Evidence addresses:
 `0x005257a0`, `0x00527b80`, `0x005e59b0`, `0x005e5960`, `0x005e5bc0`,
 `0x00529d00`, `0x005e5560`.

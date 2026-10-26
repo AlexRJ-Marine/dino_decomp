@@ -23,6 +23,7 @@
 #include "../formats/bai.h"
 #include "../formats/market.h"
 #include "../formats/bsi.h"
+#include "camera_config.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -4629,6 +4630,14 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
     }
+
+    dino::CameraConfig camera_config;
+    try {
+        camera_config = dino::load_camera_config(
+            resolve_asset(opt.asset_root, "Data/Config/camera.ini"));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "camera config: %s\n", e.what());
+    }
     dino::BudgetLedger budget_ledger;
     int pending_buy_price = 0;
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
@@ -5510,8 +5519,10 @@ int main(int argc, char** argv) {
                 // world sizes. The retail save stores eye (551,512,84.7),
                 // target (512,512,32) on isl01.
                 const float scale = terrain.world_size / 1024.0f;
-                const float horizontal = 39.0f * scale;
-                const float elevation = 52.7f * scale;
+                const float horizontal =
+                    camera_config.distance(camera_config.progress) * scale;
+                const float elevation =
+                    camera_config.elevation(camera_config.progress) * scale;
                 center = {0.0f, 0.0f, terrain.height_at(0.0f, 0.0f)};
                 distance = std::sqrt(horizontal * horizontal +
                                      elevation * elevation);
@@ -7232,8 +7243,9 @@ int main(int argc, char** argv) {
                 last_mx = event.motion.x;
                 last_my = event.motion.y;
             } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                distance = std::clamp(distance * std::pow(1.1f, -event.wheel.y),
-                                      10.0f, 300.0f);
+                distance = std::clamp(
+                    distance * std::pow(1.1f, -event.wheel.y),
+                    camera_config.distance_min, camera_config.distance_max);
             } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
                 width = event.window.data1;
                 height = event.window.data2;
@@ -7371,30 +7383,51 @@ int main(int argc, char** argv) {
             const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
                                keys[SDL_SCANCODE_RSHIFT];
             const float dtf = static_cast<float>(dt);
-            // camera.ini RotationSpeedMin/Max = 1.570796 rad/s.
-            const float rotate = 90.0f * dtf;
+            // camera.ini uses `progress` to interpolate every speed/limit.
+            // The port's look-at distance is the horizontal component, so
+            // recover progress from the current eye distance and pitch.
+            const float pitch_rad = pitch * 3.14159265f / 180.0f;
+            const float horizontal =
+                std::max(camera_config.distance_min,
+                         distance * std::cos(pitch_rad));
+            const float progress = std::clamp(
+                (horizontal - camera_config.distance_min) /
+                    std::max(1.0f, camera_config.distance_max -
+                                       camera_config.distance_min),
+                0.0f, 1.0f);
+            const float rotate =
+                camera_config.rotation_speed(progress) * 57.2957795f * dtf;
             if (nav_turn_left || (shift && held(dino::KeyAction::OrbitLeft))) {
                 yaw -= rotate;
             }
             if (nav_turn_right || (shift && held(dino::KeyAction::OrbitRight))) {
                 yaw += rotate;
             }
+            const float min_pitch =
+                std::atan2(camera_config.elevation_min,
+                           std::max(1e-3f, distance)) *
+                57.2957795f;
+            const float max_pitch =
+                std::atan2(camera_config.elevation_max,
+                           std::max(1e-3f, distance)) *
+                57.2957795f;
             if (shift && held(dino::KeyAction::OrbitUp)) {
-                pitch = std::min(89.0f, pitch + rotate);
+                pitch = std::min(max_pitch, pitch + rotate);
             }
             if (shift && held(dino::KeyAction::OrbitDown)) {
-                pitch = std::max(-89.0f, pitch - rotate);
+                pitch = std::max(min_pitch, pitch - rotate);
             }
             // `yaw` points from the target to the eye; the view direction is
             // the opposite. Move the target in the camera's ground plane at
-            // the retail pan speed.
+            // the retail pan speed (MoveSpeed is in 4-unit cells/second).
             const float view_yaw =
                 yaw * 3.14159265f / 180.0f + 3.14159265f;
             const dino::Vec3 forward{std::cos(view_yaw),
                                      std::sin(view_yaw), 0.0f};
             const dino::Vec3 right{std::sin(view_yaw),
                                    -std::cos(view_yaw), 0.0f};
-            const float step = 40.0f * dtf;
+            const float step =
+                camera_config.move_speed(progress) * 4.0f * dtf;
             dino::Vec3 delta{0.0f, 0.0f, 0.0f};
             if (nav_pan_forward || (!shift && held(dino::KeyAction::OrbitUp))) {
                 delta.x += forward.x * step;
@@ -7419,17 +7452,28 @@ int main(int argc, char** argv) {
                     const float half = terrain.world_size * 0.5f;
                     center.x = std::clamp(center.x, -half, half);
                     center.y = std::clamp(center.y, -half, half);
-                    center.z = terrain.height_at(center.x, center.y) + 2.5f;
+                    // FUN_00529d00 smooths the target height; 0.1 per
+                    // 60 Hz frame matches its (height-current)*0.1 step.
+                    const float target_z =
+                        terrain.height_at(center.x, center.y) + 2.5f;
+                    const float alpha = std::min(
+                        1.0f, camera_config.position_hardness(progress) * dtf);
+                    center.z += (target_z - center.z) * alpha;
                 }
             }
-            // Retail DistanceMin/Max = 10/300; ProgressSpeed 0.2/s over the
-            // 290-unit range is ~58 units/s.
-            const float zoom_step = 58.0f * dtf;
+            // ProgressSpeed is a fraction of the full distance range per
+            // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
+            const float zoom_step =
+                camera_config.progress_speed(progress) *
+                (camera_config.distance_max - camera_config.distance_min) *
+                dtf;
             if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
-                distance = std::max(10.0f, distance - zoom_step);
+                distance = std::max(camera_config.distance_min,
+                                    distance - zoom_step);
             }
             if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
-                distance = std::min(300.0f, distance + zoom_step);
+                distance = std::min(camera_config.distance_max,
+                                    distance + zoom_step);
             }
         }
 

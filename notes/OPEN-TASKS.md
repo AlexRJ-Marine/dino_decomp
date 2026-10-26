@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 22:03. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 22:15. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 32 open items.
 
@@ -56,7 +56,7 @@ Generated from `TASKS.md` on 2026-10-26 22:03. Do not edit; regenerate with `scr
 - [ ] Publish and record any replies.
 
 ## CAM-1: Retail camera controls
-- [ ] Port the active-camera rotation object (`camSwitcher+0x20/+0x24`) and
+- [ ] Port the active-camera rotation/transition object
 
 ## DEC-6: Function status list
 - [ ] Keep it current as functions are replaced.

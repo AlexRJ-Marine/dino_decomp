@@ -31,6 +31,7 @@ find_package(SDL3 CONFIG REQUIRED PATHS "${SDL3_ROOT}" NO_DEFAULT_PATH)
 add_executable(dino_viewer
     src/viewer/main.cpp
     src/viewer/keymap.cpp
+    src/viewer/camera_config.cpp
     src/formats/mesh.cpp
     src/formats/tga.cpp
     src/formats/image.cpp

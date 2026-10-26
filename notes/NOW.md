@@ -65,6 +65,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAM-1 rest: camera.ini Config1 parser, data-driven speeds/limits, FUN_00529d00 height smoothing
 - 2026-10-26 - DOCS-3 campaign flow dossier (menu -> briefing -> park, unlock/difficulty, harness recipes)
 - 2026-10-26 - DOCS-2 park panel verification dossier (20-row matrix; budget/store/lists/construction/lab/options/dialogs)
 - 2026-10-26 - CAM-1: retail camera controls (arrows pan, Shift+arrows rotate at pi/2, +/- zoom; CAM-1 open items: active-camera math/hardness)
