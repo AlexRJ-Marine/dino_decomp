@@ -4543,11 +4543,19 @@ int main(int argc, char** argv) {
                             "buy: %s no paddock room "
                             "(WARNING_NO_ROOM_IN_FENCE) budget=%d\n",
                             entry->name.c_str(), buy_budget);
+                        if (opt.park_hud && park.loaded()) {
+                            park.show_warning(dino::ui::resolve_loc_text(
+                                "&WARNING_NO_ROOM_IN_FENCE", park.loc));
+                        }
                     } else if (buy_budget < entry->price) {
                         std::printf(
                             "buy: %s price=%d budget=%d "
                             "(WARNING_NOT_ENOUGH_MONEY)\n",
                             entry->name.c_str(), entry->price, buy_budget);
+                        if (opt.park_hud && park.loaded()) {
+                            park.show_warning(dino::ui::resolve_loc_text(
+                                "&WARNING_NOT_ENOUGH_MONEY", park.loc));
+                        }
                     } else {
                         dino::Paddock& paddock =
                             paddocks[static_cast<std::size_t>(

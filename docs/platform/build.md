@@ -127,9 +127,13 @@ The flow mirrors `pvwStateFenceInsertion`/`stFence`:
 4. spawn the dinosaur, add its cost to `used`, and deduct the price.
 
 Cpg04: `--buy-dino Zarbosaurus --park-budget 10000` → price 4,900, budget
-5,100, 21 dinosaurs, paddock used 400. The retail store-row removal
-(`FUN_00594270`) and the `DINOACHAT` count/total bucket are not modelled yet;
-this is the headless core of the purchase branch.
+5,100, 21 dinosaurs, paddock used 400. Both failures show the retail warning
+panel when the park HUD is loaded (`WARNING_NO_ROOM_IN_FENCE` → “There is not
+enough room in the enclosure.”, `WARNING_NOT_ENOUGH_MONEY` → “Not enough
+money!”; `notes/buy-warning.png`). The retail store-row removal
+(`FUN_00594270`), the `DINOACHAT` count/total bucket and the interactive
+insertion state are not modelled yet; this is the headless core of the
+purchase branch.
 
 ## CLI (also used by tests)
 
