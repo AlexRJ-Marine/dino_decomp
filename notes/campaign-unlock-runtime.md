@@ -54,6 +54,11 @@ FENCE x0=000001C4 y0=00000138 x1=000001D3 y1=00000157 cell=00000004
 hits while the 20 world dinosaurs were created: load-time placement does not
 use the capacity gate.
 
+`0x570fd0` (need reset, called from the dinosaur constructor) logged all 20
+dinosaurs with `[ecx+0x1e0]` = `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
+— the size/cost class used by the paddock capacity table. This closes the
+last open field of the P4 capacity rule.
+
 ## `0x56c0c0` is not the dinosaur action→clip map
 
 A live Cpg04 run logged `FUN_0056c0c0` (`asItemBehavior::RegisterForAction`)

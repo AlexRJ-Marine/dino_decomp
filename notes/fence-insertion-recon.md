@@ -90,13 +90,19 @@ FSUB dword ptr [ECX+0x80]       ; minus used
 FCOMP dword ptr [ECX+EAX*4+0x84]; compare with cost[index]
 ```
 
-The index at `dinosaur+0x1e0` is an integer in this path. A freshly
-constructed actor has it zeroed (`FUN_004bc690`, `MOV [ESI+0x1E0],EBX` at
-`0x4bc9e8`, `EBX = 0`), which selects cost 8. On the `saDinosaur` save layout
-(`0x573590`) the same offset is a `0x18`-byte vector cursor/end pointer, and
-attribute id 29 (`0x572620` case `0x1d`) returns it as a stat. The fence path
-only makes sense for a small index; the range and meaning are **unconfirmed**
-(open item below).
+The index at `dinosaur+0x1e0` is an integer in this path. **Runtime-confirmed:**
+a live Cpg04 run logged `DINORESET` for all 20 world dinosaurs at
+`0x570fd0` with values
+
+```text
+f1e0: 1, 2, 2, 2, 0, 0, 1, 0, 1, 1, 2, 0, 1, 1, 1, 1, 1, 1, 0, 0
+```
+
+i.e. six class 0, ten class 1 and four class 2 dinosaurs (the table supports
+0..3). At 8/16/32/64 that is a real `used` total of **336** for Cpg04, not
+160. The port's imported-dino placement currently passes cost index 0 for
+every dinosaur (`paddock_add(..., 0)`), which is a known deviation; the index
+is a size class and must be set from the dinosaur's size, not a constant.
 
 ## Capacity and cost table
 
@@ -254,13 +260,15 @@ simulation manager's placed-object/dinosaur record; a runtime dump of
 
 ## Open
 
-- Runtime-dump `[dinosaur+0x1e0]` at `0x57ebc3`: confirm the cost index range
-  and meaning. The save layout uses it as a `0x18`-byte vector cursor, so the
-  fence-path object/value must be checked.
+- ~~Runtime-dump `[dinosaur+0x1e0]` at `0x57ebc3`~~ **resolved:** the field is
+  a size/cost class 0..3. A live Cpg04 load at `0x570fd0` produced six 0s, ten
+  1s and four 2s for the 20 dinosaurs; see above. The remaining work is to
+  derive the class in the port's imported-dino placement instead of always
+  using index 0.
 - ~~Runtime-dump `*(uint*)(landscape+0xc)` to confirm the cell size is 4~~
-  **confirmed by retail geometry:** all 14 `.wld` fences have inclusive spans
-  divisible by 4, giving integer capacities (e.g. Cpg04 4 x 8 = 32). A runtime
-  dump is optional.
+  **confirmed both by retail geometry and at runtime:** all 14 `.wld` fences
+  have inclusive spans divisible by 4, and the live `stFence` ctors logged
+  `cell=00000004`.
 - Identify the `0x535c97` 64-byte-record type and its `+0x20`/`+0x24` floats:
   runtime-dump the record vector at `0x535cb6` (`[EBP+4]`).
 - Whether path tiles charge the CONSTRUCTION budget (only the wall path and

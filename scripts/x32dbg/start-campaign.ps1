@@ -52,11 +52,7 @@ Send 'run'
 Start-Sleep -Milliseconds 700
 Send 'run'
 
-Start-Sleep -Seconds 28
-for ($i = 0; $i -lt 15; $i++) {
-    Send 'run'
-    Start-Sleep -Milliseconds 800
-}
+Start-Sleep -Seconds 5
 
 Add-Type @"
 using System;
@@ -109,6 +105,34 @@ function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
     Start-Sleep -Milliseconds 300
 }
 
+function Test-Rendered([IntPtr]$hwnd) {
+    $r = New-Object Win32+RECT
+    [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
+    $w = $r.Right - $r.Left
+    $hgt = $r.Bottom - $r.Top
+    if ($w -lt 100 -or $hgt -lt 100) { return $false }
+    $bmp = New-Object System.Drawing.Bitmap 8, 8
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    try {
+        $g.CopyFromScreen($r.Left + [int]($w / 2), $r.Top + [int]($hgt / 2), 0, 0,
+                          (New-Object System.Drawing.Size 8, 8))
+        $p = $bmp.GetPixel(4, 4)
+        return (([int]$p.R + [int]$p.G + [int]$p.B) -gt 30)
+    } finally {
+        $g.Dispose(); $bmp.Dispose()
+    }
+}
+
+function Wait-Rendered([IntPtr]$hwnd, [int]$TimeoutSec = 90) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        Send 'run'
+        Start-Sleep -Milliseconds 900
+        if (Test-Rendered $hwnd) { return $true }
+    }
+    return $false
+}
+
 $game = Get-Process DinoIsland -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $game) {
     Write-Host "game process not found"
@@ -118,6 +142,11 @@ if (-not $game) {
         Write-Host "no main window handle"
     } else {
         [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        [Win32]::ShowWindow($hwnd, 9) | Out-Null
+        [Win32]::SetForegroundWindow($hwnd) | Out-Null
+        Start-Sleep -Milliseconds 400
+        Write-Host "waiting for the menu to render"
+        Wait-Rendered $hwnd 150 | Out-Null
         function Resume() {
             Send 'run'
             Start-Sleep -Milliseconds 250
@@ -159,6 +188,10 @@ if (-not $game) {
             # the retail capacity gate.
             Send 'bp 0x57eb50'
             Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+            # Dinosaur creation/reset: this is the saDinosaur object, so the
+            # +0x1e0 cost-index field can be read at load time.
+            Send 'bp 0x570fd0'
+            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} f1dc={p:[ecx+0x1dc]} act={p:[ecx+0x2c0]}; run"'
         }
         Resume
 
@@ -166,7 +199,8 @@ if (-not $game) {
         Click-Client $hwnd 521 449
         Start-Sleep -Seconds 6
         Save-Window $hwnd "campaign-loading"
-        Start-Sleep -Seconds 22
+        Write-Host "waiting for the park to render"
+        Wait-Rendered $hwnd 120 | Out-Null
         Save-Window $hwnd "campaign-park"
 
         # Mission briefing pages (1/4 ...): the green check closes/advances.
@@ -201,4 +235,4 @@ $out | Set-Content -Path $logPath -Encoding utf8
 $err | Set-Content -Path ($logPath -replace '\.out\.', '.err.') -Encoding utf8
 
 Write-Host "--- campaign trace matches ---"
-Select-String -Path $logPath -Pattern "FENCE |DINO |CLIPPAIR|CANADD|EXCEPTION" | Select-Object -First 120
+Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|EXCEPTION" | Select-Object -First 120
