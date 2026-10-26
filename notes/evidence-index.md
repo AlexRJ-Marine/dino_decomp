@@ -23,8 +23,8 @@ add a row when a claim becomes something later work depends on.
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |
-| Phenotype dimensions/attributes/quotient | `docs/formats/translator-constants.md`, `notes/phenotype-attributes-runtime.md` | `tests/test_viewer_cpp.py::test_cpp_cpg04_phenotype_attributes` |
-| Part-record accumulator (23 slots) | `docs/formats/translator-constants.md`, `notes/part-record-accumulator-recon.md` | (port pending) |
+| Phenotype dimensions/attributes/quotient (20/20 Cpg04 rows) | `docs/formats/translator-constants.md`, `notes/phenotype-attributes-runtime.md` | `tests/test_viewer_cpp.py::test_cpp_cpg04_phenotype_attributes` |
+| Part-record accumulator (23 slots + skin/carapace, `+0x78/+0x7c/+0x80`) | `docs/formats/translator-constants.md`, `notes/part-record-accumulator-recon.md`, `notes/phenotype-attributes-runtime.md` | `tests/test_viewer_cpp.py::test_cpp_cpg04_phenotype_attributes` |
 | `.fnt` loader hook `0x430fb0` | `notes/hybrid-fnt-recon.md`, `notes/hyb7-counter.txt` | `notes/park-hook-fnt.png` |
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
