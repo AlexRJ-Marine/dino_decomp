@@ -64,9 +64,14 @@ paddock without room.
   not a cell predicate. `0x535be0` is the `FENCE_INSERTION` state and its
   failure condition is `stFence::CanAddActor` (`0x57eb50`), a paddock-capacity
   test (`capacity +0x7c`, `used +0x80`, cost table `+0x84..0x90` = 8/16/32/64
-  indexed by `dinosaur+0x1e0`). Full evidence in
+  indexed by `dinosaur+0x1e0`). The failure path shows
+  `&WARNING_NO_ROOM_IN_FENCE` via `FUN_005e3d70([tool+0x48])` and **stays in
+  the insertion state**; it does not set state 5. The occupant vector is a
+  4-byte pointer vector, not a 16-byte record array. Full evidence in
   `notes/fence-insertion-recon.md`; cleaned spec in
   `docs/decomp/construction-validation.md`. Remaining: a runtime dump of
-  `[dinosaur+0x1e0]` and the landscape `+0xc` cell size.
+  `[dinosaur+0x1e0]` and the landscape `+0xc` cell size, plus the undecoded
+  `this+0x48` branch at `0x535c97` (64-byte records,
+  `record+0x24 * 0.5 < record+0x20`).
 - Whether path tiles charge the CONSTRUCTION budget (the wall path is the
   only proven setter).

@@ -780,16 +780,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ### CONS-1: Construction validation rules
 - [x] Budget gate `FUN_0052bed0` (`WARNING_NOT_ENOUGH_MONEY`) and the
   fence/paddock `FENCE_INSERTION` state `0x535be0` decoded.
-- [x] Proved `WARNING_NO_ROOM_IN_FENCE` is a **paddock capacity** test
+- [x] Decoded `WARNING_NO_ROOM_IN_FENCE` as a **paddock capacity** test
   (`stFence::CanAddActor` `0x57eb50`: duplicate check + `capacity(+0x7c) −
-  used(+0x80) >= cost[8/16/32/64]`), not a per-cell rule.
+  used(+0x80) >= cost[8/16/32/64]`). It is not a cell-mask test; the
+  `this+0x48` branch at `0x535c97` is still undecoded.
 - [x] Recovered the capacity initialisation (`0x57dc60`: fence rectangle /
-  cell size), `AddActor` (`0x57e8a0`), the 50-try placement search
-  (`0x57ec00`) and the store charge/removal branch.
-- [ ] Runtime-confirm the `dino+0x1e0` cost class and the landscape `+0xc`
+  cell size), `AddActor` (`0x57e8a0`), `PlaceActor` (`0x57ec00`; its
+  50-iteration loop is unreachable and it always returns 1) and the store
+  charge/removal branch.
+- [ ] Runtime-confirm the `dino+0x1e0` cost index and the landscape `+0xc`
   cell size.
-- **Acceptance:** the port can reject a full paddock and charge a purchased
-  dinosaur with the original rules.
+- [ ] Port the paddock-capacity model + store charge into
+  `src/world/build.cpp` (research done, implementation pending).
+- **Acceptance:** the port can reject a full paddock and charge a store
+  dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
+  the insertion state active.
 - **Depends on:** WORLD-2, P2.
 - **Evidence:** `notes/fence-insertion-recon.md`,
   `docs/decomp/construction-validation.md`,

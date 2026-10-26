@@ -1082,28 +1082,39 @@ Updated: 2026-10-26
   - Evidence: `notes/p3-dino-eat.png`, `docs/platform/world-import.md`,
     `docs/decomp/dinosaur-actions.md`,
     `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`.
-- P4 complete: **`FENCE_INSERTION` validator is a paddock-capacity test.**
+- P4 research complete (**port implementation pending**):
+  **`FENCE_INSERTION` validator is a paddock-capacity test.**
   - `0x535be0` is `pvwStateFenceInsertion` (ctor `0x535b10`,
     `FUN_0052bd10(0x12, "FENCE_INSERTION")`, vtable `0x642d80`). It places a
-    **purchased dinosaur** into a paddock: validate → find spot → charge the
-    store price (`FUN_00585cc0`) / remove the `spDinosaurStore` row
-    (`FUN_00594270`) → `stFence::AddActor`.
+    dinosaur (store purchase when `tool+0x3c`, otherwise a park dinosaur)
+    into a paddock: validate → place → charge/remove the store row
+    (`FUN_00585cc0`/`FUN_00594270`, only when `tool+0x3c`) →
+    `stFence::AddActor` or park registration.
   - The `WARNING_NO_ROOM_IN_FENCE` gate is `stFence::CanAddActor` `0x57eb50`:
     reject a duplicate occupant, else `capacity(+0x7c) - used(+0x80) >=
     cost_table[dino+0x1e0]` with costs `8/16/32/64` at `+0x84..+0x90`.
-    `stFence::AddActor` `0x57e8a0` updates `used` and `fill(+0x78)`.
+    `stFence::AddActor` `0x57e8a0` updates `used` and `fill(+0x78)`. The
+    occupant vector is a 4-byte pointer vector, not 16-byte records.
   - `stFence` ctor `0x57dc60`: `capacity = ((x1-x0+1)/cell) *
-    ((y1-y0+1)/cell)` from the `drsFence` rectangle; `stFence::PlaceActor`
-    `0x57ec00` tries 50 random points inside the rectangle with a pathmap
-    cell test. The port maps this to the `.raw` occupation mask.
-  - The earlier "cell predicate" lead was the first branch of `0x535be0`
-    (UI footprint/selection bookkeeping); it is not a buildability rule.
-  - Open: runtime-dump `[dino+0x1e0]` (cost class; the `saDinosaur`
-    serializer uses `+0x1e0` as a vector end) and the landscape `+0xc` cell
-    size (port assumes 4).
+    ((y1-y0+1)/cell)` (float) from the `drsFence` rectangle. The capacity
+    failure shows the warning through `FUN_005e3d70([tool+0x48])` and **stays
+    in the insertion state**; it does not set state 5.
+  - `stFence::PlaceActor` `0x57ec00` uses the caller's picked point on the
+    purchase path. Its 50-iteration random loop is unreachable (`0x57ee44`
+    sets the success flag to 1 and it is never cleared), and the function
+    always returns 1. The port's mask-based random cell is an approximation.
+  - The earlier "cell predicate" lead was a list/duplicate selection check,
+    not a buildability rule. The `this+0x48` branch at `0x535c97` (64-byte
+    records, `record+0x24 * 0.5 < record+0x20`) is still undecoded.
+  - Open: runtime-dump `[dino+0x1e0]` (cost index; a fresh actor is 0 →
+    cost 8; the `saDinosaur` save layout uses `+0x1e0` as a vector cursor)
+    and the landscape `+0xc` cell size (port assumes 4).
   - Evidence: `notes/fence-insertion-recon.md`,
     `docs/decomp/construction-validation.md`,
     `notes/construction-validation.md`.
+  - Reviewed by the reviewer agent; corrections applied: warning path stays
+    in-state, 4-byte occupant vector, unreachable 50-loop, softened
+    `+0x1e0`, `stWall.cpp` rasteriser, `this+0x48` branch recorded as open.
 
 ## In progress
 
@@ -1163,6 +1174,11 @@ Updated: 2026-10-26
    float: isl01 16.0, isl02 20.0; the stale "discarded by 0x51dad0" claim is
    corrected in `docs/formats/lnd.md`). Remaining: skybox face orientation and
    the exact `.lnd` carry path from the reader scratch to the landscape.
+14. CONS-1 rest: port the paddock-capacity model + store charge into
+   `src/world/build.cpp` (reject a duplicate or `used + cost > capacity`, keep
+   the insertion state on `WARNING_NO_ROOM_IN_FENCE`), and runtime-dump
+   `[dinosaur+0x1e0]` and the landscape `+0xc` cell size. Also decode the
+   `0x535c97` 64-byte-record branch. See `docs/decomp/construction-validation.md`.
 
 ## Blockers
 

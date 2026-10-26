@@ -1,38 +1,43 @@
 # FENCE_INSERTION validator (`0x535be0`) — dinosaur → paddock placement
 
-Status: **decoded**. The `&WARNING_NO_ROOM_IN_FENCE` condition is a **paddock
-capacity** test, not a per-cell construction rule. Complements
-`notes/construction-validation.md` (budget gate) and `docs/decomp/economy.md`.
+Status: **research decoded; port implementation pending.** The
+`&WARNING_NO_ROOM_IN_FENCE` condition is a **paddock capacity** test, not a
+cell-mask build rule. Complements `notes/construction-validation.md` (budget
+gate) and `docs/decomp/economy.md`.
 
-## Class and call site
+Method names below are descriptive (the binary has no symbols); only
+`FENCE_INSERTION` and the `stFence.cpp` assert path are recovered strings.
+
+## Class and call sites
 
 | Item | Address / value |
 | --- | --- |
 | State ctor | `0x535b10` — `FUN_0052bd10(0x12, "FENCE_INSERTION")` |
-| vtable | `0x642d80` (slot 0 `0x535b40` dtor, slot 1 `0x535b70` enter, slot 2 `0x535bb0` leave, slot 3 `0x535be0` validate/apply) |
+| vtable | `0x642d80`: slot 0 `0x535b40` dtor, slot 1 `0x535b70` enter, slot 2 `0x535bb0` leave, slot 3 `0x535be0` validate/apply |
 | Warning string | `&WARNING_NO_ROOM_IN_FENCE` at `0x6647cc` |
-| Budget gate | `0x52bed0` (already documented in `notes/construction-validation.md`) |
-| Park spawn wrapper | `0x586920` → `0x588d50` → ctor `0x57dc60` |
-| World fence record → spawn | `0x53d0b0` / `0x53cfb0`, call at `0x53d0df` / `0x53cfdf` |
+| Budget gate | `0x52bed0` (see `notes/construction-validation.md`) |
+| stFence spawn | world loader `0x53d0b0` → `0x586920` → `0x588d50` → ctor `0x57dc60` |
 
-`0x535b10` sets `[esi] = 0x642d80`, `[esi+0x50] = arg`. Slot 1 (`0x535b70`)
-calls the base init, copies `[[[esi+0x44]+0x10]+0x14]+0xbc` into `this+0x58`,
-calls `FUN_0052cc10(this+0x40, 4)`, clears `this+0x48`/`this+0x4c` and sets
-`[[this+0x44]+0x50] = 1`.
+`0x535b10` sets `[esi] = 0x642d80` and `[esi+0x50] = arg`. Slot 1
+(`0x535b70`) calls the base init, copies `[[[esi+0x44]+0x10]+0x14]+0xbc`
+into `this+0x58`, calls `FUN_0052cc10(this+0x40, 4)`, clears `this+0x48` /
+`this+0x4c` and stores 1 through `*(*(this+0x44)+0x50)`. `this+0x44` is the
+shared construction tool; `this+0x50` the selected list/store object.
 
-`this+0x44` is the shared construction tool; `this+0x50` the selected
-list/store object. The method is called with one stack argument (`RET 4`).
+The `0x53cfb0` fence-record loader is a **different** object
+(`0x5868f0 → 0x588ac0 → 0x579440`, a 0x154-byte `spPark.cpp` allocation). It
+does not reach the `stFence` ctor.
 
-## Common validate/apply path
+## Validate/apply branches
 
-The method has three entry branches selected by tool bytes `+0x3d`, `+0x48`
-and `this+0x38`. All of them converge on the same final check
-(`0x535e54..0x535e6c`, bytes from the live binary):
+The method has three entry branches selected by `tool+0x3d` (`0x535bf2`),
+`this+0x48` (`0x535c97`) and `this+0x38` (`0x535cfe`). They converge on the
+final capacity/placement check (`0x535e54..0x535e6c`):
 
 ```asm
-00535e54  MOV EAX,[ESI+0x4c]        ; record created from the tool selection
+00535e54  MOV EAX,[ESI+0x4c]        ; dinosaur object created from the selection
 00535e57  MOV ECX,[ESI+0x54]        ; fence object created from the list row
-00535e5a  MOV EDI,[EAX+0x34]        ; dinosaur object
+00535e5a  MOV EDI,[EAX+0x34]        ; dinosaur
 00535e5d  MOV ECX,[ECX+0x4c]        ; stFence
 00535e60  PUSH EDI
 00535e61  CALL 0x0057eb50           ; stFence::CanAddActor
@@ -44,33 +49,54 @@ and `this+0x38`. All of them converge on the same final check
 00535ece  JZ 0x00536017             ; -> WARNING_NO_ROOM_IN_FENCE
 ```
 
-On failure the state is set to 5 (`[esi+0x18] = 5`) and virtual slot `+8` is
-called; that is the warning dialog path. On success the optional purchase
-branch runs and then `stFence::AddActor` registers the dinosaur.
+### Failure path (corrected)
+
+`0x536017..0x5360fa` is the capacity/placement failure path:
+
+- builds the `&WARNING_NO_ROOM_IN_FENCE` string (`0x6647cc`) and calls
+  `FUN_0040bfe0` to localise/format it;
+- copies the result into `this+0x2c`;
+- calls `FUN_005e3d70` with `ECX = [tool+0x48]` (the message/panel object);
+- cleans up the tool/list selection and returns.
+
+There is **no** `[this+0x18] = 5` and no leave call on this path; the
+insertion state stays active and the player can try again.
+
+By contrast, the early selection failures at `0x535c83` and `0x535ce4` do
+set `[this+0x18] = 5` and call `[edx+8]` (slot 2 = leave `0x535bb0`). The
+park-registration branch at `0x535f43` also sets state 5 + leave.
 
 ## `stFence::CanAddActor` (`0x57eb50`)
 
 ```text
-if (dinosaur is found in fence+0x98 .. fence+0x9c)   // 16-byte records, any of 4 dwords
-    return false;
+if (dinosaur is found in fence+0x98 .. fence+0x9c)   // vector<dinosaur*>
+    return false;                                    // already registered
 free = *(float*)(fence+0x7c) - *(float*)(fence+0x80);
 cost = *(float*)(fence + 0x84 + dinosaur[0x1e0]*4);
 return free >= cost;
 ```
 
-Exact assembly of the field math (`0x57ebc3..0x57ebde`):
+The occupant vector is a `vector<dinosaur*>` with **4-byte** elements. The
+search is a `std::find` unrolled four dwords at a time (`SAR ESI,4` at
+`0x57eb65`, `ADD EDX,4` per element, then a 0..3 dword tail at
+`0x57eb9b..0x57ebbb`). It is **not** a 16-byte record array.
+
+Field math (`0x57ebc3..0x57ebde`):
 
 ```asm
 MOV EAX,[EDI+0x1E0]
 FLD  dword ptr [ECX+0x7C]       ; capacity
 FSUB dword ptr [ECX+0x80]       ; minus used
-FCOMP dword ptr [ECX+EAX*4+0x84]; compare with cost[class]
+FCOMP dword ptr [ECX+EAX*4+0x84]; compare with cost[index]
 ```
 
-The occupant vector at `+0x98` is a `vector<int*>` in 16-byte groups; the scan
-compares four dwords per group (`0x57eb71..0x57eb99`) and then the tail
-(`0x57eb9b..0x57ebbb`). Being already registered returns **false** (i.e. the
-same dinosaur cannot be inserted twice).
+The index at `dinosaur+0x1e0` is an integer in this path. A freshly
+constructed actor has it zeroed (`FUN_004bc690`, `MOV [ESI+0x1E0],EBX` at
+`0x4bc9e8`, `EBX = 0`), which selects cost 8. On the `saDinosaur` save layout
+(`0x573590`) the same offset is a `0x18`-byte vector cursor/end pointer, and
+attribute id 29 (`0x572620` case `0x1d`) returns it as a stat. The fence path
+only makes sense for a small index; the range and meaning are **unconfirmed**
+(open item below).
 
 ## Capacity and cost table
 
@@ -88,97 +114,120 @@ cost table:
 ```
 
 `p0`/`p1` are the `drsFence` start/end rectangle at file record `+0x18` /
-`+0x20`; `cell` is `*(uint*)(runtime_landscape_record + 0xc)`, passed as the
-third ctor argument. The same value is the wall-rasteriser cell size in
-`stWall` (`0x584200`). The port's 4-unit build grid (`floor(wx/4)`) is the
-working value; a runtime dump of this field would close the last doubt.
+`+0x20`. The third ctor argument is a **pointer** to the cell value; the
+constructor dereferences it (`uVar3 = *param_4`) and divides in **float**.
+The same cell value is used by the wall rasteriser (`stWall.cpp`,
+`FUN_00584200`); its caller is `stPerimeter::AddSegment` (`0x582210`). The
+port's 4-unit grid (`floor(wx/4)`) is the working value; a runtime dump would
+close the last doubt.
 
 `stFence::AddActor` (`0x57e8a0`) appends the dinosaur pointer to `+0x98` and
 does:
 
 ```text
-used(+0x80) += cost_table[dinosaur[0x1e0]]
+used(+0x80) += cost_table[dinosaur+0x1e0]
 fill(+0x78)  = used / capacity
 ```
 
-So `+0x1e0` is a **cost class** (0..3) in this path. Note: the `saDinosaur`
-serializer (`0x573590`) treats `+0x1e0` as a vector end pointer, and attribute
-id 29 (`0x572620`) returns it as a stat. The fence path only makes sense for
-a small integer (the table has four entries). Runtime confirmation is listed
-as the one open item below; the port uses class 0 (cost 8), which is what the
-zero-initialising actor ctor (`0x4bc9e8`) produces.
-
 ## `stFence::PlaceActor` (`0x57ec00`)
 
-- Up to 50 random attempts (`CMP [ESP+0x4C],0x32`, `0x57ec1b`).
-- Random point inside the fence rectangle, inset by 1/100 of the longer side
-  (`0x57ec8c..0x57ed34`): `x = rand() % (max_x - 2*pad - min_x) + min_x + pad`,
-  likewise `y`; random direction 0..359 degrees.
-- Each candidate is tested with `0x57f220` against the pathmap cell
-  (`byte[column[x] + y*2]` high nibble). Blocked candidates retry.
-- After 50 failures the assert string `Last Chance for placement` fires; the
-  function still returns 1, so no extra failure mode is exposed.
-- On success it calls `FUN_00571f00`.
+Two modes, selected by the fifth argument:
 
-Port equivalent: pick a random point in the paddock rectangle, accept when the
-`.raw` occupation mask cell is buildable (0), retry; do not gate on mask
-sub-classes.
+- **`param_5 == 1`** (the `0x535be0` purchase path): the caller has already
+  computed the placement point from the construction tool (`0x5fc4d0`) and
+  passes it in. The function clamps the point into the fence rectangle,
+  randomises the direction (0..359 degrees) and marks cells. There is no
+  random-point search.
+- **`param_5 == 0`** (other callers): a 50-iteration random-point loop
+  exists, using `max(dino+0x54, dino+0x58)/100` as the inset, but its success
+  flag is initialised to 1 at `0x57ee44` and never cleared. The failure
+  branch at `0x57f1c0` is unreachable (Ghidra removes it), and the assert
+  block at `0x57ec22/0x57ec39/0x57ec3f` cannot be entered because the loop
+  back-edge only continues while the counter is below 0x32. The function
+  always returns 1.
 
-## Purchase branch (success)
+The `0x57f220` cell test (`byte[column[x] + y*2] & 0xf0`) controls local scan
+behaviour but **does not gate the return value**. The port's "random
+buildable cell with retry" is therefore a deliberate approximation, not a
+retail rule; the retail placement point is the player's pick.
 
-`0x535ed4` checks `tool+0x3c`. When set:
+## Purchase / park branches
+
+`0x535ed4` checks `tool+0x3c` (store purchase flag). When set:
 
 ```text
-cost = tool+0x40
-FUN_00585cc0([[[tool+0x10]+0x14]+0x120], cost)   ; budget spend + category counters
-FUN_00594270([[[tool+0x10]+0x18]], tool+0x38)    ; spDinosaurStore::Remove(store index)
+cost = tool+0x40                              ; store price
+FUN_00585cc0([[tool+0x10]+0x14]+0x120, cost)  ; budget -= cost, count++, total += cost
+FUN_00594270([tool+0x18], tool+0x38)          ; remove the sold spDinosaurStore row
 tool+0x38 = -1
 ```
 
-`FUN_00585cc0` decrements `budget+0x8`, increments category count `+0x9c` and
-category total `+0xa0`. `FUN_00594270` is `spDinosaurStore` removal (assert
-path `spDinosaurStore.cpp`). This confirms `0x535be0` places a **purchased**
-dinosaur into a paddock.
+`FUN_00585cc0` sets `category+0x4 = 1`, `budget+0x8 -= cost`,
+`category+0x9c += 1`, `category+0xa0 += cost` (the DINOACHAT bucket).
+`FUN_00594270` is the `spDinosaurStore` removal (assert path
+`spDinosaurStore.cpp` @ `0x6662a4`); its argument is the store row index,
+not the cost.
 
-Then it either registers the dino into the park (`FUN_0058f430` /
-`0x51f950` / `0x58f210`) or into the fence (`FUN_0057e8a0`, `FUN_0057f250`),
-marks `this+0x48 = 1`, and clears `[[this+0x4c]+0x30]+0x10`.
+When `tool+0x3c == 0` and the selected list object's `+0x1c` is also 0, the
+code instead calls `FUN_0058f430` (park registration) and finishes without
+`AddActor`. So the state handles both a store purchase and an already-owned
+park dinosaur; it is not purchase-only.
 
-## The first branch (`tool+0x3d != 0`) is not the cell rule
+Otherwise the fence path runs: `FUN_0057e8a0` (AddActor), `FUN_0057f250`
+(placement/occupancy side effects), `FUN_0051f950`, `FUN_0058f210`, then
+`this+0x48 = 1` and clears `[[this+0x4c]+0x30]+0x10`.
 
-`0x535beb..0x535c94` only handles a pre-selected footprint: it walks a vector
-of 16-byte records at `[[tool+0x10]+0x14]+0x9c`, finds a record whose dword is
-already present in `[tool+0x34]`'s 16-byte vector (`FUN_0057ead0`), then calls
-`FUN_005f6fb0` (a generic 4-dword vector find) and warns if the returned
-pointer is the end. This is UI selection bookkeeping, not a per-cell
-buildability test.
+## First branch and the unexplained `this+0x48` branch
+
+`0x535beb..0x535c94` (`tool+0x3d`) walks a **4-byte-element** vector at
+`[[tool+0x10]+0x14]+0x9c`, calls `0x57ead0` (the same 4-byte membership scan)
+against `[tool+0x34]`, then calls `0x5f6fb0` (a generic 4-dword vector find)
+over `record+0xa8..+0xac`. If the find returns the end it sets state 5 and
+leaves. This is a **list/duplicate selection check**; there is no position or
+footprint data in it.
+
+`0x535c97..0x535cf4` (`this+0x48`) walks `[this+0x58]` as **64-byte
+records** (`SAR EAX,6`), compares `record+0x2c` with the selected dinosaur,
+and fails if `record+0x24 * 0.5 < record+0x20` (`0x62544c = 0.5f`). That is a
+spatial/ratio test and may be the footprint/room rule the earlier note was
+looking for. **Not decoded**; listed as open.
 
 ## Port recipe (P4)
 
-1. `paddock_capacity = (w_world/4) * (h_world/4)` for the fence rectangle.
-2. `cost(dino) = 8 << class`, class 0 default.
-3. Insert only if the dino is not already in the paddock and
-   `capacity - used >= cost`; otherwise raise `WARNING_NO_ROOM_IN_FENCE`.
-4. Add: `used += cost`, `fill = used/capacity`.
-5. Counters: `DINOACHAT` (or the store category) `+count`, `+cost`; remove the
-   store row and deduct the store price.
+1. `paddock_capacity = (w_world / 4.0f) * (h_world / 4.0f)` (float division).
+2. `cost(index) = 8 << index`, index from `dinosaur+0x1e0`; use 0 while the
+   index semantics are unconfirmed (fresh actor value).
+3. Insert only if the dinosaur is not already in the paddock and
+   `capacity - used >= cost`; otherwise show `WARNING_NO_ROOM_IN_FENCE` and
+   **stay in the insertion state**.
+4. Add: `used += cost`, `fill = used / capacity`.
+5. On a store purchase: `DINOACHAT count++`, `total += price`,
+   `budget -= price`, remove the store row.
+6. Placement point: the player's picked point on the ground inside the
+   paddock (a random buildable cell is only a stand-in).
 
 ## Open
 
-- Runtime-dump `[dino+0x1e0]` at `0x57ebc3` to confirm the cost class range
-  (0..3) and whether it is a size class rather than attribute 29.
-- Confirm the runtime landscape record `+0xc` is 4 (the port's grid) by
-  dumping it at `0x57dc60` entry.
+- Runtime-dump `[dinosaur+0x1e0]` at `0x57ebc3`: confirm the cost index range
+  and meaning. The save layout uses it as a `0x18`-byte vector cursor, so the
+  fence-path object/value must be checked.
+- Runtime-dump `*(uint*)(landscape+0xc)` at `0x57dc60` entry to confirm the
+  cell size is 4.
+- Decode `0x535c97`'s 64-byte-record spatial test (`record+0x24 * 0.5 <
+  record+0x20`).
+- Whether path tiles charge the CONSTRUCTION budget (only the wall path and
+  the dinosaur store price are proven budget setters).
 
 ## Evidence
 
 - Ghidra: `0x535b10` ctor, `0x535b40` dtor, `0x535b70` enter, `0x535bb0`
   leave, `0x535be0` validate; `0x57dc60` stFence ctor; `0x57e8a0`
-  AddActor; `0x57ead0` vector membership; `0x57eb50` CanAddActor;
-  `0x57ec00` PlaceActor; `0x57f220` cell test; `0x585cc0` budget setter;
-  `0x594270` store removal.
+  AddActor; `0x57ead0` membership; `0x57eb50` CanAddActor; `0x57ec00`
+  PlaceActor; `0x57f220` cell test; `0x585cc0` budget setter;
+  `0x594270` store removal; `0x5e3d70` warning panel.
 - Strings: `FENCE_INSERTION` `0x6647bc`,
   `&WARNING_NO_ROOM_IN_FENCE` `0x6647cc`, `Last Chance for placement`
-  (`stFence.cpp` assert).
+  (`stFence.cpp` assert), `stPerimeter.cpp` `0x665f30` (caller),
+  `stWall.cpp` `0x665f64` (rasteriser), `spDinosaurStore.cpp` `0x6662a4`.
 - Data: `Data/Design/Scenario/Cpg04/Cpg04_Save.wld` fences
   `(452,312)-(467,343)`, `(460,356)-(491,403)`, ... (`.world.fences`).
