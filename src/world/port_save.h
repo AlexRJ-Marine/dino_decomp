@@ -40,6 +40,26 @@ struct PortBuildingState {
     int state = 0;
 };
 
+// Live paddock model (`stFence`): rectangle, capacity/used and occupants.
+// Older saves omit it; the loader then falls back to the fence rectangles.
+struct PortPaddockState {
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+    float capacity = 0.0f;
+    float used = 0.0f;
+    std::vector<int> occupants;
+};
+
+// One placed `.bsi` food source, by FoodSourceList name.
+struct PortFoodState {
+    std::string name;
+    float x = 0.0f;
+    float y = 0.0f;
+    float remaining = 0.0f;
+};
+
 // One imported dinosaur, including its need/action-loop state. `action_id` is
 // the ActionList index; 0x1f is the idle sentinel.
 struct PortDinoState {
@@ -84,6 +104,8 @@ struct PortState {
     std::vector<PortVisitorState> visitors;
     std::vector<PortBuildingState> buildings;
     std::vector<PortDinoState> dinos;
+    std::vector<PortPaddockState> paddocks;
+    std::vector<PortFoodState> food;
 };
 
 // Text format: `DINOPSAV 1` followed by one record per line.

@@ -4985,7 +4985,7 @@ int main(int argc, char** argv) {
         }
         return nullptr;
     };
-    if (opt.dino_action_loop) {
+    auto log_dino_food = [&]() {
         for (const ImportedDino& dinosaur : imported_dinos) {
             const int pen = paddock_at(dinosaur.x, dinosaur.y);
             const dino::FoodSource* source =
@@ -4999,6 +4999,9 @@ int main(int argc, char** argv) {
                                   .name.c_str()
                             : "none");
         }
+    };
+    if (opt.dino_action_loop) {
+        log_dino_food();
     }
 
     int build_tool = opt.build_mode ? 1 : 0;
@@ -5844,6 +5847,30 @@ int main(int argc, char** argv) {
             }
             state.dinos.push_back(saved);
         }
+        for (const dino::Paddock& paddock : paddocks) {
+            dino::PortPaddockState saved;
+            saved.x0 = paddock.rect.x0;
+            saved.y0 = paddock.rect.y0;
+            saved.x1 = paddock.rect.x1;
+            saved.y1 = paddock.rect.y1;
+            saved.capacity = paddock.capacity;
+            saved.used = paddock.used;
+            saved.occupants = paddock.occupants;
+            state.paddocks.push_back(std::move(saved));
+        }
+        for (const dino::FoodSource& food : food_sources) {
+            if (food.def < 0 ||
+                food.def >= static_cast<int>(food_defs.size())) {
+                continue;
+            }
+            dino::PortFoodState saved;
+            saved.name =
+                food_defs[static_cast<std::size_t>(food.def)].name;
+            saved.x = food.x;
+            saved.y = food.y;
+            saved.remaining = food.remaining;
+            state.food.push_back(std::move(saved));
+        }
         return state;
     };
 
@@ -6070,16 +6097,84 @@ int main(int argc, char** argv) {
         } else if (visitor_gpu.vao != 0) {
             visitor_gpu.destroy(glfns);
         }
+        // Restore the live paddock model and placed food sources. Older port
+        // saves omit these records.
+        if (!state.paddocks.empty()) {
+            paddocks.clear();
+            for (const dino::PortPaddockState& saved : state.paddocks) {
+                dino::Paddock paddock;
+                paddock.rect = {saved.x0, saved.y0, saved.x1, saved.y1};
+                paddock.capacity = saved.capacity;
+                paddock.used = saved.used;
+                paddock.occupants = saved.occupants;
+                paddocks.push_back(std::move(paddock));
+            }
+            park_paddocks = paddocks;
+        }
+        if (!state.food.empty()) {
+            if (food_defs.empty()) {
+                try {
+                    food_defs = dino::load_food_defs(
+                        opt.asset_root,
+                        resolve_asset(opt.asset_root,
+                                      "Data/Design/foodsource"));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "port food defs: %s\n", e.what());
+                }
+            }
+            food_sources.clear();
+            for (const dino::PortFoodState& saved : state.food) {
+                int def_index = -1;
+                for (std::size_t i = 0; i < food_defs.size(); ++i) {
+                    if (food_defs[i].name == saved.name) {
+                        def_index = static_cast<int>(i);
+                        break;
+                    }
+                }
+                if (def_index >= 0) {
+                    food_sources.push_back(
+                        {def_index, saved.x, saved.y, saved.remaining});
+                }
+            }
+            if (!food_sources.empty()) {
+                const dino::FoodDef& def =
+                    food_defs[static_cast<std::size_t>(
+                        food_sources.front().def)];
+                try {
+                    if (food_gpu.vao != 0) {
+                        food_gpu.destroy(glfns);
+                        food_gpu = GpuMesh{};
+                    }
+                    dino::Mesh mesh = dino::load_mesh(
+                        resolve_asset(opt.asset_root, def.mesh));
+                    mesh = place_on_terrain(
+                        std::move(mesh), terrain, food_sources.front().x,
+                        food_sources.front().y, 0.0f);
+                    food_gpu = upload_mesh(mesh, glfns);
+                    if (!def.texture.empty()) {
+                        food_texture = upload_texture(dino::load_tga(
+                            resolve_asset(opt.asset_root, def.texture)));
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "port food mesh: %s\n", e.what());
+                }
+            }
+        }
         rebuild_extra_items();
         minimap_rendered_scale = -1.0f;
         minimap_focus = {1e30f, 1e30f, 1e30f};
         minimap_heading = 1e30f;
+        if (opt.dino_action_loop) {
+            log_dino_food();
+        }
         std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
-                    "paths=%d fences=%d buildings=%zu dinos=%zu\n",
+                    "paths=%d fences=%d buildings=%zu dinos=%zu "
+                    "paddocks=%zu food=%zu\n",
                     current_island.c_str(), park_budget, park_clock.day,
                     visitor_system.visitors.size(), build_grid.path_count,
                     build_grid.fence_count, building_instances.size(),
-                    imported_dinos.size());
+                    imported_dinos.size(), paddocks.size(),
+                    food_sources.size());
     };
 
     if (sav_ready) {

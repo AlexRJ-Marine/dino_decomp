@@ -2319,3 +2319,43 @@ def test_cpp_food_feeding():
     assert "food: PigFood depleted" in log
     # After depletion the carnivores fall back to Exploration.
     assert "dino action: allo Exploration" in log
+
+
+def test_cpp_port_save_paddocks_food(tmp_path):
+    """Paddock capacity/occupancy and placed food survive a .psav round-trip."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    target = tmp_path / "feed.psav"
+    save = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--place-food", "PigFood", "--food-pos", "118,94",
+         "--dino-action-loop", "--dino-needs", "20,90,50,90",
+         "--save-port", str(target)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert save.returncode == 0, save.stderr
+    text = target.read_text()
+    paddocks = [ln for ln in text.splitlines() if ln.startswith("paddock ")]
+    assert len(paddocks) == 9
+    assert any(ln.startswith("food PigFood 474 378 5") for ln in text.splitlines())
+
+    load = subprocess.run(
+        [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--asset-root", str(GAME), "--load-port", str(target),
+         "--dino-action-loop"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert load.returncode == 0, load.stderr
+    assert ("port load: island=isl04 budget=75000 day=0 visitors=0 "
+            "paths=301 fences=268 buildings=57 dinos=20 paddocks=9 food=1"
+            in load.stdout)
+    assert "dino food: allo paddock=1 diet=carnivore source=PigFood" in load.stdout
+    assert "Eat score=9009 needs=20/90/50/90" in load.stdout

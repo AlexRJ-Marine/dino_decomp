@@ -1259,7 +1259,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Dinosaur actor state in `DINOPSAV`: one `dino` line per imported
   dinosaur (species/family/clip, position, four needs, action id and
   remaining seconds); `DinoActionLoop::restore` resumes without re-scoring.
-  Test `test_cpp_port_save_dino_state` (Cpg04, 20 dinos → Eat 9009 on load).
+  Test `test_cpp_port_save_dino_state` (Cpg04, 20 dinos -> Sleep 6360 on
+  load when no food source exists).
+- [x] Paddock model + food sources in `DINOPSAV`: `paddock` lines (rect,
+  capacity, used, occupants) and `food` lines (name, position, remaining);
+  `--load-port` rebuilds the live paddocks and food sources, so the store
+  and feeding work after a load (`test_cpp_port_save_paddocks_food`).
 - [x] Visitor profile + needs in `DINOPSAV` (optional tail; older saves
   restore `39/99/99`); the round-trip test checks `needs=39.0/99.0/99.0`
   after load.

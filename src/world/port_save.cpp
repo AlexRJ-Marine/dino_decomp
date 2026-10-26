@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 namespace dino {
 namespace {
@@ -67,6 +68,19 @@ void save_port_state(const PortState& state, const std::string& path) {
             << dinosaur.needs[1] << " " << dinosaur.needs[2] << " "
             << dinosaur.needs[3] << " " << dinosaur.action_id << " "
             << dinosaur.action_left << " " << dinosaur.size_cm << "\n";
+    }
+    for (const PortPaddockState& paddock : state.paddocks) {
+        out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
+            << paddock.x1 << " " << paddock.y1 << " " << paddock.capacity
+            << " " << paddock.used << " " << paddock.occupants.size();
+        for (const int occupant : paddock.occupants) {
+            out << " " << occupant;
+        }
+        out << "\n";
+    }
+    for (const PortFoodState& food : state.food) {
+        out << "food " << food.name << " " << food.x << " " << food.y << " "
+            << food.remaining << "\n";
     }
     if (!out) {
         throw std::runtime_error("short write to port save " + path);
@@ -178,6 +192,30 @@ PortState load_port_state(const std::string& path) {
                                          path);
             }
             state.dinos.push_back(dinosaur);
+        } else if (key == "paddock") {
+            PortPaddockState paddock;
+            int count = 0;
+            parts >> paddock.x0 >> paddock.y0 >> paddock.x1 >> paddock.y1 >>
+                paddock.capacity >> paddock.used >> count;
+            require(parts, key, path);
+            if (count < 0 || count > 100000) {
+                throw std::runtime_error("port save: bad paddock occupancy in " +
+                                         path);
+            }
+            for (int i = 0; i < count; ++i) {
+                int occupant = 0;
+                parts >> occupant;
+                require(parts, key, path);
+                paddock.occupants.push_back(occupant);
+            }
+            state.paddocks.push_back(std::move(paddock));
+        } else if (key == "food") {
+            PortFoodState food;
+            parts >> food.name >> food.x >> food.y >> food.remaining;
+            require(parts, key, path);
+            if (!food.name.empty()) {
+                state.food.push_back(std::move(food));
+            }
         }
     }
     if (!magic) {

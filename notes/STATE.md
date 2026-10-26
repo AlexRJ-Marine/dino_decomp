@@ -570,6 +570,10 @@ Updated: 2026-10-26
   - Evidence: `docs/platform/feeding.md`, `notes/food-pig-close.png`,
     `tests/test_viewer_cpp.py::test_cpp_food_feeding`,
     `test_cpp_dino_action_loop`.
+  - The port save now stores `paddock` (rect/capacity/used/occupants) and
+    `food` (name/position/remaining) records; `--load-port` rebuilds the
+    live paddocks and food sources, so feeding continues after a load
+    (`test_cpp_port_save_paddocks_food`).
 - FMT-13 complete: **`.bni` animal profiles.**
   - 5/5 parse: variant, size, limit, food value, quantity, food kind,
     5–12 meshes + texture dir; food kinds match `.bsi`; 33 meshes exist.

@@ -39,6 +39,10 @@ Employee feeding and the exact `.bsi` quantity semantics remain open.
 - **Gate**: `DinoActionLoopConfig::inventory` is the `.bai` consume flag; the
   viewer sets it per dinosaur each frame from a source in the dinosaur's
   paddock whose kind matches its diet and whose remaining quantity is > 0.
+- **Save**: `DINOPSAV` records `paddock` (rect, capacity, used, occupants)
+  and `food` (definition name, world position, remaining) lines; older
+  saves simply omit them. `--load-port` rebuilds the live paddocks and
+  food sources, so the store and feeding work after a load.
 - **Meal**: a completed `Eat`/`EatForSmallies` removes one portion. Treating
   `quantity` as the number of portions is **inferred**; the exact `.bsi`
   quantity semantics are open. At 0 the source is removed from the scene and
@@ -74,5 +78,7 @@ Employee feeding and the exact `.bsi` quantity semantics remain open.
   the FOOD need independently of the `.bai` delta.
 - Carnivore prey animals (`.bni`) vs the static `.bsi` sources; the retail
   carnivore food may be a live animal actor.
-- The port save does not store placed food sources or paddocks, so feeding
-  after `--load-port` starts from no sources.
+- Multiple placed food sources are logical (gate/consume) but only the
+  first is rendered by the viewer; the CLI creates one. The `.psav`
+  format stores every source and every paddock, and `--load-port`
+  rebuilds them (feeding continues after a load).
