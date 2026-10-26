@@ -724,6 +724,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Replace the placeholder orbit/WASD path with the target-orbit camera:
   arrows pan, Shift+arrows rotate at 90 deg/s, `+/-`/wheel zoom 10..300,
   terrain-follow target, `C` free-fly as debug.
+- [x] Wire the `NAVIGATION_PANEL` buttons to the same actions
+  (`GOTOP/GOBOTTOM/GOLEFT/GORIGHT`, `TURNLEFT/TURNRIGHT`,
+  `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.
 - [x] Verify with synthetic scan-code input and `DINO_DEBUG_CAMERA=1`
   (`target` moved, `yaw` -180.9 after 2 s, distance 65.6 -> 10.0).
 - [ ] Port the active-camera rotation object (`camSwitcher+0x20/+0x24`) and

@@ -4479,6 +4479,15 @@ int main(int argc, char** argv) {
     float minimap_scale = std::clamp(opt.minimap_scale, 0.1f, 2.0f);
     bool minimap_zoom_in = false;
     bool minimap_zoom_out = false;
+    // NAVIGATION_PANEL hold actions (camera, not minimap).
+    bool nav_pan_forward = false;
+    bool nav_pan_back = false;
+    bool nav_pan_left = false;
+    bool nav_pan_right = false;
+    bool nav_turn_left = false;
+    bool nav_turn_right = false;
+    bool nav_zoom_in = false;
+    bool nav_zoom_out = false;
 
     auto minimap_click_zoom = [&](int delta) {
         minimap_scale =
@@ -7077,6 +7086,22 @@ int main(int argc, char** argv) {
                             minimap_zoom_in = true;
                         } else if (action == "minimap zoom out") {
                             minimap_zoom_out = true;
+                        } else if (action == "camera pan forward") {
+                            nav_pan_forward = true;
+                        } else if (action == "camera pan back") {
+                            nav_pan_back = true;
+                        } else if (action == "camera pan left") {
+                            nav_pan_left = true;
+                        } else if (action == "camera pan right") {
+                            nav_pan_right = true;
+                        } else if (action == "camera turn left") {
+                            nav_turn_left = true;
+                        } else if (action == "camera turn right") {
+                            nav_turn_right = true;
+                        } else if (action == "camera zoom in") {
+                            nav_zoom_in = true;
+                        } else if (action == "camera zoom out") {
+                            nav_zoom_out = true;
                         } else if (action == "save port" ||
                                    action == "load port") {
                             const std::string path =
@@ -7163,6 +7188,14 @@ int main(int argc, char** argv) {
                 park_active_index = -1;
                 minimap_zoom_in = false;
                 minimap_zoom_out = false;
+                nav_pan_forward = false;
+                nav_pan_back = false;
+                nav_pan_left = false;
+                nav_pan_right = false;
+                nav_turn_left = false;
+                nav_turn_right = false;
+                nav_zoom_in = false;
+                nav_zoom_out = false;
                 dragging = false;
                 if (ui_click_consumed) {
                     ui_click_consumed = false;
@@ -7338,67 +7371,64 @@ int main(int argc, char** argv) {
             const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
                                keys[SDL_SCANCODE_RSHIFT];
             const float dtf = static_cast<float>(dt);
-            if (shift) {
-                // camera.ini RotationSpeedMin/Max = 1.570796 rad/s.
-                const float rotate = 90.0f * dtf;
-                if (held(dino::KeyAction::OrbitLeft)) {
-                    yaw -= rotate;
-                }
-                if (held(dino::KeyAction::OrbitRight)) {
-                    yaw += rotate;
-                }
-                if (held(dino::KeyAction::OrbitUp)) {
-                    pitch = std::min(89.0f, pitch + rotate);
-                }
-                if (held(dino::KeyAction::OrbitDown)) {
-                    pitch = std::max(-89.0f, pitch - rotate);
-                }
-            } else {
-                // `yaw` points from the target to the eye; the view direction
-                // is the opposite. Move the target in the camera's ground
-                // plane at the retail pan speed.
-                const float view_yaw =
-                    yaw * 3.14159265f / 180.0f + 3.14159265f;
-                const dino::Vec3 forward{std::cos(view_yaw),
-                                         std::sin(view_yaw), 0.0f};
-                const dino::Vec3 right{std::sin(view_yaw),
-                                       -std::cos(view_yaw), 0.0f};
-                const float step = 40.0f * dtf;
-                dino::Vec3 delta{0.0f, 0.0f, 0.0f};
-                if (held(dino::KeyAction::OrbitUp)) {
-                    delta.x += forward.x * step;
-                    delta.y += forward.y * step;
-                }
-                if (held(dino::KeyAction::OrbitDown)) {
-                    delta.x -= forward.x * step;
-                    delta.y -= forward.y * step;
-                }
-                if (held(dino::KeyAction::OrbitRight)) {
-                    delta.x += right.x * step;
-                    delta.y += right.y * step;
-                }
-                if (held(dino::KeyAction::OrbitLeft)) {
-                    delta.x -= right.x * step;
-                    delta.y -= right.y * step;
-                }
-                if (delta.x != 0.0f || delta.y != 0.0f) {
-                    center.x += delta.x;
-                    center.y += delta.y;
-                    if (terrain.world_size > 0.0f) {
-                        const float half = terrain.world_size * 0.5f;
-                        center.x = std::clamp(center.x, -half, half);
-                        center.y = std::clamp(center.y, -half, half);
-                        center.z = terrain.height_at(center.x, center.y) + 2.5f;
-                    }
+            // camera.ini RotationSpeedMin/Max = 1.570796 rad/s.
+            const float rotate = 90.0f * dtf;
+            if (nav_turn_left || (shift && held(dino::KeyAction::OrbitLeft))) {
+                yaw -= rotate;
+            }
+            if (nav_turn_right || (shift && held(dino::KeyAction::OrbitRight))) {
+                yaw += rotate;
+            }
+            if (shift && held(dino::KeyAction::OrbitUp)) {
+                pitch = std::min(89.0f, pitch + rotate);
+            }
+            if (shift && held(dino::KeyAction::OrbitDown)) {
+                pitch = std::max(-89.0f, pitch - rotate);
+            }
+            // `yaw` points from the target to the eye; the view direction is
+            // the opposite. Move the target in the camera's ground plane at
+            // the retail pan speed.
+            const float view_yaw =
+                yaw * 3.14159265f / 180.0f + 3.14159265f;
+            const dino::Vec3 forward{std::cos(view_yaw),
+                                     std::sin(view_yaw), 0.0f};
+            const dino::Vec3 right{std::sin(view_yaw),
+                                   -std::cos(view_yaw), 0.0f};
+            const float step = 40.0f * dtf;
+            dino::Vec3 delta{0.0f, 0.0f, 0.0f};
+            if (nav_pan_forward || (!shift && held(dino::KeyAction::OrbitUp))) {
+                delta.x += forward.x * step;
+                delta.y += forward.y * step;
+            }
+            if (nav_pan_back || (!shift && held(dino::KeyAction::OrbitDown))) {
+                delta.x -= forward.x * step;
+                delta.y -= forward.y * step;
+            }
+            if (nav_pan_right || (!shift && held(dino::KeyAction::OrbitRight))) {
+                delta.x += right.x * step;
+                delta.y += right.y * step;
+            }
+            if (nav_pan_left || (!shift && held(dino::KeyAction::OrbitLeft))) {
+                delta.x -= right.x * step;
+                delta.y -= right.y * step;
+            }
+            if (delta.x != 0.0f || delta.y != 0.0f) {
+                center.x += delta.x;
+                center.y += delta.y;
+                if (terrain.world_size > 0.0f) {
+                    const float half = terrain.world_size * 0.5f;
+                    center.x = std::clamp(center.x, -half, half);
+                    center.y = std::clamp(center.y, -half, half);
+                    center.z = terrain.height_at(center.x, center.y) + 2.5f;
                 }
             }
             // Retail DistanceMin/Max = 10/300; ProgressSpeed 0.2/s over the
             // 290-unit range is ~58 units/s.
             const float zoom_step = 58.0f * dtf;
-            if (held(dino::KeyAction::ZoomIn)) {
+            if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
                 distance = std::max(10.0f, distance - zoom_step);
             }
-            if (held(dino::KeyAction::ZoomOut)) {
+            if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
                 distance = std::min(300.0f, distance + zoom_step);
             }
         }

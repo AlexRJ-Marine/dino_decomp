@@ -556,6 +556,40 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return true;
     }
 
+    // NAVIGATION_PANEL drives the park camera, not the minimap (0x5257a0).
+    if (name == "NAVIGATION_GOTOP") {
+        action = "camera pan forward";
+        return true;
+    }
+    if (name == "NAVIGATION_GOBOTTOM") {
+        action = "camera pan back";
+        return true;
+    }
+    if (name == "NAVIGATION_GOLEFT") {
+        action = "camera pan left";
+        return true;
+    }
+    if (name == "NAVIGATION_GORIGHT") {
+        action = "camera pan right";
+        return true;
+    }
+    if (name == "NAVIGATION_TURNLEFT") {
+        action = "camera turn left";
+        return true;
+    }
+    if (name == "NAVIGATION_TURNRIGHT") {
+        action = "camera turn right";
+        return true;
+    }
+    if (name == "NAVIGATION_ZOOM") {
+        action = "camera zoom in";
+        return true;
+    }
+    if (name == "NAVIGATION_DEZOOM") {
+        action = "camera zoom out";
+        return true;
+    }
+
     if (name == "MAP_PANEL_ZOOMIN_BUTTON") {
         action = "minimap zoom in";
         return true;

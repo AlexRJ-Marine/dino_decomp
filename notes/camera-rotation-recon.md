@@ -79,6 +79,9 @@ The port's default park camera now uses the retail control scheme:
 - `Shift+arrows` rotate around it at `pi/2` rad/s;
 - `+`/`-` or the wheel zoom, clamped to `10..300`;
 - the target follows the terrain height;
+- the `NAVIGATION_PANEL` buttons drive the same actions:
+  `GOTOP/GOBOTTOM/GOLEFT/GORIGHT` pan, `TURNLEFT/TURNRIGHT` rotate,
+  `ZOOM/DEZOOM` zoom (the `MAP_PANEL_ZOOM*` buttons remain minimap zoom);
 - `C` remains a debug free-fly mode; mouse-drag rotation is a port-only
   convenience.
 
@@ -92,7 +95,7 @@ seconds of Shift+Left (90 deg/s), and `distance 65.6 -> 10.0` after one
 second of `+`. Evidence: `notes/camera-retail-controls.txt`,
 `notes/camera-retail-start.png`, `notes/camera-retail-pan-left.png`,
 `notes/camera-retail-rotate-left.png`, `notes/camera-retail-zoom-in.png`.
-Full viewer suite: 387 passed.
+Full viewer suite: 394 passed.
 
 ## Remaining open items
 
