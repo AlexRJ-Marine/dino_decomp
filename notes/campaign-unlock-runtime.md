@@ -39,6 +39,21 @@ CAMPAIGN_INFO Start           (521,449)
 The mission briefing is modal (`1/4` in Cpg04); the park simulation does not
 tick until it is dismissed with the green check at about `(322,402)`.
 
+## Runtime captures (Cpg04)
+
+The reliable runs (e.g. `notes/campaign-park.png`, `notes/campaign-sim.png`)
+reached the Cpg04 briefing and then the live paddock (Allosaurus, budget
+17,000, 09:46). The `stFence` trace logged all nine fence rectangles with
+`cell = 4`, e.g.
+
+```text
+FENCE x0=000001C4 y0=00000138 x1=000001D3 y1=00000157 cell=00000004
+```
+
+`0x57eb50` (`CanAddActor`) was armed before the world load and produced no
+hits while the 20 world dinosaurs were created: load-time placement does not
+use the capacity gate.
+
 ## `0x56c0c0` is not the dinosaur action→clip map
 
 A live Cpg04 run logged `FUN_0056c0c0` (`asItemBehavior::RegisterForAction`)

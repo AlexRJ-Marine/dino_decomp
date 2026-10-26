@@ -131,9 +131,18 @@ seven parseable campaign `.wld` files have inclusive world spans
 
 That gives integer cell capacities for every retail paddock at `cell = 4`
 (e.g. Cpg04 `(452,312)-(467,343)` = 4 x 8 cells = 32), which closes the
-"landscape +0xc" question by data geometry. A runtime dump of
-`*(uint*)(landscape+0xc)` would still be a nice belt-and-braces check but is
-no longer a blocker.
+"landscape +0xc" question by data geometry.
+
+**Runtime confirmation:** a live Cpg04 run (`scripts/x32dbg/start-campaign.ps1`)
+logged the `stFence` ctor for all nine fences with
+
+```text
+FENCE this=... p0=... p1=... cellptr=... cell=00000004
+      x0=000001C4 y0=00000138 x1=000001D3 y1=00000157
+```
+
+i.e. `cell = 4` and the first rectangle `(452,312)-(467,343)` exactly as in
+the `.wld`. No further doubt on the denominator.
 
 `stFence::AddActor` (`0x57e8a0`) appends the dinosaur pointer to `+0x98` and
 does:
@@ -142,6 +151,13 @@ does:
 used(+0x80) += cost_table[dinosaur+0x1e0]
 fill(+0x78)  = used / capacity
 ```
+
+**Load-time placement does not use this gate.** In the live Cpg04 run,
+`0x57eb50` was armed before the world load and produced **no hits** while the
+20 world dinosaurs were created (the nine `stFence` ctors did run). The
+capacity check is therefore the manual-insertion / store-purchase rule
+(`FENCE_INSERTION`), not the campaign world-load placement path; loaded
+dinosaurs are placed directly into their paddocks.
 
 ## `stFence::PlaceActor` (`0x57ec00`)
 

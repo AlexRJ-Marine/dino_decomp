@@ -118,42 +118,49 @@ if (-not $game) {
         Write-Host "no main window handle"
     } else {
         [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        function Resume() {
+            Send 'run'
+            Start-Sleep -Milliseconds 250
+        }
+        Resume
         Save-Window $hwnd "campaign-main"
         Write-Host "clicking Campaigns"
+        Resume
         Click-Client $hwnd 395 189
         Start-Sleep -Seconds 2
         Save-Window $hwnd "campaign-list"
 
         Write-Host "selecting campaign row $CampaignRow"
         $campaignY = 166 + $CampaignRow * 34 + 17
+        Resume
         Click-Client $hwnd 404 $campaignY
         Start-Sleep -Seconds 1
         Save-Window $hwnd "campaign-selected"
 
         Write-Host "clicking campaign Start"
+        Resume
         Click-Client $hwnd 365 530
         Start-Sleep -Seconds 2
         Save-Window $hwnd "campaign-info"
 
         Write-Host "selecting mission row $MissionRow"
         $missionY = 142 + $MissionRow * 17 + 8
+        Resume
         Click-Client $hwnd 259 $missionY
         Start-Sleep -Seconds 1
 
-        # Install the trace breakpoints now that the menu is past its asset
-        # loading, then resume once so the next Start click is not blocked.
+        # The fence ctor runs during the world load after Start; install it
+        # before the click. The dinosaur/capacity breakpoints are installed
+        # only after the briefing has been dismissed.
         if (-not $NoTrace) {
             Send 'bp 0x57dc60'
             Send 'SetBreakpointCommand 0x57dc60, "log FENCE this={p:ecx} p0={p:[esp+4]} p1={p:[esp+8]} cellptr={p:[esp+0xc]} cell={p:[[esp+0xc]]} x0={p:[[esp+4]]} y0={p:[[esp+4]+4]} x1={p:[[esp+8]]} y1={p:[[esp+8]+4]}; run"'
-            Send 'bp 0x571540'
-            Send 'SetBreakpointCommand 0x571540, "log DINO this={p:ecx} act={p:[ecx+0x2c0]} f1e0={p:[ecx+0x1e0]} f1dc={p:[ecx+0x1dc]} f1e4={p:[ecx+0x1e4]}; run"'
-            Send 'bp 0x56c0c0'
-            Send 'SetBreakpointCommand 0x56c0c0, "log CLIPPAIR this={p:ecx} vt={p:[ecx]} a2={p:[esp+4]} a3={p:[esp+8]} a4={p:[esp+0xc]} a5={p:[esp+0x10]}; run"'
+            # Catch the load-time dinosaur -> paddock placement, if it uses
+            # the retail capacity gate.
             Send 'bp 0x57eb50'
             Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
         }
-        Send 'run'
-        Start-Sleep -Milliseconds 500
+        Resume
 
         Write-Host "clicking Start"
         Click-Client $hwnd 521 449
@@ -164,11 +171,25 @@ if (-not $game) {
 
         # Mission briefing pages (1/4 ...): the green check closes/advances.
         for ($i = 0; $i -lt 5; $i++) {
+            Resume
             Click-Client $hwnd 322 402
             Start-Sleep -Milliseconds 900
         }
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 5
         Save-Window $hwnd "campaign-running"
+
+        # Now that the briefing is gone, trace the live dinosaur action path.
+        # 0x56c670 is the "can't reach item" branch; EBP is the saDinosaur
+        # ([ebp+0x28] is the printed dino id).
+        if (-not $NoTrace) {
+            Send 'bp 0x56c670'
+            Send 'SetBreakpointCommand 0x56c670, "log ACTOR dino={p:ebp} id={p:[ebp+0x28]} f1e0={p:[ebp+0x1e0]} f1dc={p:[ebp+0x1dc]} f1e4={p:[ebp+0x1e4]} act={p:[ebp+0x2c0]}; run"'
+            Send 'bp 0x57eb50'
+            Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+            Resume
+            Start-Sleep -Seconds 10
+            Save-Window $hwnd "campaign-sim"
+        }
     }
 }
 
