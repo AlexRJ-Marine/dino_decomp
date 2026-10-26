@@ -1,6 +1,8 @@
 #include "park.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 
@@ -339,14 +341,60 @@ void ParkHud::set_store_rows(std::vector<StoreRow> rows) {
     store_rows_ = std::move(rows);
     store_scroll_ = 0;
     store_selected_ = store_rows_.empty() ? -1 : 0;
+    update_store_gauges();
+}
+
+void ParkHud::update_store_gauges() {
+    static const char* const kNames[11] = {
+        "ORIGINALITY", "STAMINA", "COURAGE", "INTELLIGENCE", "AGILITY",
+        "SPEED", "ARMOR", "AGGRESSIVENESS", "ATTACK", "BEAUTY",
+        "PERCEPTION"};
+    // `AttributeRange.ini`: every attribute is out of 100 except Attack (120).
+    static constexpr int kMax[11] = {100, 100, 100, 100, 100, 100,
+                                     100, 100, 120, 100, 100};
+    const StoreRow* row =
+        store_selected_ >= 0 &&
+                store_selected_ < static_cast<int>(store_rows_.size())
+            ? &store_rows_[static_cast<std::size_t>(store_selected_)]
+            : nullptr;
+    const bool debug =
+        std::getenv("DINO_DEBUG_STORE_GAUGES") != nullptr;
+    if (debug && row != nullptr) {
+        std::printf("store gauges: %s", row->name.c_str());
+    }
+    for (int i = 0; i < 11; ++i) {
+        const int value =
+            row != nullptr
+                ? row->attributes[static_cast<std::size_t>(i)]
+                : 0;
+        const std::string prefix =
+            std::string("DINO_ACHAT_ATTRIBUTES_") + kNames[i];
+        if (Widget* gauge = overlay.get(prefix + "_GAUGE")) {
+            gauge->progress_max = kMax[i];
+            gauge->progress_current =
+                std::clamp(value, 0, gauge->progress_max);
+        }
+        if (Widget* indics = overlay.get(prefix + "_INDICS")) {
+            indics->text =
+                row != nullptr ? std::to_string(value) : std::string();
+        }
+        if (debug && row != nullptr) {
+            std::printf(" %s=%d/%d", kNames[i], value, kMax[i]);
+        }
+    }
+    if (debug && row != nullptr) {
+        std::printf("\n");
+    }
 }
 
 void ParkHud::store_select(int index) {
     if (index < 0 || index >= static_cast<int>(store_rows_.size())) {
         store_selected_ = -1;
+        update_store_gauges();
         return;
     }
     store_selected_ = index;
+    update_store_gauges();
     if (index < store_scroll_) {
         store_scroll_ = index;
     } else if (index >= store_scroll_ + store_visible_rows()) {

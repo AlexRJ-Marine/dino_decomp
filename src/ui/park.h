@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,10 @@ namespace dino::ui {
 struct StoreRow {
     std::string name;
     int price = 0;
+    // Gauge order matches the retail widget row:
+    // ORIGINALITY/STAMINA/COURAGE/INTELLIGENCE/AGILITY/SPEED/ARMOR/
+    // AGGRESSIVENESS/ATTACK/BEAUTY/PERCEPTION.
+    std::array<int, 11> attributes{};
 };
 
 // In-park HUD controller: owns the ParkInterface.Ini tree and implements the
@@ -95,6 +100,7 @@ private:
     void close_panel(const std::string& name);
     void hide_panels();
     void show_hud(bool visible);
+    void update_store_gauges();
 
     bool loaded_ = false;
     bool hud_hidden_ = false;

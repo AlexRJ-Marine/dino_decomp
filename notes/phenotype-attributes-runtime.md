@@ -159,14 +159,34 @@ but the exact state at the action-13 completion needs a same-run
 
 ## Store gauges
 
-`DINO_ACHAT_ATTRIBUTES_{PERCEPTION,BEAUTY,ATTACK,AGGRESSIVENESS,ARMOR,
-WALKSPEED,AGILITY,INTELLIGENCE,COURAGE,STAMINA,STRANGENESS}_{GAUGE,INDICS}`
-read these phenotype fields with the maxima in `AttributeRange.ini`
-(100, Attack 120). All source fields are now exact in `DinoAttributes`
-(`perception`, `beauty`, `attack_total`, `aggression`, `armor`,
-`walk_speed`, `agility`, `intelligence`, `courage`, `stamina`); the remaining
-work is filling the eleven `PROGRESS` widgets in `ParkHud` and adding the 3D
-preview actor.
+`DINO_ACHAT_ATTRIBUTES_{ORIGINALITY,STAMINA,COURAGE,INTELLIGENCE,AGILITY,
+SPEED,ARMOR,AGGRESSIVENESS,ATTACK,BEAUTY,PERCEPTION}_{GAUGE,INDICS}` read
+these phenotype fields with the maxima in `AttributeRange.ini` (100; Attack
+120). The gauges are ported: `Overlay` stores `PB_MAX_PROGRESS`/
+`PB_CURRENT_PROGRESS`, `StoreRow::attributes` carries the eleven values in
+widget order, `ParkHud::update_store_gauges` fills each `PROGRESS` and
+`INDICS`, and the park draw loop paints the proportional fill.
+
+Mapping used:
+
+| Gauge | `DinoAttributes` | Notes |
+| --- | --- | --- |
+| STAMINA | `stamina` | |
+| COURAGE | `courage` | |
+| INTELLIGENCE | `intelligence` | |
+| AGILITY | `agility` | |
+| SPEED | `walk_speed` | raw world units/s (Allosaurus 2) |
+| ARMOR | `armor` | |
+| AGGRESSIVENESS | `aggression` | |
+| ATTACK | `attack_head` | jaw attack; total is 179..345, max is 120 |
+| BEAUTY | `beauty` | |
+| PERCEPTION | `perception` | |
+| ORIGINALITY | — | `+0x194` conventional appeal, still 0 |
+
+Allosaurus from `Market.ini` reproduces the live Cpg04 row: STAMINA 40,
+COURAGE 70, INTELLIGENCE 38, AGILITY 50, ARMOR 25, AGGRESSIVENESS 80, ATTACK
+80/120, BEAUTY 20, PERCEPTION 34. Evidence: `notes/store-gauges.png`,
+`test_cpp_store_attribute_gauges`. The 3D preview actor remains.
 
 ## Reproduction
 

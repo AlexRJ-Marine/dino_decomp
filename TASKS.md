@@ -1101,7 +1101,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   row. Cpg04: Allosaurus (9,000) -> budget 66,000, paddock 7, total 368
   (`notes/store-panel.png`, `test_cpp_store_panel_purchase`,
   `test_cpp_store_panel_no_money`). The 1.5 s reveal delay is optional;
-  the preview actor and the eleven gauges remain.
+  the preview actor remains.
+- [x] Fill the eleven store attribute gauges from the selected Market entry.
+  `Overlay` parses `PB_MAX_PROGRESS`/`PB_CURRENT_PROGRESS`, `ParkHud` maps
+  `DINO_ACHAT_ATTRIBUTES_*_{GAUGE,INDICS}` to `StoreRow::attributes`, and the
+  park draw loop fills the gauge track proportionally. Allosaurus:
+  STAMINA 40, COURAGE 70, INTELLIGENCE 38, AGILITY 50, SPEED 2 (raw walk
+  speed), ARMOR 25, AGGRESSIVENESS 80, ATTACK 80/120 (jaw attack; the
+  five-part total is 335), BEAUTY 20, PERCEPTION 34. ORIGINALITY
+  (`+0x194` conventional appeal) remains 0 until that formula is ported.
+  Evidence: `notes/store-gauges.png`,
+  `test_cpp_store_attribute_gauges`.
 - [x] Fix the list draw order: the text-only-child z adjustment raised the
   list to `parent + 0.001`, but lower ZPRIORITY is nearer, so the wood panel
   covered it. It is now `parent - 0.001`; the fence/dinosaur lists still pass.

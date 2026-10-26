@@ -3336,19 +3336,69 @@ int main(int argc, char** argv) {
     std::string pending_construct_widget;
     std::string pending_store_action;
 
+    // Phenotype table, needed by the store attribute gauges as well as the
+    // imported/bought dinosaurs. Loading it here keeps `refresh_store_rows`
+    // able to fill every row's attribute panel.
+    dino::DinoPhenotypeTable phenotype_table;
+    try {
+        phenotype_table = dino::read_dino_phenotype(
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/proportion.dat"),
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/simu_trans.dic"),
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/TranslatorConstants.ini"));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
+    }
+
     // Dinosaur store panel: the retail state lists the store vector in
     // six-row pages (0x00535460). The port uses the Market.ini catalog, the
     // same source as --buy-dino; FreeGame.ini's subset is a later option.
     std::vector<dino::MarketEntry> store_catalog;
     int pending_store_index = -1;
     int pending_store_price = 0;
+    auto store_row_attributes = [&](const dino::MarketEntry& entry) {
+        // Gauge order: ORIGINALITY/STAMINA/COURAGE/INTELLIGENCE/AGILITY/
+        // SPEED/ARMOR/AGGRESSIVENESS/ATTACK/BEAUTY/PERCEPTION.
+        std::array<int, 11> values{};
+        if (!phenotype_table.valid) {
+            return values;
+        }
+        try {
+            const dino::DinoGenotype genotype = dino::read_gen_genotype(
+                resolve_asset(opt.asset_root,
+                              "Data/Design/Scenario/Genotype/" +
+                                  entry.genotype));
+            const dino::DinoAttributes attrs =
+                phenotype_table.attributes(genotype);
+            values = {0,
+                      attrs.stamina,
+                      attrs.courage,
+                      attrs.intelligence,
+                      attrs.agility,
+                      static_cast<int>(attrs.walk_speed),
+                      attrs.armor,
+                      attrs.aggression,
+                      // AttributeRange.ini caps Attack at 120; the combined
+                      // five-part total is 179..345, so the store gauge is
+                      // the jaw attack (+0x4c).
+                      attrs.attack_head,
+                      attrs.beauty,
+                      attrs.perception};
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "store genotype %s: %s\n",
+                         entry.genotype.c_str(), e.what());
+        }
+        return values;
+    };
     auto refresh_store_rows = [&]() {
         std::vector<dino::ui::StoreRow> rows;
         rows.reserve(store_catalog.size());
         for (const dino::MarketEntry& entry : store_catalog) {
             std::string name = entry.name;
             std::replace(name.begin(), name.end(), '_', ' ');
-            rows.push_back({name, entry.price});
+            rows.push_back({name, entry.price, store_row_attributes(entry)});
         }
         park.set_store_rows(std::move(rows));
     };
@@ -5296,19 +5346,6 @@ int main(int argc, char** argv) {
 
     if (opt.wld_park || sav_ready) {
         import_park_layout();
-    }
-
-    dino::DinoPhenotypeTable phenotype_table;
-    try {
-        phenotype_table = dino::read_dino_phenotype(
-            resolve_asset(opt.asset_root,
-                          "Data/Design/Genotype/proportion.dat"),
-            resolve_asset(opt.asset_root,
-                          "Data/Design/Genotype/simu_trans.dic"),
-            resolve_asset(opt.asset_root,
-                          "Data/Design/Genotype/TranslatorConstants.ini"));
-    } catch (const std::exception& e) {
-        std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
     }
 
     std::vector<dino::EmployeeProfile> employee_profiles;
@@ -7791,6 +7828,27 @@ int main(int argc, char** argv) {
                                                static_cast<float>(widget.height) * dpi,
                                                widget.back_color),
                              0, 1.0f, 1, view_w, view_h);
+            }
+
+            // PROGRESS widgets: fill the gauge track proportionally. The
+            // retail panel texture supplies the empty track; the port draws a
+            // solid light-blue fill over it (the exact retail gauge art is a
+            // `moProgress` draw we have not ported yet).
+            if (widget.type == "PROGRESS" && widget.progress_max > 0) {
+                const float fraction = std::clamp(
+                    static_cast<float>(widget.progress_current) /
+                        static_cast<float>(widget.progress_max),
+                    0.0f, 1.0f);
+                if (fraction > 0.0f) {
+                    draw_ui_mesh(
+                        menu_gpu,
+                        build_screen_rect(
+                            px(widget.abs_x), py(widget.abs_y),
+                            static_cast<float>(widget.width) * fraction * dpi,
+                            static_cast<float>(widget.height) * dpi,
+                            {120, 200, 255, 255}),
+                        0, 1.0f, 1, view_w, view_h);
+                }
             }
 
             if (widget.name == dialog_zone() && park.dialog_open()) {

@@ -62,6 +62,9 @@ struct Widget {
     int list_line_height = 0;
     int list_scroll_width = 0;
     int list_column0_width = 0;
+    // PROGRESS widgets (`PB_CURRENT_PROGRESS` / `PB_MAX_PROGRESS`).
+    int progress_max = 100;
+    int progress_current = 0;
 
     // ALIGN_* bits: 1 left, 2 up, 4 right, 8 down, 16 center.
     int align = 0;

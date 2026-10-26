@@ -108,6 +108,11 @@ bool Overlay::load_interface(const std::string& interface_path,
             widget.list_line_height = to_int(section.get("LB_LINE_HEIGHT"));
             widget.list_scroll_width = to_int(section.get("LB_VSCROLL_WIDTH"));
             widget.list_column0_width = to_int(section.get("LB_COLUMN0_WIDTH"));
+            const int progress_max = to_int(section.get("PB_MAX_PROGRESS"));
+            if (progress_max > 0) {
+                widget.progress_max = progress_max;
+            }
+            widget.progress_current = to_int(section.get("PB_CURRENT_PROGRESS"));
             if (section.has("TEXT_COLOR")) {
                 widget.text_color = to_color(section.get("TEXT_COLOR"),
                                              {255, 255, 255, 255});

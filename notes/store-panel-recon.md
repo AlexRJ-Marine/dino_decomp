@@ -103,9 +103,11 @@ From `ConstructionInterface.Ini` + `FUN_00534430`:
 2. Render the six rows into `DINO_ACHAT_SAVE_NAMES_LIST` children (name +
    price). The retail row widgets are children of the list; expose
    `DINO_ACHAT_ROW_<i>_NAME/PRICE` runtime text and hit-test rows.
-3. On row click: set the selection; update `PRICE_SLOT`, the food/size icons
-   and the name. The 11 gauges can stay at their neutral state until the full
-   phenotype attributes are ported.
+3. On row click: set the selection; update `PRICE_SLOT`, the food/size icons,
+   the name and the 11 attribute gauges. The gauges read the selected
+   `Market.ini` genotype through `DinoAttributes` (see
+   `notes/phenotype-attributes-runtime.md`); `ORIGINALITY` (`+0x194`
+   conventional appeal) remains 0.
 4. On `SAVE`: if budget < price show `WARNING_NOT_ENOUGH_MONEY` and stay;
    otherwise remember the entry and enter the port's insertion mode.
 5. On the next ground/paddock click: run `paddock_can_add`; if it fails show
@@ -153,8 +155,17 @@ and `test_cpp_store_panel_no_money`: budget 100 -> `WARNING_NOT_ENOUGH_MONEY`
 and no purchase. `test_cpp_store_panel_scroll` scrolls the viewport one row
 and buys `Allosaurus_Leoparus` (10,000).
 
-Remaining: the 3D preview actor and the eleven attribute gauges (need the full
-phenotype attributes), restoring the panel after a dismissed warning, and the
+Attribute gauges: `StoreRow::attributes` (11 values) is built from the
+selected Market genotype's `DinoAttributes`; `ParkHud::update_store_gauges`
+fills each `DINO_ACHAT_ATTRIBUTES_*_GAUGE/INDICS`, and the draw loop renders
+the proportional fill. Allosaurus: STAMINA 40, COURAGE 70, INTELLIGENCE 38,
+AGILITY 50, SPEED 2, ARMOR 25, AGGRESSIVENESS 80, ATTACK 80/120, BEAUTY 20,
+PERCEPTION 34; ORIGINALITY is 0 until the `+0x194` conventional-appeal
+formula is ported. Evidence: `notes/store-gauges.png`,
+`test_cpp_store_attribute_gauges`.
+
+Remaining: the 3D preview actor (the `DINO_ACHAT_SAVE_RENDER_VIEW` well),
+`ORIGINALITY`, restoring the panel after a dismissed warning, and the
 mission/free-game catalog selection (the port currently uses `Market.ini` for
 all modes).
 

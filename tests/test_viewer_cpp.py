@@ -2431,6 +2431,38 @@ def test_cpp_store_panel_purchase():
             "dinos=21 dinoachat=1/9000 used=32 total=368") in log
 
 
+def test_cpp_store_attribute_gauges(tmp_path):
+    """Selecting a store row fills the eleven attribute gauges and numbers."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    shot = tmp_path / "gauges.bmp"
+    env = dict(os.environ, DINO_DEBUG_STORE_GAUGES="1")
+    result = subprocess.run(
+        [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-click", "765,298", "--park-click", "160,88",
+         "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=300, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    # Allosaurus from Market.ini: the accumulator values are the live Cpg04
+    # row (stamina 40, courage 70, intelligence 38, ...). The Attack gauge is
+    # the jaw attack (80) because AttributeRange.ini caps it at 120; the
+    # five-part total is 335. ORIGINALITY (+0x194 conventional appeal) is
+    # still unported and stays 0.
+    assert ("store gauges: Allosaurus ORIGINALITY=0/100 STAMINA=40/100 "
+            "COURAGE=70/100 INTELLIGENCE=38/100 AGILITY=50/100 SPEED=2/100 "
+            "ARMOR=25/100 AGGRESSIVENESS=80/100 ATTACK=80/120 BEAUTY=20/100 "
+            "PERCEPTION=34/100") in result.stdout
+    assert shot.exists() and shot.stat().st_size > 0
+
+
 def test_cpp_store_panel_no_money():
     if not EXE.exists():
         pytest.skip("viewer not built")
