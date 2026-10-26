@@ -26,7 +26,7 @@ or play the original.
 | Portable viewer | Working | 10 islands through the retail menu, vegetation, skinned dinosaurs, paths/fences, visitors, retail menu/HUD, minimap, live clock, music/clicks. |
 | Gameplay simulation | Early | Visitors only random-walk. Needs, economy, shows, labs and missions are researched but not ported. |
 | Decompilation | Research-heavy | 180+ function entries documented; **2 functions replaced live**. |
-| Test suite | Green | **290 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
+| Test suite | Green | **291 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
 
 ### What works today
 
