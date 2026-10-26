@@ -71,11 +71,33 @@ camera object's update, which is the missing piece:
 - `TargetHardness`/`PositionHardness` smoothing and its time constant;
 - the `TURNLEFT`/`TURNRIGHT` UI release path (`LAB_00525ce0`).
 
-## Port status
+## CAM-1 implementation (2026-10-26)
 
-The current port's mouse-drag rotation is a placeholder, not the retail
-binding. `CAM-1` should use `Shift+arrows` and the UI `TURNLEFT`/`TURNRIGHT`
-buttons with `pi/2` rad/s, keep `C` free-fly as a debug mode, and verify the
-rotation against the retail windowed run. Evidence addresses:
+The port's default park camera now uses the retail control scheme:
+
+- plain arrow keys pan the look-at target in the camera's ground plane;
+- `Shift+arrows` rotate around it at `pi/2` rad/s;
+- `+`/`-` or the wheel zoom, clamped to `10..300`;
+- the target follows the terrain height;
+- `C` remains a debug free-fly mode; mouse-drag rotation is a port-only
+  convenience.
+
+The `dino_keys.cfg` actions `orbit_left/right/up/down` now mean the four
+arrow pan keys; holding Shift converts the same key to the corresponding
+rotation action, matching `KeyMapper.ini`.
+
+Verification: synthetic scan-code input with `DINO_DEBUG_CAMERA=1` gave
+`target=(0,-80.5)` after two seconds of plain Left, `yaw=-180.9` after two
+seconds of Shift+Left (90 deg/s), and `distance 65.6 -> 10.0` after one
+second of `+`. Evidence: `notes/camera-retail-controls.txt`,
+`notes/camera-retail-start.png`, `notes/camera-retail-pan-left.png`,
+`notes/camera-retail-rotate-left.png`, `notes/camera-retail-zoom-in.png`.
+Full viewer suite: 387 passed.
+
+## Remaining open items
+
+The active-camera rotation object (`camSwitcher+0x20/+0x24`, vtable update)
+and the `TargetHardness`/`PositionHardness` smoothing are not yet ported;
+the current rotation is linear at the recovered speed. Evidence addresses:
 `0x005257a0`, `0x00527b80`, `0x005e59b0`, `0x005e5960`, `0x005e5bc0`,
 `0x00529d00`, `0x005e5560`.

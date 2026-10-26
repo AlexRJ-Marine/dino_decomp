@@ -65,6 +65,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAM-1: retail camera controls (arrows pan, Shift+arrows rotate at pi/2, +/- zoom; CAM-1 open items: active-camera math/hardness)
 - 2026-10-26 - DOCS-1 feature status matrix + docs index (46 screens/499 controls cross-linked; matrix test)
 - 2026-10-26 - Workflow tooling: NOW dashboard, lanes, lane build dirs, fast test selection, skills and commands
 - HYB-7 `.fnt` loader replaced; phenotype attributes ported and reviewed

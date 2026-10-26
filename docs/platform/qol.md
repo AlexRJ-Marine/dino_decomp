@@ -35,15 +35,14 @@ vsync=1
 
 ## Camera
 
-Two camera modes share the same movement keys:
-
-- **Ground-target (default).** Mouse drag orbits around the look-at point,
-  the wheel zooms, and `W/A/S/D` walk the look-at point across the island
-  (`Q/E` raise/lower it). This is the park-building camera; movement follows
-  the terrain height.
-- **Free-fly (`C`).** `W/A/S/D` move the eye along the view direction,
-  `Q/E` move down/up, Shift sprints, and mouse drag looks around. The eye is
-  clamped to the terrain surface.
+- **Retail target-orbit (default).** `arrow keys` pan the look-at target
+  across the island; `Shift+arrows` rotate around it at
+  `camera.ini`'s `pi/2` rad/s; `+`/`-` or the wheel zoom
+  (`DistanceMin/Max` 10..300). The target follows the terrain height. Mouse
+  drag rotation is a port-only convenience, not a retail binding.
+- **Free-fly (`C`, debug).** `W/A/S/D` move the eye along the view
+  direction, `Q/E` move down/up, Shift sprints, and mouse drag looks around.
+  The eye is clamped to the terrain surface.
 - An on-screen hint is shown for the first 12 seconds of an interactive run;
   `Tab` opens the full controls panel.
 

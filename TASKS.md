@@ -715,6 +715,26 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/orbit-after.png`, `notes/camera-before.png`,
   `notes/camera-after.png`.
 
+### CAM-1: Retail camera controls
+- [x] Recover the bindings: arrows = `CameraKey*` (pan), Shift+arrows =
+  `CameraRotate*`, `+/-`/UI buttons = zoom; rotation speed `pi/2` rad/s from
+  `camera.ini`.
+- [x] Trace the dispatch `FUN_005257a0` -> `0x525e40..70` ->
+  `FUN_00527b80(4..7)` -> `FUN_005e59b0` (camera flag array `+0x34`).
+- [x] Replace the placeholder orbit/WASD path with the target-orbit camera:
+  arrows pan, Shift+arrows rotate at 90 deg/s, `+/-`/wheel zoom 10..300,
+  terrain-follow target, `C` free-fly as debug.
+- [x] Verify with synthetic scan-code input and `DINO_DEBUG_CAMERA=1`
+  (`target` moved, `yaw` -180.9 after 2 s, distance 65.6 -> 10.0).
+- [ ] Port the active-camera rotation object (`camSwitcher+0x20/+0x24`) and
+  the `TargetHardness`/`PositionHardness` smoothing.
+- **Acceptance:** the retail key map drives the camera; rotation is
+  `pi/2` rad/s; a side-by-side matches the original at the start camera.
+- **Depends on:** FMT-30, UI-2 camera research.
+- **Evidence:** `notes/camera-rotation-recon.md`,
+  `notes/camera-retail-controls.txt`, `notes/camera-retail-*.png`,
+  `docs/platform/qol.md`, `docs/platform/vertical-slice.md`.
+
 ## Phase 3 — hybrid decompilation
 
 ### DEC-6: Function status list

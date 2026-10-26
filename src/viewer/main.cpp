@@ -7013,18 +7013,6 @@ int main(int argc, char** argv) {
                     opt.save_name = park.save_name();
                 } else if (key == keymap[dino::KeyAction::Quit]) {
                     running = false;
-                } else if (key == keymap[dino::KeyAction::OrbitLeft]) {
-                    yaw -= 4.0f;
-                } else if (key == keymap[dino::KeyAction::OrbitRight]) {
-                    yaw += 4.0f;
-                } else if (key == keymap[dino::KeyAction::OrbitUp]) {
-                    pitch = std::min(89.0f, pitch + 4.0f);
-                } else if (key == keymap[dino::KeyAction::OrbitDown]) {
-                    pitch = std::max(-89.0f, pitch - 4.0f);
-                } else if (key == keymap[dino::KeyAction::ZoomIn]) {
-                    distance = std::max(1.0f, distance * 0.9f);
-                } else if (key == keymap[dino::KeyAction::ZoomOut]) {
-                    distance = std::min(500.0f, distance * 1.1f);
                 } else if (key == keymap[dino::KeyAction::Reset]) {
                     yaw = opt.yaw;
                     pitch = opt.pitch;
@@ -7211,7 +7199,8 @@ int main(int argc, char** argv) {
                 last_mx = event.motion.x;
                 last_my = event.motion.y;
             } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                distance = std::clamp(distance * std::pow(1.1f, -event.wheel.y), 1.0f, 500.0f);
+                distance = std::clamp(distance * std::pow(1.1f, -event.wheel.y),
+                                      10.0f, 300.0f);
             } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
                 width = event.window.data1;
                 height = event.window.data2;
@@ -7335,56 +7324,91 @@ int main(int argc, char** argv) {
                 }
             }
         } else if (!opt.no_input && !start_screen && !park.name_edit_active()) {
-            // Ground-target camera (the default): WASD walks the look-at
-            // point over the island, drag orbits around it and the wheel
-            // zooms. This is the park-building camera; `C` switches to the
-            // free-fly first-person camera above.
+            // Retail park camera (camera.ini / KeyMapper.ini):
+            //   arrows       pan the look-at target (CameraKey*)
+            //   Shift+arrows rotate around it (CameraRotate*, pi/2 rad/s)
+            //   + / -        zoom (NAVIGATION_ZOOM/DEZOOM)
+            // The drag rotation below is a port-only mouse convenience.
             const bool* keys = SDL_GetKeyboardState(nullptr);
             auto held = [&](dino::KeyAction action) {
                 const SDL_Scancode scancode =
                     SDL_GetScancodeFromKey(keymap[action], nullptr);
                 return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
             };
-            // `yaw` points from the target to the eye; the view direction is
-            // the opposite.
-            const float view_yaw = yaw * 3.14159265f / 180.0f + 3.14159265f;
-            const dino::Vec3 forward{std::cos(view_yaw), std::sin(view_yaw), 0.0f};
-            const dino::Vec3 right{std::sin(view_yaw), -std::cos(view_yaw), 0.0f};
-            const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
-            const float step = speed * static_cast<float>(dt);
-            dino::Vec3 delta{0.0f, 0.0f, 0.0f};
-            if (held(dino::KeyAction::MoveForward)) {
-                delta.x += forward.x * step;
-                delta.y += forward.y * step;
-            }
-            if (held(dino::KeyAction::MoveBack)) {
-                delta.x -= forward.x * step;
-                delta.y -= forward.y * step;
-            }
-            if (held(dino::KeyAction::MoveRight)) {
-                delta.x += right.x * step;
-                delta.y += right.y * step;
-            }
-            if (held(dino::KeyAction::MoveLeft)) {
-                delta.x -= right.x * step;
-                delta.y -= right.y * step;
-            }
-            if (held(dino::KeyAction::MoveUp)) {
-                center.z += step;
-            }
-            if (held(dino::KeyAction::MoveDown)) {
-                center.z -= step;
-            }
-            if (delta.x != 0.0f || delta.y != 0.0f) {
-                center.x += delta.x;
-                center.y += delta.y;
-                if (terrain.world_size > 0.0f) {
-                    const float half = terrain.world_size * 0.5f;
-                    center.x = std::clamp(center.x, -half, half);
-                    center.y = std::clamp(center.y, -half, half);
-                    center.z = terrain.height_at(center.x, center.y) + 2.5f;
+            const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
+                               keys[SDL_SCANCODE_RSHIFT];
+            const float dtf = static_cast<float>(dt);
+            if (shift) {
+                // camera.ini RotationSpeedMin/Max = 1.570796 rad/s.
+                const float rotate = 90.0f * dtf;
+                if (held(dino::KeyAction::OrbitLeft)) {
+                    yaw -= rotate;
+                }
+                if (held(dino::KeyAction::OrbitRight)) {
+                    yaw += rotate;
+                }
+                if (held(dino::KeyAction::OrbitUp)) {
+                    pitch = std::min(89.0f, pitch + rotate);
+                }
+                if (held(dino::KeyAction::OrbitDown)) {
+                    pitch = std::max(-89.0f, pitch - rotate);
+                }
+            } else {
+                // `yaw` points from the target to the eye; the view direction
+                // is the opposite. Move the target in the camera's ground
+                // plane at the retail pan speed.
+                const float view_yaw =
+                    yaw * 3.14159265f / 180.0f + 3.14159265f;
+                const dino::Vec3 forward{std::cos(view_yaw),
+                                         std::sin(view_yaw), 0.0f};
+                const dino::Vec3 right{std::sin(view_yaw),
+                                       -std::cos(view_yaw), 0.0f};
+                const float step = 40.0f * dtf;
+                dino::Vec3 delta{0.0f, 0.0f, 0.0f};
+                if (held(dino::KeyAction::OrbitUp)) {
+                    delta.x += forward.x * step;
+                    delta.y += forward.y * step;
+                }
+                if (held(dino::KeyAction::OrbitDown)) {
+                    delta.x -= forward.x * step;
+                    delta.y -= forward.y * step;
+                }
+                if (held(dino::KeyAction::OrbitRight)) {
+                    delta.x += right.x * step;
+                    delta.y += right.y * step;
+                }
+                if (held(dino::KeyAction::OrbitLeft)) {
+                    delta.x -= right.x * step;
+                    delta.y -= right.y * step;
+                }
+                if (delta.x != 0.0f || delta.y != 0.0f) {
+                    center.x += delta.x;
+                    center.y += delta.y;
+                    if (terrain.world_size > 0.0f) {
+                        const float half = terrain.world_size * 0.5f;
+                        center.x = std::clamp(center.x, -half, half);
+                        center.y = std::clamp(center.y, -half, half);
+                        center.z = terrain.height_at(center.x, center.y) + 2.5f;
+                    }
                 }
             }
+            // Retail DistanceMin/Max = 10/300; ProgressSpeed 0.2/s over the
+            // 290-unit range is ~58 units/s.
+            const float zoom_step = 58.0f * dtf;
+            if (held(dino::KeyAction::ZoomIn)) {
+                distance = std::max(10.0f, distance - zoom_step);
+            }
+            if (held(dino::KeyAction::ZoomOut)) {
+                distance = std::min(300.0f, distance + zoom_step);
+            }
+        }
+
+        if (std::getenv("DINO_DEBUG_CAMERA") != nullptr && (frame % 30) == 0) {
+            std::fprintf(stderr,
+                         "cam free=%d target=%.1f,%.1f,%.1f yaw=%.1f "
+                         "pitch=%.1f dist=%.1f\n",
+                         free_camera ? 1 : 0, center.x, center.y, center.z,
+                         yaw, pitch, distance);
         }
 
         if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
@@ -7979,7 +8003,8 @@ int main(int argc, char** argv) {
                               build_grid.fence_count);
                 std::string text = std::string(line1) + "\n" + line2;
                 if (opt.frames == 0 && elapsed < 12.0) {
-                    text += "\nWASD move   drag orbit   wheel zoom   C free-fly";
+                    text += "\nArrows pan   Shift+Arrows rotate   "
+                            "+/- or wheel zoom   C free-fly";
                 }
                 draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
                                         {235, 240, 245, 255}),
@@ -7994,8 +8019,8 @@ int main(int argc, char** argv) {
                 draw_2d(build_text_mesh(
                             hud_font,
                             "CONTROLS\n\n"
-                            "WASD move target   drag orbit   wheel zoom\n"
-                            "C free-fly camera   Shift sprint\n"
+                            "Arrows pan target   Shift+Arrows rotate\n"
+                            "+/- or wheel zoom   C free-fly   R reset\n"
                             "1 path    2 fence    0 off    U undo    click place\n"
                             "F1 HUD    Tab close    Esc quit",
                             64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
