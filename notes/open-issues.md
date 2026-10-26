@@ -33,9 +33,12 @@ unknowns, with what was tried and the concrete next step.
   records match their island `.lnd` width/height/0-1-2.
 - Runtime `FUN_00602cf0` water quad: isl01 `16.0`, isl02 `20.0`, matching the
   `.lnd` float.
-- **Open:** the exact code path that carries the four values from the `.lnd`
-  stack scratch to the Entrance/landscape objects. The `.lnd` reader may be a
-  second copy or the values may be re-read by the scenario setup.
+- **Solved:** `FUN_0051dad0` fills a stack landscape descriptor at `+0x54`
+  (water), `+0x9c/+0xa0/+0xa4` (Entrance cell x/y/orientation);
+  `0x51e24a` passes it to `FUN_005f3f10`/`FUN_005fb8b0`, the water ctor
+  `0x602b80` stores the raw float at `+0x30` (read by `FUN_00602cf0`), and
+  the Entrance branch `0x51e29b` calls `FUN_0053b330(index, &cell, state)`.
+  No scale or unit conversion. See `notes/lnd-carry-recon.md`.
 - **Evidence:** `notes/calibration-2026-10-26.md`,
   `notes/x32dbg-calibration-isl01b.out.log`,
   `notes/x32dbg-calibration-isl02.out.log`.
@@ -53,10 +56,12 @@ unknowns, with what was tried and the concrete next step.
   score steps 200..1000, 3 sound names, duration pair, switch key and tail
   flag.  Full layout in `docs/formats/bfi.md`.
 - **Remaining (semantics only):** exact use of `field_3c`/`field_40`,
-  `anim_flag`/`anim_speed`, `field_11`/`field_15`, the 3-value
-  `field_154` block, and the scoring arithmetic for the attribute lists.
+  `anim_flag`/`anim_speed`, `field_11`/`field_15`, and the 3-value
+  `field_154` block. The attribute-weight lists and score steps are **dead
+  editor metadata**: the real judge score is the five-float weighted sum
+  (`0x576550`/`0x581770`), not those lists (`docs/decomp/show-score.md`).
 - **Evidence:** `notes/bfi-recon.md` ("Resolution"), `0x5475c0`/`0x54a630`
-  record copy, `0x621770` mesh renderer.
+  record copy, `0x621770` mesh renderer, `docs/decomp/show-score.md`.
 
 ## 4. `.bwi` field semantics
 
