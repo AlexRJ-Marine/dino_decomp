@@ -13,6 +13,9 @@ Updated: 2026-10-26
 - Build: CMake + Ninja from the venv
 - Extracted game: `game/%MAINDIR%/` (2,891 files, 397.5 MiB)
 - Original media: `original/` (read-only)
+- Live retail runs overwrite `run/save/auto/auto.sav`. Restore the test
+  reference from `run/save/auto/slot001.sav` (7,116 bytes, 39 shows) before
+  the save tests; a campaign autosave is ~53 KB (`notes/handoff.md`).
 
 ## Done
 
