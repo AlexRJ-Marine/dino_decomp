@@ -6818,6 +6818,13 @@ int main(int argc, char** argv) {
         if (campaign_runtime) {
             state.campaign_mission = campaign_runtime->mission().name;
         }
+        if (state.campaign_mission.empty() &&
+            !opt.start_mission_path.empty()) {
+            state.campaign_mission =
+                std::filesystem::path(opt.start_mission_path)
+                    .stem()
+                    .string();
+        }
         state.difficulty = std::clamp(menu.difficulty, 0, 2);
         state.budget = park_budget;
         state.day = park_clock.day;
