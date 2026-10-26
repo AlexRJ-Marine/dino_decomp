@@ -62,7 +62,17 @@ Employee feeding and the exact `.bsi` quantity semantics remain open.
 
 - Employee feeding (nutritionists, hourly schedule) — STAFF research is
   documented, but no staff actors exist in the port.
+- The interactive `FOOD_DISTRIBUTION_PANEL` is not ported. Its state ctor is
+  `FUN_00537040`: it resolves `FOOD_DISTRIBUTION_PANEL`, `PRICE_SLOT`,
+  `FOOD_DISTRIBUTION_TYPE_GROUP` and ten `FOOD_DISTRIBUTION_TIME_BUTTONn`
+  widgets from a 200-byte source-record list (`record+0xB8` name, callbacks
+  `LAB_00537940`/`LAB_00537AF0`); `FUN_00537DC0` re-selects the type group and
+  toggles the time buttons from `state+0x58`. The placement state string is
+  `LUNCHBOX_SELECTED`. Until it is ported, `--place-food` is the only way to
+  place a source.
 - Exact `quantity`/nutrition consumption per meal, and whether a meal refills
   the FOOD need independently of the `.bai` delta.
 - Carnivore prey animals (`.bni`) vs the static `.bsi` sources; the retail
   carnivore food may be a live animal actor.
+- The port save does not store placed food sources or paddocks, so feeding
+  after `--load-port` starts from no sources.
