@@ -182,42 +182,48 @@ are open.
 
 ### Park block (`0x293` bytes)
 
-`FUN_00585240` (park reader) starts at `block + 0x28`; the first `0x28` bytes
-are an object header.
-
-`FUN_00585240` reads the fields in this order (version > 52 shown):
+The block has a **0x30-byte header**, then the economy field stream written by
+`0x00585780` and read by `0x00585240`. The stream is **not** a memory dump:
+fields appear in writer order, so the file offsets differ from the runtime
+object offsets (`docs/decomp/economy.md`). Stream offset 0 is `block + 0x30`.
 
 ```text
-relative +0x08   u32  budget (75,000 / 75,125 in retail)
-relative +0x98   f32  sellback factor (version > 52)
-relative +0x0c   u32  FOOD total
-relative +0x10   u32  FOOD count
-relative +0x14   u32  EFFECTIFS_SECU total
-relative +0x18   u32  EFFECTIFS_SECU count
-relative +0x8c   u32  ticket income total
-relative +0x90   u32  ticket income count
-relative +0x94   2 x u8  bankruptcy flags
-relative +0x1c   2 x u32 staff expense buckets (role 0 / role 1)
-relative +0x24   12/13 x u32  shop revenue, kind 0..12
-relative +0x58   12/13 x u32  shop sale counts, kind 0..12
-relative +0x9c..+0xb8  four spend/income total+count pairs
-relative +0xbc   2 x u32  yesterday staff buckets
-relative +0xc4..+0x138 yesterday FOOD/SECU/shop/ticket counters
-relative +0x13c..+0x16c yesterday totals and group counters
+stream +0x00  u32  budget (75,000 / 75,125 in retail)
+stream +0x04  f32  sellback factor (version > 52)
+stream +0x08  u32  FOOD total
+stream +0x0c  u32  FOOD count
+stream +0x10  u32  EFFECTIFS_SECU total
+stream +0x14  u32  EFFECTIFS_SECU count
+stream +0x18  u32  ticket income total (125 in the manual save)
+stream +0x1c  u32  ticket income count (2 in the manual save)
+stream +0x20  2 x u8  bankruptcy flags
+stream +0x22  2 x u32  staff expense buckets
+stream +0x2a  12/13 x u32  shop revenue, kind 0..12
+stream +0x5e  12/13 x u32  shop sale counts, kind 0..12
+stream +0x92  u32  DINOACHAT count / total
+stream +0x9a  u32  CONSTRUCTION count / total
+stream +0xa2  u32  LABOACTION count / total
+stream +0xaa  u32  VENTES count / total
+stream +0xb2  2 x u32  yesterday staff buckets
+stream +0xba  u32  yesterday FOOD total / count
+stream +0xc2  u32  yesterday SECU total / count
+stream +0xca  13 x u32  yesterday shop revenue
+stream +0xfa  13 x u32  yesterday shop sale counts
+stream +0x12a 13 x u32  yesterday ticket/totals/groups
 ```
 
-`+0x20` is the second staff bucket but is 125 in the manual save while the
-save has no employees; `+0x24` is 2, the visitor count. The exact second-bucket
-meaning is documented as open in `docs/decomp/economy.md`.
+Both retail saves have no employees, so both staff buckets are 0. The manual
+save's `125/2` pair is the **current-day ticket income** (two visitors), not a
+staff bucket.
 
-**Fill pattern.** The yesterday block and the three computed totals
-(`+0x144/+0x148/+0x14c`) are not initialized at park creation. A save taken
-before the first day rollover contains the debug fill `0xF00D0000` /
-`0xF00DBAAD` (and a bogus net of `0xBAAD`). Both retail saves show this.
-`tools/formats/economy.py` masks it and reports the rows as unsettled.
+**Fill pattern.** The three computed totals (`+0x144/+0x148/+0x14c`, stream
+`+0x12a/+0x12e/+0x132`) are only written by the panel refresh `0x00586070`.
+A fresh save therefore contains the debug fill **`0xBAADF00D`** in those three
+fields. `tools/formats/economy.py` masks it and reports the totals as
+unsettled. The yesterday row counters are zero until the first day rollover.
 
-`FUN_00585bd0` (constructor setter) writes the same `+0x08` budget and
-`+0x98` sellback field, confirming the offsets.
+`FUN_00585bd0` (constructor setter) writes the same runtime `+0x08` budget and
+`+0x98` sellback fields, confirming the field identities.
 
 ### Dinosaur store
 
@@ -307,15 +313,15 @@ five AI-list counts, the 17-byte AI entries and the 10 camera floats. Tests:
   evidence.
 - `notes/save-recon.md` — original header/catalog recon.
 - Ghidra: `FUN_0051e6c0`, `FUN_0051e7e0`, `FUN_0053a140`, `FUN_0053c560`,
-  `FUN_0053c9d0`, `FUN_00558340`, `FUN_00585240`, `FUN_00585bd0`,
-  `FUN_0058aed0`, `FUN_0058ccc0`, `FUN_00592060`, `FUN_00592a00`,
-  `FUN_00593a60`.
+  `FUN_0053c9d0`, `FUN_00558340`, `FUN_00585780` (economy writer),
+  `FUN_00585240` (economy reader), `FUN_00585bd0`, `FUN_0058aed0`,
+  `FUN_0058ccc0`, `FUN_00592060`, `FUN_00592a00`, `FUN_00593a60`.
 
 ## Open
 
 - World object list semantics and class names.
-- The `0x28`-byte block header (still undecoded; the economy fields are known).
-- The second staff bucket (`+0x20`) and the Guard role index; see
+- The 0x30-byte park block header (still undecoded; the economy stream is known).
+- The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - Dinosaur `store_id` meaning.
 - The AI/camera field split; the byte layout is solved.

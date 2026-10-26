@@ -298,6 +298,34 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `tools/formats/bai.py`, `docs/formats/bai.md`,
   `tests/test_bai.py`.
 
+### FMT-19: `TranslatorConstants.ini` and the genotype translator
+- [x] Parse all 41 `[SIMU_CONSTANTS]` keys and map them to translator-object
+  offsets `+0x228..+0x2dc`.
+- [x] Decode the five dinosaur-need formulas (`FUN_00618020`): beauty, danger,
+  spectacular (cube root of a volume × 60 / 1346), conventional, taming.
+- [x] Map the phenotype accumulator fields (`+0x18..+0x194`) and the additive
+  (`FUN_00619c70`) / normalizing (`FUN_00619d90`) part-record builders.
+- [ ] Map the 18 gene translation values onto the part records
+  (`+0x128..+0x19c`) and name the remaining phenotype fields.
+- **Acceptance:** all 41 keys parse; the need formulas match the assembly.
+- **Depends on:** FMT-9.
+- **Evidence:** `tools/formats/translator_constants.py`,
+  `docs/formats/translator-constants.md`,
+  `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+
+### FMT-20: `simu_trans.dic` parts 2/3/10
+- [x] Parse all ten `// Part` headers; Part 1 genes reuse `gene_trans.py`.
+- [x] Part 2: four 20×20 merge tables, byte-identical to `anim_trans.dic`
+  (1,600 cells).
+- [x] Part 3: 11 attributes × 5 parts = 55 tables (20 diagonal + 20×20).
+- [x] Part 10: 20 default family indices, counts 3/4/3/7/3; pachy = LightBiped.
+- [ ] Parts 4–9 (dummy/skin/carapace) semantics and the gene→Part 3 lookup.
+- **Acceptance:** 10 parts found, 55 attribute tables, Part 2 == anim_trans.
+- **Depends on:** FMT-9, FMT-17.
+- **Evidence:** `tools/formats/simu_trans.py`,
+  `docs/formats/simu-trans.md`, `tests/test_simu_trans.py`,
+  `notes/simu-trans-recon.md`.
+
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
 - [x] Identify the block as `.bvi` file `0x38..0x50`: constant

@@ -9,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
-from bai import BaiFormatError, read_action_list, read_bai, scan  # noqa: E402
+from bai import HEADER_SIZE, BaiFormatError, read_action_list, read_bai, scan  # noqa: E402
 
 ACTIONS = ROOT / "game" / "%MAINDIR%" / "Data" / "Design" / "attractions" / "actions"
 
@@ -19,7 +19,22 @@ def test_scan_all_bai_files():
     assert count == 64
     assert errors == []
     assert len(parsed) == 64
-    assert all(isinstance(b.tail, bytes) for b in parsed)
+    for bai in parsed:
+        assert len(bai.tail) == Path(bai.path).stat().st_size - HEADER_SIZE
+
+
+def test_eat_flag_covers_four_actions():
+    _, parsed, _ = scan(ACTIONS)
+    eat = {b.name for b in parsed if b.eat_flag}
+    assert eat == {"Eat", "EatBait", "EatForSmallies", "EatBaitForSmallies"}
+
+
+def test_header_value_sets():
+    _, parsed, _ = scan(ACTIONS)
+    assert {round(b.field_18, 4) for b in parsed} == {
+        0.0, 0.1, 1.0, 1.25, 1.4, 1.5, 1.7, 2.0, 2.5, 3.0, 3.1
+    }
+    assert {v for b in parsed for v in b.params} <= set(range(10, 801))
 
 
 def test_eat_header_and_params():

@@ -108,7 +108,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00543d20` / `0x00543e70` | unlock arrays: 62 features / 39 buildings / 10 food / 6 misc | decompiled | same |
 | `0x00403e10` | `.wld` loader (reads version + mode, campaign flag 1) | decompiled | same |
 | `0x00558340` / `0x00558230` | show manager save/load (`0x2c`-byte records) | decompiled | same |
-| `0x00585240` | `spPark` load: budget at `+0x08` | decompiled | same |
+| `0x00585780` / `0x00585240` | economy save writer / reader (sequential stream) | decompiled | `docs/formats/sav.md` |
 | `0x00585bd0` | park budget/setup setter (confirms `+0x08`) | decompiled | same |
 | `0x0058aed0` | `spSimuManager` state read (road, visitors, park, stores) | decompiled | same |
 | `0x0058ccc0` | road-network save/load (rectangles) | decompiled | same |

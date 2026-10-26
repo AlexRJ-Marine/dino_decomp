@@ -41,7 +41,8 @@ The object carries the current-day economy counters:
 | `+0xac` / `+0xb0` | LABOACTION (group C) count / total |
 | `+0xb4` / `+0xb8` | VENTES generic-income count / total |
 | `+0xbc` / `+0xc0` | yesterday copy of staff buckets 0 / 1 |
-| `+0xc4` .. `+0x138` | yesterday copies of FOOD, EFFECTIFS_SECU, sales amounts/counts, tickets |
+| `+0xc4` .. `+0x138` | yesterday copies of FOOD, EFFECTIFS_SECU and sales amounts/counts |
+| `+0x13c` / `+0x140` | yesterday ticket income total / count |
 | `+0x144` / `+0x148` / `+0x14c` | total expenses / total income / net |
 | `+0x150` .. `+0x16c` | yesterday copies of the four group counters |
 
@@ -154,10 +155,10 @@ one value is used for both. The budget panel's EFFECTIFS_FOOD count is the
 number of employees whose `descriptor[0] == 0`.
 
 The role *index* in `descriptor[0]` is consistent with Nutritionist = 0
-(the first `employeelist.ini` entry). The mapping of Guard to the second
-staff bucket still needs a runtime check: the retail manual save has no
-employees but `+0x20` is 125 (and `+0x24` is 2, the visitor count), so that
-word also carries a non-staff value.
+(the first `employeelist.ini` entry). The Guard index is untested: both retail
+saves have no employees, so both staff buckets are 0. (The 125/2 pair seen in
+the raw save belongs to the serialized ticket income, not to the staff
+buckets; see “Relation to `.sav`”.)
 
 ## Cumulative counters
 
@@ -171,29 +172,38 @@ It copies current → yesterday, adds current into cumulative, then checks
 bankruptcy. `0x586070` recomputes the three displayed totals from the
 yesterday block only:
 
-- expenses = staff buckets (`+0x1c/+0x20`) + FOOD + EFFECTIFS_SECU +
-  DINOACHAT + CONSTRUCTION + LABOACTION;
-- income = the 13 shop revenues + VENTES + ENTREES;
+- expenses = yesterday staff buckets (`+0xbc/+0xc0`) + yesterday FOOD +
+  yesterday EFFECTIFS_SECU + yesterday DINOACHAT/CONSTRUCTION/LABOACTION;
+- income = the 13 yesterday shop revenues + yesterday VENTES + yesterday
+  ENTREES;
 - net = income − expenses.
 
 ## Relation to `.sav`
 
-The save park block uses the same relative offsets and the loader
-`0x00585240` reads them field by field from version 11 onwards, so the counters
-can be read directly from a save. Both retail saves are fresh parks: the
-settled counters are zero, the budget is non-zero, and the manual save has
-`+0x20 = 125` / `+0x24 = 2` matching its two visitors.
+The save park block is **not** a raw memory dump. It has a 0x30-byte header,
+then the economy field stream written by `0x00585780` in **writer order**:
+budget, sellback, FOOD, EFFECTIFS_SECU, tickets, two flag bytes, the two staff
+buckets, 13 shop revenues, 13 sale counts, the four group pairs, the yesterday
+block and the cumulative block. The loader `0x00585240` reads the same stream
+in the same order. The reader is `sav_graph._read_park_stream`.
 
-**Fresh-save caveat.** The yesterday block `+0xbc..+0x16c` is only written by
-the first day rollover (`0x00585e10`), and `+0x144/+0x148/+0x14c` are only
-written when the budget panel is refreshed (`0x00586070`). A save taken before
-then dumps the debug fill pattern **`0xF00D0000` / `0xF00DBAAD`** in those
-fields (including a bogus `net` of `0xBAAD`), which is exactly what the two
-retail saves contain. `tools/formats/economy.py` detects the fill and reports
-those rows as unsettled instead of as real values.
+Consequences for save inspection:
 
-A save taken after one in-game day (or after opening the budget panel) is the
-quickest way to validate the row mapping at runtime.
+- the budget is the first stream dword (`block + 0x30`);
+- the manual save's current-day ticket pair is `125 / 2` (two visitors), which
+  is stream `+0x18/+0x1c`, not runtime `+0x20/+0x24`;
+- both staff buckets are 0 in both retail saves (no employees).
+
+**Fresh-save caveat.** The yesterday block `+0xc4..+0x16c` is zeroed at park
+creation and only written by the first day rollover (`0x00585e10`). The three
+computed totals `+0x144/+0x148/+0x14c` are only written by the panel refresh
+(`0x00586070`), so a fresh save dumps the debug fill **`0xBAADF00D`** in those
+three fields. `tools/formats/economy.py` masks the fill and reports the totals
+as unsettled. Only a day roll populates the 14 row counters; opening the panel
+updates the totals but not the rows.
+
+A save taken after one in-game day is the quickest way to validate the row
+mapping at runtime.
 
 ## Evidence
 
@@ -208,5 +218,5 @@ quickest way to validate the row mapping at runtime.
 - `docs/formats/sav.md` — park block layout and offsets.
 - `tools/formats/sav_graph.py` — exposes the budget from retail saves.
 - `tools/formats/economy.py` — decodes the 14 panel rows from a save and
-  masks the `0xF00Dxxxx` fill; `tests/test_economy.py` checks it against the
+  masks the `0xBAADF00D` fill; `tests/test_economy.py` checks it against the
   retail save.

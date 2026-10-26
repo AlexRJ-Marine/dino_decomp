@@ -254,3 +254,21 @@ rejection of unknown object lists, rejection of populated lab records).
   `FUN_005e5940`, `FUN_005e8e30` … `FUN_005e8f80`.
 - Retail files: `run/save/slot001.sav`, `run/save/auto/auto.sav`.
 - `tools/formats/sav.py` (header + show catalog), `sav_graph.py` (new).
+
+## Correction (2026-10-26): park block is a sequential stream
+
+The park block is **not** a raw object dump at runtime offsets. `0x00585780`
+writes a 0x30-byte block header followed by a sequential stream in this order:
+
+```
++0x08 budget, +0x98 sellback, +0x0c, +0x10, +0x14, +0x18, +0x8c, +0x90,
++0x94/95 (u8), +0x1c x2, +0x24 x13, +0x58 x13, +0x9c..+0xb8,
++0xbc x2, +0xc4..+0xd0, +0xd4 x13, +0x108 x13, +0x13c..+0x16c,
++0x170 x2, +0x178..+0x184, +0x188 x13, +0x1bc x13, +0x1f0..+0x220
+```
+
+The budget is the first stream dword (`block + 0x30`). The manual save's
+`125/2` pair is the current-day ticket income (stream `+0x18/+0x1c`), not
+`+0x20/+0x24`. The three computed totals (stream `+0x12a/+0x12e/+0x132`)
+contain `0xBAADF00D` in a fresh save. `sav_graph._read_park_stream` and
+`tools/formats/economy.py` now use this order; see `docs/formats/sav.md`.

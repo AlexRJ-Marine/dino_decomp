@@ -246,3 +246,19 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   at rest, 10.905 cm on a walk frame). Fix: use inv(skeleton rest) for the
   .mesh bind and inverse_bind for the .skin bind. Evidence:
   notes/lod-bind-recon.md, tools/recon/analyze_lod_bind.py, tests/test_skin.py.
+- TranslatorConstants.ini: 41 [SIMU_CONSTANTS] keys loaded by
+  saSimuGenotypeTranslator (0x615e80) at object +0x228..+0x2dc. FUN_00618020
+  computes five dinosaur visitor needs from the phenotype: beauty
+  (P[0x40]*0.6), danger (jaw/combined/aggression factors), spectacular
+  (cube root of P[0]*P[0xc]*P[0x14] * 60 / 1346), conventional
+  (P[0x194]*0.5) and taming (intelligence/aggression factors). Phenotype
+  accumulator fields +0x18..+0x194 mapped; gene->part record open. Reader
+  tools/formats/translator_constants.py, spec
+  docs/formats/translator-constants.md.
+- simu_trans.dic has 10 parts (not just the 18 gene blocks). Part 2 is four
+  20x20 merge tables identical to anim_trans.dic (all 1,600 cells). Part 3 is
+  11 attributes (Length/Width/Height/Weight/Perception/Intelligence/Beauty/
+  Armor/Speed/Attack/Agility) x 5 parts = 55 tables of 20 diagonal values +
+  20x20 merge ratios. Part 10 maps the 20 species to 5 animation families
+  (3/4/3/7/3; pachy = LightBiped). Reader tools/formats/simu_trans.py, spec
+  docs/formats/simu-trans.md.

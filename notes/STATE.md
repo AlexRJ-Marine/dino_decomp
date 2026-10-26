@@ -319,7 +319,7 @@ Updated: 2026-10-25
   - Evidence: `notes/ui-recon.md` ("Park clock"),
     `notes/clock-0944.png`, `notes/clock-0944-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_clock`.
-- 212 tests pass; working tree committed (UI-2 Phase B rest plus
+- 221 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -466,6 +466,24 @@ Updated: 2026-10-25
   - Tail arrays and field semantics remain open.
   - Evidence: `tools/formats/bai.py`, `docs/formats/bai.md`,
     `tests/test_bai.py`.
+- FMT-19 complete: **`TranslatorConstants.ini` + genotype translator.**
+  - 41 `[SIMU_CONSTANTS]` keys map to translator `+0x228..+0x2dc`.
+  - Five dinosaur-need formulas (`0x618020`): beauty, danger, spectacular
+    (cube root of a 3-dimension volume × 60 / 1346), conventional, taming.
+  - Phenotype accumulator fields `+0x18..+0x194` and the add/normalize part
+    builders (`0x619c70`/`0x619d90`) mapped; gene→part record open.
+  - Evidence: `tools/formats/translator_constants.py`,
+    `docs/formats/translator-constants.md`,
+    `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- FMT-20 complete: **`simu_trans.dic` parts 2/3/10.**
+  - 10 part headers; Part 2's four 20×20 merge tables are byte-identical to
+    `anim_trans.dic` (1,600 cells).
+  - Part 3: 11 attributes × 5 parts = 55 tables (20 diagonal + 20×20).
+  - Part 10: 20 default family indices (3/4/3/7/3); pachy = LightBiped.
+  - Parts 4–9 inventoried; gene→Part 3 lookup still open.
+  - Evidence: `tools/formats/simu_trans.py`,
+    `docs/formats/simu-trans.md`, `tests/test_simu_trans.py`,
+    `notes/simu-trans-recon.md`.
 - PARK-TIME research: **clock and show scheduler decompiled.**
   - `spScheduleManager` (`0x594b80`) owns a time manager and a 12-entry task
     vector. Time manager: base hour `+0x00`, elapsed `+0x08`, new-hour
@@ -561,8 +579,11 @@ Updated: 2026-10-25
   - Daily settlement `0x58ad00`: employee wages (role buckets `+0x1c` /
     `+0x20`), EFFECTIFS_SECU pass (`+0x14` / `+0x18`), visitor ticket income,
     counter reset.
-  - Park save block carries the same counters; `+0x1c` is a two-entry staff
-    bucket array, not a 14-row array.
+  - Park save block is a 0x30-byte header + sequential writer-order stream
+    (`0x585780` write, `0x585240` read), not a raw object dump; `+0x1c` is a
+    two-entry staff bucket array, not a 14-row array.
+  - Save read fix: `sav_graph._read_park_stream` parses the stream; the manual
+    save's `125/2` is the ticket pair (stream `+0x18/+0x1c`), not `+0x20/+0x24`.
   - **Budget panel mapping solved** (`0x50fd30` ctor, `0x510430` refresh):
     FOOD `+0xc4/+0xc8`; EFFECTIFS_FOOD `+0xbc` + role-0 employee count;
     EFFECTIFS_SECU `+0xcc/+0xd0`; DINOACHAT `+0x154/+0x150`; LABOACTION
@@ -573,8 +594,8 @@ Updated: 2026-10-25
   - Employee roles solved: `employeelist.ini` + `.bei` `kind_id`
     (Nutritionist 0 / Guard 1); hire and wage = the `+0x50` descriptor's
     `[8]`. Guard bucket index still needs a runtime check.
-  - Fresh saves contain the `0xF00D0000` / `0xF00DBAAD` debug fill in the
-    yesterday/total counters (before the first day rollover);
+  - Fresh saves contain the `0xBAADF00D` debug fill in the three computed
+    totals (before the first day rollover);
     `tools/formats/economy.py` masks it and `tests/test_economy.py` checks
     the retail save.
   - Evidence: `notes/park-economy-recon.md`, `docs/decomp/economy.md`,

@@ -35,9 +35,10 @@ aligned, which is why a naive dword scan misreads the params array.
 0x56  ...  variable tail
 ```
 
-The loader reads these in order: a byte at `0x20`, a dword at `0x21`, a byte
-at `0x25`, a dword at `0x26`, then the two floats. The overlapping alignment
-is why a plain `u32` scan at `0x24` produces nonsense.
+The header is a packed struct: a `u32` at `0x14`, an `f32` at `0x18`, a
+`u32` at `0x1c`, then the overlapping byte/dword fields at `0x20..0x29`. The
+overlapping alignment is why a plain `u32` scan at `0x24` produces nonsense;
+the layout is confirmed by the dump of all 64 retail files.
 
 The two 22-character names are truncated in the file itself:
 `DinoAttackForCarnivore` → `DinoAttackForCarniv`, `DinoAttackForHerbivore` →
@@ -64,15 +65,15 @@ The unaligned dword at `0x21` matches the `// Special action` groups in
 | Field | Values | Working hypothesis |
 | --- | --- | --- |
 | `field_14` | 0, 5, 10, 12, 50, 100 | cooldown / priority |
-| `field_18` | 0, 0.1, 1.0, 2.1–3.1, 10.0 | speed / animation scale |
-| `field_1c` | 0–4 | variant / animation count |
+| `field_18` | 0, 0.1, 1.0, 1.25, 1.4, 1.5, 1.7, 2.0, 2.5, 3.0, 3.1 | speed / animation scale |
+| `field_1c` | 0, 2, 3, 4 | variant / animation count |
 | `flag_20` | 0 or 1 | `1` for Danse, Fall, ForceField, GetArmor, … |
-| `eat_flag` | 0 or 1 | `1` only for Eat and EatBait |
+| `eat_flag` | 0 or 1 | `1` for Eat, EatBait, EatForSmallies, EatBaitForSmallies |
 | `field_26` | 50 (63 files), 60 (ReachWaypoint) | speed/priority |
 | `field_2a` | 30.0 (63 files), 10.0 (ReachWaypoint) | radius / duration |
 | `field_2e` | 30.0 in all 64 | radius / duration |
 | `field_32` | 0, 800, 900, 5000, 50000 | range / score threshold |
-| `params[8]` | 10–1000 | per-action weights (open) |
+| `params[8]` | 10–800 | per-action weights (open) |
 
 The `params[8]` array is the most distinctive part: `Sleep` uses
 `(10,10,10,10,10,10,10,100)`, `Victory` and most actions use 100s, and attacks

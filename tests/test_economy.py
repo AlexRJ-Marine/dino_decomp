@@ -10,65 +10,113 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
-from economy import BASE, ROWS, EconomyError, ledger  # noqa: E402
+from economy import ROWS, EconomyError, ledger  # noqa: E402
 
 SLOT = ROOT / "run" / "save" / "slot001.sav"
+BLOCK_SIZE = 0x293
+STREAM = 0x30
+POISON = 0xBAADF00D
 
 
-def _make_block() -> bytearray:
-    block = bytearray(0x293)
-    struct.pack_into("<I", block, BASE + 0x08, 75_125)
-    for i, (amount, count) in enumerate(
-        zip(range(1, 15), range(101, 115))
-    ):
-        struct.pack_into("<I", block, BASE + 0x24 + i * 4, amount)
-        struct.pack_into("<I", block, BASE + 0x58 + i * 4, count)
-    # yesterday block, as read by 0x00510430
-    struct.pack_into("<I", block, BASE + 0xC4, 11)
-    struct.pack_into("<I", block, BASE + 0xC8, 12)
-    struct.pack_into("<I", block, BASE + 0xBC, 13)
-    struct.pack_into("<I", block, BASE + 0xCC, 14)
-    struct.pack_into("<I", block, BASE + 0xD0, 15)
-    struct.pack_into("<I", block, BASE + 0x154, 16)
-    struct.pack_into("<I", block, BASE + 0x150, 17)
-    struct.pack_into("<I", block, BASE + 0x164, 18)
-    struct.pack_into("<I", block, BASE + 0x160, 19)
-    struct.pack_into("<I", block, BASE + 0x15C, 20)
-    struct.pack_into("<I", block, BASE + 0x158, 21)
-    struct.pack_into("<I", block, BASE + 0x13C, 22)
-    struct.pack_into("<I", block, BASE + 0x140, 23)
-    for i in range(6):
-        struct.pack_into("<I", block, BASE + 0xD8 + i * 4, 30 + i)
-        struct.pack_into("<I", block, BASE + 0x10C + i * 4, 40 + i)
-    struct.pack_into("<I", block, BASE + 0x16C, 50)
-    struct.pack_into("<I", block, BASE + 0x168, 51)
-    struct.pack_into("<I", block, BASE + 0x144, 60)
-    struct.pack_into("<I", block, BASE + 0x148, 61)
-    struct.pack_into("<I", block, BASE + 0x14C, 1)
-    return block
+def build_park_stream(
+    *,
+    budget: int = 75_000,
+    sellback: float = 1.0,
+    food=(0, 0),
+    secu=(0, 0),
+    ticket=(0, 0),
+    staff=(0, 0),
+    revenue=(0,) * 13,
+    sales=(0,) * 13,
+    groups=((0, 0), (0, 0), (0, 0), (0, 0)),
+    yesterday_staff=(0, 0),
+    yesterday_food=(0, 0),
+    yesterday_secu=(0, 0),
+    yesterday_revenue=(0,) * 13,
+    yesterday_sales=(0,) * 13,
+    yesterday_totals=(0,) * 13,
+) -> bytes:
+    """Build a block using the writer order of ``0x00585780``."""
+    block = bytearray(BLOCK_SIZE)
+    pos = STREAM
+
+    def u32(*values: int) -> None:
+        nonlocal pos
+        for value in values:
+            struct.pack_into("<I", block, pos, value)
+            pos += 4
+
+    def u8(*values: int) -> None:
+        nonlocal pos
+        for value in values:
+            block[pos] = value
+            pos += 1
+
+    u32(budget)
+    struct.pack_into("<f", block, pos, sellback)
+    pos += 4
+    u32(*food)
+    u32(*secu)
+    u32(*ticket)
+    u8(0, 0)
+    u32(*staff)
+    u32(*revenue)
+    u32(*sales)
+    for count, total in groups:
+        u32(count, total)
+    u32(*yesterday_staff)
+    u32(*yesterday_food)
+    u32(*yesterday_secu)
+    u32(*yesterday_revenue)
+    u32(*yesterday_sales)
+    u32(*yesterday_totals)
+    return bytes(block)
 
 
 def test_ledger_rows_match_panel_refresh():
-    result = ledger(bytes(_make_block()))
+    block = build_park_stream(
+        budget=75_125,
+        ticket=(125, 2),
+        staff=(11, 12),
+        revenue=(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13),
+        sales=(101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113),
+        groups=((17, 16), (19, 18), (21, 20), (51, 50)),
+        yesterday_staff=(13, 14),
+        yesterday_food=(15, 16),
+        yesterday_secu=(17, 18),
+        yesterday_revenue=tuple(range(30, 43)),
+        yesterday_sales=tuple(range(40, 53)),
+        yesterday_totals=(
+            22, 23, 60, 61, 1, 16, 17, 20, 21, 18, 19, 51, 50
+        ),
+    )
+    result = ledger(block)
     assert result.budget == 75_125
     assert result.settled is True
     assert [r.name for r in result.rows] == list(ROWS)
     by_name = {r.name: r for r in result.rows}
-    assert (by_name["FOOD"].amount, by_name["FOOD"].count) == (11, 12)
+    assert (by_name["FOOD"].amount, by_name["FOOD"].count) == (15, 16)
     assert (by_name["EFFECTIFS_FOOD"].amount, by_name["EFFECTIFS_FOOD"].count) == (13, None)
-    assert (by_name["EFFECTIFS_SECU"].amount, by_name["EFFECTIFS_SECU"].count) == (14, 15)
-    assert (by_name["DINOACHAT"].amount, by_name["DINOACHAT"].count) == (16, 17)
-    assert (by_name["LABOACTION"].amount, by_name["LABOACTION"].count) == (18, 19)
-    assert (by_name["CONSTRUCTION"].amount, by_name["CONSTRUCTION"].count) == (20, 21)
+    assert (by_name["EFFECTIFS_SECU"].amount, by_name["EFFECTIFS_SECU"].count) == (17, 18)
+    assert (by_name["DINOACHAT"].amount, by_name["DINOACHAT"].count) == (17, 16)
+    assert (by_name["LABOACTION"].amount, by_name["LABOACTION"].count) == (19, 18)
+    assert (by_name["CONSTRUCTION"].amount, by_name["CONSTRUCTION"].count) == (21, 20)
     assert (by_name["ENTREES"].amount, by_name["ENTREES"].count) == (22, 23)
-    assert (by_name["RESTOS"].amount, by_name["RESTOS"].count) == (30, 40)
-    assert (by_name["BARAQUES"].amount, by_name["BARAQUES"].count) == (31, 41)
-    assert (by_name["SOUVENIRS"].amount, by_name["SOUVENIRS"].count) == (32, 42)
-    assert (by_name["BOITNOIRE"].amount, by_name["BOITNOIRE"].count) == (33, 43)
-    assert (by_name["POINTDEVUE"].amount, by_name["POINTDEVUE"].count) == (34, 44)
-    assert (by_name["GRADINS"].amount, by_name["GRADINS"].count) == (35, 45)
+    assert (by_name["RESTOS"].amount, by_name["RESTOS"].count) == (31, 41)
+    assert (by_name["BARAQUES"].amount, by_name["BARAQUES"].count) == (32, 42)
+    assert (by_name["SOUVENIRS"].amount, by_name["SOUVENIRS"].count) == (33, 43)
+    assert (by_name["BOITNOIRE"].amount, by_name["BOITNOIRE"].count) == (34, 44)
+    assert (by_name["POINTDEVUE"].amount, by_name["POINTDEVUE"].count) == (35, 45)
+    assert (by_name["GRADINS"].amount, by_name["GRADINS"].count) == (36, 46)
     assert (by_name["VENTES"].amount, by_name["VENTES"].count) == (50, 51)
     assert result.totals == {"expenses": 60, "income": 61, "net": 1}
+
+
+def test_ledger_marks_poison_totals_unsettled():
+    block = build_park_stream(yesterday_totals=(0, 0, POISON, POISON, POISON) + (0,) * 8)
+    result = ledger(block)
+    assert result.settled is False
+    assert all(value is None for value in result.totals.values())
 
 
 def test_ledger_rejects_short_block():
@@ -76,22 +124,22 @@ def test_ledger_rejects_short_block():
         ledger(b"\0" * 0x100)
 
 
-def test_retail_save_fresh_park_is_zero():
+def test_retail_save_ticket_pair():
     if not SLOT.exists():
         pytest.skip("retail save not present (run the patched game first)")
     from sav_graph import read_sav_graph
 
     graph = read_sav_graph(SLOT)
     assert graph.park is not None
-    result = ledger(graph.park.raw)
+    park = graph.park
+    assert park.budget == 75_125
+    assert (park.ticket_total, park.ticket_count) == (125, 2)
+    assert park.staff_buckets == (0, 0)
+    result = ledger(park.raw)
     assert result.budget == 75_125
-    # A fresh park has never rolled a day, so the yesterday block is untouched
-    # (0x00 or the 0xF00Dxxxx debug fill); totals are computed lazily by the
-    # panel refresh and are still poison in the save.
+    # A fresh park has never rolled a day: the yesterday rows are zero and the
+    # three totals are still the 0xBAADF00D debug fill.
     assert result.settled is False
     assert all(row.amount in (0, None) for row in result.rows)
-    by_name = {r.name: r for r in result.rows}
-    assert by_name["ENTREES"].count is None
     assert all(row.count in (None, 0) for row in result.rows)
-    assert set(result.totals) == {"expenses", "income", "net"}
     assert all(value is None for value in result.totals.values())

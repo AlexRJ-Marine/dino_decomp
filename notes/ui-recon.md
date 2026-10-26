@@ -762,3 +762,18 @@ Menu pages remain centred at 800x600 (unchanged).
 
 Evidence: `notes/clock-0944.png`, `notes/clock-0944-detail.png`,
 `tests/test_viewer_cpp.py::test_cpp_park_clock`, `docs/decomp/park-time.md`.
+
+## Start camera probe (negative)
+
+`pvwPark3DRenderView` (`FUN_00527650`) sets the observer to eye
+`(10,10,140)`, target `(10,600,0)`, up `(0,0,1)` in the original 0..1024
+park space. Mapping that to the port's centred 1024 world
+(`(-502,-502,140) -> (-502,88,0)`) and screenshotting a Free Game start
+shows open ocean and two islets, not the park. That camera is therefore a
+construction default that the retail start path overrides (camera script /
+`camSwitcher`) before the first visible park frame. The port keeps its orbit
+auto-framing until the override is found.
+
+Next probe: trace writes to the observer position/target after `0x00527650`
+(the save's 10 camera floats and `camSwitcher` are candidates; see
+`docs/formats/sav.md`).

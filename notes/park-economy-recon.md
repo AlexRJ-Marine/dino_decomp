@@ -5,7 +5,10 @@ Scope: static decompilation of the `spPark` economy API. No writes to `game/`.
 
 Status: **budget/spend/income API decoded; daily settlement ordering and
 counter fields mapped; UI category labels and the complete panel row mapping
-solved (see section 7; sections 1–6 keep the original wording).**
+solved (see section 7; sections 1–6 keep the original wording).** Sections 1–6
+predate the 2026-10-26 save-stream correction: their `+0x0c`/`+0x14`/`+0x24`
+rows are **runtime** offsets and do not describe the serialized save order
+(see “Save stream” at the end of section 7).
 
 ## 1. Budget field
 
@@ -178,16 +181,38 @@ creates an employee; `0x00588600` pushes it into `spPark+0xe4..0xe8`, charges
 daily wage. The panel's EFFECTIFS_FOOD count is the number of entries with
 `entry->+0x50->[0] == 0`.
 
-Caveat: the retail manual save has no employees but economy `+0x20` = 125
-and `+0x24` = 2 (visitor count), so the second staff bucket / Guard role
-index is not yet proven; see the runtime check in `docs/decomp/economy.md`.
+Caveat: both retail saves have no employees, so both runtime staff buckets
+are 0 and the Guard role index is untested. The 125/2 pair seen in the raw
+save is the **current-day ticket income** (serialized at stream `+0x18/+0x1c`),
+not `+0x20/+0x24`; see “Save stream” below.
 
 The `spPark+0x90..0x94` pass uses `obj->+0x40->+0x20` and feeds
 `+0x14/+0x18` (EFFECTIFS_SECU); the exact actor set of that vector is still
 worth a runtime check, but the panel-side mapping is proven.
 
+### Save stream (writer `0x00585780`, reader `0x00585240`)
+
+The save park block is not a raw object dump. It has a 0x30-byte header and
+then a sequential stream in writer order:
+
+```
++0x08, +0x98, +0x0c, +0x10, +0x14, +0x18, +0x8c, +0x90,
++0x94(u8), +0x95(u8), +0x1c x2, +0x24 x13, +0x58 x13,
++0x9c..+0xb8 (4 pairs), +0xbc x2, +0xc4, +0xc8, +0xcc, +0xd0,
++0xd4 x13, +0x108 x13, +0x13c..+0x16c (13), +0x170 x2,
++0x178..+0x184, +0x188 x13, +0x1bc x13, +0x1f0..+0x220
+```
+
+The stream starts at `block + 0x30`. The budget is the first dword. The manual
+save's current-day ticket pair is 125/2 at stream `+0x18/+0x1c`. The three
+computed totals at runtime `+0x144/+0x148/+0x14c` (stream `+0x12a/+0x12e/+0x132`)
+contain the debug fill `0xBAADF00D` in a fresh save because the panel refresh
+never wrote them; the yesterday counters are zero until the first day roll.
+`sav_graph._read_park_stream` and `tools/formats/economy.py` use this order.
+
 ### Evidence
 
 - Ghidra: `0x0050fd30`, `0x00510430`, `0x00586070`, `0x00585c90`,
-  `0x00585db0`, `0x00541940`, `0x0053cf10`, `0x00588600`.
+  `0x00585db0`, `0x00585780` (save writer), `0x00585240` (save reader),
+  `0x00541940`, `0x0053cf10`, `0x00588600`.
 - Retail `employeelist.ini` (2 entries) and `.bei` `kind_id` values.

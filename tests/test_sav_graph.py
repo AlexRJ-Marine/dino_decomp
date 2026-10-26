@@ -96,8 +96,9 @@ def test_retail_manual_graph():
     ]
     assert graph.park is not None
     assert graph.park.budget == 75125
-    assert graph.park.field_20 == 125
-    assert graph.park.counts_24[0] == 2
+    assert graph.park.ticket_total == 125
+    assert graph.park.ticket_count == 2
+    assert graph.park.staff_buckets == (0, 0)
     assert len(graph.visitors) == 2
     assert [v.visitor_id for v in graph.visitors] == [38, 39]
     assert graph.visitors[0].needs == (97, 96, 99, 99, 99, 99, 99)
@@ -123,7 +124,7 @@ def test_retail_auto_graph():
     graph = read_sav_graph(AUTO)
     assert graph.park is not None
     assert graph.park.budget == 75000
-    assert graph.park.field_20 == 0
+    assert graph.park.ticket_total == 0
     assert graph.visitors == []
     assert len(graph.dino_store) == 20
     assert graph.ai_counts == (0, 0, 0, 0, 0)
@@ -140,7 +141,7 @@ def test_synthetic_graph(tmp_path):
     assert len(graph.road) == 1
     assert graph.park is not None
     assert graph.park.budget == 75000
-    assert graph.park.counts_24[0] == 2
+    assert graph.park.ticket_count == 2
     assert len(graph.visitors) == 1
     assert graph.visitors[0].object_id == 7
     assert graph.visitors[0].visitor_id == 42

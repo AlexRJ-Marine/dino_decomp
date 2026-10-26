@@ -36,9 +36,10 @@ Layout (version 53, as produced by the retail game)::
     lab_count x u8 present_flag # 1 = empty; 0 = genotype data follows
     ...                         # AI/scenario tail, not covered here
 
-The park block starts with a 0x28-byte object header; the serialized
-``spPark`` fields begin at ``block + 0x28``.  The budget is the u32 at
-``block + 0x30`` (relative park offset 0x08).
+The park block has a 0x30-byte header.  The economy field stream begins at
+``block + 0x30`` and stores fields in **writer order**, not at their runtime
+offsets (writer ``0x00585780``): budget, sellback, FOOD, staff, ticket,
+staff buckets, shop arrays, groups.  See ``docs/formats/sav.md``.
 
 See ``docs/formats/sav.md`` and ``notes/save-graph-recon.md``.
 """
@@ -105,18 +106,39 @@ class Visitor:
         }
 
 
+PARK_HEADER_SIZE = 0x30
+SHOP_KINDS = 13
+
+
 @dataclass
 class ParkState:
     offset: int
     budget: int
     sellback_factor: float
-    field_0c: int
-    field_10: int
-    field_14: int
-    field_18: int
-    field_20: int
-    counts_24: tuple[int, ...]
-    counts_58: tuple[int, ...]
+    food_total: int
+    food_count: int
+    staff_secu_total: int
+    staff_secu_count: int
+    ticket_total: int
+    ticket_count: int
+    bankruptcy_flags: tuple[int, int]
+    staff_buckets: tuple[int, int]
+    shop_revenue: tuple[int, ...]
+    shop_sales: tuple[int, ...]
+    group_a_count: int
+    group_a_total: int
+    group_b_count: int
+    group_b_total: int
+    group_c_count: int
+    group_c_total: int
+    generic_count: int
+    generic_total: int
+    yesterday_staff_buckets: tuple[int, int]
+    yesterday_food: tuple[int, int]
+    yesterday_secu: tuple[int, int]
+    yesterday_revenue: tuple[int, ...]
+    yesterday_sales: tuple[int, ...]
+    yesterday_totals: tuple[int, ...]
     raw: bytes
 
     def to_dict(self) -> dict:
@@ -124,13 +146,27 @@ class ParkState:
             "offset": self.offset,
             "budget": self.budget,
             "sellback_factor": self.sellback_factor,
-            "field_0c": self.field_0c,
-            "field_10": self.field_10,
-            "field_14": self.field_14,
-            "field_18": self.field_18,
-            "field_20": self.field_20,
-            "counts_24": list(self.counts_24),
-            "counts_58": list(self.counts_58),
+            "food": [self.food_total, self.food_count],
+            "staff_secu": [self.staff_secu_total, self.staff_secu_count],
+            "ticket": [self.ticket_total, self.ticket_count],
+            "bankruptcy_flags": list(self.bankruptcy_flags),
+            "staff_buckets": list(self.staff_buckets),
+            "shop_revenue": list(self.shop_revenue),
+            "shop_sales": list(self.shop_sales),
+            "groups": {
+                "dinoachat": [self.group_a_count, self.group_a_total],
+                "construction": [self.group_b_count, self.group_b_total],
+                "laboaction": [self.group_c_count, self.group_c_total],
+                "ventes": [self.generic_count, self.generic_total],
+            },
+            "yesterday": {
+                "staff_buckets": list(self.yesterday_staff_buckets),
+                "food": list(self.yesterday_food),
+                "secu": list(self.yesterday_secu),
+                "revenue": list(self.yesterday_revenue),
+                "sales": list(self.yesterday_sales),
+                "totals": list(self.yesterday_totals),
+            },
         }
 
 
@@ -244,6 +280,98 @@ def _read_visitor(data: bytes, off: int) -> Visitor:
     )
 
 
+def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
+    """Decode the economy field stream written by ``0x00585780``.
+
+    The stream starts after the 0x30-byte park header and stores fields in
+    writer order, not at their runtime offsets.
+    """
+    if len(block) < PARK_HEADER_SIZE:
+        raise SavGraphError(f"park block too short: {len(block)} bytes")
+    pos = PARK_HEADER_SIZE
+
+    def need(size: int, what: str) -> None:
+        _need(block, pos, size, what)
+
+    def u32(what: str) -> int:
+        nonlocal pos
+        need(4, what)
+        value = struct.unpack_from("<I", block, pos)[0]
+        pos += 4
+        return value
+
+    def f32(what: str) -> float:
+        nonlocal pos
+        need(4, what)
+        value = struct.unpack_from("<f", block, pos)[0]
+        pos += 4
+        return value
+
+    def u8(what: str) -> int:
+        nonlocal pos
+        need(1, what)
+        value = block[pos]
+        pos += 1
+        return value
+
+    budget = u32("budget")
+    sellback = f32("sellback")
+    food_total = u32("food total")
+    food_count = u32("food count")
+    secu_total = u32("staff secu total")
+    secu_count = u32("staff secu count")
+    ticket_total = u32("ticket total")
+    ticket_count = u32("ticket count")
+    flags = (u8("bankruptcy flag 0"), u8("bankruptcy flag 1"))
+    staff_buckets = (u32("staff bucket 0"), u32("staff bucket 1"))
+    shop_revenue = tuple(u32(f"shop revenue[{i}]") for i in range(SHOP_KINDS))
+    shop_sales = tuple(u32(f"shop sales[{i}]") for i in range(SHOP_KINDS))
+    group_a_count = u32("dinoachat count")
+    group_a_total = u32("dinoachat total")
+    group_b_count = u32("construction count")
+    group_b_total = u32("construction total")
+    group_c_count = u32("laboaction count")
+    group_c_total = u32("laboaction total")
+    generic_count = u32("ventes count")
+    generic_total = u32("ventes total")
+    yesterday_staff = (u32("yesterday staff 0"), u32("yesterday staff 1"))
+    yesterday_food = (u32("yesterday food total"), u32("yesterday food count"))
+    yesterday_secu = (u32("yesterday secu total"), u32("yesterday secu count"))
+    yesterday_revenue = tuple(u32(f"yesterday revenue[{i}]") for i in range(SHOP_KINDS))
+    yesterday_sales = tuple(u32(f"yesterday sales[{i}]") for i in range(SHOP_KINDS))
+    yesterday_totals = tuple(u32(f"yesterday total[{i}]") for i in range(13))
+    return ParkState(
+        offset=file_offset,
+        budget=budget,
+        sellback_factor=sellback,
+        food_total=food_total,
+        food_count=food_count,
+        staff_secu_total=secu_total,
+        staff_secu_count=secu_count,
+        ticket_total=ticket_total,
+        ticket_count=ticket_count,
+        bankruptcy_flags=flags,
+        staff_buckets=staff_buckets,
+        shop_revenue=shop_revenue,
+        shop_sales=shop_sales,
+        group_a_count=group_a_count,
+        group_a_total=group_a_total,
+        group_b_count=group_b_count,
+        group_b_total=group_b_total,
+        group_c_count=group_c_count,
+        group_c_total=group_c_total,
+        generic_count=generic_count,
+        generic_total=generic_total,
+        yesterday_staff_buckets=yesterday_staff,
+        yesterday_food=yesterday_food,
+        yesterday_secu=yesterday_secu,
+        yesterday_revenue=yesterday_revenue,
+        yesterday_sales=yesterday_sales,
+        yesterday_totals=yesterday_totals,
+        raw=block,
+    )
+
+
 def read_sav_graph(path: Path) -> SavGraph:
     save = read_sav(path)
     data = save.state
@@ -281,24 +409,7 @@ def read_sav_graph(path: Path) -> SavGraph:
 
     _need(data, off, PARK_BLOCK_SIZE, "park block")
     block = data[off:off + PARK_BLOCK_SIZE]
-    base = 0x28
-    park = ParkState(
-        offset=off,
-        budget=_u32(block, base + 0x08, "park budget"),
-        sellback_factor=_f32(block, base + 0x0C, "park sellback factor"),
-        field_0c=_u32(block, base + 0x0C, "park +0x0c"),
-        field_10=_u32(block, base + 0x10, "park +0x10"),
-        field_14=_u32(block, base + 0x14, "park +0x14"),
-        field_18=_u32(block, base + 0x18, "park +0x18"),
-        field_20=_u32(block, base + 0x20, "park +0x20"),
-        counts_24=tuple(
-            _u32(block, base + 0x24 + i * 4, f"park counts_24[{i}]") for i in range(13)
-        ),
-        counts_58=tuple(
-            _u32(block, base + 0x58 + i * 4, f"park counts_58[{i}]") for i in range(13)
-        ),
-        raw=block,
-    )
+    park = _read_park_stream(block, off)
     off += PARK_BLOCK_SIZE
 
     dino_count = _u32(data, off, "dino store count")
