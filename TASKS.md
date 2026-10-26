@@ -1279,6 +1279,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`0x51fa10` known-target scan, `0x51f8d0` visible-target stop) and the
   reaction starters (`0x521d10` visitor state 2, `0x521d80` dinosaur
   state 1); see `notes/perception-reaction-recon.md`.
+- [x] Decode the `GetCourage` / `ObstAttackSize1` cache writers
+  (`0x571190`/`0x5727b0`): action 13 copies `+0x94` to the threat cache
+  `+0x2a0` and the five cached combat stats, action 26 copies
+  `+0xc8/+0xcc/+0xd0` to the obstacle-size/radius cache
+  (`+0x274..+0x27c`). See `notes/dino-cache-writers-recon.md`.
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
   still needs the behavior-manager perception path and the chooser's
   per-action target term (policy vtable `+0x14`). The action→clip premise
@@ -1294,7 +1299,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,
   `test_cpp_danger_grid_secu`, `test_cpp_food_feeding`;
   `docs/platform/feeding.md`, `notes/food-pig-close.png`,
-  `notes/perception-reaction-recon.md`.
+  `notes/perception-reaction-recon.md`,
+  `notes/dino-cache-writers-recon.md`.
 
 ### CAMPAIGN-1: C++ campaign/mission reader
 - [x] Add `src/formats/campaign.{h,cpp}`: `CampaignList.ini`, the

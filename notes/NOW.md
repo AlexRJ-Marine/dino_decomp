@@ -47,6 +47,9 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- P3-CACHE: `GetCourage`/`ObstAttackSize1` writers decoded
+  (`0x571190`/`0x5727b0`); part-record fields `+0x44/+0x78/+0x80` and the
+  chooser threat port remain
 - P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
   `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
