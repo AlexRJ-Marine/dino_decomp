@@ -223,3 +223,115 @@ def score_table(
     """Score every action, for probes/tests. Descending."""
     scored = [(action.name, action_score(action, block)) for action in actions]
     return sorted(scored, key=lambda item: item[1], reverse=True)
+
+
+@dataclass
+class LoopConfig:
+    """Port tuning for the need/action loop.
+
+    The decay rates are not calibrated against retail yet; the chooser and the
+    action completion rule are the retail algorithm. ``action_scale``
+    multiplies the `.bai` 30 s duration (the probe uses 0.1).
+    """
+
+    node_names: tuple[str, ...] = (
+        "Exploration", "Eat", "EatForSmallies", "Sleep")
+    decision_interval: float = 0.5
+    food_decay: float = 0.5
+    violence_decay: float = 0.2
+    secu_decay: float = 0.0
+    repos_decay: float = 0.5
+    action_scale: float = 1.0
+
+
+class DinoActionLoop:
+    """Per-dinosaur need decay + chooser + action countdown.
+
+    Mirrors ``src/world/dino_actions.cpp``. The `.bai` need deltas are applied
+    when the action finishes, closing the loop until retail's feeding
+    interaction is decoded.
+    """
+
+    def __init__(
+        self,
+        actions: Sequence[Bai],
+        block: NeedBlock,
+        config: LoopConfig | None = None,
+    ) -> None:
+        self.actions = list(actions)
+        self.needs = block
+        self.config = config or LoopConfig()
+        self._decay = [0.0, 0.0, 0.0, 0.0]
+        self._action: int | None = None
+        self._elapsed = 0.0
+        self._duration = 0.0
+        # Decide on the first tick so a forced need state shows immediately.
+        self._decision = self.config.decision_interval
+
+    @property
+    def action_name(self) -> str:
+        if self._action is None:
+            return "idle"
+        return self.actions[self._action].name
+
+    @property
+    def action_id(self) -> int:
+        return 0x1F if self._action is None else self._action
+
+    @property
+    def busy(self) -> bool:
+        return self._action is not None
+
+    def tick(self, dt: float) -> None:
+        if dt <= 0.0:
+            return
+        rates = (
+            self.config.food_decay,
+            self.config.violence_decay,
+            self.config.secu_decay,
+            self.config.repos_decay,
+        )
+        axes = ("food", "violence", "secu", "repos")
+        for axis, rate in enumerate(rates):
+            value = self.needs.need(axis)
+            if value <= 0 or rate <= 0.0:
+                self._decay[axis] = 0.0
+                continue
+            self._decay[axis] += rate * dt
+            while self._decay[axis] >= 1.0 and self.needs.need(axis) > 0:
+                setattr(self.needs, axes[axis], self.needs.need(axis) - 1)
+                self._decay[axis] -= 1.0
+        if self._action is not None:
+            self._elapsed += dt
+            if self._elapsed >= self._duration:
+                self._finish()
+        self._decision += dt
+        if self._action is None and self._decision >= self.config.decision_interval:
+            self._decide()
+
+    def _decide(self) -> None:
+        choice = choose(
+            self.actions,
+            self.needs,
+            node_names=self.config.node_names,
+            inventory=True,
+        )
+        if choice is None:
+            return
+        self._action = choice.index
+        self._elapsed = 0.0
+        action = self.actions[choice.index]
+        self._duration = max(0.1, action.field_2e * self.config.action_scale)
+        self._decision = 0.0
+
+    def _finish(self) -> None:
+        if self._action is not None:
+            axes = ("food", "violence", "secu", "repos")
+            for delta in self.actions[self._action].need_deltas:
+                if 0 <= delta.need <= 3:
+                    value = self.needs.need(delta.need) + delta.delta
+                    setattr(self.needs, axes[delta.need], clamp_need(value))
+        self._action = None
+        self._elapsed = 0.0
+        self._duration = 0.0
+        self._decision = self.config.decision_interval

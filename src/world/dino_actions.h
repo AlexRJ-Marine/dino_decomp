@@ -63,6 +63,51 @@ struct ActionChoice {
     int score = 0;
 };
 
+// Minimal per-dinosaur need/action loop. Decay rates are port tuning (the raw
+// gauge constants are not calibrated yet); the chooser itself is the retail
+// algorithm. The `.bai` need deltas are applied when an action completes so
+// the loop closes; retail's feeding interaction is the open part.
+struct DinoActionLoopConfig {
+    std::vector<std::string> node_names{"Exploration", "Eat", "EatForSmallies",
+                                        "Sleep"};
+    double decision_interval = 0.5;
+    double food_decay = 0.5;      // need points per second
+    double violence_decay = 0.2;
+    double secu_decay = 0.0;
+    double repos_decay = 0.5;
+    double action_scale = 1.0;    // multiplies the `.bai` field_2e duration
+};
+
+class DinoActionLoop {
+public:
+    DinoActionLoop(const std::vector<BaiAction>* actions, DinoNeeds needs,
+                   DinoActionLoopConfig config = {});
+
+    // Advance decay, action countdown and the decision timer by `dt` seconds.
+    void tick(double dt);
+
+    bool busy() const { return action_index_ >= 0; }
+    int action_index() const { return action_index_; }   // ActionList index
+    int action_id() const;                               // 0x1f when idle
+    const std::string& action_name() const;
+    double action_progress() const;                      // 0..1
+    const DinoNeeds& needs() const { return needs_; }
+    DinoNeeds& needs() { return needs_; }
+
+private:
+    void decide();
+    void finish_action();
+
+    const std::vector<BaiAction>* actions_ = nullptr;
+    DinoNeeds needs_;
+    DinoActionLoopConfig config_;
+    std::array<double, 4> decay_accum_{};
+    int action_index_ = -1;
+    double elapsed_ = 0.0;
+    double duration_ = 0.0;
+    double decision_ = 0.0;
+};
+
 // FUN_0056e670: highest score >= 1 among the candidate nodes. An empty
 // `node_names` means "all actions"; retail scores only the nodes present in
 // the dinosaur's behavior graph, so callers should pass one.

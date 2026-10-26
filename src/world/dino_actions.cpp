@@ -1,6 +1,7 @@
 #include "dino_actions.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace dino {
 namespace {
@@ -139,6 +140,103 @@ std::optional<ActionChoice> choose_action(
         }
     }
     return best;
+}
+
+DinoActionLoop::DinoActionLoop(const std::vector<BaiAction>* actions,
+                               DinoNeeds needs, DinoActionLoopConfig config)
+    : actions_(actions), needs_(needs), config_(std::move(config)) {
+    for (int& value : needs_.value) {
+        value = std::max(0, std::min(99, value));
+    }
+    // Decide on the first tick so a forced need state is visible immediately.
+    decision_ = config_.decision_interval;
+}
+
+int DinoActionLoop::action_id() const {
+    return action_index_ < 0 ? 0x1f : action_index_;
+}
+
+const std::string& DinoActionLoop::action_name() const {
+    static const std::string idle = "idle";
+    if (action_index_ < 0 || actions_ == nullptr ||
+        static_cast<std::size_t>(action_index_) >= actions_->size()) {
+        return idle;
+    }
+    return (*actions_)[static_cast<std::size_t>(action_index_)].name;
+}
+
+double DinoActionLoop::action_progress() const {
+    if (action_index_ < 0 || duration_ <= 0.0) {
+        return 0.0;
+    }
+    return std::min(1.0, elapsed_ / duration_);
+}
+
+void DinoActionLoop::decide() {
+    if (actions_ == nullptr) {
+        return;
+    }
+    const auto choice =
+        choose_action(*actions_, needs_, config_.node_names, true);
+    if (!choice) {
+        return;
+    }
+    action_index_ = choice->index;
+    elapsed_ = 0.0;
+    const BaiAction& action = (*actions_)[static_cast<std::size_t>(action_index_)];
+    duration_ = std::max(0.1, static_cast<double>(action.field_2e) *
+                                  config_.action_scale);
+    decision_ = 0.0;
+}
+
+void DinoActionLoop::finish_action() {
+    if (actions_ != nullptr && action_index_ >= 0 &&
+        static_cast<std::size_t>(action_index_) < actions_->size()) {
+        for (const BaiNeedDelta& delta :
+             (*actions_)[static_cast<std::size_t>(action_index_)].need_deltas) {
+            if (delta.need > 3) {
+                continue;
+            }
+            int& value = needs_.value[delta.need];
+            value = std::max(0, std::min(99, value + delta.delta));
+        }
+    }
+    action_index_ = -1;
+    elapsed_ = 0.0;
+    duration_ = 0.0;
+    decision_ = config_.decision_interval;
+}
+
+void DinoActionLoop::tick(double dt) {
+    if (dt <= 0.0) {
+        return;
+    }
+    const double rates[4] = {config_.food_decay, config_.violence_decay,
+                             config_.secu_decay, config_.repos_decay};
+    for (std::size_t i = 0; i < needs_.value.size(); ++i) {
+        int& value = needs_.value[i];
+        if (value <= 0 || rates[i] <= 0.0) {
+            decay_accum_[i] = 0.0;
+            continue;
+        }
+        decay_accum_[i] += rates[i] * dt;
+        while (decay_accum_[i] >= 1.0 && value > 0) {
+            --value;
+            decay_accum_[i] -= 1.0;
+        }
+    }
+
+    if (action_index_ >= 0) {
+        elapsed_ += dt;
+        if (elapsed_ >= duration_) {
+            finish_action();
+        }
+    }
+
+    decision_ += dt;
+    if (action_index_ < 0 && decision_ >= config_.decision_interval) {
+        decide();
+    }
 }
 
 }  // namespace dino

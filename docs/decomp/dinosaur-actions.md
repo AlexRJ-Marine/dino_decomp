@@ -208,13 +208,17 @@ action. This is confirmed by the two independent checks.
 
 - `src/world/dino_actions.{h,cpp}`: `DinoNeeds` (four values + states +
   attribute accessor), the retail weight tables, `need_term`, `score_action`,
-  `preconditions_ok` and `choose_action`.
+  `preconditions_ok`, `choose_action`, and `DinoActionLoop` (need decay,
+  action countdown, `.bai` deltas applied on completion). The decay rates in
+  `DinoActionLoopConfig` are port tuning; the chooser and completion rule are
+  the retail algorithm.
 - `--dino-actions` prints the chooser result for starving / tired / both /
-  full / small scenarios using the self-action node set.
-- Tests: `tests/test_dino_actions.py` (Python oracle) and
+  full / small scenarios and a 40 s action timeline.
+- Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests) and
   `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser`.
-- Open for the next increment: need decay into the needs, action duration and
-  need-delta application, and the action→animation clip link.
+- Open for the next increment: calibrate the decay rates, the action→animation
+  clip link, and retail's feeding interaction (the `.bai` need deltas are a
+  scoring model, applied on completion in the port).
 
 ## Evidence
 

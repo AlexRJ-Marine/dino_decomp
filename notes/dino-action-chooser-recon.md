@@ -197,6 +197,24 @@ element score = `Σ attribute_value * effect_weight + rand() % field_14`, then
 the first element whose `time >= score` is used. With one element per action
 (Eat/Sleep) it is trivial.
 
+## Port loop
+
+`DinoActionLoop` (`src/world/dino_actions.*`, mirrored in
+`tools/formats/dino_actions.py`) ticks need decay, the action countdown and
+the decision timer. It applies an action's `.bai` need deltas when the action
+completes, then re-scores. With `action_scale=0.1` and
+`(food,violence,secu,repos) = (20,90,50,20)` the timeline is:
+
+```text
+0.1  Eat          food=20 violence=90 secu=50 repos=20
+3.1  Sleep        food=49 violence=99 secu=50 repos=19
+6.1  Eat          food=47 violence=98 secu=0  repos=99
+9.1  Exploration  food=76 violence=99 secu=0  repos=98
+```
+
+The decay rates (0.5 food/rest, 0.2 violence per second) are port tuning: the
+raw-gauge constants are not runtime-calibrated yet.
+
 ## Evidence
 
 - `FUN_0056e5d0` disassembly `0x0056e5d0..0x0056e64e`; tables

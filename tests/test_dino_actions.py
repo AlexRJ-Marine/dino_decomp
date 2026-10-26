@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
 from dino_actions import (  # noqa: E402
     NEED_WEIGHTS,
+    DinoActionLoop,
+    LoopConfig,
     NeedBlock,
     action_score,
     choose,
@@ -132,6 +134,59 @@ def test_all_needs_full_means_idle(actions):
     reaches the score >= 1 threshold, so the dinosaur stays idle."""
     assert choose(actions, NeedBlock(), node_names=SELF_NODES,
                   inventory=True) is None
+
+
+def test_action_loop_timeline(actions):
+    """The port loop: Eat -> Sleep -> Eat -> Exploration, matching the C++
+    `--dino-actions` timeline. `action_scale=0.1` makes each 30 s action 3 s."""
+    loop = DinoActionLoop(
+        actions,
+        NeedBlock(food=20, violence=90, secu=50, repos=20, size=250),
+        LoopConfig(action_scale=0.1),
+    )
+    assert loop.action_id == 0x1F
+    changes: list[tuple[float, str]] = []
+    previous = loop.action_name
+    t = 0.0
+    for _ in range(100):
+        loop.tick(0.1)
+        t += 0.1
+        if loop.action_name != previous:
+            changes.append((round(t, 1), loop.action_name))
+            previous = loop.action_name
+    assert changes[:4] == [
+        (0.1, "Eat"),
+        (3.1, "Sleep"),
+        (6.1, "Eat"),
+        (9.1, "Exploration"),
+    ]
+
+
+def test_action_loop_decay(actions):
+    loop = DinoActionLoop(actions, NeedBlock())
+    loop.tick(10.0)
+    assert (loop.needs.food, loop.needs.violence, loop.needs.secu,
+            loop.needs.repos) == (94, 97, 99, 94)
+    assert loop.action_name == "Exploration"
+
+
+def test_action_loop_deltas_apply_on_completion(actions):
+    loop = DinoActionLoop(
+        actions,
+        NeedBlock(food=20, violence=90, secu=50, repos=90, size=250),
+        LoopConfig(action_scale=0.1),
+    )
+    loop.tick(0.1)
+    assert loop.action_name == "Eat"
+    loop.tick(3.0)  # Eat finishes: +30 FOOD, +10 VIOLENCE (clamped)
+    assert (loop.needs.food, loop.needs.violence) == (49, 99)
+
+
+def test_action_loop_starts_idle_when_full(actions):
+    loop = DinoActionLoop(actions, NeedBlock())
+    loop.tick(0.1)
+    assert loop.action_name == "idle"
+    assert loop.action_id == 0x1F
 
 
 def test_action_order_and_field_32(actions):
