@@ -53,7 +53,16 @@ def _dino(name: str, store_id: int, path: str, desc: str) -> bytes:
     )
 
 
-def _state() -> bytes:
+def _lab_record(genes: tuple[tuple[int, int], ...], name: str) -> bytes:
+    out = bytearray(b"\x00")
+    for allele_a, allele_b in genes:
+        out += struct.pack("<II", allele_a, allele_b)
+    encoded = name.encode("ascii") + b"\x00"
+    out += struct.pack("<I", len(encoded)) + encoded
+    return bytes(out)
+
+
+def _state(lab_store: bytes | None = None) -> bytes:
     out = bytearray()
     out += struct.pack("<I", 1) + struct.pack("<4i", 524, 392, 524, 452)
     out += struct.pack("<3I", 0, 0, 0)
@@ -63,7 +72,9 @@ def _state() -> bytes:
     out += _dino("Allosaurus", 9000, "DATA\\Design\\Scenario\\Genotype\\allo.gen", "&allo_description")
     out += _dino("Velociraptor", 15000, "DATA\\Design\\Scenario\\Genotype\\velo.gen", "&velo_description")
     out += struct.pack("<5I", 3, 3, 3, 3, 3)
-    out += struct.pack("<I", 2) + b"\x01\x01"
+    if lab_store is None:
+        lab_store = struct.pack("<I", 2) + b"\x01\x01"
+    out += lab_store
     out += struct.pack("<4I", 0, 0, 0, 0)
     out += struct.pack("<I", 0)  # fifth AI list, non-auto saves only
     out += struct.pack("<10f", *([0.0] * 10))
@@ -71,7 +82,7 @@ def _state() -> bytes:
     return bytes(out)
 
 
-def _synthetic_save(path: Path) -> None:
+def _synthetic_save(path: Path, lab_store: bytes | None = None) -> None:
     name = _utf16("slot")
     out = bytearray()
     out += struct.pack("<III", 53, 1, len(name))
@@ -82,7 +93,7 @@ def _synthetic_save(path: Path) -> None:
     out += struct.pack("<I", len(show_path)) + show_path
     out += struct.pack("<I", len(show_name)) + show_name
     out += struct.pack("<6I", 1, 2, 3, 4, 5, 6)
-    out += _state()
+    out += _state(lab_store)
     path.write_bytes(out)
 
 
@@ -176,13 +187,35 @@ def test_rejects_unknown_object_list(tmp_path):
         read_sav_graph(path)
 
 
-def test_rejects_populated_lab_record(tmp_path):
-    path = tmp_path / "bad-lab.sav"
-    _synthetic_save(path)
+def test_populated_lab_record(tmp_path):
+    genes = tuple((index, index + 1) for index in range(18))
+    lab_store = (
+        struct.pack("<I", 2)
+        + _lab_record(genes, "Allosaurus")
+        + b"\x01"
+    )
+    path = tmp_path / "populated-lab.sav"
+    _synthetic_save(path, lab_store)
     graph = read_sav_graph(path)
-    flag_offset = graph.save.state_offset + graph.tail_offset - graph.lab_count
-    data = bytearray(path.read_bytes())
-    data[flag_offset] = 0
-    path.write_bytes(data)
-    with pytest.raises(SavGraphError, match="lab store"):
+    assert graph.lab_count == 2
+    assert graph.lab_flags == b"\x00\x01"
+    assert len(graph.lab_records) == 2
+    assert graph.lab_records[0].flag == 0
+    assert not graph.lab_records[0].empty
+    assert graph.lab_records[0].genes == genes
+    assert graph.lab_records[0].name == "Allosaurus"
+    assert graph.lab_records[1].empty
+    assert graph.lab_records[1].genes == ()
+    assert graph.lab_records[1].name == ""
+    assert graph.ai_counts == (0, 0, 0, 0, 0)
+    assert graph.camera == (0.0,) * 10
+    assert graph.tail_extra == b"\xaa\xbb\xcc"
+
+
+def test_rejects_implausible_lab_name_length(tmp_path):
+    path = tmp_path / "bad-lab.sav"
+    lab_store = struct.pack("<I", 1) + b"\x00" + b"\x00" * (18 * 8)
+    lab_store += struct.pack("<I", 4096)
+    _synthetic_save(path, lab_store)
+    with pytest.raises(SavGraphError, match="lab 0 name length"):
         read_sav_graph(path)

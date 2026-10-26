@@ -33,7 +33,12 @@ Layout (version 53, as produced by the retail game)::
 
     u32 visitor_model[5]        # five capability/profile values
     u32 lab_count
-    lab_count x u8 present_flag # 1 = empty; 0 = genotype data follows
+    lab_count x record:
+        u8  present_flag        # 1 = empty slot; 0 = populated, rest follows
+        if present_flag == 0:
+            18 x (u32 allele_a, u32 allele_b)   # 0x90-byte genotype
+            u32 name_bytes (ASCII, NUL included)
+            ASCII name
     ...                         # AI/scenario tail, not covered here
 
 The park block has a 0x30-byte header.  The economy field stream begins at
@@ -57,6 +62,7 @@ from sav import SaveFile, SavFormatError, read_sav
 PARK_BLOCK_SIZE = 0x293
 VISITOR_RECORD_SIZE = 0x50
 DINO_COUNT = 20
+GENOTYPE_GENES = 18
 
 
 class SavGraphError(SavFormatError):
@@ -206,6 +212,32 @@ class DinoStoreEntry:
 
 
 @dataclass
+class LabRecord:
+    """One ``spLab`` genotype-store slot.
+
+    ``flag`` is the byte read by ``0x00592a00``: 1 marks an empty slot and 0
+    marks a populated one.  A populated slot is followed by 18 allele pairs
+    (the same 18-gene genotype as ``.gen``) and an ASCII display name.
+    """
+
+    flag: int
+    genes: tuple[tuple[int, int], ...] = ()
+    name: str = ""
+
+    @property
+    def empty(self) -> bool:
+        return self.flag != 0
+
+    def to_dict(self) -> dict:
+        return {
+            "flag": self.flag,
+            "empty": self.empty,
+            "genes": [[a, b] for a, b in self.genes],
+            "name": self.name,
+        }
+
+
+@dataclass
 class SavGraph:
     save: SaveFile
     road: list[RoadRect] = field(default_factory=list)
@@ -215,6 +247,7 @@ class SavGraph:
     visitor_model: tuple[int, ...] = ()
     lab_count: int = 0
     lab_flags: bytes = b""
+    lab_records: list[LabRecord] = field(default_factory=list)
     ai_counts: tuple[int, ...] = ()
     ai_entries: list[bytes] = field(default_factory=list)
     camera: tuple[float, ...] = ()
@@ -242,6 +275,7 @@ class SavGraph:
             "dino_store": len(self.dino_store),
             "visitor_model": list(self.visitor_model),
             "lab_count": self.lab_count,
+            "lab_populated": sum(1 for record in self.lab_records if not record.empty),
             "ai_counts": list(self.ai_counts),
             "ai_entries": len(self.ai_entries),
             "camera": list(self.camera),
@@ -477,14 +511,28 @@ def read_sav_graph(path: Path) -> SavGraph:
     off += 4
     if lab_count > 4096:
         raise SavGraphError(f"lab count {lab_count} is implausible")
-    _need(data, off, lab_count, "lab flags")
-    lab_flags = data[off:off + lab_count]
-    off += lab_count
-    if any(flag == 0 for flag in lab_flags):
-        raise SavGraphError(
-            f"lab store at {off - lab_count:#x} contains populated genotype records; "
-            "their variable-length layout is not decoded"
+    labs: list[LabRecord] = []
+    for i in range(lab_count):
+        _need(data, off, 1, f"lab {i} flag")
+        flag = data[off]
+        off += 1
+        if flag != 0:
+            labs.append(LabRecord(flag=flag))
+            continue
+        gene_bytes = GENOTYPE_GENES * 8
+        _need(data, off, gene_bytes, f"lab {i} genotype")
+        genes = tuple(
+            struct.unpack_from("<II", data, off + g * 8)
+            for g in range(GENOTYPE_GENES)
         )
+        off += gene_bytes
+        name_len = _u32(data, off, f"lab {i} name length")
+        off += 4
+        if name_len > 1024:
+            raise SavGraphError(f"lab {i} name length {name_len} is implausible")
+        name, off = _string(data, off, name_len, "ascii", f"lab {i} name")
+        labs.append(LabRecord(flag=flag, genes=genes, name=name))
+    lab_flags = bytes(record.flag for record in labs)
 
     tail_offset = off
     ai_counts = tuple(_u32(data, off + i * 4, f"AI list {i} count") for i in range(5))
@@ -520,6 +568,7 @@ def read_sav_graph(path: Path) -> SavGraph:
         visitor_model=visitor_model,
         lab_count=lab_count,
         lab_flags=lab_flags,
+        lab_records=labs,
         ai_counts=ai_counts,
         ai_entries=ai_entries,
         camera=camera,
@@ -534,10 +583,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--visitors", action="store_true", help="list visitor records")
     ap.add_argument("--dinos", action="store_true", help="list dinosaur-store records")
     ap.add_argument("--park", action="store_true", help="dump the decoded park state")
+    ap.add_argument("--labs", action="store_true", help="list lab genotype-store records")
     args = ap.parse_args(argv)
     graph = read_sav_graph(args.save)
     if args.park and graph.park is not None:
         print(json.dumps(graph.park.to_dict(), indent=2))
+    if args.labs:
+        for record in graph.lab_records:
+            print(json.dumps(record.to_dict(), indent=2))
     if args.visitors:
         for v in graph.visitors:
             print(json.dumps(v.to_dict(), indent=2))

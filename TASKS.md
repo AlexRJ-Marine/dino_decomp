@@ -333,6 +333,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/formats/simu-trans.md`, `tests/test_simu_trans.py`,
   `notes/simu-trans-recon.md`.
 
+### FMT-21: Island `.raw` heightmap and occupation mask
+- [x] Heightmap: 512 × 512 u8; occupation: 1024 × 1024 u8, values {0,255}.
+- [x] Semantics: 0 = buildable land, 255 = blocked/water; 0 cells are higher
+  and never height 0 on all 10 islands.
+- [x] Design vs Graphics occupation copies differ by <1%; `.lnd` references
+  the Design copy.
+- [ ] `.lnd` `width/height` (520×376) meaning, the 255 sub-classes (water vs
+  cliff vs cover) and `isl00`.
+- **Acceptance:** 10 islands scan; masks binary; 0-is-land holds.
+- **Depends on:** FMT-7.
+- **Evidence:** `tools/formats/raw.py`, `docs/formats/raw.md`,
+  `tests/test_raw.py`, `notes/raw-recon.md`, `notes/occupation-masks.png`.
+
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
 - [x] Identify the block as `.bvi` file `0x38..0x50`: constant
@@ -525,6 +538,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Use the `.mesh` standing rest pose with the `.skin` rigid weights
   (`--skin-bind mesh`), plus a soft contact shadow.
 - [x] `HeavyBiped_Walk` / `Neutral` / `Run` deform the standing mesh cleanly.
+- [x] Reach the same scene through the retail menu: `--start-dino` preloads
+  the allo assets, then the Free Game Start handoff loads the selected island
+  and places it at the centre. Evidence: `notes/menu-start-dino.png`,
+  `tests/test_viewer_cpp.py::test_cpp_menu_start_with_dino`.
 - [x] Free-fly camera (`--free-camera` / `C`, WASD + mouse look, terrain clamp);
   all movement actions are rebindable.
 - **Acceptance:** one scene shows island, trees, an animated dinosaur, and the
@@ -602,6 +619,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   refresh `0x510430` (`docs/decomp/economy.md`).
 - [x] Employee roles/costs: `employeelist.ini` + `.bei` `kind_id`
   (Nutritionist 0 / Guard 1); hire and daily wage use `def[8]`.
+- [x] Decode the full park save stream: yesterday block (`+0xb2..+0x166`),
+  cumulative block (`+0x166..+0x21a`), `stream_end` and the 0x49-byte
+  schedule tail; document the retail reader's 32-byte misalignment.
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 - **Evidence:** `notes/park-economy-recon.md`,
@@ -733,7 +753,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   world-start offset (`0x18 + name_len`).
 - [x] Decode the `.wld` header, world objects, simulation roads and camera;
   7/7 version 50–53 campaign worlds parse.
-- [ ] Populated lab records (the empty-flag path is solved).
+- [x] Decode populated lab records: `u8 flag`, then for flag 0 an 18 ×
+  `(u32, u32)` genotype (0x90 bytes), `u32 name_len` (NUL included) and an
+  ASCII name (`0x592b20` writer, `0x592a00` reader, `0x584ed0`/`0x585100`
+  genotype). Retail saves have 8 empty slots; synthetic round-trip test.
 - **Depends on:** RUN-2.
 - **Evidence:** `notes/save-recon.md`, `notes/save-graph-recon.md`,
   `notes/world-objects-recon.md`, `docs/formats/sav.md`,
@@ -767,8 +790,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   confirmation, the idle sentinel and need-gauge names remain.
 - DEC-3: Map the `.wld` save format. **Solved for versions 50–53:** header,
   world object graph, objective list, unlock arrays, 39-show catalog,
-  simulation-state prefix and the AI/camera tail. Populated lab records and
-  a few field semantics remain. See `docs/formats/sav.md`,
+  simulation-state prefix, lab genotype store and the AI/camera tail. A few
+  field semantics remain. See `docs/formats/sav.md`,
   `docs/formats/wld.md`, `notes/save-graph-recon.md`,
   `notes/world-objects-recon.md`, `tools/formats/sav_graph.py`,
   `tools/formats/wld.py`.

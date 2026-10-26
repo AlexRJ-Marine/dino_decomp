@@ -155,3 +155,25 @@ def test_dummy_influence_and_reference_widths():
         assert data.member_reference_widths == read_graphic_trans(
             GENOTYPE / "graphic_trans.dic"
         )
+
+def test_attribute_and_part_order():
+    """Part 3 file order, used by the translator's 11 attribute groups."""
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert data.attribute_order == [
+        "Length",
+        "Width",
+        "Height",
+        "Weight",
+        "Perception",
+        "Intelligence",
+        "Beauty",
+        "Armor",
+        "Speed",
+        "Attack",
+        "Agility",
+    ]
+    assert data.part_order == ["Head", "Arm", "Leg", "Body", "Tail"]
+    for attribute in data.attribute_order:
+        assert (data.part_order[0], attribute) in data.attributes

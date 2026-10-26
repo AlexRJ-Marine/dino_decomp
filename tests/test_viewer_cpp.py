@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = Path(os.environ.get("DINO_VIEWER_EXE",
@@ -1039,3 +1039,29 @@ def test_cpp_pachy_lod2_mesh_bind():
     assert match is not None
     # The .skin full mesh is the crouched/bent-neck bind pose.
     assert float(match.group(1)) > 1.0
+
+def test_cpp_menu_start_with_dino(tmp_path):
+    if not EXE.exists() or not (GAME / "Data/Graphics/Actors/Dinos/allo").exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    dino_shot = tmp_path / "dino.bmp"
+    common = [str(EXE), "--frames", "5", "--width", "800", "--height", "600",
+              "--no-vsync", "--no-save-config", "--no-hud",
+              "--asset-root", str(GAME), "--menu-page", "1",
+              "--menu-click", "200,180", "--menu-click", "494,451",
+              "--menu-click", "526,531", "--menu-loading-time", "0"]
+    a = subprocess.run(common + ["--screenshot", str(base)],
+                       capture_output=True, text=True, timeout=180)
+    assert a.returncode == 0, a.stderr
+    b = subprocess.run(common + ["--screenshot", str(dino_shot), "--start-dino"],
+                       capture_output=True, text=True, timeout=180)
+    assert b.returncode == 0, b.stderr
+    assert "start: island=isl01 difficulty=0 budget=75000" in b.stdout
+    assert "spawn: x=512.0 y=512.0" in b.stdout
+    first = Image.open(base).convert("RGB")
+    second = Image.open(dino_shot).convert("RGB")
+    # The dinosaur fills the centre of the close-up start camera.
+    region = (220, 100, 620, 460)
+    diff = ImageChops.difference(first.crop(region), second.crop(region))
+    stat = ImageStat.Stat(diff)
+    assert sum(stat.mean) / 3 > 5.0

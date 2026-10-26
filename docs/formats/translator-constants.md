@@ -124,6 +124,128 @@ The accumulator fields are the phenotype used by the need formulas:
 +0x194               conventional appeal
 ```
 
+## `simu_trans.dic` -> translator object (`0x006180e0`)
+
+The translator constructor calls `0x006180e0`, the `simu_trans.dic` loader.
+It walks the ten file parts and stores each block in the translator object:
+
+| Part | Tables | Translator offset |
+| ---: | --- | --- |
+| 1 | 18 gene translation tables | `+0x1b8` |
+| 2 | 4 merge tables (Head, ArmLeg, Body, Tail) | `+0x3bc` |
+| 3 | Length (5 parts) | `+0x308` |
+| 3 | Width | `+0x200` |
+| 3 | Height | `+0x31c` |
+| 3 | Weight | `+0x214` |
+| 3 | Perception | `+0x330` |
+| 3 | Intelligence | `+0x344` |
+| 3 | Beauty | `+0x358` |
+| 3 | Armor | `+0x36c` |
+| 3 | Speed | `+0x2e0` |
+| 3 | Attack | `+0x2f4` |
+| 3 | Agility | `+0x380` |
+| 4 | dummy disposition (3 x 6-wide) | `+0x394` |
+| 5 | dummy type (3 x 5-wide) | `+0x3a0` |
+| 6 | influence tables 0 and 1 | `+0x80`, `+0x90` |
+| 6 | five reference widths | `+0xa4..+0xb4` |
+| 7 | skin map (8 x 3) | `+0x20` |
+| 7 | the single `582` | `+0xa0` |
+| 7 | skin influence tables 0 and 1 | `+0x40`, `+0x50` |
+| 8 | carapace map (6 x 3) | `+0x30` |
+| 8 | carapace influence tables 0 and 1 | `+0x60`, `+0x70` |
+| 9 | 20 minimum values | `+0x404` |
+| 9 | 20 maximum values | `+0x460` |
+| 10 | 20 default families | `+0x14` |
+
+Each Part 3 group is **five pointers**, one per part in file order
+`Head, Arm, Leg, Body, Tail` (`0x006189e0` reads five 20 x 20 tables and
+stores the objects consecutively). Part 2's four merge tables sit at
+`+0x3bc..+0x3c8`.
+
+## Runtime genotype record
+
+`0x00617250` indexes the genotype as **six ints per gene**: `[3g]` and
+`[3g+1]` are the two alleles, `[3g+2]` is not read by the translator. The
+18 genes keep the `.gen` order:
+
+| Gene | Field | Gene | Field |
+| ---: | --- | ---: | --- |
+| 0 | head type | 9 | tail dummy type |
+| 1 | legs type | 10 | skin type |
+| 2 | body type | 11 | skin subtype |
+| 3 | tail type | 12 | carapace type |
+| 4 | head dummy position | 13 | carapace subtype |
+| 5 | head dummy type | 14 | diet |
+| 6 | body dummy position | 15 | aggression |
+| 7 | body dummy type | 16 | stamina |
+| 8 | tail dummy position | 17 | courage |
+
+`0x00617250` reads pairs at `3*0`, `3*1`, `3*2`, `3*3`, `3*10`, `3*11`,
+`3*14..3*17`, which matches this table.
+
+## Translation (`0x00617250` -> 440-byte phenotype)
+
+`0x00617250(translator, genotype, phenotype)` runs `0x00619830` first and
+then fills the phenotype. The five-part loop maps a part to a gene:
+
+| Part | 0 | 1 | 2 | 3 | 4 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Name | Head | Arm | Leg | Body | Tail |
+| Gene triple | 0 (head type) | 1 (legs type) | 1 (legs type) | 2 (body type) | 3 (tail type) |
+
+For every part it looks up `table[part][alleleB][alleleA]` in five
+attribute groups and sums the five parts:
+
+| Attribute | Translator base | Phenotype field |
+| --- | ---: | ---: |
+| Perception | `+0x330` | `+0x38` (+ height percentage term) |
+| Intelligence | `+0x344` | `+0x3c` (written through the cube-root temporary) |
+| Beauty | `+0x358` | `+0x40` |
+| Armor | `+0x36c` | `+0x68` |
+| Agility | `+0x380` | `+0x48`, and `+0x34 = JumpPercentage * agility / 100` |
+
+The Attack group (`+0x2f4`) is looked up per part instead of summed:
+
+```text
+phenotype +0x4c = Attack[part 0]  pair (head type)
+phenotype +0x50 = Attack[part 3]  pair (head type)   # see note
+phenotype +0x54 = Attack[part 1]  pair (legs type)
+phenotype +0x58 = Attack[part 2]  pair (legs type)   # zeroed for bipeds
+phenotype +0x5c = Attack[part 4]  pair (tail type)
+phenotype +0x60 = sum of the five
+```
+
+The array is in file order (`Head, Arm, Leg, Body, Tail`), so `+0x50` is
+Body attack; the decompiler shows it reading the head-type pair, which is
+kept as observed until a runtime check settles it.
+
+Other phenotype fields written by `0x00617250`:
+
+| Field | Meaning (evidence) |
+| ---: | --- |
+| `+0x00` | total length = body part + tail part |
+| `+0x04`, `+0x08` | body and tail length; split in half for quadrupeds |
+| `+0x10` | size-category radius (`SizeCategory*Radius`) |
+| `+0x18` | volume (length x width x height) |
+| `+0x1c` | `volume * FoodConsumptionRate * 0.01` |
+| `+0x28` | walk speed = `+0x1b * WalkingSpeedCoef * 0.01` |
+| `+0x2c` | run speed (0 below `MinMotricityToRun`) |
+| `+0x34` | jump = `JumpPercentage * agility / 100` |
+| `+0x3c` | cube root of the volume (linear size) |
+| `+0x6c` | aggression merge (`+0x1f4` table, gene 15 pair) |
+| `+0x70` | stamina merge (`+0x1f8` table, gene 16 pair) |
+| `+0x74` | courage merge (`+0x1fc` table, gene 17 pair) |
+| `+0x1ac` | family index (`Part 10`, chosen from parent legs type) |
+| `+0x1b0` | `merge[Head][dietB][dietA] - 1`, diet flag |
+| `+0x1b4` | 0 = biped (family 2/3), 1 = quadruped |
+| `+0x134` | per-species food/scale factor (used by the size accumulator) |
+
+`0x00619830` additionally computes the five part lengths, widths and heights
+at `+0x98/+0xac/+0xc0` and the five part scale factors at `+0xd4..+0xe4`
+(head, arm, body, leg, tail). Each scale blends the two parents with the
+matching Part 2 merge table weight (`+0x3bc` head, `+0x3c0` legs,
+`+0x3c8` tail) and normalises by the body part size.
+
 ## Reader
 
 `tools/formats/translator_constants.py`:
@@ -133,8 +255,9 @@ python tools/formats/translator_constants.py --dump <TranslatorConstants.ini>
 ```
 
 Returns all 41 values and the `STRUCT_OFFSETS` map; validates that every key
-is present and none is extra. Tests:
-`tests/test_translator_constants.py`.
+is present and none is extra. `tools/formats/simu_trans.py` now also exposes
+`attribute_order` and `part_order` (Part 3 file order). Tests:
+`tests/test_translator_constants.py`, `tests/test_simu_trans.py`.
 
 ## Evidence
 
@@ -148,8 +271,8 @@ is present and none is extra. Tests:
 
 ## Open
 
-- How the 18 gene translation values map onto the part records
-  (`+0x128..+0x19c`) that feed the accumulator.
+- The third int of each runtime genotype gene triple (`[3g+2]`).
+- Whether the Body attack lookup really uses the head-type pair.
 - The 4-byte gap at `+0x2b4`.
 - Human-readable names for the remaining phenotype fields (`+0x38`, `+0x48`,
   `+0x50`, `+0x54`, `+0x58`, `+0x5c`, `+0x68`, `+0x70`, `+0x74`, `+0x78`).

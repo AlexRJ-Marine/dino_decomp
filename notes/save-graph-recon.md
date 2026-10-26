@@ -97,7 +97,12 @@ dino_store_count x record:
 
 u32 visitor_model[5]         # 3,3,3,3,3 in both retail saves
 u32 lab_count                # 8
-lab_count x u8 present_flag  # 1 = empty; 0 = variable genotype data
+lab_count x record:
+    u8 present_flag          # 1 = empty; 0 = genotype + name follow
+    if present_flag == 0:
+        18 x (u32 allele_a, u32 allele_b)  # 0x90 bytes
+        u32 name_bytes (ASCII, NUL included)
+        ASCII name
 u32 ai_counts[5]             # AI lists; fifth has the entries
 if non-auto: entries x 17 bytes
 f32 camera[10]                 # camSwitcher state
@@ -188,13 +193,32 @@ file when the record is read).
 ### Lab store
 
 `FUN_00592060` reads five u32 (`3,3,3,3,3` in both saves), then
-`FUN_00592a00` reads `lab_count = 8` and one presence byte per record. All
-eight flags are `1` (empty) in both saves. A zero flag would be followed by a
-variable genotype record; that path is not decoded yet.
+`FUN_00592a00` reads `lab_count = 8` and one record per slot. The record byte
+is a presence flag: `1` = empty, `0` = populated. All eight flags are `1`
+(empty) in both retail saves, so the populated path is covered by a synthetic
+test.
+
+A populated slot (`flag == 0`) is:
+
+```text
+u8   flag
+18 x (u32 allele_a, u32 allele_b)   # 0x90 bytes
+u32  name_bytes                     # string length + 1
+...  ASCII name, NUL included
+```
+
+Evidence: the writer `FUN_00592b20` writes the flag, calls the genotype writer
+`FUN_00585100` (18 iterations, two u32 each), then writes
+`string.length + 1` and the bytes. The reader `FUN_00592a00` mirrors it:
+flag, `FUN_00584ed0` (18 iterations, two u32 each for version > 21), then the
+u32 length and bytes. Runtime lab records are `0xe8` bytes (`flag` at `+0`,
+string object at `+4`, genotype at `+0x10`); the file stores only the flag,
+the two alleles per gene and the name. The genotype is the same 18-gene order
+as `.gen` (`docs/formats/gen.md`).
 
 ### AI manager + camera tail
 
-The bytes after the lab flags are:
+The bytes after the lab records are:
 
 ```text
 u32 ai_list_count[5]        # first four are 0 in retail
@@ -232,7 +256,8 @@ It returns:
 - `tail_extra` (empty in both retail saves).
 
 Tests: `tests/test_sav_graph.py` (retail manual + auto saves, synthetic save,
-rejection of unknown object lists, rejection of populated lab records).
+populated lab record round-trip, rejection of unknown object lists, rejection
+of implausible lab name lengths).
 
 ## 5. Open
 
@@ -241,7 +266,6 @@ rejection of unknown object lists, rejection of populated lab records).
   block header.
 - Whether the dinosaur `store_id` is a price or an ID.
 - The semantic split of the 10 camera floats (position/target/up/FOV).
-- Populated lab genotype records (flag `0`).
 - The variable campaign/world header before the show catalog.
 
 ## Evidence
@@ -249,7 +273,8 @@ rejection of unknown object lists, rejection of populated lab records).
 - Ghidra decompilation: `FUN_0051e6c0`, `FUN_0051e7e0`, `FUN_0053a140`,
   `FUN_0053c560`, `FUN_0053c9d0`, `FUN_00558340`, `FUN_00558230`,
   `FUN_00585240`, `FUN_00585bd0`, `FUN_0058aed0`, `FUN_0058ccc0`,
-  `FUN_00592060`, `FUN_00592a00`, `FUN_00593a60`, `FUN_0051f290`,
+  `FUN_00592060`, `FUN_00592a00`, `FUN_00592b20`, `FUN_00584ed0`,
+  `FUN_00585100`, `FUN_00593a60`, `FUN_0051f290`,
   `FUN_0051f400`, `FUN_005e5b80`, `FUN_005e5ba0`, `FUN_005e5920`,
   `FUN_005e5940`, `FUN_005e8e30` … `FUN_005e8f80`.
 - Retail files: `run/save/slot001.sav`, `run/save/auto/auto.sav`.

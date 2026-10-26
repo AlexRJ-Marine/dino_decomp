@@ -296,7 +296,8 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       original but not yet used by the port.
 - [x] Acceptance: `--menu-page 1 --menu-click 200,180 --menu-click 494,451
       --menu-click 526,531 --menu-loading-time 0` reaches isl01/easy with
-      75,000; row 9 + hard reaches isl10 with 25,000.
+      75,000; row 9 + hard reaches isl10 with 25,000. Adding `--start-dino`
+      places the allosaurus at the island centre (vertical-slice demo).
 - Evidence: `notes/ui-recon.md` ("Free Game start -> park handoff"),
   `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
   `notes/menu-start-isl10.png`, `tests/test_viewer_cpp.py`

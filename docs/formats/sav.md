@@ -1,7 +1,7 @@
 # `.sav` save format
 
-Status: **header, world-object graph, show catalog, simulation-state prefix
-and the AI/camera tail are solved; populated lab records and some simulation
+Status: **header, world-object graph, show catalog, simulation-state prefix,
+lab genotype store and the AI/camera tail are solved; some simulation
 semantics remain.**
 The retail save is a sequence of manager-level serializers, not one fixed
 struct.
@@ -137,7 +137,12 @@ dino_store_count x record:
 
 u32 visitor_model[5]         # 3,3,3,3,3 in retail
 u32 lab_count                # 8
-lab_count x u8 present_flag  # 1 = empty; 0 = variable genotype data
+lab_count x record:
+    u8  present_flag         # 1 = empty; 0 = genotype + name follow
+    if present_flag == 0:
+        18 x (u32 allele_a, u32 allele_b)  # 0x90-byte genotype
+        u32 name_bytes (ASCII, NUL included)
+        ASCII name
 u32 ai_counts[5]             # AI lists; fifth has the entries
 if non-auto: entries x 17 bytes
 f32 camera[10]               # camSwitcher state (40 bytes)
@@ -266,9 +271,31 @@ record is read (`FUN_00593a60` → `FUN_00595f40` → `FUN_00584c20`).
 ### Lab store
 
 `FUN_00592060` reads five u32 (`3,3,3,3,3` in retail), then `FUN_00592a00`
-reads `lab_count = 8` and one presence byte per record. All eight flags are
-`1` (empty). A zero flag is followed by a variable genotype record whose exact
-layout is not decoded.
+reads `lab_count = 8` and one record per slot. The record byte is a presence
+flag: `1` means empty and `0` means populated. All eight flags are `1` in both
+retail saves, so the variable tail is only exercised by a synthetic test.
+
+A populated slot (`flag == 0`) stores the full 18-gene genotype and a display
+name. The writer is `FUN_00592b20`, which calls the genotype writer
+`FUN_00585100` and then writes the string length + 1 (NUL included) and the
+ASCII bytes:
+
+```text
+u8   flag                     # 0 = populated
+18 x (u32 allele_a, u32 allele_b)   # 0x90 bytes, same gene order as .gen
+u32  name_bytes               # string length + 1
+...  ASCII name, NUL terminated
+```
+
+The genotype reader/writer `FUN_00584ed0` / `FUN_00585100` iterate **18**
+records at runtime stride `0xc` and serialize the first two dwords of each
+(8 bytes), so the file form is exactly 0x90 bytes. Version <= 21 used a
+15 + 3 split with two extra dwords; version 53 uses the 18-gene form above.
+The runtime lab record is `0xe8` bytes (flag at `+0`, string object at `+4`,
+genotype at `+0x10`); the file only stores the flag, genotype and name.
+
+`tools/formats/sav_graph.py` exposes `lab_records` (`LabRecord.flag`,
+`.genes`, `.name`, `.empty`) and a `--labs` CLI dump.
 
 ## World manager section
 
@@ -292,7 +319,7 @@ Class `0x12` carries an 18-gene genotype table (`FUN_00584ed0` /
 
 ### AI manager + camera tail
 
-After the lab flags:
+After the lab records:
 
 ```text
 u32 ai_list_count[5]        # first four are 0 in retail
@@ -321,13 +348,14 @@ python tools/formats/sav.py run/save/slot001.sav --shows
 `tools/formats/sav_graph.py` — simulation-state prefix:
 
 ```text
-python tools/formats/sav_graph.py run/save/slot001.sav --visitors --dinos
+python tools/formats/sav_graph.py run/save/slot001.sav --visitors --dinos --labs
 ```
 
 `sav_graph` returns the road rectangles, visitors, park budget/fields, the
-20 dinosaur-store records, the five visitor-model values, the lab flags, the
-five AI-list counts, the 17-byte AI entries and the 10 camera floats. Tests:
-`tests/test_sav.py`, `tests/test_sav_graph.py`.
+20 dinosaur-store records, the five visitor-model values, the lab records
+(flag, 18 gene pairs, name), the five AI-list counts, the 17-byte AI entries
+and the 10 camera floats. Tests: `tests/test_sav.py`,
+`tests/test_sav_graph.py`.
 
 ## Evidence
 
@@ -337,7 +365,9 @@ five AI-list counts, the 17-byte AI entries and the 10 camera floats. Tests:
 - Ghidra: `FUN_0051e6c0`, `FUN_0051e7e0`, `FUN_0053a140`, `FUN_0053c560`,
   `FUN_0053c9d0`, `FUN_00558340`, `FUN_00585780` (economy writer),
   `FUN_00585240` (economy reader), `FUN_00585bd0`, `FUN_0058aed0`,
-  `FUN_0058ccc0`, `FUN_00592060`, `FUN_00592a00`, `FUN_00593a60`.
+  `FUN_0058ccc0`, `FUN_00592060`, `FUN_00592a00` (lab reader),
+  `FUN_00592b20` (lab writer), `FUN_00584ed0` / `FUN_00585100` (genotype
+  reader/writer), `FUN_00593a60`.
 
 ## Open
 
@@ -347,5 +377,4 @@ five AI-list counts, the 17-byte AI entries and the 10 camera floats. Tests:
   `docs/decomp/economy.md`.
 - Dinosaur `store_id` meaning.
 - The AI/camera field split; the byte layout is solved.
-- Populated lab genotype records.
 - Show parameter semantics.

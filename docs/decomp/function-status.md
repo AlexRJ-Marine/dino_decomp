@@ -113,7 +113,8 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0058aed0` | `spSimuManager` state read (road, visitors, park, stores) | decompiled | same |
 | `0x0058ccc0` | road-network save/load (rectangles) | decompiled | same |
 | `0x00593a60` | dinosaur-store load (20 name/id/path/description records) | decompiled | same |
-| `0x00592060` / `0x00592a00` | visitor-model values + lab store (flags) | decompiled | same |
+| `0x00592060` / `0x00592a00` | visitor-model values + lab store (flag, 18 gene pairs, name) | decompiled | `docs/formats/sav.md` |
+| `0x00592b20` / `0x00585100` | lab-store writer + genotype writer (18 × 2 u32) | decompiled | `docs/formats/sav.md` |
 | `0x0051f290` / `0x0051f400` | AI manager load/save (5 lists, 17-byte entries) | decompiled | same |
 | `0x005e5b80` / `0x005e5ba0` | camera-switcher load/save (10 floats) | decompiled | same |
 | `0x005e5920` / `0x005e5940` | scenario-manager load/save wrapper | decompiled | same |
@@ -233,5 +234,6 @@ hooked into the original exe (Phase 3 `HYB-1`).
 - Dinosaur AI action chooser that maps BAD FOOD/REPOS to `Eat`/`Sleep`;
   the gauges, four needs and `0x1f` idle sentinel are solved in
   `docs/decomp/dinosaur-actions.md`.
-- `.sav` world object lists are solved; the remaining DEC-3 item is populated
-  lab records.
+- `.sav` world object lists, the park economy stream and the lab genotype
+  store are solved; remaining DEC-3 items are the park block header and a few
+  field semantics.

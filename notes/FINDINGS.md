@@ -271,3 +271,9 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   a single 582 + two 22x18 influence tables; Part 8 = 6x3 carapace map
   (0..15) + two 16x18 tables; Part 9 = 20 min (all 0) + 20 max
   (100000,100000,100,100,200x14,65536,100). All 10 parts now parse.
+- Island .raw resources: heightmap_512.raw is 512x512 u8; occupation is
+  1024x1024 u8 with only 0/255. 0 = buildable land, 255 = blocked/water;
+  0 cells have a higher mean height and never height 0 on all 10 islands.
+  Design/Graphics occupation copies differ by <1%; the .lnd references the
+  Design copy. The .lnd width/height 520x376 is not a texture size. Reader
+  tools/formats/raw.py, spec docs/formats/raw.md.

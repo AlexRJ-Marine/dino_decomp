@@ -28,6 +28,22 @@ Options added for the combined scene:
 --skin-bind MODE      mesh (default) or skin; see docs/formats/skin.md
 ```
 
+## From the retail menu
+
+The same slice can be reached through the real menu screens: `--start-dino`
+preloads the allosaurus assets, and the Free Game Start handoff places it at
+the centre of the selected island after loading it.
+
+```powershell
+$G = "game/%MAINDIR%"
+.\build\mingw\dino_viewer.exe --asset-root $G `
+  --menu-page 1 --menu-click 200,180 --menu-click 494,451 `
+  --menu-click 526,531 --menu-loading-time 0 --start-dino
+```
+
+This loads isl01/easy (75,000), places the allosaurus at (512,512), and
+starts the walking animation. Screenshot: `notes/menu-start-dino.png`.
+
 ## Camera
 
 Orbit mode (default): **left-drag** orbits, wheel zooms, arrows orbit, `R`

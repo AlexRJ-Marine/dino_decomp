@@ -107,6 +107,7 @@ struct Options {
     float park_time_scale = 0.0f;
     std::string park_time;
     float park_advance = 0.0f;
+    bool start_dino = false;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -306,6 +307,8 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--park-advance") {
             opt.park_advance = static_cast<float>(
                 std::atof(next("--park-advance")));
+        } else if (arg == "--start-dino") {
+            opt.start_dino = true;
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -410,6 +413,7 @@ Options parse_args(int argc, char** argv) {
                 "  --park-time HH:MM    set the park clock for screenshots/tests\n"
                 "  --park-time-scale N  override the clock time scale (default 60)\n"
                 "  --park-advance N     advance the clock N real seconds at startup\n"
+                "  --start-dino         place an allosaurus at the menu-started park\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -1826,6 +1830,27 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (opt.start_dino) {
+        // Demo path: an allosaurus at the centre of the menu-started island,
+        // using the same validated assets as the vertical slice.
+        auto set_default = [&](std::string& path, const char* relative) {
+            if (path.empty()) {
+                path = resolve_asset(opt.asset_root, relative);
+            }
+        };
+        set_default(opt.mesh_path,
+                    "Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh");
+        set_default(opt.skel_path,
+                    "Data/Graphics/Actors/Dinos/allo/allo.skel");
+        set_default(opt.skin_path,
+                    "Data/Graphics/Actors/Dinos/allo/allo_lod1.skin");
+        set_default(opt.anim_path,
+                    "Data/Graphics/Actors/Dinos/animations/HeavyBiped/"
+                    "HeavyBiped_Walk.anim");
+        set_default(opt.dino_texture_path,
+                    "Data/Graphics/Textures/actors/dinos/allo.tga");
+    }
+
     dino::Mesh mesh;
     dino::Image image;
     dino::Image dino_image;
@@ -3088,6 +3113,9 @@ int main(int argc, char** argv) {
                         terrain.height_at(spawn_x - half, spawn_y - half),
                         opt.dino_angle);
         }
+        // The dino/shadow may have just replaced their GPU meshes; the draw
+        // list holds pointers, so rebuild it after the uploads.
+        rebuild_extra_items();
 
         const float half = terrain.world_size * 0.5f;
         center = place_dino

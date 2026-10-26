@@ -94,6 +94,8 @@ class SimuTrans:
     min_attributes: list[float] = field(default_factory=list)
     max_attributes: list[float] = field(default_factory=list)
     part_headers: list[tuple[int, str]] = field(default_factory=list)
+    attribute_order: list[str] = field(default_factory=list)
+    part_order: list[str] = field(default_factory=list)
 
     def family_of(self, dinosaur_index: int) -> str:
         return FAMILIES[self.default_families[dinosaur_index]]
@@ -105,6 +107,8 @@ class SimuTrans:
             "merge": {name: table.to_dict() for name, table in self.merge.items()},
             "attributes": len(self.attributes),
             "attribute_keys": [f"{p}:{a}" for p, a in self.attributes],
+            "attribute_order": self.attribute_order,
+            "part_order": self.part_order,
             "dummy_disposition": {
                 name: [len(rows), len(rows[0]) if rows else 0]
                 for name, rows in self.dummy_disposition.items()
@@ -297,11 +301,17 @@ def read_simu_trans(path: Path) -> SimuTrans:
         raise SimuTransError(f"merge tables: {sorted(merge)}")
 
     attributes: dict[tuple[str, str], MergeTable] = {}
+    attribute_order: list[str] = []
+    part_order: list[str] = []
     for match, body in _block(lines, part3_start, part4_start, ATTR_RE):
         part, attribute = match.group(1), match.group(2)
         attributes[(part, attribute)] = _table(
             f"{part}:{attribute}", body, 20
         )
+        if attribute not in attribute_order:
+            attribute_order.append(attribute)
+        if part not in part_order:
+            part_order.append(part)
     if len(attributes) != 55:
         raise SimuTransError(f"expected 55 attribute tables, got {len(attributes)}")
 
@@ -385,6 +395,8 @@ def read_simu_trans(path: Path) -> SimuTrans:
         min_attributes=min_attributes,
         max_attributes=max_attributes,
         part_headers=[(n, title) for n, _, title in headers],
+        attribute_order=attribute_order,
+        part_order=part_order,
     )
 
 

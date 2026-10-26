@@ -204,11 +204,22 @@ then a sequential stream in writer order:
 ```
 
 The stream starts at `block + 0x30`. The budget is the first dword. The manual
-save's current-day ticket pair is 125/2 at stream `+0x18/+0x1c`. The three
-computed totals at runtime `+0x144/+0x148/+0x14c` (stream `+0x12a/+0x12e/+0x132`)
-contain the debug fill `0xBAADF00D` in a fresh save because the panel refresh
-never wrote them; the yesterday counters are zero until the first day roll.
-`sav_graph._read_park_stream` and `tools/formats/economy.py` use this order.
+save's current-day ticket pair is 125/2 at stream `+0x18/+0x1c`. The stream is
+0x21a bytes and ends with a 180-byte cumulative block. The three computed
+totals at runtime `+0x144/+0x148/+0x14c` are the 2nd..4th dwords of the
+13-dword totals group (stream `+0x132/+0x136/+0x13a`, and again in the
+cumulative block at `+0x1e6/+0x1ea/+0x1ee`); they contain the debug fill
+`0xBAADF00D` in a fresh save because the panel refresh never wrote them. The
+yesterday counters are zero until the first day roll.
+
+**Reader asymmetry.** `0x00585240` reads the cumulative block (version >= 46)
+into the yesterday fields `+0xbc..+0x16c`, and starts it 32 bytes early
+because it consumes only 5 of the 13 first-block total dwords. This is a
+retail loader bug; `sav_graph._read_park_stream` follows the writer layout and
+exposes `yesterday_*` / `cumulative_*` separately. The final 0x49 bytes of
+the 0x293-byte park block are the schedule tail (0x3d bytes) and a 12-byte
+field. `tools/formats/economy.py` uses the yesterday block, matching the panel
+refresh.
 
 ### Evidence
 

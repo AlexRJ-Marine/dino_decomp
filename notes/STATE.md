@@ -332,7 +332,13 @@ Updated: 2026-10-25
     0.0001 cm (was ~4.3 cm), skin bind 7.8464 cm; allo LOD1 0.0001 cm.
   - Evidence: `notes/lod-bind-recon.md`, `docs/formats/skin.md`,
     `tests/test_viewer_cpp.py::test_cpp_pachy_lod2_mesh_bind`.
-- 226 tests pass; working tree committed (UI-2 Phase B rest plus
+- SLICE-1 menu path complete: **animated dinosaur from Free Game Start.**
+  - `--start-dino` preloads the allo mesh/skel/skin/anim/texture; the menu
+    Start handoff loads the selected island and places the allosaurus at the
+    centre with its contact shadow and walk animation.
+  - Evidence: `notes/menu-start-dino.png`, `docs/platform/vertical-slice.md`,
+    `tests/test_viewer_cpp.py::test_cpp_menu_start_with_dino`.
+- 232 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -377,7 +383,12 @@ Updated: 2026-10-25
   - AI/camera tail decoded: 5 AI-list counts (fifth 2/0), 17-byte AI entries,
     and 10 camera floats (`camSwitcher`).
   - Dinosaur world objects store the 18-gene genotype (same order as `.gen`).
-  - Remaining: populated lab records and a few field semantics.
+  - **Lab genotype store solved:** `u8 flag` (1 = empty), then for flag 0:
+    18 × `(u32, u32)` = 0x90-byte genotype, `u32 name_len` (NUL included) and
+    an ASCII name. Writer `0x592b20` → genotype writer `0x585100` (18 pairs);
+    reader `0x592a00` → `0x584ed0`. Runtime record is 0xe8 bytes; the file
+    stores only flag/genotype/name. Retail saves have 8 empty slots.
+  - Remaining: a few field semantics (park header, store_id meaning).
   - Evidence: `notes/save-recon.md`, `notes/save-graph-recon.md`,
     `notes/world-objects-recon.md`, `docs/formats/sav.md`,
     `docs/formats/wld.md`, `tools/formats/sav.py`, `sav_graph.py`,
@@ -488,6 +499,13 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- FMT-21 complete: **island `.raw` heightmap + occupation mask.**
+  - Heightmap 512×512 u8; occupation 1024×1024 u8 with values {0,255}.
+  - 0 = buildable land, 255 = blocked/water; 0 cells are higher and never
+    height 0 on all 10 islands.
+  - Design/Graphics occupation copies differ by <1%; `.lnd` uses Design.
+  - Evidence: `tools/formats/raw.py`, `docs/formats/raw.md`,
+    `tests/test_raw.py`, `notes/raw-recon.md`, `notes/occupation-masks.png`.
 - FMT-20 complete: **`simu_trans.dic` all 10 parts structurally parsed.**
   - Part 2's four 20×20 merge tables are byte-identical to `anim_trans.dic`
     (1,600 cells).
@@ -615,6 +633,13 @@ Updated: 2026-10-25
     totals (before the first day rollover);
     `tools/formats/economy.py` masks it and `tests/test_economy.py` checks
     the retail save.
+  - **Save stream completed:** the 0x293 park block is a 0x30-byte header +
+    0x21a-byte economy stream + 0x49-byte schedule tail. `sav_graph` decodes
+    both the yesterday block (`+0xb2..+0x166`) and the cumulative block
+    (`+0x166..+0x21a`) and exposes `stream_end`/`tail`. The retail reader
+    `0x585240` reads the cumulative block into the yesterday fields and is
+    32 bytes out of phase (a loader bug, not reproduced). The docs' old
+    `+0xfa/+0x12a` offsets used 12-dword arrays; the real arrays are 13.
   - Evidence: `notes/park-economy-recon.md`, `docs/decomp/economy.md`,
     `docs/decomp/function-status.md`, `tools/formats/economy.py`,
     `tests/test_economy.py`.
@@ -688,8 +713,9 @@ Updated: 2026-10-25
 5. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are
    solved in `docs/decomp/dinosaur-actions.md`.
-6. DEC-3 rest: decode populated lab records; the world object graph, unlock
-   arrays and AI/camera tail are solved. See `docs/formats/sav.md` and
+6. DEC-3 rest: the world object graph, unlock arrays, AI/camera tail and lab
+   genotype store are solved. Remaining: park block header, `store_id`
+   semantics and a few small fields. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
 7. SIM-4 rest: runtime-verify the panel rows against a populated save; the
    row mapping, category labels and daily settlement trigger are solved. See
