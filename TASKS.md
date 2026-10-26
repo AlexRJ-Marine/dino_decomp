@@ -195,13 +195,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ### FMT-11: `.bbi` building definitions
 - [x] Parse 39 files: 121-byte header, 10 mesh/skel/anim paths, tail strings.
-- [x] Footprint/cost hypothesis from the header; 390 asset paths exist;
-  212/213 `CONSTRUC_*` UI names resolve.
-- [ ] Exact header/tail numeric semantics.
+- [x] Header solved from `FUN_0053fb00`: `u32 w, u32 h, f32 scale, u8 flag`,
+  then 27 unaligned u32 — not 30 aligned u32. Named category (file 49),
+  price (25), duration (37), appeal scale (73), radius² (105) and model
+  fields (109/113/117); `model[1] = 0.0` in all 39.
+- [x] 390 asset paths exist; 212/213 `CONSTRUC_*` UI names resolve.
+- [ ] Numeric tail (attribute profile values) and the `Security` UI section.
 - **Acceptance:** 39/39 parse, 0 errors, BuildingList maps 1:1.
 - **Depends on:** RUN-2, FMT-7.
 - **Evidence:** `tools/formats/bbi.py`, `docs/formats/bbi.md`,
-  `tests/test_bbi.py`, `notes/bbi-recon.md`.
+  `tests/test_bbi.py`, `notes/bbi-recon.md`,
+  `notes/building-def-record-recon.md`.
 
 ### FMT-12: `.bsi` food sources
 - [x] Parse 10 files: 29-byte header (nutrition, quantity, price, kind id),
