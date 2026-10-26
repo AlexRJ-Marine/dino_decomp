@@ -127,7 +127,8 @@ Implemented:
   a six-row viewport over the catalog (row pitch = list height / 6); the
   selected row is drawn in yellow with its price right-aligned.
 - Click actions: `DINO_ACHAT_SAVE_NAMES_LIST` -> `store select N`,
-  the scroll buttons -> `store scroll up/down`, SAVE -> `store buy N`
+  the right 15 px strip (`LB_VSCROLL_WIDTH`) -> `store scroll up/down`
+  (the retail VSCROLL children carry no INI geometry), SAVE -> `store buy N`
   (or `store no selection`), CANCEL -> close.
 - `main.cpp`: `handle_store_buy` is the retail `0x00535600` budget gate. On
   success it stores the entry/price, hides the panel and arms
@@ -149,7 +150,8 @@ store: bought Allosaurus price=9000 budget=66000 paddock=7 dinos=21 \
 ```
 
 and `test_cpp_store_panel_no_money`: budget 100 -> `WARNING_NOT_ENOUGH_MONEY`
-and no purchase.
+and no purchase. `test_cpp_store_panel_scroll` scrolls the viewport one row
+and buys `Allosaurus_Leoparus` (10,000).
 
 Remaining: the 3D preview actor and the eleven attribute gauges (need the full
 phenotype attributes), restoring the panel after a dismissed warning, and the

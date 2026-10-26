@@ -463,6 +463,22 @@ bool ParkHud::click(int x, int y, std::string& action) {
     // Dinosaur store panel: the list is a six-row viewport over the store
     // vector (0x00535460); SAVE/CANCEL follow the retail state 0x13 flow.
     if (name == "DINO_ACHAT_SAVE_NAMES_LIST") {
+        const int list_index = overlay.find("DINO_ACHAT_SAVE_NAMES_LIST");
+        if (list_index >= 0) {
+            const Widget& list =
+                overlay.widgets[static_cast<std::size_t>(list_index)];
+            const int strip = list.list_scroll_width > 0
+                                  ? list.list_scroll_width
+                                  : 15;
+            if (x >= list.abs_x + list.width - strip) {
+                // The retail VSCROLL children have no INI geometry; use the
+                // right strip as an up/down control.
+                const bool up = y < list.abs_y + list.height / 2;
+                store_scroll_by(up ? -1 : 1);
+                action = up ? "store scroll up" : "store scroll down";
+                return true;
+            }
+        }
         const int index = store_row_at(x, y);
         if (index >= 0) {
             store_select(index);

@@ -2179,3 +2179,32 @@ def test_cpp_store_panel_no_money():
     assert ("store: Allosaurus price=9000 budget=100 "
             "(WARNING_NOT_ENOUGH_MONEY)") in result.stdout
     assert "store: bought" not in result.stdout
+
+
+def test_cpp_store_panel_scroll():
+    """Scrollbar strip scrolls the six-row viewport before selecting."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-click", "765,298", "--park-click", "232,200",
+         "--park-click", "160,88", "--park-click", "470,520",
+         "--ground-click", "400,300"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "park click 232,200 -> store scroll down" in log
+    assert "park click 160,88 -> store select 1" in log
+    assert "park click 470,520 -> store buy 1" in log
+    assert ("store: Allosaurus_Leoparus price=10000 selected, click a paddock"
+            in log)
+    assert ("store: bought Allosaurus_Leoparus price=10000 budget=65000 "
+            "paddock=7 dinos=21 dinoachat=1/10000 used=32 total=368") in log
