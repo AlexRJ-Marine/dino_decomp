@@ -1181,10 +1181,13 @@ Updated: 2026-10-26
   (needs/action) is still not stored in `DINOPSAV`.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
-- WORLD-3 polish remains: skybox orientation vs the original, water tuning.
-- WORLD-2 remains: `model[0] = 1` slope basis, construction placement through
-  the UI, frustum culling and LOD2. `model[1]` is 0.0 in all files. Building
-  placement from `.wld`/`.sav` is solved (57/57 on Cpg04/isl04).
+- WORLD-3: the skybox face order/UVs now match the retail builder
+  (`front=-X, left=+Y, back=+X, right=-Y, top=+Z, bottom=-Z`); the old
+  mapping was rotated ~90 degrees. Water animation and a direct side-by-side
+  screenshot remain.
+- WORLD-2 remains: `model[0] = 1` slope basis, frustum culling and LOD2.
+  `model[1]` is 0.0 in all files. Building placement from `.wld`/`.sav` is
+  solved (57/57 on Cpg04/isl04), and construction-UI placement is now live.
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
 
 ## Next action
@@ -1221,10 +1224,11 @@ Updated: 2026-10-26
    steps are decoded, but their consumer is not. Next lead: the six judge
    behaviors share `0x582d70` and differ only by vtable
    (`0x64350c`/`0x6434e8`/...); map the score path from there.
-13. WORLD-3: water height is **confirmed** (`FUN_00602cf0` = the `.lnd`
-   float: isl01 16.0, isl02 20.0; the stale "discarded by 0x51dad0" claim is
-   corrected in `docs/formats/lnd.md`). Remaining: skybox face orientation and
-   the exact `.lnd` carry path from the reader scratch to the landscape.
+13. WORLD-3: water height **confirmed** (`FUN_00602cf0` = the `.lnd` float:
+   isl01 16.0, isl02 20.0) and the skybox face order now matches the retail
+   builder (`0x00600f80`/`0x00600df0`). Remaining: a direct side-by-side
+   still, water animation, and the exact `.lnd` carry path from the reader
+   scratch to the landscape.
 14. CONS-1 rest: port the store purchase branch (charge `DINOACHAT`, remove
    the store row) and the `WARNING_NO_ROOM_IN_FENCE` panel path with the
    insertion state staying active; runtime-dump `[dinosaur+0x1e0]` and the

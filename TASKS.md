@@ -819,13 +819,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   unlit cube drawn before the terrain.
 - [x] Tiled water plane at the `.lnd` float level, alpha-blended after the
   terrain; `--no-water`, `--water-level`, `--skybox`.
+- [x] Match the retail skybox cube mapping from the geometry builder
+  `0x00600f80` / draw `0x00600df0`: front=-X, left=+Y, back=+X, right=-Y,
+  top=+Z, bottom=-Z, UVs (0,0),(1,0),(0,1),(1,1), v=0 at the PNG top.
+  The previous mapping was rotated ~90 degrees.
 - [ ] Match the original look closely enough for comparison screenshots
-  (cube orientation and water colour still open).
+  (water colour/animation and a direct side-by-side still open).
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/environment.md`,
   `src/formats/image.cpp`, `src/third_party/stb_image.h`,
-  `notes/world3-sky2.png`, `notes/world3-hero.png`,
+  `notes/world3-sky2.png`, `notes/world3-hero.png`, `notes/p5-sky.png`,
   `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
 
 ### SLICE-1: Island + dinosaur scene

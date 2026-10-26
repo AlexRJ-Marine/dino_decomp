@@ -1315,35 +1315,40 @@ dino::Mesh make_sky_face(int index, float half_size) {
     dino::Mesh mesh;
     mesh.name = "skybox";
     dino::Vec3 normal{0, 0, 1};
+    // Retail face mapping (skybox geometry builder 0x00600f80, draw
+    // 0x00600df0): front = -X, left = +Y, back = +X, right = -Y,
+    // top = +Z, bottom = -Z. Each face's vertices are in UV order
+    // (0,0), (1,0), (0,1), (1,1); v=0 is the PNG top row. The shader adds
+    // 1 to v, so the stored values are (0,-1), (1,-1), (0,0), (1,0).
     switch (index) {
-        case 0:  // front (+Y)
-            mesh.positions = {{-h, h, h}, {h, h, h}, {h, h, -h}, {-h, h, -h}};
-            normal = {0, -1, 0};
-            break;
-        case 1:  // back (-Y)
-            mesh.positions = {{h, -h, h}, {-h, -h, h}, {-h, -h, -h}, {h, -h, -h}};
-            normal = {0, 1, 0};
-            break;
-        case 2:  // left (-X)
-            mesh.positions = {{-h, h, h}, {-h, -h, h}, {-h, -h, -h}, {-h, h, -h}};
+        case 0:  // front (-X)
+            mesh.positions = {{-h, -h, h}, {-h, h, h}, {-h, -h, -h}, {-h, h, -h}};
             normal = {1, 0, 0};
             break;
-        case 3:  // right (+X)
-            mesh.positions = {{h, -h, h}, {h, h, h}, {h, h, -h}, {h, -h, -h}};
+        case 1:  // back (+X)
+            mesh.positions = {{h, h, h}, {h, -h, h}, {h, h, -h}, {h, -h, -h}};
             normal = {-1, 0, 0};
             break;
+        case 2:  // left (+Y)
+            mesh.positions = {{-h, h, h}, {h, h, h}, {-h, h, -h}, {h, h, -h}};
+            normal = {0, -1, 0};
+            break;
+        case 3:  // right (-Y)
+            mesh.positions = {{h, -h, h}, {-h, -h, h}, {h, -h, -h}, {-h, -h, -h}};
+            normal = {0, 1, 0};
+            break;
         case 4:  // top (+Z)
-            mesh.positions = {{-h, h, h}, {h, h, h}, {h, -h, h}, {-h, -h, h}};
+            mesh.positions = {{h, -h, h}, {h, h, h}, {-h, -h, h}, {-h, h, h}};
             normal = {0, 0, -1};
             break;
         default:  // bottom (-Z)
-            mesh.positions = {{-h, -h, -h}, {h, -h, -h}, {h, h, -h}, {-h, h, -h}};
+            mesh.positions = {{-h, -h, -h}, {-h, h, -h}, {h, -h, -h}, {h, h, -h}};
             normal = {0, 0, 1};
             break;
     }
     mesh.normals.assign(4, normal);
-    mesh.uvs = {{0.0f, -1.0f}, {1.0f, -1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f}};
-    mesh.indices = {0, 1, 2, 0, 2, 3};
+    mesh.uvs = {{0.0f, -1.0f}, {1.0f, -1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f}};
+    mesh.indices = {0, 1, 2, 2, 1, 3};
     return mesh;
 }
 

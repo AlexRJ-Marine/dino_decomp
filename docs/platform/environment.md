@@ -16,6 +16,15 @@ Rendering: six quads on a 5000-unit cube, one texture each, drawn unlit
 (`u_unlit = 1`) before the terrain with depth test off and depth writes
 disabled. `--skybox DIR` overrides the directory.
 
+Face mapping matches the retail geometry builder `0x00600f80` / draw
+`0x00600df0`: **front = -X, left = +Y, back = +X, right = -Y, top = +Z,
+bottom = -Z**. Each quad's vertices are in UV order (0,0), (1,0), (0,1),
+(1,1); v=0 is the PNG top row (the port stores `v-1` because the shader adds
+1). The cube is camera-centred and world-axis aligned; retail renders the
+inside of the cube (the port does not enable culling). The old mapping had
+front=+Y/left=-X, a ~90 degree rotation, now corrected. The current capture
+is `notes/p5-sky.png`.
+
 ## Water
 
 - Level: the `.lnd` float (16.0 on isl01, 20.0 on isl02), runtime-confirmed
@@ -38,10 +47,8 @@ disabled. `--skybox DIR` overrides the directory.
 
 ## Open questions
 
-- Face orientation: the current mapping looks plausible but the horizon glow
-  may be vertically flipped. The retail engine's exact cube convention needs a
-  trace or a side-by-side screenshot.
+- The skybox face order/UVs are solved from the retail builder; a side-by-side
+  screenshot against the original remains for final visual confirmation.
 - Find the water-surface Z for the remaining islands; isl01 (16.0) and isl02
-  (20.0) match the `.lnd` float at runtime. Skybox face orientation and water
-  animation remain.
+  (20.0) match the `.lnd` float at runtime. Water animation remains.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.
