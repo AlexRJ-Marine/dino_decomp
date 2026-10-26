@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -121,19 +122,35 @@ def test_matrix_screens_and_controls_exist():
             )
 
 
+def _tracked_docs() -> set[str] | None:
+    """Docs committed to git; uncommitted docs in another lane are skipped."""
+    try:
+        output = subprocess.check_output(
+            ["git", "-C", str(ROOT), "ls-files", "docs"],
+            stderr=subprocess.DEVNULL, text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return {line.strip() for line in output.splitlines() if line.strip()}
+
+
 def test_format_and_decomp_docs_are_referenced():
     referenced = set()
     for row in _rows():
         for link in LINK_RE.findall(row["Evidence"]):
             target = link.split("#", 1)[0]
             referenced.add((MATRIX.parent / target).resolve())
+    tracked = _tracked_docs()
     missing = []
     for directory in ("docs/formats", "docs/decomp", "docs/platform"):
         for doc in (ROOT / directory).glob("*.md"):
             if doc.name in {"feature-status.md"}:
                 continue
+            relative = doc.relative_to(ROOT).as_posix()
+            if tracked is not None and relative not in tracked:
+                continue
             if doc.resolve() not in referenced:
-                missing.append(str(doc.relative_to(ROOT)))
+                missing.append(relative)
     assert not missing, "docs missing from the feature matrix: " + ", ".join(
         sorted(missing)
     )

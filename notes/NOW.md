@@ -71,14 +71,14 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAMPAIGN-3 live phenotype traits: cleverdinos objective succeeds on Cpg04
+- 2026-10-26 - SIM-5 employees: .bei profiles, hire/wages, hourly feeding queue, visible nutritionist
 - 2026-10-26 - CAMPAIGN-3 mission runtime: --start-mission, MISSION_PANEL tri-state/lights, CPGEND on result
 - 2026-10-26 - CAMPAIGN-2 evaluator core (tri-state; simple + trait verbs; 30 selftest verdicts)
 - 2026-10-26 - UI-2 Phase D tail: visitor travel state/route + dino clip phase in DINOPSAV
 - 2026-10-26 - CAMPAIGN-1 C++ campaign/mission reader (7/39/89, 33 verb ids; --campaign-info/--campaign-mission)
 - 2026-10-26 - DOCS-4 decoded feature port contracts (shows/employees/animals/lab/objectives)
 - 2026-10-26 - CAM-1 rest: camera.ini Config1 parser, data-driven speeds/limits, FUN_00529d00 height smoothing
-- 2026-10-26 - DOCS-3 campaign flow dossier (menu -> briefing -> park, unlock/difficulty, harness recipes)
-- 2026-10-26 - DOCS-2 park panel verification dossier (20-row matrix; budget/store/lists/construction/lab/options/dialogs)
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

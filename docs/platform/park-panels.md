@@ -110,8 +110,9 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 - **Mission panel:** with `--start-mission FILE` the briefing description,
   tips, five objective descriptions and the ON/OFF lights are populated;
   verdicts update every second and `CPGEND_PANEL` appears on success/failure.
-  The menu does not start missions yet and live dino/employee traits are not
-  filled.
+  The live traits come from the imported phenotype snapshots; employee roles
+  and hybrid/scarcity/strangeness/ornaments are not filled yet. The menu does
+  not start missions.
 
 ## Recipes
 

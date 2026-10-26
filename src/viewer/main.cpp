@@ -4250,6 +4250,7 @@ int main(int argc, char** argv) {
         std::string clip;
         bool carnivore = true;  // diet gene 14; drives the food source match
         dino::DinoNeeds needs;
+        dino::DinoAttributes attributes;  // phenotype snapshot for objectives
         std::optional<dino::DinoActionLoop> action_loop;
         float x = 0.0f;
         float y = 0.0f;
@@ -5210,6 +5211,10 @@ int main(int argc, char** argv) {
                                       angle)) {
                     imported_dinos.back().carnivore =
                         dino::genotype_is_carnivore(record.genotype);
+                    if (phenotype_table.valid) {
+                        imported_dinos.back().attributes =
+                            phenotype_table.attributes(record.genotype);
+                    }
                     ++spawned;
                     ++species_counts[species];
                 }
@@ -5326,6 +5331,10 @@ int main(int argc, char** argv) {
                                 have_genotype
                                     ? dino::genotype_is_carnivore(buy_genotype)
                                     : true;
+                            if (have_genotype && phenotype_table.valid) {
+                                imported_dinos.back().attributes =
+                                    phenotype_table.attributes(buy_genotype);
+                            }
                             dino::paddock_add(paddock, dino_id, cost_class);
                             budget_ledger.spend_dinoachat(entry->price);
                             pending_buy_price = entry->price;
@@ -7986,6 +7995,32 @@ int main(int argc, char** argv) {
                 state_visitor.satisfaction = visitor.need0;
                 mission_state.visitors.push_back(state_visitor);
             }
+            // Live trait snapshot. The objective slots are actor fields
+            // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
+            // +0x1e0/+0x8c); the port's phenotype exposes the related
+            // beauty/aggression/stamina/agility/intelligence and a body
+            // length. Hybrid/scarcity/strangeness/ornaments are not ported
+            // yet, so those verbs stay pending.
+            for (const ImportedDino& dinosaur : imported_dinos) {
+                dino::DinoTraitState trait;
+                trait.species = dinosaur.species;
+                trait.cuteness = dinosaur.attributes.beauty;
+                trait.aggression = dinosaur.attributes.aggression;
+                const dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                trait.food = needs.value[0];
+                trait.size = dinosaur.attributes.length_cm > 0
+                                 ? dinosaur.attributes.length_cm
+                                 : needs.size_cm;
+                trait.speed = static_cast<int>(
+                    dinosaur.attributes.walk_speed * 100.0f);
+                trait.stamina = dinosaur.attributes.stamina;
+                trait.agility = dinosaur.attributes.agility;
+                trait.intelligence = dinosaur.attributes.intelligence;
+                trait.beauty = dinosaur.attributes.beauty;
+                mission_state.dinos.push_back(trait);
+            }
             campaign_runtime->tick(dt, mission_state);
             const auto& verdicts = campaign_runtime->verdicts();
             if (verdicts != last_mission_verdicts) {
@@ -8506,6 +8541,10 @@ int main(int argc, char** argv) {
                             } else if (add_imported_dino(
                                            species, family, opt.dino_clip, wx,
                                            wy, 0.0f)) {
+                                if (have_genotype && phenotype_table.valid) {
+                                    imported_dinos.back().attributes =
+                                        phenotype_table.attributes(genotype);
+                                }
                                 dino::paddock_add(paddock, dino_id,
                                                   cost_class);
                                 park_budget -= pending_store_price;

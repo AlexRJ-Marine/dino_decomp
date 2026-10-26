@@ -90,14 +90,16 @@ CpgNN/CpgNN_Save.wld    initial park
   `MISSION_PANEL` with the briefing description, tips, five objective lines
   and ON/OFF lights, updates them live, and shows `CPGEND_PANEL` on
   success/failure. The live state fills treasury, visitor count/satisfaction,
-  merchandise revenue, camera altitude, clock, store-empty and bankruptcy;
-  dinos/employees are still empty (trait verbs pending) and deaths are 0.
+  merchandise revenue, camera altitude, clock, store-empty, bankruptcy and
+  the imported dinosaurs' phenotype traits (cuteness/beauty, aggression,
+  size, speed, stamina, agility, intelligence, food). Hybrid, scarcity,
+  strangeness and ornaments are still 0, employees are empty and deaths are 0.
 - The port does **not** handle `CAMPAIGN_LIST` selection, `CAMPAIGN_START`
   or `CAMPAIGN_INFO_START`; only `ISLAND_LIST`/`FREE_START` are wired. A
   campaign mission must be started with `--start-mission`, not the menu.
-- Mission state is not stored in the port save; menu mission selection, live
-  dinosaur/employee traits, ending videos and the remaining show/building/
-  isolation/hungry verbs are open.
+- Mission state is not stored in the port save; menu mission selection, the
+  exact actor trait fields, employee roles, ending videos and the remaining
+  show/building/isolation/hungry verbs are open.
 
 ## Verification recipes
 

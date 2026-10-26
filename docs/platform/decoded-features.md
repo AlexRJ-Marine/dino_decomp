@@ -68,12 +68,16 @@ show the five category scores. Schedule/live actors come later.
 **Data** `EmployeeList.ini`, `.bei` profiles (2), `EFFECTIFS_NUTRI_*` /
 `EFFECTIFS_SECU_*` panels.
 
-**Port status** no employee actors; daily wages are 0 and the staff panels are
-static.
+**Port status** first slice implemented (`src/formats/bei.*`,
+`src/world/employees.*`): Nutritionist hiring, the hourly queue seeded from
+every placed food source, walk + 3 s work + refill, daily wages in the ledger,
+and a visible employee actor. The interactive `EFFECTIFS_NUTRI_*` buttons and
+the save round-trip are still open. See `employees.md`.
 
 **First slice** spawn one nutritionist, seed the hourly queue from the placed
 food sources, path to the source, play the work duration and mark the source
-serviced; feed the wage bucket into `BudgetLedger` at day rollover.
+serviced; feed the wage bucket into `BudgetLedger` at day rollover. **Done**
+(`--hire-nutritionist`, `--feed-now`, `notes/employees.png`).
 
 **Evidence** `../decomp/employee-ai.md`, `../formats/bei.md`,
 `../decomp/economy.md`, `../../notes/employee-ai-recon.md`.
@@ -158,9 +162,11 @@ campaigns, 39 missions, 89 objectives and the 33-verb table; CLI
 and the tri-state aggregate; `src/world/campaign_runtime.{h,cpp}` evaluates
 once per second and stops on success/failure. `--start-mission FILE` opens
 `MISSION_PANEL` with the briefing, five objective lines and ON/OFF lights,
-and shows `CPGEND_PANEL` on the result. Live dinosaur/employee traits are
-still empty (trait verbs pending), and menu mission selection, mission state
-in the port save and ending videos are open; show/building/isolation/hungry
+and shows `CPGEND_PANEL` on the result. Live dinosaurs are filled from the
+imported phenotype snapshots (cuteness/beauty, aggression, size, speed,
+stamina, agility, intelligence, food); hybrid/scarcity/strangeness/ornaments
+and employee roles are still empty. Menu mission selection, mission state in
+the port save and ending videos are open; show/building/isolation/hungry
 verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators

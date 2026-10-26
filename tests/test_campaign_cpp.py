@@ -118,3 +118,23 @@ def test_cpp_campaign_mission_success():
     assert "visitors: 30 spawned on 24 path cells" in result.stdout
     assert "mission objective 0 visitors -> success" in result.stdout
     assert "mission Cpg01_Mission11: success" in result.stdout
+
+
+def test_cpp_campaign_live_traits():
+    # Cpg04's imported dinosaurs carry phenotype snapshots; Cpg01_Mission9
+    # wants one dinosaur with intelligence >= 80. The mission is just a
+    # convenient objective carrier for the live-trait path.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg01" / "Cpg01_Mission9.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04/Cpg01 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 cleverdinos -> success" in result.stdout
+    assert "mission Cpg01_Mission9: success" in result.stdout
