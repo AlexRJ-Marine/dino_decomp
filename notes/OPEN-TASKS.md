@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 20:29. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 21:52. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-27 open items.
+31 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -57,6 +57,12 @@ Generated from `TASKS.md` on 2026-10-26 20:29. Do not edit; regenerate with `scr
 
 ## DEC-6: Function status list
 - [ ] Keep it current as functions are replaced.
+
+## TOOL-4: Background-safe virtual input (focus/cooperative-level shim)
+- [ ] Hook the mouse `IDirectInputDevice8::SetCooperativeLevel` (slot 13) and
+- [ ] Make `GetDeviceState`/`GetDeviceData` synthesize valid state even when
+- [ ] Determine whether the game tick resumes on `WM_SETFOCUS` plus the
+- [ ] Re-run `play-freegame.ps1` fully backgrounded and require
 
 ## DEC-2: Simulation scheduler and AI update order
 - [ ] Runtime-confirm the task order, the `0x1f` idle sentinel, and name the

@@ -3,94 +3,74 @@
 Four phases. The goal is a playable, portable game and a readable hybrid
 decompilation that keeps the original runnable while functions are replaced.
 
-## Phase 1 — Formats and assets (current)
+Last refreshed: 2026-10-26. The **task** view is `notes/OPEN-TASKS.md`
+(generated from `TASKS.md`). The **feature** view is
+[`platform/feature-status.md`](platform/feature-status.md) — status, retail
+evidence, port entry points, tests and gaps per feature. This page only keeps
+the phase-level picture.
 
-- Use Ghidra to locate the archive/file loaders and document every format with
-  evidence: hex dumps, decompiled functions, or a parser that round-trips retail
-  data.
-- Write extractors and tests against real files.
-- Build a simple viewer for models, textures and sounds so decoded data can be
-  checked by eye.
-- Post findings to XeNTaX / ZenHax and ask whether anyone has prior work.
+## Phase 1 — Formats and assets (largely complete)
 
-Exit criteria:
+Every shipped format in `game/` is mapped to a spec in `docs/formats/` and,
+where it is a parser, to `tools/formats/` with a test against retail files.
 
-- `.mesh`, `.skin`, `.skel`, `.anim`, `.tga`, `.fnt`, `.loc`, `.lnd`, audio.
-- All parsers scan their full retail sets with zero errors.
-- A model/texture/sound viewer opens real assets.
-- Community post published (or drafted for the user to publish).
+- Mesh/skin/skeleton/animation, TGA, WAV, FNT, LOC, LND, RAW: done.
+- `FMT-8..31`: shows, genotypes, visitor/building/food/animal/employee
+  profiles, sequence events, campaign data, translator tables, render states,
+  lab/global parameters, market/free-game config: done.
+- Remaining work is semantic, not structural: see the open items in
+  `notes/OPEN-TASKS.md` and the per-feature gaps in
+  `platform/feature-status.md`.
+- Community post is drafted (`community/xentax-post.md`); the user publishes
+  it and records replies.
 
-### Task mapping
+Exit criteria: all parsers scan their full retail sets with zero errors (met);
+model/texture/sound viewer (met); community post published (pending).
 
-| Task | Status |
-| --- | --- |
-| FMT-1 `.mesh` header | done |
-| FMT-2 `.mesh` geometry | done |
-| FMT-3 `.skin` | done |
-| FMT-4 `.skel` | done |
-| FMT-5 `.anim` | **next** |
-| FMT-6 simple asset loaders | todo |
-| FMT-7 text/config formats | todo |
-| VIEW-0 simple asset viewer | todo |
-| OUTREACH-1 XeNTaX/ZenHax post | todo |
+## Phase 2 — Platform layer (working vertical slice)
 
-## Phase 2 — Platform layer (weeks)
+- SDL3 + OpenGL window, mesh/texture renderer, skinned animation: done
+  (`VIEW-1/2/3`).
+- Island terrain, vegetation, skybox/water/fog, buildings, paths/fences:
+  working (`WORLD-1/1b/1c`, `SLICE-1`).
+- Visitor agents, dinosaur action loop, danger grid/SECU, feeding: working
+  (`SIM-1`, `SIM-2`, `SIM-3` partial).
+- Retail menu, park HUD, panels, store, save/load, dialogs, minimap, clock:
+  working (`UI-0/1/2` partial, `SAVE-1`).
+- Audio: WAV, menu/park clicks and streamed island music (`AUDIO-1/2/3`).
+- Windowed/background test harness and the retail UI click map: done
+  (`TOOL-1/2/3`); background input activation shim still open (`TOOL-4`).
 
-- Replace the original renderer, audio and input with SDL3 plus OpenGL or
-  Vulkan.
-- Start by drawing the extracted assets; then the world, then animation.
-- Add quality-of-life work while it is cheap: resolution/widescreen, borderless
-  window, UI scaling, key rebinding.
+Exit criteria: portable window/input/audio/renderer (met); one skinned dinosaur
+on one island (met); QoL documented and configurable (mostly met; UI scaling
+`QOL-2` remains).
 
-Exit criteria:
+## Phase 3 — Hybrid decompilation (active)
 
-- Portable window + input + audio + renderer.
-- One mesh + texture renders; one skinned dinosaur animates.
-- QoL features documented and configurable.
+- Hooked the original exe through the `DINPUT8.dll` proxy and replaced the
+  matrix, normal, vector, `.skin`, `.anim`, `.skel`, whole-`.mesh` and `.fnt`
+  readers (`HYB-1..7`). The game still reaches a playable park.
+- Function-level status is tracked in `decomp/function-status.md`; remaining
+  small candidates include the `0x4809e0` UV reader.
+- Verification targets (world, simulation, presentation) continue from the
+  matrix rows marked **partial** or **decoded**.
 
-### Task mapping
-
-| Task | Status |
-| --- | --- |
-| VIEW-1 SDL3 window | todo |
-| VIEW-2 mesh + texture | todo |
-| VIEW-3 skinned animation | todo |
-| QOL-1 resolution/widescreen/borderless | todo |
-| QOL-2 UI scaling | todo |
-| QOL-3 key rebinding | todo |
-
-## Phase 3 — Hybrid decompilation (months)
-
-- Hook the original `DinoIsland.exe` and replace functions one at a time with
-  recovered C++ source, keeping the game runnable throughout.
-- Work from the outside in: loaders and utility code first, then simulation
-  subsystems.
-- Track progress as a function list with status per function:
-  `identified`, `decompiled`, `verified`.
-
-Exit criteria:
-
-- Every replaced function is exercised by the running game.
-- The function list records evidence and status.
-- Original and replacement can be toggled for comparison.
-
-### Task mapping
-
-| Task | Status |
-| --- | --- |
-| DEC-1 loader map | in progress (mesh/skin/skel done) |
-| DEC-6 function status list | todo |
-| HYB-1 hook + replace first loader | todo |
-| WORLD/SIM/UI/SAVE tasks | later verification targets |
+Exit criteria: every replaced function exercised by the running game; function
+list current; original/replacement toggle (partly met).
 
 ## Phase 4 — Remove the original exe and expand
 
-- Once nothing calls the original code, drop the exe and retarget other
-  platforms.
-- Optional: matching decompilation for a byte-identical rebuild.
+Not started. Depends on Phase 3 reaching zero remaining original-code calls.
+The reference-comparison and packaging tasks (`PAR-1`, `PAR-2`) are the first
+steps.
 
-Exit criteria:
+## Keeping this current
 
-- No runtime dependency on `DinoIsland.exe`.
-- Portable builds for other platforms.
-- Optional matching-decomp milestone tracked separately.
+- When a task completes: `scripts/state.ps1 -Done "..."` and
+  `scripts/tasks.ps1 -Update`.
+- When a feature changes status, evidence or tests: edit the corresponding
+  row in [`platform/feature-status.md`](platform/feature-status.md); its test
+  (`tests/test_feature_matrix.py`) checks links, screen ids, control names and
+  test references.
+- Do not duplicate per-feature detail here; link to the matrix and its
+  evidence.

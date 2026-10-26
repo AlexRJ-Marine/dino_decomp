@@ -47,6 +47,7 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- DOCS-1: feature status matrix + roadmap/docs index (recon lane, docs-only)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
   writers, visitor/obstacle perception reaction.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -65,6 +66,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - DOCS-1 feature status matrix + docs index (46 screens/499 controls cross-linked; matrix test)
 - 2026-10-26 - Workflow tooling: NOW dashboard, lanes, lane build dirs, fast test selection, skills and commands
 - HYB-7 `.fnt` loader replaced; phenotype attributes ported and reviewed
   (`DinoAttributes`, 17/20 Cpg04 rows exact).

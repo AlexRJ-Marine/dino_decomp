@@ -234,7 +234,8 @@ live 3D snapshots per dinosaur remain open.
 
 - Kerning/advance beyond glyph width; coloured/shadowed text.
 - High-DPI text sharpness at non-integer drawable/logical ratios.
-- Save/load panels and park button bindings (UI-2 Phase D).
+- Slider/checkbox selection in the info panels; live 3D thumbnails in the
+  dino/paddock/show list slots.
 - Minimap detail-map water colour and exact partition contents.
 - `draw_ui_mesh` re-uploads its mesh per widget per frame; batching is the
   next performance step for the park HUD.

@@ -1538,6 +1538,24 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
+## Documentation
+
+### DOCS-1: Feature status matrix and docs index
+- [x] Add `docs/platform/feature-status.md`: one row per retail feature or
+  screen with status, evidence links, port entry points, test references and
+  gaps.
+- [x] Replace the stale per-phase task tables in `docs/ROADMAP.md` with the
+  current phase picture and links to the matrix and `notes/OPEN-TASKS.md`.
+- [x] Add `docs/README.md` (docs tree index and the commands used to verify
+  docs).
+- [x] Validate the matrix with `tests/test_feature_matrix.py`: evidence links
+  resolve, screen ids/control names exist in `ui-coordinates.json`, test
+  references exist, and every format/decomp/platform doc is referenced.
+- **Acceptance:** matrix rows link real evidence/tests; the matrix test and
+  `tests/test_ui_map.py` pass.
+- **Evidence:** `docs/platform/feature-status.md`, `docs/README.md`,
+  `docs/ROADMAP.md`, `tests/test_feature_matrix.py`.
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness
