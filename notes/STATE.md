@@ -1338,9 +1338,10 @@ Updated: 2026-10-26
   (`front=-X, left=+Y, back=+X, right=-Y, top=+Z, bottom=-Z`), the water uses
   the retail additive blend (`WaterSurface.ini`: One/One/Add), and the scene
   and water fog are applied (`FogParam.txt` 1500..2000 warm,
-  `FogParam_WaterSurface.txt` 100..700 black; both linear). Remaining: the
-  second `Modulate2x` water texture stage (coord set 1, animation) and the
-  skybox bottom/side seam.
+  `FogParam_WaterSurface.txt` 100..700 black; both linear). The isl01 09:42
+  side-by-side matches (`notes/p5-side-by-side.png`). Remaining: the second
+  `Modulate2x` water texture stage (coord set 1, animation), the skybox
+  bottom/side seam, minimap detail and slightly smoother retail shading.
 - WORLD-2 remains: frustum culling and LOD2. The `model[0] = 1` slope basis
   is ported (`dino::slope_basis`, three-radius terrain normal; selftest
   covers flat and tilted cases). `model[1]` is 0.0 in all files. Building
@@ -1386,9 +1387,10 @@ Updated: 2026-10-26
 13. WORLD-3: water height **confirmed** (`FUN_00602cf0` = the `.lnd` float:
    isl01 16.0, isl02 20.0), the skybox face order matches the retail builder
    (`0x00600f80`/`0x00600df0`), and scene/water fog plus the additive blend
-   are applied. The `.lnd` carry path is solved (`notes/lnd-carry-recon.md`).
-   Remaining: the second `Modulate2x` water stage, the skybox bottom seam and
-   a direct side-by-side still.
+   are applied. The `.lnd` carry path is solved (`notes/lnd-carry-recon.md`)
+   and the isl01 09:42 side-by-side matches (`notes/p5-side-by-side.png`).
+   Remaining: the second `Modulate2x` water stage, the skybox bottom seam,
+   water animation, minimap detail and slightly smoother retail shading.
 14. CONS-1 store panel done: rows/selection/SAVE/ground click charge and row
    removal work on Cpg04 (`notes/store-panel-recon.md`,
    `notes/store-panel.png`). Remaining polish: the 3D preview actor, the

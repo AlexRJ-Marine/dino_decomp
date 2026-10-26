@@ -44,8 +44,26 @@ is `notes/p5-sky.png`.
   `Modulate2x` (coordinate set 1, likely a scrolling layer); that is not
   implemented yet. Current capture: `notes/p5-water-fog3.png`.
 
+## Side-by-side (WORLD-3)
+
+`notes/p5-side-by-side.png` compares the retail game (dgVoodoo2, isl01
+Free Game, 09:42) with the port at the same camera (`--distance 65.6 --yaw 0
+--pitch 53.4 --park-time 09:42`, 800×600). Terrain silhouette, basemap,
+vegetation placement, HUD anchoring and the warm fog match closely.
+
+Known differences in that frame:
+
+- the retail park has two visitors (budget 75,150) and the port has none
+  (75,000);
+- the port minimap is camera-rotated and its detail render differs from the
+  retail minimap;
+- retail terrain shading is slightly smoother than the port's;
+- the port has no water in this view (same as retail), so the second
+  `Modulate2x` water stage is not exercised.
+
 ## Evidence
 
+- `notes/p5-side-by-side.png` — retail vs port, same island/camera/time.
 - `notes/world3-sky2.png` — island, ocean plane and sky from 900 units.
 - `notes/world3-hero.png` — low-angle island shot.
 - `notes/world3-up.png` — top-down island with sky at the corners.

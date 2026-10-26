@@ -928,9 +928,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `0x00600f80` / draw `0x00600df0`: front=-X, left=+Y, back=+X, right=-Y,
   top=+Z, bottom=-Z, UVs (0,0),(1,0),(0,1),(1,1), v=0 at the PNG top.
   The previous mapping was rotated ~90 degrees.
-- [ ] Match the original look closely enough for comparison screenshots
-  (second `Modulate2x` water stage, park fog, water animation and a direct
-  side-by-side still open).
+- [x] Side-by-side at isl01 09:42, same camera (`notes/p5-side-by-side.png`):
+  terrain, basemap, vegetation, HUD and warm fog match. Remaining polish:
+  second `Modulate2x` water stage, water animation, minimap rotation/detail
+  and slightly smoother retail terrain shading.
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/environment.md`,
