@@ -82,6 +82,10 @@ class SimuTrans:
     merge: dict[str, MergeTable]
     attributes: dict[tuple[str, str], MergeTable]
     default_families: list[int]
+    dummy_disposition: dict[str, list[list[int]]] = field(default_factory=dict)
+    dummy_type: dict[str, list[list[int]]] = field(default_factory=dict)
+    dummy_influence: list[list[list[int]]] = field(default_factory=list)
+    member_reference_widths: list[int] = field(default_factory=list)
     part_headers: list[tuple[int, str]] = field(default_factory=list)
 
     def family_of(self, dinosaur_index: int) -> str:
@@ -94,6 +98,19 @@ class SimuTrans:
             "merge": {name: table.to_dict() for name, table in self.merge.items()},
             "attributes": len(self.attributes),
             "attribute_keys": [f"{p}:{a}" for p, a in self.attributes],
+            "dummy_disposition": {
+                name: [len(rows), len(rows[0]) if rows else 0]
+                for name, rows in self.dummy_disposition.items()
+            },
+            "dummy_type": {
+                name: [len(rows), len(rows[0]) if rows else 0]
+                for name, rows in self.dummy_type.items()
+            },
+            "dummy_influence": [
+                [len(table), len(table[0]) if table else 0]
+                for table in self.dummy_influence
+            ],
+            "member_reference_widths": self.member_reference_widths,
             "default_families": {
                 FAMILIES[i]: self.default_families.count(i)
                 for i in range(len(FAMILIES))
@@ -154,6 +171,68 @@ def _table(name: str, body: list[str], expected: int) -> MergeTable:
     return MergeTable(name=name, diagonal=diagonal, matrix=matrix)
 
 
+def _dummy_subtables(
+    lines: list[str], start: int, end: int, row_width: int
+) -> dict[str, list[list[int]]]:
+    parts: dict[str, list[list[int]]] = {}
+    index = start
+    while index < end:
+        text = lines[index].strip()
+        if text in ("// Head", "// Body", "// Tail"):
+            name = text[3:]
+            index += 1
+            while index < end and not lines[index].strip():
+                index += 1
+            count = int(lines[index].strip())
+            index += 1
+            rows: list[list[int]] = []
+            while len(rows) < count:
+                if lines[index].strip():
+                    row = [int(token) for token in lines[index].split()]
+                    if len(row) != row_width:
+                        raise SimuTransError(
+                            f"{name}: row {len(rows)} has {len(row)} values, "
+                            f"expected {row_width}"
+                        )
+                    rows.append(row)
+                index += 1
+            parts[name] = rows
+        else:
+            index += 1
+    if set(parts) != {"Head", "Body", "Tail"}:
+        raise SimuTransError(f"dummy subparts: {sorted(parts)}")
+    return parts
+
+
+def _dummy_influence(
+    lines: list[str], start: int, end: int
+) -> tuple[list[list[list[int]]], list[int]]:
+    tokens = [
+        line.strip()
+        for line in lines[start + 1:end]
+        if line.strip() and not line.strip().startswith("//")
+    ]
+    index = 0
+    tables: list[list[list[int]]] = []
+    while index < len(tokens) and tokens[index].endswith(":"):
+        count = int(tokens[index].rstrip(":"))
+        index += 1
+        blocks: list[list[int]] = []
+        for _ in range(count):
+            width = int(tokens[index].rstrip(":"))
+            index += 1
+            values: list[int] = []
+            while len(values) < width:
+                values.extend(int(token) for token in tokens[index].split())
+                index += 1
+            if len(values) != width:
+                raise SimuTransError("dummy influence row width mismatch")
+            blocks.append(values)
+        tables.append(blocks)
+    widths = [int(token) for token in tokens[index:]]
+    return tables, widths
+
+
 def read_simu_trans(path: Path) -> SimuTrans:
     lines = path.read_text(encoding="cp1252", errors="replace").splitlines()
     headers = _part_offsets(lines)
@@ -163,6 +242,9 @@ def read_simu_trans(path: Path) -> SimuTrans:
     part4_start = starts[4]
     part10_start = starts[10]
     part10_end = len(lines)
+    part5_start = starts[5]
+    part6_start = starts[6]
+    part7_start = starts[7]
 
     merge: dict[str, MergeTable] = {}
     for match, body in _block(lines, part2_start, part3_start, MERGE_RE):
@@ -193,12 +275,31 @@ def read_simu_trans(path: Path) -> SimuTrans:
     if any(not 0 <= value < len(FAMILIES) for value in values):
         raise SimuTransError("default family index out of range")
 
+    dummy_disposition = _dummy_subtables(lines, part4_start, part5_start, 6)
+    dummy_type = _dummy_subtables(lines, part5_start, part6_start, 5)
+    dummy_influence, reference_widths = _dummy_influence(
+        lines, part6_start, part7_start
+    )
+    if len(dummy_influence) != 2 or any(
+        len(table) != 50 or any(len(row) != 18 for row in table)
+        for table in dummy_influence
+    ):
+        raise SimuTransError("dummy influence: expected two 50x18 tables")
+    if len(reference_widths) != 5:
+        raise SimuTransError(
+            f"member reference widths: {len(reference_widths)} values"
+        )
+
     return SimuTrans(
         path=str(path),
         genes=read_gene_trans(path),
         merge=merge,
         attributes=attributes,
         default_families=values,
+        dummy_disposition=dummy_disposition,
+        dummy_type=dummy_type,
+        dummy_influence=dummy_influence,
+        member_reference_widths=reference_widths,
         part_headers=[(n, title) for n, _, title in headers],
     )
 

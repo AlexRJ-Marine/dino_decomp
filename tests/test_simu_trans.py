@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
 from anim_trans import read_anim_trans  # noqa: E402
+from anim_trans import read_graphic_trans  # noqa: E402
 from simu_trans import FAMILIES, read_simu_trans  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
@@ -75,3 +76,38 @@ def test_default_families():
         "LightBiped": 7,
         "LowQuadruped": 3,
     }
+
+
+def test_dummy_disposition_and_type():
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert set(data.dummy_disposition) == {"Head", "Body", "Tail"}
+    assert set(data.dummy_type) == {"Head", "Body", "Tail"}
+    for part in ("Head", "Body", "Tail"):
+        rows = data.dummy_disposition[part]
+        assert len(rows) == 48 and all(len(row) == 6 for row in rows)
+        rows = data.dummy_type[part]
+        assert len(rows) == 48 and all(len(row) == 5 for row in rows)
+    assert data.dummy_disposition["Head"][0] == [0, 0, 0, 0, 0, 0]
+    assert data.dummy_disposition["Head"][1] == [3, 0, 0, 3, 3, 3]
+    assert data.dummy_type["Head"][0] == [0, 0, 0, 0, 0]
+    assert data.dummy_type["Head"][1] == [7, 8, 9, 8, 0]
+
+
+def test_dummy_influence_and_reference_widths():
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert len(data.dummy_influence) == 2
+    for table in data.dummy_influence:
+        assert len(table) == 50
+        assert all(len(row) == 18 for row in table)
+    assert data.dummy_influence[0][0] == [0] * 18
+    assert data.dummy_influence[1][0] == [100] * 18
+    assert data.dummy_influence[0][49][:6] == [40, 0, 0, 2, 2, 1]
+    assert data.member_reference_widths == [100, 100, 100, 300, 150]
+    if (GENOTYPE / "graphic_trans.dic").exists():
+        assert data.member_reference_widths == read_graphic_trans(
+            GENOTYPE / "graphic_trans.dic"
+        )

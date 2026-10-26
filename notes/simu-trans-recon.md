@@ -63,11 +63,29 @@ LowQuadruped`. Counts: 3 / 4 / 3 / 7 / 3. Pachy is index 10 → **LightBiped**
 despite its quadruped build. This is the mapping the animation system uses
 when a species has no explicit family.
 
-## Parts 4–9 (inventory)
+## Parts 4–6 — dummy tables
 
-- Part 4: five parts, 48 rows × six ints (dummy disposition tags 0–5).
-- Part 5: five parts, 48 rows × five ints (dummy type ids 0–49).
-- Part 6: `50:` then 50 × (`18:` + 18 ints) — dummy influence over 18 groups.
+Parts 4 and 5 have **three** subparts (`Head`, `Body`, `Tail`), not five,
+matching the `.gen` dummy genes 4–9.
+
+- Part 4 "Dummy disposition": `48` then 48 rows × six ints. Head[0] =
+  `0 0 0 0 0 0`, Head[1] = `3 0 0 3 3 3`.
+- Part 5 "Dummy type": `48` then 48 rows × five ints. Head[0] =
+  `0 0 0 0 0`, Head[1] = `7 8 9 8 0`.
+- Part 6 "Dummy influence": **two** `50:` tables of `18:` + 18 ints, then
+  five reference widths:
+  - table 0 block 0 = all zeros; block 49 starts `40 0 0 2 2 1`;
+  - table 1 block 0 = all 100; block 49 starts `100 100 101 100 110 100`;
+  - widths `100 100 100 300 150`, exactly `graphic_trans.dic`.
+  The source comment says they are "Reference width for members, used in
+  dummy bonus computation".
+
+The 48 rows align with the `.gen` dummy position range (0..47); the 50 rows
+of Part 6 align with the Part 5 type ids (0..49). The 18 columns are the
+member/bone groups.
+
+## Parts 7–9 (inventory)
+
 - Part 7: `8:` skin types × (`3:` + 3 values), then `582` × (`22:` + `18:` +
   18 ints) — skin allele mapping + influence.
 - Part 8: `6:` carapace types × (`3:` + 3 values), then `16` × (`18:` + 18

@@ -95,6 +95,11 @@ panel at a time; the port follows that:
 - every panel closes through its own close/cancel/validate/put-back button
   or by clicking the same opener again.
 
+The budget ledger's `BUDGET_*_NUMBER` widgets (category quantity/cost and the
+two totals) are separate number widgets refreshed by `0x510430`; a fresh park
+has no spending yet, so the port fills them with `0`. The gauge budget comes
+from the selected difficulty (75,000 / 50,000 / 25,000).
+
 `DIALOG_BACKGROUND` is **not** used here: it belongs to the warning, request
 and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
 while pressed (when the strip has those frames).

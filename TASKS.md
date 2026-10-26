@@ -670,8 +670,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (base hour 9, time scale 60, 12-hour day ending at hour 11, day rollover);
   the HUD `PARK_CURRENT_TIME`/`PARK_CURRENT_DAY` are live, with
   `--park-time`/`--park-time-scale`.
-- [ ] Phase C rest: dynamic sub-panel fields (budget ledger rows, list
-  snapshots, sliders), minimap water colour/partition polish.
+- [x] Phase C rest (budget ledger): `BUDGET_*_NUMBER` category/total widgets
+  show the fresh-park zeros (refresh mapping from `0x510430`); gauge budget
+  follows the difficulty.
+- [ ] Phase C rest: list snapshots/sliders, minimap water colour/partition
+  polish.
 - [ ] Phase D: save/load panels, menu sounds.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.

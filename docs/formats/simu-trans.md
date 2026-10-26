@@ -13,9 +13,9 @@ text, ten `// Part N : title` sections:
 | 1 | gene translation table | 18 gene blocks | solved (`gene_trans.py`) |
 | 2 | merge ratio table | 4 × (20 diagonal + 20×20) | solved |
 | 3 | attributes linked to members | 55 × (20 diagonal + 20×20) | solved |
-| 4 | dummy disposition table | 5 × 48 × 6 ints | inventoried |
-| 5 | dummy type table | 5 × 48 × 5 ints | inventoried |
-| 6 | dummy influence table | 50 × 18 ints | inventoried |
+| 4 | dummy disposition table | 3 × 48 × 6 | solved |
+| 5 | dummy type table | 3 × 48 × 5 | solved |
+| 6 | dummy influence table | 2 × 50 × 18 + 5 widths | solved |
 | 7 | skin translation/influence | 8 × 3, then 582 × 22 × 18 | inventoried |
 | 8 | carapace translation/influence | 6 × 3, then 16 × 18 | inventoried |
 | 9 | min & max attributes | 20 + 20 values | inventoried |
@@ -94,14 +94,64 @@ Species order is the `anim_trans.dic` order (`allo`..`velo`); indices map to
 Note `pachy` is **LightBiped** despite its quadruped build — the animation
 family is a data choice, not a morphology rule.
 
-## Parts 4–9 (inventory)
+## Parts 4–6 — dummy tables
 
-- **Dummy disposition** (Part 4): five parts, each 48 rows of six ints
-  (`0`/`1`/`2`/`3`/`4`/`5` tags per dummy slot).
-- **Dummy type** (Part 5): five parts, each 48 rows of five ints (dummy type
-  ids 0–49).
-- **Dummy influence** (Part 6): `50:` followed by 50 blocks of `18:` + 18
-  ints (per-dummy influence over the 18 bones/groups).
+These are the data behind `.gen` genes 4–9 (head/body/tail dummy position and
+type). All three have **three** subparts (`Head`, `Body`, `Tail`), matching
+the three dummy gene pairs.
+
+### Part 4 — dummy disposition
+
+Each subpart is a `48` count followed by 48 rows of six ints:
+
+```text
+// Head
+48
+0 0 0 0 0 0
+3 0 0 3 3 3
+...
+```
+
+The 48 rows match the `.gen` dummy position range (0..47); the six values are
+the disposition tags for the six dummy slots of that head/body/tail. Spot
+rows: Head[0] = `0 0 0 0 0 0`, Head[1] = `3 0 0 3 3 3`.
+
+### Part 5 — dummy type
+
+Each subpart is `48` rows of five ints (type ids 0–49):
+
+```text
+// Head
+48
+0 0 0 0 0
+7 8 9 8 0
+...
+```
+
+Spot rows: Head[0] = `0 0 0 0 0`, Head[1] = `7 8 9 8 0`.
+
+### Part 6 — dummy influence
+
+Two `50 × (18:` + 18 ints) tables, then five member reference widths:
+
+```text
+50:  18: <18 ints> ... (50 blocks)
+50:  18: <18 ints> ... (50 blocks)
+100 100 100 300 150
+```
+
+- First table: block 0 is all zeros; block 49 starts `40 0 0 2 2 1`.
+- Second table: block 0 is all 100; block 49 starts `100 100 101 100 110 100`.
+- The five widths are exactly `graphic_trans.dic` (`100,100,100,300,150`).
+
+The 50 rows probably correspond to the 50 dummy type ids (0..49) and the 18
+columns to the 18 member groups. The first table is a bonus/offset; the
+second is a percentage (100 = neutral). The reference widths normalise the
+bonus by member size (`// Reference width for members, used in dummy bonus
+computation`).
+
+## Parts 7–9 (inventory)
+
 - **Skin** (Part 7): `8:` skin types, each `3:` + 3 values (allele→skin
   mapping), then `582` rows of `22:` + `18:` + 18 ints (influence matrix).
 - **Carapace** (Part 8): `6:` carapace types, each `3:` + 3 values, then
@@ -122,11 +172,16 @@ Returns `SimuTrans` with:
 - `.genes` — the 18 `GeneTable`s (Part 1);
 - `.merge` — `{Head, ArmLeg, Body, Tail}` tables (Part 2);
 - `.attributes` — `{(part, attribute): MergeTable}` (Part 3, 55 entries);
+- `.dummy_disposition` — `{Head, Body, Tail}` 48 × 6 (Part 4);
+- `.dummy_type` — `{Head, Body, Tail}` 48 × 5 (Part 5);
+- `.dummy_influence` — two 50 × 18 tables (Part 6);
+- `.member_reference_widths` — the five widths (Part 6 tail);
 - `.default_families` and `.family_of(index)` (Part 10);
 - `.part_headers` — the ten `(number, title)` pairs.
 
 Tests: `tests/test_simu_trans.py` (18 genes, 10 parts, 4 merge tables equal
-to `anim_trans.dic`, 55 attribute tables and spot values, family table).
+to `anim_trans.dic`, 55 attribute tables, dummy tables, reference widths
+equal to `graphic_trans.dic`, family table).
 
 ## Evidence
 
@@ -139,7 +194,8 @@ to `anim_trans.dic`, 55 attribute tables and spot values, family table).
 
 ## Open
 
-- Parts 4–9 exact record semantics (dummy/skin/carapace tables).
+- Parts 7–9 exact record semantics (skin/carapace/min-max).
+- Exact meaning of the Part 4 disposition tags and Part 5 type ids.
 - How Part 3's 20×20 merge matrices combine hybrid parts.
 - The gene→Part 3 lookup used by the translator (which attribute/part a
   gene allele selects).

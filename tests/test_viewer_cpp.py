@@ -809,6 +809,14 @@ def test_cpp_park_panel_shot(tmp_path):
     assert a.getpixel((50, 300)) == b.getpixel((50, 300))
     # The budget ledger covers the centre; closing restores the frame exactly.
     assert b.getpixel((300, 300)) != a.getpixel((300, 300))
+    # The category number widgets show a value (a fresh park has zeros).
+    box = b.crop((150, 107, 186, 120)).tobytes()
+    bright = sum(
+        1
+        for i in range(0, len(box), 3)
+        if box[i] > 200 and box[i + 1] > 200 and box[i + 2] > 200
+    )
+    assert bright > 5
     assert ImageChops.difference(a, c).getbbox() is None
 
 

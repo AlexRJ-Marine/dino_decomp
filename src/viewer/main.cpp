@@ -3149,6 +3149,14 @@ int main(int argc, char** argv) {
             if (name == "PARK_CURRENT_DAY") {
                 return park_clock.day_text();
             }
+            // Budget-panel fields are separate number widgets refreshed by
+            // 0x510430. A fresh park has no spending yet, so every category
+            // and both totals are zero.
+            if (name.rfind("BUDGET_", 0) == 0 &&
+                name.size() > 7 &&
+                name.compare(name.size() - 7, 7, "_NUMBER") == 0) {
+                return "0";
+            }
             return "";
         };
 

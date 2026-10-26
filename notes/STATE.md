@@ -319,6 +319,12 @@ Updated: 2026-10-25
   - Evidence: `notes/ui-recon.md` ("Park clock"),
     `notes/clock-0944.png`, `notes/clock-0944-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_clock`.
+- UI-2 Phase C budget ledger complete: **category/total numbers populated.**
+  - The 30 `BUDGET_*_NUMBER` widgets are refreshed by `0x510430`; a fresh
+    park has no spending, so the port shows zeros for every category and both
+    totals. The gauge shows the difficulty budget.
+  - Evidence: `notes/park-budget.png`, `notes/park-budget-detail.png`,
+    `tests/test_viewer_cpp.py::test_cpp_park_panel_shot`.
 - 221 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
