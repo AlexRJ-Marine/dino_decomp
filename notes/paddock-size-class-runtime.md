@@ -1,7 +1,7 @@
 # Paddock size class: phenotype length and runtime values
 
-Status: **chain solved and runtime-confirmed.** The only open point is the
-live hybrid genotype (see "Divergence from the `.wld`" below).
+Status: **solved and ported.** The class chain and the hybrid scale are both
+explained; the port matches retail Cpg04 exactly (`used = 336`).
 
 ## Chain
 
@@ -101,38 +101,71 @@ Every row satisfies `class = category(head + body + tail)` with the thresholds
 above. Row 1 is the `+0x1b4 = 1` branch; its body is even, so both formulas
 give 606.
 
-## Divergence from the `.wld`
+## Why hybrids differ from the raw table
 
-The `.wld` genotype list predicts 14 of the 20 rows exactly (rows 1-6, 8, 12,
-14-18, 20). The mismatches are rows 7, 9, 10, 11, 13 and 19. Row 7 is the
-closest: the `(0,4)` head/body values are exact (158 and 140) but the live tail
-is 194 where the `.wld` `(0,4)` Part 3/merge composition gives 206. The class
-still matches for 19/20 rows (row 11 is class 2 live vs 1 from the file).
+The live campaign save (`run/save/auto/auto.sav`, 53,338 bytes, 20
+`drsDinosaur` records) has the **same 18-gene genotypes** as
+`Cpg04_Save.wld` (20/20, verified with `wld.read_sav_world`). There is no
+genotype mutation — the hybrid lengths differ because the raw Part 3 lookup is
+then **scaled per part**.
 
-So the live park does **not** use the `.wld` genotypes unchanged for every
-record (the mission/store path may recombine them), or the hybrid table is
-composed by more than a plain two-allele blend. Do not treat the `.wld`
-genotype as the final phenotype for the size class until the live genotype is
-traced.
+`FUN_00619830` computes the scales at `0x619969..0x619a05` and applies them in
+the loop at `0x619a0d..0x619a39`:
 
-Next experiment: capture the live 18-gene block at a **per-spawn** site.
-`0x586520` is the saDinosaur spawn used by `pvwParkView`; disassembly at
-`0x586528`/`0x58653b` shows that its first stack argument (`[esp+4]` at entry)
-is the genotype pointer (`actor+0x3c`), passed to `FUN_00617250` and
-`FUN_00618020`. A breakpoint there fires once per dinosaur, so log the six
-values for genes 0/2/3 in one command. (Probes at `0x619830` flood: that
-function is called continuously, and a multi-dereference log command hung the
-headless harness.)
+```text
+head_scale = merge_blend(proportion[parent].head) * body_length / head_length
+body_scale = 1
+tail_scale = merge_blend(proportion[parent].tail) * body_length / tail_length
+```
 
-## Port guidance
+The raw part length cancels out, so the final values are:
 
-`src/world/build.cpp::paddock_size_class` currently uses 300/900/1400. The
-retail thresholds are **200/620/900** (class 3 above 900). Do not simply swap
-the numbers: the port feeds the function a **mesh bounding-box maximum**, not
-the phenotype `head + body + tail` length. The correct port input is the
-phenotype length (Part 3 Length tables, part->gene `[0,1,1,2,3]`). Until that
-is ported, the species-bbox proxy remains an approximation, and the port's
-Cpg04 `used` (384) will not match retail (336).
+```text
+head = body_length * head_ratio
+body = body_length
+tail = body_length * tail_ratio
+```
+
+where
+
+```text
+head_ratio = m * proportion[B0][head] + (1-m) * proportion[A0][head]
+tail_ratio = m * proportion[A3][tail] + (1-m) * proportion[B3][tail]
+m          = Part2Merge[alleleB][alleleA] / 100
+body_length = Part3Length[Body][B2][A2]
+```
+
+`proportion.dat` columns are `[head, arm, body, leg, tail]`; the head ratio
+uses column 0 and the tail ratio column 4. The class length therefore
+simplifies to:
+
+```text
+length = body_length * (head_ratio + 1 + tail_ratio)
+```
+
+This reproduces 19/20 live lengths within ±1.5 cm and **all 20 classes**. The
+one length outlier is the `(1,4)/(4,4)/(1,4)` hybrid (formula 240, live 266);
+both are class 1, so it does not affect the paddock total. The port implements
+this formula (`DinoPhenotypeTable`) and now reports Cpg04 `used = 336`.
+
+## Port implementation
+
+`src/formats/dino_data.{h,cpp}` now exposes `DinoPhenotypeTable`:
+`read_dino_phenotype()` parses `proportion.dat` and the Part 2 Head/Tail
+merge blocks plus the Part 3 Body Length block from `simu_trans.dic`;
+`size_class()` implements the formula above with the retail thresholds
+`200/620/900` (class 3 above 900). `paddock_size_class()` in
+`src/world/build.cpp` now uses those thresholds.
+
+- The imported `.wld`/`.sav` dinosaurs use
+  `phenotype_table.size_class(record.genotype)`; the species-bbox proxy
+  remains only as a fallback when the table fails to load.
+- `--buy-dino` reads the full 18-gene `.gen` with `read_gen_genotype()` and
+  uses the same class.
+- Cpg04: **`paddocks: 9 capacity=492 used=336`**, matching retail exactly.
+  `DINO_DEBUG_PHENO=1` prints the per-dinosaur genotype, length and class.
+- Tests updated: `test_cpp_wld_park_dinosaurs`, `test_cpp_buy_dino`
+  (`used=336`, or `352` after the Zarbosaurus purchase).
 
 ## Evidence
 
@@ -140,8 +173,15 @@ Cpg04 `used` (384) will not match retail (336).
 - `FUN_00617250` disassembly `0x6174bb..0x6174ff` (length and class).
 - `FUN_00619830` (five part lengths, part->gene switch, lookups).
 - `FUN_0057EB50` (`0x57ebc3` reads `+0x1e0`).
+- `FUN_00619830` scale block `0x619969..0x619a05` and the apply loop
+  `0x619a0d..0x619a39` (part length *= scale).
 - `TranslatorConstants.ini` keys at translator `+0x244..+0x250`
   (`docs/formats/translator-constants.md`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1` (Cpg04 mission 1) and its
   generated, gitignored `notes/x32dbg-campaign.out.log` `DINORESET` lines;
-  the 20-value table above is the durable copy.
+  the 20-value table above is the durable copy. The live 53 KB campaign save
+  was parsed with `wld.read_sav_world` (20 dinosaurs + 9 fences + 57
+  buildings); its genotypes match `Cpg04_Save.wld`.
+- Port: `src/formats/dino_data.{h,cpp}` (`DinoPhenotypeTable`),
+  `src/world/build.cpp` (`paddock_size_class`), `src/viewer/main.cpp` (import
+  and buy paths), `tests/test_viewer_cpp.py` (`used=336`).

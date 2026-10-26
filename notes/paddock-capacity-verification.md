@@ -83,3 +83,12 @@ record-order first fit is a documented convention, not recovered data.
 - `src/world/build.cpp` (`paddock_capacity`, `paddock_cost`,
   `paddock_can_add`, `paddock_add`) and `src/viewer/main.cpp` (import fill).
 - `docs/platform/build.md`, `docs/decomp/construction-validation.md`.
+
+## Update 2026-10-26: exact phenotype class
+
+The species-bbox approximation above is superseded. The class is
+`length = body_length * (head_ratio + 1 + tail_ratio)` (proportion.dat
+blended by the Part 2 merge + Part 3 Body length); the port implements it in
+`DinoPhenotypeTable` and Cpg04 now reports `used = 336`, matching retail.
+See `notes/paddock-size-class-runtime.md`. This note is kept as the draft
+state that led to the exact model.

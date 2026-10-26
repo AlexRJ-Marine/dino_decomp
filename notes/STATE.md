@@ -1236,16 +1236,16 @@ Updated: 2026-10-26
     `stFence` ctor logs all nine fences with `cell = 4`; `[dino+0x1e0]` at
     `0x570fd0` is a size class `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
     (coelo/trood 0, anky/deino 1, allo mixed 1/2). Cpg04 `used` is therefore
-    **336**. The port derives a species baseline from the rest-mesh bbox
-    (`paddock_size_class`), giving **384**.
-  - **Size-class chain solved:** `saDinosaur+0x1e0` is phenotype `+0x190`,
-    copied to `+0x50` by `FUN_0056FED0`; `FUN_00617250` computes
-    `length = head + body + tail` from the Part 3 Length tables
-    (part->gene `[0,1,1,2,3]`) and compares it with
-    `TranslatorConstants.ini` `SizeCategory1..4MaxLength` (200/620/900/3200).
-    All 20 live Cpg04 classes match the logged `P+0x98/+0xa4/+0xa8`; the
-    live hybrid genotypes diverge from the `.wld` for 10/20 rows.
-    `notes/paddock-size-class-runtime.md`.
+    **336**. The port now computes the same class from the phenotype
+    (`DinoPhenotypeTable`), giving **336**.
+  - **Size-class chain solved and ported:** `saDinosaur+0x1e0` is phenotype
+    `+0x190`, copied to `+0x50` by `FUN_0056FED0`; `FUN_00619830` looks up
+    the Body length and blends the `proportion.dat` head/tail ratios with the
+    Part 2 merge, so `length = body_length * (head_ratio + 1 + tail_ratio)`,
+    compared with `SizeCategory1..4MaxLength` (200/620/900/3200). The live
+    campaign save has the same genotypes as the `.wld`; the port now uses
+    `DinoPhenotypeTable` on import and `--buy-dino`, giving Cpg04
+    **`used = 336`** (retail exact). `notes/paddock-size-class-runtime.md`.
   - Campaign progression is `run/save/dino.dat` (u32; `0xF` unlocks
     campaigns 1-4, enabling Cpg04 runtime tests). The mission briefing is
     modal; dismiss it before expecting sim hits.
@@ -1336,16 +1336,12 @@ Updated: 2026-10-26
    Remaining: the second `Modulate2x` water stage, the skybox bottom seam and
    a direct side-by-side still.
 14. CONS-1 rest: port the interactive store panel (row selection + paddock
-   click) and the `DINOACHAT` count/total bucket + store-row removal; refine
-   the imported dinosaurs' cost class from the species baseline (port `used`
-   = 384) to the individual phenotype (retail Cpg04 = 336). The class rule is
-   solved: phenotype length `head+body+tail` (Part 3 Length, thresholds
-   200/620/900/3200) at `saDinosaur+0x1e0`; the live hybrid genotypes still
-   diverge from the `.wld` for 10/20 Cpg04 rows. The `0x535c97` branch is the
-   1.5 s post-placement node-reveal timer, not a validator. The capacity
-   model, the headless purchase core (`--buy-dino`), the catalog reader and
-   both warning panels are done. See `docs/decomp/construction-validation.md`
-   and `notes/paddock-size-class-runtime.md`.
+   click) and the `DINOACHAT` count/total bucket + store-row removal. The
+   phenotype size class is solved and ported (Cpg04 `used = 336`; see
+   `notes/paddock-size-class-runtime.md`); the `0x535c97` branch is the 1.5 s
+   post-placement node-reveal timer. The capacity model, the headless
+   purchase core (`--buy-dino`), the catalog reader and both warning panels
+   are done. See `docs/decomp/construction-validation.md`.
 
 ## Blockers
 

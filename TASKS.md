@@ -824,13 +824,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dinosaurs' size classes `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
   (retail `used` 336). `paddock_size_class` derives the class from the
   species rest-mesh bbox for now (port `used` 384).
-- [x] Solve the class rule: `saDinosaur+0x1e0` is the phenotype length
-  category (phenotype `+0x190`), copied to `+0x50` by `FUN_0056FED0`;
-  `length = head + body + tail` Part 3 Length lookups (part->gene
-  `[0,1,1,2,3]`), thresholds 200/620/900/3200 from
-  `TranslatorConstants.ini`. All 20 live Cpg04 classes match the logged
-  `P+0x98/+0xa4/+0xa8` values; the live hybrid genotypes still diverge from
-  the `.wld` for 10/20 rows. See `notes/paddock-size-class-runtime.md`.
+- [x] Solve and port the class rule: `saDinosaur+0x1e0` is the phenotype
+  length category (phenotype `+0x190`), copied to `+0x50` by `FUN_0056FED0`;
+  `length = body_length * (head_ratio + 1 + tail_ratio)`, with the
+  `proportion.dat` head/tail ratios blended by the Part 2 merge and the Body
+  length from Part 3, thresholds 200/620/900/3200. All 20 live Cpg04 classes
+  match; the earlier divergence was the per-part scale, not mutated
+  genotypes. `DinoPhenotypeTable` now drives the import and buy paths:
+  Cpg04 `used = 336` (retail exact). See
+  `notes/paddock-size-class-runtime.md`.
 - [x] Port the paddock-capacity model into `src/world/build.cpp`:
   `Paddock`, `paddock_capacity` (`(w/cell)*(h/cell)`), `paddock_cost`
   (8/16/32/64), duplicate check, `used`/`fill`, plus `--selftest` checks.

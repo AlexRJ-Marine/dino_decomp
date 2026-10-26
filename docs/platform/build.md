@@ -57,20 +57,22 @@ add       = append occupant, used += cost, fill = used / capacity
 ```
 
 `src/world/build.cpp` exposes `Paddock`, `paddock_capacity`, `paddock_cost`,
-`paddock_size_class`, `paddock_can_add` and `paddock_add`. The size class
-comes from the rest-mesh bbox (<300 cm = 0, 300–899 = 1, 900–1399 = 2,
-≥1400 = 3) until the genotype phenotype length is ported. Imported dinosaurs
-fill paddocks in record order; Cpg04 gives 9 paddocks, total capacity 492,
-and 20 dinosaurs consume 384 (retail individual classes give 336).
+`paddock_size_class`, `paddock_can_add` and `paddock_add`. The size class is
+the **phenotype length category** (`DinoPhenotypeTable` in
+`src/formats/dino_data.*`): `length = body_length * (head_ratio + 1 +
+tail_ratio)`, with `proportion.dat` blended by the Part 2 merge and the
+Part 3 Body length; thresholds 200/620/900 (class 3 above 900). Imported
+dinosaurs fill paddocks in record order; Cpg04 gives 9 paddocks, total
+capacity 492, and 20 dinosaurs consume **336**, matching retail exactly.
+`DINO_DEBUG_PHENO=1` prints each dinosaur's genotype, length and class.
 
 `--selftest` checks the capacity maths, the cost table, the duplicate rule,
 filling and the no-room rejection.
 
-Open: the purchase path (store charge to `DINOACHAT`, store-row removal),
-the `WARNING_NO_ROOM_IN_FENCE` panel path, and the exact per-individual
-`dinosaur+0x1e0` size class (the port approximates it from the species
-rest-mesh bbox; the live class list is in
-`notes/paddock-capacity-verification.md`).
+Open: the purchase path (store charge to `DINOACHAT`, store-row removal) and
+the `WARNING_NO_ROOM_IN_FENCE` panel path. The per-individual
+`dinosaur+0x1e0` size class is solved and ported; see
+`notes/paddock-size-class-runtime.md`.
 Per-paddock numbers and the all-campaign scan:
 `notes/paddock-capacity-verification.md`.
 
@@ -119,8 +121,8 @@ together for a headless purchase:
 
 The flow mirrors `pvwStateFenceInsertion`/`stFence`:
 
-1. resolve the genotype from the catalog, map its dominant head gene to the 20
-   base species and derive the size class;
+1. resolve the full 18-gene genotype from the catalog, map its dominant head
+   gene to the 20 base species and derive the phenotype size class;
 2. find a paddock with `capacity - used >= 8 << class` (a missing/duplicate
    entry prints `WARNING_NO_ROOM_IN_FENCE` and does not charge);
 3. check `park_budget >= price` (`WARNING_NOT_ENOUGH_MONEY`);

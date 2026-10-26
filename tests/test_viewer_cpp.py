@@ -1721,6 +1721,40 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+def test_cpp_cpg04_phenotype_lengths():
+    """Exact phenotype lengths from the live Cpg04 run (genotype -> part size).
+
+    The 20 values were read at saDinosaur ctor 0x56FED0 in world-record order
+    and reproduce with
+    `table * (proportion_avg * body / table)` in float32 (truncated).
+    See notes/phenotype-length-runtime.md.
+    """
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    env = dict(os.environ, DINO_DEBUG_PHENO="1")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld)],
+        capture_output=True, text=True, timeout=180, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout + result.stderr
+    lines = [line for line in log.splitlines() if line.startswith("pheno ")]
+    assert len(lines) == 20
+    lengths = [int(line.split("len=")[1].split()[0]) for line in lines]
+    assert lengths == [
+        606, 742, 742, 742, 170, 170, 492, 172, 435, 409,
+        702, 175, 240, 266, 266, 266, 266, 266, 175, 175,
+    ]
+    assert "paddocks: 9 capacity=492 used=336" in result.stdout
+
+
 def test_cpp_dino_action_loop():
     if not EXE.exists():
         pytest.skip("viewer not built")

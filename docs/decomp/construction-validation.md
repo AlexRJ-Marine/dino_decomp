@@ -108,19 +108,24 @@ world dinosaurs. Correlated with the world order:
 
 The class is a per-individual size class (Allosaurus splits 4/3), not a pure
 species constant. The table supports 0..3 (8/16/32/64). The value is the
-**phenotype length category** (`saDinosaur+0x1e0` <- phenotype `+0x190`):
+**phenotype length category** (`saDinosaur+0x1e0` <- phenotype `+0x190`).
+`FUN_00619830` looks up the body length and the head/tail proportion ratios,
+scales each part by `body_length / part_length`, and `FUN_00617250` reduces it
+to:
 
 ```text
-length = Part3Length[Head][b0][a0] + Part3Length[Body][b2][a2]
-       + Part3Length[Tail][b3][a3]     # [alleleB][alleleA]
+head_ratio = mh * proportion[B0][head] + (1-mh) * proportion[A0][head]
+tail_ratio = mt * proportion[A3][tail] + (1-mt) * proportion[B3][tail]
+body_length = Part3Length[Body][B2][A2]
+length = body_length * (head_ratio + 1 + tail_ratio)
 class  = 0 if length <= 200, 1 if <= 620, 2 if <= 900, else 3
 ```
 
-(`TranslatorConstants.ini` `SizeCategory1..4MaxLength`; the biped flag
-`P+0x1b4` halves the body term twice, which only affects odd lengths.) The
-full chain and the 20 runtime values are in
-`notes/paddock-size-class-runtime.md`. A species baseline is still a useful
-first approximation, but the port should switch to the phenotype length.
+where `mh`/`mt` are the Part 2 Head/Tail merge values `[B][A] / 100` and
+`proportion.dat` is `[head, arm, body, leg, tail]`. (`TranslatorConstants.ini`
+`SizeCategory1..4MaxLength`; the biped flag `P+0x1b4` halves the body term
+twice, which only affects odd lengths.) The full chain, the live values and
+the port implementation are in `notes/paddock-size-class-runtime.md`.
 
 ## Placement point
 
@@ -187,18 +192,18 @@ original construction flow:
   `--selftest` coverage in `src/world/build.cpp`.
 - Done: imported `.wld` dinosaurs fill their fence rectangles in record
   order under the capacity rule; Cpg04 = 9 paddocks, capacity 492.
-- **Approximation:** the port now derives a species baseline from the rest-mesh
-  bbox (`paddock_size_class`): coelo/trood 0, anky/deino 1, allo 2. Cpg04
-  `used` = 384, vs the retail 336. Exact parity needs the individual
-  phenotype: `length = head + body + tail` Part 3 lookups, thresholds
-  200/620/900 (see `notes/paddock-size-class-runtime.md`). Note the port
-  currently feeds `paddock_size_class` a **mesh bbox**, not the phenotype
-  length, so changing the thresholds alone would be wrong.
+- Done: **exact phenotype size class.** `DinoPhenotypeTable`
+  (`src/formats/dino_data.{h,cpp}`) parses `proportion.dat` + the Part 2/3
+  blocks; the import and buy paths use
+  `length = body_length * (head_ratio + 1 + tail_ratio)` with thresholds
+  200/620/900. Cpg04 `used` = **336** (retail exact); the live campaign save
+  has the same genotypes as `Cpg04_Save.wld`. `DINO_DEBUG_PHENO=1` prints
+  the per-dinosaur length/class.
 - Done: the headless purchase core (`--buy-dino NAME`, optional
-  `--buy-paddock N`): Market.ini lookup, genotype head → species, size class,
-  capacity check (`WARNING_NO_ROOM_IN_FENCE`), budget check
+  `--buy-paddock N`): Market.ini lookup, full 18-gene `.gen` → phenotype
+  class, capacity check (`WARNING_NO_ROOM_IN_FENCE`), budget check
   (`WARNING_NOT_ENOUGH_MONEY`), charge and spawn. Cpg04 Zarbosaurus: price
-  4,900, budget 10,000 → 5,100, used 400.
+  4,900, budget 10,000 → 5,100, used 352 (336 + its class 1 cost).
 - Pending: the store purchase UI and the `DINOACHAT` count/total bucket, the
   store-row removal (`FUN_00594270`), the `WARNING_NO_ROOM_IN_FENCE` panel
   path and the player pickup point.
@@ -214,9 +219,10 @@ original construction flow:
   successful placement, not a validator. Records are `spPark+0xbc` placement
   queue entries (types 3/4/5; `+0x20` elapsed, `+0x24` lifetime). The port can
   reveal immediately or mimic the 1.5 s delay; nothing else depends on it.
-- Size class chain **solved** (phenotype length, thresholds 200/620/900);
-  the live hybrid genotypes still diverge from the `.wld` for 10/20 Cpg04
-  rows, so exact hybrid parity needs the live genotype traced
+- ~~Size class chain~~ **solved and ported:** phenotype length with
+  `proportion.dat` + Part 2/3 blends, thresholds 200/620/900. The live
+  campaign save has the same genotypes as the `.wld`; Cpg04 `used` = 336 in
+  the port. One hybrid length differs by 26 cm but stays in class 1
   (`notes/paddock-size-class-runtime.md`).
 - Whether path tiles charge `CONSTRUCTION` (only the wall path and the
   dinosaur store price are proven budget setters).
