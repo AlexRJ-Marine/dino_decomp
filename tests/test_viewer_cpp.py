@@ -1487,10 +1487,50 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert load.returncode == 0, load.stderr
     assert "island: isl03" in load.stdout
     assert ("port load: island=isl03 budget=75000 day=0 visitors=3 "
-            "paths=2 fences=1 buildings=1") in load.stdout
+            "paths=2 fences=1 buildings=1 dinos=0") in load.stdout
     assert "build: 2 path cells, 1 fences" in load.stdout
     assert ("building: Entrance mesh=" in load.stdout and
             "cell=500.0,500.0" in load.stdout)
+
+
+def test_cpp_port_save_dino_state(tmp_path):
+    """UI-2 Phase D: imported dinosaurs round-trip with needs/action state."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    target = tmp_path / "dino.psav"
+    save = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--dino-action-loop", "--dino-needs", "20,90,50,20",
+         "--save-port", str(target)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert save.returncode == 0, save.stderr
+    text = target.read_text()
+    dino_lines = [ln for ln in text.splitlines() if ln.startswith("dino ")]
+    assert len(dino_lines) == 20
+    assert all(" 20 90 50 20 " in line for line in dino_lines)
+    assert any(" LowQuadruped " in line for line in dino_lines)
+    assert any(" HeavyBiped " in line for line in dino_lines)
+
+    load = subprocess.run(
+        [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--asset-root", str(GAME), "--load-port", str(target),
+         "--dino-action-loop"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert load.returncode == 0, load.stderr
+    assert ("port load: island=isl04 budget=75000 day=0 visitors=0 "
+            "paths=301 fences=268 buildings=57 dinos=20") in load.stdout
+    assert "dino action: " in load.stdout
+    assert "Eat score=9009 needs=20/90/50/20" in load.stdout
 
 
 def test_cpp_options_save_and_load_buttons(tmp_path):

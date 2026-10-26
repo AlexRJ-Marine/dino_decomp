@@ -4971,6 +4971,25 @@ int main(int argc, char** argv) {
             state.visitors.push_back(saved);
         }
         state.buildings = building_instances;
+        for (const ImportedDino& dinosaur : imported_dinos) {
+            dino::PortDinoState saved;
+            saved.species = dinosaur.species;
+            saved.family = dinosaur.family;
+            saved.clip = dinosaur.clip;
+            saved.x = dinosaur.x;
+            saved.y = dinosaur.y;
+            saved.angle = dinosaur.angle;
+            if (dinosaur.action_loop) {
+                saved.needs = dinosaur.action_loop->needs().value;
+                saved.size_cm = dinosaur.action_loop->needs().size_cm;
+                saved.action_id = dinosaur.action_loop->action_id();
+                saved.action_left = dinosaur.action_loop->remaining();
+            } else {
+                saved.needs = dinosaur.needs.value;
+                saved.size_cm = dinosaur.needs.size_cm;
+            }
+            state.dinos.push_back(saved);
+        }
         return state;
     };
 
@@ -5153,6 +5172,32 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (!state.dinos.empty()) {
+            clear_imported_dinos();
+            for (const dino::PortDinoState& saved : state.dinos) {
+                try {
+                    if (!add_imported_dino(saved.species, saved.family,
+                                           saved.clip, saved.x, saved.y,
+                                           saved.angle)) {
+                        continue;
+                    }
+                    ImportedDino& dinosaur = imported_dinos.back();
+                    dino::DinoNeeds restored;
+                    restored.value = saved.needs;
+                    restored.size_cm = saved.size_cm;
+                    dinosaur.needs = restored;
+                    if (dinosaur.action_loop) {
+                        dinosaur.action_loop->restore(
+                            restored, saved.action_id, saved.action_left);
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "port dino %s: %s\n",
+                                 saved.species.c_str(), e.what());
+                }
+            }
+            rebuild_extra_items();
+        }
+
         rebuild_build_meshes();
         if (!visitor_system.visitors.empty() &&
             !visitor_pose1.positions.empty()) {
@@ -5174,10 +5219,11 @@ int main(int argc, char** argv) {
         minimap_focus = {1e30f, 1e30f, 1e30f};
         minimap_heading = 1e30f;
         std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
-                    "paths=%d fences=%d buildings=%zu\n",
+                    "paths=%d fences=%d buildings=%zu dinos=%zu\n",
                     current_island.c_str(), park_budget, park_clock.day,
                     visitor_system.visitors.size(), build_grid.path_count,
-                    build_grid.fence_count, building_instances.size());
+                    build_grid.fence_count, building_instances.size(),
+                    imported_dinos.size());
     };
 
     if (sav_ready) {

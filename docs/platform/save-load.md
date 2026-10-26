@@ -17,12 +17,15 @@ scene between sessions.
 - every visitor: world position, angle, walk phase, current/target/previous
   cells;
 - every placed building: `BuildingList.ini` kind, min-corner cell and
-  orientation state.
+  orientation state;
+- every imported dinosaur: species/family/clip, position, angle, the four
+  needs, the current action id and the remaining action seconds.
 
 Buildings are re-loaded from `Data/Design/buildings/<name>.bbi` on restore;
-the free-game Entrance is still auto-created by `load_island` when a save has
-no building list (older saves). The retail `.sav` world block is not read
-here.
+dinosaurs are re-created through the same species/animation loader and their
+`DinoActionLoop` is restored without re-scoring. The free-game Entrance is
+still auto-created by `load_island` when a save has no building list (older
+saves). The retail `.sav` world block is not read here.
 
 ## Format
 
@@ -39,6 +42,7 @@ path <x> <y>
 fence <x> <y> <edge>          # edge 0 south, 1 east
 visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y>
 building <kind> <cell_x> <cell_y> <state>
+dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm>
 ```
 
 Floats are written with 9 significant digits. Unknown keys are ignored on
@@ -92,18 +96,36 @@ $G = "game/%MAINDIR%"
 ```
 
 Expected: `port load: island=isl03 budget=75000 day=0 visitors=3 paths=2
-fences=1 buildings=0` and `build: 2 path cells, 1 fences`.
+fences=1 buildings=0 dinos=0` and `build: 2 path cells, 1 fences`.
+
+Dinosaur state round trip (Cpg04, 20 imported dinosaurs):
+
+```powershell
+.\build\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+  --lnd "$G/Data/Design/landscape/isl04/isl04.lnd" --asset-root $G `
+  --no-vegetation --no-water `
+  --wld-park "$G/Data/Design/Scenario/Cpg04/Cpg04_Save.wld" `
+  --dino-action-loop --dino-needs 20,90,50,20 `
+  --save-port run\save\dinos.psav
+
+.\build\mingw\dino_viewer.exe --frames 4 --no-menu --no-hud --no-vsync `
+  --asset-root $G --load-port run\save\dinos.psav --dino-action-loop
+```
+
+Expected on load: `port load: island=isl04 ... buildings=57 dinos=20` and
+`dino action: ... Eat score=9009 needs=20/90/50/20`. The `.psav` carries one
+`dino` line per imported dinosaur with its needs, action id and remaining
+action seconds.
 
 - `notes/port-ui-save.png` - Options Save tab with the port save rows.
 - `notes/port-ui-load2.png` - Options Load tab after selecting `[port] test`;
   the HUD shows isl03, 10:30 day 1.
 - `tests/test_viewer_cpp.py::test_cpp_port_save_roundtrip`,
-  `test_cpp_options_save_and_load_buttons`.
+  `test_cpp_port_save_dino_state`, `test_cpp_options_save_and_load_buttons`.
 
 ## Open
 
-- Import retail `.sav` park state (the Python `sav_graph` parser is ready;
-  the C++ reader only has the header).
-- Text entry for `OPTIONS_NAME_SLOT`; the port uses `--save-name` or the
-  selected row instead.
-- Save/load the dino placement and animation time.
+- The port save is not a retail `.sav` writer; retail parks are imported at
+  startup with `--sav-park`.
+- Visitor needs/targets and the dinosaur clip playback phase are not stored;
+  visitors restart in Choose and restored actions restart their clip at 0.

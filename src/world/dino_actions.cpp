@@ -172,6 +172,32 @@ double DinoActionLoop::action_progress() const {
     return std::min(1.0, elapsed_ / duration_);
 }
 
+double DinoActionLoop::remaining() const {
+    if (action_index_ < 0 || duration_ <= 0.0) {
+        return 0.0;
+    }
+    return std::max(0.0, duration_ - elapsed_);
+}
+
+void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
+                             double action_left) {
+    needs_ = needs;
+    for (int& value : needs_.value) {
+        value = std::max(0, std::min(99, value));
+    }
+    if (actions_ != nullptr && action_id >= 0 &&
+        static_cast<std::size_t>(action_id) < actions_->size()) {
+        action_index_ = action_id;
+        duration_ = std::max(0.0, action_left);
+    } else {
+        action_index_ = -1;
+        duration_ = 0.0;
+    }
+    elapsed_ = 0.0;
+    decision_ = config_.decision_interval;
+    decay_accum_.fill(0.0);
+}
+
 void DinoActionLoop::decide() {
     if (actions_ == nullptr) {
         return;

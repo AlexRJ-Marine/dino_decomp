@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,6 +37,21 @@ struct PortBuildingState {
     int state = 0;
 };
 
+// One imported dinosaur, including its need/action-loop state. `action_id` is
+// the ActionList index; 0x1f is the idle sentinel.
+struct PortDinoState {
+    std::string species;
+    std::string family;
+    std::string clip;
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+    std::array<int, 4> needs{50, 99, 99, 99};
+    int action_id = 0x1f;
+    double action_left = 0.0;
+    int size_cm = 300;
+};
+
 struct PortState {
     std::string island;
     int difficulty = 0;
@@ -64,6 +80,7 @@ struct PortState {
     std::vector<PortFenceState> fences;
     std::vector<PortVisitorState> visitors;
     std::vector<PortBuildingState> buildings;
+    std::vector<PortDinoState> dinos;
 };
 
 // Text format: `DINOPSAV 1` followed by one record per line.

@@ -1,5 +1,6 @@
 #include "port_save.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -56,6 +57,14 @@ void save_port_state(const PortState& state, const std::string& path) {
     for (const PortBuildingState& building : state.buildings) {
         out << "building " << building.kind << " " << building.cell_x << " "
             << building.cell_y << " " << building.state << "\n";
+    }
+    for (const PortDinoState& dinosaur : state.dinos) {
+        out << "dino " << dinosaur.species << " " << dinosaur.family << " "
+            << dinosaur.clip << " " << dinosaur.x << " " << dinosaur.y << " "
+            << dinosaur.angle << " " << dinosaur.needs[0] << " "
+            << dinosaur.needs[1] << " " << dinosaur.needs[2] << " "
+            << dinosaur.needs[3] << " " << dinosaur.action_id << " "
+            << dinosaur.action_left << " " << dinosaur.size_cm << "\n";
     }
     if (!out) {
         throw std::runtime_error("short write to port save " + path);
@@ -141,6 +150,23 @@ PortState load_port_state(const std::string& path) {
                 building.state;
             require(parts, key, path);
             state.buildings.push_back(building);
+        } else if (key == "dino") {
+            PortDinoState dinosaur;
+            parts >> dinosaur.species >> dinosaur.family >> dinosaur.clip >>
+                dinosaur.x >> dinosaur.y >> dinosaur.angle >>
+                dinosaur.needs[0] >> dinosaur.needs[1] >> dinosaur.needs[2] >>
+                dinosaur.needs[3] >> dinosaur.action_id >>
+                dinosaur.action_left >> dinosaur.size_cm;
+            require(parts, key, path);
+            for (int& need : dinosaur.needs) {
+                need = std::clamp(need, 0, 99);
+            }
+            if (dinosaur.species.empty() || dinosaur.family.empty() ||
+                dinosaur.clip.empty()) {
+                throw std::runtime_error("port save: incomplete dino in " +
+                                         path);
+            }
+            state.dinos.push_back(dinosaur);
         }
     }
     if (!magic) {

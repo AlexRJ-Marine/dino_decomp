@@ -1061,9 +1061,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   word-wrapped text zones, accept/cancel/close icons. The panels use
   `ALIGN_CENTER` (request/campaign-end are not at their authored top-left).
 - [x] Phase D rest: `OPTIONS_NAME_SLOT` text entry (EDIT hit-testing, SDL
-  text input/backspace, 24-char cap, `--type-text` for tests) and building
-  placement in `DINOPSAV`. Dinosaur placement in the save is still open.
-- [ ] Dinosaur actor state (needs/action) in `DINOPSAV`.
+  text input/backspace, 24-char cap, `--type-text` for tests), building
+  placement in `DINOPSAV`, and imported-dinosaur placement + actor state.
+- [x] Dinosaur actor state in `DINOPSAV`: one `dino` line per imported
+  dinosaur (species/family/clip, position, four needs, action id and
+  remaining seconds); `DinoActionLoop::restore` resumes without re-scoring.
+  Test `test_cpp_port_save_dino_state` (Cpg04, 20 dinos → Eat 9009 on load).
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

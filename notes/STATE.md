@@ -1175,10 +1175,10 @@ Updated: 2026-10-26
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D (remaining):** `OPTIONS_NAME_SLOT` text entry is done (EDIT
-  hit-testing, SDL text input/backspace, `--type-text`), as are the dialog
-  family, Save/Load and building placement. Dinosaur actor state
-  (needs/action) is still not stored in `DINOPSAV`.
+- **UI-2 Phase D:** `OPTIONS_NAME_SLOT` text entry, the dialog family,
+  Save/Load, building placement and the imported dinos' actor state
+  (needs/action id/remaining seconds) are all stored/restored. The visitor
+  needs/targets and the clip playback phase are not stored.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3: the skybox face order/UVs now match the retail builder
@@ -1192,8 +1192,8 @@ Updated: 2026-10-26
 
 ## Next action
 
-1. UI-2 Phase D rest: `OPTIONS_NAME_SLOT` text entry and dinosaur placement
-   in the port save.
+1. UI-2 Phase D is closed except visitor needs/targets and the dino clip
+   playback phase; add those if the save fidelity matters.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are

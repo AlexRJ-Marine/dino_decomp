@@ -91,8 +91,14 @@ public:
     int action_id() const;                               // 0x1f when idle
     const std::string& action_name() const;
     double action_progress() const;                      // 0..1
+    double remaining() const;                            // seconds left
     const DinoNeeds& needs() const { return needs_; }
     DinoNeeds& needs() { return needs_; }
+
+    // Restore a saved state (needs, ActionList index or 0x1f, seconds left).
+    // The loop resumes without re-scoring; a valid id with 0 left finishes on
+    // the next tick.
+    void restore(const DinoNeeds& needs, int action_id, double action_left);
 
 private:
     void decide();
