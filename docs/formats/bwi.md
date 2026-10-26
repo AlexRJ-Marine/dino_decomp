@@ -133,6 +133,14 @@ electrified set, scale law, widget prefixes, every asset path exists).
 - Which of the seven floats are UV scale, crack threshold, shadow strength,
   and so on.
 
+The vector is **constant except scale[5]**: `scale[5] == height / 8` for all
+20 material walls (2→0.25, 4→0.5, 6→0.75, 8→1.0) and 1.0 for Fence/Show.
+The other six are identical across all 24 files (`1.0, 0.5, 0.25, 0.6, 2.0,
+0.125`), so retail data cannot distinguish their roles; they are best treated
+as default UV/tiling parameters for the wall's texture layers. The wall
+geometry builder `FUN_005ee970` (`gatWall.cpp`) uses the rectangle and the
+heightfield, not this vector; the material setup is the likely consumer.
+
 The three header ints are understood: `0x08`/`0x10` are the uniform 100/30
 (hit points/build time, inferred) and `0x0c` is the construction cost
 (10/15/30), proven by the build call `0x0052b2dd` -> `0x00585d20`.

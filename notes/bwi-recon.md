@@ -93,7 +93,9 @@ This matches the file layout exactly (record stride 0xb4).
 
 ## Open
 
-- The seven floats' meanings.
+- The seven floats: `scale[5] == height / 8` is the vertical tiling; the
+  other six are constant across all 24 walls and are default UV/tiling
+  parameters (exact layer mapping not distinguishable from retail data).
 
 ## Field semantics (2026-10-26)
 
