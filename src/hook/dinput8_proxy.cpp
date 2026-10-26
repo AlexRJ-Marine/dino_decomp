@@ -273,20 +273,14 @@ bool install_hooks() {
     const bool b = install_detour("FUN_004809a0", 0x4809A0 - 0x400000,
                                   reinterpret_cast<void*>(&hook_4809a0),
                                   kPrologue_4809a0);
-    // The vector readers are opt-in until a campaign/dinosaur run confirms
-    // them: set DINO_HOOK_VECTOR=1 before launching. The default proxy keeps
-    // the two proven detours only.
-    char value[8] = {};
-    const bool vectors =
-        GetEnvironmentVariableA("DINO_HOOK_VECTOR", value, sizeof(value)) > 0;
-    const bool c =
-        !vectors || install_detour8("FUN_0047d460", 0x47D460 - 0x400000,
-                                    reinterpret_cast<void*>(&hook_47d460),
-                                    kPrologueVector);
-    const bool d =
-        !vectors || install_detour8("FUN_0047cc90", 0x47CC90 - 0x400000,
-                                    reinterpret_cast<void*>(&hook_47cc90),
-                                    kPrologueVector);
+    // The vector readers were verified during a Cpg04 campaign load
+    // (2000+ calls each, park renders); install them by default.
+    const bool c = install_detour8("FUN_0047d460", 0x47D460 - 0x400000,
+                                   reinterpret_cast<void*>(&hook_47d460),
+                                   kPrologueVector);
+    const bool d = install_detour8("FUN_0047cc90", 0x47CC90 - 0x400000,
+                                   reinterpret_cast<void*>(&hook_47cc90),
+                                   kPrologueVector);
     return a && b && c && d;
 }
 

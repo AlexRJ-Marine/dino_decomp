@@ -1137,20 +1137,20 @@ Updated: 2026-10-26
     wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
   - Evidence: `docs/decomp/economy.md`,
     `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
-- HYB-3 implemented (runtime check pending): **vector reader hooks.**
+- HYB-3 complete: **both vector reader hooks runtime-verified.**
   - Decoded the engine vector: 16-byte `{vptr, first, last, end}`, resize to
     the count, insert helpers `0x47d500` (u16) / `0x47cac0` (u32), count-first
     stream reads. `0x47cc90` is the `.skel` child-index list (u32 per bone);
     `0x47d460` reads a u16 array in a mesh record.
   - `hook_47d460`/`hook_47cc90` are 8-byte detours in
-    `src/hook/dinput8_proxy.cpp`. They install cleanly and the free-game park
-    stays playable, but that park calls neither; opt-in `DINO_HOOK_VECTOR=1`
-    until a Cpg04 load confirms them.
+    `src/hook/dinput8_proxy.cpp`, installed by default. A Cpg04 campaign load
+    called each 2000+ times and the park rendered normally
+    (`notes/hyb3-campaign.png`); the free-game park calls neither.
   - `.skin` per-bone reader `0x47d880` ABI solved (count, name, u32-index
     vector, f32-weight vector, 64-byte matrix into a 0x6C record); hook
     queued. Evidence: `notes/hybrid-skin-recon.md`.
   - Evidence: `notes/hybrid-vector-recon.md`, `notes/hybrid-skin-recon.md`,
-    `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
+    `notes/hyb3-campaign.png`, `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

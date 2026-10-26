@@ -729,15 +729,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   end}`, resize-to-count, insert helpers `0x47d500`/`0x47cac0`, count-first
   stream reads.
 - [x] Implement `0x47d460` (u16 array, mesh record) and `0x47cc90` (`.skel`
-  child index list, u32 per bone) as 8-byte detours. Both install cleanly and
-  the free-game park remains playable; they are opt-in via
-  `DINO_HOOK_VECTOR=1` until a campaign/dinosaur load exercises them.
-- [ ] Runtime-verify the calls and the resulting `.skel` child lists during a
-  Cpg04 load (then make them default).
+  child index list, u32 per bone) as 8-byte detours.
+- [x] Runtime-verify on a Cpg04 campaign load: both hooks called 2000+ times
+  and the park renders; the free-game park calls neither. Installed by
+  default.
 - **Acceptance:** the campaign park loads with both vector readers replaced.
 - **Depends on:** HYB-1/2, FMT-4.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-vector-recon.md`,
-  `notes/hybrid-skin-recon.md`, `docs/decomp/hybrid.md`.
+  `notes/hybrid-skin-recon.md`, `notes/hyb3-campaign.png`,
+  `docs/decomp/hybrid.md`.
 
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,

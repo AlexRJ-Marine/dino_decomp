@@ -1,9 +1,7 @@
 # Hybrid decompilation
 
-Status: **HYB-1/2 complete; HYB-3 vector readers implemented opt-in.** The
-original exe runs with the matrix and normal readers replaced by recovered
-C++; the two vector readers are built and install cleanly, pending a
-campaign-load call check (`DINO_HOOK_VECTOR=1`).
+Status: **HYB-1/2/3 complete** — the original exe runs with the matrix,
+normal and both vector readers replaced by recovered C++.
 
 ## Mechanism
 
@@ -73,8 +71,8 @@ count elements one at a time.
 u16 array at `+0x78` of a 0xb8-byte mesh record. The 8-byte prologue
 `51 53 56 57 8B 7C 24 14` needs an 8-byte patch (`E9 rel32` + 3 NOP).
 Implementation: `hook_47d460`/`hook_47cc90` in `src/hook/dinput8_proxy.cpp`.
-They are **opt-in** (`DINO_HOOK_VECTOR=1`) until a campaign/dinosaur load
-exercises them; the free-game park calls neither. Full ABI:
+**Runtime-verified on a Cpg04 campaign load:** 2000+ calls each and the park
+renders normally (`notes/hyb3-campaign.png`). Installed by default. Full ABI:
 `notes/hybrid-vector-recon.md`.
 
 ## Build/run
@@ -124,9 +122,9 @@ hook_4809a0: calls=97000
 
 ## Next
 
-1. Runtime-verify `0x47d460`/`0x47cc90` during a campaign load (set
-   `DINO_HOOK_VECTOR=1`; the free-game park calls neither). The ABI is
-   solved in `notes/hybrid-vector-recon.md`; the detours are implemented.
+1. `0x47d460`/`0x47cc90` are **runtime-verified** (Cpg04, 2000+ calls each,
+   park renders). The ABI is in `notes/hybrid-vector-recon.md`; the detours
+   are installed by default.
 2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
    caller is `0x471cd0` and it is not exercised by the park run. Promote it
    once that path is identified.

@@ -92,10 +92,13 @@ matters.
 
 - Both hooks install cleanly (`hook: FUN_0047d460 patched`, `FUN_0047cc90
   patched`) and the free-game park remains playable with them active.
-- The free-game park does not call either reader (0 calls). A campaign/dino
-  load is needed to exercise the `.skel` child lists.
-- The default DLL keeps the two proven hooks only; set
-  `DINO_HOOK_VECTOR=1` before launching to install the vector readers.
+- **Runtime-verified on a Cpg04 campaign load:** `hook_47d460` and
+  `hook_47cc90` were each called **2000+ times**, and the park rendered its
+  terrain, buildings and dinosaurs normally (`notes/hyb3-campaign.png`).
+  `notes/campaign-park.png` shows the mission briefing over the loaded park.
+- The free-game park does not call either reader (0 calls).
+- Both are now installed by default; delete `run/DINPUT8.dll` to revert the
+  whole proxy.
 
 ## Evidence
 
