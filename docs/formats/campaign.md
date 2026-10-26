@@ -159,7 +159,7 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 11 | `speeddinos` | `0x00568ab0` | count, speed | pattern[6] `int(+0x7c)` |
 | 12 | `staminadinos` | `0x00568b80` | count, percent | pattern[7] `+0xc0` stamina |
 | 13 | `cleverdinos` | `0x00568c50` | count, percent | pattern[9] `+0x8c` intelligence |
-| 14 | `sizedagilitydinos` | `0x00569040` | size, agility | pattern[5] `+0x98`, pattern[8] `+0x1e0`; count fixed at 1 |
+| 14 | `sizedagilitydinos` | `0x00569040` | min size class, min agility | pattern[8] `+0x1e0` size class, pattern[5] `+0x98` agility; all thresholds `>=` |
 | 15 | `franckstrangedinos` | `0x00569110` | age, score | `+0x1b0==1`, `+0x1b4==0`, `+0x190>=2`, `+0x6c<age`, `+0x3c>score` |
 | 16 | `employees` | `0x005665f0` | profile, count | never fails |
 | 17 | `hungrydinos` | `0x005689e0` | count, percent | pattern[4] `+0x244` food; count -1 = all |
@@ -215,11 +215,16 @@ compares these actor fields in order:
 | 2 | `+0x1e4` | hybrid/strangeness (`hybriddinos`) |
 | 3 | `+0x1e8` | scarcity/rarity (`scaritydinos`) |
 | 4 | `+0x244` | food need (`hungrydinos`) |
-| 5 | `+0x98` | size (`sizedagilitydinos`) |
+| 5 | `+0x98` | agility (`sizedagilitydinos` second arg) |
 | 6 | `int(+0x7c)` | speed (`speeddinos`) |
 | 7 | `+0xc0` | stamina (`staminadinos`) |
-| 8 | `+0x1e0` | agility (`sizedagilitydinos`) |
+| 8 | `+0x1e0` | size class (`sizedagilitydinos` first arg) |
 | 9 | `+0x8c` | intelligence (`cleverdinos`) |
+
+`0x00569040` (`sizedagilitydinos`) writes arg0 into pattern[8] and arg1 into
+pattern[5]; `0x00567cb0` mode 2 accepts a dinosaur when every pattern slot is
+`<=` the matching actor field, so the args are **minimum thresholds**:
+`sizedagilitydinos 1 50` = size class `>= 1` and agility `>= 50`.
 
 `genotypedinos` is the same matcher with an empty pattern (all 10 fields 0),
 so it filters by species only. It loads the design files from
@@ -332,8 +337,8 @@ world files, Cpg07 anomaly, 33-verb table).
 
 ## Open
 
-- Human-readable names for the 10 trait fields, the show score and `+0x1e4`
-  strangeness.
+- The show score and `+0x1e4` strangeness/hybrid sources; the ten trait
+  fields now have names (size class/agility resolved by `0x569040`).
 - Where `mission+0x50` (difficulty 0/1/2) is set. No retail mission overrides
   the `*Medium`/`*Hard` keys, so difficulty 1/2 would inherit zeros.
 - Cpg07's role (cut campaign).

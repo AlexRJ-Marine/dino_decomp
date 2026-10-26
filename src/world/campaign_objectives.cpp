@@ -159,9 +159,12 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                                [&](const DinoTraitState& dino) {
                                    return dino.intelligence >= arg_int(objective, 1);
                                });
-        case 14:  // sizedagilitydinos size agility (count fixed at 1)
+        case 14:  // sizedagilitydinos min_size_class min_agility
+            // `0x569040`: pattern[8] = arg0 (+0x1e0 size class), pattern[5] =
+            // arg1 (+0x98 agility); `0x567cb0` mode 2 requires all pattern
+            // fields to be >= thresholds.
             for (const DinoTraitState& dino : state.dinos) {
-                if (dino.size >= arg_int(objective, 0) &&
+                if (dino.size_class >= arg_int(objective, 0) &&
                     dino.agility >= arg_int(objective, 1)) {
                     return ObjectiveVerdict::Success;
                 }

@@ -1381,9 +1381,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   food). Cpg01_Mission9 (`cleverdinos 1 80`) succeeds on the Cpg04 park.
 - [x] Fill `employee_roles` from the hired staff's `.bei` role names;
   Cpg01_Mission6 (`employees all 2`) succeeds with two nutritionists.
-- [ ] Fill the exact actor trait fields
-  (`+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/+0x1e0/+0x8c`)
-  once those systems land; hybrid/scarcity/strangeness/ornaments are still 0.
+- [x] Map the actor trait fields correctly: `+0x98` is agility, `+0x1e0`
+  is the size class, and `+0x194` conventional appeal feeds strangeness.
+  Evidence: `0x569040`/`0x567cb0`; `sizedagilitydinos` on the Cpg04 park.
+- [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
+  systems land.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
   (verdicts are derived again by the first tick). Ending videos remain.
 - [ ] Show the ending videos.

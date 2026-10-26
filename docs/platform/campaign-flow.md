@@ -98,9 +98,11 @@ CpgNN/CpgNN_Save.wld    initial park
   success/failure. The live state fills treasury, visitor count/satisfaction,
   merchandise revenue, camera altitude, clock, store-empty, bankruptcy and
   the imported dinosaurs' phenotype traits (cuteness/beauty, aggression,
-  size, speed, stamina, agility, intelligence, food). Hired staff fill the
-  `employees` objective from their `.bei` role names (`Nutritionist`/`Guard`);
-  hybrid, scarcity, strangeness and ornaments are still 0 and deaths are 0.
+  size class, speed, stamina, agility, intelligence, food). Hired staff fill
+  the `employees` objective from their `.bei` role names
+  (`Nutritionist`/`Guard`); strangeness comes from the phenotype's
+  conventional appeal (`+0x194`); hybrid, scarcity and ornaments are still 0
+  and deaths are 0.
 - `CAMPAIGN_INFO_START_BUTTON` loads the campaign's `[LANDSCAPE] Island` and
   `[CONTEXT] WorldFile` through the same building/road/fence/dinosaur import
   as `--wld-park`, sets the starting budget from the campaign plus the
@@ -267,7 +269,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_menu_campaign_mission_start`,
   `test_cpp_campaign_mission_port_save`,
   `test_cpp_campaign_auto_advance`,
-  `test_cpp_campaign_live_employees`).
+  `test_cpp_campaign_live_employees`,
+  `test_cpp_campaign_sized_agility`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

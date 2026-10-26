@@ -2562,7 +2562,7 @@ int run_selftest() {
     trait.stamina = 70;
     trait.agility = 50;
     trait.intelligence = 80;
-    trait.size = 100;
+    trait.size_class = 2;
     trait.beauty = 80;
     trait.strangeness = 10;
     trait.ornament_count = 1;
@@ -2595,10 +2595,14 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective clever dinos");
-    check(dino::evaluate_objective(objective("sizedagilitydinos 90 40"),
+    check(dino::evaluate_objective(objective("sizedagilitydinos 1 40"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective size agility");
+    check(dino::evaluate_objective(objective("sizedagilitydinos 3 40"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective size class threshold");
     check(dino::evaluate_objective(objective("ornateddinos 1"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -8590,13 +8594,15 @@ int main(int argc, char** argv) {
                     dinosaur.action_loop ? dinosaur.action_loop->needs()
                                          : dinosaur.needs;
                 trait.food = needs.value[0];
-                trait.size = dinosaur.attributes.length_cm > 0
-                                 ? dinosaur.attributes.length_cm
-                                 : needs.size_cm;
+                // Actor +0x98 is agility; +0x1e0 is the phenotype size class
+                // (0..3), not the body length.
+                trait.agility = dinosaur.attributes.agility;
+                trait.size_class = dinosaur.attributes.size_class;
+                trait.strangeness =
+                    dinosaur.attributes.conventional_appeal;
                 trait.speed = static_cast<int>(
                     dinosaur.attributes.walk_speed * 100.0f);
                 trait.stamina = dinosaur.attributes.stamina;
-                trait.agility = dinosaur.attributes.agility;
                 trait.intelligence = dinosaur.attributes.intelligence;
                 trait.beauty = dinosaur.attributes.beauty;
                 mission_state.dinos.push_back(trait);

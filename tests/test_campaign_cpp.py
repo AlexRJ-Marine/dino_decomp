@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (71 checks)" in result.stdout
+    assert "selftest: PASS (72 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -265,6 +265,27 @@ def test_cpp_campaign_auto_advance():
     # Mission12's happyvisitors succeeds; connectedbuildings stays pending.
     assert "mission objective 1 happyvisitors -> success" in result.stdout
     assert "mission Cpg01_Mission12: success" not in result.stdout
+
+
+def test_cpp_campaign_sized_agility():
+    # 0x569040 maps arg0 to pattern[8] (+0x1e0 size class) and arg1 to
+    # pattern[5] (+0x98 agility); mode 2 compares as minima. Cpg04 has a
+    # size class >= 1 dino with agility >= 50, but none with agility >= 80.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg02" / "Cpg02_Mission3.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04/Cpg02 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 1 sizedagilitydinos -> success" in result.stdout
+    assert "mission objective 2 speeddinos -> success" in result.stdout
+    assert "mission objective 0 sizedagilitydinos -> success" not in result.stdout
 
 
 def test_cpp_campaign_mission_success():

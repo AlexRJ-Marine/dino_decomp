@@ -23,10 +23,10 @@ struct DinoTraitState {
     int hybrid = 0;        // +0x1e4
     int scarcity = 0;      // +0x1e8
     int food = 99;         // +0x244
-    int size = 0;          // +0x98
+    int agility = 0;       // +0x98 (sizedagilitydinos second arg)
     int speed = 0;         // int(+0x7c)
     int stamina = 0;       // +0xc0
-    int agility = 0;       // +0x1e0
+    int size_class = 0;    // +0x1e0 (sizedagilitydinos first arg)
     int intelligence = 0;  // +0x8c
     int beauty = 0;        // +0x40
     int strangeness = 0;   // +0x194
