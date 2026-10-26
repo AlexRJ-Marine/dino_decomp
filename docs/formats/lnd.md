@@ -45,6 +45,16 @@ slots. These are the landscape import/prop lists used by `WORLD-1`.
 The float and the 0/1/2 integer are not yet named; the float is likely a water
 level or detail scale, the integer a biome/theme id. Both are recorded raw.
 
+### `width` / `height` are used by the terrain builder
+
+The header trio is stored in the landscape-data object and consumed by the
+terrain builder `0x5fb8b0` (`gpkLandscape` ctor): it reads dword indices
+`+0x24`/`+0x25`/`+0x26` (byte `+0x90`/`+0x94`/`+0x98`) and applies
+`[0x25] * 1/256` and `[0x26] * 256`. Those three fields are the `.lnd`
+header trio (unknown float, width, height) after parsing; the exact
+width/height order and the fixed-point scales are the remaining piece.
+See `notes/open-issues.md`.
+
 ## Reader/API
 
 `tools/formats/lnd.py`:
