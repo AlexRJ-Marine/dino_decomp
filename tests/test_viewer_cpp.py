@@ -1642,3 +1642,28 @@ def test_cpp_wld_park_import_single_road():
     assert "wld: placed 1/1 buildings" in result.stdout
     assert ("park import: roads=1 path_cells=16 fences=0 fence_edges=0"
             in result.stdout)
+
+def test_cpp_sav_park_import(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not isl01.exists() or not save.exists():
+        pytest.skip("retail isl01/save missing")
+    shot = tmp_path / "sav-park.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--sav-park", str(save),
+         "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert ("sav park: visitors=2 roads=1 budget=75125 day=0 "
+            "elapsed=23.214 fences=0 buildings=1") in result.stdout
+    assert ("sav import: budget=75125 day=0 elapsed=23.214 visitors=2 "
+            "paths=16 fences=0 buildings=1") in result.stdout
+    assert "wld: placed 1/1 buildings" in result.stdout
+    image = Image.open(shot).convert("RGB")
+    assert len(image.getcolors(maxcolors=1_000_000)) > 300

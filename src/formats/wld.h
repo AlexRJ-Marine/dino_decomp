@@ -40,7 +40,27 @@ struct WorldFence {
     std::uint32_t field_48 = 0;
 };
 
-// One `drsDinosaur` world record: object links + the 18 gene pairs.
+// One 0x50-byte simulation visitor record.
+struct SavVisitor {
+    std::uint32_t object_id = 0;
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+    std::uint32_t state = 0;
+    float dx = 0.0f;
+    float dy = 0.0f;
+    std::array<std::uint32_t, 7> needs{};
+};
+
+// spSimuManager prefix after the world block + show catalog.
+struct SavSimulation {
+    std::vector<RoadRect> roads;
+    std::vector<SavVisitor> visitors;
+    int budget = 0;
+    int day = 0;
+    float elapsed = 0.0f;
+    bool has_park = false;
+};
+
 struct WorldDinosaur {
     std::uint32_t object_id = 0;
     std::uint32_t field_1c = 0;
@@ -77,5 +97,10 @@ WldWorld read_wld(const std::string& path);
 // the same world block with the campaign flag clear. The show catalog that
 // follows is left unread; `world_end` points at its count.
 WldWorld read_sav_world(const std::string& path);
+
+// Reads the spSimuManager prefix after the world block + 39-show catalog:
+// road rectangles, the three empty lists, the 0x50-byte visitor records and
+// the park block's budget/day/elapsed. Fences are in the world block.
+SavSimulation read_sav_simulation(const std::string& path);
 
 }  // namespace dino

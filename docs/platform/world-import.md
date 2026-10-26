@@ -81,25 +81,59 @@ Evidence: `notes/cpg04-park-import.png`,
 `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
 `test_cpp_wld_park_import_single_road`.
 
-## Next: `.sav` simulation section
+## `.sav` simulation import (working)
 
-After the show catalog, the save carries:
+`--sav-park FILE` skips the show catalog and reads `spSimuManager`:
 
 ```text
+u32 show_count + show records (ASCII path, UTF-16 name, 6 u32)
 u32 road_count + rects
-u32 list0/1/2 counts          # 0 in retail
-u32 visitor_count
-visitor_count × 0x50 records  # x, y, state, needs[7], heading
+u32 list0/1/2 counts (0 in retail)
+u32 visitor_count + 0x50 records
 u32 park_count (1)
-0x293-byte park block         # budget at block+0x30, day at +0x24a,
-                              # elapsed f32 at +0x24e
-...
+0x293-byte park block:
+    budget   u32 at block+0x30
+    day      u32 at block+0x24a
+    elapsed  f32 at block+0x24e
 ```
 
-Plan: port the show-catalog skip and these records to C++, restore the saved
-visitors (position, state, needs; profile index defaults to 0), seed
-`park_budget`/`ParkClock`, and place dinosaurs from the care-state list at a
-paddock centre (the world record stores no position).
+Visitor record: `object_id`, `x`/`y` (world 0..1024), `state` at +0x14,
+heading `dx/dy` at +0x20/+0x24, and needs at +0x34 (seven u32). The first
+three needs are the runtime `+0x48/+0x4c/+0x50`; the other four are 99 in
+retail saves.
+
+The viewer builds a `PortState` from the save: roads ? path cells, fences ?
+canonical edges, world buildings ? placements, visitor positions ? centered
+cells, and budget/day/elapsed ? `park_budget`/`ParkClock`. The visitor state
+is set to Choose because the saved target attraction is not in the record;
+the first three needs are restored after `apply_port_state`.
+
+Run:
+
+```powershell
+.uild\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+  --lnd game/%MAINDIR%/Data/Design/landscape/isl01/isl01.lnd `
+  --asset-root game/%MAINDIR% --no-vegetation --no-water `
+  --sav-park run/save/slot001.sav
+```
+
+Expected for `slot001.sav`:
+
+```text
+sav park: visitors=2 roads=1 budget=75125 day=0 elapsed=23.214 fences=0 buildings=1
+sav import: budget=75125 day=0 elapsed=23.214 visitors=2 paths=16 fences=0 buildings=1
+```
+
+Evidence: `tests/test_viewer_cpp.py::test_cpp_sav_park_import`.
+
+## Dinosaurs (open)
+
+The world record carries the 18-gene genotype and object links, but no world
+position; the simulation care-state list follows the park block and links by
+`field_1c`, carrying the name/phenotype/needs. Spawning a dinosaur still
+needs the species/mesh mapping (the record's species id or the name ? folder
+link), then a paddock-centre placement. This is the remaining P2 item; the
+`WorldDinosaur` C++ record is already exposed.
 
 ## Open
 

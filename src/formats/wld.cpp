@@ -323,4 +323,77 @@ WldWorld read_sav_world(const std::string& path) {
     return out;
 }
 
+SavSimulation read_sav_simulation(const std::string& path) {
+    const std::vector<std::uint8_t> data = read_binary_file(path);
+    const WldWorld world = read_sav_world(path);
+    Reader r(data, world.world_end, data.size(), world.version, path);
+    SavSimulation out;
+
+    auto skip_prefixed = [&](const char* what) {
+        const std::uint32_t n = r.count(what, 1 << 20);
+        r.skip(n, what);
+    };
+
+    // Show catalog: ASCII path, UTF-16 name, six parameters.
+    const std::uint32_t shows = r.count("show catalog count", 10000);
+    for (std::uint32_t i = 0; i < shows; ++i) {
+        skip_prefixed("show path");
+        skip_prefixed("show name");
+        r.skip(24, "show parameters");
+    }
+
+    const std::uint32_t road_count = r.count("simulation road count", 10000);
+    out.roads.reserve(road_count);
+    for (std::uint32_t i = 0; i < road_count; ++i) {
+        RoadRect road;
+        road.x0 = r.i32("road x0");
+        road.y0 = r.i32("road y0");
+        road.x1 = r.i32("road x1");
+        road.y1 = r.i32("road y1");
+        out.roads.push_back(road);
+    }
+
+    // Three simulation lists are empty in retail saves.
+    for (int i = 0; i < 3; ++i) {
+        const std::uint32_t count = r.count("simulation list count", 10000);
+        if (count != 0) {
+            throw std::runtime_error(
+                "wld: non-empty simulation list in " + path);
+        }
+    }
+
+    const std::uint32_t visitors = r.count("visitor count", 10000);
+    out.visitors.reserve(visitors);
+    for (std::uint32_t i = 0; i < visitors; ++i) {
+        const std::size_t rec = r.offset();
+        r.skip(0x50, "visitor record");
+        SavVisitor visitor;
+        visitor.object_id = read_u32(data, rec, "visitor object id");
+        visitor.x = read_i32(data, rec + 0x04, "visitor x");
+        visitor.y = read_i32(data, rec + 0x08, "visitor y");
+        visitor.state = read_u32(data, rec + 0x14, "visitor state");
+        visitor.dx = read_f32(data, rec + 0x20, "visitor dx");
+        visitor.dy = read_f32(data, rec + 0x24, "visitor dy");
+        for (std::size_t n = 0; n < visitor.needs.size(); ++n) {
+            visitor.needs[n] =
+                read_u32(data, rec + 0x34 + n * 4, "visitor need");
+        }
+        out.visitors.push_back(visitor);
+    }
+
+    const std::uint32_t park_count = r.count("park count", 10);
+    if (park_count != 1) {
+        throw std::runtime_error("wld: unexpected park count in " + path);
+    }
+    const std::size_t block = r.offset();
+    if (block + 0x293 > data.size()) {
+        throw std::runtime_error("wld: truncated park block in " + path);
+    }
+    out.budget = static_cast<int>(read_u32(data, block + 0x30, "park budget"));
+    out.day = static_cast<int>(read_u32(data, block + 0x24a, "park day"));
+    out.elapsed = read_f32(data, block + 0x24e, "park elapsed");
+    out.has_park = true;
+    return out;
+}
+
 }  // namespace dino

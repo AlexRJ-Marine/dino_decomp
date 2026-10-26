@@ -98,6 +98,7 @@ struct Options {
     std::string save_name = "quicksave";
     std::string building_path;
     std::string wld_path;
+    std::string sav_park_path;
     bool wld_info = false;
     bool wld_park = false;
     float building_x = 520.0f;
@@ -304,6 +305,10 @@ Options parse_args(int argc, char** argv) {
             opt.wld_path = next("--wld-park");
             opt.wld_park = true;
             opt.build_mode = true;
+        } else if (arg == "--sav-park") {
+            opt.sav_park_path = next("--sav-park");
+            opt.wld_path = opt.sav_park_path;
+            opt.build_mode = true;
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--building-pos") {
@@ -491,6 +496,8 @@ Options parse_args(int argc, char** argv) {
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
+                "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
+                "  --sav-park FILE      import a retail .sav park (visitors/budget/clock)\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
@@ -3328,6 +3335,10 @@ int main(int argc, char** argv) {
     std::vector<dino::PortBuildingState> building_instances;
     std::vector<dino::WorldRect> wld_roads;
     std::vector<dino::WorldRect> wld_fences;
+    dino::SavSimulation sav_simulation;
+    std::vector<dino::WorldFence> sav_fences;
+    std::vector<dino::WorldBuilding> sav_buildings;
+    bool sav_ready = false;
     std::vector<dino::Attraction> attractions;
     int entrance_cell_x = -1;
     int entrance_cell_y = -1;
@@ -3563,6 +3574,34 @@ int main(int argc, char** argv) {
             }
             std::printf("wld: placed %d/%zu buildings\n", placed,
                         world.buildings.size());
+            if (!opt.sav_park_path.empty()) {
+                try {
+                    sav_simulation =
+                        dino::read_sav_simulation(opt.sav_park_path);
+                    sav_fences = world.fences;
+                    sav_buildings = world.buildings;
+                    sav_ready = true;
+                    wld_roads.clear();
+                    wld_fences.clear();
+                    for (const dino::RoadRect& road : sav_simulation.roads) {
+                        wld_roads.push_back(
+                            {road.x0, road.y0, road.x1, road.y1});
+                    }
+                    for (const dino::WorldFence& fence : sav_fences) {
+                        wld_fences.push_back({fence.start_x, fence.start_y,
+                                              fence.end_x, fence.end_y});
+                    }
+                    std::printf(
+                        "sav park: visitors=%zu roads=%zu budget=%d day=%d "
+                        "elapsed=%.3f fences=%zu buildings=%zu\n",
+                        sav_simulation.visitors.size(),
+                        sav_simulation.roads.size(), sav_simulation.budget,
+                        sav_simulation.day, sav_simulation.elapsed,
+                        sav_fences.size(), sav_buildings.size());
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "sav park: %s\n", e.what());
+                }
+            }
             if (opt.wld_park) {
                 wld_roads.clear();
                 wld_fences.clear();
@@ -3691,7 +3730,7 @@ int main(int argc, char** argv) {
                     build_grid.fence_count);
     };
 
-    if (opt.wld_park &&
+    if ((opt.wld_park || sav_ready) &&
         (!wld_roads.empty() || !wld_fences.empty())) {
         dino::import_roads(build_grid, wld_roads);
         dino::import_fences(build_grid, wld_fences);
@@ -4052,6 +4091,45 @@ int main(int argc, char** argv) {
     int park_hover_y = -1;
     int park_active_index = -1;
     int park_budget = free_game_budgets[0];
+    if (sav_ready) {
+        park_budget = sav_simulation.budget;
+        park_clock.day = sav_simulation.day;
+        park_clock.elapsed = sav_simulation.elapsed;
+        if (visitor_profiles.empty()) {
+            try {
+                visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "visitor profiles: %s\n", e.what());
+            }
+        }
+        if (!sav_simulation.visitors.empty()) {
+            visitor_system.visitors.clear();
+            for (const dino::SavVisitor& saved : sav_simulation.visitors) {
+                dino::Visitor visitor;
+                visitor.x = static_cast<float>(saved.x) - 512.0f;
+                visitor.y = static_cast<float>(saved.y) - 512.0f;
+                visitor.cell_x = saved.x / 4;
+                visitor.cell_y = saved.y / 4;
+                visitor.target_x = visitor.cell_x;
+                visitor.target_y = visitor.cell_y;
+                visitor.profile = 0;
+                visitor.need0 = static_cast<int>(saved.needs[0]);
+                visitor.need1 = static_cast<int>(saved.needs[1]);
+                visitor.need2 = static_cast<int>(saved.needs[2]);
+                visitor.state = dino::VisitorState::Choose;
+                visitor.angle = std::atan2(saved.dy, saved.dx);
+                visitor.rng = 0x51ce5eedu ^
+                              static_cast<unsigned>(
+                                  visitor_system.visitors.size() + 1);
+                visitor_system.visitors.push_back(visitor);
+            }
+            std::printf("sav visitors: %zu restored\n",
+                        visitor_system.visitors.size());
+        }
+        std::printf("sav park budget=%d day=%d elapsed=%.3f roads=%zu\n",
+                    park_budget, park_clock.day, park_clock.elapsed,
+                    wld_roads.size());
+    }
     int park_layout_w = 800;
     int park_layout_h = 600;
     dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
@@ -4328,6 +4406,101 @@ int main(int argc, char** argv) {
                     visitor_system.visitors.size(), build_grid.path_count,
                     build_grid.fence_count, building_instances.size());
     };
+
+    if (sav_ready) {
+        dino::PortState state;
+        state.island = current_island;
+        state.budget = sav_simulation.budget;
+        state.day = sav_simulation.day;
+        state.elapsed = sav_simulation.elapsed;
+        state.time_scale = park_clock.time_scale;
+        state.target = center;
+        state.yaw = yaw;
+        state.pitch = pitch;
+        state.distance = distance;
+        state.free_camera = free_camera;
+        state.free_pos = free_pos;
+        state.free_yaw = free_yaw;
+        state.free_pitch = free_pitch;
+
+        dino::BuildGrid import_grid;
+        import_grid.init(4.0f, terrain.world_size);
+        std::vector<dino::WorldRect> roads;
+        roads.reserve(sav_simulation.roads.size());
+        for (const dino::RoadRect& road : sav_simulation.roads) {
+            roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
+        dino::import_roads(import_grid, roads);
+        std::vector<dino::WorldRect> fences;
+        fences.reserve(sav_fences.size());
+        for (const dino::WorldFence& fence : sav_fences) {
+            fences.push_back({fence.start_x, fence.start_y, fence.end_x,
+                              fence.end_y});
+        }
+        dino::import_fences(import_grid, fences);
+
+        state.cell_size = import_grid.cell_size;
+        state.origin_x = import_grid.origin_x;
+        state.origin_y = import_grid.origin_y;
+        state.width = import_grid.width;
+        state.height = import_grid.height;
+        for (int y = 0; y < import_grid.height; ++y) {
+            for (int x = 0; x < import_grid.width; ++x) {
+                if (import_grid.path_at(x, y)) {
+                    state.paths.emplace_back(x, y);
+                }
+                for (int edge = 0; edge < 2; ++edge) {
+                    if (import_grid.fence_at(x, y, edge)) {
+                        state.fences.push_back({x, y, edge});
+                    }
+                }
+            }
+        }
+        for (const dino::WorldBuilding& building : sav_buildings) {
+            state.buildings.push_back(
+                {static_cast<int>(building.kind),
+                 static_cast<int>(building.cell_x),
+                 static_cast<int>(building.cell_y),
+                 static_cast<int>(building.state)});
+        }
+        const float half = terrain.world_size * 0.5f;
+        for (const dino::SavVisitor& saved : sav_simulation.visitors) {
+            dino::PortVisitorState visitor;
+            visitor.x = static_cast<float>(saved.x) - half;
+            visitor.y = static_cast<float>(saved.y) - half;
+            int cx = 0;
+            int cy = 0;
+            if (!import_grid.cells_for_world(visitor.x, visitor.y, cx, cy)) {
+                cx = 0;
+                cy = 0;
+            }
+            visitor.cell_x = cx;
+            visitor.cell_y = cy;
+            visitor.target_x = cx;
+            visitor.target_y = cy;
+            visitor.prev_x = -1;
+            visitor.prev_y = -1;
+            visitor.angle = std::atan2(saved.dy, saved.dx);
+            visitor.phase = 0.0f;
+            state.visitors.push_back(visitor);
+        }
+        apply_port_state(state);
+        for (std::size_t i = 0;
+             i < sav_simulation.visitors.size() &&
+             i < visitor_system.visitors.size();
+             ++i) {
+            const auto& needs = sav_simulation.visitors[i].needs;
+            visitor_system.visitors[i].need0 = static_cast<int>(needs[0]);
+            visitor_system.visitors[i].need1 = static_cast<int>(needs[1]);
+            visitor_system.visitors[i].need2 = static_cast<int>(needs[2]);
+        }
+        std::printf(
+            "sav import: budget=%d day=%d elapsed=%.3f visitors=%zu "
+            "paths=%d fences=%d buildings=%zu\n",
+            park_budget, park_clock.day, park_clock.elapsed,
+            visitor_system.visitors.size(), build_grid.path_count,
+            build_grid.fence_count, building_instances.size());
+    }
 
     auto save_name_sanitized = [&]() {
         std::string name = opt.save_name;

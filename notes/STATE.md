@@ -1030,17 +1030,22 @@ Updated: 2026-10-26
   - Evidence: `docs/formats/sav.md`, `notes/save-graph-recon.md`,
     `tests/test_sav_graph.py::test_park_header_and_schedule`.
 
-- P2a complete: **campaign `.wld` park import.**
+- P2a/P2b complete: **retail `.wld`/`.sav` park import.**
   - `--wld-park FILE` imports road rectangles as path cells, fence
     rectangles as canonical south/east edges, and the existing `.bbi`
     building placement. Cpg04 on isl04: 57 buildings, 14 roads -> 301 cells,
     9 fences -> 268 edges; Cpg01: 1 road -> 16 cells.
+  - `--sav-park FILE` skips the show catalog and reads `spSimuManager`:
+    roads, visitors (0x50 records), budget (park block +0x30) and day/elapsed
+    (tail +0x00/+0x04). slot001: budget 75,125, day 0, 23.214 s, 1 road ->
+    16 paths, 2 visitors, 1 building.
   - Corrected the mapping: raw `.wld` world `wx` maps to `floor(wx/4)`, not
     `floor((wx+512)/4)` (the old note was off by half the world).
+  - Open: dinosaur spawn (species/mesh link from the care-state record); the
+    `WorldDinosaur` genotype is already exposed.
   - Evidence: `docs/platform/world-import.md`, `notes/cpg04-park-import.png`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
-    `test_cpp_wld_park_import_single_road`.
-  - Open: `.sav` simulation section (visitors, budget, clock, dinos).
+    `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`.
 
 ## In progress
 
@@ -1065,8 +1070,8 @@ Updated: 2026-10-26
    in the port save.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
-3. P2: import fences, roads → path cells, visitors, dinosaurs and the budget/
-   clock from a real `.sav`/`.wld` into the port park.
+3. P2 rest: spawn the imported dinosaur genotypes/care-state records at a
+   paddock centre; roads/fences/buildings/visitors/budget/clock are done.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
    through the construction UI; then frustum culling and LOD2.

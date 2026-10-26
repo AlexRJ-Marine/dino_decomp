@@ -1070,9 +1070,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   rectangles → canonical edges, buildings via the existing `.bbi` path.
   Cpg04: 57 buildings, 14 roads → 301 cells, 9 fences → 268 edges; Cpg01:
   1 road → 16 cells.
-- [ ] `.sav` simulation section: skip the show catalog, read visitors
+- [x] `.sav` simulation section: skip the show catalog, read visitors
   (0x50 records), budget (park block +0x30), day/elapsed (tail +0x00/+0x04).
-- [ ] Restore saved visitors (position/state/needs); profile index defaults 0.
+  `read_sav_simulation` + `--sav-park`; slot001 gives budget 75,125, day 0,
+  23.214 s, 1 road → 16 paths, 2 visitors, 1 building.
+- [x] Restore saved visitors (position/state/needs); profile index defaults 0
+  and the saved travel target is not in the record, so state is reset to
+  Choose. Needs 0..2 are restored.
 - [ ] Dinosaurs: spawn genotype/care-state records at a paddock centre.
 - **Acceptance:** a retail `.sav` loads with its roads, fences, buildings,
   visitors and budget/clock and runs the simulation.
@@ -1080,7 +1084,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/world-import.md`,
   `notes/world-import-mapping.md`, `notes/cpg04-park-import.png`,
   `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
-  `test_cpp_wld_park_import_single_road`.
+  `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`.
 
 ### SAVE-1: Save/load
 - Reproduce enough of `.wld`/save semantics or define a new format.

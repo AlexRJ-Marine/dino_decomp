@@ -191,8 +191,10 @@ This is the **simulation** visitor record. It is separate from the
 ```
 
 The first dword is an object-registry ID, not the personality profile. The
-seven needs are the visitor satisfaction/status values; their semantic names
-are open.
+seven needs are the visitor satisfaction/status values; the first three are
+the runtime `+0x48/+0x4c/+0x50` needs (e.g. `slot001.sav` 97/96/99 and
+99/98/99), the remaining four are 99 in retail saves. The C++ reader
+`read_sav_simulation` exposes them as `SavVisitor.needs`.
 
 ### Park block (`0x293` bytes)
 
