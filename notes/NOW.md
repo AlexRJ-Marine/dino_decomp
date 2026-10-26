@@ -47,7 +47,6 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- CAMPAIGN-1: C++ campaign/mission reader + objective ids (port lane, build/port)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
   writers, visitor/obstacle perception reaction.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -57,6 +56,7 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
+- CAMPAIGN-2: objective evaluator (simple verbs + trait pattern + MISSION_PANEL tri-state)
 1. UI-2 Phase D tail: store visitor travel state and the dino clip phase.
 2. Store/lab attribute gauges: `DinoAttributes` is ported; wire the
    `PROGRESS` widgets (ConstructionInterface) and the 3D preview.

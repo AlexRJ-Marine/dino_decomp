@@ -1306,6 +1306,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `src/formats/campaign.{h,cpp}`,
   `docs/platform/campaign-flow.md`, `tests/test_campaign_cpp.py`.
 
+### CAMPAIGN-2: Campaign objective evaluator
+- [ ] Port the simple evaluators (`treasury`, `marchandizing`, `dyingdinos`,
+  `visitors`, `employees`, `cameraaltitude`, `delaylimit`, `buyalldinos`,
+  `bankrupt`) against a `CampaignState`.
+- [ ] Port the trait verbs (10-field pattern) using `DinoAttributes` and
+  `DinoNeeds`; leave the show/building verbs pending until those actors land.
+- [ ] Wire the mission state machine and `MISSION_PANEL` tri-state
+  (pending/success/failure).
+- **Acceptance:** Cpg04_Mission1 evaluates against the imported park and a
+  synthetic state; every verdict is exercised.
+- **Evidence:** `docs/platform/decoded-features.md`,
+  `notes/objectives-recon.md`, `docs/formats/campaign.md`.
+
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
   daily settlement (`0x585c00`..`0x585e10`, `0x58ad00`).

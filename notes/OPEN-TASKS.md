@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 22:23. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 22:24. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-32 open items.
+35 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -79,6 +79,11 @@ Generated from `TASKS.md` on 2026-10-26 22:23. Do not edit; regenerate with `scr
 ## SIM-3: Dinosaurs
 - [ ] Employee feeding (nutritionist schedule) and the exact `.bsi`
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
+
+## CAMPAIGN-2: Campaign objective evaluator
+- [ ] Port the simple evaluators (`treasury`, `marchandizing`, `dyingdinos`,
+- [ ] Port the trait verbs (10-field pattern) using `DinoAttributes` and
+- [ ] Wire the mission state machine and `MISSION_PANEL` tri-state
 
 ## SIM-4: Economy and attractions
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once
