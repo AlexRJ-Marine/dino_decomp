@@ -759,8 +759,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   orientation (footprint swaps for odd states), engine heightfield Z, primary
   `.skin` model. isl01 Entrance = centre `(525.5,387.5)`, Z `69.4`, yaw 90°;
   Cpg04 on isl04 places 57/57 buildings.
-- [ ] `model[0] = 1` slope-aligned basis (`LunchDoor`) and placement through
-  the construction UI. `model[1]` is a float `0.0` at `.bbi` offset 113 in
+- [x] `model[0] = 1` slope-aligned basis (`LunchDoor`) via `dino::slope_basis`:
+  three-radius terrain normal, yaw-projected right axis, `up = n × right`;
+  selftest covers the flat (yaw-equivalent) and tilted cases. Construction-UI
+  placement is live (`--construct`). `model[1]` is 0.0 at `.bbi` offset 113 in
   all 39 files, so there is no Z offset.
 - [ ] Read scenario/landscape placement data beyond buildings; instance
   meshes; cull.

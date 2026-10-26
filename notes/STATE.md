@@ -1205,11 +1205,11 @@ Updated: 2026-10-26
   `FogParam_WaterSurface.txt` 100..700 black; both linear). Remaining: the
   second `Modulate2x` water texture stage (coord set 1, animation) and the
   skybox bottom/side seam.
-- WORLD-2 remains: the `model[0] = 1` slope basis is decoded
-  (`FUN_0061C510`: three-radius terrain normal + orthonormal basis) but not
-  yet applied in the port; frustum culling and LOD2 remain.
-  `model[1]` is 0.0 in all files. Building placement from `.wld`/`.sav` is
-  solved (57/57 on Cpg04/isl04), and construction-UI placement is now live.
+- WORLD-2 remains: frustum culling and LOD2. The `model[0] = 1` slope basis
+  is ported (`dino::slope_basis`, three-radius terrain normal; selftest
+  covers flat and tilted cases). `model[1]` is 0.0 in all files. Building
+  placement from `.wld`/`.sav` is solved (57/57 on Cpg04/isl04), and
+  construction-UI placement is now live.
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
 
 ## Next action
@@ -1225,8 +1225,8 @@ Updated: 2026-10-26
    feeding item so Eat requires a real food source. See
    `notes/dino-action-chooser-recon.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
-5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
-   through the construction UI; then frustum culling and LOD2.
+5. WORLD-2 rest: frustum culling and LOD2; the `model[0] = 1` slope basis
+   and construction-UI placement are done.
 6. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
 7. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are

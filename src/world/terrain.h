@@ -23,6 +23,17 @@ struct Terrain {
     float height_at(float world_x, float world_y) const;
 };
 
+// Slope-aligned placement basis (FUN_0061c510): the normal is the normalized
+// sum of three central-difference normals (r = 0.5, 1, 2 world units), the
+// right axis is the yaw direction projected onto the slope, and up = n x right.
+struct TerrainBasis {
+    Vec3 right;
+    Vec3 up;
+    Vec3 normal;
+};
+TerrainBasis slope_basis(const Terrain& terrain, float world_x, float world_y,
+                         float yaw_radians);
+
 std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& height);
 Terrain build_terrain(const std::vector<std::uint8_t>& heights, int width, int height,
                       float world_size, float height_scale);

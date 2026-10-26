@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "../formats/mesh.h"  // read_binary_file
+#include "../formats/math.h"
 
 namespace dino {
 
@@ -125,6 +126,34 @@ float Terrain::height_at(float world_x, float world_y) const {
     const float h0 = h00 + (h10 - h00) * fx;
     const float h1 = h01 + (h11 - h01) * fx;
     return (h0 + (h1 - h0) * fy) * height_scale;
+}
+
+TerrainBasis slope_basis(const Terrain& terrain, float world_x, float world_y,
+                         float yaw_radians) {
+    Vec3 normal{0.0f, 0.0f, 0.0f};
+    const float radii[3] = {0.5f, 1.0f, 2.0f};
+    for (const float r : radii) {
+        const float hx = (terrain.height_at(world_x + r, world_y) -
+                          terrain.height_at(world_x - r, world_y)) /
+                         (2.0f * r);
+        const float hy = (terrain.height_at(world_x, world_y + r) -
+                          terrain.height_at(world_x, world_y - r)) /
+                         (2.0f * r);
+        const Vec3 part = normalize({-hx, -hy, 1.0f});
+        normal.x += part.x;
+        normal.y += part.y;
+        normal.z += part.z;
+    }
+    const Vec3 n = normalize(normal);
+    const float c = std::cos(yaw_radians);
+    const float s = std::sin(yaw_radians);
+    const float dot = c * n.x + s * n.y;
+    const Vec3 right =
+        normalize({c - n.x * dot, s - n.y * dot, -n.z * dot});
+    const Vec3 up = {n.y * right.z - n.z * right.y,
+                     n.z * right.x - n.x * right.z,
+                     n.x * right.y - n.y * right.x};
+    return {right, up, n};
 }
 
 }  // namespace dino

@@ -2128,6 +2128,28 @@ int run_selftest() {
     check(paddock.used == 64.0f && paddock.fill() == 1.0f, "paddock full");
     check(!dino::paddock_add(paddock, 9, 0), "paddock no room");
 
+    dino::Terrain basis_terrain;
+    basis_terrain.width = 16;
+    basis_terrain.height = 16;
+    basis_terrain.world_size = 1024.0f;
+    basis_terrain.height_scale = 1.0f;
+    basis_terrain.heights.assign(16 * 16, 0);
+    const dino::TerrainBasis flat_basis =
+        dino::slope_basis(basis_terrain, 0.0f, 0.0f, 0.0f);
+    check(flat_basis.normal.z > 0.999f && flat_basis.right.x > 0.999f &&
+              flat_basis.up.y > 0.999f, "slope basis flat");
+    dino::Terrain sloped = basis_terrain;
+    for (int y = 0; y < 16; ++y) {
+        for (int x = 0; x < 16; ++x) {
+            sloped.heights[static_cast<std::size_t>(y) * 16 + x] =
+                static_cast<std::uint8_t>(x * 8);
+        }
+    }
+    const dino::TerrainBasis sloped_basis =
+        dino::slope_basis(sloped, 0.0f, 0.0f, 0.0f);
+    check(sloped_basis.normal.x < -0.05f &&
+              sloped_basis.normal.z > 0.9f, "slope basis tilted");
+
     dino::Terrain terrain;
     terrain.width = 16;
     terrain.height = 16;
@@ -3934,17 +3956,46 @@ int main(int argc, char** argv) {
             const float angle_deg =
                 extra_angle_deg + static_cast<float>(orientation) * 90.0f;
             const float radians = angle_deg * 3.14159265f / 180.0f;
-            const float cs = std::cos(radians) * scale;
-            const float sn = std::sin(radians) * scale;
-            for (std::size_t i = 0; i < placed.positions.size(); ++i) {
-                const dino::Vec3 p = placed.positions[i];
-                placed.positions[i] = {wx + p.x * cs - p.y * sn,
-                                       wy + p.x * sn + p.y * cs,
-                                       wz + p.z * scale};
-                if (i < placed.normals.size()) {
-                    const dino::Vec3 n = placed.normals[i];
-                    placed.normals[i] = dino::normalize(
-                        {n.x * cs - n.y * sn, n.x * sn + n.y * cs, n.z});
+            const float cos_a = std::cos(radians);
+            const float sin_a = std::sin(radians);
+            if (def.model0 == 1) {
+                // FUN_0061c510: slope-aligned basis from the terrain normal.
+                const dino::TerrainBasis basis =
+                    dino::slope_basis(terrain, wx, wy, radians);
+                const dino::Vec3& right = basis.right;
+                const dino::Vec3& up = basis.up;
+                const dino::Vec3& n = basis.normal;
+                const dino::Vec3 rx{right.x * scale, right.y * scale,
+                                    right.z * scale};
+                const dino::Vec3 ux{up.x * scale, up.y * scale, up.z * scale};
+                const dino::Vec3 nx{n.x * scale, n.y * scale, n.z * scale};
+                for (std::size_t i = 0; i < placed.positions.size(); ++i) {
+                    const dino::Vec3 p = placed.positions[i];
+                    placed.positions[i] = {
+                        wx + p.x * rx.x + p.y * ux.x + p.z * nx.x,
+                        wy + p.x * rx.y + p.y * ux.y + p.z * nx.y,
+                        wz + p.x * rx.z + p.y * ux.z + p.z * nx.z};
+                    if (i < placed.normals.size()) {
+                        const dino::Vec3 v = placed.normals[i];
+                        placed.normals[i] = dino::normalize(
+                            {v.x * right.x + v.y * up.x + v.z * n.x,
+                             v.x * right.y + v.y * up.y + v.z * n.y,
+                             v.x * right.z + v.y * up.z + v.z * n.z});
+                    }
+                }
+            } else {
+                const float cs = cos_a * scale;
+                const float sn = sin_a * scale;
+                for (std::size_t i = 0; i < placed.positions.size(); ++i) {
+                    const dino::Vec3 p = placed.positions[i];
+                    placed.positions[i] = {wx + p.x * cs - p.y * sn,
+                                           wy + p.x * sn + p.y * cs,
+                                           wz + p.z * scale};
+                    if (i < placed.normals.size()) {
+                        const dino::Vec3 n = placed.normals[i];
+                        placed.normals[i] = dino::normalize(
+                            {n.x * cs - n.y * sn, n.x * sn + n.y * cs, n.z});
+                    }
                 }
             }
             building_draws.push_back({upload_mesh(placed, glfns), texture});

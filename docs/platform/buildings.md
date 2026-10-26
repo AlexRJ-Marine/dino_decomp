@@ -1,10 +1,9 @@
 # Buildings: `.bbi` definitions and static placement
 
 Status: **loader + placement transform solved.** Position (footprint centre),
-orientation (`state` = 90°), terrain Z and the primary `.skin` model match the
-retail functions; `model[0] = 1` (slope basis, `LunchDoor`) is the only open
-placement branch. `model[1]` is 0.0 in all files. This is the first
-world-object bring-up step for WORLD-2/SIM-2.
+orientation (`state` = 90°), terrain Z, the primary `.skin` model and the
+`model[0] = 1` slope basis match the retail functions. `model[1]` is 0.0 in
+all files. This is the first world-object bring-up step for WORLD-2/SIM-2.
 
 ## Loader
 
@@ -110,8 +109,12 @@ recomputed from the terrain normal instead of a pure yaw. The function takes
    (`FUN_004664c0` / `FUN_004664e0` / `FUN_00466500`).
 
 The height sampler is the same `FUN_005c0b80` used by the terrain (bilinear
-u16 × 1/256). The port's yaw-only path is correct for all other buildings;
-`LunchDoor` needs this basis. `model[1]` is a Z offset and stays 0.0.
+u16 × 1/256). The port implements this in `dino::slope_basis`
+(`src/world/terrain.cpp`): three central-difference normals at r = 0.5, 1, 2
+world units, a yaw-projected right axis and `up = n × right`; on flat ground
+it reduces exactly to the yaw transform. `--selftest` checks the flat and
+tilted cases. `LunchDoor` is the only `.bbi` that takes this branch.
+`model[1]` is a Z offset and stays 0.0.
 - Engine cross-checks: isl01 Entrance at cell `(520,376)` state 1 → centre
   `(525.5,387.5)`, Z **69.4**; the port prints the same. Campaign Entrances
   sit at each island's `.lnd` width/height (isl01 `520/376`, isl02 `312/504`,
@@ -152,8 +155,6 @@ $G = "game/%MAINDIR%"
 
 ## Open
 
-- `model[0] = 1` slope basis is decoded (`FUN_0061c510`: three-radius terrain
-  normal, `R = forward × n`, `U = R × n`); port implementation pending.
 - Construction cost is solved: `.bbi` file offset 21 (`Building::
   construction_cost`), charged to the CONSTRUCTION bucket by
   `FUN_00585d20`; the visitor entry price is file offset 25. The
