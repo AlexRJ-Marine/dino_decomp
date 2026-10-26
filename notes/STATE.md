@@ -1368,9 +1368,11 @@ Updated: 2026-10-26
   genotypes.** Beauty/Agility/Armor are the Part 3 five-part sums (19/20
   exact); Perception adds `PerceptionHeightPercentage * height / 100`;
   Aggressiveness/Stamina/Courage are the `Agre`/`Stam`/`Cour` gene
-  expressions (10..100); walk speed is 0.24-0.36. Intelligence (`+0x3c`) is
-  **not** the Part 3 sum (18..105 vs 25..100) and its formula is open; the
-  small residuals on attack/Ag/St/Co come from the part-record accumulator
+  expressions (10..100); walk speed is 0.24-0.36. **Intelligence solved**:
+  `trunc(25 * Part3IntSum / (length*width*height)^0.22)`, then the
+  multiplier/accumulator passes and clamp 0..200; 18/20 Cpg04 rows match
+  exactly (the two +2/+3 residuals are the part-record accumulator). The
+  small residuals on attack/Ag/St/Co also come from that accumulator
   (dummy/skin/carapace Part 6/7/8 influences).
   - Evidence: `notes/phenotype-attributes-runtime.md` (20-row table and field
     offsets), `scripts/x32dbg/start-campaign.ps1` (`-GenotypeTrace` CTOR

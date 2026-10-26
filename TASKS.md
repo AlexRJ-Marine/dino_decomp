@@ -936,8 +936,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `saDinosaur` ctor: Beauty/Agility/Armor are the Part 3 five-part sums
   (19/20 exact), Perception adds the height term, Aggressiveness/Stamina/
   Courage are the `Agre`/`Stam`/`Cour` gene expressions, walk speed is
-  0.24-0.36. Intelligence (`+0x3c`) is not the Part 3 sum; its formula is
-  open. See `notes/phenotype-attributes-runtime.md`.
+  0.24-0.36. Intelligence (`+0x3c`) is solved as
+  `trunc(25 * Part3IntSum / (length*width*height)^0.22)`, then the
+  multiplier/accumulator passes and clamp 0..200; 18/20 Cpg04 rows match
+  exactly. See `notes/phenotype-attributes-runtime.md` and
+  `docs/formats/translator-constants.md`.
 - [ ] Port the part-record accumulator (dummy/skin/carapace influences, Part
   6/7/8 tables) so the store/lab attribute gauges and the visitor needs can
   read exact values. The base sums + gene expressions already cover most

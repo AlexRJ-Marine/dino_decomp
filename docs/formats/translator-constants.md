@@ -199,7 +199,7 @@ attribute groups and sums the five parts:
 | Attribute | Translator base | Phenotype field |
 | --- | ---: | ---: |
 | Perception | `+0x330` | `+0x38` (+ height percentage term) |
-| Intelligence | `+0x344` | `+0x3c` (written through the cube-root temporary) |
+| Intelligence | `+0x344` | `+0x3c` (Part 3 sum / volume^0.22) |
 | Beauty | `+0x358` | `+0x40` |
 | Armor | `+0x36c` | `+0x68` |
 | Agility | `+0x380` | `+0x48`, and `+0x34 = JumpPercentage * agility / 100` |
@@ -226,12 +226,12 @@ Other phenotype fields written by `0x00617250`:
 | `+0x00` | total length = body part + tail part |
 | `+0x04`, `+0x08` | body and tail length; split in half for quadrupeds |
 | `+0x10` | size-category radius (`SizeCategory*Radius`) |
-| `+0x18` | volume (length x width x height) |
-| `+0x1c` | `volume * FoodConsumptionRate * 0.01` |
+| `+0x18` | weight (Part 3 Weight group x part scale, kg) |
+| `+0x1c` | `weight * FoodConsumptionRate * 0.01` |
 | `+0x28` | walk speed = `+0x1b * WalkingSpeedCoef * 0.01` |
 | `+0x2c` | run speed (0 below `MinMotricityToRun`) |
 | `+0x34` | jump = `JumpPercentage * agility / 100` |
-| `+0x3c` | cube root of the volume (linear size) |
+| `+0x3c` | Intelligence quotient (see below) |
 | `+0x6c` | aggression merge (`+0x1f4` table, gene 15 pair) |
 | `+0x70` | stamina merge (`+0x1f8` table, gene 16 pair) |
 | `+0x74` | courage merge (`+0x1fc` table, gene 17 pair) |
@@ -245,6 +245,27 @@ at `+0x98/+0xac/+0xc0` and the five part scale factors at `+0xd4..+0xe4`
 (head, arm, body, leg, tail). Each scale blends the two parents with the
 matching Part 2 merge table weight (`+0x3bc` head, `+0x3c0` legs,
 `+0x3c8` tail) and normalises by the body part size.
+
+### Intelligence (`+0x3c`)
+
+Intelligence is the Part 3 Intelligence sum divided by body volume^0.22 —
+an encephalization quotient, not a raw sum:
+
+```text
+P[0x3c] = trunc(IntelligenceMultiplier * Σ_parts Int3[part][alleleB][alleleA]
+                / (P[0x00] * P[0x0c] * P[0x14]) ^ IntelligencePower)
+```
+
+`IntelligenceMultiplier = 25`, `IntelligencePower = 0.22` (`+0x288`/`+0x2d8`).
+The two x87 operands are loaded at `0x6175f6..0x617631`; `0x59aef0` is the
+CRT `pow` (base=st1, exponent=st0), then `0x5982d4` truncates. Two
+near-neutral accumulator passes follow (`0x619df0`:
+`trunc(P * m/100) + trunc(acc)`, m default 100) and the Part 9 clamp
+`0..200` (`+0x418`/`+0x474`).
+
+18/20 Cpg04 rows match the first term exactly; the two residuals (+2/+3) are
+the unported dummy/skin/carapace accumulator. Example: base 85,
+742×260×420 cm³ -> `25*85 / V^0.22 = 38.68 -> 38`.
 
 ### Conventional appeal and part records
 
@@ -327,4 +348,7 @@ is present and none is extra. `tools/formats/simu_trans.py` now also exposes
 - The 4-byte gap at `+0x2b4`.
 - Human-readable names for the remaining phenotype fields (`+0x38`, `+0x48`,
   `+0x50`, `+0x54`, `+0x58`, `+0x5c`, `+0x68`, `+0x70`, `+0x74`, `+0x78`).
-- Whether the five needs feed the show score, the visitor AI, or both.
+- The five needs feed the show score (`docs/decomp/show-score.md`) and the
+  visitor/taming formulas; the exact split is documented there.
+- The dummy/skin/carapace accumulator's two +2/+3 residuals on the Cpg04
+  Intelligence rows (`0x619a60`/`0x619b80`).

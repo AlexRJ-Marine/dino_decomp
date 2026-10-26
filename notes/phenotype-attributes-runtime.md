@@ -1,6 +1,7 @@
 # Phenotype attributes (runtime trace)
 
-Status: **first layer solved; the part-record accumulator is still open.**
+Status: **first layer and Intelligence solved; the part-record accumulator
+is still open.**
 This extends `notes/phenotype-length-runtime.md`. The 20 Cpg04 dinosaurs were
 logged at the `saDinosaur` ctor (`0x56FED0`) with the full phenotype field set;
 the table below is the durable copy.
@@ -17,7 +18,7 @@ the table below is the durable copy.
 | `+0x2c` | run speed (float) | walking * RunningSpeedCoef, 0 below min motricity |
 | `+0x34` | jump | `JumpPercentage * agility / 100` |
 | `+0x38` | Perception | Part 3 sum + `PerceptionHeightPercentage * height / 100` |
-| `+0x3c` | Intelligence (UI label) | open (see below) |
+| `+0x3c` | Intelligence (UI label) | `trunc(25 * Part3IntSum / V^0.22)` (see below) |
 | `+0x40` | Beauty | Part 3 sum |
 | `+0x48` | Agility | Part 3 sum |
 | `+0x4c` | Attack: head | Attack table, head gene pair |
@@ -73,14 +74,23 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
   records add +-2..5.
 - **Perception**: base + 2..4, matching the height percentage term.
 - **Walk speed** (`+0x28`, float): 0.240..0.360 for the 20 Cpg04 genotypes.
-- **Intelligence (`+0x3c`) is not the Part 3 Intelligence sum.** Live values
-  18..105 do not track the 25..100 base (e.g. row 2 base 85 -> 38, row 5 base
-  100 -> 105). The decompiled assignment goes through a two-argument
-  `FUN_0059AEF0` (x87 `pow`) over `+0x14 * +0x0c * +0x00`, but the logged
-  dimensions (606/139/234) do not produce 18 under a cube root. The UI
-  `AttributeRange.ini` still labels `+0x3c` "Intelligence", so the value is
-  what the store/lab gauge shows; the formula needs one more trace (log
-  `+0x18`, `+0x1c`, `+0x10` and the x87 stack at `0x6198eb..0x61990f`).
+- **Intelligence (`+0x3c`) solved.** It is an encephalization quotient, not
+  the Part 3 sum:
+
+  ```text
+  P[0x3c] = trunc( IntelligenceMultiplier(25)
+                   * Σ_parts Part3Intelligence[part][alleleB][alleleA]
+                   / (P[0x00] * P[0x0c] * P[0x14]) ^ IntelligencePower(0.22) )
+  ```
+
+  Then the two near-neutral accumulator passes apply
+  (`P = trunc(P * m/100) + trunc(acc)`, clamp 0..200). 18/20 Cpg04 rows are
+  exact from the first term (e.g. base 85, 742×260×420 -> 38; base 100,
+  170×69×150 -> 105); the two +2/+3 rows are the unported dummy/skin/
+  carapace accumulator. The divisor explains why the simple sum (25..100)
+  and the live values (18..105) look unrelated: body volume spans
+  1.76M..81M cm³ and `V^0.22` spans 23.7..54.9.
+  `P[0x18]` is the Part 3 **Weight** group × part scale (kg), not volume.
 
 ## Residual source
 
