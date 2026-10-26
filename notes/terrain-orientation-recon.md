@@ -93,9 +93,13 @@ the row flip.
 
 ## Verification
 
-- `notes/entrance-fixed2.png`: the Entrance boat on the isl01 shoreline.
+- `notes/entrance-fixed2.png`: the Entrance boat on the isl01 shoreline
+  (wide shot; the boat is the small gold/red model in the centre).
+- `notes/entrance-fixed2-boat.png`: the same frame with the boat boxed.
+- `notes/entrance-fixed-close.png`: close-up of the boat at the waterline.
 - `notes/isl01-start-fixed.png`: free-game start view; matches the retail
-  `notes/park-after2.png` framing (green grass, palms, water top-left).
+  `notes/park-after2.png` framing (green grass, palms, water top-left). The
+  Entrance is outside this initial frame; it is north of the camera target.
 - `notes/menu-start-entrance-fixed.png`: the actual Free Game start handoff
   (isl01, easy) after the fix.
 - `notes/isl01-overhead2.png`: whole-island top-down with the basemap.
