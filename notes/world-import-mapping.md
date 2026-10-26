@@ -114,21 +114,39 @@ field. The port's `PortState.budget`, `day` and `elapsed` map directly:
 read the budget pair instead of resetting to the difficulty budget, and seed
 `ParkClock` with the saved day/hour.
 
-## Dinosaurs — the open piece
+## Dinosaurs - genotype + care list, no world position
 
 The `drsDinosaur` world record carries only:
 
 ```text
 object_id, field_1c, field_24, field_28, field_2c, class_tag,
-18 × (allele A, allele B)
+18 x (allele A, allele B)
 ```
 
-There is **no position, no age and no need state** in this record. The
-genotype is enough to rebuild the phenotype (via the translator), but the
-placed dinosaur position must come from the simulation/AI tail or the
-dinosaur actor section that `sav_graph` currently stops before. P2 can
-already import the genotype and spawn at a default paddock position; real
-placement needs one more parser step in the simulation block.
+The five ids are sequential object links (e.g. `63822/63823/63824/63826/
+63825`), not positions; `field_1c` is the link used by the simulation list.
+
+Cpg04's simulation section (offset `0x2010`, after the 14 road rects) starts
+with `u32 count = 20`, and each record begins with:
+
+```text
+u32 link_id          # equals the world dino's field_1c (63823 for the first)
+u32 ?                # 517
+u32 ?                # 450
+u32 ?                # 0x02010303
+u32 ?                # 425, then 200 before the name
+u32 name_bytes       # 0x18
+utf16 name           # "Ankylosaur1"
+...                  # phenotype (80/60/30 x4), needs (100 x5), care state
+```
+
+So the simulation block holds the **individual dinosaur care state** (name,
+phenotype, needs), linked to the world record by `field_1c`. It does **not**
+contain a world position either: retail dinosaurs are assigned to a paddock
+and respawn at load. P2 can import the genotype + name now and spawn each
+dinosaur at a paddock centre (fence rectangle) or at the Entrance; a real
+per-dinosaur position would have to be re-derived from its paddock/building
+link, not read from the file.
 
 ## Integration order
 
