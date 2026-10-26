@@ -228,6 +228,24 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00517a40` / `0x00517ab0` | menu movie wrapper / playing poll | decompiled | same |
 | `0x00401d40` / `0x00402600` | startup intro / generic movie paths | decompiled | same |
 
+## Construction validation (CONS-1)
+
+| Address | Purpose | Status | Evidence |
+| --- | --- | --- | --- |
+| `0x0052bed0` | common affordability gate (budget < cost → `WARNING_NOT_ENOUGH_MONEY`); does not deduct | decompiled | `docs/decomp/construction-validation.md` |
+| `0x00535b10` | `FENCE_INSERTION` state constructor (`FUN_0052bd10(0x12, "FENCE_INSERTION")`, vtable `0x642d80`) | decompiled | `notes/fence-insertion-recon.md` |
+| `0x00535b40` / `0x00535b70` / `0x00535bb0` | state dtor / enter / leave | decompiled | same |
+| `0x00535be0` | state validate/apply: capacity → placement → purchase/registration → `stFence::AddActor`; warning path `0x536017` stays in state | decompiled (structure) | same |
+| `0x0057dc60` | `stFence` constructor: `capacity(+0x7c) = ((x1−x0+1)/cell)*((y1−y0+1)/cell)`; cost table `+0x84..+0x90` = 8/16/32/64 | decompiled | same |
+| `0x0057e8a0` | `stFence::AddActor`: append 4-byte occupant pointer, `used += cost[index]`, `fill = used/capacity` | decompiled | same |
+| `0x0057ead0` | 4-byte pointer vector membership scan (occupants/cells) | decompiled | same |
+| `0x0057eb50` | `stFence::CanAddActor`: duplicate check + `capacity−used >= cost[dinosaur+0x1e0]` | decompiled | same |
+| `0x0057ec00` | `stFence::PlaceActor`: caller-picked point on the purchase path; the 50-iteration random loop is unreachable, always returns 1 | decompiled | same |
+| `0x0057f220` | pathmap cell flag test used by the placement scan; does not gate the return value | decompiled | same |
+| `0x00585cc0` | budget category spend (`budget −= cost`, count++, total += cost) | decompiled | same |
+| `0x00594270` | `spDinosaurStore` row removal | decompiled | same |
+| `0x005e3d70` | warning/message panel call used by the capacity failure path | decompiled | same |
+
 ## C++ reimplementations
 
 These are readable ports used by the portable viewer. The first one is now
@@ -262,9 +280,13 @@ hooked into the original exe (Phase 3 `HYB-1`).
 - 1024×768 HUD anchoring and dynamic sub-panel fields — UI-2 Phase C rest.
 - Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
   panel — UI-2 Phase D.
-- Dinosaur AI action chooser that maps BAD FOOD/REPOS to `Eat`/`Sleep`;
-  the gauges, four needs and `0x1f` idle sentinel are solved in
-  `docs/decomp/dinosaur-actions.md`.
+- Dinosaur AI: the chooser, need-state weights and `DinoActionLoop` are ported
+  and drive the imported dinosaurs. Remaining: the retail-verified
+  action→animation clip table, the SECU threat/visitor term and the feeding
+  item. See `docs/decomp/dinosaur-actions.md`.
+- Construction: the `FENCE_INSERTION` capacity model and store charge are
+  decoded but not ported; runtime-confirm `[dinosaur+0x1e0]` and the landscape
+  `+0xc` cell size. See `docs/decomp/construction-validation.md`.
 - `.sav` world object lists, the park economy stream and the lab genotype
   store are solved; remaining DEC-3 items are the park block header and a few
   field semantics.
