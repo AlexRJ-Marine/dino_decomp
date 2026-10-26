@@ -464,7 +464,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dimensions; cage features (0..3) = 174 = team slots, per file.
 - [x] `read_feature_names()` exposes the 62-entry FeatureList order.
 - [x] `Data/Edition/Show` demos use an older schema (`NoName / w / h /
-  judge / count / features`); `read_demo_shw` parses all 3.
+  wall type / count / features`); `read_demo_shw` parses all 3 and exposes
+  `wall_type` (`WallList.ini` index: 2 MediumIron, 6 MediumWood).
 - [x] `Judge Kind` 1..4 selects JudgeRace/JudgeObstacle/JudgeFight/
   JudgeDestruction; `Available cage size` flags equal the cage features used
   (43/43); Wall type 1 in all files.
@@ -541,10 +542,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ### AUDIT-1: asset coverage index
 - [x] Every one of the 2,891 files mapped to a spec or an explicit open item
   (`notes/asset-coverage.md`).
-- [x] Demo `.shw` judge value is legacy edition/editor content; the retail exe
-  has no `Edition` loader.
+- [x] Demo `.shw` fourth value is the `WallList.ini` wall type (2 MediumIron,
+  6 MediumWood), not a judge kind.
 - [ ] Remaining unknowns: `Actions.bad`, `.lnd` w/h, `.bfi` body ints,
-  `.bwi` field semantics, behavior-graph nodes.
+  behavior-graph nodes.
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data

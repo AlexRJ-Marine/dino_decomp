@@ -94,7 +94,6 @@ This matches the file layout exactly (record stride 0xb4).
 ## Open
 
 - The seven floats' meanings.
-- Consumer of the `SWITCH_*` keys.
 
 ## Field semantics (2026-10-26)
 

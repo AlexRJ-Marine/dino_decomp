@@ -130,7 +130,6 @@ electrified set, scale law, widget prefixes, every asset path exists).
 
 ## Open
 
-- Consumer of the two `SWITCH_*` keys (absent from every INI/loc file).
 - Which of the seven floats are UV scale, crack threshold, shadow strength,
   and so on.
 
