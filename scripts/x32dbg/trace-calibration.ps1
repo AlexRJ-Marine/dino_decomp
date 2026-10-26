@@ -1,8 +1,9 @@
 param(
     [int]$Seconds = 75,
     [int]$IslandRow = 0,
-    [string]$GameDir = "run",
-    [string]$Log = "notes\x32dbg-calibration.out.log"
+    [string]$GameDir = "",
+    [string]$Log = "notes\x32dbg-calibration.out.log",
+    [switch]$PhysicalInput
 )
 
 # Runtime calibration for:
@@ -15,9 +16,20 @@ param(
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
+if (-not $GameDir) {
+    $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
+}
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+
+if (-not $PhysicalInput) {
+    if (-not (Test-Path $exe)) {
+        & (Join-Path $root "scripts\setup-test-runtime.ps1")
+    }
+    $env:DINO_VIRTUAL_MOUSE = "1"
+    . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -91,6 +103,10 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 Add-Type -AssemblyName System.Windows.Forms
 
 function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    if (-not $PhysicalInput) {
+        Invoke-VirtualClick -Hwnd $hwnd -X $x -Y $y -GameDir $wd
+        return
+    }
     [Win32]::ShowWindow($hwnd, 9) | Out-Null
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 300

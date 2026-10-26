@@ -324,20 +324,25 @@ dgVoodoo2 Direct3D 8 / DirectDraw wrappers already present in `run/`.
 
 ### Windowed x32dbg harness
 
-The default x32dbg harness moves the physical mouse. For unattended runs there
-is a windowed, virtual-input path:
+The x32dbg harness now defaults to a **windowed 800x600 game** and **virtual
+DirectInput input**, so automated runs do not take over the screen or the
+physical mouse.
 
 ```powershell
 .\scripts\setup-test-runtime.ps1
 
-.\scripts\x32dbg\play-freegame.ps1 `
-  -GameDir run-test -VirtualMouse -Seconds 30
+# windowed + virtual input (default)
+.\scripts\x32dbg\play-freegame.ps1 -Seconds 30
+
+# old fullscreen + physical-click path
+.\scripts\x32dbg\play-freegame.ps1 -PhysicalInput -Seconds 30
 ```
 
-`run-test/` uses a Data junction and a dgVoodoo2 config that forces an 800x600
-window. With `-VirtualMouse`, the `DINPUT8.dll` proxy reads
-`run-test/dino_input.txt` and supplies DirectInput mouse state directly, so the
-game is clicked without `SetCursorPos` or `mouse_event`. See
+`run-test/` uses a Data junction and a dgVoodoo2 config that forces the
+window. The `DINPUT8.dll` proxy reads `run-test/dino_input.txt` and supplies
+DirectInput mouse state directly, so the game is clicked without
+`SetCursorPos` or `mouse_event`. `-PhysicalInput` restores the old `run/`
+fullscreen behavior. See
 [`docs/platform/windowed-testing.md`](docs/platform/windowed-testing.md).
 
 ## Documentation map

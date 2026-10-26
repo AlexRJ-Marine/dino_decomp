@@ -1,14 +1,27 @@
 param(
     [int]$Seconds = 55,
-    [string]$GameDir = "run",
-    [string]$Log = "notes\x32dbg-freegame.out.log"
+    [string]$GameDir = "",
+    [string]$Log = "notes\x32dbg-freegame.out.log",
+    [string]$ShotDir = "notes\harness",
+    [switch]$PhysicalInput
 )
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
+if (-not $GameDir) {
+    $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
+}
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+
+if (-not $PhysicalInput) {
+    if (-not (Test-Path $exe)) {
+        & (Join-Path $root "scripts\setup-test-runtime.ps1")
+    }
+    $env:DINO_VIRTUAL_MOUSE = "1"
+    . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -76,6 +89,13 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 Add-Type -AssemblyName System.Windows.Forms
 
 function Save-Window([IntPtr]$hwnd, [string]$name) {
+    if (-not $PhysicalInput) {
+        Set-GameForeground $hwnd
+    } else {
+        [Win32]::ShowWindow($hwnd, 9) | Out-Null
+        [Win32]::SetForegroundWindow($hwnd) | Out-Null
+        Start-Sleep -Milliseconds 200
+    }
     $r = New-Object Win32+RECT
     [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
     $w = $r.Right - $r.Left
@@ -92,11 +112,17 @@ function Save-Window([IntPtr]$hwnd, [string]$name) {
         $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $hgt))
         $g.Dispose()
     }
-    $bmp.Save((Join-Path $root "notes\$name.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+    $dir = Join-Path $root $ShotDir
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $bmp.Save((Join-Path $dir "$name.png"), [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()
 }
 
 function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    if (-not $PhysicalInput) {
+        Invoke-VirtualClick -Hwnd $hwnd -X $x -Y $y -GameDir $wd
+        return
+    }
     [Win32]::ShowWindow($hwnd, 9) | Out-Null
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 300

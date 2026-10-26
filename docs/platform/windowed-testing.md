@@ -1,12 +1,12 @@
 # Windowed testing and virtual input
 
-Status: **working.** The retail game runs in an 800x600 window under
-dgVoodoo2, and the x32dbg harness can click through the menu without moving
-the physical mouse.
+Status: **default harness path.** The retail game runs in an 800x600 window
+under dgVoodoo2, and the x32dbg harness clicks through the menu without moving
+the physical mouse. `-PhysicalInput` restores the legacy fullscreen path.
 
 ## Why this exists
 
-The old harness used:
+The legacy harness used:
 
 ```powershell
 SetCursorPos(...)
@@ -79,22 +79,36 @@ The proxy does not install any of this unless `DINO_VIRTUAL_MOUSE=1`, so normal
 
 ## Harness usage
 
+The windowed + virtual path is the default; no extra switches are needed.
+
 Free Game through the retail menu:
 
 ```powershell
-.\scripts\x32dbg\play-freegame.ps1 `
-  -GameDir run-test -VirtualMouse -Seconds 30
+.\scripts\x32dbg\play-freegame.ps1 -Seconds 30
 ```
 
 Campaign trace:
 
 ```powershell
-.\scripts\x32dbg\start-campaign.ps1 `
-  -GameDir run-test -VirtualMouse -UnlockCampaigns
+.\scripts\x32dbg\start-campaign.ps1 -UnlockCampaigns
 ```
 
-Both scripts still accept the old physical-click path when `-VirtualMouse` is
-omitted.
+The legacy fullscreen + physical-click path is still available:
+
+```powershell
+.\scripts\x32dbg\play-freegame.ps1 -PhysicalInput -Seconds 30
+.\scripts\x32dbg\start-campaign.ps1 -PhysicalInput -UnlockCampaigns
+```
+
+`-VirtualMouse` is kept as a compatibility alias; it is the default. The
+standalone helpers default to `run-test` as well. The same defaults apply to
+`trace-bad.ps1`, `trace-calibration.ps1`, `run-headless.ps1`,
+`probe-game.ps1` and `play-freegame-direct.ps1`; pass `-PhysicalInput` to any
+of them for the legacy fullscreen path.
+
+Harness screenshots are written to `notes/harness/` (gitignored) by default;
+pass `-ShotDir` to change it. Existing tracked `notes/*.png` evidence is not
+overwritten by a run.
 
 Single click / screenshot:
 
@@ -110,8 +124,8 @@ existing menu coordinates from `notes/ui-recon.md` apply unchanged.
 
 ## Verification
 
-The full path was exercised with `play-freegame.ps1 -GameDir run-test
--VirtualMouse`:
+The full path was exercised with the default `play-freegame.ps1` (no
+`-GameDir` or `-VirtualMouse`):
 
 - Free Mode -> IGUANO -> easy -> Start
 - park loaded (`entrance_lod1.skel/skin/anim/mesh` in the trace)

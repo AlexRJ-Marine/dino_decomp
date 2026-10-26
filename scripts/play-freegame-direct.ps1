@@ -1,14 +1,27 @@
 param(
     [int]$Seconds = 45,
-    [string]$GameDir = "run",
-    [string]$Shot = "notes\park-hook.png"
+    [string]$GameDir = "",
+    [string]$Shot = "notes\harness\park-hook.png",
+    [switch]$PhysicalInput
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
+if (-not $GameDir) {
+    $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
+}
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
-if (-not (Test-Path $exe)) { throw "not found: $exe" }
+if (-not (Test-Path $exe)) {
+    if (-not $PhysicalInput) {
+        & (Join-Path $PSScriptRoot "setup-test-runtime.ps1")
+    }
+    if (-not (Test-Path $exe)) { throw "not found: $exe" }
+}
+if (-not $PhysicalInput) {
+    $env:DINO_VIRTUAL_MOUSE = "1"
+    . (Join-Path $PSScriptRoot "x32dbg\VirtualInput.ps1")
+}
 
 Add-Type @"
 using System;
@@ -41,11 +54,18 @@ function Save-Window([IntPtr]$hwnd, [string]$path) {
         $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $h))
         $g.Dispose()
     }
-    $bmp.Save((Join-Path $root $path), [System.Drawing.Imaging.ImageFormat]::Png)
+    $savePath = Join-Path $root $path
+    $saveDir = Split-Path $savePath -Parent
+    New-Item -ItemType Directory -Force $saveDir | Out-Null
+    $bmp.Save($savePath, [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()
 }
 
 function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    if (-not $PhysicalInput) {
+        Invoke-VirtualClick -Hwnd $hwnd -X $x -Y $y -GameDir $wd
+        return
+    }
     [Win32]::ShowWindow($hwnd, 9) | Out-Null
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 250

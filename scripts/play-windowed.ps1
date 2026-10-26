@@ -3,6 +3,7 @@ param(
     [string]$GameDir = "run-test",
     [string]$Shot = "",
     [switch]$Stop,
+    [switch]$PhysicalInput,
     [switch]$VirtualMouse
 )
 
@@ -11,9 +12,17 @@ $root = Split-Path $PSScriptRoot -Parent
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 if (-not (Test-Path $exe)) {
-    throw "Windowed runtime not found. Run scripts/setup-test-runtime.ps1 first."
+    if (-not $PhysicalInput) {
+        & (Join-Path $PSScriptRoot "setup-test-runtime.ps1")
+    }
+    if (-not (Test-Path $exe)) {
+        throw "Windowed runtime not found. Run scripts/setup-test-runtime.ps1 first."
+    }
 }
 
+if (-not $PhysicalInput) {
+    $VirtualMouse = $true
+}
 if ($VirtualMouse) {
     $env:DINO_VIRTUAL_MOUSE = "1"
 }

@@ -11,6 +11,9 @@ $dst = Join-Path $root $Target
 if (-not (Test-Path (Join-Path $src "DinoIsland.exe"))) {
     throw "Source runtime not found: $src\DinoIsland.exe"
 }
+if (-not (Test-Path (Join-Path $src "DINPUT8.dll"))) {
+    throw "Source hook not found: $src\DINPUT8.dll. Run scripts/build-hook.ps1 first."
+}
 
 New-Item -ItemType Directory -Force $dst | Out-Null
 if (-not (Test-Path (Join-Path $dst "Data"))) {

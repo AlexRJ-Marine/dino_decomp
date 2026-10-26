@@ -1,14 +1,22 @@
 param(
     [int]$Seconds = 30,
-    [string]$GameDir = "run",
-    [string]$Log = "notes\x32dbg-interact.out.log"
+    [string]$GameDir = "",
+    [string]$Log = "notes\x32dbg-interact.out.log",
+    [switch]$PhysicalInput
 )
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
+if (-not $GameDir) {
+    $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
+}
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+
+if (-not $PhysicalInput -and -not (Test-Path $exe)) {
+    & (Join-Path $root "scripts\setup-test-runtime.ps1")
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -75,7 +83,9 @@ if (-not $game) {
             [Win32]::PrintWindow($game.MainWindowHandle, $hdc, 0) | Out-Null
             $g.ReleaseHdc($hdc)
             $g.Dispose()
-            $bmp.Save((Join-Path $root "notes\game-window-before.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+            $shotDir = Join-Path $root "notes\harness"
+            New-Item -ItemType Directory -Force $shotDir | Out-Null
+            $bmp.Save((Join-Path $shotDir "game-window-before.png"), [System.Drawing.Imaging.ImageFormat]::Png)
             $bmp.Dispose()
         }
 

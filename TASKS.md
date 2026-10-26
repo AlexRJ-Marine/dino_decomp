@@ -822,8 +822,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `lX/lY` from `dino_input.txt`; read `miInputDx8` (`0x675104`) for the
   current cursor so the scripted target is reached.
 - [x] Add `scripts/x32dbg/VirtualInput.ps1`, `Send-VirtualClick.ps1` and
-  `Capture-Window.ps1`; add `-VirtualMouse` to `play-freegame.ps1`,
-  `start-campaign.ps1`.
+  `Capture-Window.ps1`; make `run-test` + virtual input the default for
+  `play-freegame.ps1`, `start-campaign.ps1`, `trace-bad.ps1`,
+  `trace-calibration.ps1`, `run-headless.ps1`, `probe-game.ps1` and
+  `play-freegame-direct.ps1`; add `-PhysicalInput` for the legacy path.
 - [x] Verify Free Mode -> IGUANO -> easy -> Start -> park -> lab/options/save
   with the game in a window and no physical cursor movement.
 - **Acceptance:** the retail game runs windowed and the harness clicks the

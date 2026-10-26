@@ -1,14 +1,23 @@
 param(
     [int]$Seconds = 25,
     [string]$Log = "notes\x32dbg-startup.out.log",
-    [string]$GameDir = "run"
+    [string]$GameDir = "",
+    [string]$Shot = "notes\harness\startup-screen.png",
+    [switch]$PhysicalInput
 )
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
+if (-not $GameDir) {
+    $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
+}
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+
+if (-not $PhysicalInput -and -not (Test-Path $exe)) {
+    & (Join-Path $root "scripts\setup-test-runtime.ps1")
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -48,15 +57,9 @@ Send 'run'
 $half = [Math]::Max(5, [int]($Seconds / 2))
 Start-Sleep -Seconds $half
 try {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-    $bmp.Save((Join-Path $root "notes\game-screen.png"), [System.Drawing.Imaging.ImageFormat]::Png)
-    $g.Dispose()
-    $bmp.Dispose()
+    $shotPath = Join-Path $root $Shot
+    New-Item -ItemType Directory -Force (Split-Path $shotPath -Parent) | Out-Null
+    & (Join-Path $PSScriptRoot "Capture-Window.ps1") -Path $shotPath
 } catch {
     Write-Host "screenshot failed: $_"
 }

@@ -1274,7 +1274,12 @@ Updated: 2026-10-26
   - Verified end to end: Free Game -> IGUANO -> easy -> Start -> park ->
     lab/options/save, with the game in a window and no `SetCursorPos` or
     `mouse_event` call.
-  - `play-freegame.ps1` and `start-campaign.ps1` accept `-VirtualMouse`;
+  - `play-freegame.ps1`, `start-campaign.ps1`, `trace-bad.ps1`,
+    `trace-calibration.ps1`, `run-headless.ps1`, `probe-game.ps1` and
+    `play-freegame-direct.ps1` default to `run-test` + virtual input;
+    `-PhysicalInput` restores the legacy `run/` fullscreen path; screenshots
+    go to the gitignored `notes/harness/` (`-ShotDir` override) so tracked
+    evidence is not overwritten.
     `Send-VirtualClick.ps1` is the standalone helper.
   - Evidence: `docs/platform/windowed-testing.md`,
     `notes/windowed-main-menu.png`, `notes/windowed-freegame-virtual.png`,

@@ -3,6 +3,7 @@
 /game/
 /run/
 /run-test/
+/notes/harness/
 *.iso
 *.ISO
 
