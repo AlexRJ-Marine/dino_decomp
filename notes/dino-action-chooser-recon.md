@@ -291,3 +291,31 @@ raw-gauge constants are not runtime-calibrated yet.
 - `FUN_005727b0` / `FUN_00571190` action effect/completion.
 - Retail `.bai` dump: 46 preconditions, 43 weights, 134 need deltas, 204
   elements, 171 events (see `docs/formats/bai.md`).
+
+## Danger-grid population (2026-10-26)
+
+The 8-unit danger grid read by the chooser is at world `+0x10` (row array;
+row stride `0x20`); the world descriptor also has `+0x08/+0x0c` = centre and
+`+0x27c` = world radius (`FUN_00572DD0` bounds test). It is rebuilt every
+park update in `FUN_00589CD0`:
+
+1. `FUN_005774F0(world)` clears every cell: the words at `+0`, `+4`,
+   `+0x18`, `+0x1c` and the vector at `+0xc..+0x10` are zeroed.
+2. For every dinosaur in `park+0x68`, `FUN_00571B50(dino)` walks the cells
+   inside `[dino+0x08 - r, dino+0x08 + r] x [dino+0x0c - r,
+   dino+0x0c + r]` with `r = dino+0x27c` (8-unit cells, `>> 3`).
+3. `FUN_00571C00` adds `dino+0x2a0` to each visited cell. Its `this` is a
+   stack object `{vtable 0x643150, dino+0x214}`; `0x571b6c` stores
+   `dino+0x214` at temp `+4` and `0x571c03` reads `[temp+4 + 0x8c]` =
+   `dino+0x2a0`.
+
+`+0x27c` and `+0x2a0` are the phenotype-cache copies made by
+`FUN_00571190`: `+0x27c <- +0xd0` (threat/perception radius) and
+`+0x2a0 <- +0x94` (aggression/threat value). The chooser then computes
+`threat = -cell(target) + cell(actor) - actor+0x2a0`, which cancels the
+actor's own stamped value and leaves the other dinosaurs' threat at its cell
+minus the threat at the target cell.
+
+The port has no danger grid yet; its `choose_action` still passes
+`threat_score = 0`. Implementing it needs per-action target positions (the
+node target vtable `+0x14`) in addition to the grid.

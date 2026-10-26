@@ -233,10 +233,23 @@ action. This is confirmed by the two independent checks.
 - Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests),
   `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser` and
   `test_cpp_dino_action_loop`.
-- Open for the next increment: calibrate the decay rates, the
-  action→animation clip link, the SECU threat/visitor term, and retail's
-  feeding interaction (the `.bai` need deltas are a scoring model, applied on
-  completion in the port).
+- Open for the next increment: calibrate the decay rates and wire the SECU
+  danger grid into the chooser. The feeding interaction is ported
+  (`docs/platform/feeding.md`): a placed `.bsi` source gates Eat and depletes.
+
+### SECU danger grid
+
+The chooser's threat term is
+`threat = -cell(target) + cell(actor) - actor+0x2a0`, read from an 8-unit
+grid at `world+0x10`. The grid is rebuilt every park update
+(`FUN_00589CD0`): `FUN_005774F0(world)` clears it, then every dinosaur
+`FUN_00571B50` stamps `dino+0x2a0` into all cells within its `+0x27c`
+radius. `+0x2a0` (aggression/threat) and `+0x27c` (threat radius) are the
+phenotype-cache copies made by `FUN_00571190` (`+0x94` / `+0xd0`). The term
+therefore cancels the actor's own stamp and rewards a target cell with less
+threat from other dinosaurs. The port has the formula but passes
+`threat_score = 0` until it models per-action target positions. Details:
+`notes/dino-action-chooser-recon.md` ("Danger-grid population").
 
 ## Evidence
 
@@ -250,6 +263,9 @@ action. This is confirmed by the two independent checks.
 - `FUN_005714b0` — need value to state index.
 - `FUN_00572e10` — most urgent need index.
 - `FUN_00570590` — need threshold init (`[80, 60, 30]`).
+- `FUN_00589CD0` / `FUN_005774F0` / `FUN_00571B50` / `FUN_00571C00` —
+  per-update danger-grid clear and per-dinosaur threat stamp.
+- `FUN_00572DD0` — world bounds test for the grid.
 - `FUN_00570fd0` — need init/reset.
 - `FUN_00511d80`, `FUN_005138b0`, `FUN_005df900` — UI need widgets.
 - `ActionList.ini` + 64 `.bai` files.
