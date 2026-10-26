@@ -225,18 +225,21 @@ The bytes after the lab records are:
 u32 ai_list_count[5]        # first four are 0 in retail
 if non-auto:
     ai_list_count[4] x 17-byte AI entries
-f32 camera[10]              # 40 bytes
+f32 camera_eye[3]          # 0..2
+f32 camera_target[3]       # 3..5
+f32 camera_progress        # 6, interpolation progress
+f32 camera_reserved[3]     # 7..9, zero in retail
 ```
 
-- manual: `(0,0,0,0,2)`, two 17-byte AI entries, then camera
-  `(550.998, 512, 84.696, 512, 512, 32, 0.1, 0, 0, 0)`.
-- auto: `(0,0,0,0,0)`, no AI entries, camera
-  `(128, 128, 250, 512, 512, 50, 0.1, 0, 0, 0)`.
+- manual: `(0,0,0,0,2)`, two 17-byte AI entries, then eye
+  `(550.998, 512, 84.696)`, target `(512, 512, 32)`, progress `0.1`.
+- auto: `(0,0,0,0,0)`, no AI entries, eye `(128, 128, 250)`, target
+  `(512, 512, 50)`, progress `0.1`.
 
 The manager functions are `FUN_0051f290` (AI load) / `FUN_0051f400` (AI save).
 The camera block is the `camSwitcher` save (`FUN_005e5b80` / `0x5e5ba0` →
-`camSwitcher.cpp`); the ten floats are the camera position/target/up/FOV
-family. The exact field split is still open, but the byte layout is fixed.
+`camSwitcher.cpp`). The manual eye/target match the verified start-camera
+framing; the last three floats are zero in both retail saves.
 
 ## 4. Tool
 
@@ -268,7 +271,7 @@ of implausible lab name lengths).
   **record count** and then a 4-byte type id + payload per record, so the
   `class id` label is provisional; the record type ids (manual 0, autosave 3)
   are unnamed.
-- The semantic split of the 10 camera floats (position/target/up/FOV).
+- The 17-byte AI-entry field split.
 - The variable campaign/world header before the show catalog.
 
 ## Evidence

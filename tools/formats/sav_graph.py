@@ -293,6 +293,21 @@ class SavGraph:
         raw += struct.pack("<" + "f" * len(self.camera), *self.camera)
         return raw + self.tail_extra
 
+    @property
+    def camera_eye(self) -> tuple[float, ...]:
+        """``camera[0:3]``; matches the verified start-camera eye."""
+        return self.camera[0:3]
+
+    @property
+    def camera_target(self) -> tuple[float, ...]:
+        """``camera[3:6]``; matches the verified start-camera target."""
+        return self.camera[3:6]
+
+    @property
+    def camera_progress(self) -> float:
+        """``camera[6]``; 0.1 in both retail saves."""
+        return self.camera[6] if len(self.camera) > 6 else 0.0
+
     def summary(self) -> dict:
         return {
             "path": self.save.path,
@@ -308,6 +323,9 @@ class SavGraph:
             "ai_counts": list(self.ai_counts),
             "ai_entries": len(self.ai_entries),
             "camera": list(self.camera),
+            "camera_eye": list(self.camera_eye),
+            "camera_target": list(self.camera_target),
+            "camera_progress": self.camera_progress,
             "tail_bytes": len(self.tail),
         }
 

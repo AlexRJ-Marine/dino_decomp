@@ -154,7 +154,10 @@ def test_retail_manual_graph():
     assert len(graph.ai_entries) == 2
     assert len(graph.ai_entries[0]) == 17
     assert len(graph.camera) == 10
-    assert graph.camera[0] == pytest.approx(551.0, abs=0.01)
+    assert graph.camera_eye == pytest.approx((551.0, 512.0, 84.696), abs=0.01)
+    assert graph.camera_target == pytest.approx((512.0, 512.0, 32.0), abs=0.01)
+    assert graph.camera_progress == pytest.approx(0.1, abs=0.001)
+    assert graph.camera[7:] == (0.0, 0.0, 0.0)
     assert graph.tail_extra == b""
     assert len(graph.tail) == 94
 
@@ -179,7 +182,9 @@ def test_retail_auto_graph():
     assert len(graph.dino_store) == 20
     assert graph.ai_counts == (0, 0, 0, 0, 0)
     assert graph.ai_entries == []
-    assert graph.camera[:3] == pytest.approx((128.0, 128.0, 250.0))
+    assert graph.camera_eye == pytest.approx((128.0, 128.0, 250.0))
+    assert graph.camera_target == pytest.approx((512.0, 512.0, 50.0))
+    assert graph.camera_progress == pytest.approx(0.1, abs=0.001)
     assert graph.tail_extra == b""
     assert len(graph.tail) == 60
 

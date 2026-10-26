@@ -358,17 +358,24 @@ After the lab records:
 u32 ai_list_count[5]        # first four are 0 in retail
 if non-auto:
     ai_list_count[4] x 17-byte AI entries
-f32 camera[10]              # 40 bytes
+f32 camera_eye[3]          # 0..2
+f32 camera_target[3]       # 3..5
+f32 camera_progress        # 6, interpolation progress
+f32 camera_reserved[3]     # 7..9, zero in retail
 ```
 
-Manual: `(0,0,0,0,2)`, two 17-byte entries, camera `(550.998, 512, 84.696,
-512, 512, 32, 0.1, 0, 0, 0)`.
-Auto: `(0,0,0,0,0)`, no entries, camera `(128, 128, 250, 512, 512, 50, 0.1,
-0, 0, 0)`.
+Manual: `(0,0,0,0,2)`, two 17-byte entries, camera eye
+`(550.998, 512, 84.696)`, target `(512, 512, 32)`, progress `0.1`, then
+`(0,0,0)`.
+Auto: `(0,0,0,0,0)`, no entries, camera eye `(128, 128, 250)`, target
+`(512, 512, 50)`, progress `0.1`, then `(0,0,0)`.
+
+The split is proven against the verified start-camera framing: the manual
+save's first two vectors are exactly the eye and target used by
+`FUN_0051dad0`'s park handoff (`docs/platform/vertical-slice.md`).
 
 The AI manager uses `0x0051f290` (load) / `0x0051f400` (save). The camera
-block is the `camSwitcher` serializer (`0x005e5b80` / `0x005e5ba0`); the exact
-field split of the ten floats remains open.
+block is the `camSwitcher` serializer (`0x005e5b80` / `0x005e5ba0`).
 
 ## Reader
 
@@ -412,4 +419,4 @@ and the 10 camera floats. Tests: `tests/test_sav.py`,
 - The single trailing `0x01` byte at `block + 0x292`.
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
-- The AI/camera field split; the byte layout is solved.
+- The AI entry field split (17-byte records); the camera split is solved.
