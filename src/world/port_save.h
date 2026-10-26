@@ -25,6 +25,19 @@ struct PortVisitorState {
     // Optional tail added after the first format; older saves omit it.
     int profile = 0;
     std::array<int, 3> needs{39, 99, 99};
+    // SIM-2b travel/use state; older saves default to Choose.
+    int global_profile = 0;
+    int need0_at_use = 99;
+    int state = 0;  // VisitorState::Choose
+    int target_attraction = -1;
+    int route_index = 0;
+    float use_timer = 0.0f;
+    float decay0 = 0.0f;
+    float decay1 = 0.0f;
+    float decay2 = 0.0f;
+    unsigned rng = 1;
+    bool done = false;
+    std::vector<std::pair<int, int>> route;
 };
 
 struct PortFenceState {
@@ -72,6 +85,7 @@ struct PortDinoState {
     std::array<int, 4> needs{50, 99, 99, 99};
     int action_id = 0x1f;
     double action_left = 0.0;
+    double phase = 0.0;  // clip playback phase
     int size_cm = 300;
     bool carnivore = true;  // diet gene 14; older saves default to true
 };

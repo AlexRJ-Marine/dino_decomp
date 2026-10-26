@@ -15,12 +15,15 @@ scene between sessions.
 - 4-unit build grid: cell size, origin, dimensions, every path cell and every
   canonical south/east fence edge;
 - every visitor: world position, angle, walk phase, current/target/previous
-  cells, profile index and the three needs (older saves omit the tail and
-  restore `39/99/99`);
+  cells, profile index, the three needs, global profile, `need0_at_use`, the
+  SIM-2b state (`Choose/Travel/Use/Leave`), target attraction, route index,
+  use/decay timers, RNG, done flag and the full route cell list (older saves
+  omit the tail and restore `Choose` / `39/99/99`);
 - every placed building: `BuildingList.ini` kind, min-corner cell and
   orientation state;
 - every imported dinosaur: species/family/clip, position, angle, the four
-  needs, the current action id and the remaining action seconds.
+  needs, the current action id, the remaining action seconds and the clip
+  playback phase.
 
 Buildings are re-loaded from `Data/Design/buildings/<name>.bbi` on restore;
 dinosaurs are re-created through the same species/animation loader and their
@@ -41,10 +44,14 @@ free <x> <y> <z> <yaw> <pitch>
 grid <cell_size> <origin_x> <origin_y> <width> <height>
 path <x> <y>
 fence <x> <y> <edge>          # edge 0 south, 1 east
-visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y> <profile> <need0> <need1> <need2>
+visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y> <profile> <need0> <need1> <need2> <global_profile> <need0_at_use> <state> <target_attraction> <route_index> <use_timer> <decay0> <decay1> <decay2> <rng> <done> <route_count> [<x> <y>]...
 building <kind> <cell_x> <cell_y> <state>
-dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm>
+dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm> <carnivore> <phase>
 ```
+
+`state` is 0 `Choose`, 1 `Travel`, 2 `Use`, 3 `Leave`; `route_count`
+followed by that many grid cells is the exact remaining path. Older saves
+end after the needs / `size_cm`, and the loader defaults the new fields.
 
 Floats are written with 9 significant digits. Unknown keys are ignored on
 load; a missing `DINOPSAV` header or a different version is an error.
@@ -128,6 +135,7 @@ action seconds.
 
 - The port save is not a retail `.sav` writer; retail parks are imported at
   startup with `--sav-park`.
-- Visitor travel targets/state and the dinosaur clip playback phase are not
-  stored; visitors restart in Choose and restored actions restart their clip
-  at 0.
+- Visitor travel state/route and the dinosaur clip playback phase are stored
+  (2026-10-26). A restored attraction index is still range-checked by the
+  visitor update; a save whose building order changed falls back to
+  `Choose`/`Leave`.

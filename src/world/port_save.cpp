@@ -55,7 +55,17 @@ void save_port_state(const PortState& state, const std::string& path) {
             << visitor.target_y << " " << visitor.prev_x << " "
             << visitor.prev_y << " " << visitor.profile << " "
             << visitor.needs[0] << " " << visitor.needs[1] << " "
-            << visitor.needs[2] << "\n";
+            << visitor.needs[2] << " " << visitor.global_profile << " "
+            << visitor.need0_at_use << " " << visitor.state << " "
+            << visitor.target_attraction << " " << visitor.route_index << " "
+            << visitor.use_timer << " " << visitor.decay0 << " "
+            << visitor.decay1 << " " << visitor.decay2 << " "
+            << visitor.rng << " " << (visitor.done ? 1 : 0) << " "
+            << visitor.route.size();
+        for (const auto& [x, y] : visitor.route) {
+            out << " " << x << " " << y;
+        }
+        out << "\n";
     }
     for (const PortBuildingState& building : state.buildings) {
         out << "building " << building.kind << " " << building.cell_x << " "
@@ -68,7 +78,8 @@ void save_port_state(const PortState& state, const std::string& path) {
             << dinosaur.needs[1] << " " << dinosaur.needs[2] << " "
             << dinosaur.needs[3] << " " << dinosaur.action_id << " "
             << dinosaur.action_left << " " << dinosaur.size_cm << " "
-            << (dinosaur.carnivore ? 1 : 0) << "\n";
+            << (dinosaur.carnivore ? 1 : 0) << " " << dinosaur.phase
+            << "\n";
     }
     for (const PortPaddockState& paddock : state.paddocks) {
         out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
@@ -169,6 +180,48 @@ PortState load_port_state(const std::string& path) {
                 }
                 visitor.needs = needs;
             }
+            // SIM-2b travel state; older saves end after the needs.
+            int global_profile = 0;
+            int need0_at_use = 99;
+            int state_id = 0;
+            int target_attraction = -1;
+            int route_index = 0;
+            float use_timer = 0.0f;
+            float decay0 = 0.0f;
+            float decay1 = 0.0f;
+            float decay2 = 0.0f;
+            unsigned rng = 1;
+            int done = 0;
+            int route_count = 0;
+            if (parts >> global_profile >> need0_at_use >> state_id >>
+                target_attraction >> route_index >> use_timer >> decay0 >>
+                decay1 >> decay2 >> rng >> done >> route_count) {
+                visitor.global_profile = std::max(0, global_profile);
+                visitor.need0_at_use = std::clamp(need0_at_use, 0, 99);
+                visitor.state = std::clamp(state_id, 0, 3);
+                visitor.target_attraction = target_attraction;
+                visitor.use_timer = use_timer;
+                visitor.decay0 = decay0;
+                visitor.decay1 = decay1;
+                visitor.decay2 = decay2;
+                visitor.rng = rng;
+                visitor.done = done != 0;
+                if (route_count < 0 || route_count > 100000) {
+                    throw std::runtime_error(
+                        "port save: bad visitor route in " + path);
+                }
+                visitor.route.reserve(static_cast<std::size_t>(route_count));
+                for (int i = 0; i < route_count; ++i) {
+                    int x = 0;
+                    int y = 0;
+                    parts >> x >> y;
+                    require(parts, key, path);
+                    visitor.route.emplace_back(x, y);
+                }
+                visitor.route_index = std::clamp(
+                    route_index, 0,
+                    static_cast<int>(visitor.route.size()));
+            }
             state.visitors.push_back(visitor);
         } else if (key == "building") {
             PortBuildingState building;
@@ -190,6 +243,10 @@ PortState load_port_state(const std::string& path) {
             int carnivore = 1;
             if (parts >> carnivore) {
                 dinosaur.carnivore = carnivore != 0;
+            }
+            double phase = 0.0;
+            if (parts >> phase) {
+                dinosaur.phase = phase;
             }
             if (dinosaur.species.empty() || dinosaur.family.empty() ||
                 dinosaur.clip.empty()) {

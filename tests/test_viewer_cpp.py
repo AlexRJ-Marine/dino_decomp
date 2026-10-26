@@ -1529,6 +1529,9 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert all(ln.split()[12:15] == ["39", "99", "99"]
                for ln in visitor_lines)
     assert all(0 <= int(ln.split()[11]) < 6 for ln in visitor_lines)
+    # SIM-2b tail: global profile, need0_at_use, state, target, route index,
+    # timers, rng, done and the route count.
+    assert all(len(ln.split()) >= 27 for ln in visitor_lines)
 
     load = subprocess.run(
         [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
@@ -1573,6 +1576,10 @@ def test_cpp_port_save_dino_state(tmp_path):
     assert all(" 20 90 50 20 " in line for line in dino_lines)
     assert any(" LowQuadruped " in line for line in dino_lines)
     assert any(" HeavyBiped " in line for line in dino_lines)
+    # Clip playback phase is the last field; imported dinos start at
+    # index * 617 ms.
+    assert all(len(line.split()) >= 16 for line in dino_lines)
+    assert any(float(line.split()[15]) != 0.0 for line in dino_lines)
 
     load = subprocess.run(
         [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width", "160",
