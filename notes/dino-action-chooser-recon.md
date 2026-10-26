@@ -94,10 +94,32 @@ node->score += action->field_32;      // Victory 50000, Smell 5000,
 (`FUN_0056cb30` / `FUN_0056cc20` are the two node vtables that call it; they
 then multiply by `params[7]` / indexed `params[i]` percentages.)
 
-The threat term is the only part not fully decoded: it reads the world grid
-through `actor+0x20`, `FUN_00572dd0(node+0x38, actor+0x214)`, and subtracts
-`actor+0x2a0`. It only feeds SECU; self actions such as Eat/Sleep do not use
-it.
+The threat term is now decoded (disassembly `0x0056E4D1..0x0056E550`). The
+coordinates are the target returned by the node action's vtable `+0x14`
+(`GetTarget`); `-1` means no target and the term is skipped (self actions
+such as Eat/Sleep). With `world = actor+0x20`:
+
+```c
+if (x != -1) {
+    // 8-unit cells; [world+0x10] is the row-pointer array, rows are 32 bytes
+    cell = *(int *)(*(int *)(*(int *)(world + 0x10) + (x >> 3) * 4)
+                    + (y >> 3) * 0x20);
+    threat = -cell;
+    // inside `[world+8]/[world+0xc] +/- [world+0x27c]`
+    if (FUN_00572DD0(world, x, y) == 1) {
+        threat += danger(actor_cell) - actor+0x2a0;
+    }
+    score += need_term(2, threat / 10, actor+0x214);
+}
+```
+
+`FUN_00572DD0` is a world-bounds test (`|x - world+8| <= world+0x27c`,
+same for y), not a target-distance test. The grid is a per-cell **danger
+value**, so the term rewards moves to a cell whose danger is lower than the
+actor's current cell by more than `actor+0x2a0` (after the /10 scale). With
+no danger population in the port the term is 0, which is why omitting it is
+currently exact; it becomes relevant once visitors/guards feed the map.
+
 
 ## Availability gate
 
