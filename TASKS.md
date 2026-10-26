@@ -958,6 +958,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   refresh `0x510430` (`docs/decomp/economy.md`).
 - [x] Employee roles/costs: `employeelist.ini` + `.bei` `kind_id`
   (Nutritionist 0 / Guard 1); hire and daily wage use `def[8]`.
+- [x] STAFF job queue solved: entries are `{owner, target, hour}`, not a job
+  id. The only producer is `FUN_005953f0` (hourly feeding scheduler on the
+  kind-8 task manager); `FUN_0058b5b0` registers each food source with the
+  nearest manager. Only Nutritionists are hired (`0x5366c0` hardcodes
+  employee index 0); Guards are a wage bucket only. "Kind 0xb" is the target
+  definition's `.bbi` category (food source), not a job type.
 - [x] Decode the full park save stream: yesterday block (`+0xb2..+0x166`),
   cumulative block (`+0x166..+0x21a`), `stream_end` and the 0x49-byte
   schedule tail; document the retail reader's 32-byte misalignment.

@@ -104,14 +104,37 @@ The `.bei` profiles (other researcher) give height, walk speed, action speed,
 meshes, textures and sounds. The task queue does not carry the role directly
 in the decoded entries; the role is on the employee actor/profile.
 
-## 7. Open
+## 7. Solved (follow-up pass)
 
-- Meaning of job kind `0xb` and the target's `+0x28` duration unit.
-- How `spScheduleManager` assigns jobs to Nutritionist vs Guard.
-- The target flags `+0xb8`/`+0xc0` and the `0x00580e60` completion call.
-- Whether employees use the same attraction scoring as visitors for idle
-  tasks.
-- Staff wages/costs: not found in this path (see `docs/decomp/economy.md`).
+- **The queue entry is `{owner, target, hour}`, not a job id.** The only
+  producer is `FUN_005953f0`, virtual `+0x0c` of the kind-8 task manager
+  (the Farm object). On the new-hour byte `[time+0x28]` it iterates its
+  `{owner, food source}` vector at `+0xd8..+0xdc` and pushes
+  `{owner, fs, hour}` at `0x5954a4`. `FUN_0058c450` supplies the hour.
+- **Registration:** `FUN_0058b5b0` walks `spSimuManager+0x128..+0x12c`
+  (food sources), takes `[fs+0xc8]` (the owning paddock), finds the nearest
+  kind-8 manager by cell distance and calls `FUN_00595610(tm, owner, fs)`.
+  `FUN_00595750` marks every employee `+0x4c=1`, `+0x54=0`, `+0x58=0`,
+  `+0x28=0`.
+- **Completion:** `FUN_00522300` calls `FUN_00580e60(owner, hour)`, which
+  marks `owner[0x59+8*hour]=1` and updates the food level from
+  `owner[0x5c+8*hour]` (`FUN_00576d50`).
+- **Only Nutritionists are hired.** `0x5366c0`
+  (`EFFECTIFS_NUTRI_EFFECTIFS_UP1`, panel ctor `0x536160`) calls
+  `FUN_0053b2e0(..., 0)` with employee index 0 hardcoded; `0x591140` pushes
+  the employee and `FUN_005766f0` binds it (`emp+0x48 = tm`). There is no
+  Guard hire path in the executable (`EFFECTIFS_SECU_*` appears only in
+  `Infopanels.Ini`). Guards are the `EFFECTIFS_SECU` wage bucket only.
+- **Role field:** `.bei` `def+0x00`; `actor+0x50` is the `.bei` definition
+  (`FUN_005872c0` reads walk speed at `+0x10`).
+- **"Kind 0xb" is the target's definition category** (`[target+0x40]+0x6c`,
+  `.bbi` file offset 49), not a job type. `FUN_0053c4d0` matches
+  `def+0x6c == 0xb` and `[fs+0xc8] == paddock`. Work duration is
+  `def+0x28`; `+0xb8`/`+0xc0` are the available/claimed flags.
+- Open residue: `behavior+0x34` is 2 from the ctor, so the 75 % branch in
+  `0x522390` (`+0x34 == 0`) looks unreachable; kind 0xb shares the numeric
+  value of `.bbi` category 11 (`LunchDoor`), so the name is ambiguous.
+  Staff wages/costs are still in `docs/decomp/economy.md`.
 
 ## Evidence
 
@@ -121,4 +144,10 @@ in the decoded entries; the role is on the employee actor/profile.
 - `FUN_00522300` — state transitions.
 - `FUN_00522050` / `0x00522080` — kind 0xb state handlers.
 - `FUN_00594b80` / `0x0058c1c0` / `0x0058c480` — schedule manager.
+- `FUN_005953f0` — hourly feeding job producer; `FUN_00595610` register;
+  `FUN_00595750` jobs-changed; `FUN_0058b5b0` food-source registration.
+- `FUN_0058c450` — hour slot; `FUN_00580e60` — completion/food-level update.
+- `0x5366c0` / `FUN_0053b2e0` / `0x591140` / `FUN_005766f0` — nutritionist
+  hire/assignment; `FUN_005872c0` — actor+0x50 = `.bei` def.
+- `FUN_0053c4d0` — `def+0x6c == 0xb` food-source test.
 - `Data/design/employees/EmployeeList.ini`, `*.bei` (read-only).

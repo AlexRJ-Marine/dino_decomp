@@ -1135,6 +1135,22 @@ Updated: 2026-10-26
     wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
   - Evidence: `docs/decomp/economy.md`,
     `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
+- STAFF complete: **employee jobs are the hourly feeding schedule.**
+  - Queue entries are `{owner, target, hour}` (0xc bytes) with no job-type
+    enum. `FUN_005953f0` (kind-8 task manager `+0x0c`) is the only producer:
+    on the new-hour byte it pushes `{paddock, food source, hour}` for every
+    registered pair; `FUN_0058b5b0` registers each food source with the
+    nearest kind-8 manager; `FUN_00595750` wakes the employees.
+  - Only Nutritionists are hired: `0x5366c0` (`EFFECTIFS_NUTRI_*`) calls
+    `FUN_0053b2e0(..., 0)` with index 0 hardcoded; there is no Guard hire
+    UI/path in the exe. Guards are only the `EFFECTIFS_SECU` wage bucket.
+  - "Kind 0xb" is the target definition's `.bbi` category (food source;
+    `FUN_0053c4d0` also checks `[fs+0xc8] == paddock`). Work duration is
+    `def+0x28`; `+0xb8`/`+0xc0` are available/claimed flags.
+  - Open: `behavior+0x34` (2 from the ctor makes the 75 % branch
+    unreachable) and the 0xb/LunchDoor category-name overlap.
+  - Evidence: `docs/decomp/employee-ai.md`, `notes/employee-ai-recon.md`,
+    `docs/decomp/function-status.md`.
 - P4 research complete (**capacity + building placement ported**; store
   purchase and the warning panel remain):
   **`FENCE_INSERTION` validator is a paddock-capacity test.**
