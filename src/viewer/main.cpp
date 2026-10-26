@@ -22,6 +22,7 @@
 #include "../formats/wld.h"
 #include "../formats/bai.h"
 #include "../formats/market.h"
+#include "../formats/bsi.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -114,6 +115,7 @@ struct Options {
     bool bai_info = false;
     bool market_info = false;
     std::string store_ini_path;
+    std::string food_info_dir;
     bool budget_info = false;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
@@ -349,6 +351,8 @@ Options parse_args(int argc, char** argv) {
             opt.market_info = true;
         } else if (arg == "--store-info") {
             opt.store_ini_path = next("--store-info");
+        } else if (arg == "--food-info") {
+            opt.food_info_dir = next("--food-info");
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -584,6 +588,7 @@ Options parse_args(int argc, char** argv) {
                 "  --bai-info           print the 64 action definitions and exit\n"
                 "  --market-info        print the dinosaur store catalog and exit\n"
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
+                "  --food-info DIR      print Data/Design/foodsource and exit\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -2442,6 +2447,30 @@ int main(int argc, char** argv) {
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "market-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
+    if (!opt.food_info_dir.empty()) {
+        try {
+            const std::string dir =
+                resolve_asset(opt.asset_root, opt.food_info_dir);
+            const std::vector<std::string> names =
+                dino::load_food_source_list(dir + "/FoodSourceList.ini");
+            for (const std::string& name : names) {
+                const dino::FoodSourceDef source =
+                    dino::load_bsi(dir + "/" + name + ".bsi");
+                std::printf(
+                    "food: %s nutrition=%.3g quantity=%.3g price=%d kind=%d "
+                    "flags=%d feeder=%s ui=%s\n",
+                    source.name.c_str(), source.nutrition, source.quantity,
+                    source.price, source.kind_id, source.flags,
+                    source.feeder_mesh().c_str(), source.ui_name().c_str());
+            }
+            std::printf("food sources: %zu\n", names.size());
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "food-info: %s\n", e.what());
             return 1;
         }
     }

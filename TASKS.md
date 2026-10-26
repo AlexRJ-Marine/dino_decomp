@@ -212,6 +212,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   four asset strings, feeder mesh and build button in the tail.
 - [x] Validate all 40 asset paths and 10 feeder meshes; all 10
   `FOOD_DISTRIBUTION_*` buttons resolve.
+- [x] Port the reader to C++ (`src/formats/bsi.{h,cpp}`) and expose
+  `--food-info Data/Design/foodsource`; `test_cpp_food_info` matches the
+  Python oracle on all ten rows and checks the feeder files. Flower quantity
+  is 0.25 and Ostrich 0.15 (the first doc table said 0.2).
 - [ ] Exact `quantity`/tail numeric semantics.
 - **Acceptance:** 10/10 parse, kind ids match FoodSourceList order.
 - **Depends on:** RUN-2, FMT-7.

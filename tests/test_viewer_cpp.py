@@ -2208,3 +2208,32 @@ def test_cpp_store_panel_scroll():
             in log)
     assert ("store: bought Allosaurus_Leoparus price=10000 budget=65000 "
             "paddock=7 dinos=21 dinoachat=1/10000 used=32 total=368") in log
+
+
+def test_cpp_food_info():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    food_dir = GAME / "Data" / "Design" / "foodsource"
+    if not food_dir.exists():
+        pytest.skip("retail foodsource missing")
+    result = subprocess.run(
+        [str(EXE), "--asset-root", str(GAME),
+         "--food-info", "Data/Design/foodsource"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = [line for line in result.stdout.splitlines()
+             if line.startswith("food: ")]
+    assert len(lines) == 10
+    assert lines[0] == (
+        "food: FlowerFood nutrition=100 quantity=0.25 price=100 kind=0 "
+        "flags=256 feeder=DATA\\graphics\\actors\\people\\personnel\\feed\\"
+        "feed_flower.mesh ui=FOOD_DISTRIBUTION_VEGETARIAN_FLOWER_BUTTON")
+    assert lines[-1] == (
+        "food: CowFood nutrition=800 quantity=7 price=1200 kind=9 "
+        "flags=256 feeder=DATA\\graphics\\actors\\people\\personnel\\feed\\"
+        "feed_cow.mesh ui=FOOD_DISTRIBUTION_CARNIVOROUS_COW_BUTTON")
+    assert "food sources: 10" in result.stdout
+    for line in lines:
+        feeder = line.split("feeder=")[1].split(" ui=")[0].replace("\\", "/")
+        assert (GAME / feeder).exists(), feeder

@@ -546,6 +546,13 @@ Updated: 2026-10-26
   - All 40 asset paths + 10 feeder meshes exist; all 10 buttons resolve.
   - Evidence: `tools/formats/bsi.py`, `docs/formats/bsi.md`,
     `tests/test_bsi.py`, `notes/bsi-recon.md`.
+- FMT-12b complete: **`.bsi` ported to C++.** `src/formats/bsi.{h,cpp}` reads
+  the 29-byte header, four assets and the scanned tail (feeder mesh + UI
+  button); `--food-info Data/Design/foodsource` prints the ten rows and
+  `test_cpp_food_info` checks every value plus the feeder files. The actual
+  quantities are Flower 0.25 and Ostrich 0.15 (the Python docs said 0.2).
+  - Evidence: `src/formats/bsi.{h,cpp}`, `tests/test_viewer_cpp.py`,
+    `docs/formats/bsi.md`.
 - FMT-13 complete: **`.bni` animal profiles.**
   - 5/5 parse: variant, size, limit, food value, quantity, food kind,
     5–12 meshes + texture dir; food kinds match `.bsi`; 33 meshes exist.
@@ -1378,8 +1385,12 @@ Updated: 2026-10-26
    done; the "action→clip table" premise is resolved (locomotion slot +
    element envmap texture, `notes/action-clip-lead.md`). Remaining: wire
    the element bone/event overlay source, the SECU threat/visitor term, and
-   model the feeding item so Eat requires a real food source. See
-   `notes/dino-action-chooser-recon.md`.
+   model the feeding item so Eat requires a real food source. The C++
+   `.bsi` reader is ready (`--food-info`, `src/formats/bsi.*`); the SECU
+   threat term is decoded (`0x572DD0` world-bounds + the 8-unit danger grid)
+   and is zero until visitors/guards populate the grid. See
+   `notes/dino-action-chooser-recon.md` and
+   `notes/phenotype-attributes-runtime.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: frustum culling and LOD2; the `model[0] = 1` slope basis
    and construction-UI placement are done.
