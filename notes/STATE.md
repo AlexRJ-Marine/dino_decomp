@@ -1506,6 +1506,23 @@ Updated: 2026-10-26
     `docs/platform/terrain.md`, `docs/platform/buildings.md`,
     `docs/formats/raw.md`; 377 tests pass.
 
+- WORLD-1c complete: **Entrance uses the static LOD1 `.mesh`.**
+  - The `.skin` full mesh is the centimetre bind mesh centred on its own
+    origin; `entrance_lod1.mesh` is the same 296-vertex pier+boat geometry in
+    metres and placement-pivot space. The port was placing the `.skin`, which
+    put the boat on the beach and dropped the pier.
+  - `.bbi` index 3 is the static normal LOD1 for Entrance/seats/doors, or the
+    construction model for RestCirc/Farm/Manege/SouvCirc; the latter fall
+    back to the animated `.skin`. `--building-model skin|mesh` forces either.
+  - Verified against a retail reference captured by loading a patched
+    `slot001.sav` camera at the entrance (`notes/entrance-retail-reference.png`);
+    the port's default now matches the pier-to-beach/boat-at-water layout
+    (`notes/entrance-model-default.png`).
+  - Evidence: `notes/entrance-model-recon.md`,
+    `notes/entrance-model-skin.png`, `notes/entrance-model-mesh.png`,
+    `docs/platform/buildings.md`; `test_cpp_building_placement_transform`
+    asserts `entrance_lod1.mesh`; 377 tests pass.
+
 ## In progress
 
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported

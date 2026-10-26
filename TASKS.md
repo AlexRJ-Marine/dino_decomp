@@ -912,6 +912,27 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/isl01-overhead2.png`, `docs/platform/terrain.md`,
   `docs/platform/buildings.md`, `docs/formats/raw.md`.
 
+### WORLD-1c: Entrance static LOD1 model
+- [x] Compare the `.skin` full mesh and the static `entrance_lod1.mesh`:
+  same 296-vertex pier+boat geometry, but the `.skin` is in centimetres
+  centred on its own bind origin and the `.mesh` is in metres in
+  placement-pivot space (centre X ~ -28.4 m).
+- [x] Select `.bbi` index 3 when it is a normal `.mesh`
+  (Entrance/seats/doors); otherwise fall back to the animated `.skin`
+  (RestCirc/Farm/Manege/SouvCirc have a construction model at index 3).
+- [x] Keep `--building-model skin|mesh` as an inspection override.
+- [x] Capture a retail reference by loading a `slot001.sav` copy whose
+  camera block points at the entrance (eye `(525.5,300,70)`, target
+  `(525.5,387.5,18)`).
+- **Acceptance:** the port's Entrance shows the pier reaching the beach and
+  the boat at the water end, matching the retail reference.
+- **Depends on:** WORLD-1b.
+- **Evidence:** `notes/entrance-model-recon.md`,
+  `notes/entrance-retail-reference.png`, `notes/entrance-model-default.png`,
+  `notes/entrance-model-skin.png`, `notes/entrance-model-mesh.png`,
+  `docs/platform/buildings.md`,
+  `tests/test_viewer_cpp.py::test_cpp_building_placement_transform`.
+
 ### WORLD-2: Object placement and frustum culling
 - [x] `.bbi` building definition loader (`src/formats/bbi.cpp`): header, ten
   asset paths, tail strings; static placement with `--building`,
