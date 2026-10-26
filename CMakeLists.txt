@@ -48,6 +48,8 @@ add_executable(dino_viewer
     src/formats/imp.cpp
     src/formats/blf.cpp
     src/formats/sav.cpp
+    src/formats/bbi.cpp
+    src/formats/wld.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp

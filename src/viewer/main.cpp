@@ -16,6 +16,8 @@
 #include "../formats/image.h"
 #include "../formats/fnt.h"
 #include "../formats/sav.h"
+#include "../formats/bbi.h"
+#include "../formats/wld.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -27,6 +29,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -88,6 +91,16 @@ struct Options {
     std::string fence_texture_path;
     std::string build_load_path;
     std::string build_save_path;
+    std::string building_path;
+    std::string wld_path;
+    bool wld_info = false;
+    float building_x = 520.0f;
+    float building_y = 376.0f;
+    int building_state = 0;
+    float building_angle = 0.0f;
+    float building_scale = 1.0f;
+    bool focus_building = false;
+    bool place_entrance = true;
     std::vector<std::string> place_paths;
     std::vector<std::string> place_fences;
     std::string pick_test;
@@ -266,6 +279,27 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--build-save") {
             opt.build_save_path = next("--build-save");
             opt.build_mode = true;
+        } else if (arg == "--building") {
+            opt.building_path = next("--building");
+        } else if (arg == "--wld") {
+            opt.wld_path = next("--wld");
+        } else if (arg == "--wld-info") {
+            opt.wld_info = true;
+        } else if (arg == "--building-pos") {
+            std::sscanf(next("--building-pos"), "%f,%f",
+                        &opt.building_x, &opt.building_y);
+        } else if (arg == "--building-angle") {
+            opt.building_angle = static_cast<float>(
+                std::atof(next("--building-angle")));
+        } else if (arg == "--building-state") {
+            opt.building_state = std::atoi(next("--building-state"));
+        } else if (arg == "--building-scale") {
+            opt.building_scale = static_cast<float>(
+                std::atof(next("--building-scale")));
+        } else if (arg == "--focus-building") {
+            opt.focus_building = true;
+        } else if (arg == "--no-entrance") {
+            opt.place_entrance = false;
         } else if (arg == "--place-path") {
             opt.place_paths.push_back(next("--place-path"));
             opt.build_mode = true;
@@ -421,6 +455,15 @@ Options parse_args(int argc, char** argv) {
                 "  --fence-texture FILE fence texture (default from the mesh material)\n"
                 "  --build-load FILE    load placements\n"
                 "  --build-save FILE    save placements on exit\n"
+                "  --building FILE      place a .bbi building (static LOD1)\n"
+                "  --building-pos X,Y   .imp-space position (default 520,376)\n"
+                "  --building-angle DEG Z rotation (default 0)\n"
+                "  --building-state N   orientation 0..3 (90-degree steps)\n"
+                "  --building-scale N   scale (default 1)\n"
+                "  --focus-building     frame the placed building\n"
+                "  --no-entrance        do not auto-place the free-game Entrance\n"
+                "  --wld FILE           read a .wld/.sav world block\n"
+                "  --wld-info           print the world block and exit\n"
                 "  --place-path X,Y     add a path cell (repeatable)\n"
                 "  --place-fence X,Y,E  add a fence edge, E=0 south / 1 east (repeatable)\n"
                 "  --pick-test X,Y      print the terrain cell under a pixel (first frame)\n"
@@ -1923,6 +1966,67 @@ int main(int argc, char** argv) {
         return run_selftest();
     }
 
+    if (opt.wld_info) {
+        if (opt.wld_path.empty()) {
+            std::fprintf(stderr, "--wld-info requires --wld FILE\n");
+            return 2;
+        }
+        try {
+            std::string lower = opt.wld_path;
+            for (char& c : lower) {
+                c = static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(c)));
+            }
+            const bool is_save =
+                lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".sav") == 0;
+            const dino::WldWorld world =
+                is_save ? dino::read_sav_world(opt.wld_path)
+                        : dino::read_wld(opt.wld_path);
+            std::vector<std::string> building_names;
+            try {
+                building_names = dino::load_building_list(dino::asset_path(
+                    opt.asset_root, "Data/Design/buildings/BuildingList.ini"));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "building list: %s\n", e.what());
+            }
+            std::printf(
+                "wld: %s version=%u mode=%u fences=%u shows=%u animals=%u "
+                "employees=%u buildings=%zu visitors=%u dinosaurs=%u roads=%zu "
+                "camera=%d\n",
+                opt.wld_path.c_str(), world.version, world.mode,
+                world.fence_count, world.show_count, world.animal_count,
+                world.employee_count, world.buildings.size(),
+                world.visitor_count, world.dinosaur_count, world.roads.size(),
+                world.has_camera ? 1 : 0);
+            for (const dino::WorldBuilding& b : world.buildings) {
+                const char* name =
+                    b.kind < building_names.size()
+                        ? building_names[b.kind].c_str()
+                        : "?";
+                std::printf(
+                    "building: kind=%u name=%s x=%u y=%u state=%u obj=%u "
+                    "linked=%u link=%u class=%u\n",
+                    b.kind, name, b.cell_x, b.cell_y, b.state, b.object_id,
+                    b.linked_id, b.link, b.class_tag);
+            }
+            for (const dino::RoadRect& road : world.roads) {
+                std::printf("road: %d,%d - %d,%d\n", road.x0, road.y0, road.x1,
+                            road.y1);
+            }
+            if (world.has_camera) {
+                std::printf("camera:");
+                for (const float value : world.camera) {
+                    std::printf(" %.3f", value);
+                }
+                std::printf("\n");
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "wld-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
     dino::KeyMap keymap;
     dino::load_keymap(opt.keys_path, keymap);
     for (const auto& rebind : opt.rebinds) {
@@ -3080,6 +3184,184 @@ int main(int argc, char** argv) {
             glfns);
     }
 
+    // `.bbi` building placement (static LOD1) for world-object bring-up.
+    struct BuildingDraw {
+        GpuMesh gpu;
+        GLuint texture = 0;
+    };
+    std::vector<BuildingDraw> building_draws;
+    dino::Vec3 building_center{1e30f, 1e30f, 1e30f};
+
+    auto place_building = [&](const dino::BuildingDef& def, float cell_x,
+                              float cell_y, int state, float extra_angle_deg,
+                              float scale) {
+        if (terrain.world_size <= 0.0f) {
+            std::fprintf(stderr, "building: --lnd is required for placement\n");
+            return false;
+        }
+        try {
+            auto ends_with_ci = [](const std::string& text, const char* suffix) {
+                const std::size_t n = std::char_traits<char>::length(suffix);
+                if (text.size() < n) {
+                    return false;
+                }
+                for (std::size_t i = 0; i < n; ++i) {
+                    const char a = static_cast<char>(std::tolower(
+                        static_cast<unsigned char>(text[text.size() - n + i])));
+                    const char b = static_cast<char>(std::tolower(
+                        static_cast<unsigned char>(suffix[i])));
+                    if (a != b) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            // The primary model is the first `.bbi` path: a `.skin` whose full
+            // mesh is centred on the placement pivot (the static LOD1 `.mesh`
+            // at index 3 has a pivot offset and is not the actor model).
+            std::string mesh_rel;
+            if (!def.meshes.empty()) {
+                mesh_rel = def.meshes.front();
+            }
+            dino::Mesh placed;
+            if (ends_with_ci(mesh_rel, ".skin")) {
+                dino::Skin skinned =
+                    dino::load_skin_auto(resolve_asset(opt.asset_root, mesh_rel));
+                placed = std::move(skinned.mesh);
+                // `.skin` full meshes are stored in centimetres.
+                for (dino::Vec3& p : placed.positions) {
+                    p.x *= 0.01f;
+                    p.y *= 0.01f;
+                    p.z *= 0.01f;
+                }
+            } else {
+                placed = dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
+            }
+            std::string texture_dir = "Data/Graphics/Textures/buildings";
+            for (const auto& text : def.tail_strings) {
+                if (text.rfind("DATA\\", 0) == 0) {
+                    texture_dir = text;
+                    break;
+                }
+            }
+            GLuint texture = 0;
+            const std::string texture_name = placed.texture_name();
+            if (!texture_name.empty()) {
+                try {
+                    texture = upload_texture(dino::load_tga(
+                        resolve_asset(opt.asset_root,
+                                      texture_dir + "/" + texture_name)));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "building texture: %s\n", e.what());
+                }
+            }
+            // `FUN_00586b80`: cell_x/cell_y is the footprint min corner; odd
+            // orientation states swap the footprint axes. `gpkBuilding`
+            // (`FUN_005fecf0`) places the model at the footprint centre.
+            const int orientation = ((state % 4) + 4) % 4;
+            const float w0 = def.header[0] > 0 && def.header[0] < 256
+                                 ? static_cast<float>(def.header[0])
+                                 : 1.0f;
+            const float w1 = def.header[1] > 0 && def.header[1] < 256
+                                 ? static_cast<float>(def.header[1])
+                                 : 1.0f;
+            const float span_x = (orientation % 2 == 0 ? w0 : w1) - 1.0f;
+            const float span_y = (orientation % 2 == 0 ? w1 : w0) - 1.0f;
+            const float centre_x = cell_x + span_x * 0.5f;
+            const float centre_y = cell_y + span_y * 0.5f;
+            const float half = terrain.world_size * 0.5f;
+            const float wx = centre_x - half;
+            const float wy = centre_y - half;
+            const float wz = terrain.height_at(wx, wy);
+            if (building_center.x > 1e29f) {
+                building_center = {wx, wy, wz + 3.0f};
+            }
+            const float angle_deg =
+                extra_angle_deg + static_cast<float>(orientation) * 90.0f;
+            const float radians = angle_deg * 3.14159265f / 180.0f;
+            const float cs = std::cos(radians) * scale;
+            const float sn = std::sin(radians) * scale;
+            for (std::size_t i = 0; i < placed.positions.size(); ++i) {
+                const dino::Vec3 p = placed.positions[i];
+                placed.positions[i] = {wx + p.x * cs - p.y * sn,
+                                       wy + p.x * sn + p.y * cs,
+                                       wz + p.z * scale};
+                if (i < placed.normals.size()) {
+                    const dino::Vec3 n = placed.normals[i];
+                    placed.normals[i] = dino::normalize(
+                        {n.x * cs - n.y * sn, n.x * sn + n.y * cs, n.z});
+                }
+            }
+            building_draws.push_back({upload_mesh(placed, glfns), texture});
+            std::printf(
+                "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
+                "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f\n",
+                def.name.c_str(), mesh_rel.c_str(), placed.positions.size(),
+                placed.triangle_count(), cell_x, cell_y, centre_x, centre_y, wz,
+                orientation, angle_deg);
+            return true;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "building: %s\n", e.what());
+            return false;
+        }
+    };
+
+    if (!opt.building_path.empty()) {
+        try {
+            place_building(dino::load_bbi(opt.building_path), opt.building_x,
+                           opt.building_y, opt.building_state,
+                           opt.building_angle, opt.building_scale);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "building: %s\n", e.what());
+        }
+    }
+
+    // WORLD-2: every `drsBuilding` in a campaign .wld / save park. The record
+    // stores kind (BuildingList.ini index), cell_x/cell_y and a state byte;
+    // the exact cell origin/Z/rotation mapping is still being reverse
+    // engineered, so the transform matches the single-building path above.
+    if (!opt.wld_path.empty() && terrain.world_size > 0.0f) {
+        try {
+            std::string lower = opt.wld_path;
+            for (char& c : lower) {
+                c = static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(c)));
+            }
+            const bool is_save =
+                lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".sav") == 0;
+            const dino::WldWorld world =
+                is_save ? dino::read_sav_world(opt.wld_path)
+                        : dino::read_wld(opt.wld_path);
+            const std::vector<std::string> names = dino::load_building_list(
+                resolve_asset(opt.asset_root,
+                              "Data/Design/buildings/BuildingList.ini"));
+            int placed = 0;
+            for (const dino::WorldBuilding& b : world.buildings) {
+                if (b.kind >= names.size()) {
+                    std::fprintf(stderr, "wld: unknown building kind %u\n", b.kind);
+                    continue;
+                }
+                try {
+                    const dino::BuildingDef def = dino::load_bbi(resolve_asset(
+                        opt.asset_root,
+                        "Data/Design/buildings/" + names[b.kind] + ".bbi"));
+                    if (place_building(def, static_cast<float>(b.cell_x),
+                                       static_cast<float>(b.cell_y),
+                                       static_cast<int>(b.state), 0.0f, 1.0f)) {
+                        ++placed;
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "wld building %u: %s\n", b.kind,
+                                 e.what());
+                }
+            }
+            std::printf("wld: placed %d/%zu buildings\n", placed,
+                        world.buildings.size());
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "wld: %s\n", e.what());
+        }
+    }
+
     // MAP_RENDERVIEW: 256x256 detail-map target displayed in the 136x136
     // widget. Recovered from FUN_00529880 / FUN_005fb7e0 / FUN_005fb120:
     // - map scale at +0x38, default 0.25, clamped to 0.1..2.0;
@@ -3164,6 +3446,11 @@ int main(int argc, char** argv) {
                 extra_items.push_back({&shadow_gpu, 0, 0.35f});
             }
         }
+        for (const BuildingDraw& building : building_draws) {
+            if (building.gpu.vao != 0) {
+                extra_items.push_back({&building.gpu, building.texture});
+            }
+        }
         // Transparent pass: water last so it blends over all opaque actors.
         if (water_gpu.vao != 0) {
             extra_items.push_back({&water_gpu, water_texture, 0.78f});
@@ -3204,6 +3491,10 @@ int main(int argc, char** argv) {
     float distance = opt.distance > 0.0f ? opt.distance : auto_distance;
     float yaw = opt.yaw;
     float pitch = opt.pitch;
+    if (opt.focus_building && building_center.x < 1e29f) {
+        center = building_center;
+        distance = 60.0f;
+    }
 
     auto orbit_eye = [&]() {
         const float cp = std::cos(pitch * 3.14159265f / 180.0f);
@@ -3400,6 +3691,29 @@ int main(int argc, char** argv) {
                     glfns);
             }
             rebuild_build_meshes();
+        }
+
+        // Free Game handoff: the engine's `FUN_0051dad0` spawns the access
+        // road from the Entrance (category 10) at the island's .lnd
+        // width/height. Place the same Entrance boat at that cell.
+        if (opt.place_entrance) {
+            for (BuildingDraw& building : building_draws) {
+                building.gpu.destroy(glfns);
+                if (building.texture != 0) {
+                    glDeleteTextures(1, &building.texture);
+                }
+            }
+            building_draws.clear();
+            building_center = {1e30f, 1e30f, 1e30f};
+            try {
+                const dino::BuildingDef entrance = dino::load_bbi(
+                    resolve_asset(opt.asset_root,
+                                  "Data/Design/buildings/Entrance.bbi"));
+                place_building(entrance, static_cast<float>(lnd.width),
+                               static_cast<float>(lnd.height), 1, 0.0f, 1.0f);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "entrance: %s\n", e.what());
+            }
         }
         rebuild_extra_items();
 
@@ -4478,6 +4792,12 @@ int main(int argc, char** argv) {
     }
     dino_gpu.destroy(glfns);
     shadow_gpu.destroy(glfns);
+    for (BuildingDraw& building : building_draws) {
+        building.gpu.destroy(glfns);
+        if (building.texture != 0) {
+            glDeleteTextures(1, &building.texture);
+        }
+    }
     path_gpu.destroy(glfns);
     fence_gpu.destroy(glfns);
     water_gpu.destroy(glfns);

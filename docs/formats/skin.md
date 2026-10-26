@@ -234,6 +234,29 @@ earlier crouched `.skin` bind; `notes/isl01-dino-walk.png` shows
 Renders: `notes/allo-skin-bind.png` (bind pose from the skin table) and
 `notes/allo-skin-pose.png` (head bone rotated 35°, rigid skinning applied).
 
+## C++ reader
+
+`src/formats/skin.{h,cpp}` mirrors the Python reader:
+
+- `load_skin(path, mesh_name)` finds the length-prefixed full-mesh block by
+  name and parses the color block, material table and skin records. Colors
+  and materials are now stored on `Skin.mesh` (`colors`, `materials`).
+- `load_skin_auto(path)` scans for length-prefixed candidate names and picks
+  the first block whose tail parses as a material table + per-triangle
+  material array. It is used for building skins where the block name differs
+  from the file stem (`tourbar` in `tour_lod1.skin`) or no sibling `.mesh`
+  exists to anchor the vertex count.
+- Building skins (`entrance_lod1`, `farm_lod1`, `souvkute_lod1`, …) have
+  **zero skin bones**: the tail still carries a material table and triangle
+  materials, then 12 zero bytes, bone count 0, and further static part blocks
+  (e.g. `cochon1`, `souv_enseigne`). `load_skin_auto` accepts that layout.
+- Trailing bytes after the last skin record are allowed (the Python reader
+  exposes them as `trailing`); the C++ reader previously rejected them.
+
+Evidence: `notes/building-placement-recon.md`;
+`tests/test_viewer_cpp.py::test_cpp_wld_places_all_buildings` loads the 12
+skinned Cpg04 buildings from their primary `.skin`.
+
 ## Open questions
 
 - Meaning of the three `u32` values after the triangle-material array

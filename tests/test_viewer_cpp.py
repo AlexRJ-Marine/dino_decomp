@@ -1213,3 +1213,151 @@ def test_cpp_warning_dialog(tmp_path):
     assert bright > 20
     # Closing restores the scene.
     assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
+
+def test_cpp_building_bbi_place(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    bbi = GAME / "Data" / "Design" / "buildings" / "Entrance.bbi"
+    if not bbi.exists():
+        pytest.skip("Entrance.bbi missing")
+    base = tmp_path / "base.bmp"
+    placed = tmp_path / "placed.bmp"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME),
+              "--no-vegetation", "--distance", "60", "--yaw", "35",
+              "--pitch", "20"]
+    a = subprocess.run(common + ["--screenshot", str(base)],
+                       capture_output=True, text=True, timeout=120)
+    assert a.returncode == 0, a.stderr
+    b = subprocess.run(common + ["--screenshot", str(placed),
+                                 "--building", str(bbi),
+                                 "--building-pos", "512,512"],
+                       capture_output=True, text=True, timeout=120)
+    assert b.returncode == 0, b.stderr
+    assert "building: Entrance mesh=" in b.stdout
+    assert "verts=296 tris=231" in b.stdout
+    first = Image.open(base).convert("RGB")
+    second = Image.open(placed).convert("RGB")
+    region = (300, 250, 560, 430)
+    diff = ImageChops.difference(first.crop(region), second.crop(region))
+    assert sum(ImageStat.Stat(diff).mean) / 3 > 3.0
+
+def test_cpp_wld_reader_matches_retail():
+    if not EXE.exists():
+        pytest.skip("viewer not built (run scripts/build.ps1)")
+    scenario = GAME / "Data" / "Design" / "Scenario"
+    if not scenario.is_dir():
+        pytest.skip("retail scenario data missing")
+    expected = {
+        "Cpg01_Save.wld": (51, 0, 0, 1, 0, 1),
+        "Cpg02_Save.wld": (51, 2, 0, 4, 0, 2),
+        "Cpg03_Save.wld": (50, 1, 0, 4, 0, 3),
+        "Cpg04_Save.wld": (53, 9, 1, 57, 20, 14),
+        "Cpg05_Save.wld": (52, 2, 0, 8, 0, 3),
+        "Cpg06_Save.wld": (51, 0, 0, 1, 0, 1),
+        "Cpg08_Save.wld": (51, 0, 0, 1, 0, 1),
+    }
+    for name, (version, fences, shows, buildings, dinos, roads) in expected.items():
+        path = scenario / name.split("_")[0] / name
+        if not path.exists():
+            pytest.skip(f"{name} missing")
+        result = subprocess.run(
+            [str(EXE), "--wld", str(path), "--wld-info",
+             "--asset-root", str(GAME)],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert result.returncode == 0, (name, result.stderr)
+        first = result.stdout.splitlines()[0]
+        assert f"version={version}" in first
+        assert f"fences={fences}" in first
+        assert f"shows={shows}" in first
+        assert f"buildings={buildings}" in first
+        assert f"dinosaurs={dinos}" in first
+        assert f"roads={roads}" in first
+        assert "camera=1" in first
+        lines = [ln for ln in result.stdout.splitlines() if ln.startswith("building:")]
+        assert len(lines) == buildings
+
+    # Cpg04's first record is the Entrance at (440,200); its link counts seats.
+    cpg04 = scenario / "Cpg04" / "Cpg04_Save.wld"
+    text = subprocess.run(
+        [str(EXE), "--wld", str(cpg04), "--wld-info",
+         "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    ).stdout
+    assert ("building: kind=9 name=Entrance x=440 y=200 state=1 "
+            "obj=1 linked=2 link=0 class=24") in text
+    assert "road: " in text
+
+
+def test_cpp_wld_reads_save_world():
+    if not EXE.exists():
+        pytest.skip("viewer not built (run scripts/build.ps1)")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save missing")
+    result = subprocess.run(
+        [str(EXE), "--wld", str(save), "--wld-info",
+         "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    first = result.stdout.splitlines()[0]
+    assert "version=53" in first
+    assert "buildings=1" in first
+    assert "visitors=2" in first
+    assert "camera=0" in first
+    assert ("building: kind=9 name=Entrance x=520 y=376 state=1 "
+            "obj=1 linked=2 link=0 class=24") in result.stdout
+
+def test_cpp_building_placement_transform():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    bbi = GAME / "Data" / "Design" / "buildings" / "Entrance.bbi"
+    if not bbi.exists():
+        pytest.skip("Entrance.bbi missing")
+    # Position/orientation/Z from FUN_00586b80, FUN_005fecf0 and FUN_0061ffc0.
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--building", str(bbi),
+         "--building-pos", "520,376", "--building-state", "1",
+         "--screenshot", str(Path(os.environ["TEMP"]) / "dino_place.bmp")],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    line = [ln for ln in result.stdout.splitlines() if "building: Entrance" in ln][0]
+    assert "cell=520.0,376.0" in line
+    assert "centre=525.5,387.5" in line
+    assert "z=69.4" in line
+    assert "state=1 angle=90" in line
+    assert "entrance_lod1.skin" in line
+
+
+def test_cpp_wld_places_all_buildings():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld", str(wld)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "wld: placed 57/57 buildings" in result.stdout
+    placed = [ln for ln in result.stdout.splitlines()
+              if ln.startswith("building: ") and " mesh=" in ln]
+    assert len(placed) == 57
+    # The 12 skinned buildings (farm/souvenir/blackbox/park family) load from
+    # their primary .skin; the rest are static meshes.
+    assert sum(1 for ln in placed if ".skin" in ln) >= 12
+    assert any("MediumSeats" in ln for ln in placed)
+    assert any("Entrance" in ln and "centre=445.5,211.5" in ln
+               for ln in placed)

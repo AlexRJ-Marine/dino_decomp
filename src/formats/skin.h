@@ -26,4 +26,9 @@ struct Skin {
 // full-mesh block inside the .skin container.
 Skin load_skin(const std::string& path, const std::string& mesh_name);
 
+// Scans for the full-mesh block when the block name differs from the file
+// stem and no sibling .mesh exists (several building skins). Picks the
+// largest block whose tail parses as a material table + skin records.
+Skin load_skin_auto(const std::string& path);
+
 }  // namespace dino

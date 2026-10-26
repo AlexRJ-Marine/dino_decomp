@@ -22,7 +22,9 @@ music
 - `load_raw_u8`: square 8-bit heightmap. `isl01` is 512×512
   (`heightmap_01.raw`, 262,144 bytes, heights 0..92).
 - `build_terrain`: 512×512 grid, world size 1024 units, height scale 1.0.
-  - positions `(x, y, h)`
+  - sample 0 sits at world `-512` and the spacing is `1024/512 = 2` units,
+    matching the engine heightfield (`FUN_005c0b80`: `map = world * 0.5`).
+  - positions `(x - 256) * 2, (y - 256) * 2, h`
   - central-difference normals
   - UV `u = x/(W-1)`, `v = -1 + y/(H-1)` so the shader's `v_tex = 1+v`
     maps image row 0 to world row 0.
@@ -52,7 +54,8 @@ world_z = height_at(x - 512, y - 512) + lz * s
 ```
 
 Normals get the same Z rotation and are renormalised. `height_at` bilinearly
-samples the 512×512 heightmap. Trees are upright; slope tilt is not applied.
+samples the 512×512 heightmap with the same `world*0.5` mapping. Trees are
+upright; slope tilt is not applied.
 
 `isl01` result: 9 groups, 1,536 instances, 52,291 triangles; coordinates match
 the `.imp` totals exactly. Texture paths resolve through the `.blf` directory
@@ -124,6 +127,10 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
 
 - `src/formats/lnd.cpp`, `src/world/terrain.cpp`,
   `src/formats/imp.cpp`, `src/formats/blf.cpp`, `src/world/vegetation.cpp`.
+- `notes/building-placement-recon.md` - `FUN_005c0b80` heightfield sampler;
+  save camera target `(512,512,32)` = bilinear height **32.0**; isl01 Entrance
+  centre `(525.5,387.5)` = **69.4** (the previous `width-1` mapping gave
+  68.5/76.0).
 - `notes/isl01-heightmap.png`, `notes/isl01-basemap_01.png`.
 - `notes/isl01-terrain.png`, `notes/isl01-vegetation.png`.
 - `tests/test_viewer_cpp.py`:

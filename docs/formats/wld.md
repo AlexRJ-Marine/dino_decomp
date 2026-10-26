@@ -273,6 +273,35 @@ python tools/formats/wld.py --sav <file.sav>
 Returns a `WldFile` with `version`, `mode`, a `WorldBlock`, `roads`,
 `simulation_offset` and `camera`.
 
+### C++ reader
+
+`src/formats/wld.{h,cpp}` mirrors the Python reader for versions 50–53 and
+exposes the subset the port needs:
+
+- `read_wld(path)` — campaign file: header, world block, road rectangles and
+  the 40-byte camera tail. The intermediate simulation object lists between
+  the roads and the camera are not decoded yet, so the reader does not require
+  the roads to end at the camera (Cpg04 has ~33 KB of simulation state there).
+- `read_sav_world(path)` — save file: skips the header
+  (`0x18 + name_len`) and parses the same world block with the campaign flag
+  clear. It stops before the show catalog count.
+- `WldWorld.buildings` carries `object_id`, `linked_id`, `class_tag`, `kind`,
+  `cell_x`, `cell_y`, `state` and the per-object `link`.
+
+`dino_viewer --wld FILE --wld-info --asset-root GAME` prints the counts and
+every building record without opening a window; this is the comparison oracle
+for the C++ reader. Output matches the Python parser on all seven version
+50–53 files and on `slot001.sav`:
+
+```text
+Cpg04_Save.wld version=53 ... fences=9 shows=1 ... buildings=57 ... dinosaurs=20 roads=14 camera=1
+building: kind=9 name=Entrance x=440 y=200 state=1 obj=1 linked=2 link=0 class=24
+```
+
+Tests: `tests/test_viewer_cpp.py::test_cpp_wld_reader_matches_retail`,
+`test_cpp_wld_reads_save_world`.
+
+
 | Function | Purpose |
 | --- | --- |
 | `read_world_block(data, version, offset, campaign=...)` | parse the shared manager block |

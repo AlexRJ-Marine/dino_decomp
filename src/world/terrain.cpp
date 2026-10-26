@@ -46,13 +46,17 @@ Terrain build_terrain(const std::vector<std::uint8_t>& heights, int width, int h
     mesh.normals.reserve(static_cast<std::size_t>(width) * height);
     mesh.uvs.reserve(static_cast<std::size_t>(width) * height);
 
-    const float cell = world_size / static_cast<float>(std::max(width, height) - 1);
+    // The engine heightfield is a 512-sample map over the 1024-unit world
+    // (`map = world * 0.5`, `FUN_005c0b80`), so sample 0 sits at -512 and the
+    // spacing is `world_size / width` (2 units), not `world_size / (w - 1)`.
+    const float cell_x = world_size / static_cast<float>(width);
+    const float cell_y = world_size / static_cast<float>(height);
     for (int y = 0; y < height; ++y) {
         const float v = static_cast<float>(y) / static_cast<float>(height - 1);
         for (int x = 0; x < width; ++x) {
             const float u = static_cast<float>(x) / static_cast<float>(width - 1);
-            const float px = (u - 0.5f) * world_size;
-            const float py = (v - 0.5f) * world_size;
+            const float px = (static_cast<float>(x) - static_cast<float>(width) * 0.5f) * cell_x;
+            const float py = (static_cast<float>(y) - static_cast<float>(height) * 0.5f) * cell_y;
             const float pz = static_cast<float>(heights[static_cast<std::size_t>(y) * width + x]) *
                              height_scale;
             mesh.positions.push_back({px, py, pz});
@@ -64,11 +68,11 @@ Terrain build_terrain(const std::vector<std::uint8_t>& heights, int width, int h
             const float hx = static_cast<float>(
                 heights[static_cast<std::size_t>(y) * width + xp] -
                 heights[static_cast<std::size_t>(y) * width + xm]) * height_scale /
-                (static_cast<float>(xp - xm) * cell);
+                (static_cast<float>(xp - xm) * cell_x);
             const float hy = static_cast<float>(
                 heights[static_cast<std::size_t>(yp) * width + x] -
                 heights[static_cast<std::size_t>(ym) * width + x]) * height_scale /
-                (static_cast<float>(yp - ym) * cell);
+                (static_cast<float>(yp - ym) * cell_y);
             const float nx = -hx;
             const float ny = -hy;
             const float nz = 1.0f;
@@ -101,8 +105,8 @@ float Terrain::height_at(float world_x, float world_y) const {
     if (width < 2 || height < 2 || heights.empty() || world_size <= 0.0f) {
         return 0.0f;
     }
-    const float u = (world_x / world_size + 0.5f) * static_cast<float>(width - 1);
-    const float v = (world_y / world_size + 0.5f) * static_cast<float>(height - 1);
+    const float u = (world_x / world_size + 0.5f) * static_cast<float>(width);
+    const float v = (world_y / world_size + 0.5f) * static_cast<float>(height);
     const float cu = std::clamp(u, 0.0f, static_cast<float>(width - 1));
     const float cv = std::clamp(v, 0.0f, static_cast<float>(height - 1));
     const int x0 = static_cast<int>(cu);
