@@ -1,8 +1,9 @@
 # Environment: skybox and water (WORLD-3)
 
-Status: **working** - six-face PNG skybox and a tiled water plane. The water
-height is the `.lnd` float, runtime-confirmed at 16.0 (isl01) and 20.0
-(isl02); see `notes/calibration-2026-10-26.md`.
+Status: **working** - six-face PNG skybox (retail face order) and a tiled
+water plane with the retail additive blend. The water height is the `.lnd`
+float, runtime-confirmed at 16.0 (isl01) and 20.0 (isl02); see
+`notes/calibration-2026-10-26.md`.
 
 ## Skybox
 
@@ -31,8 +32,14 @@ is `notes/p5-sky.png`.
   through the water-quad Z at `FUN_00602cf0`; `--water-level N` overrides.
 - Texture: the first `.lnd` water path (`Water.tga`, 256×256), repeat-wrapped,
   tiled 48× across a plane with a 6144-unit half-extent (12,288 units across) so it reaches the skybox horizon.
-- Drawn after the terrain with alpha 0.78 and depth writes off, so the
-  shoreline shows through.
+- Drawn after the terrain with **additive blending** (`Data/States/
+  WaterSurface.ini`: source `One`, destination `One`, op `Add`) and depth
+  writes off, so the shoreline shows through. The old port used alpha 0.78,
+  which is not the retail state.
+- Retail also binds the same water texture to a second texture stage with
+  `Modulate2x` (coordinate set 1, likely a scrolling layer), and applies the
+  park fog. Neither is implemented yet; the current capture is
+  `notes/p5-water-additive.png`.
 
 ## Evidence
 
@@ -41,7 +48,9 @@ is `notes/p5-sky.png`.
 - `notes/world3-up.png` — top-down island with sky at the corners.
 - `notes/skybox-isl01-sheet.png` — the six faces (front/back/left, right/top/
   bottom).
-- `notes/water-10.png`, `notes/water-16.png` — level comparison.
+- `notes/water-10.png`, `notes/water-16.png` — level comparison (old alpha
+  blend).
+- `notes/p5-water-additive.png` — retail additive blend, current port state.
 - `tests/test_viewer_cpp.py::test_cpp_skybox_and_water` asserts
   `environment: skybox 6/6 faces, water yes at z=16.0 (256x256)`.
 
@@ -49,6 +58,6 @@ is `notes/p5-sky.png`.
 
 - The skybox face order/UVs are solved from the retail builder; a side-by-side
   screenshot against the original remains for final visual confirmation.
-- Find the water-surface Z for the remaining islands; isl01 (16.0) and isl02
-  (20.0) match the `.lnd` float at runtime. Water animation remains.
+- Water animation/two-stage `Modulate2x` texture (coordinate set 1) and park
+  fog are not implemented; the additive blend is now retail-matched.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.

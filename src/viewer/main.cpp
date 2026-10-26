@@ -1589,6 +1589,8 @@ struct DrawItem {
     const GpuMesh* mesh = nullptr;
     GLuint texture = 0;
     float alpha = 1.0f;
+    // Water: Data/States/WaterSurface.ini uses src One / dest One / Add.
+    bool additive = false;
 };
 
 dino::Mat4 ortho(float left, float right, float bottom, float top,
@@ -1728,10 +1730,14 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
-        const bool blend = item.alpha < 1.0f;
+        const bool blend = item.alpha < 1.0f || item.additive;
         if (blend) {
             glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            if (item.additive) {
+                glBlendFunc(GL_ONE, GL_ONE);
+            } else {
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            }
             glDepthMask(GL_FALSE);
         }
         if (item.texture != 0) {
@@ -4156,8 +4162,9 @@ int main(int argc, char** argv) {
             }
         }
         // Transparent pass: water last so it blends over all opaque actors.
+        // WaterSurface.ini is additive (src One, dest One, add).
         if (water_gpu.vao != 0) {
-            extra_items.push_back({&water_gpu, water_texture, 0.78f});
+            extra_items.push_back({&water_gpu, water_texture, 1.0f, true});
         }
     };
     rebuild_extra_items();
