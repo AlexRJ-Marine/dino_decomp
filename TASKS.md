@@ -971,8 +971,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   to `OPTIONS_SAVE_PANEL`, and `OPTIONS_SAVE_NAMES_LIST` lists the real
   `run/save/*.sav` names parsed by the C++ header reader (`agenttest`,
   `esfs`) plus `[port]` `.psav` saves.
-- [ ] Phase D rest: request/campaign-end dialog triggers, `OPTIONS_NAME_SLOT`
-  text entry, and saving placed buildings/dinosaur state in `DINOPSAV`.
+- [x] Phase D (dialogs): warning, request and campaign-end panels in the
+  `DIALOG_BACKGROUND` family; `--warning`, `--request`, `--campaign-end`,
+  word-wrapped text zones, accept/cancel/close icons. The panels use
+  `ALIGN_CENTER` (request/campaign-end are not at their authored top-left).
+- [ ] Phase D rest: `OPTIONS_NAME_SLOT` text entry and saving placed
+  buildings/dinosaur state in `DINOPSAV`.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

@@ -413,13 +413,21 @@ Updated: 2026-10-26
     `tests/test_viewer_cpp.py::test_cpp_options_save_panel`,
     `test_cpp_port_save_roundtrip`,
     `test_cpp_options_save_and_load_buttons`.
-- UI-2 Phase D warning dialog complete: **modal DIALOG_BACKGROUND family.**
-  - `--warning TEXT` shows `WARNING_PANEL` over the FOND_GRIS dim,
-    word-wrapped into `WARNING_TEXT_ZONE`; `WARNING_OUTCOME_ICON` closes it
-    and background clicks are consumed.
-  - Request/campaign-end panels are parsed but have no triggers yet.
-  - Evidence: `notes/warning.png`, `notes/warning-detail.png`,
-    `tests/test_viewer_cpp.py::test_cpp_warning_dialog`.
+- UI-2 Phase D dialogs complete: **warning, request and campaign-end panels.**
+  - `DIALOG_BACKGROUND` + one of `WARNING_PANEL`/`REQUEST_PANEL`/
+    `CPGEND_PANEL`; `--warning`, `--request`, `--campaign-end`.
+  - `WARNING_OUTCOME_ICON` closes, `REQUEST_VALIDATE_ICON` accepts,
+    `REQUEST_CANCEL_ICON` cancels, `CPGEND_OUTCOME_ICON` closes; background
+    clicks are consumed.
+  - Text is word-wrapped into the active `*_TEXT_ZONE` and drawn above its
+    back zone. Panels use `ALIGN_CENTER` (request/campaign end at
+    `(258,204)`/`(258,125)` at 800×600).
+  - Open: `OPTIONS_NAME_SLOT` text entry, placed buildings/dinosaur state in
+    the port save.
+  - Evidence: `docs/platform/hud.md`, `notes/request.png`,
+    `notes/campaign-end.png`,
+    `tests/test_viewer_cpp.py::test_cpp_request_dialog`,
+    `test_cpp_campaign_end_dialog`.
 - 291 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
@@ -967,9 +975,9 @@ Updated: 2026-10-26
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D rest:** add triggers for `REQUEST_PANEL`/`CPGEND_PANEL`,
-  `OPTIONS_NAME_SLOT` text entry, and placed buildings/dinosaur state in the
-  port save. The warning dialog and Save/Load are done.
+- **UI-2 Phase D rest:** `OPTIONS_NAME_SLOT` text entry and placed
+  buildings/dinosaur state in the port save. The dialog family and Save/Load
+  are done.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -980,8 +988,8 @@ Updated: 2026-10-26
 
 ## Next action
 
-1. UI-2 Phase D rest: add request/campaign-end dialog triggers, text entry
-   for `OPTIONS_NAME_SLOT`, and save placed buildings/dinosaur state.
+1. UI-2 Phase D rest: `OPTIONS_NAME_SLOT` text entry and saving placed
+   buildings/dinosaur state.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
