@@ -344,12 +344,15 @@ Updated: 2026-10-25
     `clicDefault`. One short SDL3 stream per click (new click cuts the old).
   - `--ui-sounds`, `--no-sounds`, `--list-sounds`, `--play-sound NAME`.
   - Evidence: `docs/platform/audio.md`, `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
-- AUDIO-3 complete: **island music.**
+- AUDIO-3 complete: **menu and island music.**
   - `ParkSoundDB.ini` parsed; the `.lnd` music name starts a 26–28 MB theme
     streamed in 64 KB chunks and looped when the queue drains.
+  - The menu plays the `MenuSoundDB` `music` entry (`musLabo`); lab centres
+    switch to `musLabo` and leaving restores the island theme.
   - `--music`/`--no-music`/`--music-volume`; interactive default on.
   - Evidence: `docs/platform/audio.md`,
-    `tests/test_viewer_cpp.py::test_cpp_park_music`.
+    `tests/test_viewer_cpp.py::test_cpp_park_music`,
+    `test_cpp_menu_and_island_music_switch`.
 - UI-2 Phase B camera complete: **free-game start framing.**
   - Target = island centre at terrain height, distance 39, elevation 52.7,
     yaw 0 (`camera.ini` progress 0.1); park FOV 80°.
@@ -366,7 +369,7 @@ Updated: 2026-10-25
   - Saving/loading park state remains open.
   - Evidence: `notes/options-save.png`, `notes/options-save-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_options_save_panel`.
-- 279 tests pass; working tree committed (UI-2 Phase B rest plus
+- 280 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,

@@ -86,8 +86,11 @@ Options:
 ```
 
 The music starts on the initial `--lnd` load and again after a menu-started
-island swap. `M` mutes both music and clicks. Evidence:
-`tests/test_viewer_cpp.py::test_cpp_park_music`.
+island swap. The menu plays the `MenuSoundDB` `music` entry (the same
+`musLabo.wav`) until Start; entering a lab centre switches to `musLabo`, and
+leaving the lab restores the island theme. `M` mutes both music and clicks.
+Evidence: `tests/test_viewer_cpp.py::test_cpp_park_music`,
+`test_cpp_menu_and_island_music_switch`.
 
 ## Evidence
 

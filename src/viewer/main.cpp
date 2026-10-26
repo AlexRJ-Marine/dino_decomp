@@ -2544,6 +2544,11 @@ int main(int argc, char** argv) {
         if (music_it != park_sound_files.end()) {
             music.play(music_it->second);
         }
+    } else if (opt.music && menu_loaded) {
+        const auto music_it = menu_sound_files.find("music");
+        if (music_it != menu_sound_files.end()) {
+            music.play(music_it->second);
+        }
     }
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -3847,6 +3852,21 @@ int main(int argc, char** argv) {
                                 menu_sound_files.find("clicDefault");
                             if (sound_it != menu_sound_files.end()) {
                                 ui_sound.play(sound_it->second);
+                            }
+                            if (action.rfind("open DINO_LAB", 0) == 0 ||
+                                action.rfind("open LAB_", 0) == 0) {
+                                const auto lab_music =
+                                    park_sound_files.find("musLabo");
+                                if (lab_music != park_sound_files.end()) {
+                                    music.play(lab_music->second);
+                                }
+                            } else if (action == "close lab" &&
+                                       !lnd.music.empty()) {
+                                const auto island_music =
+                                    park_sound_files.find(lnd.music);
+                                if (island_music != park_sound_files.end()) {
+                                    music.play(island_music->second);
+                                }
                             }
                         }
                         continue;

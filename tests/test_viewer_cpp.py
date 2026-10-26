@@ -1137,3 +1137,18 @@ def test_cpp_options_save_panel(tmp_path):
         if listing[i] > 200 and listing[i + 1] > 200 and listing[i + 2] < 80
     )
     assert yellow > 20
+
+def test_cpp_menu_and_island_music_switch():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "4", "--width", "320", "--height", "200",
+         "--no-vsync", "--no-save-config", "--asset-root", str(GAME),
+         "--music", "--menu-page", "1", "--menu-click", "200,180",
+         "--menu-click", "494,451", "--menu-click", "526,531",
+         "--menu-loading-time", "0"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "musLabo.wav" in result.stdout
+    assert "musEquateur.wav" in result.stdout
