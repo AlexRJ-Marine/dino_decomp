@@ -48,8 +48,9 @@ See `notes/lanes.md`. Default split:
 ## Focus
 
 - P3-CACHE: `GetCourage`/`ObstAttackSize1` writers decoded
-  (`0x571190`/`0x5727b0`); part-record fields `+0x44/+0x78/+0x80` and the
-  chooser threat port remain
+  (`0x571190`/`0x5727b0`); `+0x44/+0x78/+0x80` are now exact in
+  `DinoAttributes` (20/20 Cpg04). Wire the caches into `DinoNeeds` and port
+  the chooser's target threat term.
 - P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
   `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
@@ -61,16 +62,18 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-- CAMPAIGN-2: objective evaluator (simple verbs + trait pattern + MISSION_PANEL tri-state)
-1. UI-2 Phase D tail: store visitor travel state and the dino clip phase.
-2. Store/lab attribute gauges: `DinoAttributes` is ported; wire the
-   `PROGRESS` widgets (ConstructionInterface) and the 3D preview.
+1. P3-CACHE wiring: on GetCourage/ObstAttackSize1 completion set
+   `DinoNeeds::threat`/`threat_radius` from `combined_attack`/
+   `obstacle_radius`, then port the chooser target term.
+2. Store/lab attribute gauges: all eleven sources are exact (20/20 Cpg04);
+   wire the `PROGRESS` widgets (ConstructionInterface) and the 3D preview.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
 4. SIM-4: runtime-verify the budget panel rows against a populated save.
 5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-26 - Port the phenotype dummy/skin/carapace accumulator (Parts 4-9); all 20 Cpg04 attribute rows and the obstacle radii now match
 - 2026-10-26 - CAMPAIGN-3 live phenotype traits: cleverdinos objective succeeds on Cpg04
 - 2026-10-26 - SIM-5 employees: .bei profiles, hire/wages, hourly feeding queue, visible nutritionist
 - 2026-10-26 - CAMPAIGN-3 mission runtime: --start-mission, MISSION_PANEL tri-state/lights, CPGEND on result
@@ -78,7 +81,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - UI-2 Phase D tail: visitor travel state/route + dino clip phase in DINOPSAV
 - 2026-10-26 - CAMPAIGN-1 C++ campaign/mission reader (7/39/89, 33 verb ids; --campaign-info/--campaign-mission)
 - 2026-10-26 - DOCS-4 decoded feature port contracts (shows/employees/animals/lab/objectives)
-- 2026-10-26 - CAM-1 rest: camera.ini Config1 parser, data-driven speeds/limits, FUN_00529d00 height smoothing
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

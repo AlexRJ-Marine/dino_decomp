@@ -1815,11 +1815,9 @@ def test_cpp_cpg04_phenotype_attributes():
     """Computed phenotype attributes against the live Cpg04 ctor table.
 
     `notes/phenotype-attributes-runtime.md` records the 20 live rows. The
-    base layer (parts 3 + the gene expressions) reproduces every row except
-    the dummy/skin/carapace accumulator residuals: row 1 (all dummy genes
-    (1,1)) shifts beauty/agility/armor/attack/intelligence, rows 11/13 shift
-    beauty/armor, and row 13's attack total is +2. See
-    docs/formats/translator-constants.md.
+    The dummy/skin/carapace accumulator (Parts 4-9) is applied, so all 20
+    rows match the live ctor values exactly. See
+    docs/formats/translator-constants.md and notes/phenotype-attributes-runtime.md.
     """
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -1849,8 +1847,7 @@ def test_cpp_cpg04_phenotype_attributes():
         return out
 
     rows = [fields(line) for line in lines]
-    # Live/baseline columns. Intelligence row 1 is 15 here (the live ctor
-    # value is 18 because of the dummy accumulator).
+    # Live ctor columns (`notes/phenotype-attributes-runtime.md`).
     assert [int(r["wid"]) for r in rows] == [
         139, 260, 260, 260, 69, 69, 187, 71, 165, 165,
         260, 72, 111, 111, 111, 111, 111, 111, 74, 74,
@@ -1864,43 +1861,47 @@ def test_cpp_cpg04_phenotype_attributes():
         46, 41, 33, 57, 57, 57, 57, 57, 41, 41,
     ]
     assert [int(r["I"]) for r in rows] == [
-        15, 38, 38, 38, 105, 105, 40, 91, 56, 57,
-        32, 78, 35, 48, 48, 48, 48, 48, 77, 77,
+        18, 38, 38, 38, 105, 105, 40, 91, 56, 57,
+        34, 78, 35, 48, 48, 48, 48, 48, 77, 77,
     ]
     assert [int(r["B"]) for r in rows] == [
-        30, 20, 20, 20, 45, 45, 23, 49, 31, 32,
-        21, 54, 35, 30, 30, 30, 30, 30, 55, 55,
+        56, 20, 20, 20, 45, 45, 23, 49, 31, 32,
+        27, 54, 39, 30, 30, 30, 30, 30, 55, 55,
     ]
     assert [int(r["Arm"]) for r in rows] == [
-        70, 25, 25, 25, 30, 30, 33, 28, 25, 27,
-        27, 30, 58, 45, 45, 45, 45, 45, 30, 30,
+        78, 25, 25, 25, 30, 30, 33, 28, 25, 27,
+        33, 30, 58, 45, 45, 45, 45, 45, 30, 30,
     ]
-    # Rows 10 and 11 are exact after the tail-pair fix; row 13 keeps the
-    # documented +2 accumulator residual (live 305).
     assert [int(r["Atk"]) for r in rows] == [
-        229, 335, 335, 335, 179, 179, 332, 202, 250, 259,
-        345, 225, 303, 325, 325, 325, 325, 325, 225, 225,
+        243, 335, 335, 335, 179, 179, 332, 202, 250, 259,
+        345, 225, 305, 325, 325, 325, 325, 325, 225, 225,
     ]
     # Per-part attacks: head / body / arm / leg / tail. The body attack uses
     # the head pair (retail quirk) and the leg attack is zero for quadrupeds;
     # the tail uses the tail pair.
     parts = [(int(r["Ah"]), int(r["Ab"]), int(r["Aa"]), int(r["Al"]),
               int(r["At"])) for r in rows]
+    assert parts[0] == (30, 100, 10, 1, 102)   # row 1: accumulator sum 243
+    assert sum(parts[0]) == 243
     assert parts[9] == (67, 37, 31, 63, 61)    # row 10: exact live 259
     assert parts[10] == (92, 59, 50, 75, 69)   # row 11: exact live 345
-    assert parts[12] == (39, 51, 100, 60, 53)  # row 13: live 305 (+2)
+    assert parts[12] == (39, 51, 100, 60, 55)  # row 13: exact live 305
     assert sum(parts[9]) == 259
     assert sum(parts[10]) == 345
-    assert sum(parts[12]) == 303
-    # Gene expressions: Agre/Stam/Cour at (a+b)//2 (the live rows 11/13
-    # differ by the dummy accumulator).
+    assert sum(parts[12]) == 305
+    # Gene expressions: Agre/Stam/Cour with the dummy/skin/carapace
+    # accumulator (rows 1/11/13 shift from the bare `matrix[b][a]` value).
     assert [(int(r["Ag"]), int(r["St"]), int(r["Co"])) for r in rows] == [
-        (70, 70, 70), (80, 40, 70), (80, 40, 70), (80, 40, 70),
+        (82, 83, 77), (80, 40, 70), (80, 40, 70), (80, 40, 70),
         (70, 20, 40), (70, 20, 40), (90, 50, 75), (60, 40, 30),
-        (70, 40, 50), (70, 40, 70), (80, 50, 75), (60, 40, 40),
-        (70, 40, 70), (90, 50, 80), (90, 50, 80), (90, 50, 80),
+        (70, 40, 50), (70, 40, 70), (78, 48, 80), (60, 40, 40),
+        (75, 43, 70), (90, 50, 80), (90, 50, 80), (90, 50, 80),
         (90, 50, 80), (90, 50, 80), (60, 30, 50), (60, 30, 50),
     ]
+    # `+0x78/+0x7c/+0x80` (obstacle size/square/radius) are computed by the
+    # same accumulator; the recorded runtime radii 5/10/3 for rows 1/2/5 are
+    # covered in notes/phenotype-attributes-runtime.md. The viewer probe does
+    # not print them yet (the cache wiring will expose them through SECU).
 
 
 def test_cpp_dino_action_loop():
@@ -2560,6 +2561,36 @@ def test_cpp_employee_feeding_and_wages():
     # 75,000 - 2*500 hire - 2*500 wages = 73,000 (no visitors in the .wld).
     assert ("daily settlement: day=0 visitors=0 ticket=50 income=0 "
             "wages=1000 budget=73000") in log
+
+
+def test_cpp_employee_save_roundtrip(tmp_path):
+    """Hired Nutritionists are written to DINOPSAV and restored on load."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    save = tmp_path / "employees.psav"
+    base = [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+            "160", "--height", "120", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--wld-park", str(wld),
+            "--park-budget", "75000"]
+    first = subprocess.run(
+        base + ["--hire-nutritionist", "2", "--save-port", str(save)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert first.returncode == 0, first.stderr
+    assert "employees: hired=2" in first.stdout
+    text = save.read_text(encoding="utf-8")
+    assert text.count("employee Nutritionist") == 2
+    second = subprocess.run(
+        base + ["--load-port", str(save)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert second.returncode == 0, second.stderr
+    assert "port employees: 2" in second.stdout
 
 
 def test_cpp_port_save_paddocks_food(tmp_path):

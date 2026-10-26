@@ -47,10 +47,25 @@ struct DinoGeneTable {
     std::array<std::array<int, 10>, 10> matrix{};
 };
 
+// Part 1 gene block with an arbitrary allele count: the dummy position/type
+// genes (48), skin type (8), skin subtype (3), carapace type (6) and subtype
+// (3). Two expression rules are documented in docs/formats/gen.md:
+// - dummy position/type and skin/carapace type: `translation[min(a, b)]`
+//   (the lower allele is dominant);
+// - skin/carapace subtype: `matrix[b][a]`.
+struct DinoAlleleTable {
+    int allele_count = 0;
+    std::vector<int> translation;
+    std::vector<int> matrix;  // allele_count^2, row-major; empty when absent
+
+    int dominant(std::uint32_t a, std::uint32_t b) const;
+    int expressed(std::uint32_t a, std::uint32_t b) const;
+};
+
 // The runtime phenotype attributes read at the saDinosaur ctor
-// (`FUN_00617250` + `FUN_00619830`). The dummy/skin/carapace accumulator
-// (`0x619a60`/`0x619b80`) is not applied yet, so a few values carry the
-// documented small residual; see docs/formats/translator-constants.md.
+// (`FUN_00617250` + `FUN_00619830`), including the dummy/skin/carapace
+// accumulator (`0x619a60`/`0x619b80`) and the Part 9 clamp. All 20 Cpg04
+// rows match the live ctor values; see docs/formats/translator-constants.md.
 struct DinoAttributes {
     int length_cm = 0;   // +0x00
     int width_cm = 0;    // +0x0c
@@ -81,6 +96,9 @@ struct DinoAttributes {
     float walk_speed = 0.0f;          // +0x2c
     float run_speed = 0.0f;           // +0x30
     int jump = 0;                     // +0x34
+    int obstacle_size = 0;            // +0x78 (GetObstacleSize)
+    int obstacle_size_sq = 0;         // +0x7c
+    int obstacle_radius = 0;          // +0x80 (danger-grid stamp radius)
     int size_class = -1;              // +0x190
     int family = -1;                  // +0x1ac
     bool quadruped = true;            // +0x1b4
@@ -114,6 +132,40 @@ struct DinoPhenotypeTable {
     DinoGeneTable cour{};
     std::array<int, 20> default_family{};
 
+    // Part 1 allele tables for the dummy/skin/carapace genes. Gene order is
+    // the docs/formats/gen.md order: 4 HDDi, 5 HDTy, 6 BDDi, 7 BDTy,
+    // 8 TDDi, 9 TDTy, 10 SknTyp, 11 SknSub, 12 CarTyp, 13 CarSub.
+    DinoAlleleTable hd_di{};
+    DinoAlleleTable hd_ty{};
+    DinoAlleleTable bd_di{};
+    DinoAlleleTable bd_ty{};
+    DinoAlleleTable td_di{};
+    DinoAlleleTable td_ty{};
+    DinoAlleleTable skin_type{};
+    DinoAlleleTable skin_sub{};
+    DinoAlleleTable carapace_type{};
+    DinoAlleleTable carapace_sub{};
+
+    // Part 4: three dummy subparts (Head/Body/Tail) x 48 positions x 6 slots.
+    std::array<std::array<std::array<int, 6>, 48>, 3> dummy_disposition{};
+    // Part 5: three subparts x 48 types x 5 slot type ids.
+    std::array<std::array<std::array<int, 5>, 48>, 3> dummy_type{};
+    // Part 6: two 50 x 18 influence tables (bonus and percentage).
+    std::array<std::array<std::array<int, 18>, 50>, 2> dummy_influence{};
+    std::array<int, 5> reference_width{100, 100, 100, 300, 150};
+    // Part 7: skin map (8 x 3), the 582 body-length divisor and two 22 x 18
+    // influence tables.
+    std::array<std::array<int, 3>, 8> skin_map{};
+    float skin_reference = 582.0f;
+    std::array<std::vector<std::array<int, 18>>, 2> skin_influence{};
+    // Part 8: carapace map (6 x 3) and two 16 x 18 influence tables.
+    std::array<std::array<int, 3>, 6> carapace_map{};
+    std::array<std::vector<std::array<int, 18>>, 2> carapace_influence{};
+    // Part 9 min/max, used by the final `FUN_00619fb0` clamp.
+    std::array<int, 20> min_attributes{};
+    std::array<int, 20> max_attributes{};
+    bool has_attribute_limits = false;
+
     std::array<int, 4> size_category_max{200, 620, 900, 3200};
     std::array<int, 4> size_category_radius{0, 2, 4, 7};
     float food_consumption_rate = 0.1f;
@@ -126,6 +178,9 @@ struct DinoPhenotypeTable {
     float intelligence_multiplier = 25.0f;
     float intelligence_power = 0.22f;
     float motricity_power = 0.85f;
+    int visibility_divider = 10;
+    int danger_visibility_divider = 40;
+    int max_perception = 90;
 
     bool valid = false;
 

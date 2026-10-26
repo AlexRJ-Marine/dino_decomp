@@ -79,15 +79,14 @@ the harness traces the park.
 
 ## Port impact
 
-`src/world/dino_actions.cpp` already accepts `threat_score`; once
-`DinoAttributes` exposes the part-record fields, `DinoActionLoop` can set:
-
-```text
-threat_cache   = phenotype +0x44
-obstacle_radius = phenotype +0x80
-```
-
-and the danger-grid stamp/chooser threat term can use them instead of 0.
+`DinoAttributes` now exposes the exact fields: `combined_attack` (`+0x44`),
+`obstacle_size` (`+0x78`), `obstacle_size_sq` (`+0x7c`) and
+`obstacle_radius` (`+0x80`), all validated on 20/20 Cpg04 rows. The next
+step is to copy them into `DinoNeeds` and have `DinoActionLoop::finish_action`
+write `needs_.threat = combined_attack` on GetCourage and
+`needs_.threat_radius = obstacle_radius` on ObstAttackSize1, then feed the
+chooser's threat term. `src/world/dino_actions.cpp` already accepts
+`threat_score`.
 
 Evidence addresses: `0x571190` (completion), `0x5727b0` (ApplyActionEffect),
 `0x56FED0` (phenotype copy), `0x571B50` (grid stamp).

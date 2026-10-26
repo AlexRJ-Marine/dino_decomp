@@ -1111,8 +1111,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   Courage are the `Agre`/`Stam`/`Cour` gene expressions, walk speed is
   0.24-0.36. Intelligence (`+0x3c`) is solved as
   `trunc(25 * Part3IntSum / (length*width*height)^0.22)`, then the
-  multiplier/accumulator passes and clamp 0..200; 18/20 Cpg04 rows match
-  exactly. See `notes/phenotype-attributes-runtime.md` and
+  multiplier/accumulator passes and clamp 0..200; the accumulator port below
+  takes it to 20/20. See `notes/phenotype-attributes-runtime.md` and
   `docs/formats/translator-constants.md`.
 - [x] Decode the part-record accumulator: 23 slots = 18 Part-6 dummy rows +
   five literal duplicates (5/10/11/16/17); additive pass scales by part
@@ -1128,10 +1128,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   the biped family override and the float food field follow retail.
   `DINO_DEBUG_PHENO=1` prints all fields and
   `test_cpp_cpg04_phenotype_attributes` locks the table.
-- [ ] Port the accumulator so the store/lab attribute gauges and visitor
-  needs read exact values; the duplicate slots are the first suspect for the
-  +2/+3 Cpg04 Intelligence residuals. The base sums + gene expressions
-  already cover most gauges.
+- [x] Port the accumulator so the store/lab attribute gauges and visitor
+  needs read exact values. `DinoAttributes` now reads Parts 4-9 (dummy
+  disposition/type, the two 50x18 influence tables, reference widths,
+  skin/carapace maps + influence tables, Part 9 limits) and the Part 1
+  dummy/skin/carapace allele tables, applies the 23-slot additive and
+  percentage passes, the skin/carapace additions, the `trunc(P*pct/100) +
+  trunc(acc)` normalisation and the Part 9 clamp. It also exposes the
+  `+0x78/+0x7c/+0x80` obstacle size/square/radius. All 20 live Cpg04 rows
+  now match exactly (intelligence 18/56 etc., beauty 56/27/39, armor
+  78/33, attack 243/305, Ag/St/Co 82/83/77 etc.);
+  `test_cpp_cpg04_phenotype_attributes` locks the table and the obstacle
+  radii. See `notes/phenotype-attributes-runtime.md` and
+  `docs/formats/translator-constants.md`.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

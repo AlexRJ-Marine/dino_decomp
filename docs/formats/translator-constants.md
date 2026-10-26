@@ -120,6 +120,13 @@ Body 18 (none), Tail 11. Skin (Part 7) and carapace (Part 8) are **not** in
 the 23 slots; `0x617250` adds them directly with the body-length ratio
 `P[0xa4]/T[0xa0]`.
 
+**Ported:** `src/formats/dino_data.cpp` reads Parts 4-9 and the Part 1
+dummy/skin/carapace allele tables, applies both passes plus the skin/carapace
+additions, and clamps with Part 9. All 20 Cpg04 ctor rows match exactly
+(`test_cpp_cpg04_phenotype_attributes`). Negative Part 6-8 values are stored
+as their uint32 decimal form (e.g. `4294967293` = -3) and must wrap through
+`uint32_t`; a plain `strtol` saturates to `INT_MAX`.
+
 Application order: `0x619b80` fills the ints, `0x619d90` multiplies first,
 `0x619c70` adds, `0x619fb0` clamps with Part 9 min/max:
 
@@ -304,9 +311,10 @@ near-neutral accumulator passes follow (`0x619df0`:
 `trunc(P * m/100) + trunc(acc)`, m default 100) and the Part 9 clamp
 `0..200` (`+0x418`/`+0x474`).
 
-18/20 Cpg04 rows match the first term exactly; the two residuals (+2/+3) are
-the unported dummy/skin/carapace accumulator. Example: base 85,
-742×260×420 cm³ -> `25*85 / V^0.22 = 38.68 -> 38`.
+The first term is the encephalization quotient; the dummy/skin/carapace
+accumulator then moves it by 0..3. Example: base 85, 742×260×420 cm³ ->
+`25*85 / V^0.22 = 38.68 -> 38`. All 20 Cpg04 rows are exact once the
+accumulator is applied.
 
 ### Dimensions, weight and speed (`FUN_00619830`)
 

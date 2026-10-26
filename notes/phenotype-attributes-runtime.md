@@ -1,6 +1,6 @@
 # Phenotype attributes (runtime trace)
 
-Status: **solved; ported to C++ (accumulator residual remains).**
+Status: **solved; ported to C++; all 20 live rows exact.**
 This extends `notes/phenotype-length-runtime.md`. The 20 Cpg04 dinosaurs were
 logged at the `saDinosaur` ctor (`0x56FED0`) with the full phenotype field set;
 the table below is the durable copy.
@@ -81,11 +81,13 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
   The C++ port computes them (`DinoAttributes::walk_speed/run_speed`); the
   live `p2c/p30` values were logged in the same CTOR trace and match the
   base formula. The retail unit is not yet confirmed against actor motion.
-- **Port status.** `src/formats/dino_data.*` now parses all Part 3 groups,
-  the Part 1 Agre/Stam/Cour matrices, Part 10 and `TranslatorConstants.ini`,
-  and computes the full attribute set (`DinoAttributes`). The Cpg04 test
-  reproduces 16/20 live rows exactly; the residuals are the unported
-  dummy/skin/carapace accumulator. `DINO_DEBUG_PHENO=1` prints every field.
+- **Port status.** `src/formats/dino_data.*` parses Parts 1-10 and
+  `TranslatorConstants.ini`, applies the dummy/skin/carapace accumulator and
+  computes the full attribute set (`DinoAttributes`). All 20 Cpg04 rows match
+  the live ctor table exactly; `DINO_DEBUG_PHENO=1` prints every field and
+  `test_cpp_cpg04_phenotype_attributes` locks the values. The accumulator also
+  yields `+0x78/+0x7c/+0x80` (obstacle size/square/radius), e.g. row 1/2/5
+  radius 5/10/3.
 - **Intelligence (`+0x3c`) solved.** It is an encephalization quotient, not
   the Part 3 sum:
 
@@ -104,29 +106,67 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
   1.76M..81M cm³ and `V^0.22` spans 23.7..54.9.
   `P[0x18]` is the Part 3 **Weight** group × part scale (kg), not volume.
 
-## Residual source
+## Accumulator (ported)
 
 The part-record accumulator (`0x619A60` add / `0x619B80` percentages) applies
-the 23 non-base part slots (dummy, skin, carapace) to the accumulator at
-translator `+0x128`. Even `(0,0)` dummy/skin/carapace types have Part 7/8
-influence rows, which explains the small deltas on rows 11/13 and the attack
-residual. Porting it needs:
+the 23 non-base part slots (dummy, skin, carapace) to the float/int
+accumulators at translator `+0x128`/`+0x170`:
 
-1. Part 1 gene translations for genes 4-13 (48/8/3/6-allele matrices).
-2. Part 6 reference widths (`+0xa4..+0xb4`) and the two influence tables
-   (`+0x80`/`+0x90`).
-3. Part 7/8 skin/carapace maps and influence tables (`+0x20`/`+0x40`/`+0x50`,
-   `+0x30`/`+0x60`/`+0x70`).
-4. The 23-slot add order and the percentage pass.
+1. **Part 1 allele tables.** Genes 4-13 (`HDDi`, `HDTy`, `BDDi`, `BDTy`,
+   `TDDi`, `TDTy`, `SknTyp`, `SknSub`, `CarTyp`, `CarSub`). The dummy and
+   type genes use `translation[min(a,b)]`; the two subtype genes use
+   `matrix[b][a]`.
+2. **23 slots.** Head (genes 4/5) slots 0-5, Body (6/7) slots 6-11 with body
+   cols 0-3, arm col 4 and leg col 5, Tail (8/9) slots 12-17, then literal
+   copies of slots 5/10/11/16/17 into 18-22. Each slot uses
+   `Part5[type][Part4[pos][col] - 1]` as the Part-6 row (`0` = absent).
+3. **Scaling.** Additive `acc[k] += row[k] * (part_width[part] /
+   reference_width[part])`; selector column 8/9/10/18/11; percentage
+   `pct[k] += row[k] - 100`.
+4. **Skin/carapace.** The 8x3 / 6x3 map selects a 22/16-row influence pair;
+   column 0 is scaled by `body_length / 582`, columns 1-17 are unscaled.
+5. **Apply.** `trunc(P * pct/100 + 1e-4) + trunc(acc)` for ints; the two
+   speeds use floats (`acc[2] * 0.01`). Part 9 clamps the result.
+
+Two implementation details matter:
+
+- Parts 6-8 encode negative influence values as their uint32 decimal form
+  (`4294967293` = `-3`). The C++ parser wraps through `uint32_t` before
+  converting to `int`; a plain `strtol` saturates to `INT_MAX`.
+- The attack total must be re-summed **after** the accumulator; row 1's parts
+  become `30/100/10/1/102` = 243 (the pre-accumulator total was 229).
+
+The ported values match the 20 live rows exactly:
+
+| # | live P/I/B/A/Ar/At | ported Ag/St/Co | obstacle size/radius |
+| ---: | --- | --- | --- |
+| 1 | 12/18/56/21/78/243 | 82/83/77 | 22/5 |
+| 2 | 34/38/20/50/25/335 | 80/40/70 | 42/10 |
+| 5 | 51/105/45/55/30/179 | 70/20/40 | 15/3 |
+| 11 | 46/34/27/40/33/345 | 78/48/80 | 44/11 |
+| 13 | 33/35/39/56/58/305 | 75/43/70 | 18/4 |
+
+`+0x78` starts at `(VisibilityDivider/2 + height) / VisibilityDivider`, then
+the accumulator slot 16 (column 0x78) applies; `+0x7c = +0x78^2` and
+`+0x80 = +0x78 * VisibilityDivider / DangerVisibilityDivider` (10/40). The
+three recorded runtime radii (5/10/3 for rows 1/2/5) match.
+
+Remaining question: the runtime `GetCourage` cache trace (`+0x2a0`) reported
+threat 53/68/40 for rows 1/2/5, one below `(Ag+Atk)/6` = 54/69/41. The
+formula and the actor copy offset (`actor+0x94 = phenotype+0x44`) are decoded,
+but the exact state at the action-13 completion needs a same-run
+`+0x44`/`+0x94` probe.
 
 ## Store gauges
 
 `DINO_ACHAT_ATTRIBUTES_{PERCEPTION,BEAUTY,ATTACK,AGGRESSIVENESS,ARMOR,
 WALKSPEED,AGILITY,INTELLIGENCE,COURAGE,STAMINA,STRANGENESS}_{GAUGE,INDICS}`
 read these phenotype fields with the maxima in `AttributeRange.ini`
-(100, Attack 120). Once the accumulator is ported, the store panel can fill
-them; the base sums already give Beauty/Agility/Armor/Attack/WalkSpeed and the
-gene expressions give Aggressiveness/Stamina/Courage.
+(100, Attack 120). All source fields are now exact in `DinoAttributes`
+(`perception`, `beauty`, `attack_total`, `aggression`, `armor`,
+`walk_speed`, `agility`, `intelligence`, `courage`, `stamina`); the remaining
+work is filling the eleven `PROGRESS` widgets in `ParkHud` and adding the 3D
+preview actor.
 
 ## Reproduction
 

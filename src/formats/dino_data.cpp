@@ -44,12 +44,14 @@ std::vector<std::string> read_lines(const std::string& path) {
 
 int parse_int(const std::string& text, const std::string& path) {
     char* end = nullptr;
-    const long value = std::strtol(text.c_str(), &end, 10);
+    // Part 6-8 store negative influence values as their uint32 decimal form
+    // (e.g. 4294967293 for -3), so parse into 64 bits and wrap to int32.
+    const long long value = std::strtoll(text.c_str(), &end, 10);
     if (end == text.c_str() || (end != nullptr && *end != '\0')) {
         throw std::runtime_error("dino data: expected integer in " + path +
                                  ": " + text);
     }
-    return static_cast<int>(value);
+    return static_cast<int>(static_cast<std::uint32_t>(value));
 }
 
 std::size_t find_section(const std::vector<std::string>& lines,
@@ -156,6 +158,144 @@ DinoGeneTable read_gene_table(const std::vector<std::string>& lines,
     return out;
 }
 
+// Part 1 block for a non-10-allele gene (dummy, skin, carapace).
+DinoAlleleTable read_allele_table(const std::vector<std::string>& lines,
+                                  const std::string& code,
+                                  const std::string& path) {
+    const std::string marker = "// Translation of the gene <" + code + ">";
+    const std::size_t at = find_section(lines, marker, path) + 1;
+    if (at >= lines.size()) {
+        throw std::runtime_error("dino data: truncated gene " + code);
+    }
+    const int count = parse_int(lines[at], path);
+    if (count <= 0 || count > 64) {
+        throw std::runtime_error("dino data: unsupported allele count in " +
+                                 code);
+    }
+    const std::vector<int> values =
+        read_int_tokens(lines, at + 1,
+                        static_cast<std::size_t>(count) +
+                            static_cast<std::size_t>(count) * count,
+                        path);
+    DinoAlleleTable out;
+    out.allele_count = count;
+    out.translation.assign(values.begin(),
+                           values.begin() + static_cast<std::size_t>(count));
+    out.matrix.assign(values.begin() + static_cast<std::size_t>(count),
+                      values.end());
+    return out;
+}
+
+// Splits the lines in [start, end) into whitespace-separated tokens,
+// discarding `//` comments. Used for the counted `N:`/`W:` tables in Parts
+// 4-9.
+std::vector<std::string> read_tokens(const std::vector<std::string>& lines,
+                                     std::size_t start, std::size_t end) {
+    std::vector<std::string> tokens;
+    for (std::size_t i = start; i < end && i < lines.size(); ++i) {
+        std::string line = lines[i];
+        const std::size_t comment = line.find("//");
+        if (comment != std::string::npos) {
+            line.resize(comment);
+        }
+        std::size_t cursor = 0;
+        while (cursor < line.size()) {
+            while (cursor < line.size() &&
+                   std::isspace(static_cast<unsigned char>(line[cursor]))) {
+                ++cursor;
+            }
+            std::size_t next = cursor;
+            while (next < line.size() &&
+                   !std::isspace(static_cast<unsigned char>(line[next]))) {
+                ++next;
+            }
+            if (next > cursor) {
+                tokens.push_back(line.substr(cursor, next - cursor));
+            }
+            cursor = next;
+        }
+    }
+    return tokens;
+}
+
+// `50:` -> 50. The counted tables in Part 6-8 put the count before a colon.
+int parse_count(const std::string& token, const std::string& path) {
+    std::string text = token;
+    if (!text.empty() && text.back() == ':') {
+        text.pop_back();
+    }
+    return parse_int(text, path);
+}
+
+// Reads `count:` followed by `count` blocks of `width:` + width ints.
+std::vector<std::vector<int>> read_counted_blocks(
+    const std::vector<std::string>& tokens, std::size_t& at,
+    const std::string& path) {
+    if (at >= tokens.size()) {
+        throw std::runtime_error("dino data: truncated counted block in " +
+                                 path);
+    }
+    const int count = parse_count(tokens[at++], path);
+    if (count < 0 || count > 512) {
+        throw std::runtime_error("dino data: bad counted block size in " +
+                                 path);
+    }
+    std::vector<std::vector<int>> rows;
+    rows.reserve(static_cast<std::size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        if (at >= tokens.size()) {
+            throw std::runtime_error("dino data: truncated counted row in " +
+                                     path);
+        }
+        const int width = parse_count(tokens[at++], path);
+        if (width < 0 || width > 256) {
+            throw std::runtime_error("dino data: bad counted row width in " +
+                                     path);
+        }
+        std::vector<int> row;
+        row.reserve(static_cast<std::size_t>(width));
+        while (static_cast<int>(row.size()) < width) {
+            if (at >= tokens.size()) {
+                throw std::runtime_error("dino data: truncated counted value in " +
+                                         path);
+            }
+            row.push_back(parse_int(tokens[at++], path));
+        }
+        rows.push_back(std::move(row));
+    }
+    return rows;
+}
+
+// Part 4 (`width` 6) and Part 5 (`width` 5): three subparts, each a `48`
+// count and 48 rows.
+template <std::size_t Width>
+std::array<std::array<std::array<int, Width>, 48>, 3> read_dummy_rows(
+    const std::vector<std::string>& tokens, std::size_t& at,
+    const std::string& path) {
+    std::array<std::array<std::array<int, Width>, 48>, 3> out{};
+    for (int part = 0; part < 3; ++part) {
+        if (at >= tokens.size()) {
+            throw std::runtime_error("dino data: truncated dummy table");
+        }
+        const int count = parse_int(tokens[at++], path);
+        if (count != 48) {
+            throw std::runtime_error("dino data: dummy table is not 48 rows");
+        }
+        for (int row = 0; row < 48; ++row) {
+            for (std::size_t col = 0; col < Width; ++col) {
+                if (at >= tokens.size()) {
+                    throw std::runtime_error(
+                        "dino data: truncated dummy table row in " + path);
+                }
+                out[static_cast<std::size_t>(part)]
+                   [static_cast<std::size_t>(row)][col] =
+                    parse_int(tokens[at++], path);
+            }
+        }
+    }
+    return out;
+}
+
 float parse_float(const std::string& text) {
     return static_cast<float>(std::atof(text.c_str()));
 }
@@ -199,6 +339,12 @@ void read_translator_constants(const std::string& path,
             table.intelligence_power = parse_float(value);
         } else if (key == "MotricityPower") {
             table.motricity_power = parse_float(value);
+        } else if (key == "VisibilityDivider") {
+            table.visibility_divider = parse_int(value, path);
+        } else if (key == "DangerVisibilityDivider") {
+            table.danger_visibility_divider = parse_int(value, path);
+        } else if (key == "MaxPerception") {
+            table.max_perception = parse_int(value, path);
         } else if (key == "SizeCategory1MaxLength") {
             table.size_category_max[0] = parse_int(value, path);
         } else if (key == "SizeCategory2MaxLength") {
@@ -220,6 +366,22 @@ void read_translator_constants(const std::string& path,
 }
 
 }  // namespace
+
+int DinoAlleleTable::dominant(std::uint32_t a, std::uint32_t b) const {
+    const std::uint32_t index = std::min(a, b);
+    if (index < translation.size()) {
+        return translation[index];
+    }
+    return 0;
+}
+
+int DinoAlleleTable::expressed(std::uint32_t a, std::uint32_t b) const {
+    const std::size_t count = static_cast<std::size_t>(allele_count);
+    if (matrix.size() < count * count || a >= count || b >= count) {
+        return 0;
+    }
+    return matrix[static_cast<std::size_t>(b) * count + a];
+}
 
 int DinoFamilyTable::index_of(const std::string& name) const {
     for (std::size_t i = 0; i < species.size(); ++i) {
@@ -486,8 +648,6 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         speed_sum += truncate(static_cast<float>(speed[table][b][a]) * scale[part]);
     }
     out.weight_kg = weight_sum;
-    out.food_consumption = static_cast<float>(weight_sum) *
-                           food_consumption_rate * 0.01f;
     const float motricity =
         out.weight_kg > 0
             ? static_cast<float>(speed_sum) /
@@ -513,8 +673,6 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.aggression = express(agre, 15);
     out.stamina = express(stam, 16);
     out.courage = express(cour, 17);
-    out.violence_evolution = static_cast<float>(out.aggression) *
-                             violence_evolution_rate * 0.01f;
 
     int perception_sum = 0;
     int intelligence_sum = 0;
@@ -534,7 +692,7 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.perception = perception_sum + truncate(perception_height_percentage *
                                                static_cast<float>(out.height_cm) /
                                                100.0f);
-    out.perception = std::min(out.perception, 90);  // MaxPerception
+    out.perception = std::min(out.perception, max_perception);
     // Intelligence is an encephalization quotient, not the Part 3 sum. The
     // product is int64 here; retail multiplies int32 (wrapping on overflow).
     const std::int64_t volume =
@@ -569,6 +727,220 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     if (out.quadruped) {
         out.attack_leg = 0;
     }
+    out.attack_total = out.attack_head + out.attack_body + out.attack_arm +
+                       out.attack_leg + out.attack_tail;
+
+    // +0x78/+0x7c/+0x80 are derived from the final height before the
+    // accumulator; the accumulator then applies slot 16 to +0x78 and the
+    // radius/square are recomputed from it (`FUN_00617250`).
+    out.obstacle_size =
+        (visibility_divider / 2 + out.height_cm) / visibility_divider;
+
+    // `FUN_00619a60` (additive) and `FUN_00619b80` (percentage) walk the 23
+    // dummy slots; the skin and carapace additions follow in `FUN_00617250`.
+    // The final value is `trunc(P * pct/100 + 1e-4) + trunc(acc)` for the int
+    // fields and `P * pct * 0.01 + acc * 0.01` for the two speeds.
+    const auto express_dominant = [&](const DinoAlleleTable& table,
+                                      int gene) {
+        return table.dominant(
+            genotype[static_cast<std::size_t>(gene)].first,
+            genotype[static_cast<std::size_t>(gene)].second);
+    };
+    const auto express_sub = [&](const DinoAlleleTable& table, int gene) {
+        return table.expressed(
+            genotype[static_cast<std::size_t>(gene)].first,
+            genotype[static_cast<std::size_t>(gene)].second);
+    };
+
+    // 23-slot body-part map (`FUN_0061a230`): Head 0..5, Body 6..9, Arm 10,
+    // Leg 11, Tail 12..17, then copies of slots 5/10/11/16/17.
+    static constexpr int kSlotPart[23] = {
+        0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 1, 2,
+        4, 4, 4, 4, 4, 4, 0, 1, 2, 4, 4};
+    // Per-part selector column (`T[0x114]`): Head 8, Arm 9, Leg 10,
+    // Body 18 (none), Tail 11.
+    static constexpr int kSelector[5] = {8, 9, 10, 18, 11};
+
+    std::array<int, 23> slot_row{};
+    {
+        const DinoAlleleTable* positions[3] = {&hd_di, &bd_di, &td_di};
+        const DinoAlleleTable* types[3] = {&hd_ty, &bd_ty, &td_ty};
+        for (int pair = 0; pair < 3; ++pair) {
+            const int pos = std::clamp(
+                express_dominant(*positions[pair], 4 + pair * 2), 0, 47);
+            const int type = std::clamp(
+                express_dominant(*types[pair], 5 + pair * 2), 0, 47);
+            const auto& disposition =
+                dummy_disposition[static_cast<std::size_t>(pair)]
+                                 [static_cast<std::size_t>(pos)];
+            const auto& type_row =
+                dummy_type[static_cast<std::size_t>(pair)]
+                          [static_cast<std::size_t>(type)];
+            for (int col = 0; col < 6; ++col) {
+                const int tag = disposition[static_cast<std::size_t>(col)];
+                if (tag <= 0 || tag > 5) {
+                    continue;
+                }
+                slot_row[static_cast<std::size_t>(pair * 6 + col)] =
+                    type_row[static_cast<std::size_t>(tag - 1)];
+            }
+        }
+        slot_row[18] = slot_row[5];
+        slot_row[19] = slot_row[10];
+        slot_row[20] = slot_row[11];
+        slot_row[21] = slot_row[16];
+        slot_row[22] = slot_row[17];
+    }
+
+    std::array<float, 18> acc{};
+    std::array<int, 18> pct{};
+    pct.fill(100);
+    for (int slot = 0; slot < 23; ++slot) {
+        const int row = slot_row[static_cast<std::size_t>(slot)];
+        if (row <= 0 || row >= 50) {
+            continue;
+        }
+        const int part = kSlotPart[slot];
+        const float ratio =
+            static_cast<float>(out.part_width[static_cast<std::size_t>(part)]) /
+            static_cast<float>(reference_width[static_cast<std::size_t>(part)]);
+        const auto& add =
+            dummy_influence[0][static_cast<std::size_t>(row)];
+        const auto& percent =
+            dummy_influence[1][static_cast<std::size_t>(row)];
+        for (int k = 0; k < 7; ++k) {
+            acc[static_cast<std::size_t>(k)] +=
+                static_cast<float>(add[static_cast<std::size_t>(k)]) * ratio;
+            pct[static_cast<std::size_t>(k)] +=
+                percent[static_cast<std::size_t>(k)] - 100;
+        }
+        const int selector = kSelector[part];
+        if (selector != 18) {
+            acc[static_cast<std::size_t>(selector)] +=
+                static_cast<float>(add[static_cast<std::size_t>(selector)]) *
+                ratio;
+            pct[static_cast<std::size_t>(selector)] +=
+                percent[static_cast<std::size_t>(selector)] - 100;
+        }
+        for (int k = 12; k < 18; ++k) {
+            acc[static_cast<std::size_t>(k)] +=
+                static_cast<float>(add[static_cast<std::size_t>(k)]) * ratio;
+            pct[static_cast<std::size_t>(k)] +=
+                percent[static_cast<std::size_t>(k)] - 100;
+        }
+    }
+
+    // Skin (`P+0x174`, Part 7): the 8x3 map selects a 22-row influence
+    // pair; only column 0 is scaled by the body-length ratio.
+    {
+        const int type = std::clamp(express_dominant(skin_type, 10), 0, 7);
+        const int sub = std::clamp(express_sub(skin_sub, 11), 0, 2);
+        const int row = skin_map[static_cast<std::size_t>(type)]
+                                [static_cast<std::size_t>(sub)];
+        const float ratio =
+            static_cast<float>(out.part_length[3]) / skin_reference;
+        if (row >= 0 && row < 22) {
+            for (int k = 0; k < 18; ++k) {
+                acc[static_cast<std::size_t>(k)] +=
+                    static_cast<float>(
+                        skin_influence[0][static_cast<std::size_t>(row)]
+                                      [static_cast<std::size_t>(k)]) *
+                    (k == 0 ? ratio : 1.0f);
+                pct[static_cast<std::size_t>(k)] +=
+                    skin_influence[1][static_cast<std::size_t>(row)]
+                                  [static_cast<std::size_t>(k)] -
+                    100;
+            }
+        }
+    }
+    // Carapace (`P+0x178`, Part 8).
+    {
+        const int type =
+            std::clamp(express_dominant(carapace_type, 12), 0, 5);
+        const int sub = std::clamp(express_sub(carapace_sub, 13), 0, 2);
+        const int row = carapace_map[static_cast<std::size_t>(type)]
+                                    [static_cast<std::size_t>(sub)];
+        const float ratio =
+            static_cast<float>(out.part_length[3]) / skin_reference;
+        if (row >= 0 && row < 16) {
+            for (int k = 0; k < 18; ++k) {
+                acc[static_cast<std::size_t>(k)] +=
+                    static_cast<float>(
+                        carapace_influence[0][static_cast<std::size_t>(row)]
+                                          [static_cast<std::size_t>(k)]) *
+                    (k == 0 ? ratio : 1.0f);
+                pct[static_cast<std::size_t>(k)] +=
+                    carapace_influence[1][static_cast<std::size_t>(row)]
+                                      [static_cast<std::size_t>(k)] -
+                    100;
+            }
+        }
+    }
+
+    const auto normalise = [&](int value, int k) {
+        return static_cast<int>(static_cast<float>(value) *
+                                    (static_cast<float>(
+                                         pct[static_cast<std::size_t>(k)]) *
+                                     0.01f) +
+                                1e-4f) +
+               static_cast<int>(acc[static_cast<std::size_t>(k)]);
+    };
+    out.weight_kg = normalise(out.weight_kg, 0);
+    out.walk_speed =
+        out.walk_speed *
+            (static_cast<float>(pct[2]) * 0.01f) +
+        acc[2] * 0.01f;
+    out.run_speed =
+        out.run_speed *
+            (static_cast<float>(pct[2]) * 0.01f) +
+        acc[2] * 0.01f;
+    out.perception = normalise(out.perception, 3);
+    out.intelligence = normalise(out.intelligence, 4);
+    out.beauty = normalise(out.beauty, 5);
+    out.agility = normalise(out.agility, 6);
+    out.attack_head = normalise(out.attack_head, 7);
+    out.attack_body = normalise(out.attack_body, 8);
+    out.attack_arm = normalise(out.attack_arm, 9);
+    out.attack_leg = normalise(out.attack_leg, 10);
+    out.attack_tail = normalise(out.attack_tail, 11);
+    out.armor = normalise(out.armor, 12);
+    out.aggression = normalise(out.aggression, 13);
+    out.stamina = normalise(out.stamina, 14);
+    out.courage = normalise(out.courage, 15);
+    out.obstacle_size = normalise(out.obstacle_size, 16);
+
+    // `FUN_00619fb0` clamps the final values with the Part 9 table.
+    if (has_attribute_limits) {
+        const auto clamp_attr = [&](int& value, int index) {
+            value = std::clamp(
+                value, min_attributes[static_cast<std::size_t>(index)],
+                max_attributes[static_cast<std::size_t>(index)]);
+        };
+        clamp_attr(out.weight_kg, 0);
+        clamp_attr(out.jump, 3);
+        clamp_attr(out.perception, 4);
+        clamp_attr(out.intelligence, 5);
+        clamp_attr(out.beauty, 6);
+        clamp_attr(out.agility, 7);
+        clamp_attr(out.attack_head, 8);
+        clamp_attr(out.attack_body, 9);
+        clamp_attr(out.attack_arm, 10);
+        clamp_attr(out.attack_leg, 11);
+        clamp_attr(out.attack_tail, 12);
+        clamp_attr(out.armor, 14);
+        clamp_attr(out.aggression, 17);
+        clamp_attr(out.stamina, 18);
+        clamp_attr(out.courage, 19);
+    }
+
+    out.food_consumption = static_cast<float>(out.weight_kg) *
+                           food_consumption_rate * 0.01f;
+    out.violence_evolution = static_cast<float>(out.aggression) *
+                             violence_evolution_rate * 0.01f;
+    out.obstacle_size_sq = out.obstacle_size * out.obstacle_size;
+    out.obstacle_radius =
+        (out.obstacle_size * visibility_divider) / danger_visibility_divider;
+    // Retail sums the five accumulated attack parts after `FUN_00619fb0`.
     out.attack_total = out.attack_head + out.attack_body + out.attack_arm +
                        out.attack_leg + out.attack_tail;
     out.combined_attack = (out.aggression + out.attack_total) / 6;
@@ -631,12 +1003,226 @@ DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,
     table.agre = read_gene_table(lines, "Agre", simu_trans_path);
     table.stam = read_gene_table(lines, "Stam", simu_trans_path);
     table.cour = read_gene_table(lines, "Cour", simu_trans_path);
+    table.hd_di = read_allele_table(lines, "HDDi", simu_trans_path);
+    table.hd_ty = read_allele_table(lines, "HDTy", simu_trans_path);
+    table.bd_di = read_allele_table(lines, "BDDi", simu_trans_path);
+    table.bd_ty = read_allele_table(lines, "BDTy", simu_trans_path);
+    table.td_di = read_allele_table(lines, "TDDi", simu_trans_path);
+    table.td_ty = read_allele_table(lines, "TDTy", simu_trans_path);
+    table.skin_type = read_allele_table(lines, "SknTyp", simu_trans_path);
+    table.skin_sub = read_allele_table(lines, "SknSub", simu_trans_path);
+    table.carapace_type =
+        read_allele_table(lines, "CarTyp", simu_trans_path);
+    table.carapace_sub = read_allele_table(lines, "CarSub", simu_trans_path);
+
+    // Parts 4-6: the dummy disposition/type tables and their influence
+    // tables. Part 4/5 have three subparts (Head/Body/Tail), each introduced
+    // by a `48` count; Part 6 is `50:` x (`18:` + 18 ints), twice, followed
+    // by the five reference widths.
+    const std::size_t part4 =
+        find_section(lines, "// Part 4", simu_trans_path);
+    const std::size_t part5 =
+        find_section(lines, "// Part 5", simu_trans_path);
+    const std::size_t part6 =
+        find_section(lines, "// Part 6", simu_trans_path);
+    const std::size_t part7 =
+        find_section(lines, "// Part 7", simu_trans_path);
+    const std::size_t part8 =
+        find_section(lines, "// Part 8", simu_trans_path);
+    const std::size_t part9 =
+        find_section(lines, "// Part 9", simu_trans_path);
+    const std::size_t part10 =
+        find_section(lines, "// Part 10", simu_trans_path);
+
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part4 + 1, part5);
+        std::size_t at = 0;
+        table.dummy_disposition =
+            read_dummy_rows<6>(tokens, at, simu_trans_path);
+        if (at != tokens.size()) {
+            throw std::runtime_error(
+                "dino data: trailing tokens in Part 4");
+        }
+    }
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part5 + 1, part6);
+        std::size_t at = 0;
+        table.dummy_type = read_dummy_rows<5>(tokens, at, simu_trans_path);
+        if (at != tokens.size()) {
+            throw std::runtime_error(
+                "dino data: trailing tokens in Part 5");
+        }
+    }
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part6 + 1, part7);
+        std::size_t at = 0;
+        const auto additive = read_counted_blocks(tokens, at,
+                                                   simu_trans_path);
+        const auto percentage = read_counted_blocks(tokens, at,
+                                                     simu_trans_path);
+        if (additive.size() != 50 || percentage.size() != 50) {
+            throw std::runtime_error(
+                "dino data: Part 6 influence tables are not 50 rows");
+        }
+        for (int i = 0; i < 50; ++i) {
+            if (additive[static_cast<std::size_t>(i)].size() != 18 ||
+                percentage[static_cast<std::size_t>(i)].size() != 18) {
+                throw std::runtime_error(
+                    "dino data: Part 6 influence row is not 18 wide");
+            }
+            for (int k = 0; k < 18; ++k) {
+                table.dummy_influence[0][static_cast<std::size_t>(i)]
+                                     [static_cast<std::size_t>(k)] =
+                    additive[static_cast<std::size_t>(i)]
+                            [static_cast<std::size_t>(k)];
+                table.dummy_influence[1][static_cast<std::size_t>(i)]
+                                     [static_cast<std::size_t>(k)] =
+                    percentage[static_cast<std::size_t>(i)]
+                              [static_cast<std::size_t>(k)];
+            }
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (at >= tokens.size()) {
+                throw std::runtime_error(
+                    "dino data: truncated Part 6 reference widths");
+            }
+            table.reference_width[static_cast<std::size_t>(i)] =
+                parse_int(tokens[at++], simu_trans_path);
+        }
+        if (at != tokens.size()) {
+            throw std::runtime_error(
+                "dino data: trailing tokens in Part 6");
+        }
+    }
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part7 + 1, part8);
+        std::size_t at = 0;
+        const auto map = read_counted_blocks(tokens, at, simu_trans_path);
+        if (map.size() != 8) {
+            throw std::runtime_error("dino data: skin map is not 8 rows");
+        }
+        for (int i = 0; i < 8; ++i) {
+            if (map[static_cast<std::size_t>(i)].size() != 3) {
+                throw std::runtime_error(
+                    "dino data: skin map row is not 3 wide");
+            }
+            for (int k = 0; k < 3; ++k) {
+                table.skin_map[static_cast<std::size_t>(i)]
+                              [static_cast<std::size_t>(k)] =
+                    map[static_cast<std::size_t>(i)]
+                       [static_cast<std::size_t>(k)];
+            }
+        }
+        if (at >= tokens.size()) {
+            throw std::runtime_error(
+                "dino data: missing Part 7 skin reference");
+        }
+        table.skin_reference = parse_float(tokens[at++]);
+        for (int table_index = 0; table_index < 2; ++table_index) {
+            const auto influence =
+                read_counted_blocks(tokens, at, simu_trans_path);
+            if (influence.size() != 22) {
+                throw std::runtime_error(
+                    "dino data: skin influence table is not 22 rows");
+            }
+            table.skin_influence[static_cast<std::size_t>(table_index)]
+                .resize(22);
+            for (int i = 0; i < 22; ++i) {
+                if (influence[static_cast<std::size_t>(i)].size() != 18) {
+                    throw std::runtime_error(
+                        "dino data: skin influence row is not 18 wide");
+                }
+                for (int k = 0; k < 18; ++k) {
+                    table.skin_influence
+                        [static_cast<std::size_t>(table_index)]
+                        [static_cast<std::size_t>(i)]
+                        [static_cast<std::size_t>(k)] =
+                        influence[static_cast<std::size_t>(i)]
+                                 [static_cast<std::size_t>(k)];
+                }
+            }
+        }
+        if (at != tokens.size()) {
+            throw std::runtime_error(
+                "dino data: trailing tokens in Part 7");
+        }
+    }
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part8 + 1, part9);
+        std::size_t at = 0;
+        const auto map = read_counted_blocks(tokens, at, simu_trans_path);
+        if (map.size() != 6) {
+            throw std::runtime_error(
+                "dino data: carapace map is not 6 rows");
+        }
+        for (int i = 0; i < 6; ++i) {
+            if (map[static_cast<std::size_t>(i)].size() != 3) {
+                throw std::runtime_error(
+                    "dino data: carapace map row is not 3 wide");
+            }
+            for (int k = 0; k < 3; ++k) {
+                table.carapace_map[static_cast<std::size_t>(i)]
+                                  [static_cast<std::size_t>(k)] =
+                    map[static_cast<std::size_t>(i)]
+                       [static_cast<std::size_t>(k)];
+            }
+        }
+        for (int table_index = 0; table_index < 2; ++table_index) {
+            const auto influence =
+                read_counted_blocks(tokens, at, simu_trans_path);
+            if (influence.size() != 16) {
+                throw std::runtime_error(
+                    "dino data: carapace influence table is not 16 rows");
+            }
+            table.carapace_influence
+                [static_cast<std::size_t>(table_index)]
+                .resize(16);
+            for (int i = 0; i < 16; ++i) {
+                if (influence[static_cast<std::size_t>(i)].size() != 18) {
+                    throw std::runtime_error(
+                        "dino data: carapace influence row is not 18 wide");
+                }
+                for (int k = 0; k < 18; ++k) {
+                    table.carapace_influence
+                        [static_cast<std::size_t>(table_index)]
+                        [static_cast<std::size_t>(i)]
+                        [static_cast<std::size_t>(k)] =
+                        influence[static_cast<std::size_t>(i)]
+                                 [static_cast<std::size_t>(k)];
+                }
+            }
+        }
+        if (at != tokens.size()) {
+            throw std::runtime_error(
+                "dino data: trailing tokens in Part 8");
+        }
+    }
+    {
+        std::vector<std::string> tokens =
+            read_tokens(lines, part9 + 1, part10);
+        if (tokens.size() < 40) {
+            throw std::runtime_error(
+                "dino data: Part 9 min/max table is truncated");
+        }
+        for (int i = 0; i < 20; ++i) {
+            table.min_attributes[static_cast<std::size_t>(i)] =
+                static_cast<int>(parse_float(
+                    tokens[static_cast<std::size_t>(i)]));
+            table.max_attributes[static_cast<std::size_t>(i)] =
+                static_cast<int>(parse_float(
+                    tokens[static_cast<std::size_t>(20 + i)]));
+        }
+        table.has_attribute_limits = true;
+    }
 
     // Part 10: count (20) then one default family index per base dinosaur.
-    const std::size_t part10 =
-        find_section(lines, "// Part 10", simu_trans_path) + 1;
     const std::vector<int> families =
-        read_int_tokens(lines, part10, 21, simu_trans_path);
+        read_int_tokens(lines, part10 + 1, 21, simu_trans_path);
     if (families[0] != 20) {
         throw std::runtime_error("dino data: Part 10 count mismatch");
     }
