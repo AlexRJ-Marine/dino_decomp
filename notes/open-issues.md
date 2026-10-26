@@ -45,8 +45,9 @@ unknowns, with what was tried and the concrete next step.
 - **Open:** the integer fields after the class tag (action bindings, scores,
   durations).
 - **Next:** the `.bfi` loader `0x53ed30` uses the same reader pattern as the
-  `.bai` loader; disassemble the calls after the class-tag read and
-  reconstruct the field order (the other agent did exactly this for `.bai`).
+  `.bai` loader; 73 reader calls are extracted, but a fixed "6 u32 + string"
+  hypothesis only fits 7/62 files (the body is variable-width). Map each
+  call's destination record offset next.
 
 ## 4. `.bwi` field semantics
 

@@ -73,3 +73,13 @@ printable length-prefixed strings recovers:
 - Integer fields after the class tag (action bindings, durations, scores).
 - JudgeCapture/JudgeTeam switch keys.
 - Multi-cell footprint behaviour for the empty-tag props.
+
+## Body read order attempt (2026-10-26)
+
+Capstone extraction of `0x53ed30` gives 73 reader calls (dest, size, count).
+After the class tag the loader does a long run of `1 x u32` reads with a
+`1 x u8` and a `4 x u32` block, then alternating `u32`/string reads, then a
+`3 x u32` block. A simple "6 u32 then a string" hypothesis matches only 7/62
+files, so the body is variable-width (the AnimalBait files contain a packed
+byte array `01 02 05 06 09` where others have a u32). The next step is to map
+the actual destinations of the 73 calls (record offsets), not just the sizes.
