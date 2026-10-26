@@ -134,9 +134,10 @@ u32 link_id          # equals the world dino's field_1c (63823 for the first)
 u32 ?                # 517
 u32 ?                # 450
 u32 ?                # 0x02010303
-u32 ?                # 425, then 200 before the name
-u32 name_bytes       # 0x18
-utf16 name           # "Ankylosaur1"
+u32 ?                # 0x00c801a9 (425/200 as two u16)
+u8  0                # pad byte, so the next field is unaligned
+u32 name_bytes       # 0x18, at record +0x15
+utf16 name           # "Ankylosaur1" at record +0x19
 ...                  # phenotype (80/60/30 x4), needs (100 x5), care state
 ```
 
