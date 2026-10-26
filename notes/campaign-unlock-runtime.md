@@ -75,6 +75,26 @@ Allosaurus splits 4/3 between class 2 and class 1. The species baseline is
 still useful for the port, but exact parity needs the individual's phenotype
 size (length/height/weight), not just the head-type species.
 
+## Manual insertion path (purchase)
+
+The store flow works in the live campaign park: `OPEN_PURCHASE` (`748,280`,
+HUD) → `DINO_ACHAT_SAVE_NAMES_LIST` row (`97,70`, row height 12) →
+`DINO_ACHAT_SAVE_OUTCOME_SAVE` (`457,507`) → click a paddock. One run reached
+the real validator:
+
+```text
+CANADD fence=0CE714D0 dino=0D49F6B0 idx=00000002 cap=42C00000 used=42C00000
+```
+
+`cap`/`used` are `96.0`/`96.0` (float), `idx = 2`, so the centre paddock was
+already full and the insertion was correctly rejected with
+`WARNING_NO_ROOM_IN_FENCE`. This confirms the live cost class and the float
+capacity fields; `stFence::AddActor` is not reached on a rejection.
+
+The harness now tries several paddock screen points (`-BuyDino`) because the
+centre one is full. A successful insertion would also exercise `AddActor` and
+the `0x535c97` record loop; that is the remaining P4 branch.
+
 ## `0x56c0c0` is not the dinosaur action→clip map
 
 A live Cpg04 run logged `FUN_0056c0c0` (`asItemBehavior::RegisterForAction`)
@@ -97,15 +117,16 @@ Consequence: the dinosaur action→clip mapping does **not** come from
 clip when a known `saDinosaur` action (Eat/Sleep) starts, or find the
 animator method that consumes `actor+0x2c0`/the `.bai` action element.
 
-## Remaining: `[dinosaur+0x1e0]`
+## `[dinosaur+0x1e0]` is resolved
 
-The action selector `0x56e670` exposes the live actor at `[ecx+0x28]`; the
-harness arms it after the briefing and logs
-`[[ecx+0x28]+0x1e0]`. In the last runs the post-briefing window was blank or
-too short, so no `ACTOR` line was captured. Next: re-run with the briefing
-reliably dismissed and a 60 s sim window, or force BAD FOOD so the actor
-attempts an action sooner. That value is the last open field in the paddock
-cost rule.
+The load-time `0x570fd0` (need reset) logs `[ecx+0x1e0]` for every dinosaur
+before the AI starts; the 20 Cpg04 values are in the table above. The
+`0x56e670` action-selector trace is no longer needed for this field.
+
+Remaining runtime branch: a **successful** manual insertion (a paddock with
+free capacity) to exercise `stFence::AddActor` (`0x57e8a0`) and the
+`0x535c97` 64-byte-record loop. The `-BuyDino` harness tries several paddock
+points; the first attempt hit a full paddock (`96/96`).
 
 ## Harness
 

@@ -4,6 +4,7 @@ param(
     [int]$MissionRow = 0,
     [switch]$NoTrace,
     [switch]$UnlockCampaigns,
+    [switch]$BuyDino,
     [string]$GameDir = "run",
     [string]$Log = "notes\x32dbg-campaign.out.log"
 )
@@ -229,9 +230,42 @@ if (-not $game) {
             Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]}; run"'
             Send 'bp 0x57eb50'
             Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+            # FENCE_INSERTION state and its 64-byte-record loop.
+            Send 'bp 0x535be0'
+            Send 'SetBreakpointCommand 0x535be0, "log FENCEINS this={p:ecx} tool={p:[ecx+0x44]} rec={p:[ecx+0x4c]} flags={p:[[ecx+0x44]+0x3c]}/{p:[[ecx+0x44]+0x3d]}; run"'
+            Send 'bp 0x535cb6'
+            Send 'SetBreakpointCommand 0x535cb6, "log PADVEC this={p:ecx} vec={p:ebp} begin={p:[ebp+4]} end={p:[ebp+8]} idx={p:edi} rec0_20={p:[[ebp+4]+0x20]} rec0_24={p:[[ebp+4]+0x24]} rec0_2c={p:[[ebp+4]+0x2c]}; run"'
+            # stFence::AddActor.
+            Send 'bp 0x57e8a0'
+            Send 'SetBreakpointCommand 0x57e8a0, "log ADDACTOR fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
             Resume
             Start-Sleep -Seconds 20
             Save-Window $hwnd "campaign-sim"
+        }
+
+        if ($BuyDino) {
+            Resume
+            Write-Host "opening the dinosaur store"
+            Click-Client $hwnd 765 298
+            Start-Sleep -Seconds 2
+            Save-Window $hwnd "dino-store"
+            Write-Host "selecting store row 0"
+            Click-Client $hwnd 168 76
+            Start-Sleep -Seconds 1
+            Save-Window $hwnd "dino-store-selected"
+            Write-Host "buying the dinosaur"
+            Click-Client $hwnd 471 521
+            Start-Sleep -Seconds 2
+            Save-Window $hwnd "dino-bought"
+            Write-Host "placing the dinosaur in a paddock"
+            foreach ($pt in @(@(250,300), @(550,300), @(400,200), @(400,400), @(200,220), @(600,220))) {
+                Resume
+                Click-Client $hwnd $pt[0] $pt[1]
+                Start-Sleep -Milliseconds 700
+            }
+            Start-Sleep -Seconds 2
+            Save-Window $hwnd "dino-placed"
+            Start-Sleep -Seconds 3
         }
     }
 }
