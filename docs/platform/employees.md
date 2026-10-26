@@ -52,6 +52,9 @@ source capacity.
 - `--hire-nutritionist N` (alias `--hire-nutritionists`) hires N
   Nutritionists at the Entrance cell, charging 500 each.
 - `--feed-now` runs one hourly pass instantly at startup (test/debug).
+- Save round-trip: `DINOPSAV` stores `employee <profile> <x> <y>` lines and
+  restores the staff on load (`port employees: N`); `--fire-nutritionist N`
+  removes the last N without a refund.
 - HUD: `BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER` = live nutritionist count;
   `BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER` = yesterday role-0 staff bucket
   after a day rollover.
@@ -70,7 +73,6 @@ source capacity.
 
 - Interactive hire/fire buttons (`EFFECTIFS_NUTRI_EFFECTIFS_UP1/DOWN1`); no
   park-panel action is bound to them yet.
-- Save round-trip of hired employees (`DINOPSAV`).
 - Guard hiring (absent from the retail exe) and the EFFECTIFS_SECU pass.
 - Exact per-paddock registration (`FUN_0058b5b0`) and the 51 %/75 % work
   flags (`+0xb8/+0xc0`); the port uses a single work timer.

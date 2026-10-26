@@ -90,6 +90,12 @@ struct PortDinoState {
     bool carnivore = true;  // diet gene 14; older saves default to true
 };
 
+struct PortEmployeeState {
+    std::string profile;  // EmployeeList name, e.g. Nutritionist
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
 struct PortState {
     std::string island;
     int difficulty = 0;
@@ -121,6 +127,7 @@ struct PortState {
     std::vector<PortDinoState> dinos;
     std::vector<PortPaddockState> paddocks;
     std::vector<PortFoodState> food;
+    std::vector<PortEmployeeState> employees;
 };
 
 // Text format: `DINOPSAV 1` followed by one record per line.

@@ -1571,8 +1571,9 @@ Updated: 2026-10-26
     (`notes/employees.png`).
   - Cpg04 + PigFood: 2 hires cost 1,000; one feed assigned/completed;
     settlement wages 1,000 -> budget 73,000.
-  - Open: interactive `EFFECTIFS_NUTRI_*` buttons, save round-trip, guard
-    role, walking animation, exact `FUN_00576d50` food-level semantics.
+  - Open: interactive `EFFECTIFS_NUTRI_*` buttons, guard role, walking
+    animation, exact `FUN_00576d50` food-level semantics. Save round-trip is
+    done (`employee <profile> <x> <y>` lines, `--fire-nutritionist`).
   - Evidence: `docs/platform/employees.md`, `docs/decomp/employee-ai.md`,
     `docs/decomp/economy.md`, `docs/formats/bei.md`,
     `tests/test_viewer_cpp.py::test_cpp_employee_info`,

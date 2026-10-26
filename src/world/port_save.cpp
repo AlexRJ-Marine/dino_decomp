@@ -94,6 +94,10 @@ void save_port_state(const PortState& state, const std::string& path) {
         out << "food " << food.name << " " << food.x << " " << food.y << " "
             << food.remaining << "\n";
     }
+    for (const PortEmployeeState& employee : state.employees) {
+        out << "employee " << employee.profile << " " << employee.x << " "
+            << employee.y << "\n";
+    }
     if (!out) {
         throw std::runtime_error("short write to port save " + path);
     }
@@ -277,6 +281,13 @@ PortState load_port_state(const std::string& path) {
             require(parts, key, path);
             if (!food.name.empty()) {
                 state.food.push_back(std::move(food));
+            }
+        } else if (key == "employee") {
+            PortEmployeeState employee;
+            parts >> employee.profile >> employee.x >> employee.y;
+            require(parts, key, path);
+            if (!employee.profile.empty()) {
+                state.employees.push_back(std::move(employee));
             }
         }
     }
