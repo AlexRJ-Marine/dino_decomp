@@ -75,3 +75,14 @@ still derives the terrain grid from the 512² heightmap.
 - `.lnd` width/height semantics.
 - Why the Graphics occupation copy differs from Design.
 - `isl00` purpose (no `.lnd`).
+
+## Port usage (2026-10-26)
+
+The port now loads `<island>_occupation.raw` into `Terrain::occupation` and
+gates path, fence and construction placement with `Terrain::buildable`.
+The 1024x1024 mask maps 1:1 to the 1024-unit world (mx = world_x + 512);
+0 = free, 255 = blocked. Verified on all 10 islands (the mask loads without
+error) and on isl01 cell (130,94) -> mask (522,378), which is inside the
+Entrance footprint and is rejected. See `docs/platform/build.md` and
+`tests/test_viewer_cpp.py::test_cpp_occupation_mask_blocks_placement`.
+
