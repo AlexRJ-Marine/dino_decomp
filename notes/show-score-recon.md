@@ -48,6 +48,34 @@ through the same dot product; `FUN_00586690` fills the five floats from
 conventional appeal, tamability (see
 `docs/formats/translator-constants.md`).
 
+### The five weights are visitor profiles
+
+`show+0x74` is **not** the `.shw` record. `FUN_00586200` -> `FUN_00615a60`
+allocates a 0x40-byte object at `simuManager+0x1c`; `FUN_005874a0` stores it
+at `spPark+0x78`. `FUN_00588ac0` (CreateShow) passes it to `FUN_00579440` ->
+`FUN_00580f00` sets `stShow+0x74 = def` and resizes the show score vector
+from `size(def+0x34)`. `stShowStatistics` caches the same object at `+0x50`.
+
+`FUN_00615bb0(def, ptr, a, b)` is the only appender (`ptr` -> `+0x34`,
+`a` -> `+0x14`, `b` -> `+0x24`), called only from `FUN_005869b0`:
+
+- `FUN_00561bb0` (difficulty/profile selection, `0x562306`);
+  `FUN_00565e60` maps personality names (`surfer`, `hooligan`, `parent`,
+  `blase`, `retraite`, `riche`, `scientific`, `amoureux`, `enfant`) to
+  indices 0–9.
+- `FUN_0053c560` (world/save load, `0x53c60d`) looks the profile up by index
+  in the definition database's visitor list, with two extra ints per entry —
+  the `(profile, first, second)` triplet shape of the free-game lists.
+
+So the dotted vector is the **visitor personality's five preference weights**
+(the `.bvi` floats), and every show in a park uses the same list. The result
+is "how much each active personality likes this dinosaur".
+
+`.shw` files contain no weights; no `score`/`weight`/`criteria` strings exist
+in the executable. Profiles come from `Data/Design/visitors/*.bvi` via
+`visitorlist.ini`, loader `FUN_00540c70`; the active 5–6 are selected by
+`FUN_00561bb0` or restored by `FUN_0053c560`.
+
 There is no 200/400/600/800/1000 tiering anywhere in the judge code; the
 only thresholds are the ±100 dot clamp and the ±130 category clamp. All 62
 `.bfi` files carry the identical step list, so no per-file tier behaviour can
@@ -78,8 +106,11 @@ function** — it is the shared base ctor.
 
 - Whether the `.bfi` attribute lists/score steps belong to the editor or to a
   cut show variant; the runtime ignores them.
-- The five per-show weight vectors at `show+0x74` are show-definition data;
-  where they are authored (`.shw`? `Shows.ini`?) is not traced.
+- The five per-show weight vectors at `show+0x74` are the active visitor
+  profiles (solved above); the final runtime copy into `+0x18..0x2c` is not
+  byte-traced.
+- The exact per-park profile count (5 observed, ctor reserves 6) and whether
+  the save list ever differs from the free-game list.
 - The `+0xDB` array length and the 0.07 smoothing time base.
 
 ## Evidence

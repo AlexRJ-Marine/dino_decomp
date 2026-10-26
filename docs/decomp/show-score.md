@@ -10,12 +10,23 @@ evidence: `notes/show-score-recon.md`.
 genotype -> FUN_00618020 -> 5 phenotype floats
          (beauty, danger, spectacle, conventional appeal, tamability)
 
-per participant: player 5 floats -> FUN_00576550(dot) -> clamp [-100, +100]
-FUN_00581770: for each of five show weight vectors (show+0x74 -> +0x34,
-              object+0x18..0x2c): category = max over participants
+per participant: dino 5 floats -> FUN_00576550(dot) -> clamp [-100, +100]
+FUN_00581770: for each active visitor personality (show+0x74 -> +0x34,
+              profile+0x18..0x2c): category = max over participants
+              + the +0x4f8/+0x4f9 bonus dots
               category = clamp(category, -130, +130)
               smoothed at 0.07 per frame (DAT_00675770)
 ```
+
+The five "weight vectors" are the **visitor profiles' five preference
+weights**, not show data. `show+0x74` is the 0x40-byte profile object at
+`simuManager+0x1c` / `spPark+0x78`; its `+0x34` pointer vector is filled by
+`FUN_00615bb0` from `FUN_005869b0`, called either by the difficulty/profile
+selection `FUN_00561bb0` or by the world/save loader `FUN_0053c560`.
+`FUN_00565e60` maps the personality names (`surfer`, `hooligan`, `parent`,
+`blase`, `retraite`, `riche`, `scientific`, `amoureux`, `enfant`) to indices
+0–9. Every show in a park uses the same profile list, so the score is "how
+much each active personality likes this dinosaur".
 
 `FUN_00576550(a, b)` is `Σ a[i] * b[0x18+i]` for `i = 0..4`.
 `FUN_00589ba0` feeds `actor+0x4fc`; `FUN_00586690` fills the five floats from
@@ -62,8 +73,10 @@ vectors at `+0x1c`.
 
 ## Open
 
-- Where the five per-show weight vectors at `show+0x74` are authored (`.shw`
-  or another show table).
+- The final runtime struct offset that holds the `.bvi` five preference
+  weights (the chain profile entry -> `+0x4` -> `+0xc` is proven, the last
+  copy into `+0x18..0x2c` is inferred).
+- The exact per-park profile count (5 observed; the ctor reserves 6).
 - The `+0xDB` array length and the 0.07 smoothing time base.
 - Whether the `.bfi` attribute lists belong to the editor or a cut variant.
 

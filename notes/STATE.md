@@ -1149,8 +1149,13 @@ Updated: 2026-10-26
   - `0x582d70` is the shared **base ctor** (vtable `0x6433a4`), not a score
     function; the six judge ctors/vtables are mapped (Race `0x64350c` …
     Capture `0x643458`) and differ only by data.
-  - Open: the authoring source of the five show weight vectors at
-    `show+0x74`, the +0xDB array length and the smoothing time base.
+  - The five weight vectors at `show+0x74` are the **active visitor
+    profiles' `.bvi` preference weights**, not show data: `FUN_00615bb0` fills
+    `def+0x34` from `FUN_00561bb0` (difficulty/free-game lists) or
+    `FUN_0053c560` (save/world); `FUN_00565e60` maps personality names to
+    indices 0-9. Every show uses the same profile list.
+  - Open: the final runtime copy into `+0x18..0x2c`, the +0xDB array length
+    and the smoothing time base.
   - Evidence: `docs/decomp/show-score.md`, `notes/show-score-recon.md`,
     `docs/formats/bfi.md`.
 - STAFF complete: **employee jobs are the hourly feeding schedule.**
