@@ -290,6 +290,15 @@ the two unrelated application hits `0x00403a4d`/`0x00403b6f`; no behavior
 code compares or branches on `flag_20`. It is stored and cloned but dead in
 this build.
 
+#### `stat_grants` (`+0x90`) - no consumer found
+
+The loader pushes the `(value, attribute)` pairs and `FUN_0056ac80` clones the
+vector through the generic `FUN_0056b1e0` copy. A scan of the action/behavior
+range for `[record+0x90]`/`[record+0x94]` finds no loop over 8-byte records
+and no `>> 3` stride: the only hits are the clone and unrelated actor fields.
+Like `flag_20`, the stat-grant vector appears to be stored but unused in this
+build.
+
 #### Element `+0x28` - duration
 
 `FUN_00569a00` passes element `+0x28` as `param_5` to `FUN_005727b0`
