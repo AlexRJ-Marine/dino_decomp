@@ -54,24 +54,40 @@ dinosaur action loop does not otherwise carry a clip id.
 (which drives `FUN_0056e670` → `FUN_0056c0c0`), but its own vtable
 (`0x642abc`) has no code at slot `+0x20`/`+0x24`, and the two sub-behaviors
 (`0x64302c`/`0x643040`) return comparison/score values there, not clip ids.
-The object that actually supplies the two `u16` values is therefore still
-unidentified.
+The object that actually supplies the two `u16` values was identified at
+runtime as the show/item behavior classes with vtables `0x6430AC` and
+`0x6430E4`; their getters return 0/0 and a state id/1, so this path is not the
+dinosaur action→clip map (see below).
 
-## Next trace (runtime)
+## Runtime result: `0x56c0c0` is not the dinosaur action→clip map
 
-1. Breakpoint at `0x56c0c0` (or at the two stores `0x56c1a7`/`0x56c1b8`);
-   on an Eat/Sleep action, dump `param_1`, `[param_1]` (vtable) and the two
-   returned `u16`s. This identifies the class and the clip pair.
-2. Alternatively watch `[[actor+0x28]+0x314/+0x316]` while forcing a known
-   action (e.g., `Eat` from the P3 need state) and correlate with the clip
-   the animator plays.
-3. Then map all 64 action ids from the two returned indices and store the
-   table in the port instead of the inferred names.
+A live Cpg04 run logged `0x56c0c0` with two real vtables, `0x6430AC` and
+`0x6430E4`. Their `+0x20`/`+0x24` slots are:
+
+| vtable | `+0x20` | `+0x24` |
+| --- | --- | --- |
+| `0x6430AC` | `0x56F290` → returns `0` | `0x56F290` → returns `0` |
+| `0x6430E4` | `0x56FE70` → `AX = [[[this+0x38]+0x28]+0x28]` | `0x56FE80` → returns `1` |
+
+So `[actor+0x28]+0x314/+0x316` are **item/show animation state ids**, not an
+action-id→clip table. This lead is closed. Details:
+`notes/campaign-unlock-runtime.md`.
+
+## Revised next trace
+
+1. Break at the animator's clip-play method (the function that consumes
+   `actor+0x28` animation slots) or at `FUN_00508420`, and watch which clip
+   index is passed when `saDinosaur+0x2c0` (action id) changes.
+2. Force a known action in the retail park (Eat from BAD FOOD, or Sleep from
+   BAD REPOS) and correlate the played clip with the `anim_trans.dic` order.
+3. Then map all 64 action ids and replace the port's inferred names.
 
 ## Evidence
 
 - `tools/formats/anim_trans.py` — 51-clip order.
 - Ghidra: `0x65e4d0` table (raw dump), `0x5d8e60` animation manager,
-  `0x56c0c0` clip-pair writer, `0x521cc0`/`0x521e18` dinosaur update call,
-  `0x642abc`/`0x64302c`/`0x643040` vtables.
-- `docs/formats/anim-trans.md`, `notes/dino-action-chooser-recon.md`.
+  `0x56c0c0` state-id writer, `0x56F290`/`0x56FE70`/`0x56FE80` getters,
+  `0x521cc0`/`0x521e18` dinosaur update call, `0x642abc`/`0x64302c`/`0x643040`
+  vtables.
+- `notes/campaign-unlock-runtime.md`,
+  `docs/formats/anim-trans.md`, `notes/dino-action-chooser-recon.md`.
