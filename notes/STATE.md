@@ -367,6 +367,20 @@ Updated: 2026-10-26
     totals. The gauge shows the difficulty budget.
   - Evidence: `notes/park-budget.png`, `notes/park-budget-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_panel_shot`.
+- UI-2 Phase C list snapshots complete: **dinosaur/paddock lists from park data.**
+  - `DINO_AMOUNT`/`PADDOCK_AMOUNT`, the five `DINO_LIST_PANEL` name slots and
+    the five `FENCE_LIST_PANEL` name/count/percent slots are driven by the
+    imported `.wld`/`.sav` park state (Cpg04: 20 dinos, 9 paddocks).
+  - Fixed the park HUD draw order to match `moWidget::Draw` (0x005c5bf0):
+    parent-first tree walk, siblings by `PRIORITY` then descending
+    `ZPRIORITY` (lower = nearer), text-only children above parent art. This
+    exposed the fence/dino indicator strips that the flat ascending-Z sort
+    had hidden under the snapshot buttons.
+  - Remaining: live 3D thumbnails in the slots, slider/checkbox selection and
+    minimap water/partition polish.
+  - Evidence: `notes/park-fence-list.png`, `notes/park-dino-list.png`,
+    `docs/platform/hud.md` ("Park list snapshots"),
+    `tests/test_viewer_cpp.py::test_cpp_park_fence_and_dino_lists`.
 - FMT-3b C++ handoff complete: **LOD bind-matrix choice.**
   - `build_skinned_mesh` uses `inv(skeleton rest raw)` for the `.mesh` bind
     and the skin's `inverse_bind` for `--skin-bind skin`.
@@ -1234,6 +1248,7 @@ Updated: 2026-10-26
   - Evidence: `notes/fence-insertion-recon.md`,
     `docs/decomp/construction-validation.md`,
     `notes/construction-validation.md`, `notes/campaign-unlock-runtime.md`,
+    `notes/paddock-size-class-runtime.md`,
     `notes/campaign-park.png`, `notes/campaign-sim.png`.
   - Reviewed by the reviewer agent; corrections applied: warning path stays
     in-state, 4-byte occupant vector, unreachable 50-loop, softened
