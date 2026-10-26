@@ -205,7 +205,7 @@ The stream is **0x21a bytes** long, ending at `block + 0x24a`; the remaining
 trailing byte.
 
 ```text
-block  +0x000  u32  class id (2 = spPark)
+block  +0x000  u32  count / class tag (2; `FUN_0058aed0` reads it as a count)
 block  +0x004  u32  header a: 0 in the manual save, 3 in the autosave
 block  +0x008  u32  header b: 100 in both retail saves
 block  +0x00c  f32  header c: 10.0 in the manual save, 0.0 in the autosave
@@ -337,18 +337,21 @@ objects plus the show manager. Each list is `u32 count` followed by objects
 that use their own `vtable + 0x4c` serializer. `FUN_0053a140` registers seven
 serializer classes:
 
-| Class ID | Constructor | Size | Read | Write |
-| ---: | --- | ---: | --- | --- |
-| `0x12` | `0x005e8e30` | `0x11c` | `0x005e8ef0` | `0x005e8f80` |
-| `0x13` | `0x005e8c60` | `0x3c` | `0x005e8cf0` | `0x005e8d60` |
-| `0x14` | `0x005e8b40` | `0x34` | — | — |
-| `0x15` | `0x005e8a00` | `0x30` | — | — |
-| `0x16` | `0x005e74f0` | `0x70` | — | `0x005e7860` |
-| `0x17` | `0x005e87a0` | `0x5c` | — | `0x005e8910` |
-| `0x18` | `0x005e8590` | `0x34` | — | `0x005e86a0` |
+| Class ID | Class | Constructor | Size | Read | Write |
+| ---: | --- | --- | ---: | --- | --- |
+| `0x12` | `drsDinosaur` | `0x005e8e30` | `0x11c` | `0x005e8ef0` | `0x005e8f80` |
+| `0x13` | `drsVisitor` | `0x005e8c60` | `0x3c` | `0x005e8cf0` | `0x005e8d60` |
+| `0x14` | `drsEmployee` | `0x005e8b40` | `0x34` | — | — |
+| `0x15` | `drsAnimal` | `0x005e8a00` | `0x30` | — | — |
+| `0x16` | `drsShow` | `0x005e74f0` | `0x70` | — | `0x005e7860` |
+| `0x17` | `drsFence` | `0x005e87a0` | `0x5c` | — | `0x005e8910` |
+| `0x18` | `drsBuilding` | `0x005e8590` | `0x34` | — | `0x005e86a0` |
 
-Class `0x12` carries an 18-gene genotype table (`FUN_00584ed0` /
-`FUN_00585100`). The other class names and the object-list order are open.
+The list order is fixed by the loader and is **not** the class-id order:
+fence, show, animal, employee, building, visitor, dinosaur. The class is
+chosen by the list; the inline class tag is redundant in version 50-53 files
+(and stores a kind for fences/shows). Class `0x12` carries an 18-gene genotype
+table (`FUN_00584ed0` / `FUN_00585100`).
 
 ### AI manager + camera tail
 
@@ -411,7 +414,6 @@ and the 10 camera floats. Tests: `tests/test_sav.py`,
 
 ## Open
 
-- World object list semantics and class names.
 - The park block's leading `2` is consumed by the reader `FUN_0058aed0` as a
   **record count**, not necessarily a class id; it then reads a type id +
   payload per record. The `class id` label and the meanings of the following
