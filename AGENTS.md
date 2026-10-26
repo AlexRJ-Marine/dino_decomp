@@ -106,13 +106,28 @@ and does **not** call `SetCursorPos`/`mouse_event`.
 
 ## Agent protocol
 
-1. Read `notes/STATE.md` and `TASKS.md`.
-2. Claim one task; write it under "In progress" in `notes/STATE.md`.
+1. Read `notes/NOW.md` (the compact injected dashboard), then
+   `notes/OPEN-TASKS.md`. Open `TASKS.md` / `notes/STATE.md` only for the task
+   you claim; they are the long archive.
+2. Claim a lane and a build directory in `notes/lanes.md` (for example
+   `build/port`); write the task under "Focus" in `notes/NOW.md`.
 3. Do the smallest experiment that resolves the unknown.
-4. Run the relevant tests/build.
-5. Record evidence in `notes/` and `docs/formats/`.
-6. Mark the task done in `TASKS.md`; update `notes/STATE.md` with the next action.
-7. Hand off to `reviewer` for any non-trivial change.
+4. Run the relevant tests/build: `scripts/build.ps1 -BuildDir build/<lane>`
+   and `scripts/test.ps1 -Exe build/<lane>/dino_viewer.exe -Fast`.
+5. Record evidence in `notes/` and `docs/formats/`; add a row to
+   `notes/evidence-index.md` when the claim becomes load-bearing.
+6. Mark the task done in `TASKS.md`; run
+   `scripts/state.ps1 -Done "one line"` and `scripts/tasks.ps1 -Update` so
+   `NOW.md` / `OPEN-TASKS.md` stay current.
+7. Run `scripts/verify.ps1 -Fast` before committing; hand off to `reviewer`
+   for any non-trivial change.
+8. Use the project skills for repeatable loops (`dino-hook`, `dino-format`,
+   `dino-verify`, `ghidra-query`, `dino-retail-run`) and the `/verify`,
+   `/handoff`, `/next` commands where they fit.
+9. Batch independent tool calls in one message (build/test, greps, log reads)
+   and run independent research in a background subagent while the main lane
+   continues. Use `triage` for failure logs and `archivist` for state
+   compaction instead of doing either in the primary session.
 
 ## Definition of done
 

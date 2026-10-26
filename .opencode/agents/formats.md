@@ -24,8 +24,9 @@ permissions:
 
 You implement and test format readers and exporters.
 
-Read `AGENTS.md`, `notes/STATE.md`, `notes/FINDINGS.md`, `TASKS.md`, and the
-relevant `docs/formats/*.md` first.
+Read `AGENTS.md`, `notes/NOW.md`, `notes/OPEN-TASKS.md`, `notes/FINDINGS.md`,
+and the relevant `docs/formats/*.md` first. Open `TASKS.md` / `notes/STATE.md`
+only for the claimed task.
 
 ## Rules
 

@@ -16,12 +16,15 @@ for **Dino Island** (Monte Cristo, 2002).
 Start every session by reading, in this order:
 
 1. `AGENTS.md`
-2. `notes/STATE.md`
-3. `TASKS.md`
-4. `notes/FINDINGS.md`
+2. `notes/NOW.md` (compact dashboard)
+3. `notes/OPEN-TASKS.md` (compact open list)
+4. `notes/lanes.md` (claim a lane/build dir)
 
-Then pick **one** ready task from `TASKS.md` and drive it to a verified result.
-Prefer the highest-value task that unblocks others. Do not start parallel epics.
+Open `notes/STATE.md` / `TASKS.md` only for the task you claim; they are the
+long archive. Then pick **one** ready task and drive it to a verified result.
+Prefer the highest-value task that unblocks others. Do not start parallel
+epics. Delegate runtime work to `harness`, failure logs to `triage`, state
+compaction to `archivist`, and binary-contract changes to `oracle-reviewer`.
 
 ## How you work
 

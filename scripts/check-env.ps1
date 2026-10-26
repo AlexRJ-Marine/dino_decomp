@@ -1,4 +1,6 @@
-param()
+param(
+    [switch]$SkipTests
+)
 
 $ErrorActionPreference = "Continue"
 $root = Split-Path $PSScriptRoot -Parent
@@ -52,7 +54,7 @@ Check "game exe" (Test-Path $game) $game
 $listening = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
 Check "ghidra mcp :8000" ($null -ne $listening) ($(if ($listening) { "listening" } else { "not running (run scripts/start-ghidra.ps1)" }))
 
-if (Test-Path (Join-Path $root "tests")) {
+if (-not $SkipTests -and (Test-Path (Join-Path $root "tests"))) {
     Write-Host "`nRunning Python tests..." -ForegroundColor Cyan
     & (Join-Path $root ".venv\Scripts\pytest.exe") -q (Join-Path $root "tests")
     if ($LASTEXITCODE -ne 0) { $ok = $false }

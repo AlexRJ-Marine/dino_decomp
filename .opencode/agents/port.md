@@ -24,7 +24,9 @@ permissions:
 
 You build the native port in portable C++20.
 
-Read `AGENTS.md`, `notes/STATE.md`, `TASKS.md`, and `docs/formats/*.md` first.
+Read `AGENTS.md`, `notes/NOW.md`, `notes/OPEN-TASKS.md`, and
+`docs/formats/*.md` first. Open `TASKS.md` / `notes/STATE.md` only for the
+claimed task.
 
 ## Stack
 

@@ -7,7 +7,9 @@ permissions:
     effect: deny
 ---
 
-Review the current change set. Do not edit files.
+Review the current change set. Do not edit files. This is the fast diff tier;
+for hooks, ABI edits, or recovered formulas, ask the parent to also run
+`oracle-reviewer` (Ghidra cross-check).
 
 Check, in order:
 

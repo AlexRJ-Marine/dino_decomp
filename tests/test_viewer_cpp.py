@@ -18,6 +18,10 @@ ALLO_ANIM = (GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "animations"
              / "HeavyBiped" / "HeavyBiped_Armor.anim")
 ISL01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
 
+# Every test in this module launches the viewer; `scripts/test.ps1 -Fast`
+# skips them via `-m "not slow"`.
+pytestmark = pytest.mark.slow
+
 
 def test_viewer_window_smoke(tmp_path):
     if not EXE.exists():

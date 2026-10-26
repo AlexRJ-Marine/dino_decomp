@@ -1,0 +1,79 @@
+# NOW — Dino Island
+
+Updated: 2026-10-26
+
+This is the injected dashboard. Keep it under ~80 lines. Full history and
+evidence live in `notes/STATE.md` (read on demand); open tasks are in
+`notes/OPEN-TASKS.md` (regenerate with `scripts/tasks.ps1 -Update`).
+
+## Rules (short)
+
+- Never write `original/` or `game/`; never copy retail assets into `src/`.
+- Every format/gameplay claim needs evidence: hex dump, decompiled function,
+  trace, or a parser/test against a real sample. Note first, doc second.
+- Small verified steps; commit each completed task; hand non-trivial changes to
+  `reviewer`.
+- Claim a lane and a build dir before editing (see `notes/lanes.md`).
+
+## Environment
+
+- Python `.venv/`; Ghidra 12.2 + MCP `http://127.0.0.1:8000/mcp`; w64devkit;
+  SDL3 3.4.18.
+- Build: `scripts/build.ps1 -BuildDir build/<lane>` (default `build/mingw`).
+- Tests: `scripts/test.ps1 -Exe build/<lane>/dino_viewer.exe -Fast` or
+  `scripts/run-tests.ps1` for the full suite.
+- Retail play: `scripts/play-windowed-game.ps1` (`run-window/`, bordered
+  800x600, starts behind your work; click inside to capture the mouse, click
+  outside to release).
+  x32dbg: `scripts/x32dbg/play-freegame.ps1` / `start-campaign.ps1`
+  (`run-test/`, virtual input, background-safe, no foreground requirement).
+  Harness screenshots go to `notes/harness/`; tracked `notes/*.png` are
+  evidence, do not overwrite.
+- Verify everything: `scripts/verify.ps1` (`-Fast` for the quick loop).
+
+## Lanes and owners
+
+See `notes/lanes.md`. Default split:
+
+- `src/hook`, `docs/decomp`, `notes/hybrid-*` — hybrid/hooks.
+- `src/viewer`, `src/world`, `src/ui`, `src/formats`, `tests/test_viewer_cpp.py`
+  — port/viewer.
+- `tools/formats`, `docs/formats`, `tests/test_*.py` — formats.
+- `notes/*`, `docs/decomp` — recon.
+- `scripts/`, `run-test/`, `run-window/` — harness.
+
+## Focus
+
+- P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
+  writers, visitor/obstacle perception reaction.
+- UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
+  water/partition polish.
+- WORLD-3/2 polish: second `Modulate2x` water stage, skybox seam, frustum
+  culling/LOD2.
+
+## Next actions
+
+1. UI-2 Phase D tail: store visitor travel state and the dino clip phase.
+2. Store/lab attribute gauges: `DinoAttributes` is ported; wire the
+   `PROGRESS` widgets (ConstructionInterface) and the 3D preview.
+3. WORLD-3: capture the remaining side-by-side and fix the water stage.
+4. SIM-4: runtime-verify the budget panel rows against a populated save.
+5. STAFF rest: decode job kind `0xb`.
+
+## Recent
+
+- 2026-10-26 - Workflow tooling: NOW dashboard, lanes, lane build dirs, fast test selection, skills and commands
+- HYB-7 `.fnt` loader replaced; phenotype attributes ported and reviewed
+  (`DinoAttributes`, 17/20 Cpg04 rows exact).
+- TOOL-2 windowed/background harness; WORLD-1c Entrance static mesh.
+
+## Blockers
+
+- None.
+
+## Pointers
+
+- `docs/formats/` — proven format specs.
+- `docs/decomp/` — function status, scheduler, economy, show score, hybrid.
+- `notes/history/` — dated completion log (`scripts/state.ps1 -Done`).
+- `notes/evidence-index.md` — claim → evidence → test index.

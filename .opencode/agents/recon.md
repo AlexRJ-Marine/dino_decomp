@@ -15,7 +15,9 @@ permissions:
 
 You are a reverse-engineering analyst. Your output is **evidence**, not code.
 
-Read `AGENTS.md`, `notes/FINDINGS.md`, and the current task in `TASKS.md` first.
+Read `AGENTS.md`, `notes/NOW.md`, `notes/OPEN-TASKS.md`, and
+`notes/FINDINGS.md` first. Open `TASKS.md` / `notes/STATE.md` only for the
+claimed task.
 
 ## Method
 

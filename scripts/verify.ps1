@@ -1,11 +1,34 @@
+param(
+    [switch]$Fast,
+    [string]$BuildDir = "build\mingw",
+    [switch]$SkipBuild
+)
+
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 
-& (Join-Path $PSScriptRoot "check-env.ps1")
+& (Join-Path $PSScriptRoot "check-env.ps1") -SkipTests
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-& (Join-Path $PSScriptRoot "build.ps1")
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Push-Location $root
+try {
+    $dirtyReadOnly = & git status --porcelain -- original game
+    if ($LASTEXITCODE -ne 0) { throw "git status failed" }
+    if ($dirtyReadOnly) {
+        Write-Error "read-only tree changed:`n$dirtyReadOnly"
+        exit 1
+    }
+    & git diff --check
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+} finally {
+    Pop-Location
+}
 
-& (Join-Path $PSScriptRoot "run-tests.ps1")
+if (-not $SkipBuild) {
+    & (Join-Path $PSScriptRoot "build.ps1") -BuildDir $BuildDir
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+$exe = Join-Path $root (Join-Path $BuildDir "dino_viewer.exe")
+& (Join-Path $PSScriptRoot "run-tests.ps1") -Fast:$Fast -Exe $exe
 exit $LASTEXITCODE
