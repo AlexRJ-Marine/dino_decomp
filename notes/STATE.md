@@ -904,7 +904,8 @@ Updated: 2026-10-26
     need0 to `39` (`int(99*0.4)`), not `99`; and the need1 10 s decay pauses
     when `state == Use && target duration != 0`, not when `need_delta1 != 0`.
     `notes/calibration-2026-10-26.md` has the disassembly and runtime hit.
-    The ported `visitors.cpp` still has the old values; apply the two fixes.
+    The ported `visitors.cpp` now uses need0=39 and pauses need1 decay on
+    nonzero-duration use.
   - `apVisitorBehavior::Update` (`0x522820`) + state transitions (`0x522940`):
     choose → travel → use attraction → leave.
   - Attraction scoring (`0x522a10`) uses a constant seven-float block from

@@ -837,7 +837,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   attraction use (`0x5219f0`) and leave flow (`0x522940`).
 - [x] Recover the visitor-profile table (`spPark+0x78`, 6 free-game profiles),
   the profile index (`actor+0x68`) and the timed need decay (`0x576320`/
-  `0x5763f0`: 10 s / 7.5 s / 12.5 s). Initial needs are 99/99/99.
+  `0x5763f0`: 10 s / 7.5 s / 12.5 s). Initial needs are 39/99/99.
 - [x] Port the full enter → choose → use → leave flow: six `.bvi` profiles,
   building attraction records, BFS travel, exact score, need decay/snapshot,
   entrance exit and despawn. `--visitor-stats` reports the summary.

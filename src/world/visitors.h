@@ -57,7 +57,7 @@ struct Visitor {
 
     // SIM-2b state.
     int profile = 0;
-    int need0 = 99;  // GAUGE / satisfaction, can go negative (index 0)
+    int need0 = 39;  // GAUGE / satisfaction, can go negative (index 0)
     int need1 = 99;  // FOOD satisfaction
     int need2 = 99;  // REST satisfaction
     int need0_at_use = 99;  // actor+0x58 snapshot taken on arrival

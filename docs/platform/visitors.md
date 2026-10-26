@@ -40,10 +40,11 @@ Leave -> walk to the entrance -> despawn
   need_delta1*(99-need1)^2 + need_delta2*(99-need2)^2 - 300*distance -
   500*price`, Manhattan cell distance. The best enabled/in-radius attraction
   wins; a BFS route follows path cells.
-- **Needs:** start 99/99/99. Timed decay (10 s need1, 7.5 s need2, 12.5 s
-  need0) and the attraction-use snapshot rule from `FUN_00576530` /
-  `FUN_005763f0` are implemented. Need1 decay pauses while using an
-  attraction with `need_delta1 != 0`; need0 may go negative and then leaves.
+- **Needs:** start 39/99/99 (the actor ctor sets 99 then need0 = 99*0.4).
+  Timed decay (10 s need1, 7.5 s need2, 12.5 s need0) and the attraction-use
+  snapshot rule from `FUN_00576530` / `FUN_005763f0` are implemented. Need1
+  decay pauses while using an attraction with nonzero duration; need0 may go
+  negative and then leaves.
 - **Exit:** the Entrance building (category 10) cell; if absent, the path
   cell nearest the grid origin. Visitors despawn on arrival.
 

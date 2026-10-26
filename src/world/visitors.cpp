@@ -275,16 +275,16 @@ bool tick_needs(Visitor& visitor, float dt,
     visitor.decay1 += dt;
     while (visitor.decay1 >= 10.0f) {
         visitor.decay1 -= 10.0f;
-        // FUN_00576320: an attraction that feeds the visitor pauses the
-        // need1 decay for the duration of the use.
-        const bool feeding =
+        // FUN_00576320: while using an attraction with a nonzero visit
+        // duration, the need1 decay is paused.
+        const bool using_duration =
             visitor.state == VisitorState::Use &&
             visitor.target_attraction >= 0 &&
             visitor.target_attraction <
                 static_cast<int>(attractions.size()) &&
             attractions[static_cast<std::size_t>(
-                visitor.target_attraction)].need_delta1 != 0;
-        if (!feeding) {
+                visitor.target_attraction)].duration != 0.0f;
+        if (!using_duration) {
             visitor.need1 = clamp_need(visitor.need1 - 1);
             if (visitor.need1 <= 0) {
                 return true;
@@ -585,7 +585,8 @@ int VisitorSystem::spawn(const BuildGrid& grid, int count,
             }
         }
         visitor.profile = profile;
-        visitor.need0 = 99;
+        // Visitor ctor 0x5761b0: all needs 99, then need0 = (int)(99*0.4).
+        visitor.need0 = 39;
         visitor.need1 = 99;
         visitor.need2 = 99;
         visitor.state = VisitorState::Choose;

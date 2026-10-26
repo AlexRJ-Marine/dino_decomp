@@ -67,9 +67,10 @@ A negative need0 is therefore allowed and means "leave": both decay
 functions set `actor+0x74 = 1` and `actor+0x44 = 0` when the value goes
 strictly below 0. need1/need2 are clamped to 0 and also set the leave flag.
 
-## Initial needs are 99
+## Initial needs are 39/99/99
 
-The visitor ctor was not found, but two live retail visitors in
+The actor ctor `FUN_005761b0` sets `+0x48..+0x64 = 99` and then
+`need0 = (int)(99 * 0.4) = 39`. Two live retail visitors in
 `run/save/slot001.sav` (both mid-travel) serialise seven need dwords:
 
 | Visitor | Needs |
@@ -77,8 +78,8 @@ The visitor ctor was not found, but two live retail visitors in
 | id 38 | 97, 96, 99, 99, 99, 99, 99 |
 | id 39 | 99, 98, 99, 99, 99, 99, 99 |
 
-Those are the first three fields (`+0x48/+0x4c/+0x50`) after a few seconds of
-decay from 99. New visitors therefore start at **99/99/99**, not 0.
+Those are the first three fields (`+0x48/+0x4c/+0x50`) after the ctor and a
+few seconds of decay. New visitors start at **39/99/99**.
 
 ## Profile index queue
 
