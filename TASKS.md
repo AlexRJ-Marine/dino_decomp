@@ -736,8 +736,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** the campaign park loads with both vector readers replaced.
 - **Depends on:** HYB-1/2, FMT-4.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-vector-recon.md`,
-  `notes/hybrid-skin-recon.md`, `notes/hyb3-campaign.png`,
-  `docs/decomp/hybrid.md`.
+  `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`,
+  `notes/hyb3-campaign.png`, `docs/decomp/hybrid.md`.
 
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,

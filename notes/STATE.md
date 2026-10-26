@@ -1163,8 +1163,12 @@ Updated: 2026-10-26
   - `.skin` per-bone reader `0x47d880` ABI solved (count, name, u32-index
     vector, f32-weight vector, 64-byte matrix into a 0x6C record); hook
     queued. Evidence: `notes/hybrid-skin-recon.md`.
+  - `.anim` bone reader `0x4839e0` ABI solved (one 0x2C bone per call: name
+    incl NUL, u64 times, matrices via `0x4663a0`; parent `mgAnim` 0x30);
+    hook queued. Evidence: `notes/hybrid-anim-recon.md`.
   - Evidence: `notes/hybrid-vector-recon.md`, `notes/hybrid-skin-recon.md`,
-    `notes/hyb3-campaign.png`, `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
+    `notes/hybrid-anim-recon.md`, `notes/hyb3-campaign.png`,
+    `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the
