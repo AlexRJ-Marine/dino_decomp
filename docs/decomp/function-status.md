@@ -18,20 +18,21 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | --- | --- | --- | --- |
 | `0x004714b0` | generic `mgXFileImport` loader; calls vtable `+0x10` reader | decompiled, verified | used by `.skel`/`.skin`; `docs/formats/*.md` |
 | `0x00477b50` | `mgVMeshXMdl` header reader (mesh/skin; magic/hash/sentinel/name) | decompiled | vtable `0x626aac`; `.skin` doc |
-| `0x00477f30` | mesh/skin block-count + block-array reader | decompiled | `.skin` doc |
+| `0x00477f30` | mesh/skin block-count + block-array reader | decompiled; ABI solved, hook queued | `notes/hybrid-mesh-recon.md` |
 | `0x00472240` | per-block reader: name, vertices, indices, UVs, normals, colors, materials | decompiled | `.skin` doc |
-| `0x0047d460` | `u16` per-triangle array reader | decompiled | `.skin` doc |
-| `0x0047d880` | skin bone-record reader: name, indices, weights, matrix | decompiled, verified | 60 dinosaur skins |
+| `0x0047d460` | `u16` per-triangle array reader | **replaced** | `src/hook/dinput8_proxy.cpp`; Cpg04 2000+ calls |
+| `0x0047cc90` | child-index vector reader (`.skel`) | **replaced** | same proxy; Cpg04 2000+ calls |
+| `0x0047d880` | skin bone-record reader: name, indices, weights, matrix | **replaced** | same proxy; 2221 bones, park reached |
 | `0x004663a0` | 64-byte (16-float) matrix reader | **replaced** | `src/hook/dinput8_proxy.cpp`; 281k calls, park reached |
 | `0x004809a0` | 12-byte (3-float) normal reader | **replaced** | same proxy; 95k calls, park reached |
 | `0x0048b870` | `.skin` loader wrapper (`0x02468ace`) | identified | `.skin` doc |
 | `0x00474320` | animation constructor (`0xdef01234`); vtable `0x625ec4` | identified | `.anim` doc |
 | `0x00475990` | animation reader: duration/start, bone count, 0x2c records | decompiled, verified | 299/299 `.anim` files |
-| `0x004839e0` | animation bone reader: name, `u64` key times, matrices | decompiled, verified | `.anim` doc |
+| `0x004839e0` | animation bone reader: name, `u64` key times, matrices | **replaced** | same proxy; 8911+ keys, park reached |
 | `0x00475e30` | skeleton constructor (`0x56789abc`) | decompiled | `.skel` doc |
 | `0x00430fb0` | `mgFontDx8::LoadFile` (`.fnt` header/tables/glyphs) | decompiled, verified | 5/5 fonts + reference render |
 | `0x00430ea0` | `mgFontDx8::CreateTexture` | identified | `.fnt` doc |
-| `0x00477890` | skeleton reader: matrices, children, parents, names, flags | decompiled, verified | 64/64 `.skel` files |
+| `0x00477890` | skeleton reader: matrices, children, parents, names, flags | **replaced** | same proxy; 21 skeletons, park reached |
 | `0x00477610` | skeleton writer/export counterpart | decompiled (partial) | `.skel` doc |
 
 ## Dinosaur behavior graph
@@ -248,16 +249,21 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 
 ## C++ reimplementations
 
-These are readable ports used by the portable viewer. The first one is now
-hooked into the original exe (Phase 3 `HYB-1`).
+These are readable ports used by the portable viewer. The matrix, normal,
+vector, `.skin`, `.anim` and `.skel` readers are also live in the original exe
+(Phase 3 `HYB-1..5`); the `.mesh` block reader ABI is solved and queued
+(`HYB-6`).
 
 | Original | C++ | Status |
 | --- | --- | --- |
 | `0x4663a0` matrix reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 281k calls |
 | `0x4809a0` normal reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 95k calls |
-| `0x477890` skeleton reader | `src/formats/skel.cpp` | reimplemented, tested on 80-bone allo |
-| `0x47d880` skin bone records | `src/formats/skin.cpp` | reimplemented, 317 assignments |
-| `0x475990` / `0x4839e0` animation reader | `src/formats/anim.cpp` | reimplemented, quaternion sampling |
+| `0x47d460` u16 array reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, Cpg04 2000+ calls |
+| `0x47cc90` child-index reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, Cpg04 2000+ calls |
+| `0x477890` skeleton reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 21 skeletons |
+| `0x47d880` skin bone records | `src/hook/dinput8_proxy.cpp` | **replaced live**, 2221 bones |
+| `0x4839e0` animation bone reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 8911+ keys |
+| `0x477f30` mesh block reader | — | ABI solved, hook queued |
 | `.mesh` body reader | `src/formats/mesh.cpp` | reimplemented, `--validate` |
 | `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
 | `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
