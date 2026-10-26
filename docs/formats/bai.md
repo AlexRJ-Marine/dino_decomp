@@ -565,12 +565,17 @@ coverage and truncation/trailing-byte rejection.
 
 ## Open fields
 
+- `FUN_0056ddb0` appends the end-ramp pair to the target's int/float vectors
+  (`+0x14`/`+0x24`) and scales `+0xc`, but the renderer that consumes the two
+  capped vectors is not decoded. The target is reached through the
+  `asItemBehavior` record `+0xc -> +0x30 -> +4`.
+- The `+0x10` object used by the indexed `params[i]` multiplier is the
+  **actor**: `FUN_0056d7d0` sets node `+0x10` to the actor, and the index is
+  `actor+0xcc -> +0x28 -> +0x40`. The same expression is used by
+  `FUN_00567190` as a dinosaur species/family filter, so `params[i]` is
+  per-species/family tuning; the object at `actor+0xcc` is still unnamed.
 - `stat_grants` (`+0x90`): the loader and the action clone (`FUN_0056ac80`,
   generic vector copy `FUN_0056b1e0`) touch it, but no instruction reads the
   8-byte `(value, attribute)` records. It appears to be unused in this build.
 - The five weights at `+0x288..+0x298` and `+0x2a0` are only partly named;
   `FUN_005727b0` case 13 maintains them and the total.
-- `FUN_0056ddb0` appends the end-ramp pair but the renderer that consumes the
-  two capped vectors (`+0x14`/`+0x24`) is not decoded.
-- The `+0x10` object used by the indexed `params[i]` multiplier is not named;
-  only its `+0xcc -> +0x28 -> +0x40` index path is known.

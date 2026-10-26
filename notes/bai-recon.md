@@ -290,6 +290,27 @@ the two unrelated application hits `0x00403a4d`/`0x00403b6f`; no behavior
 code compares or branches on `flag_20`. It is stored and cloned but dead in
 this build.
 
+#### `params[i]` index source
+
+`FUN_0056d7d0` (called by `FUN_00521d10`/`FUN_00521d80`) sets node `+0x10`
+to the **actor** pointer. `FUN_0056cc20` then reads:
+
+```text
+i = actor+0xcc -> +0x28 -> +0x40   (0 if actor+0xcc is null)
+score = score * action.params[i] / 100
+```
+
+`FUN_00567190` uses the same `actor+0xcc -> +0x28 -> +0x40` expression to
+filter dinosaurs by a species/family id, so `params[i]` is a per-species/
+family parameter table. The object at `actor+0xcc` itself is still unnamed.
+
+#### End-ramp target
+
+`FUN_0056d880` reaches the target through the `asItemBehavior` record
+`record+0xc -> +0x30 -> +4`; `FUN_0056ddb0` appends the percent/value pair to
+its `+0x14`/`+0x24` vectors and scales `+0xc`. The renderer that reads those
+capped vectors is still open.
+
 #### `stat_grants` (`+0x90`) - no consumer found
 
 The loader pushes the `(value, attribute)` pairs and `FUN_0056ac80` clones the
