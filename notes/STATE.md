@@ -1069,20 +1069,48 @@ Updated: 2026-10-26
     verified) and the threat term details.
   - Evidence: `notes/dino-action-chooser-recon.md`,
     `docs/decomp/dinosaur-actions.md`, `docs/decomp/function-status.md`.
+- P3b complete: **action loop drives the imported dinosaurs.**
+  - `DinoActionLoop` (`src/world/dino_actions.*`) decays the four needs,
+    decides every 0.5 s, counts the `.bai` `field_2e` duration and applies the
+    need deltas on completion. The viewer runs one loop per imported dinosaur
+    (`--dino-action-loop`, `--dino-needs F,V,S,R`, `--dino-action-speed N`)
+    and switches clips through the inferred name mapping.
+  - Cpg04: `--dino-needs 20,90,50,90` → 20 × Eat 9009;
+    `70,90,90,20` → 20 × Sleep 7060; the default 99s stay idle.
+  - Open: the verified action→clip table, the SECU threat/visitor term and
+    the feeding interaction.
+  - Evidence: `notes/p3-dino-eat.png`, `docs/platform/world-import.md`,
+    `docs/decomp/dinosaur-actions.md`,
+    `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`.
+- P4 complete: **`FENCE_INSERTION` validator is a paddock-capacity test.**
+  - `0x535be0` is `pvwStateFenceInsertion` (ctor `0x535b10`,
+    `FUN_0052bd10(0x12, "FENCE_INSERTION")`, vtable `0x642d80`). It places a
+    **purchased dinosaur** into a paddock: validate → find spot → charge the
+    store price (`FUN_00585cc0`) / remove the `spDinosaurStore` row
+    (`FUN_00594270`) → `stFence::AddActor`.
+  - The `WARNING_NO_ROOM_IN_FENCE` gate is `stFence::CanAddActor` `0x57eb50`:
+    reject a duplicate occupant, else `capacity(+0x7c) - used(+0x80) >=
+    cost_table[dino+0x1e0]` with costs `8/16/32/64` at `+0x84..+0x90`.
+    `stFence::AddActor` `0x57e8a0` updates `used` and `fill(+0x78)`.
+  - `stFence` ctor `0x57dc60`: `capacity = ((x1-x0+1)/cell) *
+    ((y1-y0+1)/cell)` from the `drsFence` rectangle; `stFence::PlaceActor`
+    `0x57ec00` tries 50 random points inside the rectangle with a pathmap
+    cell test. The port maps this to the `.raw` occupation mask.
+  - The earlier "cell predicate" lead was the first branch of `0x535be0`
+    (UI footprint/selection bookkeeping); it is not a buildability rule.
+  - Open: runtime-dump `[dino+0x1e0]` (cost class; the `saDinosaur`
+    serializer uses `+0x1e0` as a vector end) and the landscape `+0xc` cell
+    size (port assumes 4).
+  - Evidence: `notes/fence-insertion-recon.md`,
+    `docs/decomp/construction-validation.md`,
+    `notes/construction-validation.md`.
 
 ## In progress
 
-- **P4 fence-validator predicate (researcher 1 hand-off):** decode the exact
-  cell rule inside the fence/paddock validator `0x535be0` (vtable `0x642d8c`),
-  which raises `WARNING_NO_ROOM_IN_FENCE`. Evidence-only pass; no `src/`
-  edits while a parallel agent holds `src/viewer/main.cpp`.
-- **P3 action-loop port:** the chooser is decoded
-  (`notes/dino-action-chooser-recon.md`); implementation in
-  `src/world/dino_actions.*` can start now that the dinosaur `.sav` import
-  landed. It needs: need block + states, weight-table scoring,
-  `CanDoAction` preconditions, node select, need decay, and an
-  action→animation clip table. The imported dinosaurs are static actors
-  until this lands.
+- **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
+  and drive the imported dinosaurs. Still open: the retail-verified
+  action→animation clip table, the SECU threat/visitor reaction term and the
+  feeding interaction (Eat currently assumes an item).
 - **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
@@ -1104,10 +1132,10 @@ Updated: 2026-10-26
    in the port save.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
-3. P3 rest: port the chooser + need decay into `src/world/dino_actions.*`,
-   add a `--dino-actions` probe that prints the selected action for a given
-   need state, then drive the imported and single dinosaurs' animation from
-   it. Chooser evidence is in `notes/dino-action-chooser-recon.md`.
+3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are
+   done. Remaining: find the retail action→clip table (current mapping is
+   inferred), wire the SECU threat/visitor term, and model the feeding item
+   so Eat requires a real food source. See `notes/dino-action-chooser-recon.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
    through the construction UI; then frustum culling and LOD2.
@@ -1131,9 +1159,10 @@ Updated: 2026-10-26
    steps are decoded, but their consumer is not. Next lead: the six judge
    behaviors share `0x582d70` and differ only by vtable
    (`0x64350c`/`0x6434e8`/...); map the score path from there.
-13. WORLD-3: confirm the retail water height. The `.lnd` float is discarded
-   by the loader (`0x51dad0`), so the port's water plane at that value is an
-   unverified convention.
+13. WORLD-3: water height is **confirmed** (`FUN_00602cf0` = the `.lnd`
+   float: isl01 16.0, isl02 20.0; the stale "discarded by 0x51dad0" claim is
+   corrected in `docs/formats/lnd.md`). Remaining: skybox face orientation and
+   the exact `.lnd` carry path from the reader scratch to the landscape.
 
 ## Blockers
 

@@ -46,6 +46,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -110,6 +111,9 @@ struct Options {
     std::string dino_clip = "Walk";
     bool bai_info = false;
     bool dino_actions_info = false;
+    bool dino_action_loop = false;
+    std::string dino_needs = "99,99,99,99";
+    float dino_action_speed = 1.0f;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;
@@ -330,6 +334,13 @@ Options parse_args(int argc, char** argv) {
             opt.bai_info = true;
         } else if (arg == "--dino-actions") {
             opt.dino_actions_info = true;
+        } else if (arg == "--dino-action-loop") {
+            opt.dino_action_loop = true;
+        } else if (arg == "--dino-needs") {
+            opt.dino_needs = next("--dino-needs");
+        } else if (arg == "--dino-action-speed") {
+            opt.dino_action_speed = static_cast<float>(
+                std::atof(next("--dino-action-speed")));
         } else if (arg == "--building-pos") {
             std::sscanf(next("--building-pos"), "%f,%f",
                         &opt.building_x, &opt.building_y);
@@ -528,6 +539,9 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
                 "  --bai-info           print the 64 action definitions and exit\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
+                "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
+                "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 99s)\n"
+                "  --dino-action-speed N action duration scale (default 1)\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"
@@ -1801,6 +1815,35 @@ std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
 }
 
+// Action -> animation clip. The retail link is still open (the `.bai` files
+// carry no clip name); these are the name-based candidates documented in
+// `notes/dino-action-chooser-recon.md` and are marked inferred, not verified.
+std::string dino_clip_for_action(const std::string& action) {
+    if (action == "Sleep") {
+        return "Sleep";
+    }
+    if (action == "Eat" || action == "EatForSmallies" ||
+        action.rfind("EatBait", 0) == 0) {
+        return "Chew";
+    }
+    if (action == "Smell") {
+        return "Sniff";
+    }
+    if (action == "Exploration" || action == "ReachWaypoint") {
+        return "Walk";
+    }
+    if (action == "RunAway") {
+        return "Run";
+    }
+    if (action == "Victory") {
+        return "Winner";
+    }
+    if (action == "Danse") {
+        return "Dance";
+    }
+    return "Neutral";
+}
+
 // Free-game easy profile table (`FreeGame.ini` `[PROFILES]`):
 // retraite, surfer, parent, enfant, holligan, scientific - 30 each.
 std::vector<dino::VisitorProfile> load_easy_visitor_profiles(
@@ -2259,6 +2302,28 @@ int main(int argc, char** argv) {
                                 choice->name.c_str(), choice->score);
                 } else {
                     std::printf("dino choose %s: idle\n", scenario.name);
+                }
+            }
+            dino::DinoActionLoopConfig loop_config;
+            loop_config.action_scale = 0.1;  // 3 s per action in the probe
+            dino::DinoActionLoop loop(&actions,
+                                      make_needs(20, 90, 50, 20, 250),
+                                      loop_config);
+            std::printf("dino timeline:\n");
+            std::string previous;
+            double t = 0.0;
+            for (int step = 0; step < 400; ++step) {
+                loop.tick(0.1);
+                t += 0.1;
+                const std::string& name = loop.action_name();
+                if (name != previous) {
+                    const dino::DinoNeeds& n = loop.needs();
+                    std::printf(
+                        "dino timeline %.1f: %s food=%d violence=%d secu=%d "
+                        "repos=%d\n",
+                        t, name.c_str(), n.value[0], n.value[1], n.value[2],
+                        n.value[3]);
+                    previous = name;
                 }
             }
             return 0;
@@ -3407,6 +3472,11 @@ int main(int argc, char** argv) {
         std::shared_ptr<ImportedSpecies> assets;
         GpuMesh gpu;
         GpuMesh shadow;
+        std::string species;
+        std::string family;
+        std::string clip;
+        dino::DinoNeeds needs;
+        std::optional<dino::DinoActionLoop> action_loop;
         float x = 0.0f;
         float y = 0.0f;
         float angle = 0.0f;
@@ -3414,6 +3484,22 @@ int main(int argc, char** argv) {
     };
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
     std::vector<ImportedDino> imported_dinos;
+    std::vector<dino::BaiAction> dino_action_table;
+    std::array<int, 4> dino_initial_needs{99, 99, 99, 99};
+    if (std::sscanf(opt.dino_needs.c_str(), "%d,%d,%d,%d",
+                    &dino_initial_needs[0], &dino_initial_needs[1],
+                    &dino_initial_needs[2], &dino_initial_needs[3]) == 4) {
+        for (int& value : dino_initial_needs) {
+            value = std::clamp(value, 0, 99);
+        }
+    }
+    if (opt.dino_action_loop) {
+        try {
+            dino_action_table = dino::load_action_table(opt.asset_root);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "dino action table: %s\n", e.what());
+        }
+    }
 
     auto load_imported_species = [&](const std::string& species,
                                      const std::string& family,
@@ -3485,11 +3571,39 @@ int main(int argc, char** argv) {
         }
         ImportedDino dinosaur;
         dinosaur.assets = assets;
+        dinosaur.species = species;
+        dinosaur.family = family;
+        dinosaur.clip = clip;
         dinosaur.x = x;
         dinosaur.y = y;
         dinosaur.angle = angle;
         dinosaur.phase =
             static_cast<double>(imported_dinos.size()) * 617.0;
+        dinosaur.needs.value = dino_initial_needs;
+        // The `.bai` Eat gate reads attribute 4 (size in cm); derive a rough
+        // body length from the rest mesh so quadrupeds/bipeds pick the right
+        // eater action.
+        dino::Vec3 lo{1e30f, 1e30f, 1e30f};
+        dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
+        for (const dino::Vec3& p : assets->mesh.positions) {
+            lo.x = std::min(lo.x, p.x);
+            lo.y = std::min(lo.y, p.y);
+            lo.z = std::min(lo.z, p.z);
+            hi.x = std::max(hi.x, p.x);
+            hi.y = std::max(hi.y, p.y);
+            hi.z = std::max(hi.z, p.z);
+        }
+        if (hi.x > lo.x) {
+            dinosaur.needs.size_cm = static_cast<int>(
+                std::max({hi.x - lo.x, hi.y - lo.y, hi.z - lo.z}) * 100.0f);
+        }
+        if (opt.dino_action_loop && !dino_action_table.empty()) {
+            dino::DinoActionLoopConfig config;
+            config.action_scale =
+                1.0 / std::max(0.05f, opt.dino_action_speed);
+            dinosaur.action_loop.emplace(&dino_action_table, dinosaur.needs,
+                                         config);
+        }
         const dino::Animation* anim_ptr =
             assets->anim.bones.empty() ? nullptr : &assets->anim;
         dino::Mesh pose = build_skinned_mesh(
@@ -4133,9 +4247,9 @@ int main(int argc, char** argv) {
         center = {dinosaur.x - half, dinosaur.y - half,
                   terrain.height_at(dinosaur.x - half,
                                     dinosaur.y - half) + 2.5f};
-        distance = 26.0f;
-        yaw = 225.0f;
-        pitch = 18.0f;
+        distance = opt.distance > 0.0f ? opt.distance : 26.0f;
+        yaw = opt.yaw;
+        pitch = opt.pitch;
     }
 
     auto orbit_eye = [&]() {
@@ -5632,6 +5746,43 @@ int main(int argc, char** argv) {
         }
 
         for (ImportedDino& dinosaur : imported_dinos) {
+            if (dinosaur.action_loop) {
+                const std::string previous =
+                    dinosaur.action_loop->action_name();
+                dinosaur.action_loop->tick(dt);
+                const std::string& action =
+                    dinosaur.action_loop->action_name();
+                if (action != previous) {
+                    if (action != "idle") {
+                        const dino::BaiAction& definition =
+                            dino_action_table[static_cast<std::size_t>(
+                                dinosaur.action_loop->action_index())];
+                        const int score = dino::score_action(
+                            definition, dinosaur.action_loop->needs());
+                        const dino::DinoNeeds& needs =
+                            dinosaur.action_loop->needs();
+                        std::printf(
+                            "dino action: %s %s score=%d "
+                            "needs=%d/%d/%d/%d\n",
+                            dinosaur.species.c_str(), action.c_str(), score,
+                            needs.value[0], needs.value[1], needs.value[2],
+                            needs.value[3]);
+                    }
+                    const std::string clip =
+                        action == "idle" ? "Neutral"
+                                         : dino_clip_for_action(action);
+                    if (clip != dinosaur.clip) {
+                        try {
+                            dinosaur.assets = load_imported_species(
+                                dinosaur.species, dinosaur.family, clip);
+                            dinosaur.clip = clip;
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr, "dino clip %s: %s\n",
+                                         clip.c_str(), e.what());
+                        }
+                    }
+                }
+            }
             const ImportedSpecies& assets = *dinosaur.assets;
             if (assets.anim.bones.empty() || assets.anim.duration <= 0.0) {
                 continue;

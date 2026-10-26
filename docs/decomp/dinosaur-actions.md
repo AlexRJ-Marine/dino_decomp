@@ -172,8 +172,11 @@ in that order and enables the matching FOOD/REPOS/VIOLENCE/SECU state widget.
 ### Eat / sleep
 
 `Eat` (action 4) and `Sleep` (action 2) are real `actionlist.ini` actions.
-Their need feed is the FOOD/REPOS pair above; the FOOD gauge starts at 50 % of
-its maximum and the REPOS gauge starts full.
+Their need feed is the FOOD/REPOS pair above. `FUN_00570fd0` sets the rest
+gauge full and the food gauge to 50 % of its maximum, but writes 99 into all
+four UI needs; the first 10 s tick (`FUN_00571370(10.0)`) rewrites FOOD from
+the gauge, so the chooser effectively starts at `(50, 99, 99, 99)`. The raw
+gauge formulas are in `notes/dino-action-chooser-recon.md`.
 
 **The chooser is solved** (`FUN_0056e410` / `FUN_0056e5d0` /
 `FUN_0056e670`): every available action node is scored from its `.bai`
@@ -214,11 +217,21 @@ action. This is confirmed by the two independent checks.
   the retail algorithm.
 - `--dino-actions` prints the chooser result for starving / tired / both /
   full / small scenarios and a 40 s action timeline.
-- Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests) and
-  `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser`.
-- Open for the next increment: calibrate the decay rates, the action→animation
-  clip link, and retail's feeding interaction (the `.bai` need deltas are a
-  scoring model, applied on completion in the port).
+- The viewer drives every imported dinosaur with `DinoActionLoop`
+  (`--dino-action-loop`, `--dino-needs F,V,S,R`, `--dino-action-speed N`).
+  The selected action switches the animation clip through the inferred
+  name mapping (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`,
+  `Smell`→`Sniff`, `Victory`→`Winner`, `RunAway`→`Run`, idle→`Neutral`).
+  The loop prints `dino action: <species> <name> score=<n> needs=...` on
+  each action change. Cpg04 with `--dino-needs 20,90,50,90` gives 20 Eat
+  9009; `70,90,90,20` gives 20 Sleep 7060; the default 99s stay idle.
+- Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests),
+  `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser` and
+  `test_cpp_dino_action_loop`.
+- Open for the next increment: calibrate the decay rates, the
+  action→animation clip link, the SECU threat/visitor term, and retail's
+  feeding interaction (the `.bai` need deltas are a scoring model, applied on
+  completion in the port).
 
 ## Evidence
 

@@ -777,6 +777,24 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_wld_places_all_buildings`,
   `test_cpp_wld_reader_matches_retail`.
 
+### CONS-1: Construction validation rules
+- [x] Budget gate `FUN_0052bed0` (`WARNING_NOT_ENOUGH_MONEY`) and the
+  fence/paddock `FENCE_INSERTION` state `0x535be0` decoded.
+- [x] Proved `WARNING_NO_ROOM_IN_FENCE` is a **paddock capacity** test
+  (`stFence::CanAddActor` `0x57eb50`: duplicate check + `capacity(+0x7c) −
+  used(+0x80) >= cost[8/16/32/64]`), not a per-cell rule.
+- [x] Recovered the capacity initialisation (`0x57dc60`: fence rectangle /
+  cell size), `AddActor` (`0x57e8a0`), the 50-try placement search
+  (`0x57ec00`) and the store charge/removal branch.
+- [ ] Runtime-confirm the `dino+0x1e0` cost class and the landscape `+0xc`
+  cell size.
+- **Acceptance:** the port can reject a full paddock and charge a purchased
+  dinosaur with the original rules.
+- **Depends on:** WORLD-2, P2.
+- **Evidence:** `notes/fence-insertion-recon.md`,
+  `docs/decomp/construction-validation.md`,
+  `notes/construction-validation.md`.
+
 ### WORLD-3: Skybox, water, lighting
 - [x] PNG skybox faces (`front/back/left/right/top/bottom`) via stb_image;
   unlit cube drawn before the terrain.
@@ -863,13 +881,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FUN_0056e670` starts the highest score ≥ 1 after the `FUN_0056e0e0`
   preconditions. Eat (+30 FOOD) scores ~9009 when FOOD is BAD, Sleep
   (+100 REPOS) up to 7060 when REPOS is BAD, and all-full needs score 0.
-- [ ] Port the chooser + need decay into `src/world` and drive the viewer's
-  dinosaur animation from the selected action; add the visitor reaction.
+- [x] Port the chooser + need loop into `src/world/dino_actions.*`
+  (`DinoActionLoop`: decay, decision, `.bai` need deltas on completion) and
+  drive the imported dinosaurs' clips from the selected action
+  (`--dino-action-loop`, `--dino-needs`, `--dino-action-speed`). Forced
+  starving gives Eat 9009, tired gives Sleep 7060, all-full stays idle over
+  20 imported dinosaurs.
+- [ ] Visitor/obstacle reaction (the threat term feeding SECU) and the
+  retail-verified action→animation clip table (currently name-based/inferred:
+  Eat→Chew, Sleep→Sleep, Exploration→Walk, Smell→Sniff).
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
   `notes/dino-action-chooser-recon.md`, `notes/dinosaur-actions-recon.md`,
-  `docs/decomp/function-status.md`.
+  `docs/decomp/function-status.md`, `notes/p3-dino-eat.png`,
+  `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

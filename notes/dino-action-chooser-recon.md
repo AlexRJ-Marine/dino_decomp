@@ -197,6 +197,48 @@ element score = `Σ attribute_value * effect_weight + rand() % field_14`, then
 the first element whose `time >= score` is used. With one element per action
 (Eat/Sleep) it is trivial.
 
+## Need decay (retail timing)
+
+`spSimuManager::Update` (`0x005869e0`) drives the dinosaur needs:
+
+```text
+per frame:   FUN_00571320()            # per-frame bookkeeping
+             FUN_00571540(dt)          # rest gauge decay + action countdown
+every 5 s:   FUN_005725e0()            # 5 s pass
+every 10 s:  FUN_00571370(10.0)        # FOOD gauge -> UI FOOD
+             FUN_00571410(10.0)        # VIOLENCE decay
+             FUN_005714b0 x4           # recompute all four states
+```
+
+`FUN_00571370(rate)`:
+
+```text
+decay = rate * actor+0x6c
+food_gauge (+0x25c) -= decay
+actor+0x244 = (int)(food_gauge * 100.0 / actor+0x1dc)
+```
+
+`FUN_00571410(rate)`:
+
+```text
+actor+0x248 -= (int)(rate * actor+0x78);  clamp 0
+```
+
+`FUN_00570fd0` initializes the gauges/needs:
+
+```text
+rest gauge (+0x258) = max (+0x1d8)
+food gauge (+0x25c) = max (+0x1dc) * 0.5
+UI needs (+0x244..+0x250) = 99
+```
+
+The food gauge is at half, so the **first 10 s tick rewrites UI FOOD to
+~50**. The steady-state starting value for the chooser is therefore
+`(50, 99, 99, 99)`, not 99/99/99/99. Open: the values of `actor+0x6c`
+(decay scale, likely phenotype `+0x1c` = volume × FoodConsumptionRate × 0.01),
+`actor+0x1dc` (food maximum) and `actor+0x78` (violence decay scale, likely
+phenotype-linked).
+
 ## Port loop
 
 `DinoActionLoop` (`src/world/dino_actions.*`, mirrored in

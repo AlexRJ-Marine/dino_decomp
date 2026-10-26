@@ -60,7 +60,13 @@ paddock without room.
 
 ## Open
 
-- The exact cell predicate inside `0x535be0` (which cells are reserved for
-  the construction tool) needs a manual disassembly or a runtime check.
+- ~~The exact cell predicate inside `0x535be0`~~ **resolved this pass:** it is
+  not a cell predicate. `0x535be0` is the `FENCE_INSERTION` state and its
+  failure condition is `stFence::CanAddActor` (`0x57eb50`), a paddock-capacity
+  test (`capacity +0x7c`, `used +0x80`, cost table `+0x84..0x90` = 8/16/32/64
+  indexed by `dinosaur+0x1e0`). Full evidence in
+  `notes/fence-insertion-recon.md`; cleaned spec in
+  `docs/decomp/construction-validation.md`. Remaining: a runtime dump of
+  `[dinosaur+0x1e0]` and the landscape `+0xc` cell size.
 - Whether path tiles charge the CONSTRUCTION budget (the wall path is the
   only proven setter).

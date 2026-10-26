@@ -162,6 +162,15 @@ deterministically; building-only parks fall back to the map centre. The
 care-state list at the simulation offset (name/phenotype/needs) is not read
 yet, so imported dinosaurs start from the runtime default needs.
 
+`--dino-action-loop` replaces the static clip with the retail chooser
+(`src/world/dino_actions.cpp`): the four needs decay slowly, `choose_action`
+picks `Exploration`/`Eat`/`EatForSmallies`/`Sleep` from the `.bai`
+preconditions and weight tables, and the completed action applies its need
+deltas before the next decision. `--dino-needs F,V,S,R` seeds the four needs
+and `--dino-action-speed N` scales the 30 s `.bai` durations. The clip link
+is inferred (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`, idle→
+`Neutral`); the retail mapping table is still open.
+
 ## Open
 
 - Visitor profile index is not in the 0x50 record; default 0 until the

@@ -1649,6 +1649,42 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+def test_cpp_dino_action_loop():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+
+    def run(needs):
+        result = subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+             "--width", "160", "--height", "120", "--no-vsync",
+             "--no-save-config", "--lnd", str(isl04),
+             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+             "--wld-park", str(wld), "--dino-action-loop", "--dino-needs",
+             needs],
+            capture_output=True, text=True, timeout=180,
+        )
+        assert result.returncode == 0, result.stderr
+        return [line for line in result.stdout.splitlines()
+                if line.startswith("dino action:")]
+
+    starving = run("20,90,50,90")
+    assert len(starving) == 20
+    assert any(re.search(r"dino action: \w+ Eat score=9009 "
+                         r"needs=20/90/50/90", line) for line in starving)
+
+    tired = run("70,90,90,20")
+    assert len(tired) == 20
+    assert any(re.search(r"dino action: \w+ Sleep score=7060 "
+                         r"needs=70/90/90/20", line) for line in tired)
+
+    # All-full needs score 0 on the self actions, so the dinosaur stays idle.
+    assert run("99,99,99,99") == []
+
+
 def test_cpp_wld_park_no_import_dinos():
     if not EXE.exists():
         pytest.skip("viewer not built")
