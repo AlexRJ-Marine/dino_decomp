@@ -29,6 +29,7 @@ add a row when a claim becomes something later work depends on.
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
 | Employee profiles + hire/wage/feeding | `docs/platform/employees.md`, `docs/decomp/employee-ai.md` | `tests/test_viewer_cpp.py::test_cpp_employee_info`, `test_cpp_employee_feeding_and_wages`, `notes/employees.png` |
+| `.shw` show scenarios (C++ reader) | `docs/formats/shw.md` | `tests/test_viewer_cpp.py::test_cpp_show_info` |
 | Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |
 | Feature status matrix (retail feature/screen -> status/evidence/tests) | `docs/platform/feature-status.md` | `tests/test_feature_matrix.py` |
 | Park panel contract + verification recipes | `docs/platform/park-panels.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_park_panels` |
@@ -37,4 +38,5 @@ add a row when a claim becomes something later work depends on.
 | Campaign objective evaluator core (simple + trait verbs, tri-state) | `src/world/campaign_objectives.h`, `src/world/campaign_objectives.cpp`, `docs/platform/decoded-features.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_objective_selftest` |
 | Campaign mission runtime + MISSION_PANEL tri-state | `src/world/campaign_runtime.h`, `src/world/campaign_runtime.cpp`, `docs/platform/campaign-flow.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_mission_panel`, `test_cpp_campaign_mission_success` |
 | Campaign live dinosaur traits (phenotype snapshots) | `src/viewer/main.cpp` (`ImportedDino::attributes`), `docs/platform/campaign-flow.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_live_traits` |
+| Campaign menu flow (select -> briefing -> park) | `src/ui/menu.{h,cpp}`, `src/viewer/main.cpp` (`load_campaign_park`), `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`, `notes/campaign-menu-start.png` | `tests/test_campaign_cpp.py::test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_mission_start` |
 | Decoded feature port contracts (shows/employees/animals/lab/objectives) | `docs/platform/decoded-features.md` | `tests/test_feature_matrix.py` |

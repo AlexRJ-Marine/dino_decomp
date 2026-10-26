@@ -25,6 +25,7 @@
 #include "../formats/market.h"
 #include "../formats/bsi.h"
 #include "../formats/bei.h"
+#include "../formats/shw.h"
 #include "camera_config.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
@@ -133,6 +134,7 @@ struct Options {
     int fire_nutritionists = 0;
     bool feed_now = false;
     bool employee_info = false;
+    std::string show_info_path;
     std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
@@ -397,6 +399,8 @@ Options parse_args(int argc, char** argv) {
             opt.feed_now = true;
         } else if (arg == "--employee-info") {
             opt.employee_info = true;
+        } else if (arg == "--show-info") {
+            opt.show_info_path = next("--show-info");
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
@@ -656,6 +660,7 @@ Options parse_args(int argc, char** argv) {
                 "  --fire-nutritionist N dismiss N nutritionists (no refund)\n"
                 "  --feed-now           run one hourly feeding pass at startup\n"
                 "  --employee-info      print the .bei employee profiles and exit\n"
+                "  --show-info PATH     print .shw show summaries and exit\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
@@ -2904,6 +2909,64 @@ int main(int argc, char** argv) {
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "employee-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
+    if (!opt.show_info_path.empty()) {
+        try {
+            std::vector<std::string> paths;
+            const std::filesystem::path input(opt.show_info_path);
+            if (std::filesystem::is_directory(input)) {
+                for (const auto& entry :
+                     std::filesystem::directory_iterator(input)) {
+                    if (entry.is_regular_file() &&
+                        entry.path().extension() == ".shw") {
+                        paths.push_back(entry.path().string());
+                    }
+                }
+                std::sort(paths.begin(), paths.end());
+            } else {
+                paths.push_back(input.string());
+            }
+            const std::vector<std::string> feature_names =
+                dino::load_feature_list(resolve_asset(
+                    opt.asset_root, "Data/Design/attractions/features"));
+            const bool list_features = paths.size() == 1;
+            for (const std::string& path : paths) {
+                const dino::ShwShow show = dino::load_shw(path);
+                std::printf(
+                    "show: %s name=%s cost=%d judge=%d dims=%dx%d wall=%d "
+                    "cages=%d,%d,%d,%d features=%zu teams=%zu\n",
+                    std::filesystem::path(path).stem().string().c_str(),
+                    show.name.c_str(), show.cost, show.judge_kind, show.width,
+                    show.height, show.wall_type, show.cage_size[0],
+                    show.cage_size[1], show.cage_size[2], show.cage_size[3],
+                    show.features.size(), show.teams.size());
+                if (list_features) {
+                    for (const auto& feature : show.features) {
+                        const std::string feature_name =
+                            feature[0] >= 0 &&
+                                    feature[0] <
+                                        static_cast<int>(feature_names.size())
+                                ? feature_names[static_cast<std::size_t>(
+                                      feature[0])]
+                                : std::string("?");
+                        std::printf(
+                            "show feature: idx=%d rot=%d x=%d y=%d name=%s\n",
+                            feature[0], feature[1], feature[2], feature[3],
+                            feature_name.c_str());
+                    }
+                    for (const auto& team : show.teams) {
+                        std::printf("show team: cage=%d team=%d\n", team.first,
+                                    team.second);
+                    }
+                }
+            }
+            std::printf("shows: %zu\n", paths.size());
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "show-info: %s\n", e.what());
             return 1;
         }
     }

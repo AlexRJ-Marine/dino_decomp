@@ -2593,6 +2593,31 @@ def test_cpp_employee_save_roundtrip(tmp_path):
     assert "port employees: 2" in second.stdout
 
 
+def test_cpp_show_info():
+    """The .shw reader matches the retail show catalog."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    show_dir = GAME / "Data" / "Design" / "Scenario" / "Show"
+    if not show_dir.exists():
+        pytest.skip("retail shows missing")
+    result = subprocess.run(
+        [str(EXE), "--show-info", str(show_dir), "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert ("show: Cpg1_Race_1 name=&cpg1_race_1 cost=1800 judge=1 "
+            "dims=19x39 wall=1 cages=1,0,0,0 features=14 teams=2") in result.stdout
+    assert "shows: 43" in result.stdout
+    single = subprocess.run(
+        [str(EXE), "--show-info", str(show_dir / "Cpg1_Race_1.shw"),
+         "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert single.returncode == 0, single.stderr
+    assert "show feature: idx=4 rot=0 x=0 y=18 name=JudgeRace" in single.stdout
+    assert "show team: cage=0 team=1" in single.stdout
+
+
 def test_cpp_port_save_paddocks_food(tmp_path):
     """Paddock capacity/occupancy and placed food survive a .psav round-trip."""
     if not EXE.exists():
