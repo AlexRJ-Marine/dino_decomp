@@ -213,6 +213,9 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00570fd0` | need/raw-gauge reset (rest full, food 50%, needs 99) | decompiled | same |
 | `0x005714b0` | need value → GOOD/MID/BAD state index | decompiled | same |
 | `0x00571350` | recompute all four need states | decompiled | same |
+| `0x00589cd0` | park step: per-second danger-grid clear/stamp/SECU (`0x5774f0`/`0x571b50`/`0x571440`) | decompiled + ported | `docs/platform/danger-grid.md` |
+| `0x00571440` | SECU from the grid cell and the `+0x16`/`+0x1d4` health pair | decompiled + ported | same |
+| `0x00572dd0` | chooser target-inside-radius box test (`\|tx-x\| <= r`) | decompiled | `notes/dino-action-chooser-recon.md` |
 | `0x0056e410` | `apDinosaurBehavior` node score pass: `.bai` need deltas × need-state weights, rest cost, threat term, percent | decompiled | `notes/dino-action-chooser-recon.md` |
 | `0x0056e5d0` | `need_term(need, delta, actor+0x214)`: upper clamp, state weight table `0x643054/64/74/84` | decompiled | same |
 | `0x0056e670` | action selection: max node score ≥ 1, can-do check, switch/stop current | decompiled | same |
@@ -285,10 +288,13 @@ the original exe (Phase 3 `HYB-1..7`).
 - 1024×768 HUD anchoring and dynamic sub-panel fields — UI-2 Phase C rest.
 - Warning/request/campaign-end dialogs (`DIALOG_BACKGROUND`) and the save/load
   panel — UI-2 Phase D.
-- Dinosaur AI: the chooser, need-state weights and `DinoActionLoop` are ported
-  and drive the imported dinosaurs. Remaining: the retail-verified
-  action→animation clip table, the SECU threat/visitor term and the feeding
-  item. See `docs/decomp/dinosaur-actions.md`.
+- Dinosaur AI: the chooser, need-state weights, `DinoActionLoop` and the
+  SECU danger grid are ported and drive the imported dinosaurs. The
+  action→clip premise is resolved (locomotion slot + element envmap
+  texture, no table). Remaining: the GetCourage/ObstAttackSize1 cache
+  writers (action 13/26), the visitor/obstacle perception term, the `.bai`
+  element bone/event overlay and the feeding item. See
+  `docs/decomp/dinosaur-actions.md`, `docs/platform/danger-grid.md`.
 - Construction: the `FENCE_INSERTION` capacity model and store charge are
   decoded but not ported; runtime-confirm `[dinosaur+0x1e0]` and the landscape
   `+0xc` cell size. See `docs/decomp/construction-validation.md`.
