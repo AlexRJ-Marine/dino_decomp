@@ -42,16 +42,15 @@ unknowns, with what was tried and the concrete next step.
   `.bai` loader; disassemble the calls after the class-tag read and
   reconstruct the field order (the other agent did exactly this for `.bai`).
 
-## 4. `.bwi` field semantics and `SWITCH_*` consumer
+## 4. `.bwi` field semantics
 
 - **Solved:** full struct, all 24 files, assets, height law, cost class,
-  electrified flag, 0xb4-byte runtime record.
-- **Open:** what `0x08` (100), `0x0c` (10/15/30) and `0x10` (30) mean, and
-  where the two `SWITCH_WALL_*` / `SWITCH_FENCE_*` strings are consumed.
-- **Tried:** the switch strings do not occur in any INI, `.loc`, or the exe;
-  they are likely runtime keys or dead editor data.
+  electrified flag, 0xb4-byte runtime record, and the `SWITCH_*` keys are
+  **dead data** (no lookup table anywhere, no prefix in the exe).
+- **Open:** what `0x08` (100), `0x0c` (10/15/30) and `0x10` (30) mean.
 - **Next:** find the wall record's consumers (construction budget setter and
-  the wall renderer); if the strings are never read, mark them dead.
+  the wall renderer) and compare `0x0c` with the budget delta when a wall is
+  built (cost) vs dino damage (hit points).
 
 ## 5. Dinosaur behavior-graph node types
 

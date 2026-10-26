@@ -86,9 +86,11 @@ The trailing two strings are the only strings not shared with other walls:
 
 The bamb/steel/elect rows use `SWITCH_FENCE_*` for the height key while
 wood/iron/plates use `SWITCH_WALL_*`; that inconsistency is in the retail
-data. The names do **not** occur in any INI or `.loc` file, so they are either
-runtime switch-manager keys or editor leftovers. The loader reads them into
-the tail of the 0xb4-byte wall record and sets the following byte to 1.
+data. The names do **not** occur in any INI, `.loc` file or in the exe (no
+`SWITCH_WALL_`/`SWITCH_FENCE_` prefix either), so no name lookup can resolve
+them: they are **dead/unused keys**. The loader reads them into the tail of
+the 0xb4-byte wall record and sets the following byte to 1, but nothing
+consumes them.
 
 ## Runtime record
 

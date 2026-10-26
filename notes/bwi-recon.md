@@ -62,10 +62,10 @@ SWITCH_WALL_<MATERIAL>   SWITCH_WALL_<HEIGHT> or SWITCH_FENCE_<HEIGHT>
 ```
 
 Bamb/Steel/Elect use `SWITCH_FENCE_*` while Wood/Iron/Plates use
-`SWITCH_WALL_*`. The strings occur nowhere else in the game tree (checked
-every file byte-wise), so their consumer is either a runtime switch manager
-or dead editor data. The loader `0x53d9a0` stores them at the end of the
-0xb4-byte wall record and sets the next byte to 1.
+`SWITCH_WALL_*`. The strings (and the `SWITCH_WALL_`/`SWITCH_FENCE_` prefixes)
+occur nowhere else in the game tree and are not in the exe, so no lookup can
+resolve them: **dead/unused keys**. The loader `0x53d9a0` stores them at the
+end of the 0xb4-byte wall record and sets the next byte to 1.
 
 ## Loader
 
