@@ -902,6 +902,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Fix the list draw order: the text-only-child z adjustment raised the
   list to `parent + 0.001`, but lower ZPRIORITY is nearer, so the wood panel
   covered it. It is now `parent - 0.001`; the fence/dinosaur lists still pass.
+- [x] Trace the phenotype attribute fields for all 20 Cpg04 genotypes at the
+  `saDinosaur` ctor: Beauty/Agility/Armor are the Part 3 five-part sums
+  (19/20 exact), Perception adds the height term, Aggressiveness/Stamina/
+  Courage are the `Agre`/`Stam`/`Cour` gene expressions, walk speed is
+  0.24-0.36. Intelligence (`+0x3c`) is not the Part 3 sum; its formula is
+  open. See `notes/phenotype-attributes-runtime.md`.
+- [ ] Port the part-record accumulator (dummy/skin/carapace influences, Part
+  6/7/8 tables) so the store/lab attribute gauges and the visitor needs can
+  read exact values. The base sums + gene expressions already cover most
+  gauges.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

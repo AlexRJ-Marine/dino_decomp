@@ -1309,7 +1309,18 @@ Updated: 2026-10-26
   - Evidence: `notes/store-panel-recon.md`, `src/ui/park.{h,cpp}`,
     `src/viewer/main.cpp`, `notes/store-panel.png`,
     `tests/test_viewer_cpp.py::test_cpp_store_panel_purchase`,
-    `test_cpp_store_panel_no_money`.
+    `test_cpp_store_panel_no_money`, `test_cpp_store_panel_scroll`.
+- Phenotype attributes research: **runtime fields traced for all 20 Cpg04
+  genotypes.** Beauty/Agility/Armor are the Part 3 five-part sums (19/20
+  exact); Perception adds `PerceptionHeightPercentage * height / 100`;
+  Aggressiveness/Stamina/Courage are the `Agre`/`Stam`/`Cour` gene
+  expressions (10..100); walk speed is 0.24-0.36. Intelligence (`+0x3c`) is
+  **not** the Part 3 sum (18..105 vs 25..100) and its formula is open; the
+  small residuals on attack/Ag/St/Co come from the part-record accumulator
+  (dummy/skin/carapace Part 6/7/8 influences).
+  - Evidence: `notes/phenotype-attributes-runtime.md` (20-row table and field
+    offsets), `scripts/x32dbg/start-campaign.ps1` (`-GenotypeTrace` CTOR
+    fields).
 
 ## In progress
 

@@ -177,7 +177,7 @@ if (-not $game) {
             # The actor ctor is the common funnel for every creation path; log
             # the caller and the runtime genotype pointer (arg 2) there.
             Send 'bp 0x56fed0'
-            Send 'SetBreakpointCommand 0x56fed0, "log CTOR ret={p:[esp]} gen={p:[esp+8]} g0a={p:[[esp+8]]} g0b={p:[[esp+8]+4]} g1a={p:[[esp+8]+0xc]} g1b={p:[[esp+8]+0x10]} g2a={p:[[esp+8]+0x18]} g2b={p:[[esp+8]+0x1c]} g3a={p:[[esp+8]+0x24]} g3b={p:[[esp+8]+0x28]} p98={p:[[esp+4]+0x98]} pa4={p:[[esp+4]+0xa4]} pa8={p:[[esp+4]+0xa8]} cat={p:[[esp+4]+0x190]}; run"'
+            Send 'SetBreakpointCommand 0x56fed0, "log CTOR ret={p:[esp]} gen={p:[esp+8]} g0a={p:[[esp+8]]} g0b={p:[[esp+8]+4]} g1a={p:[[esp+8]+0xc]} g1b={p:[[esp+8]+0x10]} g2a={p:[[esp+8]+0x18]} g2b={p:[[esp+8]+0x1c]} g3a={p:[[esp+8]+0x24]} g3b={p:[[esp+8]+0x28]} p98={p:[[esp+4]+0x98]} pa4={p:[[esp+4]+0xa4]} pa8={p:[[esp+4]+0xa8]} cat={p:[[esp+4]+0x190]} p0={p:[[esp+4]]} pc={p:[[esp+4]+0xc]} p14={p:[[esp+4]+0x14]} p18={p:[[esp+4]+0x18]} p1c={p:[[esp+4]+0x1c]} p28={p:[[esp+4]+0x28]} p2c={p:[[esp+4]+0x2c]} p34={p:[[esp+4]+0x34]} p38={p:[[esp+4]+0x38]} p3c={p:[[esp+4]+0x3c]} p40={p:[[esp+4]+0x40]} p48={p:[[esp+4]+0x48]} p4c={p:[[esp+4]+0x4c]} p60={p:[[esp+4]+0x60]} p68={p:[[esp+4]+0x68]} p6c={p:[[esp+4]+0x6c]} p70={p:[[esp+4]+0x70]} p74={p:[[esp+4]+0x74]} p1b4={p:[[esp+4]+0x1b4]}; run"'
             # Dump the runtime Part 3 Length cells for the hybrid pairs used by
             # Cpg04: (0,4) and (1,4) and (18,0), for Head/Body/Tail.
             Send 'bp 0x619830'
