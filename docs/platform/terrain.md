@@ -61,6 +61,11 @@ Normals get the same Z rotation and are renormalised. `height_at` bilinearly
 samples the 512×512 heightmap with the same `world*0.5` mapping. Trees are
 upright; slope tilt is not applied.
 
+The `.imp` positions are already in engine world coordinates and are **not**
+flipped. Cross-check on isl01: all 1,536 instances land on terrain
+(`height > 16`) in engine orientation, 0% on free buildable cells; in file
+order only 71.4% are on land and 40.6% on free cells.
+
 `isl01` result: 9 groups, 1,536 instances, 52,291 triangles; coordinates match
 the `.imp` totals exactly. Texture paths resolve through the `.blf` directory
 (`Data/Graphics/Textures/buildings`).

@@ -77,10 +77,26 @@ aligned after the flip.
 - Save round-trip paths are `(128,128)/(128,129)` on isl03; the budget
   construction uses `(516,288)` on isl04 (12x12 free footprint).
 
+## Vegetation cross-check
+
+The 1,536 isl01 `.imp` instance positions are already in engine world
+coordinates and must **not** be flipped. With the flipped heightmap:
+
+- engine orientation: **100%** of instances are on land (`height > 16`,
+  min 18, mean 34.9) and 0% fall on free buildable cells (trees occupy the
+  blocked/cover cells);
+- file/top orientation: only 71.4% are on land and 40.6% fall on free
+  buildable cells.
+
+So the `.imp` loader stays as-is; only the heightmap and occupation raw need
+the row flip.
+
 ## Verification
 
 - `notes/entrance-fixed2.png`: the Entrance boat on the isl01 shoreline.
 - `notes/isl01-start-fixed.png`: free-game start view; matches the retail
   `notes/park-after2.png` framing (green grass, palms, water top-left).
+- `notes/menu-start-entrance-fixed.png`: the actual Free Game start handoff
+  (isl01, easy) after the fix.
 - `notes/isl01-overhead2.png`: whole-island top-down with the basemap.
 - `notes/uvtest2.png`: UV quadrant check after the `-v` fix.
