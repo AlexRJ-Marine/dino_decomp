@@ -43,6 +43,12 @@ Do not promote inferred to solved in `TASKS.md`.
   `notes/menu-main.png`, etc.). Add a new file with a descriptive name.
 - If a file is accidentally overwritten, restore it from git and note it.
 - Keep only the final PNG(s) referenced by docs; delete intermediate BMPs.
+- **Live retail runs overwrite `run/save/auto/auto.sav`.** The canonical
+  free-game autosave used by the tests is `run/save/auto/slot001.sav`
+  (7,116 bytes, 39 shows); copy it back over `auto.sav` before running the
+  save tests. A campaign autosave is ~53 KB and makes
+  `test_auto_save_catalog` / `test_retail_auto_graph` /
+  `test_sav_world_block_auto` fail.
 
 ## 5. Before handing off
 
