@@ -1594,6 +1594,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/park-panels.md`, `hud.md`,
   `ui-coordinates.md`, `tests/test_feature_matrix.py`.
 
+### DOCS-3: Campaign flow dossier
+- [x] Add `docs/platform/campaign-flow.md`: retail menu -> campaign select ->
+  briefing -> park flow, `run/save/dino.dat` unlock, difficulty, the INI data
+  contract, current port status and harness/viewer recipes.
+- [x] Cross-link it from `feature-status.md`; validate its screen/control
+  references through the matrix test.
+- **Acceptance:** the campaign flow and port gaps are documented; the existing
+  menu/import tests pass.
+- **Evidence:** `docs/platform/campaign-flow.md`,
+  `docs/formats/campaign.md`, `notes/campaign-recon.md`,
+  `scripts/x32dbg/start-campaign.ps1`,
+  `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`.
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness
