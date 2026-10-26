@@ -179,15 +179,14 @@ if (-not $game) {
         Save-Window $hwnd "campaign-running"
 
         # Now that the briefing is gone, trace the live dinosaur action path.
-        # 0x56c670 is the "can't reach item" branch; EBP is the saDinosaur
-        # ([ebp+0x28] is the printed dino id).
+        # 0x56e670 is the action selector; [ecx+0x28] is the saDinosaur.
         if (-not $NoTrace) {
-            Send 'bp 0x56c670'
-            Send 'SetBreakpointCommand 0x56c670, "log ACTOR dino={p:ebp} id={p:[ebp+0x28]} f1e0={p:[ebp+0x1e0]} f1dc={p:[ebp+0x1dc]} f1e4={p:[ebp+0x1e4]} act={p:[ebp+0x2c0]}; run"'
+            Send 'bp 0x56e670'
+            Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]}; run"'
             Send 'bp 0x57eb50'
             Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
             Resume
-            Start-Sleep -Seconds 10
+            Start-Sleep -Seconds 20
             Save-Window $hwnd "campaign-sim"
         }
     }
