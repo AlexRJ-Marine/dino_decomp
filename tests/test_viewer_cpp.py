@@ -222,6 +222,25 @@ def test_cpp_build_save_load(tmp_path):
     assert "2 path cells, 1 fences" in reload.stdout
 
 
+def test_cpp_occupation_mask_blocks_placement():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    # isl01 `_occupation.raw` (1024x1024): cell (130,94) centre maps to mask
+    # (522,378), inside the blocked Entrance footprint (value 255). (128,128)
+    # is the island centre and free.
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--build", "--place-path", "130,94",
+         "--place-path", "128,128"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "place-path: blocked cell 130,94" in result.stderr
+    assert "1 path cells, 0 fences" in result.stdout
+
+
 def test_cpp_pick_terrain(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")
@@ -581,7 +600,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (32 checks)" in result.stdout
+    assert "selftest: PASS (33 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -1233,6 +1252,7 @@ def test_cpp_menu_start_all_islands(tmp_path, row):
     name = f"isl{row + 1:02d}"
     assert f"start: island={name}" in result.stdout
     assert f"island: {name} lnd=" in result.stdout
+    assert "occupation mask:" not in result.stderr
     # The free-game Entrance is (lnd.width, lnd.height) with orientation
     # lnd.unknown_int (0/1/2); runtime-confirmed on isl01/isl02 and all
     # campaign Entrance records.
@@ -1462,7 +1482,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
          "--place-fence", "100,100,0", "--visitors", "3",
          "--park-time", "10:30", "--park-time-scale", "30",
          "--distance", "250", "--yaw", "40", "--pitch", "25",
-         "--building", str(bbi), "--building-pos", "500,500",
+         "--building", str(bbi), "--building-pos", "600,300",
          "--building-state", "1",
          "--save-port", str(target)],
         capture_output=True, text=True, timeout=180,
@@ -1476,7 +1496,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "grid 4 -512 -512 256 256" in text
     assert "path 100 100" in text and "path 100 101" in text
     assert "fence 100 100 0" in text
-    assert "building 9 500 500 1" in text
+    assert "building 9 600 300 1" in text
     visitor_lines = [ln for ln in text.splitlines() if ln.startswith("visitor ")]
     assert len(visitor_lines) == 3
     # profile + three needs are the optional tail; the wander spawn uses the
@@ -1498,7 +1518,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
             "paths=2 fences=1 buildings=1 dinos=0") in load.stdout
     assert "build: 2 path cells, 1 fences" in load.stdout
     assert ("building: Entrance mesh=" in load.stdout and
-            "cell=500.0,500.0" in load.stdout)
+            "cell=600.0,300.0" in load.stdout)
     assert "visitor stats: count=3 " in load.stdout
     assert "needs=39.0/99.0/99.0" in load.stdout
 
@@ -1881,13 +1901,13 @@ def test_cpp_construction_placement():
             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
             "--no-entrance", "--park-click", "748,177",
             "--park-click", "582,28", "--park-click", "577,243",
-            "--construct-pos", "600,300", "--construct-pos", "600,300"]
+            "--construct-pos", "500,500", "--construct-pos", "500,500"]
     result = subprocess.run(args, capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     assert ("park click 577,243 -> "
             "construct CONSTRUC_RESTAURANT3_BUTTON") in result.stdout
     assert "construction: RestCirc selected, cost=2500" in result.stdout
-    assert ("construction: RestCirc cost=2500 budget=72500 cell=600,300"
+    assert ("construction: RestCirc cost=2500 budget=72500 cell=500,500"
             in result.stdout)
     assert "construction: RestCirc overlaps another building" in result.stdout
 
@@ -1896,7 +1916,7 @@ def test_cpp_construction_placement():
          "--height", "120", "--no-vsync", "--no-save-config", "--lnd",
          str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
          "--no-water", "--no-entrance", "--park-budget", "100",
-         "--construct", "RestCirc", "--construct-pos", "600,300"],
+         "--construct", "RestCirc", "--construct-pos", "500,500"],
         capture_output=True, text=True, timeout=120,
     )
     assert poor.returncode == 0, poor.stderr
@@ -2056,7 +2076,7 @@ def test_cpp_budget_panel_ledger(tmp_path):
     assert "budget totals: expenses=0 income=0 net=0" in zero.stdout
 
     spent = run(["--buy-dino", "Zarbosaurus", "--construct", "RestCirc",
-                 "--construct-pos", "600,300"], spent_shot)
+                 "--construct-pos", "512,140"], spent_shot)
     assert ("budget ledger: dinoachat=0/0 construction=0/0 tickets=0/0"
             in spent.stdout)
     assert ("budget yesterday: dinoachat=1/4900 construction=1/2500 "
@@ -2107,3 +2127,55 @@ def test_cpp_park_fence_and_dino_lists(tmp_path):
     assert "park click 302,584 -> open DINO_LIST_PANEL" in dinos.stdout
     image = Image.open(dino_shot).convert("RGB")
     assert len(image.crop((176, 541, 240, 557)).getcolors(maxcolors=100000)) > 20
+
+
+def test_cpp_store_panel_purchase():
+    """Store row select -> SAVE -> paddock click charges and updates the row."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-click", "765,298", "--park-click", "160,88",
+         "--park-click", "470,520", "--ground-click", "400,300"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "park click 765,298 -> open DINO_ACHAT_SAVE_PANEL" in log
+    assert "park click 160,88 -> store select 0" in log
+    assert "park click 470,520 -> store buy 0" in log
+    assert "store: Allosaurus price=9000 selected, click a paddock" in log
+    # 75,000 - 9,000; paddock 7 (456,464)-(479,487); Allosaurus is class 2
+    # (32); the other 20 dinosaurs already use 336.
+    assert ("store: bought Allosaurus price=9000 budget=66000 paddock=7 "
+            "dinos=21 dinoachat=1/9000 used=32 total=368") in log
+
+
+def test_cpp_store_panel_no_money():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-budget", "100",
+         "--park-click", "765,298", "--park-click", "160,88",
+         "--park-click", "470,520", "--ground-click", "400,300"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    assert ("store: Allosaurus price=9000 budget=100 "
+            "(WARNING_NOT_ENOUGH_MONEY)") in result.stdout
+    assert "store: bought" not in result.stdout

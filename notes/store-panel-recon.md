@@ -118,6 +118,56 @@ Steps 4-5 reuse the existing `--buy-dino` core; only the source of the entry
 changes (selected row instead of a CLI name). The `DINOACHAT` ledger bucket is
 already fed by the headless purchase.
 
+## Port status
+
+Implemented:
+
+- `ParkHud::set_store_rows`, `store_select`, `store_scroll_by`,
+  `store_visible_row` and `store_row_at` in `src/ui/park.{h,cpp}`. The list is
+  a six-row viewport over the catalog (row pitch = list height / 6); the
+  selected row is drawn in yellow with its price right-aligned.
+- Click actions: `DINO_ACHAT_SAVE_NAMES_LIST` -> `store select N`,
+  the scroll buttons -> `store scroll up/down`, SAVE -> `store buy N`
+  (or `store no selection`), CANCEL -> close.
+- `main.cpp`: `handle_store_buy` is the retail `0x00535600` budget gate. On
+  success it stores the entry/price, hides the panel and arms
+  `pending_store_index`; the next ground click runs `paddock_can_add`, shows
+  `WARNING_NO_ROOM_IN_FENCE` and keeps the insertion state on failure, or
+  adds the dinosaur at the picked point, charges `park_budget`, feeds
+  `BudgetLedger::spend_dinoachat`, erases the catalog row and refreshes the
+  list. `--ground-click X,Y` is the scripted scene click used by the tests.
+
+Verified on Cpg04 (`test_cpp_store_panel_purchase`):
+
+```text
+park click 765,298 -> open DINO_ACHAT_SAVE_PANEL
+park click 160,88  -> store select 0
+park click 470,520 -> store buy 0
+store: Allosaurus price=9000 selected, click a paddock
+store: bought Allosaurus price=9000 budget=66000 paddock=7 dinos=21 \
+       dinoachat=1/9000 used=32 total=368
+```
+
+and `test_cpp_store_panel_no_money`: budget 100 -> `WARNING_NOT_ENOUGH_MONEY`
+and no purchase.
+
+Remaining: the 3D preview actor and the eleven attribute gauges (need the full
+phenotype attributes), restoring the panel after a dismissed warning, and the
+mission/free-game catalog selection (the port currently uses `Market.ini` for
+all modes).
+
+### Draw-order fix
+
+The rows were initially invisible: `DINO_ACHAT_SAVE_WOOD_PANEL` (a sibling
+child of the panel, ZPRIORITY 0.49) was drawn *after*
+`DINO_ACHAT_SAVE_NAMES_LIST`. Root cause: `Overlay::load_interface` raised
+text-only children to `parent + 0.001`, but lower ZPRIORITY is nearer in the
+retail overlay, so the store list (0.46 -> 0.491) fell behind the wood
+(0.490). The adjustment is now `parent - 0.001`; the six rows and the dark-red
+list background render over the wood (`notes/store-panel.png`). The park
+fence/dinosaur list snapshots still pass.
+
+
 ## Evidence
 
 - Ghidra: `0x00534430` (state ctor / widget resolution), `0x00535170`

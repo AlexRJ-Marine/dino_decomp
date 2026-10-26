@@ -1,11 +1,20 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "../formats/loc.h"
 #include "overlay.h"
 
 namespace dino::ui {
+
+// One row of the dinosaur store panel (`DINO_ACHAT_SAVE_NAMES_LIST`).
+// The retail list shows six rows of `name`/`price`; the viewer feeds the
+// entries from Market.ini / the mission DinoStore.
+struct StoreRow {
+    std::string name;
+    int price = 0;
+};
 
 // In-park HUD controller: owns the ParkInterface.Ini tree and implements the
 // panel switching bound by the original FUN_00527d30. Rendering stays in the
@@ -58,6 +67,20 @@ public:
     void append_name_char(char c);
     void backspace_name();
 
+    // Dinosaur store panel (`DINO_ACHAT_SAVE_PANEL`). The retail state fills
+    // six rows from the store vector (0x00535460) and refreshes the detail
+    // pane from the selected index (0x00535710).
+    void set_store_rows(std::vector<StoreRow> rows);
+    const std::vector<StoreRow>& store_rows() const { return store_rows_; }
+    void store_select(int index);
+    int store_selected() const { return store_selected_; }
+    int store_scroll() const { return store_scroll_; }
+    void store_scroll_by(int delta);
+    // Six visible slots; null past the end.
+    const StoreRow* store_visible_row(int slot) const;
+    static constexpr int store_visible_rows() { return 6; }
+    int store_row_at(int x, int y) const;
+
     Overlay overlay;
     Loc loc;
 
@@ -75,6 +98,9 @@ private:
     int save_selected_ = -1;
     std::string save_name_ = "quicksave";
     bool name_edit_ = false;
+    std::vector<StoreRow> store_rows_;
+    int store_selected_ = -1;
+    int store_scroll_ = 0;
 };
 
 }  // namespace dino::ui

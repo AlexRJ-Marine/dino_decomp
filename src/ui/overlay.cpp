@@ -170,6 +170,7 @@ bool Overlay::load_interface(const std::string& interface_path,
 
         // Text-only children (the list counters, names) sit on top of their
         // parent's panel art even when the INI gives them a lower ZPRIORITY.
+        // Lower ZPRIORITY is nearer, so "on top" means parent - 0.001.
         for (Widget& widget : widgets) {
             if (!widget.texture.empty() || widget.font.empty() ||
                 widget.parent_index < 0) {
@@ -178,7 +179,7 @@ bool Overlay::load_interface(const std::string& interface_path,
             const Widget& parent = widgets[static_cast<std::size_t>(
                 widget.parent_index)];
             if (widget.zpriority <= parent.zpriority) {
-                widget.zpriority = parent.zpriority + 0.001f;
+                widget.zpriority = parent.zpriority - 0.001f;
             }
         }
 

@@ -876,12 +876,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `+0x18` price and `+0x28` preview model. See `notes/store-panel-recon.md`.
 - [x] `DINOACHAT` count/total bucket: `BudgetLedger::spend_dinoachat` is fed
   by the purchase and shown in the budget panel.
-- [ ] Port the interactive store panel (selection + paddock click), the
+- [x] Port the interactive store panel (selection + paddock click), the
   store-row removal (`FUN_00594270`) and the insertion state staying active
-  on failure. The row list/selection feeds the existing purchase core; the
-  contract is in `notes/store-panel-recon.md`. The 1.5 s reveal delay is
-  optional (retail hides the new model until half of its 3-second placement
-  record has elapsed).
+  on failure. `ParkHud` owns the six-row viewport/selection and emits
+  `store select N` / `store buy N`; `main.cpp` runs the retail budget gate,
+  then the ground click runs `paddock_can_add`, charges `park_budget`, feeds
+  `BudgetLedger::spend_dinoachat`, places the dinosaur and erases the catalog
+  row. Cpg04: Allosaurus (9,000) -> budget 66,000, paddock 7, total 368
+  (`notes/store-panel.png`, `test_cpp_store_panel_purchase`,
+  `test_cpp_store_panel_no_money`). The 1.5 s reveal delay is optional;
+  the preview actor and the eleven gauges remain.
+- [x] Fix the list draw order: the text-only-child z adjustment raised the
+  list to `parent + 0.001`, but lower ZPRIORITY is nearer, so the wood panel
+  covered it. It is now `parent - 0.001`; the fence/dinosaur lists still pass.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

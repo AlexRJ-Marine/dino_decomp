@@ -1281,16 +1281,28 @@ Updated: 2026-10-26
   - Reviewed by the reviewer agent; corrections applied: warning path stays
     in-state, 4-byte occupant vector, unreachable 50-loop, softened
     `+0x1e0`, `stWall.cpp` rasteriser, `this+0x48` branch recorded as open.
+- CONS-1 interactive store panel complete: **row list -> SAVE -> paddock click.**
+  - `ParkHud` owns the six-row viewport, selection and scroll over the store
+    catalog (`set_store_rows`/`store_row_at`/`store_select`); the list renders
+    over the wood panel (`notes/store-panel.png`).
+  - `main.cpp` implements the retail gate: SAVE (`store buy N`) checks the
+    budget (`WARNING_NOT_ENOUGH_MONEY`, panel stays), the next ground click
+    runs `paddock_can_add` (`WARNING_NO_ROOM_IN_FENCE`, insertion stays), then
+    charges the price, feeds `BudgetLedger::spend_dinoachat`, places the
+    dinosaur and removes the catalog row. Cpg04 Allosaurus: 9,000, budget
+    66,000, paddock 7, total used 368.
+  - Fixed the park HUD tree order: the text-only-child z adjustment now uses
+    `parent - 0.001` (lower ZPRIORITY is nearer); the store list had been
+    hidden under `DINO_ACHAT_SAVE_WOOD_PANEL`.
+  - Remaining: the 3D preview actor, the eleven attribute gauges, restoring
+    the panel after a dismissed warning, mission/FreeGame catalog selection.
+  - Evidence: `notes/store-panel-recon.md`, `src/ui/park.{h,cpp}`,
+    `src/viewer/main.cpp`, `notes/store-panel.png`,
+    `tests/test_viewer_cpp.py::test_cpp_store_panel_purchase`,
+    `test_cpp_store_panel_no_money`.
 
 ## In progress
 
-- **CONS-1 store panel (active):** the retail contract is decoded in
-  `notes/store-panel-recon.md` (state 0x13 `DINOSAUR_PURCHASE`, six-row
-  viewport, SAVE -> budget gate -> `tool+0x3c = 1` -> state 0x12, CANCEL,
-  record `+0x18` price / `+0x28` preview). The port opens
-  `DINO_ACHAT_SAVE_PANEL` from `OPEN_PURCHASE` but has no row list or
-  selection yet. Next: `DinoStore` model + six-row viewport, SAVE ->
-  insertion mode, paddock click -> capacity/charge/store-row removal.
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
   and drive the imported dinosaurs. The old "action→clip table" premise is
   resolved: `aacDinosaurAnimator` selects a locomotion/activity slot from
@@ -1367,13 +1379,12 @@ Updated: 2026-10-26
    are applied. The `.lnd` carry path is solved (`notes/lnd-carry-recon.md`).
    Remaining: the second `Modulate2x` water stage, the skybox bottom seam and
    a direct side-by-side still.
-14. CONS-1 rest: port the interactive store panel (row selection + paddock
-   click) and the `DINOACHAT` count/total bucket + store-row removal. The
-   phenotype size class is solved and ported (Cpg04 `used = 336`; see
-   `notes/paddock-size-class-runtime.md`); the `0x535c97` branch is the 1.5 s
-   post-placement node-reveal timer. The capacity model, the headless
-   purchase core (`--buy-dino`), the catalog reader and both warning panels
-   are done. See `docs/decomp/construction-validation.md`.
+14. CONS-1 store panel done: rows/selection/SAVE/ground click charge and row
+   removal work on Cpg04 (`notes/store-panel-recon.md`,
+   `notes/store-panel.png`). Remaining polish: the 3D preview actor, the
+   eleven attribute gauges, restoring the panel after a dismissed warning,
+   and choosing the mission/FreeGame catalog. The phenotype size class is
+   solved and ported (Cpg04 `used = 336`).
 
 ## Blockers
 

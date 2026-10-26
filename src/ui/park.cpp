@@ -1,5 +1,6 @@
 #include "park.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iterator>
 
@@ -262,6 +263,20 @@ void ParkHud::open_panel(const std::string& name) {
                 std::string(group.group) == "CONSTRUC_RESTAURANT_GROUP");
         }
     }
+    if (name == "DINO_ACHAT_SAVE_PANEL") {
+        const int count = static_cast<int>(store_rows_.size());
+        if (count == 0) {
+            store_selected_ = -1;
+            store_scroll_ = 0;
+        } else {
+            if (store_selected_ < 0 || store_selected_ >= count) {
+                store_selected_ = 0;
+            }
+            store_scroll_ = std::clamp(
+                store_scroll_, 0,
+                std::max(0, count - store_visible_rows()));
+        }
+    }
 }
 
 void ParkHud::close_panel(const std::string& name) {
@@ -289,6 +304,65 @@ void ParkHud::backspace_name() {
     if (!save_name_.empty()) {
         save_name_.pop_back();
     }
+}
+
+void ParkHud::set_store_rows(std::vector<StoreRow> rows) {
+    store_rows_ = std::move(rows);
+    store_scroll_ = 0;
+    store_selected_ = store_rows_.empty() ? -1 : 0;
+}
+
+void ParkHud::store_select(int index) {
+    if (index < 0 || index >= static_cast<int>(store_rows_.size())) {
+        store_selected_ = -1;
+        return;
+    }
+    store_selected_ = index;
+    if (index < store_scroll_) {
+        store_scroll_ = index;
+    } else if (index >= store_scroll_ + store_visible_rows()) {
+        store_scroll_ = index - store_visible_rows() + 1;
+    }
+}
+
+void ParkHud::store_scroll_by(int delta) {
+    const int max_scroll = std::max(
+        0, static_cast<int>(store_rows_.size()) - store_visible_rows());
+    store_scroll_ = std::clamp(store_scroll_ + delta, 0, max_scroll);
+}
+
+const StoreRow* ParkHud::store_visible_row(int slot) const {
+    if (slot < 0 || slot >= store_visible_rows()) {
+        return nullptr;
+    }
+    const int index = store_scroll_ + slot;
+    if (index < 0 || index >= static_cast<int>(store_rows_.size())) {
+        return nullptr;
+    }
+    return &store_rows_[static_cast<std::size_t>(index)];
+}
+
+int ParkHud::store_row_at(int x, int y) const {
+    const int list_index = overlay.find("DINO_ACHAT_SAVE_NAMES_LIST");
+    if (list_index < 0 || !overlay.visible_in_tree(list_index)) {
+        return -1;
+    }
+    const Widget& list = overlay.widgets[static_cast<std::size_t>(list_index)];
+    if (x < list.abs_x || x >= list.abs_x + list.width || y < list.abs_y ||
+        y >= list.abs_y + list.height) {
+        return -1;
+    }
+    const int pitch =
+        std::max(1, list.height / store_visible_rows());
+    const int slot = (y - list.abs_y) / pitch;
+    if (slot < 0 || slot >= store_visible_rows()) {
+        return -1;
+    }
+    const int index = store_scroll_ + slot;
+    if (index < 0 || index >= static_cast<int>(store_rows_.size())) {
+        return -1;
+    }
+    return index;
 }
 
 bool ParkHud::click(int x, int y, std::string& action) {
@@ -383,6 +457,43 @@ bool ParkHud::click(int x, int y, std::string& action) {
     if (name == "OPTIONS_UNVALIDATE_BUTTON") {
         close_panel("OPTIONS_PANEL");
         action = "close OPTIONS_PANEL";
+        return true;
+    }
+
+    // Dinosaur store panel: the list is a six-row viewport over the store
+    // vector (0x00535460); SAVE/CANCEL follow the retail state 0x13 flow.
+    if (name == "DINO_ACHAT_SAVE_NAMES_LIST") {
+        const int index = store_row_at(x, y);
+        if (index >= 0) {
+            store_select(index);
+            action = "store select " + std::to_string(index);
+        }
+        return true;
+    }
+    if (name == "COMBOBOX1_LB_VS_BTN_UP" ||
+        name == "DINO_ACHAT_SAVE_SCROLLUP") {
+        store_scroll_by(-1);
+        action = "store scroll up";
+        return true;
+    }
+    if (name == "COMBOBOX1_LB_VS_BTN_DOWN" ||
+        name == "DINO_ACHAT_SAVE_SCROLLDOWN") {
+        store_scroll_by(1);
+        action = "store scroll down";
+        return true;
+    }
+    if (name == "DINO_ACHAT_SAVE_OUTCOME_SAVE") {
+        // The budget gate stays in the panel on failure (0x00535600), so the
+        // viewer performs it and closes the panel only on success.
+        action = store_selected_ >= 0
+                     ? "store buy " + std::to_string(store_selected_)
+                     : "store no selection";
+        return true;
+    }
+    if (name == "DINO_ACHAT_SAVE_OUTCOME_CANCEL") {
+        store_selected_ = -1;
+        close_panel("DINO_ACHAT_SAVE_PANEL");
+        action = "close DINO_ACHAT_SAVE_PANEL";
         return true;
     }
 

@@ -168,6 +168,7 @@ struct Options {
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
+    std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::string skybox_dir;
     bool water = true;
     float water_level = -1.0f;
@@ -475,6 +476,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_hover = next("--park-hover");
         } else if (arg == "--park-click") {
             opt.park_clicks.push_back(next("--park-click"));
+        } else if (arg == "--ground-click") {
+            opt.ground_click = next("--ground-click");
         } else if (arg == "--no-water") {
             opt.water = false;
         } else if (arg == "--water-level") {
@@ -2178,6 +2181,16 @@ int run_selftest() {
     terrain.world_size = 1024.0f;
     terrain.height_scale = 1.0f;
     terrain.heights.assign(16 * 16, 0);
+    terrain.occupation_width = 1024;
+    terrain.occupation_height = 1024;
+    terrain.occupation.assign(1024 * 1024, 255);
+    terrain.occupation[512 * 1024 + 512] = 0;  // world (0, 0)
+    terrain.occupation[100 * 1024 + 100] = 0;  // world (-412, -412)
+    check(terrain.buildable(0.0f, 0.0f) &&
+              terrain.buildable(-412.0f, -412.0f) &&
+              !terrain.buildable(10.0f, 0.0f) &&
+              !terrain.buildable(-1000.0f, 0.0f),
+          "occupation mask");
 
     for (int i = 100; i <= 110; ++i) {
         grid.set_path(i, 100, true);
@@ -2665,6 +2678,25 @@ int main(int argc, char** argv) {
     bool pending_port_save = false;
     bool pending_port_load = false;
     std::string pending_construct_widget;
+    std::string pending_store_action;
+
+    // Dinosaur store panel: the retail state lists the store vector in
+    // six-row pages (0x00535460). The port uses the Market.ini catalog, the
+    // same source as --buy-dino; FreeGame.ini's subset is a later option.
+    std::vector<dino::MarketEntry> store_catalog;
+    int pending_store_index = -1;
+    int pending_store_price = 0;
+    auto refresh_store_rows = [&]() {
+        std::vector<dino::ui::StoreRow> rows;
+        rows.reserve(store_catalog.size());
+        for (const dino::MarketEntry& entry : store_catalog) {
+            std::string name = entry.name;
+            std::replace(name.begin(), name.end(), '_', ' ');
+            rows.push_back({name, entry.price});
+        }
+        park.set_store_rows(std::move(rows));
+    };
+
     if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
@@ -2681,6 +2713,14 @@ int main(int argc, char** argv) {
                 }
                 opt.save_name = park.save_name();
             }
+            try {
+                store_catalog = dino::load_market(resolve_asset(
+                    opt.asset_root,
+                    "Data/Design/Scenario/Market.ini")).entries;
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "store catalog: %s\n", e.what());
+            }
+            refresh_store_rows();
             auto dialog_text = [&](const std::string& value) {
                 return !value.empty() && value[0] == '&'
                            ? dino::ui::resolve_loc_text(value, park.loc)
@@ -2717,6 +2757,8 @@ int main(int argc, char** argv) {
                         pending_port_load = true;
                     } else if (action.rfind("construct ", 0) == 0) {
                         pending_construct_widget = action.substr(10);
+                    } else if (action.rfind("store buy ", 0) == 0) {
+                        pending_store_action = action;
                     }
                     std::printf("park click %d,%d -> %s\n", x, y,
                                 action.empty() ? "consumed" : action.c_str());
@@ -2805,6 +2847,15 @@ int main(int argc, char** argv) {
                 resolve_asset(opt.asset_root, lnd.heightmap), hm_width, hm_height);
             terrain = dino::build_terrain(heights, hm_width, hm_height,
                                           opt.terrain_size, opt.height_scale);
+            try {
+                int occ_w = 0, occ_h = 0;
+                terrain.occupation = dino::load_raw_u8(
+                    resolve_asset(opt.asset_root, lnd.occupation), occ_w, occ_h);
+                terrain.occupation_width = occ_w;
+                terrain.occupation_height = occ_h;
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "occupation mask: %s\n", e.what());
+            }
             if (opt.texture_path.empty() && !lnd.basemap.empty()) {
                 image = dino::load_tga(resolve_asset(opt.asset_root, lnd.basemap));
             }
@@ -2819,6 +2870,17 @@ int main(int argc, char** argv) {
                 for (const auto& value : opt.place_paths) {
                     int x = 0, y = 0, edge = 0;
                     if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
+                        const float cs = build_grid.cell_size;
+                        if (!terrain.buildable(
+                                build_grid.origin_x +
+                                    (static_cast<float>(x) + 0.5f) * cs,
+                                build_grid.origin_y +
+                                    (static_cast<float>(y) + 0.5f) * cs)) {
+                            std::fprintf(stderr,
+                                         "place-path: blocked cell %d,%d\n", x,
+                                         y);
+                            continue;
+                        }
                         build_grid.set_path(x, y, true);
                     } else {
                         std::fprintf(stderr, "bad --place-path %s\n", value.c_str());
@@ -2827,6 +2889,22 @@ int main(int argc, char** argv) {
                 for (const auto& value : opt.place_fences) {
                     int x = 0, y = 0, edge = 0;
                     if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
+                        const float cs = build_grid.cell_size;
+                        auto free_cell = [&](int gx, int gy) {
+                            return terrain.buildable(
+                                build_grid.origin_x +
+                                    (static_cast<float>(gx) + 0.5f) * cs,
+                                build_grid.origin_y +
+                                    (static_cast<float>(gy) + 0.5f) * cs);
+                        };
+                        if (!free_cell(x, y) ||
+                            !free_cell(x - (edge == 1 ? 1 : 0),
+                                       y - (edge == 0 ? 1 : 0))) {
+                            std::fprintf(stderr,
+                                         "place-fence: blocked cell %d,%d\n", x,
+                                         y);
+                            continue;
+                        }
                         build_grid.set_fence(x, y, edge, true);
                     } else {
                         std::fprintf(stderr, "bad --place-fence %s\n", value.c_str());
@@ -3677,6 +3755,13 @@ int main(int argc, char** argv) {
     // Fence rectangles from a `.wld`/`.sav` import, kept for the park HUD's
     // paddock list after the import block ends.
     std::vector<dino::Paddock> park_paddocks;
+    // Live paddocks (capacity/occupancy) for the interactive store purchase.
+    std::vector<dino::Paddock> paddocks;
+    // Shared by the world import, --buy-dino and the interactive store.
+    dino::DinoFamilyTable family_table;
+    std::map<int, std::string> head_species;
+    std::map<std::string, int> species_size_cm;
+    std::function<int(const std::string&)> size_for_species;
     std::vector<dino::BaiAction> dino_action_table;
     std::array<int, 4> dino_initial_needs{50, 99, 99, 99};
     if (std::sscanf(opt.dino_needs.c_str(), "%d,%d,%d,%d",
@@ -4375,7 +4460,7 @@ int main(int argc, char** argv) {
                                    ? opt.park_budget_override
                                    : (sav_ready ? sav_simulation.budget
                                                 : free_game_budgets[0]);
-        dino::DinoFamilyTable family_table;
+        // family_table is shared with the interactive store path.
         try {
             family_table = dino::read_dino_family_table(
                 resolve_asset(opt.asset_root,
@@ -4385,7 +4470,7 @@ int main(int argc, char** argv) {
         } catch (const std::exception& e) {
             std::fprintf(stderr, "dino family table: %s\n", e.what());
         }
-        std::map<int, std::string> head_species;
+        // head_species is shared with the interactive store path.
         for (const std::string& species : family_table.species) {
             try {
                 const int head = dino::read_gen_head_type(resolve_asset(
@@ -4411,7 +4496,7 @@ int main(int argc, char** argv) {
                                          fence.end_x, fence.end_y});
             }
         }
-        std::vector<dino::Paddock> paddocks;
+        paddocks.clear();
         paddocks.reserve(paddock_rects.size());
         for (const dino::WorldRect& rect : paddock_rects) {
             dino::Paddock paddock;
@@ -4423,8 +4508,8 @@ int main(int argc, char** argv) {
         // `dinosaur+0x1e0` is a size class (8/16/32/64). The exact class comes
         // from the individual's phenotype; the port derives it from the
         // species rest-mesh bbox until the genotype translator is ported.
-        std::map<std::string, int> species_size_cm;
-        auto size_for_species = [&](const std::string& species) {
+        // species_size_cm is shared with the interactive store path.
+        size_for_species = [&](const std::string& species) -> int {
             const auto found = species_size_cm.find(species);
             if (found != species_size_cm.end()) {
                 return found->second;
@@ -4689,6 +4774,15 @@ int main(int argc, char** argv) {
     float click_x = 0.0f;
     float click_y = 0.0f;
     float drag_distance = 0.0f;
+    if (!opt.ground_click.empty()) {
+        int gx = 0;
+        int gy = 0;
+        if (std::sscanf(opt.ground_click.c_str(), "%d,%d", &gx, &gy) == 2) {
+            pending_click = true;
+            click_x = static_cast<float>(gx);
+            click_y = static_cast<float>(gy);
+        }
+    }
 
     dino::Vec3 center = place_dino
         ? dino::Vec3{spawn_x - terrain.world_size * 0.5f,
@@ -4767,6 +4861,15 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height);
         dino::Terrain new_terrain = dino::build_terrain(
             heights, hm_width, hm_height, opt.terrain_size, opt.height_scale);
+        try {
+            int occ_w = 0, occ_h = 0;
+            new_terrain.occupation = dino::load_raw_u8(
+                resolve_asset(opt.asset_root, new_lnd.occupation), occ_w, occ_h);
+            new_terrain.occupation_width = occ_w;
+            new_terrain.occupation_height = occ_h;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "occupation mask: %s\n", e.what());
+        }
         dino::Vegetation new_vegetation;
         if (!opt.no_vegetation) {
             new_vegetation =
@@ -4899,12 +5002,37 @@ int main(int argc, char** argv) {
             for (const auto& value : opt.place_paths) {
                 int x = 0, y = 0, edge = 0;
                 if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
+                    const float cs = build_grid.cell_size;
+                    if (!terrain.buildable(
+                            build_grid.origin_x +
+                                (static_cast<float>(x) + 0.5f) * cs,
+                            build_grid.origin_y +
+                                (static_cast<float>(y) + 0.5f) * cs)) {
+                        std::fprintf(stderr, "place-path: blocked cell %d,%d\n",
+                                     x, y);
+                        continue;
+                    }
                     build_grid.set_path(x, y, true);
                 }
             }
             for (const auto& value : opt.place_fences) {
                 int x = 0, y = 0, edge = 0;
                 if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
+                    const float cs = build_grid.cell_size;
+                    auto free_cell = [&](int gx, int gy) {
+                        return terrain.buildable(
+                            build_grid.origin_x +
+                                (static_cast<float>(gx) + 0.5f) * cs,
+                            build_grid.origin_y +
+                                (static_cast<float>(gy) + 0.5f) * cs);
+                    };
+                    if (!free_cell(x, y) ||
+                        !free_cell(x - (edge == 1 ? 1 : 0),
+                                   y - (edge == 0 ? 1 : 0))) {
+                        std::fprintf(stderr,
+                                     "place-fence: blocked cell %d,%d\n", x, y);
+                        continue;
+                    }
                     build_grid.set_fence(x, y, edge, true);
                 }
             }
@@ -5195,6 +5323,18 @@ int main(int argc, char** argv) {
                         def.name.c_str());
             return false;
         }
+        const float half = terrain.world_size * 0.5f;
+        for (int y = cell_y; y < cell_y + h; ++y) {
+            for (int x = cell_x; x < cell_x + w; ++x) {
+                if (!terrain.buildable(static_cast<float>(x) - half + 0.5f,
+                                       static_cast<float>(y) - half + 0.5f)) {
+                    std::printf(
+                        "construction: %s on blocked ground\n",
+                        def.name.c_str());
+                    return false;
+                }
+            }
+        }
         if (park_budget < static_cast<int>(def.construction_cost)) {
             std::printf(
                 "construction: %s needs %u, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
@@ -5243,6 +5383,35 @@ int main(int argc, char** argv) {
                 try_construct(kind, x, y, 0);
             }
         }
+    }
+
+    // Start a store purchase (0x00535600): the budget gate stays in the panel
+    // on failure; on success the panel closes and the next ground click is
+    // the FENCE_INSERTION target.
+    auto handle_store_buy = [&](int index) {
+        if (index < 0 || index >= static_cast<int>(store_catalog.size())) {
+            return;
+        }
+        const dino::MarketEntry& entry =
+            store_catalog[static_cast<std::size_t>(index)];
+        if (park_budget < entry.price) {
+            std::printf(
+                "store: %s price=%d budget=%d "
+                "(WARNING_NOT_ENOUGH_MONEY)\n",
+                entry.name.c_str(), entry.price, park_budget);
+            park.show_warning(dino::ui::resolve_loc_text(
+                "&WARNING_NOT_ENOUGH_MONEY", park.loc));
+            return;
+        }
+        pending_store_index = index;
+        pending_store_price = entry.price;
+        park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
+        std::printf("store: %s price=%d selected, click a paddock\n",
+                    entry.name.c_str(), entry.price);
+    };
+    if (pending_store_action.rfind("store buy ", 0) == 0) {
+        handle_store_buy(std::atoi(pending_store_action.c_str() + 10));
+        pending_store_action.clear();
     }
 
     // Daily settlement (0x0058ad00): wages, security, visitor tickets, then
@@ -5838,8 +6007,7 @@ int main(int argc, char** argv) {
         auto py = [&](int value) { return static_cast<float>(value) * dpi; };
 
         std::vector<int> order;
-        auto draw_less = [&](int a, int b) {
-            const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
+        auto draw_less = [&](int a, int b) {            const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
             const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
             if (wa.priority != wb.priority) {
                 return wa.priority < wb.priority;
@@ -6181,6 +6349,58 @@ int main(int argc, char** argv) {
                 }
             }
 
+            if (widget.name == "DINO_ACHAT_SAVE_NAMES_LIST" &&
+                !park.store_rows().empty()) {
+                const int line_h = widget.list_line_height > 0
+                                       ? widget.list_line_height
+                                       : 12;
+                const int pitch = std::max(
+                    1, widget.height /
+                           dino::ui::ParkHud::store_visible_rows());
+                const int row_w =
+                    widget.list_column0_width > 0
+                        ? widget.list_column0_width
+                        : widget.width - widget.list_scroll_width;
+                float list_scale = 1.0f;
+                GLuint list_atlas = 0;
+                const dino::Fnt* list_font =
+                    ui_font(widget.font, widget.text_height, list_scale,
+                            list_atlas);
+                if (list_font != nullptr) {
+                    for (int slot = 0;
+                         slot < dino::ui::ParkHud::store_visible_rows();
+                         ++slot) {
+                        const dino::ui::StoreRow* row =
+                            park.store_visible_row(slot);
+                        if (row == nullptr) {
+                            break;
+                        }
+                        const bool selected =
+                            park.store_scroll() + slot ==
+                            park.store_selected();
+                        const int row_y = widget.abs_y + slot * pitch;
+                        const dino::Mesh name_block = build_text_block(
+                            *list_font, row->name, px(widget.abs_x),
+                            py(row_y), list_scale * dpi,
+                            selected ? dino::Color{255, 255, 0, 255}
+                                     : widget.text_color,
+                            "LEFT", static_cast<float>(row_w) * dpi,
+                            static_cast<float>(line_h) * dpi);
+                        draw_ui_mesh(menu_gpu, name_block, list_atlas, 1.0f,
+                                     2, view_w, view_h);
+                        const dino::Mesh price_block = build_text_block(
+                            *list_font, std::to_string(row->price),
+                            px(widget.abs_x), py(row_y + line_h),
+                            list_scale * dpi,
+                            dino::Color{220, 200, 120, 255}, "RIGHT",
+                            static_cast<float>(row_w) * dpi,
+                            static_cast<float>(line_h) * dpi);
+                        draw_ui_mesh(menu_gpu, price_block, list_atlas, 1.0f,
+                                     2, view_w, view_h);
+                    }
+                }
+            }
+
             std::string text = runtime_text(widget.name);
             if (text.empty()) {
                 text = dino::ui::resolve_loc_text(widget.text, park.loc);
@@ -6456,6 +6676,12 @@ int main(int argc, char** argv) {
                                     }
                                 }
                             }
+                            if (action.rfind("store buy ", 0) == 0) {
+                                handle_store_buy(
+                                    std::atoi(action.c_str() + 10));
+                            } else if (action == "store no selection") {
+                                std::printf("store: no dinosaur selected\n");
+                            }
                         }
                         continue;
                     }
@@ -6474,7 +6700,8 @@ int main(int argc, char** argv) {
                     ui_click_consumed = false;
                     continue;
                 }
-                if (build_tool != 0 && drag_distance < 5.0f) {
+                if ((build_tool != 0 || pending_store_index >= 0) &&
+                    drag_distance < 5.0f) {
                     pending_click = true;
                     click_x = event.button.x;
                     click_y = event.button.y;
@@ -6761,15 +6988,147 @@ int main(int argc, char** argv) {
 
         if (pending_click) {
             pending_click = false;
-            if (build_ready && build_tool != 0) {                dino::Vec3 hit;
+            if (pending_store_index >= 0 && build_ready) {
+                // FENCE_INSERTION: the click picks the paddock; a full paddock
+                // keeps the insertion state and shows the retail warning.
+                dino::Vec3 hit;
+                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                                 logical_width, logical_height, hit)) {
+                    const float half = terrain.world_size * 0.5f;
+                    const float wx = hit.x + half;
+                    const float wy = hit.y + half;
+                    std::printf("store: pick world %.1f %.1f\n", wx, wy);
+                    int paddock_index = -1;
+                    for (std::size_t p = 0; p < paddocks.size(); ++p) {
+                        const dino::WorldRect& r = paddocks[p].rect;
+                        if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
+                            wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
+                            wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
+                            wy <= static_cast<float>(std::max(r.y0, r.y1))) {
+                            paddock_index = static_cast<int>(p);
+                            break;
+                        }
+                    }
+                    if (paddock_index < 0) {
+                        std::printf("store: click inside a paddock\n");
+                    } else if (pending_store_index >=
+                               static_cast<int>(store_catalog.size())) {
+                        pending_store_index = -1;
+                        pending_store_price = 0;
+                    } else {
+                        const dino::MarketEntry entry =
+                            store_catalog[static_cast<std::size_t>(
+                                pending_store_index)];
+                        std::string species;
+                        std::string family;
+                        int cost_class = 0;
+                        try {
+                            const std::string genotype_path = resolve_asset(
+                                opt.asset_root,
+                                "Data/Design/Scenario/Genotype/" +
+                                    entry.genotype);
+                            const int head =
+                                dino::read_gen_head_type(genotype_path);
+                            dino::DinoGenotype genotype{};
+                            bool have_genotype = false;
+                            try {
+                                genotype =
+                                    dino::read_gen_genotype(genotype_path);
+                                have_genotype = true;
+                            } catch (const std::exception&) {
+                            }
+                            const auto match = head_species.find(head);
+                            species = match != head_species.end()
+                                          ? match->second
+                                          : "allo";
+                            family = family_table.family_of(species);
+                            if (family.empty()) {
+                                family = "LightBiped";
+                            }
+                            cost_class =
+                                (have_genotype && phenotype_table.valid)
+                                    ? phenotype_table.size_class(genotype)
+                                    : (size_for_species
+                                           ? size_for_species(species)
+                                           : 1);
+                            const int dino_id =
+                                1000000 +
+                                static_cast<int>(imported_dinos.size());
+                            dino::Paddock& paddock =
+                                paddocks[static_cast<std::size_t>(
+                                    paddock_index)];
+                            if (!dino::paddock_can_add(paddock, dino_id,
+                                                       cost_class)) {
+                                std::printf(
+                                    "store: no room in paddock %d "
+                                    "(WARNING_NO_ROOM_IN_FENCE)\n",
+                                    paddock_index);
+                                park.show_warning(
+                                    dino::ui::resolve_loc_text(
+                                        "&WARNING_NO_ROOM_IN_FENCE",
+                                        park.loc));
+                            } else if (add_imported_dino(
+                                           species, family, opt.dino_clip, wx,
+                                           wy, 0.0f)) {
+                                dino::paddock_add(paddock, dino_id,
+                                                  cost_class);
+                                park_budget -= pending_store_price;
+                                budget_ledger.spend_dinoachat(
+                                    pending_store_price);
+                                store_catalog.erase(
+                                    store_catalog.begin() +
+                                    pending_store_index);
+                                refresh_store_rows();
+                                park_paddocks = paddocks;
+                                float total_used = 0.0f;
+                                for (const dino::Paddock& p : paddocks) {
+                                    total_used += p.used;
+                                }
+                                std::printf(
+                                    "store: bought %s price=%d budget=%d "
+                                    "paddock=%d dinos=%zu "
+                                    "dinoachat=%d/%d used=%.0f total=%.0f\n",
+                                    entry.name.c_str(), pending_store_price,
+                                    park_budget, paddock_index,
+                                    imported_dinos.size(),
+                                    budget_ledger.dinoachat_count,
+                                    budget_ledger.dinoachat_total,
+                                    paddock.used, total_used);
+                                pending_store_index = -1;
+                                pending_store_price = 0;
+                                rebuild_extra_items();
+                            } else {
+                                std::printf(
+                                    "store: %s model load failed\n",
+                                    entry.name.c_str());
+                            }
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr, "store: %s\n", e.what());
+                        }
+                    }
+                }
+            } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
                 if (pick_terrain(terrain, eye, view_center, click_x, click_y,
                                  logical_width, logical_height, hit)) {
                     int cx = 0;
                     int cy = 0;
                     if (build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
                         const int before = build_grid.path_count + build_grid.fence_count;
+                        const float cs = build_grid.cell_size;
+                        auto cell_buildable = [&](int gx, int gy) {
+                            return terrain.buildable(
+                                build_grid.origin_x +
+                                    (static_cast<float>(gx) + 0.5f) * cs,
+                                build_grid.origin_y +
+                                    (static_cast<float>(gy) + 0.5f) * cs);
+                        };
                         if (build_tool == 1) {
-                            build_grid.set_path(cx, cy, !build_grid.path_at(cx, cy));
+                            if (!cell_buildable(cx, cy)) {
+                                std::printf("placement: blocked cell\n");
+                            } else {
+                                build_grid.set_path(cx, cy,
+                                                    !build_grid.path_at(cx, cy));
+                            }
                         } else if (build_tool == 3 &&
                                    pending_construct_kind >= 0) {
                             const float half = terrain.world_size * 0.5f;
@@ -6778,7 +7137,6 @@ int main(int argc, char** argv) {
                                 static_cast<int>(std::floor(hit.x + half)),
                                 static_cast<int>(std::floor(hit.y + half)), 0);
                         } else {
-                            const float cs = build_grid.cell_size;
                             const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
                             const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
                             float best = 1e30f;
@@ -6801,8 +7159,15 @@ int main(int argc, char** argv) {
                             if (cy + 1 < build_grid.height) {
                                 consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
                             }
-                            build_grid.set_fence(ex, ey, edge,
-                                                 !build_grid.fence_at(ex, ey, edge));
+                            if (!cell_buildable(ex, ey) ||
+                                !cell_buildable(ex - (edge == 1 ? 1 : 0),
+                                                ey - (edge == 0 ? 1 : 0))) {
+                                std::printf("placement: blocked cell\n");
+                            } else {
+                                build_grid.set_fence(
+                                    ex, ey, edge,
+                                    !build_grid.fence_at(ex, ey, edge));
+                            }
                         }
                         if (build_grid.path_count + build_grid.fence_count != before) {
                             rebuild_build_meshes();
