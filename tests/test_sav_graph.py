@@ -162,10 +162,8 @@ def test_retail_manual_graph():
     assert len(graph.tail) == 94
 
 
-def test_retail_auto_graph():
-    if not AUTO.exists():
-        pytest.skip("retail auto save not present")
-    graph = read_sav_graph(AUTO)
+def test_retail_auto_graph(retail_auto_save):
+    graph = read_sav_graph(retail_auto_save)
     assert graph.park is not None
     assert graph.park.budget == 75000
     assert graph.park.ticket_total == 0

@@ -198,11 +198,9 @@ def test_cpg04_genotypes_use_the_18_gene_order():
             assert lo <= a <= hi and lo <= b <= hi
 
 
-def test_sav_world_block_auto():
-    if not AUTO.exists():
-        pytest.skip("retail save not present")
-    save = read_sav(AUTO)
-    world = read_sav_world(AUTO)
+def test_sav_world_block_auto(retail_auto_save):
+    save = read_sav(retail_auto_save)
+    world = read_sav_world(retail_auto_save)
     name_len = struct.unpack_from("<I", save.data, 8)[0]
     assert world.offset == 0x18 + name_len == 0x1A
     assert world.end == save.count_offset

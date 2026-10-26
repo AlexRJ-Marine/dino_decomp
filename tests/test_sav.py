@@ -28,10 +28,8 @@ def test_retail_save_catalog():
     assert save.state_bytes == 3023
 
 
-def test_auto_save_catalog():
-    if not AUTO.exists():
-        pytest.skip("retail auto save not present")
-    save = read_sav(AUTO)
+def test_auto_save_catalog(retail_auto_save):
+    save = read_sav(retail_auto_save)
     assert save.version == 53
     assert save.name == ""
     assert len(save.shows) == 39
