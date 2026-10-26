@@ -1,6 +1,6 @@
 # State
 
-Updated: 2026-10-25
+Updated: 2026-10-26
 
 ## Environment
 
@@ -218,6 +218,11 @@ Updated: 2026-10-25
   flat, exit 0.
   - Evidence: `notes/stability2.out.log`, `notes/stability2-memory.csv`,
     `notes/stability2-final.png`.
+- Stability (retail menu path): **60,000 frames through Free Game Start**,
+  ~540–818 FPS at 800x600 with no vsync, working set 167.1 MB flat; final
+  frame at 10:30 day 1 with the dino, HUD and minimap.
+  - Evidence: `notes/stability3.out.log`, `notes/stability3-memory.csv`,
+    `notes/stability3-final.png`.
 - UI-1 (partial): start screen and controls panel.
   - Start screen over the island (`--menu`), ENTER/SPACE begins, ESC quits;
     Tab toggles the controls panel (`--help-panel` for screenshots).

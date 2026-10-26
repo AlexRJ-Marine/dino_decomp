@@ -16,36 +16,43 @@ or play the original.
 
 ## Project status
 
-> Last updated: 2026-10-25. The authoritative running log is
+> Last updated: 2026-10-26. The authoritative running log is
 > [`notes/STATE.md`](notes/STATE.md); the task queue is [`TASKS.md`](TASKS.md).
 
 | Track | Status | Summary |
 |---|---|---|
-| Retail formats | Solved | 25 specs in `docs/formats/`; parsers validate the full retail sets. |
+| Retail formats | Solved | 30+ specs in `docs/formats/`; parsers validate the full retail sets. |
 | Asset tools | Working | Mesh/skeleton/animation/texture/audio/config readers plus CLI dumpers. |
-| Portable viewer | Working | 10 islands, vegetation, skinned dinosaurs, paths/fences, visitors, retail menu/HUD, minimap. |
+| Portable viewer | Working | 10 islands through the retail menu, vegetation, skinned dinosaurs, paths/fences, visitors, retail menu/HUD, minimap, live clock, music/clicks. |
 | Gameplay simulation | Early | Visitors only random-walk. Needs, economy, shows, labs and missions are researched but not ported. |
-| Decompilation | Research-heavy | 167 function entries documented; **2 functions replaced live**. |
-| Test suite | Green | **196 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
+| Decompilation | Research-heavy | 180+ function entries documented; **2 functions replaced live**. |
+| Test suite | Green | **290 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
 
 ### What works today
 
-- **Islands:** all 10 retail islands load from the retail menu. `isl01` renders
-  a 512x512 heightmap (522,242 triangles), basemap, 1,536 placed trees,
-  skybox and water.
+- **Islands:** all 10 retail islands start from the Free Game menu with the
+  recovered camera (`camera.ini`: target centre, distance 39, elevation 52.7,
+  yaw 0; FOV 80). `isl01` renders a 512x512 heightmap (522,242 triangles),
+  basemap, 1,536 placed trees, skybox and water.
 - **Actors:** `.mesh` + `.skel` + `.skin` + `.anim` load together; the
-  allosaurus is rigid-skinned and plays walk/idle/run clips.
+  allosaurus is rigid-skinned with the corrected skeleton-rest bind (pachy
+  LOD2/LOD3 included) and plays walk/idle/run clips. `--start-dino` places it
+  in a menu-started island.
 - **Camera:** orbit and free-fly modes, terrain clamping, mouse look,
   rebindable keys.
 - **Building:** 4-unit path/fence grid, terrain ray-picking, undo, save/load.
 - **Visitors:** spawn on the path network and walk with a two-pose flipbook.
 - **UI:** retail main menu (114 widgets, 9 pages), Free Game island selection,
   park HUD (2,694 widgets, 38 roots), panel switching, hover/pressed states,
-  lab centres, minimap, and 1024x768 HUD re-anchoring.
-- **Media/QoL:** WAV playback, windowed/fullscreen/borderless modes, persisted
+  lab centres, minimap (2-D detail map, camera-relative, zoom/marker), live
+  park clock and budget, Options Save/Load tab listing real `.sav` slots, and
+  1024x768 HUD re-anchoring.
+- **Media/QoL:** menu/park click sounds and island themes (chunk-streamed,
+  looped), WAV playback, windowed/fullscreen/borderless modes, persisted
   window and key configuration, BMP screenshots.
-- **Stability:** 60,000-frame (~10 minute) runs at ~100 FPS with a flat
-  ~135 MB working set.
+- **Stability:** repeated 60,000-frame (~10 minute) runs with a flat working
+  set; the latest retail-menu run (dino + music + clicks + minimap) stayed at
+  167.1 MB and finished at 10:30 day 1.
 
 ### What is still missing
 
@@ -53,24 +60,40 @@ or play the original.
   including visitor profiles, needs and the decompiled scoring function.
 - Dinosaur needs, action selection, eating/sleeping and reactions; employee
   jobs, roles and wages.
-- Economy settlement, day clock and show scheduling in the port (the original
-  logic is decompiled).
-- Shows, labs/genetics, missions/campaigns, building and attraction placement.
-- Retail `.sav` save/load in the port; only path/fence placement persists today.
-- Objective field names/weighting, the `spPark+0x1c` category order, staff job
-  kind `0xb`, populated lab records and LOD2/LOD3 bind poses.
-- Dynamic sub-panel values, save/load dialogs, menu sounds, culling/LOD2 and
-  final skybox/water parity.
+- Economy settlement, show scheduling and the show/lab/campaign gameplay in
+  the port (the original logic is decompiled).
+- Park-state save/load through the save panel; only the slot browser and the
+  path/fence file persistence exist today.
+- Warning/request/campaign-end dialogs, dynamic list snapshots/sliders, and
+  minimap detail-map water parity.
+- Objective field names/weighting, staff job kind `0xb`, populated lab records
+  and a few save semantics.
+- Culling/LOD2 and final skybox/water parity.
 
 ### Current focus
 
-1. UI-2 Phase C rest: dynamic values in sub-panels (budget ledger, list
-   snapshots, sliders) and minimap water/partition polish.
-2. SIM-2b: port the decompiled visitor choose -> travel -> use -> leave flow
+1. UI-2 Phase D rest: wire Save/Load to the port state and add the dialog
+   family.
+2. UI-2 Phase C rest: dynamic list snapshots/sliders and minimap water polish.
+3. SIM-2b: port the decompiled visitor choose -> travel -> use -> leave flow
    and bind visitor profiles/needs.
-3. WORLD-3: capture a side-by-side comparison against the original game.
-4. Hybrid detours: `0x47d460` and `0x47cc90`, once the container contracts are
-   ported.
+4. WORLD-3: capture a side-by-side comparison against the original game.
+
+### Playable flow (retail menu -> park)
+
+```powershell
+$G = "game/%MAINDIR%"
+.\build\mingw\dino_viewer.exe --asset-root $G `
+  --menu-page 1 --menu-click 200,180 --menu-click 494,451 `
+  --menu-click 526,531 --menu-loading-time 0 `
+  --start-dino --music
+```
+
+This shows the retail Free Game page, selects IGUANO/easy, loads isl01 with
+the recovered start camera, places the animated allosaurus at the centre,
+and streams the island theme. Interactive runs enable music and click sounds
+by default; add `--no-music`/`--no-sounds` to silence them. Without
+`--start-dino` the park starts empty, as in the original.
 
 ## Format coverage
 
