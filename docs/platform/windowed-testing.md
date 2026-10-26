@@ -49,6 +49,27 @@ or confining the cursor. `run-test/` is gitignored.
 .\scripts\play-windowed.ps1 -Seconds 8 -Shot notes\windowed-main-menu.png
 ```
 
+## Normal windowed play
+
+`scripts/play-windowed-game.ps1` creates `run-window/` on first launch (Data
+junction, its own `save/`) and starts the game with a bordered window:
+
+```powershell
+.\scripts\play-windowed-game.ps1
+```
+
+The retail application creates a `WS_POPUP` window (`style 0xB4080000`) with no
+title bar. `scripts/Set-WindowedStyle.ps1` changes it to a normal overlapped
+window (`0x16CA0000`: caption, system menu, minimize/close, visible) and
+corrects the client area back to 800x600. The game remains windowed; Alt-Enter
+does not switch it to fullscreen.
+
+Normal play sets `DINO_MOUSE_CLICK_CAPTURE=1`. The proxy suppresses mouse
+axes/buttons while the game does not have focus. The first left click inside
+the focused game window activates mouse input; the click is passed through so
+it can also operate the UI. Alt-Tab (focus loss) releases the capture. The
+cursor is not clipped or warped. `-NoClickCapture` disables the gate.
+
 ## Virtual DirectInput mouse
 
 Set `DINO_VIRTUAL_MOUSE=1` before launching the game. The `DINPUT8.dll` proxy

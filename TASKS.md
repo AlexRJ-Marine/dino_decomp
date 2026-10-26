@@ -837,6 +837,24 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `scripts/setup-test-runtime.ps1`, `scripts/x32dbg/VirtualInput.ps1`,
   `scripts/x32dbg/Send-VirtualClick.ps1`, `scripts/x32dbg/Capture-Window.ps1`.
 
+### TOOL-2: Bordered window and click-to-capture mouse
+- [x] Add `scripts/Set-WindowedStyle.ps1`: convert the retail `WS_POPUP`
+  (`0xB4080000`) to a normal overlapped window (`0x16CA0000`: caption, system
+  menu, minimize/close) and keep the 800x600 client area.
+- [x] Add `scripts/play-windowed-game.ps1` and `run-window/` (Data junction,
+  separate save) for normal windowed play.
+- [x] Add `DINO_MOUSE_CLICK_CAPTURE=1` to the proxy: zero mouse axes/buttons
+  until the first left click inside the focused game window; pass the
+  activating click through; release on focus loss. No cursor clipping.
+- [x] Verify the bordered window and client size; keep `-NoClickCapture` as
+  the opt-out.
+- **Acceptance:** the game runs in a normal bordered 800x600 window and does
+  not receive mouse input until clicked.
+- **Depends on:** TOOL-1.
+- **Evidence:** `docs/platform/windowed-testing.md`,
+  `notes/windowed-normal-bordered.png`, `scripts/play-windowed-game.ps1`,
+  `scripts/Set-WindowedStyle.ps1`, `src/hook/dinput8_proxy.cpp`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

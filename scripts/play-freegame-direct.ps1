@@ -92,6 +92,9 @@ for ($i = 0; $i -lt 30; $i++) {
 }
 if ($hwnd -eq [IntPtr]::Zero) { throw "no game window" }
 Write-Host "game pid=$($p.Id) hwnd=$hwnd title='$($p.MainWindowTitle)'"
+if (-not $PhysicalInput) {
+    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd
+}
 
 Start-Sleep -Seconds 3
 Click-Client $hwnd 395 234

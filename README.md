@@ -322,6 +322,21 @@ The patch and hybrid mechanisms are documented in
 [`docs/decomp/hybrid.md`](docs/decomp/hybrid.md). The game runs under the
 dgVoodoo2 Direct3D 8 / DirectDraw wrappers already present in `run/`.
 
+### Windowed play
+
+For normal play in a bordered 800x600 window, with the mouse left alone until
+you click inside the game:
+
+```powershell
+.\scripts\play-windowed-game.ps1
+```
+
+The first run creates `run-window/` (Data junction, its own `save/`). The
+window is a normal overlapped window with a title bar and minimize/close
+buttons. Mouse input is suppressed until you click inside; Alt-Tab releases it
+again. The cursor is never clipped or moved. `-NoClickCapture` disables the
+gate.
+
 ### Windowed x32dbg harness
 
 The x32dbg harness now defaults to a **windowed 800x600 game** and **virtual

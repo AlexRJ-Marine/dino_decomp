@@ -1288,6 +1288,22 @@ Updated: 2026-10-26
     `scripts/x32dbg/Send-VirtualClick.ps1`,
     `scripts/x32dbg/Capture-Window.ps1`,
     `scripts/setup-test-runtime.ps1`.
+- TOOL-2 complete: **normal bordered window + click-to-capture mouse.**
+  - `run-window/` is a separate windowed play copy (Data junction, own save)
+    created by `scripts/setup-test-runtime.ps1 -Target run-window` or
+    `scripts/play-windowed-game.ps1`.
+  - `scripts/Set-WindowedStyle.ps1` converts the retail `WS_POPUP`
+    (`0xB4080000`) to a normal overlapped window (`0x16CA0000`: caption,
+    system menu, minimize/close) and restores the 800x600 client area.
+  - `DINO_MOUSE_CLICK_CAPTURE=1` makes the proxy zero mouse axes/buttons
+    until the first left click inside the focused game window; the activating
+    click is passed through. Focus loss (Alt-Tab) releases it. No cursor
+    clipping or warping. `-NoClickCapture` disables the gate.
+  - Verified: the game opens as an 800x600 client window with title bar,
+    minimize and close buttons (`notes/windowed-normal-bordered.png`).
+  - Evidence: `docs/platform/windowed-testing.md`,
+    `notes/windowed-normal-bordered.png`, `scripts/play-windowed-game.ps1`,
+    `scripts/Set-WindowedStyle.ps1`, `.gitignore` (`run-window/`).
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

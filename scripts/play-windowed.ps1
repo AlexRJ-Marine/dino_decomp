@@ -36,6 +36,9 @@ if (-not $game) {
 }
 $hwnd = $game.MainWindowHandle
 Write-Host ("Dino Island windowed: pid={0} hwnd=0x{1:X}" -f $game.Id, $hwnd.ToInt64())
+if ($hwnd -ne [IntPtr]::Zero) {
+    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd
+}
 
 if ($Shot) {
     Add-Type @"

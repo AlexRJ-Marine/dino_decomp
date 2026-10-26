@@ -57,4 +57,8 @@ $conf = $conf -replace '(?m)^EnableInactiveAppState\s*=.*$',
 Set-Content -Path $confPath -Value $conf -Encoding ASCII
 
 Write-Host "Windowed test runtime ready: $dst"
-Write-Host "Launch with: .\scripts\play-windowed.ps1"
+if ($Target -eq "run-window") {
+    Write-Host "Launch with: .\scripts\play-windowed-game.ps1"
+} else {
+    Write-Host "Launch with: .\scripts\play-windowed.ps1"
+}

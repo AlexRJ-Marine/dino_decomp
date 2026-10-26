@@ -185,6 +185,9 @@ if (-not $game) {
     if ($hwnd -eq 0) {
         Write-Host "no main window handle"
     } else {
+        if ($VirtualMouse) {
+            & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd
+        }
         [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
         [Win32]::ShowWindow($hwnd, 9) | Out-Null
         [Win32]::SetForegroundWindow($hwnd) | Out-Null

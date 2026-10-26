@@ -809,6 +809,92 @@ bool virtual_mouse_enabled() {
     return cached == 1;
 }
 
+// Optional click-to-capture gate for normal windowed play. While inactive the
+// game receives zero mouse axes/buttons; the first click inside the focused
+// game window activates it. Alt-Tab (focus loss) deactivates it again.
+bool click_capture_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        char value[8] = {};
+        cached = GetEnvironmentVariableA("DINO_MOUSE_CLICK_CAPTURE", value,
+                                         sizeof(value)) > 0
+                     ? 1
+                     : 0;
+    }
+    return cached == 1;
+}
+
+bool g_click_capture_active = false;
+
+bool foreground_is_game() {
+    HWND foreground = GetForegroundWindow();
+    if (foreground == nullptr) {
+        return false;
+    }
+    HWND root = GetAncestor(foreground, GA_ROOT);
+    if (root == nullptr) {
+        root = foreground;
+    }
+    DWORD process_id = 0;
+    GetWindowThreadProcessId(root, &process_id);
+    return process_id == GetCurrentProcessId();
+}
+
+bool cursor_inside_game_client() {
+    HWND foreground = GetForegroundWindow();
+    if (foreground == nullptr) {
+        return false;
+    }
+    HWND root = GetAncestor(foreground, GA_ROOT);
+    if (root == nullptr) {
+        root = foreground;
+    }
+    RECT client = {};
+    if (!GetClientRect(root, &client)) {
+        return false;
+    }
+    POINT point = {};
+    if (!GetCursorPos(&point)) {
+        return false;
+    }
+    if (!ScreenToClient(root, &point)) {
+        return false;
+    }
+    return point.x >= client.left && point.x < client.right &&
+           point.y >= client.top && point.y < client.bottom;
+}
+
+bool gate_mouse_input(void* data, DWORD cbData) {
+    if (!click_capture_enabled() || virtual_mouse_enabled()) {
+        return true;
+    }
+    if (!foreground_is_game()) {
+        if (g_click_capture_active) {
+            g_click_capture_active = false;
+            log_line("click capture: released (focus lost)");
+        }
+        if (data != nullptr && cbData > 0) {
+            std::memset(data, 0, cbData);
+        }
+        return false;
+    }
+    if (!g_click_capture_active) {
+        const SHORT state = GetAsyncKeyState(VK_LBUTTON);
+        if ((state & 0x8001) != 0 && cursor_inside_game_client()) {
+            g_click_capture_active = true;
+            log_line("click capture: active");
+            // Let the activating click through so it can also operate the UI.
+            return true;
+        }
+        // Suppress all mouse input until the game is clicked.
+        if (data != nullptr && cbData > 0) {
+            std::memset(data, 0, cbData);
+        }
+        return false;
+    }
+    return true;
+}
+
 bool read_virtual_input(int& target_x, int& target_y, bool& down,
                         bool& has_move) {
     HANDLE file = CreateFileA("dino_input.txt", GENERIC_READ,
@@ -902,6 +988,9 @@ HRESULT STDMETHODCALLTYPE hook_get_device_state(void* self, DWORD cbData,
     if (FAILED(hr) || !is_mouse_device(self) || data == nullptr) {
         return hr;
     }
+    if (!gate_mouse_input(data, cbData)) {
+        return hr;
+    }
     const LONG calls = InterlockedIncrement(&g_mouse_state_calls);
     if (calls == 1) {
         const auto* bytes = static_cast<const std::uint8_t*>(data);
@@ -974,6 +1063,10 @@ HRESULT STDMETHODCALLTYPE hook_get_device_data(void* self, DWORD cbObjectData,
         log_line(line);
     }
     if (!is_mouse_device(self)) {
+        return hr;
+    }
+    if (!gate_mouse_input(nullptr, 0)) {
+        *pdwInOut = 0;
         return hr;
     }
     int target_x = 0;
