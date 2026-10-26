@@ -3,6 +3,7 @@ param(
     [int]$CampaignRow = 3,
     [int]$MissionRow = 0,
     [switch]$NoTrace,
+    [switch]$GenotypeTrace,
     [switch]$UnlockCampaigns,
     [switch]$BuyDino,
     [string]$GameDir = "run",
@@ -164,6 +165,29 @@ if (-not $game) {
         }
         Resume
         Save-Window $hwnd "campaign-main"
+
+        # Genotype/creation loggers must be armed while the debuggee is
+        # stopped: commands sent while it runs are queued and only processed
+        # at the next break, which is after the world load has finished.
+        if ($GenotypeTrace) {
+            Send 'pause'
+            Start-Sleep -Milliseconds 500
+            Send 'bp 0x586520'
+            Send 'SetBreakpointCommand 0x586520, "log GEN obj={p:[esp+8]} g0a={p:[[esp+4]]} g0b={p:[[esp+4]+4]} g1a={p:[[esp+4]+0xc]} g1b={p:[[esp+4]+0x10]} g2a={p:[[esp+4]+0x18]} g2b={p:[[esp+4]+0x1c]} g3a={p:[[esp+4]+0x24]} g3b={p:[[esp+4]+0x28]}; run"'
+            # The actor ctor is the common funnel for every creation path; log
+            # the caller and the runtime genotype pointer (arg 2) there.
+            Send 'bp 0x56fed0'
+            Send 'SetBreakpointCommand 0x56fed0, "log CTOR ret={p:[esp]} gen={p:[esp+8]} g0a={p:[[esp+8]]} g0b={p:[[esp+8]+4]} g1a={p:[[esp+8]+0xc]} g1b={p:[[esp+8]+0x10]} g2a={p:[[esp+8]+0x18]} g2b={p:[[esp+8]+0x1c]} g3a={p:[[esp+8]+0x24]} g3b={p:[[esp+8]+0x28]} p98={p:[[esp+4]+0x98]} pa4={p:[[esp+4]+0xa4]} pa8={p:[[esp+4]+0xa8]} cat={p:[[esp+4]+0x190]}; run"'
+            # Dump the runtime Part 3 Length cells for the hybrid pairs used by
+            # Cpg04: (0,4) and (1,4) and (18,0), for Head/Body/Tail.
+            Send 'bp 0x619830'
+            Send 'SetBreakpointCommand 0x619830, "log TBL h04={p:[[[[ecx+0x308]]+0x10]]} h14={p:[[[[ecx+0x308]]+0x10]+4]} h180={p:[[[[ecx+0x308]]]+0x48]} b04={p:[[[[ecx+0x314]]+0x10]]} b00={p:[[[[ecx+0x314]]]]} t04={p:[[[[ecx+0x318]]+0x10]]} t14={p:[[[[ecx+0x318]]+0x10]+4]} t180={p:[[[[ecx+0x318]]]+0x48]}; run"'
+            Send 'bp 0x570fd0'
+            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} len={p:[ecx+0x50]} p98={p:[ecx+0xe8]} pa4={p:[ecx+0xf4]} pa8={p:[ecx+0xf8]} f1b4={p:[ecx+0x204]}; run"'
+            Send 'run'
+            Start-Sleep -Milliseconds 500
+        }
+
         Write-Host "clicking Campaigns"
         Resume
         Click-Client $hwnd 395 189
@@ -193,6 +217,9 @@ if (-not $game) {
         # before the click. The dinosaur/capacity breakpoints are installed
         # only after the briefing has been dismissed.
         if (-not $NoTrace) {
+            # Commands are only processed while the debuggee is stopped.
+            Send 'pause'
+            Start-Sleep -Milliseconds 400
             Send 'bp 0x57dc60'
             Send 'SetBreakpointCommand 0x57dc60, "log FENCE this={p:ecx} p0={p:[esp+4]} p1={p:[esp+8]} cellptr={p:[esp+0xc]} cell={p:[[esp+0xc]]} x0={p:[[esp+4]]} y0={p:[[esp+4]+4]} x1={p:[[esp+8]]} y1={p:[[esp+8]+4]}; run"'
             # Catch the load-time dinosaur -> paddock placement, if it uses
@@ -203,6 +230,9 @@ if (-not $game) {
             # +0x1e0 cost-index field can be read at load time.
             Send 'bp 0x570fd0'
             Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} len={p:[ecx+0x50]} p98={p:[ecx+0xe8]} pa4={p:[ecx+0xf4]} pa8={p:[ecx+0xf8]} f1b4={p:[ecx+0x204]} f1dc={p:[ecx+0x1dc]} act={p:[ecx+0x2c0]}; run"'
+            # Live 18-gene block at spawn (first stack arg = actor+0x3c).
+            Send 'bp 0x586520'
+            Send 'SetBreakpointCommand 0x586520, "log GEN g={p:[esp+4]} g0a={p:[[esp+4]]} g0b={p:[[esp+4]+4]} g1a={p:[[esp+4]+0xc]} g1b={p:[[esp+4]+0x10]} g2a={p:[[esp+4]+0x18]} g2b={p:[[esp+4]+0x1c]} g3a={p:[[esp+4]+0x24]} g3b={p:[[esp+4]+0x28]}; run"'
         }
         Resume
 
