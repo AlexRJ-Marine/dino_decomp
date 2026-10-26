@@ -279,7 +279,7 @@ positions. Details: `notes/dino-action-chooser-recon.md`
 - `FUN_00570590` — need threshold init (`[80, 60, 30]`).
 - `FUN_00589CD0` / `FUN_005774F0` / `FUN_00571B50` / `FUN_00571C00` —
   per-update danger-grid clear and per-dinosaur threat stamp.
-- `FUN_00572DD0` — world bounds test for the grid.
+- `FUN_00572DD0` - chooser target-inside-actor-radius box test.
 - `FUN_00570fd0` — need init/reset.
 - `FUN_00511d80`, `FUN_005138b0`, `FUN_005df900` — UI need widgets.
 - `ActionList.ini` + 64 `.bai` files.

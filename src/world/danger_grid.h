@@ -13,11 +13,14 @@ namespace dino {
 // every dinosaur's SECU from the cell under its position.
 class DangerGrid {
 public:
-    static constexpr int kCellSize = 8;
+    // Retail uses an arithmetic shift by 3 (`>> 3`) on integer world units.
+    static constexpr int kCellShift = 3;
+    static constexpr int kCellSize = 1 << kCellShift;
     static constexpr int kWidth = 128;
     static constexpr int kHeight = 128;
     static constexpr std::size_t kCellCount =
         static_cast<std::size_t>(kWidth) * static_cast<std::size_t>(kHeight);
+    static_assert(kCellSize == 8, "retail cells are 8 world units");
 
     // `FUN_005774F0`: zero every cell value.
     void clear();

@@ -1421,6 +1421,12 @@ Updated: 2026-10-26
   - Port: `src/world/danger_grid.{h,cpp}`, viewer rebuild + `set_secu`,
     `--dino-threat`/`--dino-radius`/`--dino-health`/`--secu-probe`;
     selftest 42 checks; `test_cpp_danger_grid_secu`.
+  - The grid is live when **any** dinosaur has threat/radius or damaged
+    health; with all caches 0 the viewer keeps the configured SECU so
+    `--dino-needs` fixtures still work, and `--secu-probe` prints anyway.
+    Reviewer fixes: health-only activation, global live gate, applied
+    0..99 clamp, bounded stamp loop, finite/negative-radius guards and an
+    absolute raw-coordinate test.
   - Validation: 862/862 retail Cpg04 values over 45 rebuilds
     (`notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
     `notes/secu-grid-validation.txt`, `tools/recon/secu_grid_check.py`).

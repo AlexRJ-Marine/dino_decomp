@@ -48,19 +48,33 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
   imported dinosaur from `DinoNeeds::threat` / `threat_radius`, and pushes
   the recomputed value through `DinoActionLoop::set_secu`. Positions are
   raw units (`ImportedDino::x/y`; the renderer subtracts
-  `world_size/2`).
-- Retail leaves `+0x27c`/`+0x2a0` at 0 until action 26 (ObstAttackSize1)
-  and action 13 (GetCourage) finish. Imported dinosaurs therefore default
-  to 0, and the port keeps the configured SECU in that case (so the
-  `--dino-needs` chooser fixtures stay meaningful). `--dino-threat` /
-  `--dino-radius` make the grid live.
+  `world_size/2`). The grid is "live" when **any** dinosaur has a nonzero
+  threat/radius or `health != max_health`; then every dinosaur (including
+  zero-attribute ones standing in another dinosaur's cell) gets the retail
+  recompute. With every cache at 0 the port keeps the configured SECU, so
+  the `--dino-needs` chooser fixtures stay meaningful; this also means
+  `.bai` SECU deltas are not overwritten in that default case. `--dino-threat`,
+  `--dino-radius` and `--dino-health` make the grid live. Retail leaves
+  `+0x27c`/`+0x2a0` at 0 until action 26 (ObstAttackSize1) and action 13
+  (GetCourage) finish, so imported dinosaurs start with the caches at 0.
 - CLI: `--dino-threat N`, `--dino-radius N`, `--dino-health CUR,MAX`,
-  `--secu-probe` (one line per dinosaur per rebuild).
+  `--secu-probe` (one line per dinosaur per rebuild; it prints even when
+  the grid is not live).
+- The port clamps the stored need to 0..99 (`set_secu`), while retail only
+  clamps at 0; with valid positions and `health <= max_health` the formula
+  never exceeds 99. `at()` returns 0 outside the 128x128 grid (retail reads
+  unchecked); valid 0..1024 positions never hit it. `max_health == 0` is a
+  port guard (retail would divide by zero) covered by the selftest.
 - `--selftest` covers stamping/radius and the formula (full health,
   threat, damage, clamp, `max_health = 0`).
 - `tests/test_viewer_cpp.py::test_cpp_danger_grid_secu` runs Cpg04 with 20
-  dinosaurs and checks every probe line against the formula and the
-  half-health offset.
+  dinosaurs and checks every probe line against the formula, the raw
+  0..1024 coordinates (`x > 512`), the half-health offset, health-only
+  activation, a non-exact 70/169 ratio and the 0 clamp.
+- The port save stores the four need values and `size_cm` only; the danger
+  cache fields are CLI/test inputs and are not persisted, so a save made
+  with `--dino-health 50,100` reloads as 100/100 unless the flag is passed
+  again.
 
 ## Remaining
 

@@ -1949,28 +1949,52 @@ def test_cpp_danger_grid_secu():
 
     # `FUN_00571440`: SECU from the 8-unit grid cell under each dinosaur.
     rows = probe(["--dino-threat", "50", "--dino-radius", "8"])
-    assert len(rows) == 20
+    assert len(rows) % 20 == 0 and len(rows) >= 20
+    rows = rows[:20]
     entries = []
     for _species, x, y, threat, _radius, cell, health, max_health, secu in rows:
         x, y = float(x), float(y)
         threat, cell = int(threat), int(cell)
         health, max_health, secu = int(health), int(max_health), int(secu)
+        # Raw `.wld`/`.raw` units, not the centred render coordinates: the
+        # park spans 0..1024 and several Cpg04 dinosaurs sit past x=512.
+        assert 0.0 <= x <= 1024.0 and 0.0 <= y <= 1024.0
         # Its own stamp always covers the cell it stands on.
         assert cell >= threat
         health_term = int((health - max_health) * 100 / max_health)
         assert secu == max(0, 99 + health_term - int((cell - threat) / 10))
         entries.append((x, y, secu))
+    assert any(float(row[1]) > 512.0 for row in rows)
     assert any(int(row[5]) > int(row[3]) for row in rows)
     assert any(int(row[8]) < 99 for row in rows)
 
     # The damage term uses the same formula: 50 % health subtracts 50.
     damaged = probe(["--dino-threat", "50", "--dino-radius", "8",
                      "--dino-health", "50,100"])
-    assert len(damaged) == 20
+    assert len(damaged) % 20 == 0 and len(damaged) >= 20
+    damaged = damaged[:20]
     healthy = {(x, y): secu for x, y, secu in entries}
     for _species, x, y, _t, _r, _c, health, max_health, secu in damaged:
         assert int(health) == 50 and int(max_health) == 100
         assert int(secu) == max(0, healthy[(float(x), float(y))] - 50)
+
+    # Health alone is enough to make the grid live (no stamps -> cell 0).
+    health_only = probe(["--dino-health", "50,100"])
+    assert len(health_only) % 20 == 0 and len(health_only) >= 20
+    assert all(int(row[5]) == 0 and int(row[8]) == 49
+               for row in health_only[:20])
+
+    # A non-exact health ratio (retail 70/169 -> -58) and the 0 clamp.
+    damaged_odd = probe(["--dino-threat", "50", "--dino-radius", "8",
+                         "--dino-health", "70,169"])
+    assert len(damaged_odd) % 20 == 0 and len(damaged_odd) >= 20
+    assert all(int(row[6]) == 70 and int(row[7]) == 169
+               for row in damaged_odd[:20])
+    assert all(int(row[8]) in (41, 36, 31) for row in damaged_odd[:20])
+    zeroed = probe(["--dino-threat", "50", "--dino-radius", "8",
+                    "--dino-health", "0,100"])
+    assert len(zeroed) % 20 == 0 and len(zeroed) >= 20
+    assert all(int(row[8]) == 0 for row in zeroed[:20])
 
 
 def test_cpp_wld_park_no_import_dinos():

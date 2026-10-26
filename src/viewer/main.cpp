@@ -7371,26 +7371,40 @@ int main(int argc, char** argv) {
                     danger_grid.stamp(dinosaur.x, dinosaur.y,
                                       needs.threat_radius, needs.threat);
                 }
+                // The grid is "live" when any dinosaur carries danger
+                // attributes. With every cache at 0 (the import default) the
+                // retail grid would pin SECU to 99, so the port keeps the
+                // configured value and `--dino-needs` fixtures stay useful.
+                bool any_live = false;
+                for (const ImportedDino& dinosaur : imported_dinos) {
+                    const dino::DinoNeeds& needs =
+                        dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                             : dinosaur.needs;
+                    if (needs.threat != 0 || needs.threat_radius != 0 ||
+                        needs.health != needs.max_health) {
+                        any_live = true;
+                        break;
+                    }
+                }
                 for (ImportedDino& dinosaur : imported_dinos) {
                     dino::DinoNeeds& needs =
                         dinosaur.action_loop ? dinosaur.action_loop->needs()
                                              : dinosaur.needs;
-                    // With no live danger attributes the retail caches are 0
-                    // and the grid would pin SECU to 99. Keep the configured
-                    // value in that case so `--dino-needs` fixtures still
-                    // exercise the chooser.
-                    if (needs.threat == 0 && needs.threat_radius == 0) {
-                        continue;
-                    }
                     const float raw_x = dinosaur.x;
                     const float raw_y = dinosaur.y;
                     const int cell = danger_grid.at(raw_x, raw_y);
                     const int secu = dino::secu_from_grid(
                         danger_grid, raw_x, raw_y, needs.threat, needs.health,
                         needs.max_health);
-                    needs.value[2] = secu;
-                    if (dinosaur.action_loop) {
-                        dinosaur.action_loop->set_secu(secu);
+                    // The port's need range is 0..99; retail stores the raw
+                    // value but never exceeds 99 for in-grid, undamaged
+                    // dinosaurs.
+                    const int applied = std::max(0, std::min(99, secu));
+                    if (any_live) {
+                        needs.value[2] = applied;
+                        if (dinosaur.action_loop) {
+                            dinosaur.action_loop->set_secu(applied);
+                        }
                     }
                     if (opt.secu_probe) {
                         std::printf(
@@ -7398,7 +7412,7 @@ int main(int argc, char** argv) {
                             "cell=%d health=%d/%d secu=%d\n",
                             dinosaur.species.c_str(), dinosaur.x, dinosaur.y,
                             needs.threat, needs.threat_radius, cell,
-                            needs.health, needs.max_health, secu);
+                            needs.health, needs.max_health, applied);
                     }
                 }
             }
