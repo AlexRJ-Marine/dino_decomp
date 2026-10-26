@@ -107,9 +107,20 @@ world dinosaurs. Correlated with the world order:
 | allo | 7 | 2, 2, 2, 2, 1, 1, 1 |
 
 The class is a per-individual size class (Allosaurus splits 4/3), not a pure
-species constant. The table supports 0..3 (8/16/32/64). The port must derive
-it from the individual's phenotype size, not a constant; a species baseline
-is a useful first approximation.
+species constant. The table supports 0..3 (8/16/32/64). The value is the
+**phenotype length category** (`saDinosaur+0x1e0` <- phenotype `+0x190`):
+
+```text
+length = Part3Length[Head][a0][b0] + Part3Length[Body][a2][b2]
+       + Part3Length[Tail][a3][b3]
+class  = 0 if length <= 200, 1 if <= 620, 2 if <= 900, else 3
+```
+
+(`TranslatorConstants.ini` `SizeCategory1..4MaxLength`; the biped flag
+`P+0x1b4` halves the body term twice, which only affects odd lengths.) The
+full chain and the 20 runtime values are in
+`notes/paddock-size-class-runtime.md`. A species baseline is still a useful
+first approximation, but the port should switch to the phenotype length.
 
 ## Placement point
 
@@ -179,7 +190,10 @@ original construction flow:
 - **Approximation:** the port now derives a species baseline from the rest-mesh
   bbox (`paddock_size_class`): coelo/trood 0, anky/deino 1, allo 2. Cpg04
   `used` = 384, vs the retail 336. Exact parity needs the individual
-  phenotype: Allosaurus splits four class 2 and three class 1.
+  phenotype: `length = head + body + tail` Part 3 lookups, thresholds
+  200/620/900 (see `notes/paddock-size-class-runtime.md`). Note the port
+  currently feeds `paddock_size_class` a **mesh bbox**, not the phenotype
+  length, so changing the thresholds alone would be wrong.
 - Done: the headless purchase core (`--buy-dino NAME`, optional
   `--buy-paddock N`): Market.ini lookup, genotype head → species, size class,
   capacity check (`WARNING_NO_ROOM_IN_FENCE`), budget check
@@ -200,6 +214,10 @@ original construction flow:
   successful placement, not a validator. Records are `spPark+0xbc` placement
   queue entries (types 3/4/5; `+0x20` elapsed, `+0x24` lifetime). The port can
   reveal immediately or mimic the 1.5 s delay; nothing else depends on it.
+- Size class chain **solved** (phenotype length, thresholds 200/620/900);
+  the live hybrid genotypes still diverge from the `.wld` for 10/20 Cpg04
+  rows, so exact hybrid parity needs the live genotype traced
+  (`notes/paddock-size-class-runtime.md`).
 - Whether path tiles charge `CONSTRUCTION` (only the wall path and the
   dinosaur store price are proven budget setters).
 

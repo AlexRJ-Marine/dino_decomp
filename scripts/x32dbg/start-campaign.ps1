@@ -202,7 +202,7 @@ if (-not $game) {
             # Dinosaur creation/reset: this is the saDinosaur object, so the
             # +0x1e0 cost-index field can be read at load time.
             Send 'bp 0x570fd0'
-            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} f1dc={p:[ecx+0x1dc]} act={p:[ecx+0x2c0]}; run"'
+            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} len={p:[ecx+0x50]} p98={p:[ecx+0xe8]} pa4={p:[ecx+0xf4]} pa8={p:[ecx+0xf8]} f1b4={p:[ecx+0x204]} f1dc={p:[ecx+0x1dc]} act={p:[ecx+0x2c0]}; run"'
         }
         Resume
 
