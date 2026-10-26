@@ -119,7 +119,9 @@ CpgNN/CpgNN_Save.wld    initial park
 - The campaign always starts at the first mission (progression is not
   persisted), and the retail 4-page briefing (`1/4` + idea bulb) is collapsed
   into the current `MISSION_PANEL` description.
-- Mission state is not stored in the port save; mission progression, the
+- `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
+  `--load-port`/the Load tab resumes the mission. Objective verdicts are
+  recomputed by the first runtime tick, not stored. Mission progression, the
   exact actor trait fields, ending videos and the remaining
   show/building/isolation/hungry verbs are open.
 
@@ -210,6 +212,11 @@ Live employees: Cpg01_Mission6 on isl01 with `--hire-nutritionist 2` prints
 `mission objective 1 employees -> success`; `connectedbuildings` stays
 pending, so the mission does not complete.
 
+Mission save/load: the `--save-port` run writes `mission Cpg04_Mission1` into
+the `DINOPSAV`; a later `--load-port` run with the same island resumes the
+mission and prints `mission: Cpg04_Mission1 objectives=3` plus the live
+verdicts (no `--wld-park`/`--start-mission` needed on load).
+
 A mission that completes: `Cpg01_Mission11` (`visitors all 30`) on isl01 with
 a 24-cell path loop and `--visitors 30` prints `mission objective 0 visitors
 -> success` and `mission Cpg01_Mission11: success`, then opens
@@ -247,6 +254,7 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`,
+  `test_cpp_campaign_mission_port_save`,
   `test_cpp_campaign_live_employees`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots

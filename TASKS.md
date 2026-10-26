@@ -1370,7 +1370,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Fill the exact actor trait fields
   (`+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/+0x1e0/+0x8c`)
   once those systems land; hybrid/scarcity/strangeness/ornaments are still 0.
-- [ ] Store the mission id and verdicts in the port save; show ending videos.
+- [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
+  (verdicts are derived again by the first tick). Ending videos remain.
+- [ ] Show the ending videos.
 - [ ] Port the remaining show/building/isolation/hungry verbs once shows,
   connected buildings and isolation tags exist.
 

@@ -29,6 +29,9 @@ void save_port_state(const PortState& state, const std::string& path) {
     out << std::setprecision(9);
     out << "DINOPSAV " << kVersion << "\n";
     out << "island " << (state.island.empty() ? "-" : state.island) << "\n";
+    out << "mission "
+        << (state.campaign_mission.empty() ? "-" : state.campaign_mission)
+        << "\n";
     out << "difficulty " << state.difficulty << "\n";
     out << "budget " << state.budget << "\n";
     out << "clock " << state.day << " " << state.elapsed << " "
@@ -135,6 +138,11 @@ PortState load_port_state(const std::string& path) {
             parts >> state.island;
             if (state.island == "-") {
                 state.island.clear();
+            }
+        } else if (key == "mission") {
+            parts >> state.campaign_mission;
+            if (state.campaign_mission == "-") {
+                state.campaign_mission.clear();
             }
         } else if (key == "difficulty") {
             parts >> state.difficulty;

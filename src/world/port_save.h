@@ -105,6 +105,9 @@ struct PortEmployeeState {
 
 struct PortState {
     std::string island;
+    // Active campaign mission name (e.g. Cpg04_Mission1); empty = free play.
+    // Verdicts are derived again by the runtime, so only the id is stored.
+    std::string campaign_mission;
     int difficulty = 0;
     int budget = 75000;
 

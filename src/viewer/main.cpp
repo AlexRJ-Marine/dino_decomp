@@ -6778,6 +6778,9 @@ int main(int argc, char** argv) {
     auto make_port_state = [&]() {
         dino::PortState state;
         state.island = current_island;
+        if (campaign_runtime) {
+            state.campaign_mission = campaign_runtime->mission().name;
+        }
         state.difficulty = std::clamp(menu.difficulty, 0, 2);
         state.budget = park_budget;
         state.day = park_clock.day;
@@ -7295,6 +7298,30 @@ int main(int argc, char** argv) {
                     build_grid.fence_count, building_instances.size(),
                     imported_dinos.size(), paddocks.size(),
                     food_sources.size());
+        // Resume the campaign mission stored in the port save. The objective
+        // verdicts are derived again by the first runtime tick, so only the
+        // mission id is persisted.
+        if (!state.campaign_mission.empty()) {
+            const std::size_t separator =
+                state.campaign_mission.find("_Mission");
+            const std::string campaign_name =
+                separator == std::string::npos
+                    ? std::string()
+                    : state.campaign_mission.substr(0, separator);
+            if (!campaign_name.empty()) {
+                const std::string mission_path =
+                    (std::filesystem::path(resolve_asset(
+                         opt.asset_root, "Data/Design/Scenario")) /
+                     campaign_name / (state.campaign_mission + ".ini"))
+                        .string();
+                try {
+                    start_campaign_mission(
+                        dino::load_campaign_mission(mission_path));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "port mission: %s\n", e.what());
+                }
+            }
+        }
     };
 
     if (sav_ready) {

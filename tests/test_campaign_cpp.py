@@ -208,6 +208,37 @@ def test_cpp_campaign_live_employees():
     assert "mission Cpg01_Mission6: success" not in result.stdout
 
 
+def test_cpp_campaign_mission_port_save(tmp_path):
+    # The active mission id is part of DINOPSAV; a later --load-port resumes
+    # the mission and its live objective evaluation.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg04" / "Cpg04_Mission1.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04 mission data missing")
+    save = tmp_path / "mission.psav"
+    first = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission), "--save-port", str(save),
+    )
+    assert first.returncode == 0, first.stderr
+    assert "port save:" in first.stdout
+    assert f"mission {mission.stem}" in save.read_text(encoding="utf-8")
+    second = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--load-port", str(save),
+    )
+    assert second.returncode == 0, second.stderr
+    assert "port load:" in second.stdout
+    assert "mission: Cpg04_Mission1 objectives=3" in second.stdout
+    assert "mission objective 2 dyingdinos -> success" in second.stdout
+
+
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"
