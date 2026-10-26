@@ -1613,6 +1613,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `scripts/x32dbg/start-campaign.ps1`,
   `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`.
 
+### DOCS-4: Decoded feature port contracts
+- [x] Add `docs/platform/decoded-features.md`: shows/judges/schedule,
+  employees/staff, animals (`.bni`), lab gameplay and campaign objectives.
+  Each section gives the retail contract, data files, port status, the first
+  implementation slice and evidence links.
+- [x] Cross-link it from the five decoded rows in `feature-status.md`.
+- [x] Add a docs-wide relative-Markdown-link check to
+  `tests/test_feature_matrix.py`.
+- **Acceptance:** every decoded feature has a concrete port contract; all docs
+  links resolve; matrix/UI-map tests pass.
+- **Evidence:** `docs/platform/decoded-features.md`,
+  `docs/decomp/show-score.md`, `docs/decomp/employee-ai.md`,
+  `docs/formats/bni.md`, `docs/formats/laboratory.md`,
+  `docs/formats/campaign.md`, `tests/test_feature_matrix.py`.
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness

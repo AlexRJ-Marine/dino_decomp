@@ -184,6 +184,18 @@ def test_park_panel_dossier_controls_and_tests():
     assert rows >= 20, rows
 
 
+def test_docs_relative_markdown_links_resolve():
+    for path in (ROOT / "docs").rglob("*.md"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for link in LINK_RE.findall(text):
+            if link.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            target = link.split("#", 1)[0]
+            if not target.endswith(".md"):
+                continue
+            assert (path.parent / target).resolve().exists(), (path, link)
+
+
 def test_docs_index_links_the_matrix():
     index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
     assert "platform/feature-status.md" in index
