@@ -514,6 +514,26 @@ def test_cpp_visitors_validate():
     assert "visitors: 8" in result.stdout
 
 
+def test_cpp_daily_settlement():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--width", "160", "--height", "120",
+         "--lnd", str(ISL01),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--no-menu", "--no-hud", "--no-vsync", "--no-save-config",
+         "--build", "--visitors", "8", "--settle-day",
+         *_path_loop_args()],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "visitors: 8 spawned on 24 path cells" in result.stdout
+    assert ("daily settlement: day=0 visitors=8 ticket=50 income=400 "
+            "wages=0 budget=75400") in result.stdout
+
+
 def test_cpp_sim2b_visitor_state_machine(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")

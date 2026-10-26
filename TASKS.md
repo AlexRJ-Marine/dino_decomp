@@ -946,6 +946,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dwords `0/3`, `100`, `10.0/0.0`; schedule day/elapsed/current, 11 task
   slots, the 12-byte `spPark+0x148` field and the trailing `0x01` byte.
   Writer `0x0058b200` (`spPark::Save`), `0x00594cb0` (schedule).
+- [x] Run the daily settlement on the park-clock rollover: visitor ticket
+  income at the Entrance `.bbi` price (50), wages/security zero until the
+  employee/animal actors exist. `--settle-day` for tests; 8 visitors give
+  `income=400`, `budget=75400`.
+- [ ] Decode the exact per-visitor ticket value (the manual save's current
+  ticket pair is 125/2, not 2 × 50) and wire employee wages
+  (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once staff exist.
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 - **Evidence:** `notes/park-economy-recon.md`,

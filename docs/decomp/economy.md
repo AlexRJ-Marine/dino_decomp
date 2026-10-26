@@ -100,6 +100,25 @@ reset), `0x0058c2d0` (day counter `+0x04 += 1`, clear flags, reset elapsed
 time) and then `0x0058ad00`. The clock itself is documented in
 `docs/decomp/park-time.md`; the day ends at hour 11.
 
+## Port settlement (P4c)
+
+`src/viewer/main.cpp` runs `run_daily_settlement()` when `ParkClock` sets
+`end_of_day`, before `next_day()`:
+
+```text
+ticket_price = Entrance .bbi visitor price (offset 25, 50 in retail)
+income       = visitor_count * ticket_price
+wages        = 0                     // no employee actors yet
+park_budget += income - wages
+```
+
+`--settle-day` runs one settlement at startup for tests. 8 visitors on the
+24-cell loop gives `income=400`, `budget=75400`. The exact per-visitor retail
+ticket value is still inferred: the manual save's current-day ticket pair is
+`125/2`, not `2 * 50`; difficulty/age multipliers are not decoded. Employee
+wages (`0x585d80`) and the EFFECTIFS_SECU pass (`0x585d50`) are implemented as
+zero until the staff/animal actors exist.
+
 ## Budget panel (`0x00510430`)
 
 The panel constructor `0x0050fd30` resolves 14 rows in this order and stores

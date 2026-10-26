@@ -1117,6 +1117,15 @@ Updated: 2026-10-26
   - Evidence: `docs/platform/build.md`, `docs/formats/bbi.md`,
     `src/ui/park.cpp`, `tests/test_viewer_cpp.py::test_cpp_construction_placement`,
     `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
+- P4c complete: **daily settlement on the park-clock rollover.**
+  - Ticket income = visitor count × the Entrance `.bbi` visitor price (50);
+    wages and EFFECTIFS_SECU are zero until staff/animal actors exist. The
+    counters roll with `ParkClock::next_day()`. `--settle-day` seeds one
+    settlement for tests; 8 visitors give income 400, budget 75,400.
+  - Open: the exact per-visitor ticket value (manual save 125/2) and staff
+    wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
+  - Evidence: `docs/decomp/economy.md`,
+    `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
 - P4 research complete (**capacity + building placement ported**; store
   purchase and the warning panel remain):
   **`FENCE_INSERTION` validator is a paddock-capacity test.**

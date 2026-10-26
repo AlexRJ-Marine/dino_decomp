@@ -126,6 +126,7 @@ struct Options {
     std::string construct_name;
     std::vector<std::string> construct_positions;
     int park_budget_override = -1;
+    bool settle_day = false;
     std::vector<std::string> place_paths;
     std::vector<std::string> place_fences;
     std::string pick_test;
@@ -372,6 +373,8 @@ Options parse_args(int argc, char** argv) {
             opt.build_mode = true;
         } else if (arg == "--park-budget") {
             opt.park_budget_override = std::atoi(next("--park-budget"));
+        } else if (arg == "--settle-day") {
+            opt.settle_day = true;
         } else if (arg == "--place-path") {
             opt.place_paths.push_back(next("--place-path"));
             opt.build_mode = true;
@@ -545,6 +548,7 @@ Options parse_args(int argc, char** argv) {
                 "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
+                "  --settle-day         run one daily settlement at startup (tests/debug)\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
@@ -4853,6 +4857,34 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Daily settlement (0x0058ad00): wages, security, visitor tickets, then
+    // the counter roll. The port has no employee/security actors yet, so those
+    // terms are zero; the ticket price is the Entrance `.bbi` visitor price
+    // (file offset 25, 50 in retail) - the exact per-visitor retail ticket
+    // value is still inferred from the manual save's 125/2 pair.
+    auto run_daily_settlement = [&]() {
+        ensure_construction_catalog();
+        int ticket_price = 50;
+        for (const dino::BuildingDef& def : construction_defs) {
+            if (def.category == 10) {
+                ticket_price = static_cast<int>(def.price);
+                break;
+            }
+        }
+        const int visitors = static_cast<int>(visitor_system.visitors.size());
+        const int tickets = visitors * ticket_price;
+        const int wages = 0;
+        park_budget += tickets - wages;
+        std::printf(
+            "daily settlement: day=%d visitors=%d ticket=%d income=%d "
+            "wages=%d budget=%d\n",
+            park_clock.day, visitors, ticket_price, tickets, wages,
+            park_budget);
+    };
+    if (opt.settle_day) {
+        run_daily_settlement();
+    }
+
     int park_layout_w = 800;
     int park_layout_h = 600;
     dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
@@ -5906,6 +5938,7 @@ int main(int argc, char** argv) {
         if (park.loaded() && !start_screen) {
             park_clock.advance(dt);
             if (park_clock.end_of_day) {
+                run_daily_settlement();
                 park_clock.next_day();
             }
         }
