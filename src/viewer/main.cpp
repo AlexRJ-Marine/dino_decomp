@@ -2073,6 +2073,10 @@ int run_selftest() {
     check(paddock.capacity == 64.0f, "paddock capacity");
     check(dino::paddock_cost(0) == 8.0f && dino::paddock_cost(1) == 16.0f &&
               dino::paddock_cost(3) == 64.0f, "paddock cost table");
+    check(dino::paddock_size_class(265) == 0 &&
+              dino::paddock_size_class(396) == 1 &&
+              dino::paddock_size_class(1026) == 2 &&
+              dino::paddock_size_class(1400) == 3, "paddock size class");
     check(dino::paddock_add(paddock, 1, 0) && paddock.used == 8.0f,
           "paddock add");
     check(!dino::paddock_add(paddock, 1, 0), "paddock duplicate");
@@ -4242,6 +4246,40 @@ int main(int argc, char** argv) {
                 dino::paddock_capacity(rect, build_grid.cell_size);
             paddocks.push_back(paddock);
         }
+        // `dinosaur+0x1e0` is a size class (8/16/32/64). The exact class comes
+        // from the individual's phenotype; the port derives it from the
+        // species rest-mesh bbox until the genotype translator is ported.
+        std::map<std::string, int> species_size_cm;
+        auto size_for_species = [&](const std::string& species) {
+            const auto found = species_size_cm.find(species);
+            if (found != species_size_cm.end()) {
+                return found->second;
+            }
+            int size_cm = 300;
+            try {
+                const dino::Mesh rest = dino::load_mesh(resolve_asset(
+                    opt.asset_root, "Data/Graphics/Actors/Dinos/" + species +
+                                        "/" + species + "_lod1.mesh"));
+                dino::Vec3 lo{1e30f, 1e30f, 1e30f};
+                dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
+                for (const dino::Vec3& p : rest.positions) {
+                    lo.x = std::min(lo.x, p.x);
+                    lo.y = std::min(lo.y, p.y);
+                    lo.z = std::min(lo.z, p.z);
+                    hi.x = std::max(hi.x, p.x);
+                    hi.y = std::max(hi.y, p.y);
+                    hi.z = std::max(hi.z, p.z);
+                }
+                if (hi.x > lo.x) {
+                    size_cm = static_cast<int>(
+                        std::max({hi.x - lo.x, hi.y - lo.y, hi.z - lo.z}) *
+                        100.0f);
+                }
+            } catch (const std::exception&) {
+            }
+            species_size_cm[species] = size_cm;
+            return size_cm;
+        };
         constexpr float kPi = 3.14159265f;
         for (std::size_t i = 0; i < wld_dinosaurs.size(); ++i) {
             const dino::WorldDinosaur& record = wld_dinosaurs[i];
@@ -4258,10 +4296,12 @@ int main(int argc, char** argv) {
             float y = terrain.world_size * 0.5f;
             float angle = static_cast<float>(i) * 137.5f;
             if (!paddocks.empty()) {
+                const int cost_class =
+                    dino::paddock_size_class(size_for_species(species));
                 int paddock_index = -1;
                 for (std::size_t p = 0; p < paddocks.size(); ++p) {
                     if (dino::paddock_can_add(
-                            paddocks[p], static_cast<int>(i), 0)) {
+                            paddocks[p], static_cast<int>(i), cost_class)) {
                         paddock_index = static_cast<int>(p);
                         break;
                     }
@@ -4269,7 +4309,8 @@ int main(int argc, char** argv) {
                 if (paddock_index >= 0) {
                     dino::Paddock& paddock =
                         paddocks[static_cast<std::size_t>(paddock_index)];
-                    dino::paddock_add(paddock, static_cast<int>(i), 0);
+                    dino::paddock_add(paddock, static_cast<int>(i),
+                                      cost_class);
                     const dino::WorldRect& pen = paddock.rect;
                     const float x0 =
                         static_cast<float>(std::min(pen.x0, pen.x1));

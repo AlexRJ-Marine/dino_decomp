@@ -57,16 +57,20 @@ add       = append occupant, used += cost, fill = used / capacity
 ```
 
 `src/world/build.cpp` exposes `Paddock`, `paddock_capacity`, `paddock_cost`,
-`paddock_can_add` and `paddock_add`. Imported dinosaurs fill paddocks in
-record order, because the save stores no per-dinosaur position; Cpg04 gives
-9 paddocks, total capacity 492, and 20 dinosaurs consume 160 (cost index 0).
+`paddock_size_class`, `paddock_can_add` and `paddock_add`. The size class
+comes from the rest-mesh bbox (<300 cm = 0, 300–899 = 1, 900–1399 = 2,
+≥1400 = 3) until the genotype phenotype length is ported. Imported dinosaurs
+fill paddocks in record order; Cpg04 gives 9 paddocks, total capacity 492,
+and 20 dinosaurs consume 384 (retail individual classes give 336).
 
 `--selftest` checks the capacity maths, the cost table, the duplicate rule,
 filling and the no-room rejection.
 
 Open: the purchase path (store charge to `DINOACHAT`, store-row removal),
-the `WARNING_NO_ROOM_IN_FENCE` panel path, and the runtime range of
-`dinosaur+0x1e0` (the cost index). The port uses index 0 until confirmed.
+the `WARNING_NO_ROOM_IN_FENCE` panel path, and the exact per-individual
+`dinosaur+0x1e0` size class (the port approximates it from the species
+rest-mesh bbox; the live class list is in
+`notes/paddock-capacity-verification.md`).
 Per-paddock numbers and the all-campaign scan:
 `notes/paddock-capacity-verification.md`.
 

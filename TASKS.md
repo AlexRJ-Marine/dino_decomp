@@ -788,13 +788,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   cell size), `AddActor` (`0x57e8a0`), `PlaceActor` (`0x57ec00`; its
   50-iteration loop is unreachable and it always returns 1) and the store
   charge/removal branch.
-- [ ] Runtime-confirm the `dino+0x1e0` cost index and the landscape `+0xc`
-  cell size.
+- [x] Runtime-confirm the `dino+0x1e0` cost index and the landscape `+0xc`
+  cell size: a live Cpg04 run logged nine fences with `cell = 4` and the 20
+  dinosaurs' size classes `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
+  (retail `used` 336). `paddock_size_class` derives the class from the
+  species rest-mesh bbox for now (port `used` 384).
 - [x] Port the paddock-capacity model into `src/world/build.cpp`:
   `Paddock`, `paddock_capacity` (`(w/cell)*(h/cell)`), `paddock_cost`
   (8/16/32/64), duplicate check, `used`/`fill`, plus `--selftest` checks.
   Imported `.wld` dinosaurs now fill their fence rectangles under the retail
-  rule (Cpg04: 9 paddocks, capacity 492, used 160).
+  rule (Cpg04: 9 paddocks, capacity 492, used 384 with species-bbox classes;
+  retail individual classes give 336).
 - [x] Port building placement through the retail panel: category tabs and
   `CONSTRUC_*_BUTTON` resolve to `BuildingList.ini`, the charge is `.bbi`
   file offset 21 (`D+0x18`), footprint overlap and budget are checked, and

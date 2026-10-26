@@ -15,23 +15,40 @@ add      = append, used += cost, fill = used / capacity
 
 `Cpg04_Save.wld` has 9 fence rectangles, 20 `drsDinosaur` records and
 41,397 bytes. The save stores no dinosaur position, so the port fills
-paddocks in record order (first fit) with cost index 0 (8 each):
+paddocks in record order (first fit). The cost class comes from the species
+rest-mesh size (<300 cm = 0, 300–899 = 1, 900–1399 = 2, ≥1400 = 3):
 
 | Paddock | Rectangle | Capacity | Used | Fill | Dinosaurs |
 | ---: | --- | ---: | ---: | ---: | --- |
-| 0 | (452,312)-(467,343) | 32 | 32 | 1.000 | 4 |
-| 1 | (460,356)-(491,403) | 96 | 96 | 1.000 | 12 |
-| 2 | (572,380)-(595,403) | 36 | 32 | 0.889 | 4 |
-| 3 | (512,444)-(543,459) | 32 | 0 | 0 | 0 |
-| 4 | (376,372)-(407,403) | 64 | 0 | 0 | 0 |
-| 5 | (512,372)-(543,403) | 64 | 0 | 0 | 0 |
-| 6 | (420,504)-(443,551) | 72 | 0 | 0 | 0 |
+| 0 | (452,312)-(467,343) | 32 | 32 | 1.000 | 3 |
+| 1 | (460,356)-(491,403) | 96 | 96 | 1.000 | 3 |
+| 2 | (572,380)-(595,403) | 36 | 32 | 0.889 | 1 |
+| 3 | (512,444)-(543,459) | 32 | 32 | 1.000 | 3 |
+| 4 | (376,372)-(407,403) | 64 | 64 | 1.000 | 2 |
+| 5 | (512,372)-(543,403) | 64 | 64 | 1.000 | 3 |
+| 6 | (420,504)-(443,551) | 72 | 64 | 0.889 | 5 |
 | 7 | (456,464)-(479,487) | 36 | 0 | 0 | 0 |
 | 8 | (608,364)-(631,403) | 60 | 0 | 0 | 0 |
-| **Total** | | **492** | **160** | **0.325** | **20** |
+| **Total** | | **492** | **384** | **0.780** | **20** |
 
-The viewer prints `paddocks: 9 capacity=492 used=160` after
-`dinos: 20/20 spawned ...`.
+The viewer prints `paddocks: 9 capacity=492 used=384`.
+
+## Retail classes vs the port approximation
+
+A live Cpg04 run logged `[dinosaur+0x1e0]` at `0x570fd0` for the 20 world
+dinosaurs:
+
+```text
+retail: 1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0   -> used 336
+port:   1,2,2,2,0,0,2,0,2,2,2,0,1,1,1,1,1,1,0,0   -> used 384
+```
+
+The three differences are hybrid dinosaurs whose head type resolves to a
+large species but whose body/leg genes make them smaller. The class is a
+function of the **individual phenotype length**, not the head species; the
+port uses the species rest-mesh bbox until the genotype translator is
+ported. Cpg04 still fits (384/492), and the port's per-paddock fills never
+exceed capacity.
 
 ## Other campaigns
 
@@ -46,9 +63,10 @@ The viewer prints `paddocks: 9 capacity=492 used=160` after
 | `Cpg07_Save.wld` | 2 | — | — | legacy, not parsed |
 | `Cpg08_Save.wld` | 51 | 0 | 0 | 0 |
 
-Only Cpg04 is constrained, and 160/492 is well within capacity, so the
-retail data does not contradict cost index 0. The cost classes for larger
-dinosaurs remain unconfirmed (`dinosaur+0x1e0` is open).
+Only Cpg04 is constrained. The port's 384/492 (species-bbox classes) is well
+within capacity; the retail 336/492 uses the individual phenotype classes.
+The exact per-individual class is open until the genotype translator is
+ported.
 
 ## No stored paddock link
 

@@ -16,6 +16,11 @@ Updated: 2026-10-26
 - Live retail runs overwrite `run/save/auto/auto.sav`. Restore the test
   reference from `run/save/auto/slot001.sav` (7,116 bytes, 39 shows) before
   the save tests; a campaign autosave is ~53 KB (`notes/handoff.md`).
+- Campaign progression is `run/save/dino.dat`, a 4-byte dword. `1` = first
+  campaign only; `0F 00 00 00` unlocks campaigns 1-4 so Cpg04 ("Panic in the
+  Savanna") can be entered for runtime tests. Restore `01 00 00 00` after.
+  Reader `0x5612d0`, writer `0x5617a0`;
+  harness `scripts/x32dbg/start-campaign.ps1`.
 
 ## Done
 
@@ -1096,9 +1101,10 @@ Updated: 2026-10-26
     index, duplicate rejection, `used`/`fill`, `paddock_can_add`/`add`.
   - Imported `.wld` dinosaurs fill their fence rectangles in record order
     under the retail rule instead of a modulo ring. Cpg04: 9 paddocks,
-    total capacity 492, 20 dinosaurs used 160 (cost index 0 → 8 each).
-  - `--selftest` now has 29 checks (capacity, costs, duplicate, fill,
-    no-room); `test_cpp_wld_park_dinosaurs` asserts the summary.
+    total capacity 492, 20 dinosaurs used 384 (species-bbox size classes;
+    retail individual classes give 336).
+  - `--selftest` now has 30 checks (capacity, size class, costs, duplicate,
+    fill, no-room); `test_cpp_wld_park_dinosaurs` asserts the summary.
   - Pending: the store purchase branch (`DINOACHAT` charge + store-row
     removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the runtime
     `dinosaur+0x1e0` cost index.
@@ -1154,12 +1160,20 @@ Updated: 2026-10-26
   - The earlier "cell predicate" lead was a list/duplicate selection check,
     not a buildability rule. The `this+0x48` branch at `0x535c97` (64-byte
     records, `record+0x24 * 0.5 < record+0x20`) is still undecoded.
-  - Open: runtime-dump `[dino+0x1e0]` (cost index; a fresh actor is 0 →
-    cost 8; the `saDinosaur` save layout uses `+0x1e0` as a vector cursor)
-    and the landscape `+0xc` cell size (port assumes 4).
+  - **Runtime-confirmed (Cpg04, `scripts/x32dbg/start-campaign.ps1`):**
+    `stFence` ctor logs all nine fences with `cell = 4`; `[dino+0x1e0]` at
+    `0x570fd0` is a size class `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
+    (coelo/trood 0, anky/deino 1, allo mixed 1/2). Cpg04 `used` is therefore
+    **336**. The port now derives a species baseline from the rest-mesh bbox
+    (`paddock_size_class`), giving **384**; exact parity needs the individual
+    phenotype (Allosaurus splits four class 2 / three class 1).
+  - Campaign progression is `run/save/dino.dat` (u32; `0xF` unlocks
+    campaigns 1-4, enabling Cpg04 runtime tests). The mission briefing is
+    modal; dismiss it before expecting sim hits.
   - Evidence: `notes/fence-insertion-recon.md`,
     `docs/decomp/construction-validation.md`,
-    `notes/construction-validation.md`.
+    `notes/construction-validation.md`, `notes/campaign-unlock-runtime.md`,
+    `notes/campaign-park.png`, `notes/campaign-sim.png`.
   - Reviewed by the reviewer agent; corrections applied: warning path stays
     in-state, 4-byte occupant vector, unreachable 50-loop, softened
     `+0x1e0`, `stWall.cpp` rasteriser, `this+0x48` branch recorded as open.
@@ -1231,11 +1245,14 @@ Updated: 2026-10-26
    builder (`0x00600f80`/`0x00600df0`). Remaining: a direct side-by-side
    still, water animation, and the exact `.lnd` carry path from the reader
    scratch to the landscape.
-14. CONS-1 rest: port the store purchase branch (charge `DINOACHAT`, remove
-   the store row) and the `WARNING_NO_ROOM_IN_FENCE` panel path with the
-   insertion state staying active; runtime-dump `[dinosaur+0x1e0]` and the
-   landscape `+0xc` cell size, and decode the `0x535c97` branch. The
-   capacity model itself is ported. See `docs/decomp/construction-validation.md`.
+14. CONS-1 rest: refine the imported dinosaurs' paddock cost class from the
+   species baseline (port `used` = 384) to the individual phenotype (retail
+   Cpg04 `used` = 336; Allosaurus is four class 2 / three class 1); port the
+   store purchase branch (charge `DINOACHAT`, remove the store row) and the
+   `WARNING_NO_ROOM_IN_FENCE` panel path with the insertion state staying
+   active; decode the `0x535c97` branch. The capacity model and both runtime
+   fields are solved (`cell = 4`, size class 0..2). See
+   `docs/decomp/construction-validation.md`.
 
 ## Blockers
 

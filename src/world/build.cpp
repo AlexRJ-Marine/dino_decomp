@@ -302,6 +302,19 @@ float paddock_cost(int cost_index) {
     return 8.0f * static_cast<float>(1 << index);
 }
 
+int paddock_size_class(int size_cm) {
+    if (size_cm < 300) {
+        return 0;
+    }
+    if (size_cm < 900) {
+        return 1;
+    }
+    if (size_cm < 1400) {
+        return 2;
+    }
+    return 3;
+}
+
 bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index) {
     if (std::find(paddock.occupants.begin(), paddock.occupants.end(),
                   dinosaur_id) != paddock.occupants.end()) {
