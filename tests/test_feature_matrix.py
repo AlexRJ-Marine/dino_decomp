@@ -145,6 +145,45 @@ def test_roadmap_links_the_matrix_and_task_list():
     assert "notes/OPEN-TASKS.md" in roadmap
 
 
+PARK_DOC = ROOT / "docs" / "platform" / "park-panels.md"
+PARK_ROW_RE = re.compile(r"^\| `([^`]+)` \| (.*?) \| (.*?) \|")
+PARK_CONTROL_RE = re.compile(r"`([A-Z0-9_]+)` \(([0-9]+),([0-9]+)\)")
+
+
+def test_park_panel_dossier_controls_and_tests():
+    assert PARK_DOC.exists(), "missing docs/platform/park-panels.md"
+    ui_map = _ui_map()
+    controls = {}
+    for screen in ui_map["screens"]:
+        for control in screen["controls"]:
+            controls.setdefault(control["name"], []).append(control)
+    viewer_tests = (
+        ROOT / "tests" / "test_viewer_cpp.py"
+    ).read_text(encoding="utf-8")
+
+    rows = 0
+    for line in PARK_DOC.read_text(encoding="utf-8").splitlines():
+        match = PARK_ROW_RE.match(line)
+        if not match:
+            continue
+        rows += 1
+        for cell in (match.group(2), match.group(3)):
+            for name, x, y in PARK_CONTROL_RE.findall(cell):
+                assert name in controls, (name, "not in ui-coordinates.json")
+                px, py = int(x), int(y)
+                assert any(
+                    rect[0] <= px < rect[0] + rect[2]
+                    and rect[1] <= py < rect[1] + rect[3]
+                    for control in controls[name]
+                    for rect in [control["rect"]]
+                ), (name, px, py, [c["rect"] for c in controls[name]])
+        for test_name in re.findall(r"test_cpp_\w+", line):
+            assert re.search(
+                rf"^def {re.escape(test_name)}\b", viewer_tests, re.M
+            ), (test_name, "not in tests/test_viewer_cpp.py")
+    assert rows >= 20, rows
+
+
 def test_docs_index_links_the_matrix():
     index = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
     assert "platform/feature-status.md" in index

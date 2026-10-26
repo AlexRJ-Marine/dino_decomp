@@ -1579,6 +1579,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/feature-status.md`, `docs/README.md`,
   `docs/ROADMAP.md`, `tests/test_feature_matrix.py`.
 
+### DOCS-2: Park panel verification dossier
+- [x] Add `docs/platform/park-panels.md`: panel matrix (open/close control,
+  populated fields, status, test), reproduce recipes for budget, store, lists,
+  construction, lab, options and dialogs, plus the static/dynamic split and
+  gaps.
+- [x] Cross-link it from `feature-status.md` and the evidence index; keep
+  `ui-coordinates.md` as the coordinate source.
+- [x] Validate it with `tests/test_feature_matrix.py`: every control named in
+  the dossier exists in `ui-coordinates.json`, its click point lies inside the
+  rect, and every referenced `test_cpp_*` exists.
+- **Acceptance:** the dossier recipes match the viewer output; the matrix and
+  UI-map tests pass.
+- **Evidence:** `docs/platform/park-panels.md`, `hud.md`,
+  `ui-coordinates.md`, `tests/test_feature_matrix.py`.
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness

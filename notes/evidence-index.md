@@ -30,3 +30,4 @@ add a row when a claim becomes something later work depends on.
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
 | Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |
 | Feature status matrix (retail feature/screen -> status/evidence/tests) | `docs/platform/feature-status.md` | `tests/test_feature_matrix.py` |
+| Park panel contract + verification recipes | `docs/platform/park-panels.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_park_panels` |
