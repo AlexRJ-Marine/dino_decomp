@@ -1125,7 +1125,8 @@ Updated: 2026-10-26
 
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
   and drive the imported dinosaurs. Still open: the retail-verified
-  action→animation clip table, the SECU threat/visitor reaction term and the
+  action→animation clip table (negative results and the next runtime trace in
+  `notes/action-clip-lead.md`), the SECU threat/visitor reaction term and the
   feeding interaction (Eat currently assumes an item).
 - **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,
   list snapshots, slider/checkbox selection), minimap water colour/partition
@@ -1149,9 +1150,10 @@ Updated: 2026-10-26
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are
-   done. Remaining: find the retail action→clip table (current mapping is
-   inferred), wire the SECU threat/visitor term, and model the feeding item
-   so Eat requires a real food source. See `notes/dino-action-chooser-recon.md`.
+   done. Remaining: find the retail action→clip table (negative results and
+   the next runtime trace in `notes/action-clip-lead.md`), wire the SECU
+   threat/visitor term, and model the feeding item so Eat requires a real
+   food source. See `notes/dino-action-chooser-recon.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
    through the construction UI; then frustum culling and LOD2.
