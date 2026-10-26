@@ -63,6 +63,35 @@ FUN_0056ac80(behavior+0x0c)
 `FUN_00521d60(behavior)` is the stop counterpart: state 2 -> 0 and
 `FUN_0056b550(action, 1)`.
 
+## Chooser target provider (partial)
+
+`FUN_0056e410` walks the behavior node list (`behavior+8` sentinel). For
+each enabled node it calls the object at `node+0x3c`:
+
+```text
+(node[0xf]->vtable[+0x14])(&x, &y)   // GetTarget position
+node[0xf]->vtable[+0x18]()           // target radius
+node[0xf]->vtable[+0x1c]()           // target actor/object
+```
+
+- `node+0x38` (`node[0xe]`) points to the `asItemBehavior` wrapper;
+  `node[0xe]+4` is the action record whose `+0x78/+0x7c` need deltas,
+  `+0x60` special_action and `+0x88` effect_class are read.
+- `FUN_0056d980` computes `(target.x - actor.x)^2 + (target.y - actor.y)^2`
+  and stores it at `node+0x10`; it also compares
+  `node[0xf]+0x28` (target actor) against the scene actor list.
+- `FUN_00572dd0(actor, x, y)` is the radius box test:
+  `|x - actor.x| <= actor+0x27c` and the same for y.
+- The chooser threat term is `-cell(target) + cell(actor) - actor+0x2a0`,
+  added as `need_term(SECU, value / 10)`.
+
+The provider vtable itself is still unidentified. The actor vtable
+`0x642f70` slot `+0x14` (`0x55c6b0`) is a grid/occupation lookup, not a
+position getter, so the provider is a separate target object. The next
+step is a one-shot runtime probe at `0x56e506` (ECX = actor,
+`local_14[0xf]` = provider) to read the provider's vtable and therefore
+the `GetTarget`/`GetRadius`/`GetObject` function addresses.
+
 ## What is still open
 
 - The **target/policy vtable `+0x14`** (`GetTarget`) used by the chooser's
