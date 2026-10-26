@@ -41,19 +41,20 @@ score = (rand() % 6000) - 3000
         + attr10 * (99 - needB)^2 * W[1]
         + attr11 * (99 - needC)^2 * W[2]
         - (|dx| + |dy|) * W[4]
-        - attraction[0x10]->0x1c * W[3]
+        - descriptor(+0x40)[0x1c] * W[3]
 ```
 
 The decompiler rendered `pow(x, 2.0)` as three `FUN_0059aef0` calls; the
 double at `0x006296a8` is `2.0`. The random base is
 `rand() % (int)(W[6] - W[5]) + W[5]`, i.e. `rand() % 6000 - 3000`.
 
-- `needA/B/C` are actor `+0x48`, `+0x4c`, `+0x50` (percent needs, 0–99).
+- `needA/B/C` are actor `+0x48`, `+0x4c`, `+0x50` (percent needs, 0-99).
 - `needIndex` is actor `+0x68`; the attraction block `+0x18` is a float array.
 - `appealScale` is attraction block `+0x24`; `attr10`/`attr11` are `+0x28`
   and `+0x2c`.
 - `dx`/`dy` are actor tile `+0x08`/`+0x0c` minus attraction tile
-  `+0x18`/`+0x1c`; `+0x1c` of the descriptor is the price/cost field.
+  `+0x18`/`+0x1c`. The price is the **definition** field `descriptor+0x1c`
+  (`0x522af2`/`0x522bb2`), `.bbi` file offset 25.
 
 `W` is **not** the five per-profile `.bvi` weights. It points at the profile
 record `+0xD0`, which is the constant seven-float block at file `0x38..0x50`
@@ -95,8 +96,29 @@ by up to four cells and recomputing the Manhattan route.
 ## Attraction use
 
 `FUN_005219f0` accumulates `actor+0x40` while in state 2. Shows use
-`0x005901f0`; other attractions finish when the timer reaches the attraction's
-`+0x28` duration. `FUN_00522f30` applies the attraction's queue/patience fields.
+`0x005901f0`; other attractions finish when the timer reaches the building
+definition's `+0x28` duration (`.bbi` file offset 37, seconds).
+`FUN_00522f30` applies the attraction's queue/patience fields.
+
+## Attraction block (buildings)
+
+A building attraction carries a block at `building+0x74` (the object in the
+visitor list is the sim building: 0xc4 bytes, vtable `0x64355c`, `+0x40` =
+definition). `FUN_005872c0` (vtable slot +0x10) builds it:
+
+| Block | Source | Meaning |
+| ---: | --- | --- |
+| +0x00..0x10 | `def+0x34..0x44` (`.bbi` 53,57,61,65,69) | five appeal weights |
+| +0x14 | `PTR_FUN_00626ad4` | vtable |
+| +0x18 | `FUN_00576550` loop | one appeal float per park need |
+| +0x24 | `def+0x48` (`.bbi` 73) | appeal scale |
+| +0x28 | `def+0x50` (`.bbi` 69) | int (read with `FILD`) |
+| +0x2c | `def+0x54` (`.bbi` 73 bits) | int (read with `FILD`) |
+
+`appeal[need] = clamp(Σ_{k<5} (def+0x34+4k) × (need[k]+0x18), −100, +100)`.
+The vector is resized to the park need count by `FUN_00576860`. Entrance has
+all five weights 0, so its appeal values are 0. See
+`notes/building-def-record-recon.md`.
 
 ## Port model
 
@@ -108,17 +130,17 @@ elif state 2: wait for duration; then state 0/1
 ```
 
 The scorer needs the constant `W` block, the actor's three needs and need
-index, the attraction position/radius, the price/tag field `+0x1c`, duration
+index, the attraction position/radius, the definition price `+0x1c`, duration
 `+0x28`, kind `+0x6c`, and show data.
 
 ## Open
 
 - Consumer of the five variable `.bvi` weights (record `+0x24..+0x34`).
-- `+0x1c` (price/queue/tag) and `+0x28` duration units.
 - `0x005873e0` arrival contract.
 - Visitor need decay/satisfaction and the `VISITEURS_STATS_*` gauges.
-- The five attraction-block fields `+0x18` (array pointer), `+0x24` (scale),
-  `+0x28`, `+0x2c` still need names.
+- The park need table `*(spPark+0x78)+0x34` (the appeal vector values).
+- `block+0x28/+0x2c` are copied from float fields but read with `FILD`; the
+  intended meaning is unresolved.
 
 ## Evidence
 

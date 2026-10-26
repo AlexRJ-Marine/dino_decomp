@@ -386,7 +386,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] `field_0c` is the construction cost (10/15/30) passed to the
   CONSTRUCTION budget setter; `field_08`/`field_10` are uniform 100/30 and
   fit hit points/build time (inferred).
-- [ ] Consumer of the `SWITCH_*` keys (absent from every INI/loc file).
+- [x] `SWITCH_*` keys are dead/unused data (no lookup anywhere).
+- [x] `scales[5] == height/8` is the vertical tiling; the other six floats are
+  constant defaults across all 24 walls (default UV/tiling parameters).
 - **Acceptance:** 24 files round-trip; all mesh/texture paths exist.
 - **Depends on:** WORLD-1 (mesh/imp paths).
 - **Evidence:** `tools/formats/bwi.py`, `docs/formats/bwi.md`,
@@ -531,10 +533,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ### DEC-2b: dinosaur behavior graph
 - [x] `apDinosaurBehavior` ctor `0x521b30` owns an actor and two
   sub-behaviors (`0x56cb80`/`0x56ca80`, vtables `0x643040`/`0x64302c`).
-- [x] The graph serializer is `0x56ce80` (read, 41 node types) /
-  `0x56d5a0` (write); node record = type + 3 ints + two vectors + child +
-  actor field.
-- [ ] Decode the 41 node-type branches; the BAD FOOD/REPOS -> action 4/2
+- [x] The graph serializer is `0x56ce80` (read, versioned; `0x29` is the
+  format version, not a 41-type switch) / `0x56d5a0` (write); node record =
+  type + 3 ints + two vectors + child + actor field.
+- [ ] Decode the per-node type dispatch; the BAD FOOD/REPOS -> action 4/2
   chooser should be a condition/action pair.
 - **Evidence:** `notes/dinosaur-behavior-graph.md`,
   `docs/decomp/function-status.md`.

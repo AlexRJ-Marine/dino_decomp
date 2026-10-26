@@ -54,6 +54,7 @@ add_executable(dino_viewer
     src/world/vegetation.cpp
     src/world/build.cpp
     src/world/visitors.cpp
+    src/world/port_save.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

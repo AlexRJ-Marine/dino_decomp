@@ -22,6 +22,7 @@
 #include "../world/vegetation.h"
 #include "../world/build.h"
 #include "../world/visitors.h"
+#include "../world/port_save.h"
 #include "../ui/menu.h"
 #include "../ui/park.h"
 #include "../ui/ini.h"
@@ -91,6 +92,9 @@ struct Options {
     std::string fence_texture_path;
     std::string build_load_path;
     std::string build_save_path;
+    std::string save_port_path;
+    std::string load_port_path;
+    std::string save_name = "quicksave";
     std::string building_path;
     std::string wld_path;
     bool wld_info = false;
@@ -279,6 +283,14 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--build-save") {
             opt.build_save_path = next("--build-save");
             opt.build_mode = true;
+        } else if (arg == "--save-port") {
+            opt.save_port_path = next("--save-port");
+            opt.build_mode = true;
+        } else if (arg == "--load-port") {
+            opt.load_port_path = next("--load-port");
+            opt.build_mode = true;
+        } else if (arg == "--save-name") {
+            opt.save_name = next("--save-name");
         } else if (arg == "--building") {
             opt.building_path = next("--building");
         } else if (arg == "--wld") {
@@ -464,6 +476,9 @@ Options parse_args(int argc, char** argv) {
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-info           print the world block and exit\n"
+                "  --save-port FILE     write the port park state\n"
+                "  --load-port FILE     load a port park state at startup\n"
+                "  --save-name NAME     Options Save target name (default quicksave)\n"
                 "  --place-path X,Y     add a path cell (repeatable)\n"
                 "  --place-fence X,Y,E  add a fence edge, E=0 south / 1 east (repeatable)\n"
                 "  --pick-test X,Y      print the terrain cell under a pixel (first frame)\n"
@@ -2128,8 +2143,15 @@ int main(int argc, char** argv) {
         if (std::filesystem::is_directory(save_dir)) {
             for (const auto& entry :
                  std::filesystem::directory_iterator(save_dir)) {
-                if (!entry.is_regular_file() ||
-                    entry.path().extension() != ".sav") {
+                if (!entry.is_regular_file()) {
+                    continue;
+                }
+                if (entry.path().extension() == ".psav") {
+                    save_slots.emplace_back(entry.path().string(),
+                                            "[port] " + entry.path().stem().string());
+                    continue;
+                }
+                if (entry.path().extension() != ".sav") {
                     continue;
                 }
                 try {
@@ -2171,6 +2193,8 @@ int main(int argc, char** argv) {
     }
 
     int pending_minimap_zoom = 0;
+    bool pending_port_save = false;
+    bool pending_port_load = false;
     if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
@@ -2199,6 +2223,10 @@ int main(int argc, char** argv) {
                         --pending_minimap_zoom;
                     } else if (action == "minimap zoom out") {
                         ++pending_minimap_zoom;
+                    } else if (action == "save port") {
+                        pending_port_save = true;
+                    } else if (action == "load port") {
+                        pending_port_load = true;
                     }
                     std::printf("park click %d,%d -> %s\n", x, y,
                                 action.empty() ? "consumed" : action.c_str());
@@ -2323,7 +2351,7 @@ int main(int argc, char** argv) {
                 fence_source = dino::load_mesh(fence_mesh);
                 build_ready = true;
 
-                if (opt.visitors > 0) {
+                if (opt.visitors > 0 || !opt.load_port_path.empty()) {
                     const std::string pose1 =
                         opt.visitor_pose1.empty()
                             ? resolve_asset(opt.asset_root,
@@ -3259,11 +3287,11 @@ int main(int argc, char** argv) {
             // orientation states swap the footprint axes. `gpkBuilding`
             // (`FUN_005fecf0`) places the model at the footprint centre.
             const int orientation = ((state % 4) + 4) % 4;
-            const float w0 = def.header[0] > 0 && def.header[0] < 256
-                                 ? static_cast<float>(def.header[0])
+            const float w0 = def.footprint_w > 0 && def.footprint_w < 256
+                                 ? static_cast<float>(def.footprint_w)
                                  : 1.0f;
-            const float w1 = def.header[1] > 0 && def.header[1] < 256
-                                 ? static_cast<float>(def.header[1])
+            const float w1 = def.footprint_h > 0 && def.footprint_h < 256
+                                 ? static_cast<float>(def.footprint_h)
                                  : 1.0f;
             const float span_x = (orientation % 2 == 0 ? w0 : w1) - 1.0f;
             const float span_y = (orientation % 2 == 0 ? w1 : w0) - 1.0f;
@@ -3819,6 +3847,291 @@ int main(int argc, char** argv) {
     dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
     float minimap_heading = 1e30f;
     float minimap_rendered_scale = -1.0f;
+
+    std::string current_island;
+    if (!opt.lnd_path.empty()) {
+        current_island =
+            std::filesystem::path(opt.lnd_path).stem().string();
+    } else if (!island_names.empty()) {
+        current_island = island_names.front();
+    }
+
+    auto ends_with = [](const std::string& text, const std::string& suffix) {
+        return text.size() >= suffix.size() &&
+               text.compare(text.size() - suffix.size(), suffix.size(),
+                            suffix) == 0;
+    };
+
+    auto make_port_state = [&]() {
+        dino::PortState state;
+        state.island = current_island;
+        state.difficulty = std::clamp(menu.difficulty, 0, 2);
+        state.budget = park_budget;
+        state.day = park_clock.day;
+        state.elapsed = park_clock.elapsed;
+        state.time_scale = park_clock.time_scale;
+        state.target = center;
+        state.yaw = yaw;
+        state.pitch = pitch;
+        state.distance = distance;
+        state.free_camera = free_camera;
+        state.free_pos = free_pos;
+        state.free_yaw = free_yaw;
+        state.free_pitch = free_pitch;
+        state.cell_size = build_grid.cell_size;
+        state.origin_x = build_grid.origin_x;
+        state.origin_y = build_grid.origin_y;
+        state.width = build_grid.width;
+        state.height = build_grid.height;
+        for (int cy = 0; cy < build_grid.height; ++cy) {
+            for (int cx = 0; cx < build_grid.width; ++cx) {
+                if (build_grid.path_at(cx, cy)) {
+                    state.paths.emplace_back(cx, cy);
+                }
+                for (int edge = 0; edge < 2; ++edge) {
+                    if (build_grid.fence_at(cx, cy, edge)) {
+                        state.fences.push_back({cx, cy, edge});
+                    }
+                }
+            }
+        }
+        for (const dino::Visitor& visitor : visitor_system.visitors) {
+            dino::PortVisitorState saved;
+            saved.x = visitor.x;
+            saved.y = visitor.y;
+            saved.angle = visitor.angle;
+            saved.phase = visitor.phase;
+            saved.cell_x = visitor.cell_x;
+            saved.cell_y = visitor.cell_y;
+            saved.target_x = visitor.target_x;
+            saved.target_y = visitor.target_y;
+            saved.prev_x = visitor.prev_x;
+            saved.prev_y = visitor.prev_y;
+            state.visitors.push_back(saved);
+        }
+        return state;
+    };
+
+    auto ensure_build_ready = [&]() {
+        if (terrain.world_size <= 0.0f) {
+            return;
+        }
+        if (!build_ready) {
+            build_grid.init(opt.build_cell > 0.0f ? opt.build_cell : 4.0f,
+                            terrain.world_size);
+            try {
+                const std::string fence_mesh =
+                    opt.fence_mesh_path.empty()
+                        ? resolve_asset(opt.asset_root,
+                                        "Data/Graphics/paddock/fences/"
+                                        "fence_paddock_lod1.mesh")
+                        : opt.fence_mesh_path;
+                fence_source = dino::load_mesh(fence_mesh);
+                build_ready = true;
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "build enable: %s\n", e.what());
+            }
+            if (path_image.width == 0) {
+                const std::string path_texture =
+                    opt.path_texture_path.empty()
+                        ? resolve_asset(opt.asset_root,
+                                        "Data/Graphics/Textures/buildings/"
+                                        "ground.tga")
+                        : opt.path_texture_path;
+                try {
+                    path_image = dino::load_tga(path_texture);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "path texture: %s\n", e.what());
+                }
+            }
+            if (fence_image.width == 0 &&
+                !fence_source.texture_name().empty()) {
+                const std::string fence_texture =
+                    opt.fence_texture_path.empty()
+                        ? resolve_asset(
+                              opt.asset_root,
+                              "Data/Graphics/Textures/buildings/" +
+                                  fence_source.texture_name())
+                        : opt.fence_texture_path;
+                try {
+                    fence_image = dino::load_tga(fence_texture);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "fence texture: %s\n", e.what());
+                }
+            }
+            if (path_texture == 0 && path_image.width > 0) {
+                path_texture = upload_texture(path_image);
+            }
+            if (fence_texture == 0 && fence_image.width > 0) {
+                fence_texture = upload_texture(fence_image);
+            }
+        }
+        if (visitor_pose1.positions.empty()) {
+            const std::string pose1 =
+                opt.visitor_pose1.empty()
+                    ? resolve_asset(opt.asset_root,
+                                    "Data/Graphics/Actors/people/customers/"
+                                    "wom/woman_walk1_LOD1.mesh")
+                    : opt.visitor_pose1;
+            const std::string pose2 =
+                opt.visitor_pose2.empty()
+                    ? resolve_asset(opt.asset_root,
+                                    "Data/Graphics/Actors/people/customers/"
+                                    "wom/woman_walk2_LOD1.mesh")
+                    : opt.visitor_pose2;
+            const std::string texture =
+                opt.visitor_texture.empty()
+                    ? resolve_asset(opt.asset_root,
+                                    "Data/Graphics/Textures/actors/people/"
+                                    "customers/wom.tga")
+                    : opt.visitor_texture;
+            try {
+                visitor_pose1 = dino::load_mesh(pose1);
+                visitor_pose2 = dino::load_mesh(pose2);
+                visitor_image = dino::load_image(texture);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "visitor assets: %s\n", e.what());
+            }
+        }
+    };
+
+    auto apply_port_state = [&](const dino::PortState& state) {
+        if (!state.island.empty() && state.island != current_island) {
+            load_island(state.island, false);
+            current_island = state.island;
+        }
+        ensure_build_ready();
+        park_budget = state.budget;
+        park_clock.day = state.day;
+        park_clock.elapsed = state.elapsed;
+        park_clock.time_scale = state.time_scale > 0.0 ? state.time_scale : 60.0;
+        center = state.target;
+        yaw = state.yaw;
+        pitch = std::clamp(state.pitch, -89.0f, 89.0f);
+        distance = std::max(1.0f, state.distance);
+        free_camera = state.free_camera;
+        free_pos = state.free_pos;
+        free_yaw = state.free_yaw;
+        free_pitch = state.free_pitch;
+
+        build_grid.init(state.cell_size > 0.0f ? state.cell_size : 4.0f,
+                        terrain.world_size);
+        for (const auto& cell : state.paths) {
+            build_grid.set_path(cell.first, cell.second, true);
+        }
+        for (const dino::PortFenceState& fence : state.fences) {
+            build_grid.set_fence(fence.x, fence.y, fence.edge, true);
+        }
+        build_grid.undo_stack.clear();
+
+        visitor_system.visitors.clear();
+        for (const dino::PortVisitorState& saved : state.visitors) {
+            dino::Visitor visitor;
+            visitor.x = saved.x;
+            visitor.y = saved.y;
+            visitor.angle = saved.angle;
+            visitor.phase = saved.phase;
+            visitor.cell_x = saved.cell_x;
+            visitor.cell_y = saved.cell_y;
+            visitor.target_x = saved.target_x;
+            visitor.target_y = saved.target_y;
+            visitor.prev_x = saved.prev_x;
+            visitor.prev_y = saved.prev_y;
+            visitor_system.visitors.push_back(visitor);
+        }
+
+        rebuild_build_meshes();
+        if (!visitor_system.visitors.empty() &&
+            !visitor_pose1.positions.empty()) {
+            if (visitor_texture_id == 0 && visitor_image.width > 0) {
+                visitor_texture_id = upload_texture(visitor_image);
+            }
+            const dino::Mesh visitor_mesh = visitor_system.build_mesh(
+                build_grid, terrain, visitor_pose1, visitor_pose2);
+            if (visitor_gpu.vao == 0) {
+                visitor_gpu = upload_mesh(visitor_mesh, glfns);
+            } else {
+                update_mesh(visitor_gpu, visitor_mesh, glfns);
+            }
+        } else if (visitor_gpu.vao != 0) {
+            visitor_gpu.destroy(glfns);
+        }
+        rebuild_extra_items();
+        minimap_rendered_scale = -1.0f;
+        minimap_focus = {1e30f, 1e30f, 1e30f};
+        minimap_heading = 1e30f;
+        std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
+                    "paths=%d fences=%d\n",
+                    current_island.c_str(), park_budget, park_clock.day,
+                    visitor_system.visitors.size(), build_grid.path_count,
+                    build_grid.fence_count);
+    };
+
+    auto save_name_sanitized = [&]() {
+        std::string name = opt.save_name;
+        for (char& c : name) {
+            const bool ok = (c >= 'a' && c <= 'z') ||
+                            (c >= 'A' && c <= 'Z') ||
+                            (c >= '0' && c <= '9') || c == '_' || c == '-';
+            if (!ok) {
+                c = '_';
+            }
+        }
+        if (name.empty()) {
+            name = "quicksave";
+        }
+        return name;
+    };
+
+    auto port_save_target = [&](bool for_load) {
+        const int selected = park.save_selected();
+        if (selected >= 0 &&
+            selected < static_cast<int>(save_slots.size())) {
+            const std::string& candidate =
+                save_slots[static_cast<std::size_t>(selected)].first;
+            if (ends_with(candidate, ".psav")) {
+                return candidate;
+            }
+        }
+        if (for_load && !opt.load_port_path.empty()) {
+            return opt.load_port_path;
+        }
+        std::filesystem::create_directories("run/save");
+        return std::string("run/save/") + save_name_sanitized() + ".psav";
+    };
+
+    auto do_port_save = [&](const std::string& path) {
+        try {
+            dino::save_port_state(make_port_state(), path);
+            std::printf("port save: %s\n", path.c_str());
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "port save: %s\n", e.what());
+        }
+    };
+    auto do_port_load = [&](const std::string& path) {
+        try {
+            apply_port_state(dino::load_port_state(path));
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "port load: %s\n", e.what());
+        }
+    };
+
+    if (!opt.load_port_path.empty()) {
+        do_port_load(opt.load_port_path);
+    }
+    if (!opt.save_port_path.empty()) {
+        do_port_save(opt.save_port_path);
+    }
+    if (pending_port_load) {
+        do_port_load(port_save_target(true));
+        park.overlay.set_visible("OPTIONS_PANEL", false);
+        pending_port_load = false;
+    }
+    if (pending_port_save) {
+        do_port_save(port_save_target(false));
+        park.overlay.set_visible("OPTIONS_PANEL", false);
+        pending_port_save = false;
+    }
     if (!opt.park_hover.empty() && park.loaded()) {
         int x = 0, y = 0;
         if (std::sscanf(opt.park_hover.c_str(), "%d,%d", &x, &y) == 2) {
@@ -4241,6 +4554,16 @@ int main(int argc, char** argv) {
                             minimap_zoom_in = true;
                         } else if (action == "minimap zoom out") {
                             minimap_zoom_out = true;
+                        } else if (action == "save port" ||
+                                   action == "load port") {
+                            const std::string path =
+                                port_save_target(action == "load port");
+                            if (action == "save port") {
+                                do_port_save(path);
+                            } else {
+                                do_port_load(path);
+                            }
+                            park.overlay.set_visible("OPTIONS_PANEL", false);
                         }
                         if (!action.empty()) {
                             std::printf("park click %d,%d -> %s\n", dx, dy,
@@ -4355,6 +4678,8 @@ int main(int argc, char** argv) {
                     try {
                         load_island(island_names[static_cast<std::size_t>(island_index)],
                                     true);
+                        current_island =
+                            island_names[static_cast<std::size_t>(island_index)];
                         minimap_rendered_scale = -1.0f;
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "island load: %s\n", e.what());

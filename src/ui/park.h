@@ -38,6 +38,11 @@ public:
     // belongs to the HUD and must not reach the camera/build tools.
     bool click(int x, int y, std::string& action);
 
+    // Options Save/Load tab state: "save" or "load", and the selected list
+    // row (-1 when none). The viewer owns the actual save catalog.
+    const std::string& options_tab() const { return options_tab_; }
+    int save_selected() const { return save_selected_; }
+
     Overlay overlay;
     Loc loc;
 
@@ -51,6 +56,8 @@ private:
     bool hud_hidden_ = false;
     bool warning_open_ = false;
     std::string warning_text_;
+    std::string options_tab_ = "save";
+    int save_selected_ = -1;
 };
 
 }  // namespace dino::ui

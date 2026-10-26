@@ -23,8 +23,9 @@ def test_barak_profile():
         pytest.skip("retail sample not present")
     building = read_bbi(BUILDINGS / "BarakCirc.bbi")
     assert len(building.meshes) == 10
-    assert building.header_words[0] == 4
-    assert building.header_words[1] == 8
+    assert building.footprint_w == 4
+    assert building.footprint_h == 8
+    assert building.category == 2  # Barak family
     assert "CONSTRUC_BARAQUES3_BUTTON" in building.ui_names
     assert "explo_1.ini" in building.tail_strings
     assert "fries" in building.tail_strings
@@ -35,8 +36,41 @@ def test_entrance_profile():
         pytest.skip("retail sample not present")
     building = read_bbi(BUILDINGS / "Entrance.bbi")
     assert len(building.meshes) == 10
-    assert building.header_words[0] == 24
+    assert building.footprint_w == 24
+    assert building.footprint_h == 12
+    assert building.flag == 1
+    assert building.category == 10
+    assert building.duration == pytest.approx(10.0)
+    assert building.price == 50
+    assert building.appeal_scale == pytest.approx(4.0)
+    assert building.radius_squared == 1024
+    assert building.model0 == 0
+    assert building.model1 == pytest.approx(0.0)
+    assert building.model_count == 2
     assert "boat" in building.tail_strings
+
+
+def test_header_fields_all_buildings():
+    if not BUILDINGS.exists():
+        pytest.skip("retail game tree not present")
+    names = read_building_list(BUILDINGS / "BuildingList.ini")
+    expected_categories = {
+        "SmallSeats": 6, "PointOfView": 5, "Security": 7, "Farm": 8,
+        "RestCirc": 1, "Entrance": 10, "Manege": 4, "SouvCirc": 3,
+        "BarakCirc": 2, "Station": 9, "ParkNat": 0, "LunchDoor": 11,
+        "DecoCirc": 12,
+    }
+    for name in names:
+        building = read_bbi(BUILDINGS / f"{name}.bbi")
+        assert building.footprint_w > 0
+        assert building.footprint_h > 0
+        assert 0 <= building.category <= 12
+        assert building.model1 == pytest.approx(0.0)
+        assert building.model0 in (0, 1)
+        assert building.model_count == 2
+        assert building.flag == 1
+        if name in expected_categories:
+            assert building.category == expected_categories[name]
 
 
 def test_scan_all_buildings():

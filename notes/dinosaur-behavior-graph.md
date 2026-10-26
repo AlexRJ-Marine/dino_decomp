@@ -20,9 +20,10 @@ lives.
 
 The graph is serialized by:
 
-- `0x0056ce80` ? reader; takes a node type `0..0x28` (41 types) and fills the
-  node's fields.
-- `0x0056d5a0` ? writer; walks the list and writes each node.
+- `0x0056ce80` — versioned graph reader; `param_3` is the **format
+  version** (0x29 = v41), not a node-type switch. It reads the graph header
+  and the per-node type/fields.
+- `0x0056d5a0` — versioned writer; walks the node list and writes each node.
 
 Node record shape (from the writer):
 
@@ -39,9 +40,10 @@ Node record shape (from the writer):
 +0x44  actor field +0x60
 ```
 
-The reader's `switch (type)` covers 41 node types; type `0x25` (37) reads a
-vector and is the largest branch. The node types are conditions/actions of
-the dinosaur behavior tree (need checks, target selection, action choice).
+The reader's `param_3` comparison is a **version check** (`0x29` = 41), not a
+41-way node-type switch. The per-node type is read inside the record and
+dispatched through the node vtables/registry. The node types are
+conditions/actions of the dinosaur behavior tree.
 
 ## Vtables
 
@@ -57,6 +59,7 @@ the dinosaur behavior tree (need checks, target selection, action choice).
 
 ## Next step
 
-Decode the 41 node-type branches of `0x0056ce80` to recover the condition and
-action nodes. The BAD FOOD/REPOS -> actions 4/2 mapping should be one of the
-condition/action pairs (need gauge `+0x244`/`+0x250` -> action id 4/2).
+Decode the per-node type dispatch (the reader's `0x29` is the format version,
+not a type count) to recover the condition and action nodes. The BAD
+FOOD/REPOS -> actions 4/2 mapping should be one of the condition/action pairs
+(need gauge `+0x244`/`+0x250` -> action id 4/2).

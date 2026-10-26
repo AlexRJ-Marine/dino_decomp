@@ -1361,3 +1361,107 @@ def test_cpp_wld_places_all_buildings():
     assert any("MediumSeats" in ln for ln in placed)
     assert any("Entrance" in ln and "centre=445.5,211.5" in ln
                for ln in placed)
+
+def _save_catalog_rows():
+    """Replicates the viewer's sorted pair<path, name> save catalog."""
+    save_dir = ROOT / "run" / "save"
+    paths = []
+    if save_dir.is_dir():
+        for path in save_dir.iterdir():
+            if path.is_file() and path.suffix in (".sav", ".psav"):
+                paths.append(str(path))
+    return sorted(paths)
+
+
+def test_cpp_port_save_roundtrip(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl03 = GAME / "Data" / "Design" / "landscape" / "isl03" / "isl03.lnd"
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not isl03.exists() or not isl01.exists():
+        pytest.skip("retail islands missing")
+    target = tmp_path / "roundtrip.psav"
+    save = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
+         "--lnd", str(isl03), "--asset-root", str(GAME), "--no-vegetation",
+         "--place-path", "100,100", "--place-path", "100,101",
+         "--place-fence", "100,100,0", "--visitors", "3",
+         "--park-time", "10:30", "--park-time-scale", "30",
+         "--distance", "250", "--yaw", "40", "--pitch", "25",
+         "--save-port", str(target)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert save.returncode == 0, save.stderr
+    assert "port save:" in save.stdout
+    text = target.read_text()
+    assert "DINOPSAV 1" in text
+    assert "island isl03" in text
+    assert "clock 0 180 30" in text
+    assert "grid 4 -512 -512 256 256" in text
+    assert "path 100 100" in text and "path 100 101" in text
+    assert "fence 100 100 0" in text
+    assert sum(1 for ln in text.splitlines() if ln.startswith("visitor ")) == 3
+
+    load = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
+         "--lnd", str(isl01), "--asset-root", str(GAME), "--no-vegetation",
+         "--load-port", str(target)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert load.returncode == 0, load.stderr
+    assert "island: isl03" in load.stdout
+    assert ("port load: island=isl03 budget=75000 day=0 visitors=3 "
+            "paths=2 fences=1") in load.stdout
+    assert "build: 2 path cells, 1 fences" in load.stdout
+
+
+def test_cpp_options_save_and_load_buttons(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not isl01.exists():
+        pytest.skip("retail island missing")
+    save_dir = ROOT / "run" / "save"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    name = f"000_pytest_{os.getpid()}"
+    target = save_dir / f"{name}.psav"
+    if target.exists():
+        target.unlink()
+    try:
+        common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+                  "--height", "600", "--no-vsync", "--no-save-config",
+                  "--no-hud", "--lnd", str(isl01), "--asset-root", str(GAME),
+                  "--no-vegetation"]
+        saved = subprocess.run(
+            common + ["--place-path", "120,120", "--place-path", "121,120",
+                      "--visitors", "2", "--save-name", name,
+                      "--park-click", "765,348", "--park-click", "348,73",
+                      "--park-click", "334,436",
+                      "--screenshot", str(tmp_path / "save.bmp")],
+            capture_output=True, text=True, timeout=180,
+        )
+        assert saved.returncode == 0, saved.stderr
+        assert "park click 334,436 -> save port" in saved.stdout
+        assert "port save:" in saved.stdout
+        assert target.exists()
+
+        rows = _save_catalog_rows()
+        row = rows.index(str(target))
+        assert row < 18, rows
+        loaded = subprocess.run(
+            common + ["--park-click", "765,348", "--park-click", "378,73",
+                      "--park-click", f"300,{131 + row * 12}",
+                      "--park-click", "334,436",
+                      "--screenshot", str(tmp_path / "load.bmp")],
+            capture_output=True, text=True, timeout=180,
+        )
+        assert loaded.returncode == 0, loaded.stderr
+        assert f"park click 300,{131 + row * 12} -> options select {row}" in loaded.stdout
+        assert "park click 334,436 -> load port" in loaded.stdout
+        assert "port load: island=isl01 budget=75000 day=0 visitors=2 paths=2 fences=0" in loaded.stdout
+        assert "build: 2 path cells, 0 fences" in loaded.stdout
+    finally:
+        if target.exists():
+            target.unlink()

@@ -158,10 +158,16 @@ Updated: 2026-10-26
     sample 0 at -512).
   - Cpg04 on isl04 places 57/57 buildings, including 12 skinned primaries
     (`load_skin_auto` in `src/formats/skin.cpp`).
-  - Open: `model[0]`/`model[1]` (slope flag / Z offset) and construction-UI
-    placement.
+  - Header correction from `FUN_0053fb00`: the `.bbi` header is
+    `u32 w, u32 h, f32 scale, u8 flag, 27 unaligned u32`, not 30 aligned u32.
+    `model[1]` is a float 0.0 at file 113 in all 39 files, so there is no Z
+    offset; the Entrance hull sink is the asset pivot and matches retail.
+    `model[0]` is 0 except `LunchDoor` (1 = slope-aligned). Category/price/
+    duration/appeal-scale/radius fields are now exposed.
+  - Open: `model[0] = 1` slope basis and construction-UI placement.
   - Evidence: `docs/platform/buildings.md`,
-    `notes/building-placement-recon.md`, `notes/entrance-save.png`,
+    `notes/building-placement-recon.md`,
+    `notes/building-def-record-recon.md`, `notes/entrance-save.png`,
     `notes/entrance-center2.png`, `notes/cpg04-buildings.png`,
     `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
     `test_cpp_building_placement_transform`,
@@ -651,10 +657,10 @@ Updated: 2026-10-26
     `notes/env-check.md`.
 - DEC-2b research: **dinosaur behavior graph located.**
   - `apDinosaurBehavior` (`0x521b30`) owns the actor and two sub-behaviors;
-    the node graph is serialized by `0x56ce80` (41 node types) /
-    `0x56d5a0`.
+    the node graph is serialized by `0x56ce80` / `0x56d5a0`; the reader's
+    `0x29` is the format version, not a 41-node-type switch.
   - Node record: type + 3 ints + two int vectors + child link + actor field.
-  - The BAD FOOD/REPOS ? action 4/2 chooser is inside one of the 41 node
+  - The BAD FOOD/REPOS -> action 4/2 chooser is inside one of the node
     types; `notes/dinosaur-behavior-graph.md`.
 - FMT-16b complete: **mission content groups.**
   - `BuildingsN`/`FeaturesN` indices are categories (farm, seats, entrance,

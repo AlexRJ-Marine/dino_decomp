@@ -3,7 +3,12 @@
 
 39 files in ``Data/Design/buildings`` (one per ``BuildingList.ini`` entry):
 
-    0..120   121-byte header (30 x u32 + 1 flag byte; semantics partial)
+    0..120   121-byte packed header:
+               0  u32 footprint width
+               4  u32 footprint height
+               8  f32 scale
+              12  u8  flag
+              13  27 x unaligned u32 (13, 17, ... 117)
     121..    ten length-prefixed ASCII paths:
                skin, crash LOD1, destroy LOD1, construction LOD1,
                LOD2 x4, skel, anim
@@ -11,8 +16,10 @@
              files, sounds, ``CONSTRUC_*`` build-panel widget names) then
              numeric bytes (profile/cost values; not decoded)
 
-The ten paths and the UI widget names are validated against the retail tree;
-the numeric header/tail semantics remain partial.
+The header is **not** 30 aligned u32: the first four fields are
+`u32, u32, f32, u8`, so every later field is 1 byte out of phase with a
+30-u32 view. The named offsets below come from the retail loader
+``FUN_0053fb00`` (see ``notes/building-def-record-recon.md``).
 
 See ``docs/formats/bbi.md``.
 """
@@ -37,11 +44,52 @@ class Building:
     path: str
     name: str
     header: bytes
-    header_words: tuple[int, ...]
+    footprint_w: int
+    footprint_h: int
+    scale: float
     flag: int
+    header_words: tuple[int, ...]  # 27 unaligned u32 from byte 13
     meshes: list[str] = field(default_factory=list)
     tail_strings: list[str] = field(default_factory=list)
     tail: bytes = b""
+
+    def _u32(self, offset: int) -> int:
+        return struct.unpack_from("<I", self.header, offset)[0]
+
+    def _f32(self, offset: int) -> float:
+        return struct.unpack_from("<f", self.header, offset)[0]
+
+    @property
+    def category(self) -> int:
+        return self._u32(49)
+
+    @property
+    def duration(self) -> float:
+        return self._f32(37)
+
+    @property
+    def price(self) -> int:
+        return self._u32(25)
+
+    @property
+    def appeal_scale(self) -> float:
+        return self._f32(73)
+
+    @property
+    def radius_squared(self) -> int:
+        return self._u32(105)
+
+    @property
+    def model0(self) -> int:
+        return self._u32(109)
+
+    @property
+    def model1(self) -> float:
+        return self._f32(113)
+
+    @property
+    def model_count(self) -> int:
+        return self._u32(117)
 
     @property
     def ui_names(self) -> list[str]:
@@ -51,8 +99,18 @@ class Building:
         return {
             "path": self.path,
             "name": self.name,
-            "header_words": list(self.header_words),
+            "footprint": [self.footprint_w, self.footprint_h],
+            "scale": self.scale,
             "flag": self.flag,
+            "header_words": list(self.header_words),
+            "category": self.category,
+            "duration": self.duration,
+            "price": self.price,
+            "appeal_scale": self.appeal_scale,
+            "radius_squared": self.radius_squared,
+            "model0": self.model0,
+            "model1": self.model1,
+            "model_count": self.model_count,
             "meshes": self.meshes,
             "tail_strings": self.tail_strings,
             "tail_bytes": len(self.tail),
@@ -115,8 +173,11 @@ def read_bbi(path: Path) -> Building:
         path=str(path),
         name=path.stem,
         header=data[:HEADER_SIZE],
-        header_words=struct.unpack_from("<30I", data, 0),
-        flag=data[HEADER_SIZE - 1],
+        footprint_w=struct.unpack_from("<I", data, 0)[0],
+        footprint_h=struct.unpack_from("<I", data, 4)[0],
+        scale=struct.unpack_from("<f", data, 8)[0],
+        flag=data[12],
+        header_words=struct.unpack_from("<27I", data, 13),
         meshes=meshes,
         tail_strings=tail_strings,
         tail=data[off:],

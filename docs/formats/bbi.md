@@ -1,7 +1,8 @@
 # `.bbi` building definition
 
-Status: **asset/UI mapping solved; header numbers partial.** 39/39 files parse,
-390 mesh/skel/anim paths exist, 213 build-panel UI references (212 resolve).
+Status: **header solved** from the retail loader `FUN_0053fb00`; asset/UI
+mapping solved. 39/39 files parse, 390 mesh/skel/anim paths exist, 213
+build-panel UI references (212 resolve). The numeric tail remains partial.
 
 ## Inventory
 
@@ -11,7 +12,12 @@ lists them in order (SmallSeats … DecoCirc). One file per build-menu entry.
 ## Layout
 
 ```text
-0..120   121-byte header (30 x u32 + 1 flag byte)
+0..120   121-byte packed header:
+           0   u32 footprint width  (world units)
+           4   u32 footprint height (world units)
+           8   f32 scale
+          12   u8  flag
+          13   27 x unaligned u32 (13, 17, 21, ... 117)
 121..    ten length-prefixed ASCII paths:
            skin, crash LOD1, destroy LOD1, construction LOD1,
            LOD2 x4, skel, anim
@@ -19,31 +25,78 @@ lists them in order (SmallSeats … DecoCirc). One file per build-menu entry.
            texture directory, explosion .ini, sounds, CONSTRUC_* UI names
 ```
 
-The ten paths are exactly the building's actor assets. The tail's strings are
-found by scanning (they are interleaved with numeric profile data); all 390
-mesh paths exist in the retail tree.
+The header is **not** 30 aligned u32: `u32, u32, f32, u8` occupy bytes 0–12,
+so every later field is one byte out of phase with a 30-u32 view. The loader
+`FUN_0053fb00` reads it in exactly this order, writes a 500-byte runtime record
+from element `+0x0c`, and the runtime consumers use `D = element+0x0c` as the
+definition base.
 
-## Header (observed)
+## Header fields
 
-| Word | Example | Likely meaning |
-| ---: | --- | --- |
-| 0 | 4, 8, 12, 16, 24 | footprint width in grid cells |
-| 1 | 4, 8, 12, 16 | footprint height in grid cells |
-| 2 | 1.0, 10.0, 12.0 (float) | build/animation scale? |
-| 3 | `0x6401`, `0x138801`, `0xC801` | packed flags/level/price byte |
-| 4 | 2560, 12800 | construction time/ticks? |
-| 5 | 7,680 … 1,280,000 | **build cost** (likely) |
-| 6 | 0 … 102,400 | upkeep/income? |
-| 7 | 0 … 128,000 | income/capacity? |
-| 8..29 | flags/floats | not decoded |
+| File offset | Runtime `D+` | Type | Meaning | Entrance |
+| ---: | ---: | --- | --- | ---: |
+| 0 | +0x00 | u32 | footprint width, world units | 24 |
+| 4 | +0x04 | u32 | footprint height, world units | 12 |
+| 8 | +0x08 | f32 | scale | 1.0 |
+| 12 | +0x0c | u8 | flag (1 in all retail files) | 1 |
+| 13 | +0x10 | u32 | first of 27 unaligned words | 100 |
+| 25 | +0x1c | u32 | **price** (visitor scorer `descriptor+0x1c`) | 50 |
+| 37 | +0x28 | f32 | **visit duration** seconds (`FUN_005219f0`) | 10.0 |
+| 49 | +0x6c | u32 | **category** (0..12; 10 = Entrance) | 10 |
+| 73 | +0x48 | f32 | **appeal scale** (`attraction+0x24`) | 4.0 |
+| 105 | +0x68 | u32 | **radius²** (`descriptor+0x58`) | 1,024 |
+| 109 | +0x70 | u32 | `model[0]`: 0 = yaw only, 1 = slope-aligned | 0 |
+| 113 | +0x74 | f32 | `model[1]`: local Z offset | 0.0 |
+| 117 | +0x78 | u32 | model count (2) | 2 |
 
-Footprint examples: `Deco*` 4×4, `Barak*` 4×8, `SmallSeats` 4×12,
-`Souv*` 8×12, `Rest*` 12×12, `Manege`/`Tampodino`/`Haunted`/`Tower` 16×16,
-`Park*` 12×16, `Entrance` 24×12. Cost examples: `Entrance` 7,680,
-`Deco*` 12,800, `SmallSeats` 128,000, `Rest*` 640,000, rides 1,280,000.
+Every retail file has `model[1] = 0.0f`; only `LunchDoor.bbi` has
+`model[0] = 1`. The visitor scorer's price is the **definition** field
+`descriptor+0x1c` = file offset 25, not a block field.
 
-These are inferred from consistent patterns, not confirmed against the
-construction UI; treat cost/footprint as the parity hypothesis.
+Footprints (world units, not grid cells): `Deco*` 4×4, `Barak*` 4×8,
+`SmallSeats` 4×12, `Souv*` 8×12, `Rest*` 12×12, `Manege`/`Tampodino`/
+`Haunted`/`Tower` 16×16, `Park*` 12×16, `Entrance` 24×12. Placement adds
+`footprint-1` to the saved min-corner cell and centres the model
+(`FUN_00586b80` / `FUN_005fecf0`); see `docs/platform/buildings.md`.
+
+Category values (observed across the 39 files):
+
+| Category | Buildings |
+| ---: | --- |
+| 0 | `Park*` |
+| 1 | `Rest*` |
+| 2 | `Barak*` |
+| 3 | `Souv*` |
+| 4 | `Manege`, `Tampodino`, `Haunted`, `Granderoue`, `Tower` |
+| 5 | `PointOfView` |
+| 6 | `SmallSeats`, `MediumSeats`, `LargeSeats` |
+| 7 | `Security` |
+| 8 | `Farm` |
+| 9 | `Station` |
+| 10 | `Entrance` |
+| 11 | `LunchDoor` |
+| 12 | `Deco*` |
+
+`FUN_00589100` dispatches on this category; 10 wraps the base building ctor in
+`FUN_00595c70`, and 9 (`Station`) has the only in-`AddBuilding` special case
+(`FUN_0058d6c0`).
+
+## Attraction block (`building+0x74`)
+
+The visitor scorer reads a block at `building+0x74`:
+
+```text
++0x00..0x10   five dwords copied from def D+0x34..0x44
++0x18         float array, one appeal value per park need
++0x24         f32 appeal scale  = def+0x48 (file 73)
++0x28         int              = def+0x50 (file 69)
++0x2c         int              = def+0x54 (file 73 bits)
+```
+
+`+0x18` is not stored in `.bbi`: `FUN_005872c0` fills it with
+`clamp(Σ_{k<5} (def+0x34+4k) × (need[k]+0x18), −100, +100)`
+(`FUN_00576550`). The four fields `def+0x34..0x44` (files 53/57/61/65/69) are
+the weights; Entrance has `0, 0, 0, 0, 0`, so every appeal value is 0.
 
 ## Tail strings
 
@@ -59,6 +112,23 @@ construction UI; treat cost/footprint as the parity hypothesis.
 missing is `CONSTRUC_SECUANDFOOD_SECU_BUTTON` for `Security.bbi` (probably a
 legacy/renamed section; the port should fall back to the file name).
 
+## Model paths
+
+The runtime model record starts at element `+0x7c` (`M`). `FUN_005fecf0` →
+`FUN_00603e30` loads:
+
+| `M+` | Element | Asset | Entrance |
+| ---: | ---: | --- | --- |
+| +0x0c | +0x88 | primary model (`.skin`) | `entrance_lod1.skin` |
+| +0x6c | +0xe8 | skeleton | `entrance_lod1.skel` |
+| +0x90 | +0x10c | animation | `entrance_lod1.anim` |
+| +0xb4 | +0x130 | texture directory | `Data\Graphics\TEXTURES\buildings` |
+| +0x54 | +0xd0 | second model (`.mesh`) | `entrance_lod1.mesh` |
+
+The primary `.skin` is the actor model and is centred on the placement pivot;
+the second `.mesh` is a static LOD1 with a pivot offset. The ten file paths
+are the union of both model records.
+
 ## Reader
 
 `tools/formats/bbi.py`:
@@ -68,20 +138,28 @@ python tools/formats/bbi.py --dump <file.bbi>
 python tools/formats/bbi.py --scan <buildings-dir>
 ```
 
-Returns header words/flag, the ten mesh paths, tail strings and the numeric
-tail. Tests: `tests/test_bbi.py` (39-file scan, Barak/Entrance values, all
+`Building` exposes `footprint_w`, `footprint_h`, `scale`, `flag`,
+`header_words` (27 unaligned), `category`, `duration`, `price`,
+`appeal_scale`, `radius_squared`, `model0`, `model1`, `model_count`, the ten
+`meshes`, tail strings and UI names.
+
+The C++ `src/formats/bbi.{h,cpp}` uses the same layout. Tests:
+`tests/test_bbi.py` (39-file scan, Entrance values, header invariants, all
 paths, UI resolution, BuildingList mapping).
 
 ## Evidence
 
 - `Data/Design/buildings/*.bbi`, `BuildingList.ini` (read-only).
-- `Data/Overlay/ConstructionInterface.Ini` — UI name resolution.
+- Loader `FUN_0053fb00`; consumer base `D = element+0x0c`.
+- `FUN_00586b80` footprint/category, `FUN_005fecf0` model paths,
+  `FUN_005872c0` attraction block, `FUN_00576550` appeal values.
+- `notes/building-def-record-recon.md`, `notes/building-placement-recon.md`.
 - `tools/formats/bbi.py`, `tests/test_bbi.py`.
 
 ## Open
 
-- Exact header fields (cost/footprint hypothesis, words 2/3/4/6/7 and 8–29).
 - Numeric tail (attribute profile values for the `CONSTRUC_*_PROFIL_GAUGE`
-  bars).
+  bars) and the fields not named above.
 - The missing `Security` UI section.
-- How `word0/word1` map to the 4-unit build grid.
+- `+0x28/+0x2c` are copied from float fields but read with `FILD` in the
+  scorer; the intended meaning is still a retail quirk.

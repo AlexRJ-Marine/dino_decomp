@@ -41,7 +41,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00521b30` | `apDinosaurBehavior` ctor (actor + two sub-behaviors) | decompiled | vtable `0x642abc`; `notes/dinosaur-behavior-graph.md` |
 | `0x00521cc0` | behavior dispatch (mode 1 -> `+0x10`, mode 2 -> `+0x0c`) | decompiled | same |
 | `0x0056cc90` | sub-behavior base ctor (node list head, actor) | decompiled | same |
-| `0x0056ce80` | behavior-graph node reader (41 node types) | decompiled (partial) | switch 0..0x28 |
+| `0x0056ce80` | behavior-graph node reader (versioned; 0x29 = v41) | decompiled (partial) | version branches, node record |
 | `0x0056d5a0` | behavior-graph node writer | decompiled | node record shape |
 
 ## Overlay / menu (UI-2)

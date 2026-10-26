@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <stdexcept>
 
@@ -32,6 +33,13 @@ std::uint32_t u32(const std::vector<std::uint8_t>& data, std::size_t off) {
            (static_cast<std::uint32_t>(data[off + 1]) << 8) |
            (static_cast<std::uint32_t>(data[off + 2]) << 16) |
            (static_cast<std::uint32_t>(data[off + 3]) << 24);
+}
+
+float f32(const std::vector<std::uint8_t>& data, std::size_t off) {
+    const std::uint32_t bits = u32(data, off);
+    float value = 0.0f;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
 }
 
 bool read_string(const std::vector<std::uint8_t>& data, std::size_t& off,
@@ -102,10 +110,21 @@ BuildingDef load_bbi(const std::string& path) {
         slash == std::string::npos ? path : path.substr(slash + 1);
     const std::size_t dot = filename.find_last_of('.');
     def.name = dot == std::string::npos ? filename : filename.substr(0, dot);
-    for (std::size_t i = 0; i < def.header.size(); ++i) {
-        def.header[i] = u32(data, i * 4);
+    def.footprint_w = u32(data, 0);
+    def.footprint_h = u32(data, 4);
+    def.scale = f32(data, 8);
+    def.flag = data[12];
+    for (std::size_t i = 0; i < def.header_words.size(); ++i) {
+        def.header_words[i] = u32(data, 13 + i * 4);
     }
-    def.flag = data[120];
+    def.category = u32(data, 49);
+    def.duration = f32(data, 37);
+    def.price = u32(data, 25);
+    def.appeal_scale = f32(data, 73);
+    def.radius_squared = u32(data, 105);
+    def.model0 = u32(data, 109);
+    def.model1 = f32(data, 113);
+    def.model_count = u32(data, 117);
 
     std::size_t off = 121;
     for (int i = 0; i < 10; ++i) {

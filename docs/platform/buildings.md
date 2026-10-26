@@ -53,13 +53,13 @@ Evidence: `notes/building-placement-recon.md`; functions `0x0053d1a0`
 
 ```text
 record cell_x/cell_y      # footprint min corner, world units 0..1024
-word0/word1 = .bbi header[0]/header[1]   # footprint in world units, not cells
+footprint_w/footprint_h   # .bbi file bytes 0/4, world units, not cells
 state 0..3                # 90-degree orientation, NOT construction state
-if state even: span_x = word0 - 1, span_y = word1 - 1
-else:          span_x = word1 - 1, span_y = word0 - 1
+if state even: span_x = footprint_w - 1, span_y = footprint_h - 1
+else:          span_x = footprint_h - 1, span_y = footprint_w - 1
 X = (cell_x + (cell_x + span_x)) * 0.5     # footprint centre
 Y = (cell_y + (cell_y + span_y)) * 0.5
-Z = engine_height(X, Y) + model[1]       # bilinear 512 map over 1024 world
+Z = engine_height(X, Y) + model[1]       # model[1] = 0.0 in all 39 .bbi
 yaw = 90 deg * state
 ```
 
@@ -73,6 +73,11 @@ yaw = 90 deg * state
   centred on the pivot (centimetres). The static `.mesh` at index 3 has a
   pivot offset and must not be used as the actor model. Static meshes are used
   only as a fallback.
+- `model[1]` (`.bbi` byte 113, f32) is `0.0` in all 39 retail files, so there
+  is no Z offset. The Entrance hull extends to z `-7.18 m` from its pivot;
+  retail places the pivot exactly on the heightfield, so the visible sink is
+  the asset pivot and matches the original. Only `LunchDoor.bbi` sets
+  `model[0] = 1` (slope-aligned basis); the port uses yaw-only for all.
 - `state` is the orientation consumed by `FUN_00586b80` and the jump table at
   `0x586d0c`; the footprint swap is part of the same rule. Default in the
   factory is 1.
@@ -112,9 +117,7 @@ $G = "game/%MAINDIR%"
 
 ## Open
 
-- `model[0]` (yaw-only vs slope-aligned basis) and `model[1]` (Z offset) at
-  `record+0x7c/+0x80`; not mapped to `.bbi` bytes. The Entrance hull sinks
-  ~7 units into the terrain, so `model[1]` may be non-zero.
+- `model[0] = 1` slope-aligned basis (`LunchDoor`) is not implemented.
 - Build cost (the panel prices) and the construction/destruction flags in the
   simulation object (`+0x64..+0x68`).
 - `BuildingList.ini` kind -> `.bbi` mapping is done through the list index;

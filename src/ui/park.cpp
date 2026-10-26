@@ -87,8 +87,6 @@ const Binding kClosers[] = {
     {"DINO_ACHAT_SAVE_OUTCOME_SAVE", "DINO_ACHAT_SAVE_PANEL"},
     {"DINO_ACHAT_SAVE_OUTCOME_CANCEL", "DINO_ACHAT_SAVE_PANEL"},
     {"OPTIONS_OPTIONS_VALIDATE_BUTTON", "OPTIONS_PANEL"},
-    {"OPTIONS_VALIDATE_BUTTON", "OPTIONS_PANEL"},
-    {"OPTIONS_UNVALIDATE_BUTTON", "OPTIONS_PANEL"},
     {"PREDEFINED_SHOW_VALIDATE", "PREDEFINED_SHOW_PANEL"},
     {"PREDEFINED_SHOW_CANCEL", "PREDEFINED_SHOW_PANEL"},
     {"ATTRACTION_LIST_OUTCOME_CANCEL", "ATTRACTION_LIST_PANEL"},
@@ -268,6 +266,9 @@ bool ParkHud::click(int x, int y, std::string& action) {
         name == "OPTIONS_MENU_LOAD_BUTTON") {
         overlay.set_visible("OPTIONS_SAVE_PANEL", true);
         overlay.set_visible("OPTIONS_OPTIONS_PANEL", false);
+        options_tab_ =
+            name == "OPTIONS_MENU_SAVE_BUTTON" ? "save" : "load";
+        save_selected_ = -1;
         action = name == "OPTIONS_MENU_SAVE_BUTTON" ? "options save tab"
                                                     : "options load tab";
         return true;
@@ -276,6 +277,26 @@ bool ParkHud::click(int x, int y, std::string& action) {
         overlay.set_visible("OPTIONS_SAVE_PANEL", false);
         overlay.set_visible("OPTIONS_OPTIONS_PANEL", true);
         action = "options tab";
+        return true;
+    }
+    if (name == "OPTIONS_SAVE_NAMES_LIST") {
+        const Widget& list = overlay.widgets[static_cast<std::size_t>(hit)];
+        const int line =
+            list.list_line_height > 0 ? list.list_line_height : 12;
+        const int row = (y - list.abs_y) / line;
+        if (row >= 0) {
+            save_selected_ = row;
+        }
+        action = "options select " + std::to_string(save_selected_);
+        return true;
+    }
+    if (name == "OPTIONS_VALIDATE_BUTTON") {
+        action = options_tab_ == "load" ? "load port" : "save port";
+        return true;
+    }
+    if (name == "OPTIONS_UNVALIDATE_BUTTON") {
+        close_panel("OPTIONS_PANEL");
+        action = "close OPTIONS_PANEL";
         return true;
     }
 
