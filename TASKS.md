@@ -789,11 +789,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   pair, code count + u16 codes (starting at the hash dword, which explains
   `metrics[i+2]`), metric count + 8-byte metrics, glyph map. Pixels are
   lazy in `0x4316e0`.
-- [ ] Implement the 12-byte entry detour and verify on the HUD; the lazy
-  pixel path (`0x4316e0`) still needs its seek base resolved.
+- [x] Implement the 12-byte entry detour and verify on the HUD. The hook
+  parses the file directly and builds the map with `0x432d70`/`0x432fd0`,
+  including the hash-shifted code table and the `+0x2c` glyph-grid capacity;
+  the lazy pixel path (`0x4316e0`) stays retail and uses the same stored
+  path. **Verified:** five fonts, 247 glyphs each, HUD text renders.
 - **Acceptance:** the HUD font loads with the replacement.
 - **Depends on:** UI-0.
-- **Evidence:** `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`.
+- **Evidence:** `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`,
+  `notes/hyb7-counter.txt`, `notes/park-hook-fnt.png`.
 
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,

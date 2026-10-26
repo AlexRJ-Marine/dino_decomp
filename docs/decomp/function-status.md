@@ -30,7 +30,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00475990` | animation reader: duration/start, bone count, 0x2c records | decompiled, verified | 299/299 `.anim` files |
 | `0x004839e0` | animation bone reader: name, `u64` key times, matrices | **replaced** | same proxy; 8911+ keys, park reached |
 | `0x00475e30` | skeleton constructor (`0x56789abc`) | decompiled | `.skel` doc |
-| `0x00430fb0` | `mgFontDx8::LoadFile` (`.fnt` header/tables/glyphs) | decompiled, verified | 5/5 fonts + reference render |
+| `0x00430fb0` | `mgFontDx8::LoadFile` (`.fnt` header/tables/glyphs) | **replaced** | same proxy; 5 fonts, 247 glyphs each, HUD renders |
 | `0x00430ea0` | `mgFontDx8::CreateTexture` | identified | `.fnt` doc |
 | `0x00477890` | skeleton reader: matrices, children, parents, names, flags | **replaced** | same proxy; 21 skeletons, park reached |
 | `0x00477610` | skeleton writer/export counterpart | decompiled (partial) | `.skel` doc |
@@ -250,8 +250,8 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 ## C++ reimplementations
 
 These are readable ports used by the portable viewer. The matrix, normal,
-vector, `.skin`, `.anim`, `.skel` and `.mesh` readers are also live in the
-original exe (Phase 3 `HYB-1..6`).
+vector, `.skin`, `.anim`, `.skel`, `.mesh` and `.fnt` readers are also live in
+the original exe (Phase 3 `HYB-1..7`).
 
 | Original | C++ | Status |
 | --- | --- | --- |

@@ -1,0 +1,1 @@
+counters: mesh=121 skin=2221 anim=8911 skel=21 vec16=2221 vec32=1680 fnt=5

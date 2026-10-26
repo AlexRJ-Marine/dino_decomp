@@ -1247,13 +1247,17 @@ Updated: 2026-10-26
     loaders.
   - Evidence: `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-6.
-- HYB-7 ABI solved (hook queued): **`.fnt` loader `0x430fb0`.**
-  - `void __thiscall LoadFile(mgFontDx8*, const mcString*)`, `RET 4`;
-    version/atlas/size/cell/pitch, code count + u16 codes starting at the
-    **hash dword** (explains the port's `metrics[i+2]` mapping), metric
-    count + 8-byte metrics, then a glyph map.
-  - Pixels are lazy in `0x4316e0` (reopens the stored path); the exact seek
-    base is unresolved. Entry detour (12 bytes), no vtable slot.
+- HYB-7 complete: **`.fnt` loader replaced and verified.**
+  - `hook_430fb0` detours the 12-byte entry. It parses the header/tables
+    directly and builds the glyph map with `0x432d70`/`0x432fd0`: code table
+    starts at the **hash dword** (explains the port's `metrics[i+2]`
+    mapping), metric count at `0x20 + count*2` must equal the code count,
+    and `+0x2c = (texH/pitchY)*(texW/pitchX)`.
+  - Pixels stay lazy in `0x4316e0` (reopens the stored path); no change
+    needed. Free-game park: **5 fonts, 247 glyphs each**, HUD text renders
+    (`notes/hyb7-counter.txt`, `notes/park-hook-fnt.png`).
+  - Installed by default. Remaining small candidate: `0x4809e0` (UV reader,
+    not exercised by the park).
   - Evidence: `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-7.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead

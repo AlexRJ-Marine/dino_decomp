@@ -29,6 +29,7 @@ volatile LONG g_calls_47d880 = 0;
 volatile LONG g_calls_4839e0 = 0;
 volatile LONG g_calls_477890 = 0;
 volatile LONG g_calls_477f30 = 0;
+volatile LONG g_calls_430fb0 = 0;
 
 // Engine vector: 16-byte polymorphic wrapper, data triple at +4/+8/+0xc.
 template <typename T>
@@ -198,13 +199,15 @@ bool __thiscall hook_4663a0(void* buffer, Stream* stream) {
         char line[192];
         std::snprintf(
             line, sizeof(line),
-            "counters: mesh=%ld skin=%ld anim=%ld skel=%ld vec16=%ld vec32=%ld",
+            "counters: mesh=%ld skin=%ld anim=%ld skel=%ld vec16=%ld vec32=%ld "
+            "fnt=%ld",
             static_cast<long>(g_calls_477f30),
             static_cast<long>(g_calls_47d880),
             static_cast<long>(g_calls_4839e0),
             static_cast<long>(g_calls_477890),
             static_cast<long>(g_calls_47d460),
-            static_cast<long>(g_calls_47cc90));
+            static_cast<long>(g_calls_47cc90),
+            static_cast<long>(g_calls_430fb0));
         log_line(line);
     }
     if (stream == nullptr || stream->vtable == nullptr) {
@@ -602,6 +605,148 @@ bool install_mesh_vtable_hook() {
     return true;
 }
 
+// `.fnt` loader replacement (HYB-7). 0x430fb0 is
+// `void __thiscall LoadFile(mgFontDx8* this, const mcString* path)`, RET 4.
+// The loader only builds the glyph map; the pixel atlas is fetched lazily by
+// 0x4316e0 from the path stored in each glyph. The replacement reads the file
+// itself and inserts every code/metric/path with the engine helpers 0x432d70
+// (build insertion record) and 0x432fd0 (hash insert), then sets the
+// glyph-grid capacity (+0x2c) that the retail loader computes.
+//
+// File layout (see docs/formats/fnt.md): 7 header dwords ending at 0x1b, the
+// glyph count at 0x1c, then `count` u16 codes starting at 0x20 -- the 0x20
+// dword is the hash, so the runtime code table is [hash_lo, hash_hi,
+// code[0]..code[count-3]] and pairs with metrics[0..count-1]. That is exactly
+// the port's `codes[i] -> metrics[i+2]` mapping. The u32 at
+// 0x20 + count*2 is the metric count and the metrics follow it.
+struct FntGlyphValue {
+    std::uint16_t rect[4];  // x0, y0, x1, y1 (inclusive)
+    std::uint32_t f08;
+    std::uint32_t f0c;
+    std::uint32_t f10;
+    std::uint32_t f14;
+    McString path;
+    std::uint32_t tex_index;
+};
+static_assert(sizeof(FntGlyphValue) == 0x28, "fnt glyph value layout");
+
+struct FntInsertRecord {
+    std::uint16_t key;
+    std::uint16_t pad[3];
+    FntGlyphValue value;
+};
+static_assert(sizeof(FntInsertRecord) == 0x30, "fnt insert record layout");
+
+using GlyphBuildRecordFn =
+    FntInsertRecord*(__thiscall*)(FntInsertRecord*, const std::uint16_t*,
+                                  const FntGlyphValue*);
+using GlyphInsertFn = void*(__thiscall*)(void* map, const FntInsertRecord*);
+
+void __thiscall hook_430fb0(void* self, const McString* path) {
+    InterlockedIncrement(&g_calls_430fb0);
+    if (self == nullptr || path == nullptr || path->buf == nullptr) {
+        return;
+    }
+    HANDLE file = CreateFileA(path->buf, GENERIC_READ, FILE_SHARE_READ,
+                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                              nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        log_line("hook_430fb0: open failed");
+        return;
+    }
+    LARGE_INTEGER size = {};
+    if (!GetFileSizeEx(file, &size) || size.QuadPart < 0x206 ||
+        size.QuadPart > (64 << 20)) {
+        CloseHandle(file);
+        log_line("hook_430fb0: bad size");
+        return;
+    }
+    auto* data = static_cast<std::uint8_t*>(
+        HeapAlloc(GetProcessHeap(), 0, static_cast<SIZE_T>(size.QuadPart)));
+    DWORD got = 0;
+    const bool read_ok =
+        data != nullptr &&
+        ReadFile(file, data, static_cast<DWORD>(size.QuadPart), &got, nullptr) !=
+            0 &&
+        got == static_cast<DWORD>(size.QuadPart);
+    CloseHandle(file);
+    if (!read_ok) {
+        if (data != nullptr) {
+            HeapFree(GetProcessHeap(), 0, data);
+        }
+        log_line("hook_430fb0: read failed");
+        return;
+    }
+    auto u32 = [&](std::size_t off) {
+        std::uint32_t value = 0;
+        std::memcpy(&value, data + off, sizeof(value));
+        return value;
+    };
+    const std::uint32_t version = u32(0x00);
+    const std::uint32_t font_size = u32(0x0c);
+    const std::uint32_t cell_height = u32(0x10);
+    const std::uint32_t pitch_x = u32(0x14);
+    const std::uint32_t pitch_y = u32(0x18);
+    const std::uint32_t code_count = u32(0x1c);
+    const std::size_t codes_off = 0x20;
+    const std::size_t metrics_off = codes_off + code_count * 2 + 4;
+    const std::uint32_t metric_count =
+        metrics_off <= static_cast<std::size_t>(size.QuadPart)
+            ? u32(metrics_off - 4)
+            : 0;
+    if (version != 1 || code_count == 0 || code_count > 10000 ||
+        metric_count != code_count ||
+        metrics_off + static_cast<std::size_t>(metric_count) * 8 >
+            static_cast<std::size_t>(size.QuadPart)) {
+        HeapFree(GetProcessHeap(), 0, data);
+        log_line("hook_430fb0: header rejected");
+        return;
+    }
+
+    auto* base = static_cast<char*>(self);
+    *reinterpret_cast<std::uint32_t*>(base + 0x10) = font_size;
+    if (pitch_x != 0) {
+        *reinterpret_cast<std::uint32_t*>(base + 0x18) = pitch_x;
+    }
+    if (pitch_y != 0) {
+        *reinterpret_cast<std::uint32_t*>(base + 0x1c) = pitch_y;
+    }
+    *reinterpret_cast<std::uint32_t*>(base + 0x20) = cell_height;
+    const std::uint32_t tex_w = *reinterpret_cast<std::uint32_t*>(base + 0x30);
+    const std::uint32_t tex_h = *reinterpret_cast<std::uint32_t*>(base + 0x34);
+    if (pitch_x != 0 && pitch_y != 0) {
+        *reinterpret_cast<std::uint32_t*>(base + 0x2c) =
+            (tex_h / pitch_y) * (tex_w / pitch_x);
+    }
+
+    void* map = base + 0x40;
+    const std::uint8_t* metrics = data + metrics_off;
+    for (std::uint32_t i = 0; i < code_count; ++i) {
+        FntGlyphValue value = {};
+        std::memcpy(value.rect, metrics + static_cast<std::size_t>(i) * 8, 8);
+        value.path.buf = path->buf;
+        value.path.cap = path->len + 1;
+        value.path.len = path->len;
+        FntInsertRecord rec = {};
+        std::memcpy(&rec.key, data + codes_off + static_cast<std::size_t>(i) * 2,
+                    sizeof(rec.key));
+        reinterpret_cast<GlyphBuildRecordFn>(exe_va(0x432d70))(
+            &rec, &rec.key, &value);
+        reinterpret_cast<GlyphInsertFn>(exe_va(0x432fd0))(map, &rec);
+    }
+    HeapFree(GetProcessHeap(), 0, data);
+
+    char line[192];
+    std::snprintf(line, sizeof(line),
+                  "hook_430fb0: %s glyphs=%lu size=%lu cell=%lu pitch=%lux%lu",
+                  path->buf, static_cast<unsigned long>(code_count),
+                  static_cast<unsigned long>(font_size),
+                  static_cast<unsigned long>(cell_height),
+                  static_cast<unsigned long>(pitch_x),
+                  static_cast<unsigned long>(pitch_y));
+    log_line(line);
+}
+
 bool install_detour(const char* name, std::uintptr_t rva, void* hook,
                     const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
@@ -725,6 +870,48 @@ bool install_detour6(const char* name, std::uintptr_t rva, void* hook,
     return true;
 }
 
+// 12-byte prologue (sub esp,N / 4 pushes / mov esi,ecx): jmp rel32 + 7 NOP.
+bool install_detour12(const char* name, std::uintptr_t rva, void* hook,
+                      const std::uint8_t (&expected)[12]) {
+    auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
+    if (base == nullptr) {
+        log_line("hook: GetModuleHandle(NULL) failed");
+        return false;
+    }
+    auto* target = base + rva;
+    if (std::memcmp(target, expected, 12) != 0) {
+        char line[128];
+        std::snprintf(line, sizeof(line), "hook: %s prologue mismatch", name);
+        log_line(line);
+        return false;
+    }
+    DWORD old_protect = 0;
+    if (!VirtualProtect(target, 12, PAGE_EXECUTE_READWRITE, &old_protect)) {
+        log_line("hook: VirtualProtect failed");
+        return false;
+    }
+    const auto from = reinterpret_cast<std::intptr_t>(target) + 5;
+    const auto to = reinterpret_cast<std::intptr_t>(hook);
+    const auto relative = to - from;
+    if (relative < INT32_MIN || relative > INT32_MAX) {
+        VirtualProtect(target, 12, old_protect, &old_protect);
+        log_line("hook: relative jump out of range");
+        return false;
+    }
+    target[0] = 0xE9;
+    const auto rel32 = static_cast<std::int32_t>(relative);
+    std::memcpy(target + 1, &rel32, sizeof(rel32));
+    for (int i = 5; i < 12; ++i) {
+        target[i] = 0x90;
+    }
+    FlushInstructionCache(GetCurrentProcess(), target, 12);
+    VirtualProtect(target, 12, old_protect, &old_protect);
+    char line[128];
+    std::snprintf(line, sizeof(line), "hook: %s patched", name);
+    log_line(line);
+    return true;
+}
+
 bool install_hooks() {
     // 0x4663a0: 64-byte matrix, prologue 8B C1 6A 10 8B.
     static constexpr std::uint8_t kPrologue_4663a0[5] = {0x8B, 0xC1, 0x6A, 0x10, 0x8B};
@@ -772,7 +959,15 @@ bool install_hooks() {
     // The .mesh whole-file reader was verified on the free-game park
     // (121 files); install by default.
     const bool h = install_mesh_vtable_hook();
-    return a && b && c && d && e && f && g && h;
+    // The .fnt loader was verified on the free-game HUD: six font files, 247
+    // glyphs each, HUD text renders; install by default.
+    static constexpr std::uint8_t kPrologueFnt[12] = {
+        0x81, 0xEC, 0x40, 0x02, 0x00, 0x00, 0x53,
+        0x55, 0x56, 0x57, 0x8B, 0xF1};
+    const bool i = install_detour12("FUN_00430fb0", 0x430FB0 - 0x400000,
+                                    reinterpret_cast<void*>(&hook_430fb0),
+                                    kPrologueFnt);
+    return a && b && c && d && e && f && g && h && i;
 }
 
 }  // namespace
@@ -810,7 +1005,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
             "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld, "
             "hook_47d460: total calls=%ld, hook_47cc90: total calls=%ld, "
             "hook_47d880: total calls=%ld, hook_4839e0: total calls=%ld, "
-            "hook_477890: total calls=%ld, hook_477f30: total calls=%ld",
+            "hook_477890: total calls=%ld, hook_477f30: total calls=%ld, "
+            "hook_430fb0: total calls=%ld",
             static_cast<long>(g_calls_4663a0),
             static_cast<long>(g_calls_4809a0),
             static_cast<long>(g_calls_47d460),
@@ -818,7 +1014,8 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
             static_cast<long>(g_calls_47d880),
             static_cast<long>(g_calls_4839e0),
             static_cast<long>(g_calls_477890),
-            static_cast<long>(g_calls_477f30));
+            static_cast<long>(g_calls_477f30),
+            static_cast<long>(g_calls_430fb0));
         log_line(line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);

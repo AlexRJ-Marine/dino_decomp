@@ -1,8 +1,8 @@
 # Hybrid decompilation
 
-Status: **HYB-1..6 complete** — the original exe runs with the matrix,
-normal, both vector, `.skin`, `.anim`, `.skel` and `.mesh` readers replaced by
-recovered C++.
+Status: **HYB-1..7 complete** — the original exe runs with the matrix,
+normal, both vector, `.skin`, `.anim`, `.skel`, `.mesh` and `.fnt` readers
+replaced by recovered C++.
 
 ## Mechanism
 
@@ -127,6 +127,28 @@ entry intact for forwarding. It uses `0x471bd0` (default block),
 rendering (`notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png`). Full
 ABI: `notes/hybrid-mesh-recon.md`.
 
+### `FUN_00430fb0` — `.fnt` loader
+
+`void __thiscall LoadFile(mgFontDx8* this, const mcString* path)` (`RET 4`);
+no vtable slot, so the 12-byte entry (`SUB ESP,0x240`; push EBX/EBP/ESI/EDI;
+`MOV ESI,ECX`) is detoured. The original never reads the pixel atlas: it
+builds a `u16 -> glyph` hash map and `0x4316e0` later reopens the stored
+path. `hook_430fb0` reads the file with `CreateFileA`, parses the header and
+tables, and inserts every glyph with `0x432d70` (build record) +
+`0x432fd0` (hash insert).
+
+The file's code table starts at `0x20` — the **hash dword** — so the runtime
+codes are `[hash_lo, hash_hi, code[0]..code[count-3]]`, paired with
+`metrics[0..]`. That is exactly the port's `codes[i] -> metrics[i+2]`
+mapping. `metric_count` is the u32 at `0x20 + count*2` and must equal
+`count`; the replacement rejects anything else. It also sets the glyph-grid
+capacity `+0x2c = (texH/pitchY)*(texW/pitchX)` from the caller-supplied
+`+0x30/+0x34`.
+
+**Runtime-verified on the free-game park:** five font files, 247 glyphs each,
+HUD clock/budget/panel text renders (`notes/hyb7-counter.txt`,
+`notes/park-hook-fnt.png`). Full ABI: `notes/hybrid-fnt-recon.md`.
+
 ## Build/run
 
 ```powershell
@@ -186,12 +208,13 @@ hook_4809a0: calls=97000
 4. `.mesh` whole-file reader `0x477f30` is **runtime-verified**: 121 mesh
    files, park renders. The vtable slot `0x626abc` is repointed; `.skin` is
    forwarded to the original. All major asset readers are now replaced.
-5. Remaining candidates: `0x4809e0` (UV reader, not exercised by the park)
-   and the `.fnt` loader `0x430fb0`. The `.fnt` ABI is solved: version,
-   atlas w/h (dead), size, cell height, pitch pair, code count + u16 codes
-   (starting at the **hash dword**, hence the port's `metrics[i+2]`
-   mapping), metric count + 8-byte metrics, then a glyph map; pixels are
-   fetched lazily by `0x4316e0`. Entry detour (12 bytes); the pixel path is
-   not fully resolved. See `notes/hybrid-fnt-recon.md`.
-6. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
+5. Remaining candidates: `0x4809e0` (UV reader, not exercised by the park).
+6. `.fnt` loader `0x430fb0` is **replaced**: `hook_430fb0` parses the header
+   and tables directly and builds the glyph map with `0x432d70`/`0x432fd0`,
+   including the hash-shifted code table that explains `metrics[i+2]` and the
+   glyph-grid capacity `+0x2c`. Pixels stay lazy in `0x4316e0`; the stored
+   path is the same file. **Runtime-verified:** five font files, 247 glyphs
+   each, HUD text renders (`notes/hyb7-counter.txt`,
+   `notes/park-hook-fnt.png`). See `notes/hybrid-fnt-recon.md`.
+7. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.
