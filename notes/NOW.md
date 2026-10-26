@@ -47,6 +47,8 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
+  `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
   writers, visitor/obstacle perception reaction.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
