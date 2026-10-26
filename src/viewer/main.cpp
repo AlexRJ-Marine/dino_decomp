@@ -2137,10 +2137,10 @@ int run_selftest() {
     check(paddock.capacity == 64.0f, "paddock capacity");
     check(dino::paddock_cost(0) == 8.0f && dino::paddock_cost(1) == 16.0f &&
               dino::paddock_cost(3) == 64.0f, "paddock cost table");
-    check(dino::paddock_size_class(265) == 0 &&
-              dino::paddock_size_class(396) == 1 &&
-              dino::paddock_size_class(1026) == 2 &&
-              dino::paddock_size_class(1400) == 3, "paddock size class");
+    check(dino::paddock_size_class(200) == 0 &&
+              dino::paddock_size_class(620) == 1 &&
+              dino::paddock_size_class(900) == 2 &&
+              dino::paddock_size_class(901) == 3, "paddock size class");
     check(dino::paddock_add(paddock, 1, 0) && paddock.used == 8.0f,
           "paddock add");
     check(!dino::paddock_add(paddock, 1, 0), "paddock duplicate");
@@ -4357,6 +4357,16 @@ int main(int argc, char** argv) {
             build_grid.fence_count);
     }
 
+    dino::DinoPhenotypeTable phenotype_table;
+    try {
+        phenotype_table = dino::read_dino_phenotype(
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/proportion.dat"),
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/simu_trans.dic"));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
+    }
     dino::BudgetLedger budget_ledger;
     int pending_buy_price = 0;
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
@@ -4461,7 +4471,22 @@ int main(int argc, char** argv) {
             float angle = static_cast<float>(i) * 137.5f;
             if (!paddocks.empty()) {
                 const int cost_class =
-                    dino::paddock_size_class(size_for_species(species));
+                    phenotype_table.valid
+                        ? phenotype_table.size_class(record.genotype)
+                        : dino::paddock_size_class(size_for_species(species));
+                if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
+                    std::fprintf(
+                        stderr,
+                        "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
+                        "class=%d\n",
+                        i, record.genotype[0].first,
+                        record.genotype[0].second,
+                        record.genotype[2].first,
+                        record.genotype[2].second,
+                        record.genotype[3].first,
+                        record.genotype[3].second,
+                        phenotype_table.length_cm(record.genotype), cost_class);
+                }
                 int paddock_index = -1;
                 for (std::size_t p = 0; p < paddocks.size(); ++p) {
                     if (dino::paddock_can_add(
@@ -4527,6 +4552,17 @@ int main(int argc, char** argv) {
                     const int head = dino::read_gen_head_type(resolve_asset(
                         opt.asset_root,
                         "Data/Design/Scenario/Genotype/" + entry->genotype));
+                    dino::DinoGenotype buy_genotype{};
+                    bool have_genotype = false;
+                    try {
+                        buy_genotype = dino::read_gen_genotype(resolve_asset(
+                            opt.asset_root,
+                            "Data/Design/Scenario/Genotype/" +
+                                entry->genotype));
+                        have_genotype = true;
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "buy genotype: %s\n", e.what());
+                    }
                     const auto match = head_species.find(head);
                     const std::string species =
                         match != head_species.end() ? match->second : "allo";
@@ -4534,8 +4570,11 @@ int main(int argc, char** argv) {
                     if (family.empty()) {
                         family = "LightBiped";
                     }
-                    const int cost_class = dino::paddock_size_class(
-                        size_for_species(species));
+                    const int cost_class =
+                        (have_genotype && phenotype_table.valid)
+                            ? phenotype_table.size_class(buy_genotype)
+                            : dino::paddock_size_class(
+                                  size_for_species(species));
                     const int dino_id =
                         1000000 + static_cast<int>(imported_dinos.size());
                     int paddock_index = -1;

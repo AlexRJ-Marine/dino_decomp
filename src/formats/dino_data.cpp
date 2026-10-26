@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <stdexcept>
 
@@ -58,6 +59,53 @@ std::size_t find_section(const std::vector<std::string>& lines,
     }
     throw std::runtime_error("dino data: missing section '" + marker + "' in " +
                              path);
+}
+
+// Reads `count` whitespace-separated integers starting at line `start`.
+std::vector<int> read_int_tokens(const std::vector<std::string>& lines,
+                                 std::size_t start, std::size_t count,
+                                 const std::string& path) {
+    std::vector<int> values;
+    values.reserve(count);
+    for (std::size_t i = start; i < lines.size() && values.size() < count;
+         ++i) {
+        const char* cursor = lines[i].c_str();
+        while (*cursor != '\0' && values.size() < count) {
+            char* next = nullptr;
+            const long value = std::strtol(cursor, &next, 10);
+            if (next == cursor) {
+                ++cursor;
+                continue;
+            }
+            values.push_back(static_cast<int>(value));
+            cursor = next;
+        }
+    }
+    if (values.size() != count) {
+        throw std::runtime_error("dino data: truncated table in " + path);
+    }
+    return values;
+}
+
+// A Part 2/3 table: count (20), 20 diagonal values, then a 20x20 matrix.
+void read_merge_block(const std::vector<std::string>& lines,
+                      const std::string& marker, const std::string& path,
+                      std::array<std::array<int, 20>, 20>& out) {
+    const std::size_t at = find_section(lines, marker, path) + 1;
+    const int expected = 20;
+    const std::vector<int> tokens =
+        read_int_tokens(lines, at, 1 + expected + expected * expected, path);
+    if (tokens[0] != expected) {
+        throw std::runtime_error("dino data: bad table count for '" + marker +
+                                 "' in " + path);
+    }
+    std::size_t cursor = 1 + static_cast<std::size_t>(expected);
+    for (int row = 0; row < expected; ++row) {
+        for (int col = 0; col < expected; ++col) {
+            out[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)] =
+                tokens[cursor++];
+        }
+    }
 }
 
 }  // namespace
@@ -165,6 +213,143 @@ int read_gen_head_type(const std::string& path) {
         return -1;
     }
     return std::min(values[1], values[2]);
+}
+
+DinoGenotype read_gen_genotype(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        throw std::runtime_error("cannot open genotype: " + path);
+    }
+    std::vector<int> values;
+    std::string line;
+    while (std::getline(in, line)) {
+        const std::size_t comment = line.find("//");
+        if (comment != std::string::npos) {
+            line.resize(comment);
+        }
+        char* cursor = line.data();
+        char* end = cursor + line.size();
+        while (cursor < end) {
+            char* next = nullptr;
+            const long value = std::strtol(cursor, &next, 10);
+            if (next == cursor) {
+                ++cursor;
+                continue;
+            }
+            values.push_back(static_cast<int>(value));
+            cursor = next;
+        }
+    }
+    // The first value is the gene count (18); the rest are A/B pairs.
+    if (values.size() < 37 || values[0] != 18) {
+        throw std::runtime_error("genotype: expected 18 genes in " + path);
+    }
+    DinoGenotype genotype{};
+    for (std::size_t gene = 0; gene < genotype.size(); ++gene) {
+        genotype[gene] = {
+            static_cast<std::uint32_t>(values[1 + gene * 2]),
+            static_cast<std::uint32_t>(values[2 + gene * 2])};
+    }
+    return genotype;
+}
+
+int DinoPhenotypeTable::length_cm(const DinoGenotype& genotype) const {
+    if (!valid || proportions.size() < 20) {
+        return 0;
+    }
+    const auto allele_a = [&](std::size_t gene) {
+        return static_cast<int>(genotype[gene].first);
+    };
+    const auto allele_b = [&](std::size_t gene) {
+        return static_cast<int>(genotype[gene].second);
+    };
+    const int a0 = allele_a(0), b0 = allele_b(0);
+    const int a2 = allele_a(2), b2 = allele_b(2);
+    const int a3 = allele_a(3), b3 = allele_b(3);
+    if (a0 < 0 || a0 >= 20 || b0 < 0 || b0 >= 20 || a2 < 0 || a2 >= 20 ||
+        b2 < 0 || b2 >= 20 || a3 < 0 || a3 >= 20 || b3 < 0 || b3 >= 20) {
+        return 0;
+    }
+    // FUN_00619830: for each part, scale = blend(proportion) * body / table,
+    // then the stored part length is table * scale (float32), truncated.
+    // The body itself is the raw Part 3 Body Length cell.
+    const float mh = static_cast<float>(head_merge[b0][a0]) / 100.0f;
+    const float head_ratio =
+        mh * proportions[static_cast<std::size_t>(b0)][0] +
+        (1.0f - mh) * proportions[static_cast<std::size_t>(a0)][0];
+    const float mt = static_cast<float>(tail_merge[b3][a3]) / 100.0f;
+    const float tail_ratio =
+        mt * proportions[static_cast<std::size_t>(b3)][4] +
+        (1.0f - mt) * proportions[static_cast<std::size_t>(a3)][4];
+    const int body = body_length[b2][a2];
+    const int table_head = head_length[b0][a0];
+    const int table_tail = tail_length[b3][a3];
+    const float body_f = static_cast<float>(body);
+    const int head = static_cast<int>(
+        static_cast<float>(table_head) *
+        (head_ratio / static_cast<float>(table_head) * body_f));
+    const int tail = static_cast<int>(
+        static_cast<float>(table_tail) *
+        (tail_ratio / static_cast<float>(table_tail) * body_f));
+    return head + body + tail;
+}
+
+int DinoPhenotypeTable::size_class(const DinoGenotype& genotype) const {
+    if (!valid) {
+        return -1;
+    }
+    const int length = length_cm(genotype);
+    if (length <= 200) {
+        return 0;
+    }
+    if (length <= 620) {
+        return 1;
+    }
+    if (length <= 900) {
+        return 2;
+    }
+    return 3;
+}
+
+DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,
+                                       const std::string& simu_trans_path) {
+    DinoPhenotypeTable table;
+
+    std::ifstream in(proportion_path, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("cannot open proportions: " +
+                                 proportion_path);
+    }
+    std::uint32_t count = 0;
+    in.read(reinterpret_cast<char*>(&count), sizeof(count));
+    if (!in || count == 0 || count > 256) {
+        throw std::runtime_error("proportions: bad count in " +
+                                 proportion_path);
+    }
+    table.proportions.resize(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        std::array<float, 5>& row = table.proportions[i];
+        in.read(reinterpret_cast<char*>(row.data()),
+                static_cast<std::streamsize>(row.size() * sizeof(float)));
+        if (!in) {
+            throw std::runtime_error("proportions: truncated record in " +
+                                     proportion_path);
+        }
+    }
+
+    const std::vector<std::string> lines = read_lines(simu_trans_path);
+    read_merge_block(lines, "Head : merge ratio", simu_trans_path,
+                     table.head_merge);
+    read_merge_block(lines, "Tail : merge ratio", simu_trans_path,
+                     table.tail_merge);
+    read_merge_block(lines, "Head : Length", simu_trans_path,
+                     table.head_length);
+    read_merge_block(lines, "Body : Length", simu_trans_path,
+                     table.body_length);
+    read_merge_block(lines, "Tail : Length", simu_trans_path,
+                     table.tail_length);
+    table.valid = true;
+    return table;
 }
 
 }  // namespace dino

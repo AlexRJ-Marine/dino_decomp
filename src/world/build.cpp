@@ -303,13 +303,14 @@ float paddock_cost(int cost_index) {
 }
 
 int paddock_size_class(int size_cm) {
-    if (size_cm < 300) {
+    // TranslatorConstants.ini SizeCategory1..4MaxLength.
+    if (size_cm <= 200) {
         return 0;
     }
-    if (size_cm < 900) {
+    if (size_cm <= 620) {
         return 1;
     }
-    if (size_cm < 1400) {
+    if (size_cm <= 900) {
         return 2;
     }
     return 3;

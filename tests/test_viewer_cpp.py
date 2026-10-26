@@ -1714,9 +1714,9 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
     assert ("dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
             in result.stdout)
     # Each fence rectangle is a paddock: capacity 492 cells total. The cost
-    # class is derived from the species rest-mesh size (8/16/32/64 for
-    # <300/300-899/900-1399/>=1400 cm): 6 small + 7 medium + 7 large = 384.
-    assert "paddocks: 9 capacity=492 used=384" in result.stdout
+    # class comes from the phenotype length (`proportion.dat` blended by the
+    # Part 2 merge + Part 3 Body length), matching retail Cpg04 = 336.
+    assert "paddocks: 9 capacity=492 used=336" in result.stdout
     image = Image.open(shot).convert("RGB")
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
@@ -1958,19 +1958,19 @@ def test_cpp_buy_dino():
     assert ("buy: Zarbosaurus price=4900 budget=5100 paddock="
             in success.stdout)
     assert " dinos=21" in success.stdout
-    assert "paddocks: 9 capacity=492 used=400" in success.stdout
+    assert "paddocks: 9 capacity=492 used=352" in success.stdout
 
     no_room = run(["--buy-dino", "Zarbosaurus", "--buy-paddock", "0"])
     assert no_room.returncode == 0, no_room.stderr
     assert ("buy: Zarbosaurus no paddock room "
             "(WARNING_NO_ROOM_IN_FENCE) budget=75000") in no_room.stdout
-    assert "paddocks: 9 capacity=492 used=384" in no_room.stdout
+    assert "paddocks: 9 capacity=492 used=336" in no_room.stdout
 
     no_money = run(["--buy-dino", "Zarbosaurus", "--park-budget", "100"])
     assert no_money.returncode == 0, no_money.stderr
     assert ("buy: Zarbosaurus price=4900 budget=100 "
             "(WARNING_NOT_ENOUGH_MONEY)") in no_money.stdout
-    assert "paddocks: 9 capacity=492 used=384" in no_money.stdout
+    assert "paddocks: 9 capacity=492 used=336" in no_money.stdout
 
     unknown = run(["--buy-dino", "Nope"])
     assert unknown.returncode == 0, unknown.stderr

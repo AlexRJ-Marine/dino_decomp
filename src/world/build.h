@@ -81,9 +81,9 @@ struct Paddock {
 
 float paddock_capacity(const WorldRect& rect, float cell_size);
 float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
-// Size class for `dinosaur+0x1e0`, inferred from the live Cpg04 classes:
-// 0 = <300 cm, 1 = 300..899, 2 = 900..1399, 3 = >=1400. A future genotype
-// translator port should replace this with the exact phenotype length.
+// Size class for `dinosaur+0x1e0` (TranslatorConstants.ini
+// SizeCategory1..4MaxLength): 0 = <=200 cm, 1 = 201..620, 2 = 621..900,
+// 3 = >900. Pass the phenotype length from `DinoPhenotypeTable::length_cm`.
 int paddock_size_class(int size_cm);
 bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index);
 bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index);
