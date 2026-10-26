@@ -95,9 +95,42 @@ conventional appeal, tamability).
 
 ## Phenotype accumulator
 
-`FUN_00619c70` adds a gene/part record into the accumulator and
-`FUN_00619d90` normalizes it. The record fields `+0x128..+0x16c` (additive)
-and `+0x170..+0x19c` (multiplicative) map to these accumulator fields:
+`FUN_00619a60` runs the **additive** pass and `FUN_00619b80` the
+**percentage** pass over the 23 phenotype part slots at `P+0xe8`:
+
+```text
+for s in 0..22:
+    part = T[0xb8 + s*4]          // body part
+    idx  = P[0xe8 + s*4]          // Part-6 row, 0 = absent
+    if idx == 0: continue
+    f    = P[0xac + part*4] / T[0xa4 + part*4]   // part width / reference
+    row  = T[0x84] + idx*0x10    // int[18]
+    additive:  acc[0..6] += row[0..6]*f
+               acc[sel]  += row[sel]*f        // sel = T[0x114+part*4]
+               acc[12..17] += row[12..17]*f
+    percent:   pct[0..6] += row[0..6]-100
+               pct[sel] += row[sel]-100
+               pct[12..17] += row[12..17]-100
+```
+
+The 23 slots are **18 Part-6 dummy rows plus five duplicates**: slots 18..22
+copy slots 5, 10, 11, 16 and 17 (`0x617ad1`), so those five rows are counted
+twice. The per-part selector `T[0x114]` is five ints: Head 8, Arm 9, Leg 10,
+Body 18 (none), Tail 11. Skin (Part 7) and carapace (Part 8) are **not** in
+the 23 slots; `0x617250` adds them directly with the body-length ratio
+`P[0xa4]/T[0xa0]`.
+
+Application order: `0x619b80` fills the ints, `0x619d90` multiplies first,
+`0x619c70` adds, `0x619fb0` clamps with Part 9 min/max:
+
+```text
+P[off] = trunc(P[off] * pct[k]/100 + 1e-4) + trunc(acc[k])
+P[0x2c] = P[0x2c] * pct[2]/100 + acc[2]*0.01
+P[0x30] = P[0x30] * pct[2]/100 + acc[2]*0.01
+P[0x194] = trunc(P[0x194] * 100 / pct[6] + 1e-4) - trunc(acc[17])
+```
+
+The record→phenotype map is unchanged:
 
 | Record | Accumulator | Record | Accumulator |
 | ---: | ---: | ---: | ---: |
@@ -109,8 +142,10 @@ and `+0x170..+0x19c` (multiplicative) map to these accumulator fields:
 | `+0x140` | `+0x48` | `+0x160` | `+0x70` |
 | `+0x144` | `+0x4c` | `+0x164` | `+0x74` |
 | `+0x148` | `+0x50` | `+0x168` | `+0x78` |
-| `+0x16c` | `+0x194` (subtracted) | `+0x170` | `+0x18` scale |
-| `+0x178` | `+0x2c`/`+0x30` scale | `+0x17c..0x19c` | scales for the rest |
+| `+0x16c` | `+0x194` (subtracted) | `+0x170` | percentage ints |
+
+Full derivation and the Part-6 row-selection chain:
+`notes/part-record-accumulator-recon.md`.
 
 The accumulator fields are the phenotype used by the need formulas:
 
@@ -291,8 +326,9 @@ in the table at translator `+0x84` with an `int` array at `+4`.
 one optional int (selector `translator+0x114`) and six more, each scaled by
 `part width (P+0xac) / reference width (translator+0xa4)`. `0x00619b80`
 then applies the percentage records (`+0x170..+0x19c`, neutral 100) over the
-same slots. The 23 slots are the five body parts plus the 18 dummy/decoration
-parts driven by genes 4-13 and the skin/carapace tables.
+same slots. The 23 slots are **18 Part-6 dummy rows plus five literal
+duplicates** of slots 5, 10, 11, 16 and 17; skin and carapace are separate
+Part-7/8 additions (see `notes/part-record-accumulator-recon.md`).
 
 ## Lab attribute labels and maxima
 
@@ -350,5 +386,6 @@ is present and none is extra. `tools/formats/simu_trans.py` now also exposes
   `+0x50`, `+0x54`, `+0x58`, `+0x5c`, `+0x68`, `+0x70`, `+0x74`, `+0x78`).
 - The five needs feed the show score (`docs/decomp/show-score.md`) and the
   visitor/taming formulas; the exact split is documented there.
-- The dummy/skin/carapace accumulator's two +2/+3 residuals on the Cpg04
-  Intelligence rows (`0x619a60`/`0x619b80`).
+- Numeric attribution of the two +2/+3 Cpg04 Intelligence residuals to the
+  five duplicate slots in `0x619a60` (the mechanism is solved; it needs the
+  full part-width chain).

@@ -1377,6 +1377,18 @@ Updated: 2026-10-26
   - Evidence: `notes/phenotype-attributes-runtime.md` (20-row table and field
     offsets), `scripts/x32dbg/start-campaign.ps1` (`-GenotypeTrace` CTOR
     fields).
+- Phenotype accumulator solved: **23 slots = 18 Part-6 dummy rows + five
+  duplicates.**
+  - Additive pass `0x619a60`: `part width/ref width` scaling; 7 fields + one
+    per-part selector (`{8,9,10,18,11}`) + 6 fields. Percentage pass
+    `0x619b80`: same slots, `value-100`.
+  - Slots 18..22 literally copy slots 5/10/11/16/17 (`0x617ad1`), so those
+    rows count twice. Skin (Part 7) and carapace (Part 8) are separate
+    additions with the body-length ratio.
+  - Application: multiply first, add second, clamp with Part 9 min/max;
+    `+0x194` divides by `pct[6]` and subtracts `acc[17]`.
+  - Evidence: `notes/part-record-accumulator-recon.md`,
+    `docs/formats/translator-constants.md`.
 
 ## In progress
 

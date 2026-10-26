@@ -941,10 +941,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   multiplier/accumulator passes and clamp 0..200; 18/20 Cpg04 rows match
   exactly. See `notes/phenotype-attributes-runtime.md` and
   `docs/formats/translator-constants.md`.
-- [ ] Port the part-record accumulator (dummy/skin/carapace influences, Part
-  6/7/8 tables) so the store/lab attribute gauges and the visitor needs can
-  read exact values. The base sums + gene expressions already cover most
-  gauges.
+- [x] Decode the part-record accumulator: 23 slots = 18 Part-6 dummy rows +
+  five literal duplicates (5/10/11/16/17); additive pass scales by part
+  width/reference, percentage pass adds `value-100`; skin/carapace are
+  separate Part-7/8 additions. Application formula and field map solved
+  (`notes/part-record-accumulator-recon.md`).
+- [ ] Port the accumulator so the store/lab attribute gauges and visitor
+  needs read exact values; the duplicate slots are the first suspect for the
+  +2/+3 Cpg04 Intelligence residuals. The base sums + gene expressions
+  already cover most gauges.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.
