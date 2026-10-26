@@ -1,9 +1,8 @@
 # P2 — retail park import mapping (`.wld` / `.sav` → port)
 
-Status: **roads, fences, visitors, budget and clock are mapped; dinosaur
-positions are the one gap.** This note is the integration contract for
-loading a retail park into `src/world/build.cpp` + `VisitorSystem` instead of
-the synthetic demo scene.
+Status: **P2a implemented** (roads/fences/buildings via `--wld-park`);
+visitors/budget/clock from `.sav` are the next step. Dinosaur positions are
+the remaining data gap.
 
 ## Roads → path cells
 
@@ -26,17 +25,16 @@ axis-aligned single-cell lines:
 Mapping to `BuildGrid`:
 
 ```text
-cell_x = floor((wx - grid.origin_x) / grid.cell_size)
-cell_y = floor((wy - grid.origin_y) / grid.cell_size)
+cell_x = floor(wx / grid.cell_size)   # raw world 0..1024
+cell_y = floor(wy / grid.cell_size)
 ```
 
-`grid.origin_x/y` is `-world_size/2` (`init()`), so for isl01 (1024 world
-units, 4-unit cells) `380 → 223`, `408 → 230`. Mark every cell in the
-inclusive rectangle; a line rect (`y0 == y1`) is one cell high. The port
-already uses this formula in `BuildGrid::cells_for_world`.
-
-Retail roads are the walkable network, so importing them gives the visitors
-a complete path graph without hand placement.
+The old example `380 -> 223` was wrong: it used `(wx - origin_x)/cell`,
+which adds half the world. For isl01 (1024 world units, 4-unit cells) the
+correct cells are `380 -> 95`, `408 -> 102`, `656 -> 164`. Mark every cell in
+the inclusive rectangle; a line rect (`y0 == y1`) is one cell high. The port
+implementation is `dino::import_roads` in `src/world/build.cpp`, used by
+`--wld-park`.
 
 ## Fences → grid edges
 

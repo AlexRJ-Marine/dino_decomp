@@ -52,6 +52,19 @@ struct BuildMeshes {
     int fence_segments = 0;
 };
 
+// World-unit rectangle from a retail `.wld`/`.sav` road or fence record.
+struct WorldRect {
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+};
+
+// Imports retail park data into the 4-unit grid. Road rectangles become path
+// cells; fence rectangles become canonical south/east edges.
+void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads);
+void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences);
+
 // `fence_source` is the retail fence segment (long axis = local +Y).
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
                                    const Mesh& fence_source);

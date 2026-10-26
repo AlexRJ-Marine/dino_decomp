@@ -1598,3 +1598,47 @@ def test_cpp_campaign_end_dialog(tmp_path):
     )
     assert bright > 20
     assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
+
+def test_cpp_wld_park_import(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    shot = tmp_path / "park.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "wld: placed 57/57 buildings" in result.stdout
+    assert ("park import: roads=14 path_cells=301 fences=9 fence_edges=268"
+            in result.stdout)
+    assert "build: 301 path cells, 268 fences" in result.stdout
+    image = Image.open(shot).convert("RGB")
+    assert len(image.getcolors(maxcolors=1_000_000)) > 500
+
+
+def test_cpp_wld_park_import_single_road():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg01" / "Cpg01_Save.wld"
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not wld.exists() or not isl01.exists():
+        pytest.skip("retail Cpg01/isl01 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "1", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "wld: placed 1/1 buildings" in result.stdout
+    assert ("park import: roads=1 path_cells=16 fences=0 fence_edges=0"
+            in result.stdout)

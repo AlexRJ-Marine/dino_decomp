@@ -1030,6 +1030,18 @@ Updated: 2026-10-26
   - Evidence: `docs/formats/sav.md`, `notes/save-graph-recon.md`,
     `tests/test_sav_graph.py::test_park_header_and_schedule`.
 
+- P2a complete: **campaign `.wld` park import.**
+  - `--wld-park FILE` imports road rectangles as path cells, fence
+    rectangles as canonical south/east edges, and the existing `.bbi`
+    building placement. Cpg04 on isl04: 57 buildings, 14 roads -> 301 cells,
+    9 fences -> 268 edges; Cpg01: 1 road -> 16 cells.
+  - Corrected the mapping: raw `.wld` world `wx` maps to `floor(wx/4)`, not
+    `floor((wx+512)/4)` (the old note was off by half the world).
+  - Evidence: `docs/platform/world-import.md`, `notes/cpg04-park-import.png`,
+    `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
+    `test_cpp_wld_park_import_single_road`.
+  - Open: `.sav` simulation section (visitors, budget, clock, dinos).
+
 ## In progress
 
 - **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,

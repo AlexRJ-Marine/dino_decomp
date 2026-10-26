@@ -90,17 +90,28 @@ void read_placed_base(Reader& r) {
     read_waypoints(r);
 }
 
-void read_fence(Reader& r) {
-    read_placed_base(r);
+WorldFence read_fence(Reader& r) {
+    WorldFence fence;
+    fence.object_id = r.u32("fence object id");
+    fence.field_14 = r.u32("fence field 14");
+    fence.start_x = static_cast<std::int32_t>(r.u32("fence start x"));
+    fence.start_y = static_cast<std::int32_t>(r.u32("fence start y"));
+    fence.end_x = static_cast<std::int32_t>(r.u32("fence end x"));
+    fence.end_y = static_cast<std::int32_t>(r.u32("fence end y"));
+    read_waypoints(r);
     (void)r.u32("fence class tag");
-    (void)r.u32("fence field 14");
-    r.skip(16, "fence rectangle");
+    fence.field_14 = r.u32("fence field 14 repeat");
+    fence.start_x = static_cast<std::int32_t>(r.u32("fence start x repeat"));
+    fence.start_y = static_cast<std::int32_t>(r.u32("fence start y repeat"));
+    fence.end_x = static_cast<std::int32_t>(r.u32("fence end x repeat"));
+    fence.end_y = static_cast<std::int32_t>(r.u32("fence end y repeat"));
     if (r.version() >= 2) {
-        (void)r.u32("fence field 44");
+        fence.field_44 = r.u32("fence field 44");
     }
     if (r.version() >= 0x25) {
-        (void)r.u32("fence field 48");
+        fence.field_48 = r.u32("fence field 48");
     }
+    return fence;
 }
 
 void read_show(Reader& r) {
@@ -151,9 +162,10 @@ void read_visitor(Reader& r) {
     }
 }
 
-void read_dinosaur(Reader& r) {
-    (void)r.u32("dinosaur object id");
-    (void)r.u32("dinosaur field 1c");
+WorldDinosaur read_dinosaur(Reader& r) {
+    WorldDinosaur dinosaur;
+    dinosaur.object_id = r.u32("dinosaur object id");
+    dinosaur.field_1c = r.u32("dinosaur field 1c");
     if (r.version() >= 0x25) {
         (void)r.u32("dinosaur field 24");
         (void)r.u32("dinosaur field 28");
@@ -162,9 +174,11 @@ void read_dinosaur(Reader& r) {
     (void)r.u32("dinosaur class tag");
     const int pairs = r.version() > 0x15 ? 18 : 16;
     for (int i = 0; i < pairs; ++i) {
-        (void)r.u32("dinosaur allele a");
-        (void)r.u32("dinosaur allele b");
+        const std::uint32_t a = r.u32("dinosaur allele a");
+        const std::uint32_t b = r.u32("dinosaur allele b");
+        dinosaur.genotype[static_cast<std::size_t>(i)] = {a, b};
     }
+    return dinosaur;
 }
 
 void read_unlock_array(Reader& r, const char* what) {
@@ -183,8 +197,9 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
     }
 
     out.fence_count = r.count("fence count", 10000);
+    out.fences.reserve(out.fence_count);
     for (std::uint32_t i = 0; i < out.fence_count; ++i) {
-        read_fence(r);
+        out.fences.push_back(read_fence(r));
     }
 
     out.show_count = r.count("show count", 10000);
@@ -221,8 +236,9 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
 
     if (r.version() > 1) {
         out.dinosaur_count = r.count("dinosaur count", 100000);
+        out.dinosaurs.reserve(out.dinosaur_count);
         for (std::uint32_t i = 0; i < out.dinosaur_count; ++i) {
-            read_dinosaur(r);
+            out.dinosaurs.push_back(read_dinosaur(r));
         }
     }
 

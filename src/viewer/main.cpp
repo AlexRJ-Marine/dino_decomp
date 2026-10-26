@@ -99,6 +99,7 @@ struct Options {
     std::string building_path;
     std::string wld_path;
     bool wld_info = false;
+    bool wld_park = false;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;
@@ -299,6 +300,10 @@ Options parse_args(int argc, char** argv) {
             opt.building_path = next("--building");
         } else if (arg == "--wld") {
             opt.wld_path = next("--wld");
+        } else if (arg == "--wld-park") {
+            opt.wld_path = next("--wld-park");
+            opt.wld_park = true;
+            opt.build_mode = true;
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--building-pos") {
@@ -485,6 +490,7 @@ Options parse_args(int argc, char** argv) {
                 "  --focus-building     frame the placed building\n"
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
+                "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
@@ -3320,6 +3326,8 @@ int main(int argc, char** argv) {
     };
     std::vector<BuildingDraw> building_draws;
     std::vector<dino::PortBuildingState> building_instances;
+    std::vector<dino::WorldRect> wld_roads;
+    std::vector<dino::WorldRect> wld_fences;
     std::vector<dino::Attraction> attractions;
     int entrance_cell_x = -1;
     int entrance_cell_y = -1;
@@ -3555,6 +3563,18 @@ int main(int argc, char** argv) {
             }
             std::printf("wld: placed %d/%zu buildings\n", placed,
                         world.buildings.size());
+            if (opt.wld_park) {
+                wld_roads.clear();
+                wld_fences.clear();
+                for (const dino::RoadRect& road : world.roads) {
+                    wld_roads.push_back(
+                        {road.x0, road.y0, road.x1, road.y1});
+                }
+                for (const dino::WorldFence& fence : world.fences) {
+                    wld_fences.push_back({fence.start_x, fence.start_y,
+                                          fence.end_x, fence.end_y});
+                }
+            }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "wld: %s\n", e.what());
         }
@@ -3670,6 +3690,17 @@ int main(int argc, char** argv) {
         std::printf("build: %d path cells, %d fences\n", build_grid.path_count,
                     build_grid.fence_count);
     };
+
+    if (opt.wld_park &&
+        (!wld_roads.empty() || !wld_fences.empty())) {
+        dino::import_roads(build_grid, wld_roads);
+        dino::import_fences(build_grid, wld_fences);
+        rebuild_build_meshes();
+        std::printf(
+            "park import: roads=%zu path_cells=%d fences=%zu fence_edges=%d\n",
+            wld_roads.size(), build_grid.path_count, wld_fences.size(),
+            build_grid.fence_count);
+    }
 
     int build_tool = opt.build_mode ? 1 : 0;
     bool pending_click = false;

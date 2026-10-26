@@ -236,8 +236,60 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     return out;
 }
 
-void save_build(const BuildGrid& grid, const std::string& path) {
-    std::ofstream out(path);
+void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
+    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
+        return;
+    }
+    const float cell = grid.cell_size;
+    const int last_x = grid.width - 1;
+    const int last_y = grid.height - 1;
+    for (const WorldRect& road : roads) {
+        const int x0 = std::min(road.x0, road.x1);
+        const int x1 = std::max(road.x0, road.x1);
+        const int y0 = std::min(road.y0, road.y1);
+        const int y1 = std::max(road.y0, road.y1);
+        const int cx0 = std::clamp(static_cast<int>(std::floor(x0 / cell)), 0, last_x);
+        const int cx1 = std::clamp(static_cast<int>(std::floor(x1 / cell)), 0, last_x);
+        const int cy0 = std::clamp(static_cast<int>(std::floor(y0 / cell)), 0, last_y);
+        const int cy1 = std::clamp(static_cast<int>(std::floor(y1 / cell)), 0, last_y);
+        for (int y = cy0; y <= cy1; ++y) {
+            for (int x = cx0; x <= cx1; ++x) {
+                grid.set_path(x, y, true);
+            }
+        }
+    }
+}
+
+void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {
+    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
+        return;
+    }
+    const float cell = grid.cell_size;
+    for (const WorldRect& rect : fences) {
+        const int x0 = std::min(rect.x0, rect.x1);
+        const int x1 = std::max(rect.x0, rect.x1);
+        const int y0 = std::min(rect.y0, rect.y1);
+        const int y1 = std::max(rect.y0, rect.y1);
+        int cx0 = static_cast<int>(std::floor(x0 / cell));
+        int cx1 = static_cast<int>(std::floor(std::max(x1 - 1, x0) / cell));
+        int cy0 = static_cast<int>(std::floor(y0 / cell));
+        int cy1 = static_cast<int>(std::floor(std::max(y1 - 1, y0) / cell));
+        cx0 = std::clamp(cx0, 0, grid.width - 1);
+        cx1 = std::clamp(cx1, 0, grid.width - 1);
+        cy0 = std::clamp(cy0, 0, grid.height - 1);
+        cy1 = std::clamp(cy1, 0, grid.height - 1);
+        for (int x = cx0; x <= cx1; ++x) {
+            grid.set_fence(x, cy0, 0, true);          // south
+            grid.set_fence(x, cy1 + 1, 0, true);      // north
+        }
+        for (int y = cy0; y <= cy1; ++y) {
+            grid.set_fence(cx0 - 1, y, 1, true);      // west
+            grid.set_fence(cx1, y, 1, true);          // east
+        }
+    }
+}
+
+void save_build(const BuildGrid& grid, const std::string& path) {    std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot write build file " + path);
     }

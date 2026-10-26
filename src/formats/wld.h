@@ -28,6 +28,25 @@ struct RoadRect {
     std::int32_t y1 = 0;
 };
 
+// One `drsFence` placed base. start/end are the world-unit rectangle.
+struct WorldFence {
+    std::uint32_t object_id = 0;
+    std::uint32_t field_14 = 0;
+    std::int32_t start_x = 0;
+    std::int32_t start_y = 0;
+    std::int32_t end_x = 0;
+    std::int32_t end_y = 0;
+    std::uint32_t field_44 = 0;
+    std::uint32_t field_48 = 0;
+};
+
+// One `drsDinosaur` world record: object links + the 18 gene pairs.
+struct WorldDinosaur {
+    std::uint32_t object_id = 0;
+    std::uint32_t field_1c = 0;
+    std::array<std::pair<std::uint32_t, std::uint32_t>, 18> genotype{};
+};
+
 // The subset of a `.wld`/`.sav` world block the port needs.
 // See docs/formats/wld.md; the readers mirror tools/formats/wld.py.
 struct WldWorld {
@@ -42,6 +61,8 @@ struct WldWorld {
     std::uint32_t visitor_count = 0;
     std::uint32_t dinosaur_count = 0;
     std::vector<WorldBuilding> buildings;
+    std::vector<WorldFence> fences;
+    std::vector<WorldDinosaur> dinosaurs;
     std::vector<RoadRect> roads;
     std::array<float, 10> camera{};
     bool has_camera = false;
