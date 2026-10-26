@@ -826,35 +826,29 @@ bool click_capture_enabled() {
 
 bool g_click_capture_active = false;
 
-bool foreground_is_game() {
-    HWND foreground = GetForegroundWindow();
-    if (foreground == nullptr) {
+bool cursor_inside_game_client() {
+    // Deliberately not tied to the foreground window: the user may click the
+    // game while it is in the background. WindowFromPoint tells us what would
+    // actually receive the click.
+    POINT point = {};
+    if (!GetCursorPos(&point)) {
         return false;
     }
-    HWND root = GetAncestor(foreground, GA_ROOT);
+    HWND hit = WindowFromPoint(point);
+    if (hit == nullptr) {
+        return false;
+    }
+    HWND root = GetAncestor(hit, GA_ROOT);
     if (root == nullptr) {
-        root = foreground;
+        root = hit;
     }
     DWORD process_id = 0;
     GetWindowThreadProcessId(root, &process_id);
-    return process_id == GetCurrentProcessId();
-}
-
-bool cursor_inside_game_client() {
-    HWND foreground = GetForegroundWindow();
-    if (foreground == nullptr) {
+    if (process_id != GetCurrentProcessId()) {
         return false;
-    }
-    HWND root = GetAncestor(foreground, GA_ROOT);
-    if (root == nullptr) {
-        root = foreground;
     }
     RECT client = {};
     if (!GetClientRect(root, &client)) {
-        return false;
-    }
-    POINT point = {};
-    if (!GetCursorPos(&point)) {
         return false;
     }
     if (!ScreenToClient(root, &point)) {
@@ -868,25 +862,25 @@ bool gate_mouse_input(void* data, DWORD cbData) {
     if (!click_capture_enabled() || virtual_mouse_enabled()) {
         return true;
     }
-    if (!foreground_is_game()) {
-        if (g_click_capture_active) {
-            g_click_capture_active = false;
-            log_line("click capture: released (focus lost)");
-        }
-        if (data != nullptr && cbData > 0) {
-            std::memset(data, 0, cbData);
-        }
-        return false;
-    }
+    const SHORT state = GetAsyncKeyState(VK_LBUTTON);
+    const bool pressed = (state & 0x8001) != 0;
+    const bool inside = cursor_inside_game_client();
     if (!g_click_capture_active) {
-        const SHORT state = GetAsyncKeyState(VK_LBUTTON);
-        if ((state & 0x8001) != 0 && cursor_inside_game_client()) {
+        if (pressed && inside) {
             g_click_capture_active = true;
             log_line("click capture: active");
             // Let the activating click through so it can also operate the UI.
             return true;
         }
         // Suppress all mouse input until the game is clicked.
+        if (data != nullptr && cbData > 0) {
+            std::memset(data, 0, cbData);
+        }
+        return false;
+    }
+    if (pressed && !inside) {
+        g_click_capture_active = false;
+        log_line("click capture: released (click outside)");
         if (data != nullptr && cbData > 0) {
             std::memset(data, 0, cbData);
         }
@@ -1149,7 +1143,8 @@ HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
 }
 
 void install_virtual_mouse(void* dinput8) {
-    if (dinput8 == nullptr || !virtual_mouse_enabled()) {
+    if (dinput8 == nullptr ||
+        (!virtual_mouse_enabled() && !click_capture_enabled())) {
         return;
     }
     void** vtable = *reinterpret_cast<void***>(dinput8);

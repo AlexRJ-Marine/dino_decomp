@@ -333,9 +333,11 @@ you click inside the game:
 
 The first run creates `run-window/` (Data junction, its own `save/`). The
 window is a normal overlapped window with a title bar and minimize/close
-buttons. Mouse input is suppressed until you click inside; Alt-Tab releases it
-again. The cursor is never clipped or moved. `-NoClickCapture` disables the
-gate.
+buttons. It starts behind the current window and the launcher returns focus to
+whatever you were using. Mouse input is suppressed until you click inside the
+game; the click activates input without requiring the game to be foreground.
+Click outside the game window to release it. The cursor is never clipped or
+moved. `-NoClickCapture` disables the gate.
 
 ### Windowed x32dbg harness
 
@@ -356,8 +358,9 @@ physical mouse.
 `run-test/` uses a Data junction and a dgVoodoo2 config that forces the
 window. The `DINPUT8.dll` proxy reads `run-test/dino_input.txt` and supplies
 DirectInput mouse state directly, so the game is clicked without
-`SetCursorPos` or `mouse_event`. `-PhysicalInput` restores the old `run/`
-fullscreen behavior. See
+`SetCursorPos` or `mouse_event`. The harness sends the game to the back and
+restores the previous foreground window; it does not require the game to be
+foreground. `-PhysicalInput` restores the old `run/` fullscreen behavior. See
 [`docs/platform/windowed-testing.md`](docs/platform/windowed-testing.md).
 
 ## Documentation map

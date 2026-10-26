@@ -1296,9 +1296,16 @@ Updated: 2026-10-26
     (`0xB4080000`) to a normal overlapped window (`0x16CA0000`: caption,
     system menu, minimize/close) and restores the 800x600 client area.
   - `DINO_MOUSE_CLICK_CAPTURE=1` makes the proxy zero mouse axes/buttons
-    until the first left click inside the focused game window; the activating
-    click is passed through. Focus loss (Alt-Tab) releases it. No cursor
-    clipping or warping. `-NoClickCapture` disables the gate.
+    until a left click inside any visible game window. Activation uses
+    `WindowFromPoint` and does **not** require the game to be foreground; the
+    activating click is passed through. A left click outside releases it. No
+    cursor clipping or warping. `-NoClickCapture` disables the gate.
+  - Normal play starts the game behind other windows and restores the previous
+    foreground window. The virtual harness also no longer activates the game:
+    it saves/restores the previous foreground, sends the game to the back and
+    uses `PrintWindow` for screenshots. `play-freegame.ps1` and
+    `start-campaign.ps1` were verified this way with the game in the
+    background.
   - Verified: the game opens as an 800x600 client window with title bar,
     minimize and close buttons (`notes/windowed-normal-bordered.png`).
   - Evidence: `docs/platform/windowed-testing.md`,

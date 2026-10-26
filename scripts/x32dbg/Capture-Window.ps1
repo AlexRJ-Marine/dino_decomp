@@ -28,16 +28,9 @@ if (-not $game) { throw "process not found: $ProcessName" }
 $hwnd = $game.MainWindowHandle
 if ($hwnd -eq [IntPtr]::Zero) { throw "no main window" }
 
-$foreground = [DinoCapture]::GetForegroundWindow()
-$foregroundPid = 0
-$foregroundThread = [DinoCapture]::GetWindowThreadProcessId($foreground, [ref]$foregroundPid)
-$currentThread = [DinoCapture]::GetCurrentThreadId()
-[DinoCapture]::AttachThreadInput($currentThread, $foregroundThread, $true) | Out-Null
-[DinoCapture]::ShowWindow($hwnd, 9) | Out-Null
-[DinoCapture]::BringWindowToTop($hwnd) | Out-Null
-[DinoCapture]::SetForegroundWindow($hwnd) | Out-Null
-[DinoCapture]::AttachThreadInput($currentThread, $foregroundThread, $false) | Out-Null
-Start-Sleep -Milliseconds 300
+# Restore without activation if minimized; never raise the game window.
+[DinoCapture]::ShowWindow($hwnd, 4) | Out-Null
+Start-Sleep -Milliseconds 200
 
 $rect = New-Object DinoCapture+RECT
 [DinoCapture]::GetWindowRect($hwnd, [ref]$rect) | Out-Null

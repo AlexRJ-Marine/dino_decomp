@@ -65,10 +65,15 @@ corrects the client area back to 800x600. The game remains windowed; Alt-Enter
 does not switch it to fullscreen.
 
 Normal play sets `DINO_MOUSE_CLICK_CAPTURE=1`. The proxy suppresses mouse
-axes/buttons while the game does not have focus. The first left click inside
-the focused game window activates mouse input; the click is passed through so
-it can also operate the UI. Alt-Tab (focus loss) releases the capture. The
-cursor is not clipped or warped. `-NoClickCapture` disables the gate.
+axes/buttons while the gate is inactive. The first left click inside the game
+window activates input; `WindowFromPoint` is used, so the game does **not**
+need to be foreground and the click does not raise it. The activating click is
+passed through so it can also operate the UI. A left click outside the game
+window releases the gate. The cursor is not clipped or warped.
+`-NoClickCapture` disables the gate.
+
+The normal-play launcher restores focus to whatever window was active before
+launch and sends the game to the bottom of the z-order.
 
 ## Virtual DirectInput mouse
 
@@ -80,6 +85,12 @@ then:
 3. patches that device's `GetDeviceState` (slot 9) and `GetDeviceData`
    (slot 10);
 4. reads `dino_input.txt` on each poll.
+
+The harness does not raise or focus the game: it records the previous
+foreground window, sends the game to the back, and restores the previous
+window. Virtual clicks use `PostMessage` plus the DirectInput state, so they
+work while the game is in the background. Screenshots use `PrintWindow`, not a
+screen grab. A minimized game is restored with `SW_SHOWNOACTIVATE`.
 
 The harness also posts `WM_MOUSEMOVE` to update the game's own cursor/hover.
 It writes the target and button state to `dino_input.txt`:

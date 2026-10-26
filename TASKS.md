@@ -844,10 +844,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Add `scripts/play-windowed-game.ps1` and `run-window/` (Data junction,
   separate save) for normal windowed play.
 - [x] Add `DINO_MOUSE_CLICK_CAPTURE=1` to the proxy: zero mouse axes/buttons
-  until the first left click inside the focused game window; pass the
-  activating click through; release on focus loss. No cursor clipping.
-- [x] Verify the bordered window and client size; keep `-NoClickCapture` as
-  the opt-out.
+  until a left click inside any visible game window (`WindowFromPoint`,
+  foreground not required); pass the activating click through; release on a
+  click outside. No cursor clipping.
+- [x] Make normal play start behind other windows and restore the previous
+  foreground; make the virtual harness save/restore foreground, send the game
+  to the back and use `PrintWindow`.
+- [x] Verify the bordered window, client size, background virtual clicks and
+  background click activation; keep `-NoClickCapture` as the opt-out.
 - **Acceptance:** the game runs in a normal bordered 800x600 window and does
   not receive mouse input until clicked.
 - **Depends on:** TOOL-1.

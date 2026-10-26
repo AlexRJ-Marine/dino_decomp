@@ -15,12 +15,14 @@ $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
 
+$previousForeground = [IntPtr]::Zero
 if (-not $PhysicalInput) {
     if (-not (Test-Path $exe)) {
         & (Join-Path $root "scripts\setup-test-runtime.ps1")
     }
     $env:DINO_VIRTUAL_MOUSE = "1"
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+    $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -143,7 +145,8 @@ if (-not $game) {
     Write-Host "game PID=$($game.Id) title='$($game.MainWindowTitle)' hwnd=$($game.MainWindowHandle)"
     $hwnd = $game.MainWindowHandle
 if (-not $PhysicalInput -and $hwnd -ne [IntPtr]::Zero) {
-    & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd
+    & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+    Restore-Foreground $previousForeground
 }
     if ($hwnd -eq 0) {
         Write-Host "no main window handle"

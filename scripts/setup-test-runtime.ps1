@@ -50,8 +50,9 @@ $conf = $conf -replace '(?m)^CaptureMouse\s*=.*$',
     'CaptureMouse                         = false'
 $conf = $conf -replace '(?m)^FreeMouse\s*=.*$',
     'FreeMouse                            = true'
+$centerWindow = if ($Target -eq "run-window") { "false" } else { "true" }
 $conf = $conf -replace '(?m)^CenterAppWindow\s*=.*$',
-    'CenterAppWindow                      = true'
+    "CenterAppWindow                      = $centerWindow"
 $conf = $conf -replace '(?m)^EnableInactiveAppState\s*=.*$',
     'EnableInactiveAppState               = true'
 Set-Content -Path $confPath -Value $conf -Encoding ASCII

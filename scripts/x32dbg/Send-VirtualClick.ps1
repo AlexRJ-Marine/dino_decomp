@@ -5,7 +5,7 @@ param(
     [string]$GameDir = "run-test",
     [int]$HoldMs = 100,
     [string]$Shot = "",
-    [switch]$NoFocus
+    [switch]$Focus
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,7 +40,7 @@ if ($hwnd -eq [IntPtr]::Zero) {
     throw "Dino Island window not found"
 }
 
-if (-not $NoFocus) {
+if ($Focus) {
     $foreground = [DinoVirtualInput]::GetForegroundWindow()
     $foregroundPid = 0
     $foregroundThread = [DinoVirtualInput]::GetWindowThreadProcessId($foreground, [ref]$foregroundPid)
@@ -51,6 +51,9 @@ if (-not $NoFocus) {
     [DinoVirtualInput]::SetForegroundWindow($hwnd) | Out-Null
     [DinoVirtualInput]::AttachThreadInput($currentThread, $foregroundThread, $false) | Out-Null
     Start-Sleep -Milliseconds 300
+} else {
+    # Restore without activation; the game stays behind other windows.
+    [DinoVirtualInput]::ShowWindow($hwnd, 4) | Out-Null
 }
 
 # WM_MOUSEMOVE updates the game's own cursor; the DirectInput proxy supplies

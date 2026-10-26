@@ -39,12 +39,14 @@ $dinoDatBackup = $null
 if (-not $PhysicalInput) {
     $VirtualMouse = $true
 }
+$previousForeground = [IntPtr]::Zero
 if ($VirtualMouse) {
     if (-not (Test-Path $exe)) {
         & (Join-Path $root "scripts\setup-test-runtime.ps1")
     }
     $env:DINO_VIRTUAL_MOUSE = "1"
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+    $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
 if ($UnlockCampaigns -and (Test-Path $dinoDat)) {
     $dinoDatBackup = [System.IO.File]::ReadAllBytes($dinoDat)
@@ -104,7 +106,8 @@ Add-Type -AssemblyName System.Windows.Forms
 
 function Save-Window([IntPtr]$hwnd, [string]$name) {
     if ($VirtualMouse) {
-        Set-GameForeground $hwnd
+        [Win32]::ShowWindow($hwnd, 4) | Out-Null
+        Start-Sleep -Milliseconds 150
     } else {
         [Win32]::ShowWindow($hwnd, 9) | Out-Null
         [Win32]::SetForegroundWindow($hwnd) | Out-Null
@@ -122,7 +125,6 @@ function Save-Window([IntPtr]$hwnd, [string]$name) {
         [Win32]::PrintWindow($hwnd, $hdc, 0) | Out-Null
         $g.ReleaseHdc($hdc)
     } finally {
-        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $hgt))
         $g.Dispose()
     }
     $dir = Join-Path $root $ShotDir
@@ -150,17 +152,19 @@ function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
 }
 
 function Test-Rendered([IntPtr]$hwnd) {
+    [Win32]::ShowWindow($hwnd, 4) | Out-Null
     $r = New-Object Win32+RECT
     [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
     $w = $r.Right - $r.Left
     $hgt = $r.Bottom - $r.Top
     if ($w -lt 100 -or $hgt -lt 100) { return $false }
-    $bmp = New-Object System.Drawing.Bitmap 8, 8
+    $bmp = New-Object System.Drawing.Bitmap $w, $hgt
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     try {
-        $g.CopyFromScreen($r.Left + [int]($w / 2), $r.Top + [int]($hgt / 2), 0, 0,
-                          (New-Object System.Drawing.Size 8, 8))
-        $p = $bmp.GetPixel(4, 4)
+        $hdc = $g.GetHdc()
+        [Win32]::PrintWindow($hwnd, $hdc, 0) | Out-Null
+        $g.ReleaseHdc($hdc)
+        $p = $bmp.GetPixel([int]($w / 2), [int]($hgt / 2))
         return (([int]$p.R + [int]$p.G + [int]$p.B) -gt 30)
     } finally {
         $g.Dispose(); $bmp.Dispose()
@@ -186,11 +190,14 @@ if (-not $game) {
         Write-Host "no main window handle"
     } else {
         if ($VirtualMouse) {
-            & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd
+            & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+            Restore-Foreground $previousForeground
+            [Win32]::ShowWindow($hwnd, 4) | Out-Null
+        } else {
+            [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+            [Win32]::ShowWindow($hwnd, 9) | Out-Null
+            [Win32]::SetForegroundWindow($hwnd) | Out-Null
         }
-        [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
-        [Win32]::ShowWindow($hwnd, 9) | Out-Null
-        [Win32]::SetForegroundWindow($hwnd) | Out-Null
         Start-Sleep -Milliseconds 400
         Write-Host "waiting for the menu to render"
         Wait-Rendered $hwnd 150 | Out-Null

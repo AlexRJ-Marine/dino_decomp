@@ -19,12 +19,14 @@ $logPath = Join-Path $root $Log
 if (-not $PhysicalInput) {
     $VirtualMouse = $true
 }
+$previousForeground = [IntPtr]::Zero
 if ($VirtualMouse) {
     if (-not (Test-Path $exe)) {
         & (Join-Path $root "scripts\setup-test-runtime.ps1")
     }
     $env:DINO_VIRTUAL_MOUSE = "1"
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+    $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -92,7 +94,9 @@ Add-Type -AssemblyName System.Windows.Forms
 
 function Save-Window([IntPtr]$hwnd, [string]$name) {
     if (-not $PhysicalInput) {
-        Set-GameForeground $hwnd
+        # Restore without activation; the game stays behind other windows.
+        [Win32]::ShowWindow($hwnd, 4) | Out-Null
+        Start-Sleep -Milliseconds 150
     } else {
         [Win32]::ShowWindow($hwnd, 9) | Out-Null
         [Win32]::SetForegroundWindow($hwnd) | Out-Null
@@ -110,8 +114,6 @@ function Save-Window([IntPtr]$hwnd, [string]$name) {
         [Win32]::PrintWindow($hwnd, $hdc, 0) | Out-Null
         $g.ReleaseHdc($hdc)
     } finally {
-        # fall back to screen if PrintWindow produced a blank image
-        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $hgt))
         $g.Dispose()
     }
     $dir = Join-Path $root $ShotDir
@@ -145,12 +147,17 @@ if (-not $game) {
     Write-Host "game PID=$($game.Id) title='$($game.MainWindowTitle)' hwnd=$($game.MainWindowHandle)"
     $hwnd = $game.MainWindowHandle
 if (-not $PhysicalInput -and $hwnd -ne [IntPtr]::Zero) {
-    & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd
+    & (Join-Path $root "scripts\Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+    Restore-Foreground $previousForeground
 }
     if ($hwnd -eq 0) {
         Write-Host "no main window handle"
     } else {
-        [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        if ($VirtualMouse) {
+            [Win32]::ShowWindow($hwnd, 4) | Out-Null
+        } else {
+            [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        }
         Send 'pause'
         Start-Sleep -Milliseconds 700
         Install-Breakpoints

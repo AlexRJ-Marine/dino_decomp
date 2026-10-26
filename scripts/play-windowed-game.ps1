@@ -13,6 +13,16 @@ $root = Split-Path $PSScriptRoot -Parent
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class DinoPlayFocus {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+"@
+$previousForeground = [DinoPlayFocus]::GetForegroundWindow()
+
 if (-not (Test-Path $exe)) {
     & (Join-Path $PSScriptRoot "setup-test-runtime.ps1") -Target $GameDir
 }
@@ -47,7 +57,10 @@ for ($i = 0; $i -lt 40; $i++) {
     }
 }
 if ($hwnd -ne [IntPtr]::Zero) {
-    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd
+    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+}
+if ($previousForeground -ne [IntPtr]::Zero) {
+    [DinoPlayFocus]::SetForegroundWindow($previousForeground) | Out-Null
 }
 
 Write-Host "Click inside the game window to give it mouse input; Alt-Tab releases it."

@@ -19,6 +19,12 @@ public class DinoVirtualInputShared {
 }
 "@
 
+function Restore-Foreground([IntPtr]$Hwnd) {
+    if ($Hwnd -ne [IntPtr]::Zero) {
+        [DinoVirtualInputShared]::SetForegroundWindow($Hwnd) | Out-Null
+    }
+}
+
 function Set-GameForeground([IntPtr]$Hwnd) {
     $foreground = [DinoVirtualInputShared]::GetForegroundWindow()
     $foregroundPid = 0
@@ -40,9 +46,15 @@ function Invoke-VirtualClick(
     [int]$X,
     [int]$Y,
     [string]$GameDir,
-    [int]$HoldMs = 100
+    [int]$HoldMs = 100,
+    [switch]$Focus
 ) {
-    Set-GameForeground $Hwnd
+    if ($Focus) {
+        Set-GameForeground $Hwnd
+    } else {
+        # Restore without activation if the game is minimized; never raise it.
+        [DinoVirtualInputShared]::ShowWindow($Hwnd, 4) | Out-Null
+    }
     $lParam = [IntPtr](($Y -shl 16) -bor ($X -band 0xffff))
     [DinoVirtualInputShared]::PostMessage(
         $Hwnd, 0x200, [IntPtr]::Zero, $lParam) | Out-Null

@@ -18,9 +18,11 @@ if (-not (Test-Path $exe)) {
     }
     if (-not (Test-Path $exe)) { throw "not found: $exe" }
 }
+$previousForeground = [IntPtr]::Zero
 if (-not $PhysicalInput) {
     $env:DINO_VIRTUAL_MOUSE = "1"
     . (Join-Path $PSScriptRoot "x32dbg\VirtualInput.ps1")
+    $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
 
 Add-Type @"
@@ -93,7 +95,8 @@ for ($i = 0; $i -lt 30; $i++) {
 if ($hwnd -eq [IntPtr]::Zero) { throw "no game window" }
 Write-Host "game pid=$($p.Id) hwnd=$hwnd title='$($p.MainWindowTitle)'"
 if (-not $PhysicalInput) {
-    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd
+    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+    Restore-Foreground $previousForeground
 }
 
 Start-Sleep -Seconds 3
