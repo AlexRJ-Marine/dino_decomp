@@ -412,6 +412,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   header `0x19`, waypoint team = header `0x1d`, `state_count` read by the
   mesh renderer (`0x621770`), judge arena mesh in `effects[5]`,
   60/62 switch keys are real construction-kit sections.
+- [x] Show score solved: the `.bfi` attribute-weight lists (+0xE8) and
+  score steps (+0x104) are loaded but have no runtime consumer. The judge
+  score is a five-float weighted sum (`FUN_00576550`, `FUN_00581770`) over
+  the genotype phenotype, clamped ±100/±130 and smoothed at 0.07. The six
+  judge classes share the `0x582d70` base ctor and data-driven vtables.
+  Evidence: `docs/decomp/show-score.md`, `notes/show-score-recon.md`.
 - [ ] Semantics only: `field_3c`/`field_40`, `anim_flag`/`anim_speed`,
   `field_11`/`field_15`, `field_154..15c`, scoring arithmetic.
 - **Acceptance:** all 62 files and assets resolve.

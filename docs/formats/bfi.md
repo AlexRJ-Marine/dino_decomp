@@ -119,10 +119,15 @@ vocabulary is `agility`, `courage`, `combat`, `protection`, `perception`,
 (`Intelligence` vs `intelligence`), which is harmless because the renderer
 never compares the strings.
 
-The five `score_steps` are always `200, 400, 600, 800, 1000`. The natural
-reading is a five-tier judge table: the weighted attribute list is matched
-against the dinosaur's attributes and the tier selects the score. Treat the
-exact scoring arithmetic as **inferred**, not proven.
+The five `score_steps` are always `200, 400, 600, 800, 1000`.
+
+**No runtime consumer exists.** The record stores the lists at `+0xe8` and
+the steps at `+0x104` (loader `0x53ed30` -> `0x548fc0`/`0x548f20`), but no
+show/judge function reads either field, and the keyword vocabulary is absent
+from the executable. The actual judge score is a five-float weighted sum
+(`FUN_00576550`, `FUN_00581770`) over the genotype phenotype values, with
+±100/±130 clamps and 0.07 smoothing; see `docs/decomp/show-score.md`.
+Treat both fields as editor metadata until a consumer is found.
 
 **Duration pair**
 
@@ -206,8 +211,10 @@ files.
 
 ## Open
 
-- Exact scoring arithmetic for `attribute_sets` + `score_steps` (five judge
-  tiers) — the data is decoded; the consumer is not.
+- The `.bfi` `attribute_sets`/`score_steps` have **no runtime consumer**
+  (solved); the real show score is the 5-float weighted sum in
+  `docs/decomp/show-score.md`. The per-show weight vectors at `show+0x74`
+  still need an authoring source.
 - `field_3c` / `field_40` (10000/50000, 100/70/500): likely hit points and
   score/price; no consumer isolated yet.
 - `anim_flag` / `anim_speed` (record +0x84/+0x88): 0 for cages, 0.0/0.1/0.25

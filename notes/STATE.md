@@ -1137,6 +1137,22 @@ Updated: 2026-10-26
     wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
   - Evidence: `docs/decomp/economy.md`,
     `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
+- SHOW score complete: **the `.bfi` attribute lists/score steps are dead
+  editor metadata.**
+  - The record stores the lists at `+0xe8` (vector<vector<string>>) and the
+    steps at `+0x104` (vector<float>), loaded by `0x53ed30`; no show/judge
+    function reads either, and the keyword vocabulary is absent from the exe.
+  - The real judge score is a five-float weighted sum: `FUN_00576550` dot
+    (clamp ±100), `FUN_00581770` max over participants per show weight
+    vector (clamp ±130, 0.07 smoothing), fed by `FUN_00586690`'s genotype
+    phenotype values from `FUN_00618020`.
+  - `0x582d70` is the shared **base ctor** (vtable `0x6433a4`), not a score
+    function; the six judge ctors/vtables are mapped (Race `0x64350c` …
+    Capture `0x643458`) and differ only by data.
+  - Open: the authoring source of the five show weight vectors at
+    `show+0x74`, the +0xDB array length and the smoothing time base.
+  - Evidence: `docs/decomp/show-score.md`, `notes/show-score-recon.md`,
+    `docs/formats/bfi.md`.
 - STAFF complete: **employee jobs are the hourly feeding schedule.**
   - Queue entries are `{owner, target, hour}` (0xc bytes) with no job-type
     enum. `FUN_005953f0` (kind-8 task manager `+0x0c`) is the only producer:
@@ -1261,10 +1277,9 @@ Updated: 2026-10-26
    wages are solved in `docs/decomp/economy.md`. See
    `docs/decomp/employee-ai.md`.
 11. User: publish `docs/community/xentax-post.md` and record any replies.
-12. SHOW research: the `.bfi` attribute-weight lists and 200..1000 score
-   steps are decoded, but their consumer is not. Next lead: the six judge
-   behaviors share `0x582d70` and differ only by vtable
-   (`0x64350c`/`0x6434e8`/...); map the score path from there.
+12. SHOW score: solved — the `.bfi` lists/steps are dead editor metadata; the
+   judge score is the 5-float weighted sum (`0x576550`/`0x581770`). Remaining:
+   find where the five per-show weight vectors at `show+0x74` are authored.
 13. WORLD-3: water height **confirmed** (`FUN_00602cf0` = the `.lnd` float:
    isl01 16.0, isl02 20.0), the skybox face order matches the retail builder
    (`0x00600f80`/`0x00600df0`), and scene/water fog plus the additive blend
