@@ -191,6 +191,25 @@ void ParkHud::show_hud(bool visible) {
     hud_hidden_ = !visible;
 }
 
+void ParkHud::show_warning(const std::string& text) {
+    hide_panels();
+    warning_text_ = text;
+    warning_open_ = true;
+    overlay.set_visible("REQUEST_PANEL", false);
+    overlay.set_visible("CPGEND_PANEL", false);
+    overlay.set_visible("WARNING_PANEL", true);
+    overlay.set_visible("DIALOG_BACKGROUND", true);
+}
+
+void ParkHud::close_dialog() {
+    warning_open_ = false;
+    warning_text_.clear();
+    overlay.set_visible("WARNING_PANEL", false);
+    overlay.set_visible("REQUEST_PANEL", false);
+    overlay.set_visible("CPGEND_PANEL", false);
+    overlay.set_visible("DIALOG_BACKGROUND", false);
+}
+
 void ParkHud::open_panel(const std::string& name) {
     hide_panels();
     overlay.set_visible(name, true);
@@ -218,6 +237,9 @@ bool ParkHud::click(int x, int y, std::string& action) {
     }
     const int hit = overlay.hit_test(x, y);
     if (hit < 0) {
+        if (warning_open_) {
+            return true;
+        }
         // Clicks on a visible panel or on the always-on HUD are consumed so
         // they cannot reach the camera or the build tools.
         for (const Widget& widget : overlay.widgets) {
@@ -233,6 +255,14 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return false;
     }
     const std::string name = overlay.widgets[static_cast<std::size_t>(hit)].name;
+
+    if (warning_open_) {
+        if (name == "WARNING_OUTCOME_ICON") {
+            close_dialog();
+            action = "close warning";
+        }
+        return true;
+    }
 
     if (name == "OPTIONS_MENU_SAVE_BUTTON" ||
         name == "OPTIONS_MENU_LOAD_BUTTON") {

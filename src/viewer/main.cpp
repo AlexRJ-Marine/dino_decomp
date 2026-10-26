@@ -115,6 +115,7 @@ struct Options {
     bool music = false;
     bool music_forced = false;
     float music_volume = 97.0f;
+    std::string warning_text;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -333,6 +334,8 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--music-volume") {
             opt.music_volume = static_cast<float>(
                 std::atof(next("--music-volume")));
+        } else if (arg == "--warning") {
+            opt.warning_text = next("--warning");
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -445,6 +448,7 @@ Options parse_args(int argc, char** argv) {
                 "  --music              play the island theme (interactive default)\n"
                 "  --no-music           disable island music\n"
                 "  --music-volume N     music gain 0..100 (default 97)\n"
+                "  --warning TEXT       show the retail warning dialog\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -2071,6 +2075,14 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"),
             park_error);
         if (loaded) {
+            if (!opt.warning_text.empty()) {
+                const std::string text =
+                    opt.warning_text[0] == '&'
+                        ? dino::ui::resolve_loc_text(opt.warning_text, park.loc)
+                        : opt.warning_text;
+                park.show_warning(text);
+                std::printf("park warning: %s\n", text.c_str());
+            }
             // Apply scripted HUD clicks early so --validate can report them;
             // minimap zoom actions are replayed once the render target exists.
             for (const auto& value : opt.park_clicks) {
@@ -3526,6 +3538,14 @@ int main(int argc, char** argv) {
         std::sort(order.begin(), order.end(), [&](int a, int b) {
             const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
             const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
+            // The warning text must draw above WARNING_TEXT_BACK_ZONE and
+            // the wood frame, regardless of its lower ZPRIORITY.
+            if (wa.name == "WARNING_TEXT_ZONE" && wb.name != "WARNING_TEXT_ZONE") {
+                return false;
+            }
+            if (wb.name == "WARNING_TEXT_ZONE" && wa.name != "WARNING_TEXT_ZONE") {
+                return true;
+            }
             if (wa.priority != wb.priority) {
                 return wa.priority < wb.priority;
             }
@@ -3617,6 +3637,69 @@ int main(int argc, char** argv) {
                                                static_cast<float>(widget.height) * dpi,
                                                widget.back_color),
                              0, 1.0f, 1, view_w, view_h);
+            }
+
+            if (widget.name == "WARNING_TEXT_ZONE" && park.dialog_open()) {
+                const int line_h =
+                    widget.list_line_height > 0 ? widget.list_line_height : 15;
+                float list_scale = 1.0f;
+                GLuint list_atlas = 0;
+                const dino::Fnt* list_font =
+                    ui_font(widget.font, widget.text_height, list_scale,
+                            list_atlas);
+                if (list_font != nullptr) {
+                    const float max_w = static_cast<float>(
+                        widget.width - widget.list_scroll_width);
+                    std::vector<std::string> lines;
+                    std::string current;
+                    std::string word;
+                    auto flush_line = [&]() {
+                        lines.push_back(current);
+                        current.clear();
+                    };
+                    auto flush_word = [&]() {
+                        if (word.empty()) {
+                            return;
+                        }
+                        const std::string candidate =
+                            current.empty() ? word : current + " " + word;
+                        if (!current.empty() &&
+                            text_width(*list_font, candidate, list_scale) > max_w) {
+                            flush_line();
+                            current = word;
+                        } else {
+                            current = candidate;
+                        }
+                        word.clear();
+                    };
+                    for (const char ch : park.warning_text()) {
+                        if (ch == '\n') {
+                            flush_word();
+                            flush_line();
+                        } else if (ch == ' ') {
+                            flush_word();
+                        } else {
+                            word.push_back(ch);
+                        }
+                    }
+                    flush_word();
+                    if (!current.empty()) {
+                        flush_line();
+                    }
+                    const int rows = std::min(
+                        static_cast<int>(lines.size()),
+                        line_h > 0 ? widget.height / line_h : 0);
+                    for (int row = 0; row < rows; ++row) {
+                        const dino::Mesh block = build_text_block(
+                            *list_font, lines[static_cast<std::size_t>(row)],
+                            px(widget.abs_x), py(widget.abs_y + row * line_h),
+                            list_scale * dpi, widget.text_color, "LEFT",
+                            static_cast<float>(max_w) * dpi,
+                            static_cast<float>(line_h) * dpi);
+                        draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
+                                     view_w, view_h);
+                    }
+                }
             }
 
             if (widget.name == "OPTIONS_SAVE_NAMES_LIST" && !save_slots.empty()) {

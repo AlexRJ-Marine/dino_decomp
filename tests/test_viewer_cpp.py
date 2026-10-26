@@ -1172,3 +1172,44 @@ def test_cpp_menu_start_all_islands(tmp_path, row):
     name = f"isl{row + 1:02d}"
     assert f"start: island={name}" in result.stdout
     assert f"island: {name} lnd=" in result.stdout
+
+def test_cpp_warning_dialog(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    open_shot = tmp_path / "warning.bmp"
+    closed = tmp_path / "closed.bmp"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME),
+              "--no-vegetation", "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (open_shot, ["--warning", "Test warning"]),
+        (closed, ["--warning", "Test warning", "--park-click", "401,368"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        if extra:
+            assert "park warning: Test warning" in result.stdout
+        if shot == closed:
+            assert "park click 401,368 -> close warning" in result.stdout
+    a = Image.open(base).convert("RGB")
+    b = Image.open(open_shot).convert("RGB")
+    c = Image.open(closed).convert("RGB")
+    # DIALOG_BACKGROUND dims the scene (black, alpha 106).
+    assert sum(b.getpixel((50, 300))) < sum(a.getpixel((50, 300)))
+    # The warning text is white inside the dark text zone (centred panel:
+    # text zone at 283,276 at 800x600).
+    area = b.crop((283, 276, 520, 300)).tobytes()
+    bright = sum(
+        1
+        for i in range(0, len(area), 3)
+        if area[i] > 220 and area[i + 1] > 220 and area[i + 2] > 220
+    )
+    assert bright > 20
+    # Closing restores the scene.
+    assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))

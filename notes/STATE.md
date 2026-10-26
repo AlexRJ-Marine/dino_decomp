@@ -375,7 +375,14 @@ Updated: 2026-10-26
   - Saving/loading park state remains open.
   - Evidence: `notes/options-save.png`, `notes/options-save-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_options_save_panel`.
-- 290 tests pass; working tree committed (UI-2 Phase B rest plus
+- UI-2 Phase D warning dialog complete: **modal DIALOG_BACKGROUND family.**
+  - `--warning TEXT` shows `WARNING_PANEL` over the FOND_GRIS dim,
+    word-wrapped into `WARNING_TEXT_ZONE`; `WARNING_OUTCOME_ICON` closes it
+    and background clicks are consumed.
+  - Request/campaign-end panels are parsed but have no triggers yet.
+  - Evidence: `notes/warning.png`, `notes/warning-detail.png`,
+    `tests/test_viewer_cpp.py::test_cpp_warning_dialog`.
+- 291 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -848,9 +855,8 @@ Updated: 2026-10-26
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
 - **UI-2 Phase D rest:** wire the Save/Load actions to the port's park state
-  (island/budget/clock/camera/paths), warning/request dialogs
-  (`DIALOG_BACKGROUND` + `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL`),
-  menu music and lab theme switching.
+  (island/budget/clock/camera/paths), and add triggers for
+  `REQUEST_PANEL`/`CPGEND_PANEL`. The warning dialog is done.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -863,7 +869,7 @@ Updated: 2026-10-26
 
 1. UI-2 Phase D: wire the save panel's Validate button to a port save/load of
    the park state (island, budget, clock, camera, paths, visitors) and add
-   the warning/request/campaign-end dialogs.
+   request/campaign-end triggers.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow

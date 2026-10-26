@@ -866,7 +866,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase D (music): `ParkSoundDB.ini` island themes streamed in chunks and
   looped; menu music (`musLabo`), lab theme switching;
   `--music`/`--no-music`/`--music-volume`.
-- [ ] Phase D rest: save/load the port's park state, warning/request dialogs.
+- [x] Phase D (dialogs): `DIALOG_BACKGROUND` + `WARNING_PANEL` modal with
+  `--warning TEXT`, word-wrapped text and click-to-close; request/campaign-end
+  panels are parsed but still need triggers.
+- [ ] Phase D rest: save/load the port's park state.
 - [x] Phase D (save panel browser): the Options panel's Save/Load tabs switch
   to `OPTIONS_SAVE_PANEL`, and `OPTIONS_SAVE_NAMES_LIST` lists the real
   `run/save/*.sav` names parsed by the C++ header reader (`agenttest`,

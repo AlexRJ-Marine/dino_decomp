@@ -26,6 +26,13 @@ public:
     bool hud_hidden() const { return hud_hidden_; }
     bool is_visible(const std::string& root) const;
 
+    // Modal warning dialog (DIALOG_BACKGROUND + WARNING_PANEL). The text is
+    // resolved by the caller; the port only renders it.
+    void show_warning(const std::string& text);
+    void close_dialog();
+    bool dialog_open() const { return warning_open_; }
+    const std::string& warning_text() const { return warning_text_; }
+
     // Handles a click at design-space (x, y). `action` receives a short
     // description such as "open BUDGET_PANEL"; returns true when the click
     // belongs to the HUD and must not reach the camera/build tools.
@@ -42,6 +49,8 @@ private:
 
     bool loaded_ = false;
     bool hud_hidden_ = false;
+    bool warning_open_ = false;
+    std::string warning_text_;
 };
 
 }  // namespace dino::ui

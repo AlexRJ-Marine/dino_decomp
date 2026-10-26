@@ -105,6 +105,16 @@ The in-park **Options** panel's Save/Load tabs switch to
 `run/save/*.sav` names using the C++ header reader (`src/formats/sav.cpp`).
 The save/load action itself is not wired to the port's park state yet.
 
+### Warning dialog
+
+`DIALOG_BACKGROUND` (FOND_GRIS, black alpha 106) + `WARNING_PANEL` is the
+modal warning family used by the original for errors. `--warning TEXT` shows
+one for screenshots/tests; `WARNING_OUTCOME_ICON` closes it and clicks behind
+the dim are consumed. The text is word-wrapped into `WARNING_TEXT_ZONE` and
+drawn above `WARNING_TEXT_BACK_ZONE` (its authored ZPRIORITY alone would put
+it underneath). `REQUEST_PANEL`/`CPGEND_PANEL` are parsed but have no trigger
+yet.
+
 `DIALOG_BACKGROUND` is **not** used here: it belongs to the warning, request
 and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
 while pressed (when the strip has those frames).
@@ -172,6 +182,7 @@ The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
 - `notes/clock-0944.png` / `notes/clock-0944-detail.png` - park clock at 09:44.
 - `notes/options-save.png` / `notes/options-save-detail.png` - Options Save
   tab listing the real `.sav` names.
+- `notes/warning.png` / `notes/warning-detail.png` - modal warning dialog.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:
