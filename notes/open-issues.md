@@ -17,24 +17,26 @@ unknowns, with what was tried and the concrete next step.
 
 ## 2. `.lnd` `width` / `height`
 
-- **Values:** 520x376, 312x504, 704x448, 440x200, 480x200, 628x172,
-  120x492, 548x96, 268x276, 488x420.
-- **Ruled out:** heightmap bbox (`>0`/`>1` and every threshold 0..199), the
-  occupation-mask bbox, central-mass bboxes (90/95/99 percentile of the
-  buildable cells), the basemap size (1024^2), a fixed 2-unit cell grid, and
-  an island-preview image size (no matching TGA). The values do not derive
-  from the runtime terrain; they may be editor metadata the game never reads.
-- **Next:** locate the `.lnd` parser. The path is built at `0x51dad0`
-  (`Data\Design\Landscape\isl`) and the island objects are created by
-  `0x5068c0`; `0x506950` only reads the name-key string.
-- **Lead (2026-10-26):** the terrain builder `0x5fb8b0` (gpkLandscape ctor)
-  reads the landscape-data object at `+0x24`, `+0x25`, `+0x26` and applies
-  fixed-point conversions: `local_24 = [0x25] * (1/256)`,
-  `local_20 = [0x26] * 256`, `local_1c = [0x24]`. Those three fields are the
-  `.lnd` header trio (unknown float, width, height) after parsing, so the
-  parser is the supplier of `param_2`. Find where that object is filled
-  (likely a `gpkLandscape`/`gdtIsland` load) and which of the two values is
-  width vs height ? the /256 and *256 scales are the last missing piece.
+- **Solved (dead data):** the only full `.lnd` reader is `FUN_0051dad0`
+  (island load, called from the Free Game start `0x403e10`).  It reads the
+  eight resource strings, then the float, width, height and the 0/1/2 value,
+  then the music name and the 25 vegetation strings.  The four header values
+  are read into stack scratch and **never read again**: the destination slots
+  are overwritten/abandoned before the music string (capstone scan: no later
+  access to the float/width/height slots).  The second `.lnd` reader
+  `FUN_00506950` only reads the name-key string.
+- **Ruled out earlier:** heightmap bbox (`>0`/`>1` and every threshold
+  0..199), the occupation-mask bbox, central-mass bboxes, the basemap size
+  (1024^2), a fixed 2-unit cell grid, and a preview-image size.
+- **Conclusion:** `width`, `height`, the float and the 0/1/2 value are
+  editor/tool metadata.  The retail runtime never consumes them, so the
+  values need no further decoding.
+- **Correction:** the old lead about the terrain builder `0x5fb8b0` reading
+  dword `+0x24/+0x25/+0x26` was wrong.  Those are detail-map parameters set
+  by `FUN_005f3f10` to `20000`, `1.0` and `0.05`; they are not the `.lnd`
+  header trio.  Also note the `.lnd` float is **not** a proven runtime water
+  level ? the reader discards it.  The port's water plane uses it as a
+  convention; WORLD-3 should confirm the retail water height separately.
 
 ## 3. `.bfi` body integers
 

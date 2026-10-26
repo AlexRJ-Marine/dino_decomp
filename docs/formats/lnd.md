@@ -45,15 +45,20 @@ slots. These are the landscape import/prop lists used by `WORLD-1`.
 The float and the 0/1/2 integer are not yet named; the float is likely a water
 level or detail scale, the integer a biome/theme id. Both are recorded raw.
 
-### `width` / `height` are used by the terrain builder
+### Runtime use of the header values
 
-The header trio is stored in the landscape-data object and consumed by the
-terrain builder `0x5fb8b0` (`gpkLandscape` ctor): it reads dword indices
-`+0x24`/`+0x25`/`+0x26` (byte `+0x90`/`+0x94`/`+0x98`) and applies
-`[0x25] * 1/256` and `[0x26] * 256`. Those three fields are the `.lnd`
-header trio (unknown float, width, height) after parsing; the exact
-width/height order and the fixed-point scales are the remaining piece.
-See `notes/open-issues.md`.
+The only full `.lnd` reader is `FUN_0051dad0` (island load, called from the
+Free Game start `0x403e10`). It reads the eight resource strings, the float,
+`width`, `height`, the 0/1/2 value, the music name and the 25 vegetation
+strings. The four header values are read into stack scratch and **never used
+again** ? the destination slots are abandoned before the music string. The
+second `.lnd` reader `FUN_00506950` only reads the name-key string.
+
+So `width`, `height`, the float and the 0/1/2 value are **editor metadata**;
+the retail runtime discards them. The float is therefore not a proven water
+level. (The former lead about the terrain builder `0x5fb8b0` reading
+`+0x24/+0x25/+0x26` was a misread: those are detail-map parameters set by
+`FUN_005f3f10` to 20000 / 1.0 / 0.05.)
 
 ## Reader/API
 

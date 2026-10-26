@@ -558,9 +558,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`notes/asset-coverage.md`).
 - [x] Demo `.shw` fourth value is the `WallList.ini` wall type (2 MediumIron,
   6 MediumWood), not a judge kind.
-- [x] Remaining unknowns: `.lnd` w/h, `.bfi` field semantics only (body
-  solved), behavior-graph nodes; `Actions.bad` is editor/demo data (never
-  opened by the retail game).
+- [x] Remaining unknowns: `.bfi` field semantics only (body solved),
+  behavior-graph nodes; `.lnd` w/h and `Actions.bad` are editor/demo data
+  (never consumed by the retail game).
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data

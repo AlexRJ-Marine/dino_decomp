@@ -782,6 +782,16 @@ Updated: 2026-10-26
   - Loader `0x53d9a0` builds 0xb4-byte records, matching the file layout.
   - Evidence: `tools/formats/bwi.py`, `docs/formats/bwi.md`,
     `tests/test_bwi.py`, `notes/bwi-recon.md`.
+- FMT-21b complete: **`.lnd` width/height are editor metadata.**
+  - The only full `.lnd` reader `0x51dad0` reads the eight resource strings,
+    the float, width, height and the 0/1/2 value into stack scratch, then
+    never uses them again (the music and 25 vegetation strings follow).
+  - `0x506950` only reads the name-key string. So the header values are not
+    consumed by the retail runtime; no terrain/mask derivation fits either.
+  - Correction: the terrain builder `0x5fb8b0` `+0x24/+0x25/+0x26` fields are
+    detail-map parameters (`FUN_005f3f10` sets 20000/1.0/0.05), not the
+    `.lnd` trio. The `.lnd` float is not a proven water level.
+  - Evidence: `docs/formats/lnd.md`, `notes/open-issues.md`.
 - FMT-21 complete: **island `.raw` heightmap + occupation mask.**
   - Heightmap 512×512 u8; occupation 1024×1024 u8 with values {0,255}.
   - 0 = buildable land, 255 = blocked/water; 0 cells are higher and never
