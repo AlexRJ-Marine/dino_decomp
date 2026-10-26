@@ -42,7 +42,7 @@ different order)::
 
     u32   time             # selection threshold, not a playback time
     u32   n_bones;  u32 bone[n_bones]
-    f32   size
+    f32   duration         # seconds; stored in actor +0x260 by the event
     u32   n_texture; char texture[n_texture]
     u32   n_events; n_events x (kind, i32 value, percent)
     u32   params[9]        # class, power, 5 floats, ramp percent, ramp value (f32)
@@ -277,7 +277,7 @@ class EffectElement:
 
     time: int
     bones: tuple[int, ...]
-    size: float
+    duration: float
     texture: str
     events: tuple[ElementEvent, ...]
     params: tuple[int, ...]
@@ -382,7 +382,7 @@ class Bai:
                 {
                     "time": e.time,
                     "bones": list(e.bones),
-                    "size": e.size,
+                    "duration": e.duration,
                     "texture": e.texture,
                     "events": [[s.kind, s.value, s.percent] for s in e.events],
                     "params": list(e.params),
@@ -435,7 +435,7 @@ def _parse_effect(c: _Cursor) -> EffectElement:
     time = c.u32()
     n_bones = c.u32()
     bones = tuple(c.u32() for _ in range(n_bones))
-    size = c.f32()
+    duration = c.f32()
     n_texture = c.u32()
     texture = c.text(n_texture)
     n_events = c.u32()
@@ -447,7 +447,7 @@ def _parse_effect(c: _Cursor) -> EffectElement:
     return EffectElement(
         time=time,
         bones=bones,
-        size=size,
+        duration=duration,
         texture=texture,
         events=events,
         params=params,
@@ -615,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
             for i, effect in enumerate(bai.effects):
                 print(
                     f"        E{i} t={effect.time} bones={list(effect.bones)} "
-                    f"size={effect.size:g} tex={effect.texture or '-'} "
+                    f"dur={effect.duration:g} tex={effect.texture or '-'} "
                     f"events={[(e.label, e.value, e.percent) for e in effect.events]} "
                     f"floats={tuple(round(v, 3) for v in effect.floats)} "
                     f"ramp={effect.ramp_percent}%/{effect.ramp_value:g}"

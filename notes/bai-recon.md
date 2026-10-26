@@ -190,3 +190,122 @@ group with `effect_class 0`, `LinkObstAttackSize1-4` have both.
 Effect classes 0/1/2/3/5 = 44/1/1/1/17; element classes 0/1/2 = 200/1/3.
 `field_1c` 0=9, 2=1, 3=31, 4=23; `flag_20` 0=37, 1=27. Full dump:
 `notes/bai-tail-parse.json`.
+
+### Header consumers - score, duration and end ramp
+
+The remaining header fields are **not** timing hints. They split into a
+behavior-node score transform, an action duration and an end-of-action ramp.
+
+#### `field_32` (`+0x08`) - additive base score
+
+The base behavior-node scorer is tiny:
+
+```c
+void FUN_0056e820(int *score, int node) {
+  *score = *score + *(int *)(*(int *)(node + 4) + 8);   // action.field_32
+}
+```
+
+`FUN_0056e820` is vtable `0x00643094` slot `+0x10` (`0x006430a4`). So
+`field_32` is an additive score, not a timeout. Retail values fit that:
+900 for the jump/linked-obstacle family, 800 `ReachWaypoint`, 5000 `Smell`,
+50000 `Victory`.
+
+#### `params[7]` and `params[i]` - percent score multipliers
+
+Two node subclasses call the base scorer and then scale the result:
+
+```c
+// vtable 0x0064302c, ctor FUN_0056ca80
+void FUN_0056cb30(int *score, int node) {
+  FUN_0056e820(score, node);
+  if (0 < *score)
+    *score = (*(int *)(*(int *)(node + 4) + 0x28) * *score) / 100;  // params[7]
+}
+
+// vtable 0x00643040, ctor FUN_0056cb80
+int FUN_0056cc20(int self, int *score, int node) {
+  FUN_0056e820(score, node);
+  if (0 < *score) {
+    int i = *(int *)(*(int *)(self + 0x10) + 0xcc);   // index source
+    if (i == 0) i = 0;
+    else        i = *(int *)(*(int *)(i + 0x28) + 0x40);
+    *score = (*(int *)(*(int *)(node + 4) + 0xc + i * 4) * *score) / 100;
+  }
+}
+```
+
+`apDinosaurBehavior` (`0x00521b30`) constructs both as its two sub-behaviors:
+
+```text
++0x0c = FUN_0056cb80(param_2, param_4)   -> object vtable 0x00643040 (indexed)
++0x10 = FUN_0056ca80(param_2, param_5)   -> object vtable 0x0064302c (params[7])
+```
+
+The indexed node's `+0x10` object is still unnamed; only the index path
+`[node+0x10]+0xcc -> +0x28 -> +0x40` is known. When `+0xcc` is null the
+index is 0.
+
+#### `field_2e` (`+0x38`) - action duration
+
+`field_2e` is a duration in seconds. `FUN_0056c0c0` creates/updates the
+0x18-byte show-behavior record and copies it in:
+
+```c
+*(undefined4 *)(param_2 + 0x1c) = *(undefined4 *)(*(int *)(param_3 + 4) + 0x38);
+```
+
+`FUN_0056d880` decrements record `+0x1c` by dt; when it expires it calls
+`FUN_0056ddb0(record, action.field_26, action.field_2a)`.
+
+#### `field_26` (`+0x30`) / `field_2a` (`+0x34`) - action-end ramp
+
+`FUN_0056ddb0(record, percent, value)`:
+
+```text
+percent == 100 or record == 0      -> no-op
+append percent to int vector  record+0x14   (cap 10)
+append value   to float vector record+0x24  (cap 10)
+record+0x0c = record+0x0c * percent / 100
+if the vector is already at 10 entries -> record+0x0c = 0
+```
+
+Retail defaults 50 / 30.0; `ReachWaypoint` 60 / 10.0. The renderer that
+consumes the two capped vectors is still open.
+
+#### `flag_20` (`+0x2c`) - reserved
+
+`FUN_0056ac80` clones an action record field by field and copies the byte:
+
+```c
+*(undefined1 *)(puVar2 + 0xb) = *(undefined1 *)(puVar1 + 0xb);  // +0x2c
+*(undefined1 *)((int)puVar2 + 0x2d) = *(undefined1 *)((int)puVar1 + 0x2d);
+*(undefined1 *)((int)puVar2 + 0x2e) = *(undefined1 *)((int)puVar1 + 0x2e);
+puVar2[0xc] = puVar1[0xc];  // +0x30
+...
+```
+
+A needle scan over `.text` for byte-sized `[reg+0x2c]` operands finds only
+the two unrelated application hits `0x00403a4d`/`0x00403b6f`; no behavior
+code compares or branches on `flag_20`. It is stored and cloned but dead in
+this build.
+
+#### Element `+0x28` - duration
+
+`FUN_00569a00` passes element `+0x28` as `param_5` to `FUN_005727b0`
+(`FUN_005727b0(puVar7[3], *puVar7, puVar7[1], *(undefined4 *)(iVar4 + 0x28), iVar4 + 0x30)`).
+`FUN_005727b0` stores it in the actor countdown:
+
+```asm
+00572840  898660020000   MOV dword ptr [ESI + 0x260], EAX
+```
+
+`FUN_00571540` subtracts dt from `+0x260`:
+
+```asm
+00571a08  fld dword ptr [esi + 0x260]
+00571a0e  fsub dword ptr [esp + 0x58]
+00571a12  fst dword ptr [esi + 0x260]
+```
+
+so the element field is a countdown duration in seconds. `Eat` stores 0.0.

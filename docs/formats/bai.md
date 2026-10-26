@@ -1,11 +1,12 @@
 # `.bai` action definitions
 
 Status: **solved** for the 64 retail files. The packed header, every tail
-array, the runtime record layout, the candidate gates, the element scorer and
-the event effects are decoded. 64/64 files parse with an exact-EOF invariant
-and 0 errors. A few header fields (`field_26/2a/2e/32`, `params[8]`,
-`flag_20`) are stored and counted but their consumers are still open; they are
-listed in [Open fields](#open-fields).
+array, the runtime record layout, the candidate gates, the element scorer, the
+event effects, the behavior-node score transforms and the action-end
+duration/ramp are decoded. 64/64 files parse with an exact-EOF invariant and
+0 errors. The remaining open items (`stat_grants`, the end-ramp renderer, the
+indexed multiplier's source object) are listed in
+[Open fields](#open-fields).
 
 ## Inventory
 
@@ -50,14 +51,14 @@ a naive dword scan at `0x24` misreads `special_action`.
 0x14  u32  field_14       # runtime +0x00: element-score random range
 0x18  f32  field_18       # runtime +0x04: base radius/scale
 0x1c  u32  field_1c       # runtime +0x84: radius scale mode
-0x20  u8   flag_20        # runtime +0x2c
+0x20  u8   flag_20        # runtime +0x2c; reserved (copied, never read)
 0x21  u32  special_action # runtime +0x60; unaligned; 0 normal, 1..6 groups
 0x25  u8   eat_flag       # runtime +0x2e
-0x26  u32  field_26       # runtime +0x30; unaligned
-0x2a  f32  field_2a       # runtime +0x34
-0x2e  f32  field_2e       # runtime +0x38
-0x32  u32  field_32       # runtime +0x08
-0x36  u32  params[8]      # runtime +0x0c..+0x28
+0x26  u32  field_26       # runtime +0x30; unaligned; end-ramp percent
+0x2a  f32  field_2a       # runtime +0x34; end-ramp value
+0x2e  f32  field_2e       # runtime +0x38; action duration (seconds)
+0x32  u32  field_32       # runtime +0x08; additive base score
+0x36  u32  params[8]      # runtime +0x0c..+0x2b; score multipliers (percent)
 0x56  u8   consume_flag   # runtime +0x2d
 0x57  u32  n_pre
       n_pre    x 12-byte (attribute, comparison, threshold)
@@ -101,16 +102,16 @@ The header fields are **reordered** in the runtime record. This map is from
 the loader (`0x0053e060`); the offsets are exact.
 
 ```text
-+0x00  u32   field_14
-+0x04  f32   field_18
-+0x08  u32   field_32
-+0x0c  u32   params[8]           # 0x0c..0x2b
-+0x2c  u8    flag_20
++0x00  u32   field_14            # element-score jitter range
++0x04  f32   field_18            # base radius/scale
++0x08  u32   field_32            # additive base behavior score
++0x0c  u32   params[8]           # 0x0c..0x2b; percent score multipliers
++0x2c  u8    flag_20             # reserved; copied, never read
 +0x2d  u8    consume_flag
 +0x2e  u8    eat_flag
-+0x30  u32   field_26
-+0x34  f32   field_2a
-+0x38  f32   field_2e
++0x30  u32   field_26            # end-ramp percent
++0x34  f32   field_2a            # end-ramp value
++0x38  f32   field_2e            # action duration (seconds)
 +0x3c  char  name[20]
 +0x50  vector effect_weights     # vtable +0x50, begin +0x54, end +0x58, cap +0x5c
 +0x60  u32   special_action
@@ -125,6 +126,78 @@ the loader (`0x0053e060`); the offsets are exact.
 Each vector is 12 bytes (begin/end/capacity) with its vtable 4 bytes before
 the begin pointer, so the five vectors exactly fill the gaps around
 `special_action`, `field_1c` and `effect_class`.
+
+## Header field consumers
+
+The header fields fall into three groups: radius (`field_18`/`field_1c`),
+behavior-node scoring (`field_32`, `params[8]`) and action-end timing
+(`field_2e`, `field_26`, `field_2a`).
+
+### Score: `field_32` and `params[8]`
+
+Element selection (`FUN_00569660`) is only one use of the header. The behavior
+graph also scores each action before running it. The base node scorer
+`FUN_0056e820` (vtable `0x00643094`, slot `+0x10`) is only:
+
+```text
+*score += action.field_32            # runtime +0x08
+```
+
+Two node subclasses call that base and then apply a percentage:
+
+```text
+FUN_0056cb30   vtable 0x0064302c   ctor FUN_0056ca80
+    *score += action.field_32
+    if *score > 0: *score = *score * action.params[7] / 100
+
+FUN_0056cc20   vtable 0x00643040   ctor FUN_0056cb80
+    *score += action.field_32
+    if *score > 0: *score = *score * action.params[i] / 100
+```
+
+So `params[7]` is a **flat percent multiplier**, while `params[i]` is an
+**indexed percent multiplier**. The index comes from the node's `+0x10`
+object: `[node+0x10] + 0xcc`; a null object selects index 0, otherwise
+`[[object+0x28]+0x40]` supplies `i`.
+
+`apDinosaurBehavior` (`0x00521b30`) constructs both nodes as its two
+sub-behaviors: `+0x0c` = `FUN_0056cb80` (indexed) and `+0x10` =
+`FUN_0056ca80` (`params[7]`). `field_32` is therefore an **additive base
+score**, not a timeout: 900 for the jump/linked-obstacle family, 800 for
+`ReachWaypoint`, 5000 for `Smell`, 50000 for `Victory`.
+
+### Duration and end ramp: `field_2e`, `field_26`, `field_2a`
+
+`field_2e` (`+0x38`) is the **action duration in seconds**:
+
+- `FUN_0056c0c0` creates or updates the 0x18-byte show-behavior record and
+  copies `action.field_2e` into record `+0x1c`.
+- `FUN_0056d880` subtracts dt from record `+0x1c`; on expiry it calls
+  `FUN_0056ddb0(record, action.field_26, action.field_2a)`.
+
+`field_26` (`+0x30`) and `field_2a` (`+0x34`) are the **action-end ramp pair**
+(percent, value). `FUN_0056ddb0`:
+
+- does nothing when percent == 100 or the target record is null;
+- appends the percent to the int vector at target `+0x14` and the value to the
+  float vector at target `+0x24` (both capped at 10 entries);
+- scales the target's `+0x0c` value by `percent / 100`.
+
+The retail defaults are 50 / 30.0; `ReachWaypoint` stores 60 / 10.0.
+
+### Reserved: `flag_20`
+
+`flag_20` (`+0x2c`) is copied verbatim by the action clone `FUN_0056ac80`
+(`puVar2[0xb] = puVar1[0xb]`, alongside `+0x2d`, `+0x2e` and `+0x30..+0x38`).
+A byte-read scan over `.text` finds no comparison, arithmetic or branch on the
+field in the behavior module; it is reserved/dead in this build.
+
+### Element duration
+
+The element `+0x28` float is a **duration in seconds**, not a visual size.
+`FUN_00569a00` passes it as `param_5` to `FUN_005727b0`, which stores it in the
+actor countdown `+0x260` (`0x00572840`); `FUN_00571540` decrements it by dt and
+completes the action when it goes negative. `Eat` stores 0.0.
 
 ## Tail arrays
 
@@ -193,7 +266,7 @@ order than the runtime record:
 file element:
   u32  time                 # selection threshold, not a playback time
   u32  n_bones; u32 bones[n_bones]
-  f32  size
+  f32  duration             # seconds; copied to actor +0x260 on execution
   u32  n_texture; char texture[n_texture]   # length-prefixed, NUL included
   u32  n_events; n_events x (kind, i32 value, percent)
   u32  class                # params[0]
@@ -216,7 +289,7 @@ Runtime element:
 +0x1c  f32   float2
 +0x20  f32   float3
 +0x24  f32   float4
-+0x28  f32   size
++0x28  f32   duration         # countdown copied to actor +0x260
 +0x2c  u32   power
 +0x30  string texture
 +0x3c  u32   ramp_percent
@@ -366,7 +439,7 @@ tail:    pre  length >= 200 (attr 4, cmp 1, threshold 200)
          needs    food +30, violence +10
          grants   none
          class    0
-         elements one at t=0, bone 8, size 0, class 0,
+         elements one at t=0, bone 8, duration 0, class 0,
                   event (violence, +15, 100%)
 ```
 
@@ -440,13 +513,14 @@ Header value sets:
 - `field_18`: `{0, 0.1, 1.0, 1.25, 1.4, 1.5, 1.7, 2.0, 2.5, 3.0, 3.1}`
 - `field_1c`: 0 (9 files), 2 (1), 3 (31), 4 (23)
 - `flag_20`: 0 (37 files), 1 (27)
-- `field_26`: 50 (63), 60 (`ReachWaypoint`)
-- `field_2a`: 30.0 (63), 10.0 (`ReachWaypoint`)
-- `field_2e`: 30.0 (all 64)
-- `field_32`: 0 (most), 900 (jump/linked-obstacle family), 800
-  (`ReachWaypoint`), 5000 (`Smell`), 50000 (`Victory`)
-- `params[8]`: 10-800; `Sleep` is `(10 x 7, 100)`, `Victory` all 100,
-  jump actions carry 700, linked obstacles 690/800, `ReachWaypoint` 800/600
+- `field_26`: end-ramp percent - 50 (63), 60 (`ReachWaypoint`)
+- `field_2a`: end-ramp value - 30.0 (63), 10.0 (`ReachWaypoint`)
+- `field_2e`: action duration - 30.0 s (all 64)
+- `field_32`: additive base score - 0 (most), 900 (jump/linked-obstacle
+  family), 800 (`ReachWaypoint`), 5000 (`Smell`), 50000 (`Victory`)
+- `params[8]`: percent score multipliers - 10-800; `Sleep` is `(10 x 7, 100)`,
+  `Victory` all 100, jump actions carry 700, linked obstacles 690/800,
+  `ReachWaypoint` 800/600
 
 ## Reader
 
@@ -474,7 +548,15 @@ coverage and truncation/trailing-byte rejection.
 - `FUN_00569660` - element scorer/selector, pending-effect queue.
 - `FUN_0056e410` / `FUN_0056e5d0` - need-delta scoring and application.
 - `FUN_0056a490` - `field_18`/`field_1c` radius scaling, 0.8x/1.2x bounds.
-- `FUN_00569a00` - element execution (events, floats, ramp, fall).
+- `FUN_0056e820` - base behavior-node score (`*= field_32`); vtable
+  `0x00643094` slot `+0x10`.
+- `FUN_0056cb30` / `FUN_0056cc20` - `params[7]` and indexed `params[i]`
+  percent multipliers; ctors `FUN_0056ca80` / `FUN_0056cb80`.
+- `FUN_0056c0c0` / `FUN_0056d880` / `FUN_0056ddb0` - `field_2e` duration
+  countdown and `field_26`/`field_2a` end-ramp pair.
+- `FUN_0056ac80` - action clone; copies `flag_20` (`+0x2c`) but never reads it.
+- `FUN_00569a00` - element execution (events, floats, ramp, fall); passes the
+  element duration to `FUN_005727b0`, which stores it in actor `+0x260`.
 - `FUN_005727b0` - event effects (all 13 kinds).
 - `FUN_00572620` + jump table `0x00572730` - attribute ids.
 - `FUN_0056d980` / `FUN_0056db70` - class-5 jump/link filtering.
@@ -483,16 +565,10 @@ coverage and truncation/trailing-byte rejection.
 
 ## Open fields
 
-- `field_26` (`+0x30`), `field_2a` (`+0x34`), `field_2e` (`+0x38`): defaults
-  50/30/30, `ReachWaypoint` 60/10/30. Likely timing/angle parameters; no
-  consumer located yet.
-- `field_32` (`+0x08`): 900 for jumps, 800 `ReachWaypoint`, 5000 `Smell`,
-  50000 `Victory`. Likely a duration/timeout in milliseconds; not proven.
-- `params[8]`: per-action weights; no consumer located yet.
-- `flag_20` (`+0x2c`): 1 on 27 actions (buffs, Danse, jumps, attacks); the
-  consumer is not located.
 - `stat_grants` (`+0x90`): loader rotation is proven; the consumer is not.
 - The five weights at `+0x288..+0x298` and `+0x2a0` are only partly named;
   `FUN_005727b0` case 13 maintains them and the total.
-- `FUN_0056ddb0` (ramp consumer) is called with `ramp_percent`/`ramp_value`
-  but its rendering behavior is not decoded.
+- `FUN_0056ddb0` appends the end-ramp pair but the renderer that consumes the
+  two capped vectors (`+0x14`/`+0x24`) is not decoded.
+- The `+0x10` object used by the indexed `params[i]` multiplier is not named;
+  only its `+0xcc -> +0x28 -> +0x40` index path is known.

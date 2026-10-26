@@ -219,7 +219,7 @@ def test_element_bones_and_classes():
             assert element.element_class in {0, 1, 2}
             assert all(0 <= bone < 80 for bone in element.bones)
             assert element.time >= 0
-            assert element.size >= 0
+            assert element.duration >= 0
     classes = {
         bai.name: bai.effects[0].element_class_name
         for bai in parsed
