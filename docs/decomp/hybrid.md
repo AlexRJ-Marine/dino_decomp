@@ -1,7 +1,8 @@
 # Hybrid decompilation
 
-Status: **HYB-1/2/3/4 complete** — the original exe runs with the matrix,
-normal, both vector, `.skin` and `.anim` readers replaced by recovered C++.
+Status: **HYB-1/2/3/4/5 complete** — the original exe runs with the matrix,
+normal, both vector, `.skin`, `.anim` and `.skel` readers replaced by
+recovered C++.
 
 ## Mechanism
 
@@ -94,6 +95,22 @@ disabled because these readers can run under the loader lock; the counters
 are printed from `hook_4663a0` every 10,000 calls. Full ABIs:
 `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`.
 
+### `FUN_00477890` — `.skel` reader
+
+`bool __thiscall Read(Stream* s, void* ctx)` (`RET 8`); the generic loader
+`0x4714b0` has already consumed the 13-byte header. The reader reads five
+counted sections: matrices (`0x4663a0`, stride 0x40), child lists
+(`0x47cc90`, stride 0x10), parents (u32), names (0x0C records), flags (u32).
+The runtime skeleton is 0x64 bytes with vectors at `+0x14/+0x24/+0x34/+0x44/
++0x54`; the sentinel is **`0x56789ABC`**, not `0xDEF01234`. Resize helpers:
+`0x425140`, `0x47b7d0`, `0x47a7c0`, `0x40a270` (all `__thiscall` with
+`&first`, count, fill).
+
+Implementation: `hook_477890` in `src/hook/dinput8_proxy.cpp`, installed by
+default. **Runtime-verified on the free-game park:** 21 `.skel` calls with
+the park rendering normally (`notes/hyb5-counter.txt`,
+`notes/park-hook-skel-default.png`). Full ABI: `notes/hybrid-skel-recon.md`.
+
 ## Build/run
 
 ```powershell
@@ -147,8 +164,8 @@ hook_4809a0: calls=97000
 2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
    caller is `0x471cd0` and it is not exercised by the park run. Promote it
    once that path is identified.
-3. `0x47d880` (`.skin`) and `0x4839e0` (`.anim`) are **runtime-verified**:
-   2221 skin bones and 8911+ animation keys, park renders. Next: `0x477890`
-   (`.skel` skeleton) and `0x4809e0` (UV reader).
+3. `0x47d880` (`.skin`), `0x4839e0` (`.anim`) and `0x477890` (`.skel`) are
+   **runtime-verified**: 2221 skin bones, 8911+ animation keys, 21 skeletons,
+   park renders. Next: `0x4809e0` (UV reader) and the `.mesh` block readers.
 4. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.

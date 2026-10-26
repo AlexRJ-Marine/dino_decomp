@@ -1192,6 +1192,16 @@ Updated: 2026-10-26
   - Next: `0x477890` (`.skel`) and `0x4809e0` (UV).
   - Evidence: `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`,
     `docs/decomp/hybrid.md`, `TASKS.md` HYB-4.
+- HYB-5 complete: **`.skel` reader replaced and verified.**
+  - `hook_477890` reads the five counted sections (matrices via `0x425140` +
+    `0x4663a0`, child lists via `0x47b7d0` + `0x47cc90`, parents via
+    `0x47a7c0`, names via `0x40a270`/`0x4058b0`, flags via `0x47a7c0`) into
+    the 0x64 runtime skeleton. The sentinel is `0x56789ABC`.
+  - Free-game park: **21 `.skel` calls**, normal rendering
+    (`notes/hyb5-counter.txt`, `notes/park-hook-skel-default.png`).
+  - Installed by default. Next: `0x4809e0` (UV) or the `.mesh` block readers.
+  - Evidence: `notes/hybrid-skel-recon.md`, `docs/decomp/hybrid.md`,
+    `TASKS.md` HYB-5.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

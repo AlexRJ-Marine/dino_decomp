@@ -752,6 +752,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/hybrid-anim-recon.md`, `notes/hyb4-counter.txt`,
   `notes/park-hook-all.png`, `docs/decomp/hybrid.md`.
 
+### HYB-5: `.skel` reader
+- [x] Implement `0x477890` (five counted sections: matrices, child lists,
+  parents, names, flags; 0x64 runtime skeleton). Uses `0x425140`,
+  `0x47b7d0`, `0x47a7c0`, `0x40a270`, `0x4058b0` and the hooked
+  `0x4663a0`/`0x47cc90`.
+- [x] Runtime-verify on the free-game park: **21 skeletons**, 2221 skin
+  bones, 8911+ animation keys, normal rendering. Installed by default.
+- **Acceptance:** the park loads with the skeleton reader replaced.
+- **Depends on:** HYB-3/4.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-skel-recon.md`,
+  `notes/hyb5-counter.txt`, `notes/park-hook-skel-default.png`,
+  `docs/decomp/hybrid.md`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

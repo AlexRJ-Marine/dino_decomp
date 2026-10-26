@@ -27,6 +27,7 @@ volatile LONG g_calls_47d460 = 0;
 volatile LONG g_calls_47cc90 = 0;
 volatile LONG g_calls_47d880 = 0;
 volatile LONG g_calls_4839e0 = 0;
+volatile LONG g_calls_477890 = 0;
 
 // Engine vector: 16-byte polymorphic wrapper, data triple at +4/+8/+0xc.
 template <typename T>
@@ -109,6 +110,40 @@ struct AnimBone {
     float* m_end;
 };
 
+// `.skel` runtime object (0x64) and its five vectors.
+struct SkelVec {
+    void* vptr;
+    void* first;
+    void* last;
+    void* end;
+};
+
+struct McString {
+    char* buf;
+    std::uint32_t cap;
+    std::uint32_t len;
+};
+
+struct Skeleton {
+    void* vptr;          // 0x00
+    std::uint32_t id;    // 0x04 = 0x56789ABC
+    char* name;          // 0x08 mcString
+    std::uint32_t name_cap;
+    std::uint32_t name_len;
+    SkelVec matrices;    // 0x14, elem 0x40
+    SkelVec children;    // 0x24, elem 0x10
+    SkelVec parents;     // 0x34, elem 4
+    SkelVec names;       // 0x44, elem 0x0C
+    SkelVec flags;       // 0x54, elem 4
+};
+
+using ResizeMatFn = void(__thiscall*)(void* first_ptr, std::uint32_t count,
+                                      const void* fill);
+using ResizeChildFn = void(__thiscall*)(void* first_ptr, std::uint32_t count,
+                                        const SkelVec* fill);
+using ResizeNameFn = void(__thiscall*)(void* first_ptr, std::uint32_t count,
+                                       const McString* fill);
+
 using McStringReserveFn = bool(__thiscall*)(void* str, std::uint32_t size_incl_nul);
 using StrlenFn = int(__cdecl*)(const char* text);
 using ResizeU32Fn = void(__thiscall*)(void* first_ptr, std::uint32_t count,
@@ -161,9 +196,10 @@ bool __thiscall hook_4663a0(void* buffer, Stream* stream) {
     if ((calls % 10000) == 0) {
         char line[192];
         std::snprintf(line, sizeof(line),
-                      "counters: skin=%ld anim=%ld vec16=%ld vec32=%ld",
+                      "counters: skin=%ld anim=%ld skel=%ld vec16=%ld vec32=%ld",
                       static_cast<long>(g_calls_47d880),
                       static_cast<long>(g_calls_4839e0),
+                      static_cast<long>(g_calls_477890),
                       static_cast<long>(g_calls_47d460),
                       static_cast<long>(g_calls_47cc90));
         log_line(line);
@@ -381,6 +417,99 @@ bool __thiscall hook_4839e0(AnimBone* bone, Stream* stream) {
     return true;
 }
 
+// Replacement for FUN_00477890: the `.skel` reader. The generic loader has
+// already consumed the 13-byte file header; this reads the five sections:
+// matrices, child lists, parents, names and flags.
+bool __thiscall hook_477890(Skeleton* self, Stream* stream, void* context) {
+    (void)context;
+    InterlockedIncrement(&g_calls_477890);
+    if (self == nullptr || stream == nullptr || stream->vtable == nullptr) {
+        return false;
+    }
+    auto read = reinterpret_cast<StreamReadFn>(stream->vtable[2]);
+
+    std::uint32_t count = 0;
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    const float zero_matrix[16] = {};
+    reinterpret_cast<ResizeMatFn>(exe_va(0x425140))(
+        &self->matrices.first, count, zero_matrix);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (!hook_4663a0(static_cast<char*>(self->matrices.first) +
+                             static_cast<std::size_t>(i) * 0x40,
+                         stream)) {
+            return false;
+        }
+    }
+
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    SkelVec zero_child{};
+    zero_child.vptr = reinterpret_cast<void*>(exe_va(0x6256cc));
+    reinterpret_cast<ResizeChildFn>(exe_va(0x47b7d0))(
+        &self->children.first, count, &zero_child);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        auto* child = reinterpret_cast<SkelVec*>(
+            static_cast<char*>(self->children.first) +
+            static_cast<std::size_t>(i) * 0x10);
+        if (!hook_47cc90(reinterpret_cast<Vec<std::uint32_t>*>(child),
+                         stream)) {
+            return false;
+        }
+    }
+
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    const std::uint32_t zero_u32 = 0;
+    reinterpret_cast<ResizeU32Fn>(exe_va(0x47a7c0))(
+        &self->parents.first, count, &zero_u32);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (read(stream, static_cast<std::uint32_t*>(self->parents.first) + i,
+                 4, 1) != 1) {
+            return false;
+        }
+    }
+
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    McString zero_name{};
+    reinterpret_cast<ResizeNameFn>(exe_va(0x40a270))(
+        &self->names.first, count, &zero_name);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        auto* name = reinterpret_cast<McString*>(
+            static_cast<char*>(self->names.first) +
+            static_cast<std::size_t>(i) * 0x0c);
+        std::uint32_t length = 0;
+        if (read(stream, &length, 4, 1) != 1) {
+            continue;
+        }
+        reinterpret_cast<McStringReserveFn>(exe_va(0x4058b0))(name,
+                                                              length + 1);
+        if (read(stream, name->buf, 1, length) ==
+            static_cast<int>(length)) {
+            name->len = static_cast<std::uint32_t>(
+                reinterpret_cast<StrlenFn>(exe_va(0x4056c0))(name->buf));
+        }
+    }
+
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    reinterpret_cast<ResizeU32Fn>(exe_va(0x47a7c0))(
+        &self->flags.first, count, &zero_u32);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (read(stream, static_cast<std::uint32_t*>(self->flags.first) + i,
+                 4, 1) != 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool install_detour(const char* name, std::uintptr_t rva, void* hook,
                     const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
@@ -518,6 +647,9 @@ bool install_hooks() {
                                                       0x00, 0x00, 0x00};
     static constexpr std::uint8_t kPrologueAnim[6] = {0x83, 0xEC, 0x48,
                                                       0x53, 0x55, 0x56};
+    // 0x477890: sub esp,0x5c; push ebx/ebp/esi.
+    static constexpr std::uint8_t kPrologueSkel[6] = {0x83, 0xEC, 0x5C,
+                                                      0x53, 0x55, 0x56};
     const bool a = install_detour("FUN_004663a0", 0x4663A0 - 0x400000,
                                   reinterpret_cast<void*>(&hook_4663a0),
                                   kPrologue_4663a0);
@@ -540,7 +672,12 @@ bool install_hooks() {
     const bool f = install_detour6("FUN_004839e0", 0x4839E0 - 0x400000,
                                    reinterpret_cast<void*>(&hook_4839e0),
                                    kPrologueAnim);
-    return a && b && c && d && e && f;
+    // The .skel reader was verified on the free-game park (21 skeletons);
+    // install by default.
+    const bool g = install_detour6("FUN_00477890", 0x477890 - 0x400000,
+                                   reinterpret_cast<void*>(&hook_477890),
+                                   kPrologueSkel);
+    return a && b && c && d && e && f && g;
 }
 
 }  // namespace
@@ -572,18 +709,20 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
                                           : "DINPUT8 real DLL load FAILED");
         install_hooks();
     } else if (reason == DLL_PROCESS_DETACH) {
-        char line[256];
+        char line[320];
         std::snprintf(
             line, sizeof(line),
             "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld, "
             "hook_47d460: total calls=%ld, hook_47cc90: total calls=%ld, "
-            "hook_47d880: total calls=%ld, hook_4839e0: total calls=%ld",
+            "hook_47d880: total calls=%ld, hook_4839e0: total calls=%ld, "
+            "hook_477890: total calls=%ld",
             static_cast<long>(g_calls_4663a0),
             static_cast<long>(g_calls_4809a0),
             static_cast<long>(g_calls_47d460),
             static_cast<long>(g_calls_47cc90),
             static_cast<long>(g_calls_47d880),
-            static_cast<long>(g_calls_4839e0));
+            static_cast<long>(g_calls_4839e0),
+            static_cast<long>(g_calls_477890));
         log_line(line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);
