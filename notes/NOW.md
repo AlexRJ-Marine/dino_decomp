@@ -26,9 +26,12 @@ evidence live in `notes/STATE.md` (read on demand); open tasks are in
   800x600, starts behind your work; click inside to capture the mouse, click
   outside to release).
   x32dbg: `scripts/x32dbg/play-freegame.ps1` / `start-campaign.ps1`
-  (`run-test/`, virtual input, background-safe, no foreground requirement).
+  (`run-test/`, virtual input; screenshots background-safe, but retail stops
+  polling DirectInput when inactive, so clicks need the game active).
   Harness screenshots go to `notes/harness/`; tracked `notes/*.png` are
   evidence, do not overwrite.
+- UI click map: `docs/platform/ui-coordinates.md` + `.json`; query with
+  `.venv\Scripts\python.exe tools\formats\ui_map.py find <NAME>`.
 - Verify everything: `scripts/verify.ps1` (`-Fast` for the quick loop).
 
 ## Lanes and owners

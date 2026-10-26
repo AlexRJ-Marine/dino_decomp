@@ -88,10 +88,13 @@ The x32dbg harness now defaults to **windowed + virtual input**:
 .\scripts\x32dbg\start-campaign.ps1 -UnlockCampaigns
 ```
 
-It uses `run-test/`, sends the game to the back, restores the pre-run
-foreground window, and delivers clicks through `DINPUT8.dll` +
-`run-test/dino_input.txt`. It does **not** require the game to be foreground
-and does **not** call `SetCursorPos`/`mouse_event`.
+It uses `run-test/`, sends the game to the back, and restores the pre-run
+foreground window. Screenshots and window placement are background-safe, and
+clicks go through `DINPUT8.dll` + `run-test/dino_input.txt` without
+`SetCursorPos`/`mouse_event`. **Input caveat:** retail sets DirectInput to
+`DISCL_FOREGROUND`; when the game is fully inactive it logs
+`virtual mouse: state calls=0` and ignores virtual clicks. Keep the game
+active for a click test until the proxy shims activation.
 
 - Rebuild the hook with `scripts\build-hook.ps1` after proxy changes.
 - First run or new checkout: `scripts\setup-test-runtime.ps1` (and
@@ -102,6 +105,11 @@ and does **not** call `SetCursorPos`/`mouse_event`.
   when a test genuinely cannot work with virtual input.
 - Do not add new `SetCursorPos`/`mouse_event`/foreground calls to harness
   scripts.
+- **UI click map:** `docs/platform/ui-coordinates.md` lists every interactive
+  control on every screen; `docs/platform/ui-coordinates.json` is the
+  machine-readable form. Query it with
+  `.venv\Scripts\python.exe tools\formats\ui_map.py find <NAME>` (add
+  `--screen <id>` or `--active`). Do not hand-guess coordinates.
 - Full details: `docs/platform/windowed-testing.md`.
 
 ## Agent protocol

@@ -853,14 +853,52 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Make normal play start behind other windows and restore the previous
   foreground; make the virtual harness save/restore foreground, send the game
   to the back and use `PrintWindow`.
-- [x] Verify the bordered window, client size, background virtual clicks and
-  background click activation; keep `-NoClickCapture` as the opt-out.
+- [x] Verify the bordered window, client size and background click-capture
+  activation. **Background virtual clicks are blocked:** retail keeps
+  DirectInput at `DISCL_FOREGROUND`, so an inactive game logs
+  `virtual mouse: state calls=0` and ignores them. Screenshots/window placement
+  work; click tests need the game active until TOOL-4 lands.
 - **Acceptance:** the game runs in a normal bordered 800x600 window and does
   not receive mouse input until clicked.
 - **Depends on:** TOOL-1.
 - **Evidence:** `docs/platform/windowed-testing.md`,
   `notes/windowed-normal-bordered.png`, `scripts/play-windowed-game.ps1`,
   `scripts/Set-WindowedStyle.ps1`, `src/hook/dinput8_proxy.cpp`.
+
+### TOOL-4: Background-safe virtual input (focus/cooperative-level shim)
+- [ ] Hook the mouse `IDirectInputDevice8::SetCooperativeLevel` (slot 13) and
+  rewrite `6`/`0x16` to background (`0x0A`/`0x1A`) when
+  `DINO_VIRTUAL_MOUSE=1`.
+- [ ] Make `GetDeviceState`/`GetDeviceData` synthesize valid state even when
+  the real device is unacquired; return `DI_OK` instead of
+  `DIERR_NOTACQUIRED`.
+- [ ] Determine whether the game tick resumes on `WM_SETFOCUS` plus the
+  active byte at `[0x674528]+0x54`; if not, find the D3D8/dgVoodoo inactive
+  pause. Ghidra evidence: `0x4454f1` (SetCooperativeLevel), `0x44591f`
+  (GetDeviceState), `0x44592e` (Acquire retry), WndProc `0x423609`.
+- [ ] Re-run `play-freegame.ps1` fully backgrounded and require
+  `state calls > 0` plus a non-blank park screenshot before calling it done.
+- **Acceptance:** a backgrounded harness run reaches the park and opens
+  panels without foreground changes, cursor movement or physical clicks.
+- **Depends on:** TOOL-2.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/platform/windowed-testing.md`,
+  `run-test/dino_hook.log`.
+
+### TOOL-3: Retail UI click map for test planning
+- [x] Generate every interactive control from `MenuInterface.Ini`,
+  `ParkInterface.Ini` (with its nine includes) and `RadialMenu.Ini`.
+- [x] Emit the 800x600 client-space rect and integer click centre per control,
+  plus menu/list row click points, parent group and open path.
+- [x] Mark default-hidden groups (`On open=no`) so tests know to select a tab
+  first (Save tab, lab gene tabs, construction categories).
+- [x] Publish `docs/platform/ui-coordinates.md` and
+  `docs/platform/ui-coordinates.json`; add
+  `tools/formats/ui_map.py find <NAME>`.
+- **Acceptance:** agents can look up any retail button instead of guessing;
+  the menu/HUD/save points used by the harness are pinned by tests.
+- **Depends on:** TOOL-2.
+- **Evidence:** `docs/platform/ui-coordinates.md`,
+  `tools/formats/ui_map.py`, `tests/test_ui_map.py`.
 
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,

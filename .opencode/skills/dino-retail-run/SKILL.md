@@ -25,12 +25,33 @@ left click inside the game. Click outside to release.
 
 - Uses `run-test/`, virtual input (`DINPUT8.dll` + `run-test/dino_input.txt`),
   sends the game to the back, restores the previous foreground window, and
-  uses `PrintWindow` for screenshots. It does **not** need the game in front
-  and must not call `SetCursorPos`, `mouse_event` or `SetForegroundWindow`.
+  uses `PrintWindow` for screenshots. It must not call `SetCursorPos`,
+  `mouse_event` or `SetForegroundWindow`.
+- **Input caveat:** retail uses DirectInput `DISCL_FOREGROUND`. A fully
+  backgrounded game logs `virtual mouse: state calls=0` and ignores virtual
+  clicks. Screenshots still work; keep the game active for click tests until
+  the proxy shims activation/cooperative level.
 - Rebuild the proxy with `scripts\build-hook.ps1`, then refresh `run-test/`
   with `scripts\setup-test-runtime.ps1`.
 - Screenshots default to `notes/harness/` (gitignored). Do not overwrite
   tracked `notes/*.png`; copy a final shot deliberately when it is evidence.
+
+## Choosing click coordinates
+
+`docs/platform/ui-coordinates.md` maps every interactive control on every
+retail screen (800x600 client space). `docs/platform/ui-coordinates.json` is
+the machine-readable form.
+
+```powershell
+.venv\Scripts\python.exe tools\formats\ui_map.py find OPEN_LABORATORY
+.venv\Scripts\python.exe tools\formats\ui_map.py find --screen park-hud
+.venv\Scripts\python.exe tools\formats\ui_map.py find --screen park-options --active
+```
+
+Use the named `Click` point; do not hand-guess or reuse a coordinate from a
+different panel. `On open=no` means the control is behind a tab/switch that
+must be selected first (for example the Save tab, a lab gene tab, or a
+construction category).
 
 ## Campaign and save state
 

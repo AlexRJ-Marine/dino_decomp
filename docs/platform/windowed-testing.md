@@ -86,11 +86,20 @@ then:
    (slot 10);
 4. reads `dino_input.txt` on each poll.
 
-The harness does not raise or focus the game: it records the previous
-foreground window, sends the game to the back, and restores the previous
-window. Virtual clicks use `PostMessage` plus the DirectInput state, so they
-work while the game is in the background. Screenshots use `PrintWindow`, not a
+The harness records the previous foreground window, sends the game to the
+back, and restores the previous window. Screenshots use `PrintWindow`, not a
 screen grab. A minimized game is restored with `SW_SHOWNOACTIVATE`.
+
+**Input limitation (verified 2026-10-26):** retail calls
+`SetCooperativeLevel(..., 6)` = `DISCL_FOREGROUND | DISCL_NONEXCLUSIVE`
+(mouse; keyboard uses `0x16`). When the game is fully inactive it stops
+calling `GetDeviceState` — `run-test/dino_hook.log` shows
+`virtual mouse: state calls=0` — and virtual clicks do not register. Window
+placement and screenshots remain background-safe, but a click test must keep
+the game active until the proxy shims activation and the cooperative level.
+The Ghidra evidence is `0x4454f1` (`SetCooperativeLevel`), `0x44591f`
+(`GetDeviceState`), `0x44592e` (retry `Acquire`), and WndProc `0x423609`
+(`WM_SETFOCUS` sets the active byte).
 
 The harness also posts `WM_MOUSEMOVE` to update the game's own cursor/hover.
 It writes the target and button state to `dino_input.txt`:
@@ -152,19 +161,34 @@ Single click / screenshot:
 ```
 
 Coordinates are client coordinates in the retail 800x600 design space. The
-existing menu coordinates from `notes/ui-recon.md` apply unchanged.
+complete per-screen button map is generated from the overlay INIs and kept in
+[`ui-coordinates.md`](ui-coordinates.md) (human) and
+[`ui-coordinates.json`](ui-coordinates.json) (machine). Query a control
+instead of guessing:
+
+```powershell
+.venv\Scripts\python.exe tools\formats\ui_map.py find OPEN_LABORATORY
+.venv\Scripts\python.exe tools\formats\ui_map.py find --screen park-hud
+```
+
+The original menu cross-check is in `notes/ui-recon.md`; `tests/test_ui_map.py`
+pins the menu, HUD, save and campaign points used by the harness.
 
 ## Verification
 
-The full path was exercised with the default `play-freegame.ps1` (no
-`-GameDir` or `-VirtualMouse`):
+The click sequence was exercised with the default `play-freegame.ps1`:
 
-- Free Mode -> IGUANO -> easy -> Start
+- Free Mode -> IGUANAO -> easy -> Start
 - park loaded (`entrance_lod1.skel/skin/anim/mesh` in the trace)
 - lab, options and save panels opened
 - the physical cursor was not moved
-- the game stayed behind OpenCode; OpenCode remained the foreground window
-  for the whole run
+
+**Background input is not currently verified.** A fully backgrounded run logs
+`virtual mouse: state calls=0`; the game is not polling, so the scripted clicks
+do not advance the menu even though the script prints each step. The
+virtual-mouse override itself has been observed with `state calls=42` in a
+foreground run. Do not cite the background click flow as working until the
+cooperative-level/activation shim lands.
 
 Evidence:
 

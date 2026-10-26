@@ -28,3 +28,4 @@ add a row when a claim becomes something later work depends on.
 | `.fnt` loader hook `0x430fb0` | `notes/hybrid-fnt-recon.md`, `notes/hyb7-counter.txt` | `notes/park-hook-fnt.png` |
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
+| Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |
