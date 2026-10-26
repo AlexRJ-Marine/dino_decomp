@@ -548,8 +548,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] The graph serializer is `0x56ce80` (read, versioned; `0x29` is the
   format version, not a 41-type switch) / `0x56d5a0` (write); node record =
   type + 3 ints + two vectors + child + actor field.
-- [ ] Decode the per-node type dispatch; the BAD FOOD/REPOS -> action 4/2
-  chooser should be a condition/action pair.
+- [x] No per-node type dispatch exists: node kinds are runtime flags
+  (0/1), builders `0x56e190`/`0x56e300` attach action objects, `0x56e410`
+  scores kind-1 nodes through the object vtable + the `.bai` weights, and
+  `0x56e0e0` applies the `.bai` preconditions. The BAD FOOD/REPOS -> 4/2
+  choice is the `.bai` score/precondition path, not a node enum.
 - **Evidence:** `notes/dinosaur-behavior-graph.md`,
   `docs/decomp/function-status.md`.
 
@@ -558,9 +561,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`notes/asset-coverage.md`).
 - [x] Demo `.shw` fourth value is the `WallList.ini` wall type (2 MediumIron,
   6 MediumWood), not a judge kind.
-- [x] Remaining unknowns: `.bfi` field semantics only (body solved),
-  behavior-graph nodes; `.lnd` w/h and `Actions.bad` are editor/demo data
-  (never consumed by the retail game).
+- [x] Remaining unknowns: `.bfi` field semantics only (body solved);
+  `.lnd` w/h and `Actions.bad` are editor/demo data (never consumed by the
+  retail game); the behavior graph has no serialized type enum.
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data

@@ -663,13 +663,18 @@ Updated: 2026-10-26
   - Evidence: `docs/formats/shw.md`, `docs/formats/market.md`,
     `docs/formats/freegame.md`, `docs/formats/config.md`,
     `notes/env-check.md`.
-- DEC-2b research: **dinosaur behavior graph located.**
+- DEC-2b complete: **dinosaur behavior graph has no type enum.**
   - `apDinosaurBehavior` (`0x521b30`) owns the actor and two sub-behaviors;
-    the node graph is serialized by `0x56ce80` / `0x56d5a0`; the reader's
-    `0x29` is the format version, not a 41-node-type switch.
-  - Node record: type + 3 ints + two int vectors + child link + actor field.
-  - The BAD FOOD/REPOS -> action 4/2 chooser is inside one of the node
-    types; `notes/dinosaur-behavior-graph.md`.
+    the graph is serialized by `0x56ce80` / `0x56d5a0`; `0x29` is the
+    serialization version (0x25..0x2b), not a 41-node-type switch.
+  - Base node `0x56cc90` (0x40 bytes): kind dword at +8, scalars at
+    +0xc/+0x10/+0x14, int vectors at +0x18/+0x28, action object/vtable at
+    +0x38/+0x3c.
+  - Builders `0x56e190`/`0x56e300` attach nodes to usable action objects;
+    `0x56e410` scores kind-1 nodes through `vtable+0x14` and the `.bai`
+    effect weights; `0x56e0e0` applies the `.bai` preconditions.
+  - The BAD FOOD/REPOS -> action 4/2 choice is the `.bai` score/precondition
+    path, not a node-type constant. `notes/dinosaur-behavior-graph.md`.
 - FMT-16b complete: **mission content groups.**
   - `BuildingsN`/`FeaturesN` indices are categories (farm, seats, entrance,
     barracks, souvenir, restaurant, ride, deco; lunchbox, cages, judges,
@@ -773,6 +778,14 @@ Updated: 2026-10-26
     scoring arithmetic).
   - Evidence: `tools/formats/bfi.py`, `docs/formats/bfi.md`,
     `tests/test_bfi.py`, `notes/bfi-recon.md`.
+- FMT-22b complete: **`.bwi` field semantics closed.**
+  - `0x0c` is the construction cost (proven via `0x52b2dd` ->
+    `FUN_00585d20`). `0x08`/`0x10` are hit points/build time (inferred).
+  - The seven texture-scale floats are a material/tiling vector:
+    `scales[5] = height/8` is the vertical tiling; the other six are
+    constant defaults (1.0, 0.5, 0.25, 0.6, 2.0, 0.125) and are not read by
+    the geometry builder `0x5ee970`. Cosmetic only.
+  - Evidence: `docs/formats/bwi.md`, `notes/open-issues.md`.
 - FMT-22 complete: **`.bwi` wall definitions.**
   - 24/24 files: version 4, height 2/4/6/8, cost class 10/15/30, a `u8`
     electrified flag, seven unaligned floats at 0x15, seven

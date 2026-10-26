@@ -390,3 +390,11 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   i+3); 7 effect INIs; attribute-weight lists with score steps
   200/400/600/800/1000; 3 sound names; duration pair; SWITCH_* key is a
   construction-kit section.
+- Behavior graph has no 41-type enum: 0x29 is the serialization version.
+  Nodes are a runtime list (kind dword +8, scalars +0xc/+0x10/+0x14, two int
+  vectors, action object/vtable +0x38/+0x3c); builders 0x56e190/0x56e300 and
+  scorer 0x56e410 drive the .bai precondition/weight path.
+- .bwi semantics closed: 0x0c = construction cost; 0x08/0x10 hit points/build
+  time (inferred); seven texture floats are a material/tiling vector
+  (scales[5] = height/8 proven, rest constants, unread by the geometry
+  builder).

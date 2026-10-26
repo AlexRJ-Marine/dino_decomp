@@ -59,26 +59,31 @@ unknowns, with what was tried and the concrete next step.
 ## 4. `.bwi` field semantics
 
 - **Solved:** full struct, all 24 files, assets, height law, electrified flag,
-  0xb4-byte runtime record, and the `SWITCH_*` keys are **dead data** (no
-  lookup table anywhere, no prefix in the exe).
-- **Solved:** `0x0c` (10/15/30) is the construction cost. The build path at
-  `0x52b2dd` passes the wall wrapper's `+0x1c` (the embedded wall record's
-  `+0x0c`) to `FUN_00585d20`, the CONSTRUCTION budget setter.
-- **Inferred:** `0x08` (100) and `0x10` (30) are uniform across all walls and
-  fit hit points/build time; no second consumer was found.
-- **Remaining:** only the seven texture-scale floats' exact roles.
-  `scale[5] == height/8` is the vertical tiling; the other six are constant
-  defaults across all 24 walls. The `gatWall.cpp` geometry builder
-  `FUN_005ee970` does not read them; the material/UV setup is the likely
-  consumer.
+  0xb4-byte runtime record, the `SWITCH_*` keys are **dead data**, and
+  `0x0c` is the construction cost (proven via the `0x52b2dd` build path and
+  the `FUN_00585d20` budget setter).
+- **Solved:** the seven texture-scale floats are `1.0, 0.5, 0.25, 0.6, 2.0,
+  height/8, 0.125`; `scales[5]` is the vertical tiling (`height/8`) and the
+  other six are constant material defaults. The geometry builder `0x5ee970`
+  does not read them, so they belong to the texture layer and are cosmetic.
+- **Inferred:** `0x08` = hit points, `0x10` = build time (uniform 100/30, no
+  second consumer).
+- **Evidence:** `docs/formats/bwi.md`, `notes/bwi-recon.md`.
 
 ## 5. Dinosaur behavior-graph node types
 
-- **Solved:** `apDinosaurBehavior` (`0x521b30`), two sub-behaviors
-  (`0x56cb80`/`0x56ca80`), node-graph reader `0x56ce80` / writer `0x56d5a0`,
-  41 node types, node record shape.
-- **Open:** the semantics of the 41 branches.
-- **Note:** the parallel agent is already in this area (`.bai` consumers
-  `FUN_0056e820`/`0x56cb30`/`0x56cc20`); coordinate before diving in.
-- **Next:** decode each `switch` branch of `0x56ce80`; the BAD FOOD/REPOS →
-  action 4/2 pair is one of them.
+- **Resolved:** the old "41 node types" premise was a misread. `0x29` is the
+  graph **serialization version**, not a type count; there is no 41-way
+  type switch and no serialized type enum.
+- The graph is a runtime object list: base node `0x56cc90` (0x40 bytes) with
+  a kind dword at +8, scalars at +0xc/+0x10/+0x14, two int vectors
+  (+0x18/+0x28) and an attached action object/vtable at +0x38/+0x3c.
+- Builders `0x56e190`/`0x56e300` attach nodes to usable action objects;
+  `0x56e410` scores nodes with kind byte 1 through the object's `vtable+0x14`
+  and the `.bai` effect weights; `0x56e0e0` applies the `.bai` preconditions.
+- Serializer `0x56ce80`/`0x56d5a0` accepts versions 0x25..0x2b (0x29
+  current, 0x2b adds one header field); it is a save-state reader, not a
+  behaviour-type table.
+- **Evidence:** `notes/dinosaur-behavior-graph.md` ("Node record and
+  evaluator"), `docs/formats/bai.md`.
+
