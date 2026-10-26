@@ -1,7 +1,11 @@
 # `.anim` bone reader `0x4839e0` (Ghidra)
 
-Status: **ABI solved; hook queued.** One call reads one 0x2C-byte bone record;
-the caller `0x475990` reads the duration, bone count and then loops.
+Status: **ABI solved; hook implemented and runtime-verified.** One call reads
+one 0x2C-byte bone record; the caller `0x475990` reads the duration, bone
+count and then loops. On the free-game park the hook read **8911+ animation
+keys** and the park rendered normally (`notes/hyb4-counter.log`,
+`notes/park-hook-all.png`). Per-call logging is disabled because the reader
+can run under the loader lock.
 
 ## Contract
 

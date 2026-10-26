@@ -1173,6 +1173,20 @@ Updated: 2026-10-26
   - Evidence: `notes/hybrid-vector-recon.md`, `notes/hybrid-skin-recon.md`,
     `notes/hybrid-anim-recon.md`, `notes/hyb3-campaign.png`,
     `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
+- HYB-4 complete: **`.skin` and `.anim` readers replaced and verified.**
+  - `hook_47d880` reads the `.skin` per-bone table (count, name, u32 indices,
+    f32 weights, 64-byte matrix into 0x6C records) using the engine vector
+    helpers (`0x47c210`/`0x47f8c0`, `0x47a7c0`/`0x47daa0`, `0x4058b0`).
+  - `hook_4839e0` reads one `.anim` bone (name, u64 times, matrices into a
+    0x2C record) using `0x484d30`/`0x486a60`, `0x4855f0`, and the hooked
+    `0x4663a0`.
+  - Free-game park: **2221 skin bone records**, **8911+ animation keys**,
+    normal rendering (`notes/hyb4-counter.log`, `notes/park-hook-all.png`).
+    Per-call logging is disabled (loader-lock deadlock); counters print from
+    `hook_4663a0` every 10,000 calls. Both installed by default.
+  - Next: `0x477890` (`.skel`) and `0x4809e0` (UV).
+  - Evidence: `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`,
+    `docs/decomp/hybrid.md`, `TASKS.md` HYB-4.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

@@ -739,6 +739,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`,
   `notes/hyb3-campaign.png`, `docs/decomp/hybrid.md`.
 
+### HYB-4: `.skin` and `.anim` readers
+- [x] Implement `0x47d880` (`.skin` per-bone table: name, u32 indices, f32
+  weights, 64-byte matrix into 0x6C records) and `0x4839e0` (`.anim` bone:
+  name, u64 times, matrices into 0x2C records).
+- [x] Runtime-verify on the free-game park: **2221 skin bones** and
+  **8911+ animation keys** read, park renders normally. Both installed by
+  default.
+- **Acceptance:** the park loads with both readers replaced.
+- **Depends on:** HYB-3.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-skin-recon.md`,
+  `notes/hybrid-anim-recon.md`, `notes/hyb4-counter.log`,
+  `notes/park-hook-all.png`, `docs/decomp/hybrid.md`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

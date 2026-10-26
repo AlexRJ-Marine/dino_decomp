@@ -1,7 +1,7 @@
 # Hybrid decompilation
 
-Status: **HYB-1/2/3 complete** — the original exe runs with the matrix,
-normal and both vector readers replaced by recovered C++.
+Status: **HYB-1/2/3/4 complete** — the original exe runs with the matrix,
+normal, both vector, `.skin` and `.anim` readers replaced by recovered C++.
 
 ## Mechanism
 
@@ -75,6 +75,25 @@ Implementation: `hook_47d460`/`hook_47cc90` in `src/hook/dinput8_proxy.cpp`.
 renders normally (`notes/hyb3-campaign.png`). Installed by default. Full ABI:
 `notes/hybrid-vector-recon.md`.
 
+### `FUN_0047d880` / `FUN_004839e0` — `.skin` and `.anim` readers
+
+`0x47d880` reads the `.skin` per-bone table: count, name, u32 indices, f32
+weights, 64-byte inverse-bind matrix into 0x6C records. `0x4839e0` reads one
+`.anim` bone: name, u64 key times, matrix count, 64-byte matrices, into a
+0x2C record. Both use the engine vector helpers (`0x47c210`/`0x47f8c0`,
+`0x47a7c0`/`0x47daa0`, `0x484d30`/`0x486a60`, `0x4855f0`) and the mcString
+reserve `0x4058b0`; the matrices go through the already-hooked `0x4663a0`.
+6-byte prologues (`81 EC 94 00 00 00`, `83 EC 48 53 55 56`) need
+`E9 rel32` + 1 NOP.
+
+Implementation: `hook_47d880`/`hook_4839e0` in `src/hook/dinput8_proxy.cpp`,
+installed by default. **Runtime-verified on the free-game park:** 2221 skin
+bone records and 8911+ animation keys read, with the park rendering normally
+(`notes/park-hook-all.png`, `notes/hyb4-counter.log`). Per-call logging is
+disabled because these readers can run under the loader lock; the counters
+are printed from `hook_4663a0` every 10,000 calls. Full ABIs:
+`notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`.
+
 ## Build/run
 
 ```powershell
@@ -128,12 +147,8 @@ hook_4809a0: calls=97000
 2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
    caller is `0x471cd0` and it is not exercised by the park run. Promote it
    once that path is identified.
-3. `0x47d880` (`.skin` per-bone table) and `0x4839e0` (`.anim` bone record)
-   ABIs are solved; hooks are queued.
-   - `.skin`: count, name, u32-index vector, f32-weight vector, 64-byte
-     matrix into a 0x6C record (`notes/hybrid-skin-recon.md`).
-   - `.anim`: one 0x2C bone per call (name incl NUL, u64 times, matrices via
-     `0x4663a0`), parent `mgAnim` 0x30 (`notes/hybrid-anim-recon.md`).
-   Next: `0x477890` (`.skel`).
+3. `0x47d880` (`.skin`) and `0x4839e0` (`.anim`) are **runtime-verified**:
+   2221 skin bones and 8911+ animation keys, park renders. Next: `0x477890`
+   (`.skel` skeleton) and `0x4809e0` (UV reader).
 4. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.
