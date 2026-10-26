@@ -300,7 +300,9 @@ dynamic testing of the original executable.
 - `run/DinoIsland.exe.orig` is the untouched retail backup (identical to
   `game/%MAINDIR%/DinoIsland.exe`). Copy it back to revert.
 - `run/DINPUT8.dll` is our 32-bit proxy. It forwards `DirectInput8Create` and
-  installs the two live detours. Delete it to run the original code path.
+  installs the live asset-reader detours. With `DINO_VIRTUAL_MOUSE=1` it also
+  supplies scripted mouse input for the windowed harness. Delete it to run the
+  original code path.
 
 ```powershell
 # apply / verify / revert the no-CD patch on the copy
@@ -319,6 +321,24 @@ The patch and hybrid mechanisms are documented in
 [`docs/patches/no-cd.md`](docs/patches/no-cd.md) and
 [`docs/decomp/hybrid.md`](docs/decomp/hybrid.md). The game runs under the
 dgVoodoo2 Direct3D 8 / DirectDraw wrappers already present in `run/`.
+
+### Windowed x32dbg harness
+
+The default x32dbg harness moves the physical mouse. For unattended runs there
+is a windowed, virtual-input path:
+
+```powershell
+.\scripts\setup-test-runtime.ps1
+
+.\scripts\x32dbg\play-freegame.ps1 `
+  -GameDir run-test -VirtualMouse -Seconds 30
+```
+
+`run-test/` uses a Data junction and a dgVoodoo2 config that forces an 800x600
+window. With `-VirtualMouse`, the `DINPUT8.dll` proxy reads
+`run-test/dino_input.txt` and supplies DirectInput mouse state directly, so the
+game is clicked without `SetCursorPos` or `mouse_event`. See
+[`docs/platform/windowed-testing.md`](docs/platform/windowed-testing.md).
 
 ## Documentation map
 

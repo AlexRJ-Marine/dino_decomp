@@ -799,6 +799,29 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`,
   `notes/hyb7-counter.txt`, `notes/park-hook-fnt.png`.
 
+### TOOL-1: Windowed x32dbg harness with virtual input
+- [x] Add `run-test/` (Data junction) and a dgVoodoo2 config that forces an
+  800x600 window: `FullScreenMode=false`, `AppControlledScreenMode=false`,
+  `CaptureMouse=false`, `FreeMouse=true`, `EnableInactiveAppState=true`.
+- [x] Extend the `DINPUT8.dll` proxy with `DINO_VIRTUAL_MOUSE=1`:
+  patch `IDirectInput8::CreateDevice` and the mouse device's
+  `GetDeviceState`/`GetDeviceData`; feed the left button and relative
+  `lX/lY` from `dino_input.txt`; read `miInputDx8` (`0x675104`) for the
+  current cursor so the scripted target is reached.
+- [x] Add `scripts/x32dbg/VirtualInput.ps1`, `Send-VirtualClick.ps1` and
+  `Capture-Window.ps1`; add `-VirtualMouse` to `play-freegame.ps1`,
+  `start-campaign.ps1`.
+- [x] Verify Free Mode -> IGUANO -> easy -> Start -> park -> lab/options/save
+  with the game in a window and no physical cursor movement.
+- **Acceptance:** the retail game runs windowed and the harness clicks the
+  menu without `SetCursorPos` or `mouse_event`.
+- **Depends on:** HYB-1, RUN-1.
+- **Evidence:** `docs/platform/windowed-testing.md`,
+  `notes/windowed-main-menu.png`, `notes/windowed-freegame-virtual.png`,
+  `notes/windowed-park.png`, `notes/x32dbg-windowed-freegame.out.log`,
+  `scripts/setup-test-runtime.ps1`, `scripts/x32dbg/VirtualInput.ps1`,
+  `scripts/x32dbg/Send-VirtualClick.ps1`, `scripts/x32dbg/Capture-Window.ps1`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

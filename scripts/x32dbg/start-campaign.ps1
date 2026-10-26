@@ -7,6 +7,7 @@ param(
     [switch]$UnlockCampaigns,
     [switch]$BuyDino,
     [switch]$SecuTrace,
+    [switch]$VirtualMouse,
     [string]$GameDir = "run",
     [string]$Log = "notes\x32dbg-campaign.out.log"
 )
@@ -30,6 +31,10 @@ $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
 $dinoDat = Join-Path $wd "save\dino.dat"
 $dinoDatBackup = $null
+if ($VirtualMouse) {
+    $env:DINO_VIRTUAL_MOUSE = "1"
+    . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+}
 if ($UnlockCampaigns -and (Test-Path $dinoDat)) {
     $dinoDatBackup = [System.IO.File]::ReadAllBytes($dinoDat)
     [System.IO.File]::WriteAllBytes($dinoDat, [byte[]](0x0F, 0, 0, 0))
@@ -107,6 +112,10 @@ function Save-Window([IntPtr]$hwnd, [string]$name) {
 }
 
 function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    if ($VirtualMouse) {
+        Invoke-VirtualClick -Hwnd $hwnd -X $x -Y $y -GameDir $wd
+        return
+    }
     [Win32]::ShowWindow($hwnd, 9) | Out-Null
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 300

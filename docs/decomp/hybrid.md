@@ -186,6 +186,14 @@ hook_4663a0: calls=281000
 hook_4809a0: calls=97000
 ```
 
+## Virtual input (test harness)
+
+The proxy has an opt-in `DINO_VIRTUAL_MOUSE=1` mode for the windowed x32dbg
+harness. It patches `IDirectInput8::CreateDevice` and the mouse device's
+`GetDeviceState`/`GetDeviceData`, reads `dino_input.txt`, and supplies the
+left button plus relative `lX/lY` deltas. The physical cursor is never moved.
+See [`docs/platform/windowed-testing.md`](../platform/windowed-testing.md).
+
 ## Safety/revert
 
 - `run/DinoIsland.exe` remains the no-CD-patched copy; the hook does not

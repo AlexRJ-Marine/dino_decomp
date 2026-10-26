@@ -1,7 +1,8 @@
 param(
     [int]$Seconds = 55,
     [string]$GameDir = "run",
-    [string]$Log = "notes\x32dbg-freegame.out.log"
+    [string]$Log = "notes\x32dbg-freegame.out.log",
+    [switch]$VirtualMouse
 )
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
@@ -9,6 +10,11 @@ $h = "C:\Tools\x64dbg\release\x32\headless.exe"
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+
+if ($VirtualMouse) {
+    $env:DINO_VIRTUAL_MOUSE = "1"
+    . (Join-Path $PSScriptRoot "VirtualInput.ps1")
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -29,26 +35,31 @@ function Send([string]$line) {
     $p.StandardInput.Flush()
 }
 
-# File opens and format loaders.
-Send 'bp CreateFileA'
-Send 'SetBreakpointCommand CreateFileA, "log CF_{s:[esp+4]}; run"'
-Send 'bp CreateFileW'
-Send 'SetBreakpointCommand CreateFileW, "log CW_{s:[esp+4]}; run"'
-Send 'bp 0x48b870'
-Send 'SetBreakpointCommand 0x48b870, "log SKIN_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
-Send 'bp 0x475e30'
-Send 'SetBreakpointCommand 0x475e30, "log SKEL_LOADER_ecx={p:ecx}; run"'
-Send 'bp 0x48b800'
-Send 'SetBreakpointCommand 0x48b800, "log MESH_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
-New-Item -ItemType Directory -Force C:\Tools\dino_dumps | Out-Null
-Send 'bp 0x402bc0'
-Send 'SetBreakpointCommand 0x402bc0, "log SAVE_CALLED_ecx={p:ecx}; run"'
-Send 'run'
-Start-Sleep -Milliseconds 700
-Send 'run'
-Start-Sleep -Milliseconds 700
-Send 'run'
+function Install-Breakpoints {
+    # File opens and format loaders.
+    Send 'bp CreateFileA'
+    Send 'SetBreakpointCommand CreateFileA, "log CF_{s:[esp+4]}; run"'
+    Send 'bp CreateFileW'
+    Send 'SetBreakpointCommand CreateFileW, "log CW_{s:[esp+4]}; run"'
+    Send 'bp 0x48b870'
+    Send 'SetBreakpointCommand 0x48b870, "log SKIN_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
+    Send 'bp 0x475e30'
+    Send 'SetBreakpointCommand 0x475e30, "log SKEL_LOADER_ecx={p:ecx}; run"'
+    Send 'bp 0x48b800'
+    Send 'SetBreakpointCommand 0x48b800, "log MESH_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
+    New-Item -ItemType Directory -Force C:\Tools\dino_dumps | Out-Null
+    Send 'bp 0x402bc0'
+    Send 'SetBreakpointCommand 0x402bc0, "log SAVE_CALLED_ecx={p:ecx}; run"'
+    # Free-game Entrance: FUN_0053B330(kind_index, &cell, state).
+    Send 'bp 0x53b330'
+    Send 'SetBreakpointCommand 0x53b330, "log ENTRANCE idx={p:[esp+4]} cell={p:[esp+8]} x={p:[[esp+8]]} y={p:[[esp+8]+4]} state={p:[esp+0xc]}; run"'
+}
 
+Send 'bc'
+for ($i = 0; $i -lt 10; $i++) {
+    Send 'run'
+    Start-Sleep -Milliseconds 900
+}
 Start-Sleep -Seconds 8
 
 Add-Type @"
@@ -90,6 +101,10 @@ function Save-Window([IntPtr]$hwnd, [string]$name) {
 }
 
 function Click-Client([IntPtr]$hwnd, [int]$x, [int]$y) {
+    if ($VirtualMouse) {
+        Invoke-VirtualClick -Hwnd $hwnd -X $x -Y $y -GameDir $wd
+        return
+    }
     [Win32]::ShowWindow($hwnd, 9) | Out-Null
     [Win32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 300
@@ -113,6 +128,11 @@ if (-not $game) {
         Write-Host "no main window handle"
     } else {
         [Microsoft.VisualBasic.Interaction]::AppActivate($game.Id) | Out-Null
+        Send 'pause'
+        Start-Sleep -Milliseconds 700
+        Install-Breakpoints
+        Send 'run'
+        Start-Sleep -Milliseconds 700
         Save-Window $hwnd "menu-main"
         Write-Host "clicking Free Game"
         Click-Client $hwnd 395 234

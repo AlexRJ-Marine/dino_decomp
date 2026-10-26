@@ -747,6 +747,324 @@ void __thiscall hook_430fb0(void* self, const McString* path) {
     log_line(line);
 }
 
+// ---------------------------------------------------------------------------
+// Virtual DirectInput mouse (opt-in with DINO_VIRTUAL_MOUSE=1).
+//
+// Dino Island reads mouse buttons through DirectInput, not WM_LBUTTONDOWN.
+// The harness posts WM_MOUSEMOVE to place the game's cursor, and writes
+// `1`/`0` to dino_input.txt. This hook overrides the mouse device's
+// GetDeviceState button byte, so no physical cursor movement is needed.
+// ---------------------------------------------------------------------------
+const GUID kGUID_SysMouse = {0x6F1D2B60,
+                             0xD5A0,
+                             0x11CF,
+                             {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+
+using CreateDeviceFn =
+    HRESULT(STDMETHODCALLTYPE*)(void*, const GUID*, void**, IUnknown*);
+using GetDeviceStateFn =
+    HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, void*);
+using GetDeviceDataFn =
+    HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, void*, DWORD*, DWORD);
+
+CreateDeviceFn g_real_create_device = nullptr;
+GetDeviceStateFn g_real_get_device_state = nullptr;
+GetDeviceDataFn g_real_get_device_data = nullptr;
+void* g_mouse_device = nullptr;
+void* g_mouse_devices[8] = {};
+volatile LONG g_mouse_device_count = 0;
+volatile LONG g_mouse_state_calls = 0;
+volatile LONG g_mouse_data_calls = 0;
+volatile LONG g_mouse_button_overrides = 0;
+bool g_data_button_down = false;
+bool g_state_button_down = false;
+
+bool is_mouse_device(void* self) {
+    const LONG count = g_mouse_device_count;
+    for (LONG i = 0; i < count && i < 8; ++i) {
+        if (g_mouse_devices[i] == self) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool virtual_mouse_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        char value[8] = {};
+        cached = GetEnvironmentVariableA("DINO_VIRTUAL_MOUSE", value,
+                                         sizeof(value)) > 0
+                     ? 1
+                     : 0;
+    }
+    return cached == 1;
+}
+
+bool read_virtual_input(int& target_x, int& target_y, bool& down,
+                        bool& has_move) {
+    HANDLE file = CreateFileA("dino_input.txt", GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                  FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                              nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+    char buffer[64] = {};
+    DWORD read = 0;
+    const BOOL ok = ReadFile(file, buffer, sizeof(buffer) - 1, &read, nullptr);
+    CloseHandle(file);
+    if (!ok || read == 0) {
+        return false;
+    }
+    buffer[read] = '\0';
+    int a = 0;
+    int b = 0;
+    int c = 0;
+    const int count = std::sscanf(buffer, "%d %d %d", &a, &b, &c);
+    if (count >= 3) {
+        target_x = a;
+        target_y = b;
+        down = c != 0;
+        has_move = true;
+        return true;
+    }
+    if (count >= 1) {
+        down = a != 0;
+        has_move = false;
+        return true;
+    }
+    return false;
+}
+
+// The DirectInput mouse object is miInputDx8 at DAT_00675104. It keeps the
+// current cursor in a three-slot ring; FUN_004458f0 adds lX/lY to the current
+// slot. Read it back so a scripted target can be reached in one or two polls.
+void apply_virtual_cursor(std::uint8_t* data, DWORD cbData, int target_x,
+                          int target_y) {
+    if (cbData < 16) {
+        return;
+    }
+    auto* input = *reinterpret_cast<char**>(exe_va(0x675104));
+    if (input == nullptr) {
+        return;
+    }
+    const int slot = *reinterpret_cast<int*>(input + 0x294);
+    if (slot < 0 || slot > 2) {
+        return;
+    }
+    float scale = *reinterpret_cast<float*>(input + 0x2c);
+    if (scale <= 0.01f) {
+        scale = 1.0f;
+    }
+    const int current_x =
+        *reinterpret_cast<int*>(input + slot * 0x10 + 0xc);
+    const int current_y =
+        *reinterpret_cast<int*>(input + (2 - slot) * 0x10);
+    const int dx = static_cast<int>((target_x - current_x) / scale);
+    const int dy = static_cast<int>((target_y - current_y) / scale);
+    *reinterpret_cast<int*>(data) = dx;
+    *reinterpret_cast<int*>(data + 4) = dy;
+}
+
+bool patch_vtable_entry(void** vtable, int index, void* replacement,
+                        void** original) {
+    if (vtable == nullptr || index < 0) {
+        return false;
+    }
+    DWORD old_protect = 0;
+    if (!VirtualProtect(&vtable[index], sizeof(void*),
+                        PAGE_EXECUTE_READWRITE, &old_protect)) {
+        return false;
+    }
+    *original = vtable[index];
+    vtable[index] = replacement;
+    DWORD ignored = 0;
+    VirtualProtect(&vtable[index], sizeof(void*), old_protect, &ignored);
+    FlushInstructionCache(GetCurrentProcess(), &vtable[index], sizeof(void*));
+    return true;
+}
+
+HRESULT STDMETHODCALLTYPE hook_get_device_state(void* self, DWORD cbData,
+                                                void* data) {
+    const HRESULT hr = g_real_get_device_state != nullptr
+                           ? g_real_get_device_state(self, cbData, data)
+                           : E_FAIL;
+    if (FAILED(hr) || !is_mouse_device(self) || data == nullptr) {
+        return hr;
+    }
+    const LONG calls = InterlockedIncrement(&g_mouse_state_calls);
+    if (calls == 1) {
+        const auto* bytes = static_cast<const std::uint8_t*>(data);
+        const auto caller = reinterpret_cast<std::uintptr_t>(
+            __builtin_return_address(0));
+        const auto base =
+            reinterpret_cast<std::uintptr_t>(GetModuleHandleA(nullptr));
+        char line[192];
+        std::snprintf(line, sizeof(line),
+                      "virtual mouse: GetDeviceState self=%p cb=%lu "
+                      "x=%ld y=%ld z=%ld b0=%02x caller=+0x%lx",
+                      self, static_cast<unsigned long>(cbData),
+                      static_cast<long>(*reinterpret_cast<const std::int32_t*>(bytes)),
+                      static_cast<long>(*reinterpret_cast<const std::int32_t*>(bytes + 4)),
+                      static_cast<long>(*reinterpret_cast<const std::int32_t*>(bytes + 8)),
+                      bytes[12], static_cast<unsigned long>(caller - base));
+        log_line(line);
+    }
+    int target_x = 0;
+    int target_y = 0;
+    bool down = false;
+    bool has_move = false;
+    if (read_virtual_input(target_x, target_y, down, has_move)) {
+        if (has_move) {
+            apply_virtual_cursor(static_cast<std::uint8_t*>(data), cbData,
+                                 target_x, target_y);
+        }
+        if (down != g_state_button_down) {
+            char line[96];
+            std::snprintf(line, sizeof(line), "virtual mouse: state button=%s",
+                          down ? "down" : "up");
+            log_line(line);
+            g_state_button_down = down;
+        }
+        if (down && cbData >= 16) {
+            // DIMOUSESTATE / DIMOUSESTATE2: lX, lY, lZ, then rgbButtons.
+            static_cast<std::uint8_t*>(data)[12] = 0x80;
+            const LONG overrides =
+                InterlockedIncrement(&g_mouse_button_overrides);
+            if (overrides == 1 || (overrides % 100) == 0) {
+                char line[96];
+                std::snprintf(line, sizeof(line),
+                              "virtual mouse: left down (%ld)",
+                              static_cast<long>(overrides));
+                log_line(line);
+            }
+        }
+    }
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE hook_get_device_data(void* self, DWORD cbObjectData,
+                                               void* rgdod, DWORD* pdwInOut,
+                                               DWORD dwFlags) {
+    const DWORD capacity = pdwInOut != nullptr ? *pdwInOut : 0;
+    const HRESULT hr = g_real_get_device_data != nullptr
+                           ? g_real_get_device_data(self, cbObjectData, rgdod,
+                                                    pdwInOut, dwFlags)
+                           : E_FAIL;
+    if (FAILED(hr) || rgdod == nullptr || pdwInOut == nullptr) {
+        return hr;
+    }
+    const LONG calls = InterlockedIncrement(&g_mouse_data_calls);
+    if (calls == 1) {
+        char line[128];
+        std::snprintf(line, sizeof(line),
+                      "virtual mouse: GetDeviceData self=%p cb=%lu mouse=%d",
+                      self, static_cast<unsigned long>(cbObjectData),
+                      is_mouse_device(self) ? 1 : 0);
+        log_line(line);
+    }
+    if (!is_mouse_device(self)) {
+        return hr;
+    }
+    int target_x = 0;
+    int target_y = 0;
+    bool down = false;
+    bool has_move = false;
+    if (!read_virtual_input(target_x, target_y, down, has_move)) {
+        return hr;
+    }
+    if (down != g_data_button_down && *pdwInOut < capacity) {
+        // DIDEVICEOBJECTDATA: offset, data, timestamp, sequence.
+        struct Event {
+            DWORD offset;
+            DWORD data;
+            DWORD timestamp;
+            DWORD sequence;
+        };
+        auto* events = static_cast<Event*>(rgdod);
+        Event& event = events[*pdwInOut];
+        event.offset = 12;  // DIMOFS_BUTTON0
+        event.data = down ? 0x80 : 0;
+        event.timestamp = GetTickCount();
+        event.sequence = 0;
+        ++(*pdwInOut);
+        g_data_button_down = down;
+        const LONG injected = InterlockedIncrement(&g_mouse_button_overrides);
+        if (injected == 1 || (injected % 100) == 0) {
+            char line[96];
+            std::snprintf(line, sizeof(line),
+                          "virtual mouse: button event=%s (%ld)",
+                          down ? "down" : "up", static_cast<long>(injected));
+            log_line(line);
+        }
+    }
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
+                                             void** out, IUnknown* outer) {
+    const HRESULT hr = g_real_create_device(self, rguid, out, outer);
+    if (SUCCEEDED(hr) && out != nullptr && *out != nullptr &&
+        rguid != nullptr &&
+        std::memcmp(rguid, &kGUID_SysMouse, sizeof(GUID)) == 0) {
+        g_mouse_device = *out;
+        const LONG device_index =
+            InterlockedIncrement(&g_mouse_device_count) - 1;
+        if (device_index < 8) {
+            g_mouse_devices[device_index] = *out;
+        }
+        char capture_line[128];
+        std::snprintf(capture_line, sizeof(capture_line),
+                      "virtual mouse: GUID_SysMouse device captured (%ld)",
+                      static_cast<long>(device_index + 1));
+        log_line(capture_line);
+        void** device_vtable = *reinterpret_cast<void***>(*out);
+        if (g_real_get_device_state == nullptr) {
+            if (patch_vtable_entry(device_vtable, 9,
+                                   reinterpret_cast<void*>(
+                                       &hook_get_device_state),
+                                   reinterpret_cast<void**>(
+                                       &g_real_get_device_state))) {
+                log_line("virtual mouse: GetDeviceState patched");
+            } else {
+                log_line("virtual mouse: GetDeviceState patch FAILED");
+            }
+        }
+        if (g_real_get_device_data == nullptr) {
+            if (patch_vtable_entry(device_vtable, 10,
+                                   reinterpret_cast<void*>(
+                                       &hook_get_device_data),
+                                   reinterpret_cast<void**>(
+                                       &g_real_get_device_data))) {
+                log_line("virtual mouse: GetDeviceData patched");
+            } else {
+                log_line("virtual mouse: GetDeviceData patch FAILED");
+            }
+        }
+    }
+    return hr;
+}
+
+void install_virtual_mouse(void* dinput8) {
+    if (dinput8 == nullptr || !virtual_mouse_enabled()) {
+        return;
+    }
+    void** vtable = *reinterpret_cast<void***>(dinput8);
+    if (vtable == nullptr ||
+        vtable[3] == reinterpret_cast<void*>(&hook_create_device)) {
+        return;
+    }
+    if (patch_vtable_entry(vtable, 3,
+                           reinterpret_cast<void*>(&hook_create_device),
+                           reinterpret_cast<void**>(&g_real_create_device))) {
+        log_line("virtual mouse: IDirectInput8::CreateDevice patched");
+    } else {
+        log_line("virtual mouse: CreateDevice patch FAILED");
+    }
+}
+
 bool install_detour(const char* name, std::uintptr_t rva, void* hook,
                     const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
@@ -977,7 +1295,11 @@ extern "C" __declspec(dllexport) HRESULT WINAPI DirectInput8Create(
     if (g_real_create == nullptr) {
         return E_FAIL;
     }
-    return g_real_create(hinst, version, riid, out, outer);
+    const HRESULT result = g_real_create(hinst, version, riid, out, outer);
+    if (SUCCEEDED(result) && out != nullptr && *out != nullptr) {
+        install_virtual_mouse(*out);
+    }
+    return result;
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
@@ -1017,6 +1339,13 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
             static_cast<long>(g_calls_477f30),
             static_cast<long>(g_calls_430fb0));
         log_line(line);
+        char mouse_line[128];
+        std::snprintf(mouse_line, sizeof(mouse_line),
+                      "virtual mouse: state calls=%ld data calls=%ld overrides=%ld",
+                      static_cast<long>(g_mouse_state_calls),
+                      static_cast<long>(g_mouse_data_calls),
+                      static_cast<long>(g_mouse_button_overrides));
+        log_line(mouse_line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);
             g_real_dinput8 = nullptr;

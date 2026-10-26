@@ -2,6 +2,7 @@
 /original/
 /game/
 /run/
+/run-test/
 *.iso
 *.ISO
 

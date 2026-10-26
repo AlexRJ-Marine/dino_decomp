@@ -1260,6 +1260,29 @@ Updated: 2026-10-26
     not exercised by the park).
   - Evidence: `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-7.
+- TOOL-1 complete: **windowed x32dbg harness + virtual DirectInput mouse.**
+  - `scripts/setup-test-runtime.ps1` builds `run-test/` with a `Data`
+    junction and a `dgVoodoo.conf` that forces `FullScreenMode=false`,
+    `AppControlledScreenMode=false`, `CaptureMouse=false`, `FreeMouse=true`
+    and `EnableInactiveAppState=true`. The game opens as an 800x600 window.
+  - `DINPUT8.dll` with `DINO_VIRTUAL_MOUSE=1` wraps
+    `IDirectInput8::CreateDevice` and the mouse device's
+    `GetDeviceState`/`GetDeviceData`. `scripts/x32dbg/VirtualInput.ps1`
+    posts `WM_MOUSEMOVE` and writes `X Y button` to `dino_input.txt`; the
+    proxy reads `miInputDx8` (`0x675104`) to feed the relative `lX/lY`
+    deltas and the left-button byte. The physical cursor is never moved.
+  - Verified end to end: Free Game -> IGUANO -> easy -> Start -> park ->
+    lab/options/save, with the game in a window and no `SetCursorPos` or
+    `mouse_event` call.
+  - `play-freegame.ps1` and `start-campaign.ps1` accept `-VirtualMouse`;
+    `Send-VirtualClick.ps1` is the standalone helper.
+  - Evidence: `docs/platform/windowed-testing.md`,
+    `notes/windowed-main-menu.png`, `notes/windowed-freegame-virtual.png`,
+    `notes/windowed-park.png`,
+    `scripts/x32dbg/VirtualInput.ps1`,
+    `scripts/x32dbg/Send-VirtualClick.ps1`,
+    `scripts/x32dbg/Capture-Window.ps1`,
+    `scripts/setup-test-runtime.ps1`.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the
