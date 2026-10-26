@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (72 checks)" in result.stdout
+    assert "selftest: PASS (74 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -286,6 +286,34 @@ def test_cpp_campaign_sized_agility():
     assert "mission objective 1 sizedagilitydinos -> success" in result.stdout
     assert "mission objective 2 speeddinos -> success" in result.stdout
     assert "mission objective 0 sizedagilitydinos -> success" not in result.stdout
+
+
+def test_cpp_campaign_hungry_objective():
+    # Cpg01_Mission7 `hungrydinos -1 60`: every dino must have food >= 60.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg01" / "Cpg01_Mission7.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04/Cpg01 mission data missing")
+    common = [
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--start-mission", str(mission),
+    ]
+    default = _run(*common)
+    assert default.returncode == 0, default.stderr
+    assert (
+        "mission objective 0 hungrydinos: Prevent the dinos from starving."
+        in default.stdout
+    )
+    # Imported dinosaurs default to FOOD=50, below the 60 threshold.
+    assert "mission objective 0 hungrydinos -> success" not in default.stdout
+
+    fed = _run(*common, "--dino-needs", "80,99,99,99")
+    assert fed.returncode == 0, fed.stderr
+    assert "mission objective 0 hungrydinos -> success" in fed.stdout
+    assert "mission Cpg01_Mission7: success" in fed.stdout
 
 
 def test_cpp_campaign_mission_success():

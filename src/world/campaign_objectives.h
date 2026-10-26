@@ -56,7 +56,7 @@ struct CampaignState {
 };
 
 // Evaluates one parsed objective. Verbs that need unported systems (shows,
-// connected buildings, isolation tags, the show/strange fields not yet in the
+// connected buildings, isolation tags, the show/hybrid fields not yet in the
 // port) return Pending.
 ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                                     const CampaignState& state);

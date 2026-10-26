@@ -2563,10 +2563,14 @@ int run_selftest() {
     trait.agility = 50;
     trait.intelligence = 80;
     trait.size_class = 2;
+    trait.food = 70;
     trait.beauty = 80;
     trait.strangeness = 10;
     trait.ornament_count = 1;
-    objective_state.dinos = {trait};
+    dino::DinoTraitState hungry = trait;
+    hungry.food = 50;
+    hungry.aggression = 0;
+    objective_state.dinos = {trait, hungry};
     check(dino::evaluate_objective(objective("aggressivedinos 1 80"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -2595,6 +2599,14 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective clever dinos");
+    check(dino::evaluate_objective(objective("hungrydinos 1 60"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective hungry one");
+    check(dino::evaluate_objective(objective("hungrydinos -1 60"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective hungry all");
     check(dino::evaluate_objective(objective("sizedagilitydinos 1 40"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,

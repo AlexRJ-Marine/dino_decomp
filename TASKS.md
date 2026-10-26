@@ -1389,8 +1389,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
   (verdicts are derived again by the first tick). Ending videos remain.
 - [ ] Show the ending videos.
-- [ ] Port the remaining show/building/isolation/hungry verbs once shows,
-  connected buildings and isolation tags exist.
+- [x] `hungrydinos -1 60` from the live food need; Cpg01_Mission7 completes
+  when every imported dino starts with food >= 60 (`--dino-needs 80,...`).
+- [ ] Port the remaining show/building/isolation verbs once shows, connected
+  buildings and isolation tags exist.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

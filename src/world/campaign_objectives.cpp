@@ -176,6 +176,24 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                        ? ObjectiveVerdict::Success
                        : ObjectiveVerdict::Pending;
         }
+        case 17: {  // hungrydinos count food_threshold (count -1 = all)
+            // `0x5689e0`: pattern[4] = +0x244 food, mode 2 (`>=`), count -1
+            // means every dinosaur. Cpg01_Mission7 `-1 60` = no dino below
+            // 60 food.
+            const int required = arg_int(objective, 0, -1);
+            const int threshold = arg_int(objective, 1);
+            int fed = 0;
+            for (const DinoTraitState& dino : state.dinos) {
+                if (dino.food >= threshold) {
+                    ++fed;
+                }
+            }
+            const int need = required < 0
+                                 ? static_cast<int>(state.dinos.size())
+                                 : required;
+            return fed >= need ? ObjectiveVerdict::Success
+                               : ObjectiveVerdict::Pending;
+        }
         case 19: {  // happyvisitors profile percent
             const int required = arg_int(objective, 1);
             bool any = false;
