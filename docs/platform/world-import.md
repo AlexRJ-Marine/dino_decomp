@@ -82,9 +82,16 @@ wld: placed 57/57 buildings
 build: 301 path cells, 268 fences
 park import: roads=14 path_cells=301 fences=9 fence_edges=268
 dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2
+paddocks: 9 capacity=492 used=384
 ```
 
-Evidence: `notes/cpg04-park-import.png`, `notes/p2-dinos.png`,
+The `paddocks` line uses the retail capacity rule (`capacity = (w/4)*(h/4)`,
+cost 8/16/32/64). `used = 384` is the species-baseline approximation; the
+retail Cpg04 total is 336 because Allosaurus splits between class 1 and 2 per
+individual (see `docs/decomp/construction-validation.md`).
+
+Evidence: `notes/cpg04-port-close.png` (port Cpg04 import at distance 70),
+`notes/cpg04-park-import.png`, `notes/p2-dinos.png`,
 `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
 `test_cpp_wld_park_import_single_road`,
 `test_cpp_wld_park_dinosaurs`, `test_cpp_wld_park_no_import_dinos`.

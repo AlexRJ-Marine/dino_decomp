@@ -172,9 +172,10 @@ original construction flow:
   `--selftest` coverage in `src/world/build.cpp`.
 - Done: imported `.wld` dinosaurs fill their fence rectangles in record
   order under the capacity rule; Cpg04 = 9 paddocks, capacity 492.
-- **Deviation:** the port passes cost index 0 for every imported dinosaur,
-  so Cpg04 `used` = 160. The retail classes are six 0s, ten 1s and four 2s,
-  i.e. `used` = 336. The class must be derived from the dinosaur's size.
+- **Approximation:** the port now derives a species baseline from the rest-mesh
+  bbox (`paddock_size_class`): coelo/trood 0, anky/deino 1, allo 2. Cpg04
+  `used` = 384, vs the retail 336. Exact parity needs the individual
+  phenotype: Allosaurus splits four class 2 and three class 1.
 - Pending: the store purchase branch (`DINOACHAT` charge + store-row
   removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the player pickup
   point.
