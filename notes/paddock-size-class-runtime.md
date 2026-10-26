@@ -118,41 +118,38 @@ body_scale = 1
 tail_scale = merge_blend(proportion[parent].tail) * body_length / tail_length
 ```
 
-The raw part length cancels out, so the final values are:
+The raw part length does not cancel in the runtime code: the apply loop
+rewrites each part as `table * scale` from floats, truncated. Expressing the
+same operations directly in float32 (the order matters) reproduces **all 20
+live Cpg04 values exactly**:
 
 ```text
-head = body_length * head_ratio
-body = body_length
-tail = body_length * tail_ratio
+head_ratio = mh * proportion[B0][head] + (1-mh) * proportion[A0][head]
+tail_ratio = mt * proportion[B3][tail] + (1-mt) * proportion[A3][tail]
+                      // mt uses [B3] first (0x6199E0 swap)
+head = (int)(HeadLen[B0][A0] * (head_ratio / HeadLen[B0][A0] * body))
+tail = (int)(TailLen[B3][A3] * (tail_ratio / TailLen[B3][A3] * body))
+body = BodyLen[B2][A2]
+length = head + body + tail
 ```
 
-where
+`mh`/`mt` are the Part 2 merge values `[B][A] / 100`. `proportion.dat` columns
+are `[head, arm, body, leg, tail]`; the head ratio uses column 0 and the tail
+ratio column 4. The class length is the sum of the three **individually
+truncated** parts, not `body * (ratio + 1 + ratio)` with a final rounding:
+the latter gives 436/704 for rows 9/11 where the live/port values are
+435/702. Earlier `DINORESET` orderings hid this because 0x570FD0 does not fire
+in world-record order; the 0x56FED0 ctor logger does. See
+`notes/phenotype-length-runtime.md` for the 20-row proof.
 
-```text
-head_ratio = m * proportion[B0][head] + (1-m) * proportion[A0][head]
-tail_ratio = m * proportion[A3][tail] + (1-m) * proportion[B3][tail]
-m          = Part2Merge[alleleB][alleleA] / 100
-body_length = Part3Length[Body][B2][A2]
-```
-
-`proportion.dat` columns are `[head, arm, body, leg, tail]`; the head ratio
-uses column 0 and the tail ratio column 4. The class length therefore
-simplifies to:
-
-```text
-length = body_length * (head_ratio + 1 + tail_ratio)
-```
-
-This reproduces 19/20 live lengths within ±1.5 cm and **all 20 classes**. The
-one length outlier is the `(1,4)/(4,4)/(1,4)` hybrid (formula 240, live 266);
-both are class 1, so it does not affect the paddock total. The port implements
-this formula (`DinoPhenotypeTable`) and now reports Cpg04 `used = 336`.
+The port implements this exact formula (`DinoPhenotypeTable`) and reports
+Cpg04 `used = 336`.
 
 ## Port implementation
 
 `src/formats/dino_data.{h,cpp}` now exposes `DinoPhenotypeTable`:
-`read_dino_phenotype()` parses `proportion.dat` and the Part 2 Head/Tail
-merge blocks plus the Part 3 Body Length block from `simu_trans.dic`;
+`read_dino_phenotype()` parses `proportion.dat`, the Part 2 Head/Tail merge
+blocks and the Part 3 Head/Body/Tail Length blocks from `simu_trans.dic`;
 `size_class()` implements the formula above with the retail thresholds
 `200/620/900` (class 3 above 900). `paddock_size_class()` in
 `src/world/build.cpp` now uses those thresholds.

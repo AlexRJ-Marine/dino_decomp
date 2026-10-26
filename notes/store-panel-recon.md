@@ -1,0 +1,133 @@
+# Dinosaur store panel (`DINO_ACHAT_SAVE_*`)
+
+Status: **research complete; port wiring pending.** This closes the "interactive
+store panel" part of CONS-1. The capacity/budget rules and the headless
+purchase already exist; this note covers the retail UI flow and the record
+fields the UI reads.
+
+## State machine
+
+`pvwStateDinosaurPurchase` (`FUN_00534430`, ctor) is registered as state id
+`0x13` with the name `DINOSAUR_PURCHASE` (`FUN_0052BD10(0x13, ...)`).
+
+- `FUN_00535170` — enter/activate. Resolves the panel widgets and wires:
+  - `DINO_ACHAT_SAVE_OUTCOME_SAVE` -> `LAB_00534F60`
+  - `DINO_ACHAT_SAVE_OUTCOME_CANCEL` -> `LAB_00534F80`
+  - the name-list widget (`state+0x78`) -> `DAT_00535040`
+  - then `FUN_00535460(0)` (fill rows) and `FUN_00535710(state+0x48)`.
+- `LAB_00534F80` — cancel: `state+0x48 = -1`, `state+0x18 = 5` (leave),
+  vtable+8 (state exit), "clic3" sound.
+- `LAB_00534F60` — save:
+  - if the callback argument is non-null, return (hover/focus event);
+  - else jump to `FUN_00535600`.
+
+## `FUN_00535600` — validate the selected row
+
+```text
+entry = store_vector.begin()[state+0x48]        // state+0x11 -> tool
+price = entry+0x18
+if (FUN_0052BED0(price)) {                       // budget gate + warning
+    tool+0x2c = entry+0x28
+    tool+0x30 = entry+0x00
+    tool+0x38 = state+0x48
+    tool+0x3c = 1                                // "from store" flag
+    state+0x18 = 0x12                            // FENCE_INSERTION
+    vtable+8()                                   // leave the store state
+}
+play "clic3"
+```
+
+`FUN_0052BED0` is the existing budget gate (`WARNING_NOT_ENOUGH_MONEY`). It
+does **not** change state on failure: the panel stays open (the early return
+only skips the copy). This matches the "failure keeps the current state"
+rule already documented for `FENCE_INSERTION`.
+
+## Store vector and row record
+
+The state reads the store as `[state+0x44] -> +0x10 -> +0x18 -> +0x38`
+(vector begin) / `+0x3c` (end); each element is a pointer to a store record.
+The UI reads:
+
+| Record offset | Use |
+| --- | --- |
+| `+0x00` | copied to `tool+0x30` (record pointer/handle) |
+| `+0x18` | price (decimal text via `FUN_005972BA`) |
+| `+0x28` | copied to `tool+0x2c`; passed to `FUN_005E4CF0` for the 3D preview |
+
+`FUN_005E4CF0(entry+0x28)` builds the preview actor; the phenotype data comes
+from the entry's dinosaur definition (`[state+0x70]+0x10`), whose `+0x70` is
+the food kind (0..9, matching `.bsi`/`.bni`) and `+0x74` the size class (0..5;
+the panel has four `DINO_ACHAT_SAVE_INDICATEURS_TAILLE1..4` and shows the
+biped/quadruped pair separately).
+
+## Row list
+
+`FUN_00535460(state, preview_actor)` fills **six** fixed row widgets at
+`state+0xd0` (two pointers each) from the store vector:
+
+- `FUN_00517100(row_widget, index, store, [state+0x44]+8)` — set name/price;
+- if a preview actor is passed, `FUN_00576550(preview+0x4fc, entry)` computes a
+  score and `FUN_005171A0` writes it;
+- rows past the end are cleared with `FUN_00517180`.
+
+`FUN_00535710(state, index)` is the selection change:
+- `state+0x48 = index`; `< 0` hides the detail widgets and clears the preview;
+- otherwise shows them, sets the preview model from `entry+0x28`, refreshes
+  the food-kind/size indicators from the definition (`+0x70`/`+0x74`), renders
+  the preview (`FUN_005E2770`), writes the price text, and appends the name.
+
+So the retail panel is a six-row viewport with a scrollbar, not a full list.
+
+## Widget contract
+
+From `ConstructionInterface.Ini` + `FUN_00534430`:
+
+- root `DINO_ACHAT_SAVE_PANEL`, list `DINO_ACHAT_SAVE_NAMES_LIST`;
+- `DINO_ACHAT_SAVE_SCROLLUP` / `..._SCROLLDOWN` / `..._THUMB` / `..._LIFT`
+  (the scrollbar);
+- `DINO_ACHAT_SAVE_PRICE_SLOT`, `DINO_ACHAT_SAVE_TEXT_ZONE_PANEL`
+  (description), `DINO_ACHAT_SAVE_RENDER_VIEW`, `DINO_ACHAT_SAVE_DINO_PIC_OFF`;
+- food icons `DINO_ACHAT_SAVE_FOODKIND_{FRUITS,PASTEQUE,FLOWER,PUMPKIN,HAY,COW,GOAT,OSTRICH,PIG,SHEEP}`
+  and multipliers `DINO_ACHAT_SAVE_FOODMULTIPLY_1..5`;
+- size/regime icons `..._INDICATEURS_TAILLE1..4`,
+  `..._INDICATEURS_REG_ALIM_{HERBI,CARNI}`, `..._INDICATEURS_{BIPED,QUADRUPED}`;
+- eleven attribute gauges + indicator strips
+  `DINO_ACHAT_ATTRIBUTES_{ORIGINALITY,STAMINA,COURAGE,INTELLIGENCE,AGILITY,SPEED,ARMOR,AGGRESSIVENESS,ATTACK,BEAUTY,PERCEPTION}_{GAUGE,INDICS}`;
+- `DINO_ACHAT_SAVE_OUTCOME_SAVE` / `..._CANCEL`.
+
+## Port plan
+
+1. A `StorePanel` model in `src/world/store.*`: the catalog entries
+   (`Market.ini` or the mission `DinoStoreN`), the current scroll offset, the
+   six visible rows and the selected index.
+2. Render the six rows into `DINO_ACHAT_SAVE_NAMES_LIST` children (name +
+   price). The retail row widgets are children of the list; expose
+   `DINO_ACHAT_ROW_<i>_NAME/PRICE` runtime text and hit-test rows.
+3. On row click: set the selection; update `PRICE_SLOT`, the food/size icons
+   and the name. The 11 gauges can stay at their neutral state until the full
+   phenotype attributes are ported.
+4. On `SAVE`: if budget < price show `WARNING_NOT_ENOUGH_MONEY` and stay;
+   otherwise remember the entry and enter the port's insertion mode.
+5. On the next ground/paddock click: run `paddock_can_add`; if it fails show
+   `WARNING_NO_ROOM_IN_FENCE` and stay in insertion; if it succeeds charge
+   `price`, add the dino, call `BudgetLedger::spend_dinoachat(price)` and
+   remove the row from the store list.
+6. `CANCEL` leaves the panel and clears the selection.
+
+Steps 4-5 reuse the existing `--buy-dino` core; only the source of the entry
+changes (selected row instead of a CLI name). The `DINOACHAT` ledger bucket is
+already fed by the headless purchase.
+
+## Evidence
+
+- Ghidra: `0x00534430` (state ctor / widget resolution), `0x00535170`
+  (activate + callbacks), `0x00534F60` (save), `0x00534F80` (cancel),
+  `0x00535600` (budget check + start insertion), `0x00535460` (row fill),
+  `0x00535710` (selection refresh), `0x00593930` (store dtor),
+  `0x00594270` (row removal).
+- Strings: `DINOSAUR_PURCHASE` `0x006647A8`, `DINO_ACHAT_SAVE_*` at
+  `0x00663D..0x006647`.
+- Data: `Data/Overlay/ConstructionInterface.Ini`
+  (`[DINO_ACHAT_SAVE_PANEL]`, `[DINO_ACHAT_SAVE_NAMES_LIST]`).
+- Related: `docs/decomp/construction-validation.md`,
+  `notes/fence-insertion-recon.md`.

@@ -115,17 +115,22 @@ to:
 
 ```text
 head_ratio = mh * proportion[B0][head] + (1-mh) * proportion[A0][head]
-tail_ratio = mt * proportion[A3][tail] + (1-mt) * proportion[B3][tail]
-body_length = Part3Length[Body][B2][A2]
-length = body_length * (head_ratio + 1 + tail_ratio)
+tail_ratio = mt * proportion[B3][tail] + (1-mt) * proportion[A3][tail]
+head = (int)(HeadLen[B0][A0] * (head_ratio / HeadLen[B0][A0] * body))
+tail = (int)(TailLen[B3][A3] * (tail_ratio / TailLen[B3][A3] * body))
+body = Part3Length[Body][B2][A2]
+length = head + body + tail          # each part truncated in float32
 class  = 0 if length <= 200, 1 if <= 620, 2 if <= 900, else 3
 ```
 
 where `mh`/`mt` are the Part 2 Head/Tail merge values `[B][A] / 100` and
 `proportion.dat` is `[head, arm, body, leg, tail]`. (`TranslatorConstants.ini`
 `SizeCategory1..4MaxLength`; the biped flag `P+0x1b4` halves the body term
-twice, which only affects odd lengths.) The full chain, the live values and
-the port implementation are in `notes/paddock-size-class-runtime.md`.
+twice, which only affects odd lengths.) The sum of the individually truncated
+parts matters: a single `body * (ratio + 1 + ratio)` expression gives 436/704
+for the live 435/702 rows. All 20 live Cpg04 lengths reproduce exactly. The
+full chain, the live values and the port implementation are in
+`notes/phenotype-length-runtime.md` and `notes/paddock-size-class-runtime.md`.
 
 ## Placement point
 
@@ -222,8 +227,8 @@ original construction flow:
 - ~~Size class chain~~ **solved and ported:** phenotype length with
   `proportion.dat` + Part 2/3 blends, thresholds 200/620/900. The live
   campaign save has the same genotypes as the `.wld`; Cpg04 `used` = 336 in
-  the port. One hybrid length differs by 26 cm but stays in class 1
-  (`notes/paddock-size-class-runtime.md`).
+  the port. All 20 per-dinosaur lengths match the live ctor values exactly
+  (`notes/phenotype-length-runtime.md`).
 - Whether path tiles charge `CONSTRUCTION` (only the wall path and the
   dinosaur store price are proven budget setters).
 

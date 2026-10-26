@@ -1241,7 +1241,8 @@ Updated: 2026-10-26
   - **Size-class chain solved and ported:** `saDinosaur+0x1e0` is phenotype
     `+0x190`, copied to `+0x50` by `FUN_0056FED0`; `FUN_00619830` looks up
     the Body length and blends the `proportion.dat` head/tail ratios with the
-    Part 2 merge, so `length = body_length * (head_ratio + 1 + tail_ratio)`,
+    Part 2 merge, and scales each part by `body / part_length`; the final `length`
+    is the sum of the truncated head, body and tail (float32),
     compared with `SizeCategory1..4MaxLength` (200/620/900/3200). The live
     campaign save has the same genotypes as the `.wld`; the port now uses
     `DinoPhenotypeTable` on import and `--buy-dino`, giving Cpg04
@@ -1260,6 +1261,13 @@ Updated: 2026-10-26
 
 ## In progress
 
+- **CONS-1 store panel (active):** the retail contract is decoded in
+  `notes/store-panel-recon.md` (state 0x13 `DINOSAUR_PURCHASE`, six-row
+  viewport, SAVE -> budget gate -> `tool+0x3c = 1` -> state 0x12, CANCEL,
+  record `+0x18` price / `+0x28` preview). The port opens
+  `DINO_ACHAT_SAVE_PANEL` from `OPEN_PURCHASE` but has no row list or
+  selection yet. Next: `DinoStore` model + six-row viewport, SAVE ->
+  insertion mode, paddock click -> capacity/charge/store-row removal.
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
   and drive the imported dinosaurs. The old "action→clip table" premise is
   resolved: `aacDinosaurAnimator` selects a locomotion/activity slot from

@@ -87,8 +87,9 @@ record-order first fit is a documented convention, not recovered data.
 ## Update 2026-10-26: exact phenotype class
 
 The species-bbox approximation above is superseded. The class is
-`length = body_length * (head_ratio + 1 + tail_ratio)` (proportion.dat
-blended by the Part 2 merge + Part 3 Body length); the port implements it in
+`length = int(HeadLen * head_ratio / HeadLen * body) + BodyLen +
+int(TailLen * tail_ratio / TailLen * body)` (proportion.dat blended by the
+Part 2 merge + Part 3 Head/Body/Tail Length; each part truncated); the port implements it in
 `DinoPhenotypeTable` and Cpg04 now reports `used = 336`, matching retail.
 See `notes/paddock-size-class-runtime.md`. This note is kept as the draft
 state that led to the exact model.

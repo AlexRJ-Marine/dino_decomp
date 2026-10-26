@@ -826,7 +826,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   species rest-mesh bbox for now (port `used` 384).
 - [x] Solve and port the class rule: `saDinosaur+0x1e0` is the phenotype
   length category (phenotype `+0x190`), copied to `+0x50` by `FUN_0056FED0`;
-  `length = body_length * (head_ratio + 1 + tail_ratio)`, with the
+  `length = int(HeadLen * head_ratio / HeadLen * body) + BodyLen +
+  int(TailLen * tail_ratio / TailLen * body)` (each part truncated), with the
   `proportion.dat` head/tail ratios blended by the Part 2 merge and the Body
   length from Part 3, thresholds 200/620/900/3200. All 20 live Cpg04 classes
   match; the earlier divergence was the per-part scale, not mutated
@@ -855,9 +856,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `WARNING_NOT_ENOUGH_MONEY` panels. Cpg04 Zarbosaurus: 4,900, budget
   10,000 → 5,100, used 400. `test_cpp_buy_dino` covers success, no-room,
   no-money and unknown.
+- [x] Store panel contract decoded: state 0x13 `DINOSAUR_PURCHASE`
+  (`0x00534430` ctor, `0x00535170` activate), SAVE `0x00535600` (budget gate
+  `FUN_0052BED0`, then `tool+0x3c = 1` and state 0x12), CANCEL `0x00534F80`,
+  six-row viewport `0x00535460`, selection refresh `0x00535710`; store record
+  `+0x18` price and `+0x28` preview model. See `notes/store-panel-recon.md`.
+- [x] `DINOACHAT` count/total bucket: `BudgetLedger::spend_dinoachat` is fed
+  by the purchase and shown in the budget panel.
 - [ ] Port the interactive store panel (selection + paddock click), the
-  `DINOACHAT` count/total bucket, the store-row removal (`FUN_00594270`) and
-  the insertion state staying active on failure. The 1.5 s reveal delay is
+  store-row removal (`FUN_00594270`) and the insertion state staying active
+  on failure. The row list/selection feeds the existing purchase core; the
+  contract is in `notes/store-panel-recon.md`. The 1.5 s reveal delay is
   optional (retail hides the new model until half of its 3-second placement
   record has elapsed).
 - **Acceptance:** the port can reject a full paddock and charge a store

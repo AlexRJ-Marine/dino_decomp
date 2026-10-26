@@ -59,9 +59,10 @@ add       = append occupant, used += cost, fill = used / capacity
 `src/world/build.cpp` exposes `Paddock`, `paddock_capacity`, `paddock_cost`,
 `paddock_size_class`, `paddock_can_add` and `paddock_add`. The size class is
 the **phenotype length category** (`DinoPhenotypeTable` in
-`src/formats/dino_data.*`): `length = body_length * (head_ratio + 1 +
-tail_ratio)`, with `proportion.dat` blended by the Part 2 merge and the
-Part 3 Body length; thresholds 200/620/900 (class 3 above 900). Imported
+`src/formats/dino_data.*`): `length = int(HeadLen * head_ratio / HeadLen *
+body) + BodyLen + int(TailLen * tail_ratio / TailLen * body)` (each part
+truncated), with `proportion.dat` blended by the Part 2 merge and the
+Part 3 Head/Body/Tail Length; thresholds 200/620/900 (class 3 above 900). Imported
 dinosaurs fill paddocks in record order; Cpg04 gives 9 paddocks, total
 capacity 492, and 20 dinosaurs consume **336**, matching retail exactly.
 `DINO_DEBUG_PHENO=1` prints each dinosaur's genotype, length and class.
