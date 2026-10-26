@@ -1,7 +1,7 @@
 # Hybrid decompilation
 
-Status: **HYB-1/2/3/4/5 complete** — the original exe runs with the matrix,
-normal, both vector, `.skin`, `.anim` and `.skel` readers replaced by
+Status: **HYB-1..6 complete** — the original exe runs with the matrix,
+normal, both vector, `.skin`, `.anim`, `.skel` and `.mesh` readers replaced by
 recovered C++.
 
 ## Mechanism
@@ -111,6 +111,22 @@ default. **Runtime-verified on the free-game park:** 21 `.skel` calls with
 the park rendering normally (`notes/hyb5-counter.txt`,
 `notes/park-hook-skel-default.png`). Full ABI: `notes/hybrid-skel-recon.md`.
 
+### `FUN_00477f30` — `.mesh` whole-file reader
+
+`char __thiscall ReadBlocks(mcFile* f, mcString* name)` (`RET 8`); reads the
+block count, resizes the 0xB8-block vector, then calls `0x472240` per block
+(name, vertices, indices, UVs, normals, colors, materials, u16 triangles,
+three u32, `.skin` table). It is shared with `.skin`; the hook branches on
+`this+4` (`0x12345678` mesh / `0x02468ACE` skin) and forwards `.skin` to the
+original.
+
+The hook repoints the **vtable slot `0x626abc`**, leaving the `0x477f30` code
+entry intact for forwarding. It uses `0x471bd0` (default block),
+`0x47dd70`/`0x47e560`/`0x462700` (block vector) and `0x472240` (per block).
+**Runtime-verified on the free-game park:** 121 `.mesh` files, normal
+rendering (`notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png`). Full
+ABI: `notes/hybrid-mesh-recon.md`.
+
 ## Build/run
 
 ```powershell
@@ -167,11 +183,10 @@ hook_4809a0: calls=97000
 3. `0x47d880` (`.skin`), `0x4839e0` (`.anim`) and `0x477890` (`.skel`) are
    **runtime-verified**: 2221 skin bones, 8911+ animation keys, 21 skeletons,
    park renders. Next: `0x4809e0` (UV reader) and the `.mesh` block readers.
-4. `.mesh` whole-file reader `0x477f30` ABI is solved: one block-count read,
-   then `0xB8` blocks via `0x472240` (name, vertices, indices, UVs, normals,
-   colors, materials, u16 triangles, three u32, `.skin` table). It is shared
-   with `.skin` via the `this+4` magic (`0x12345678` vs `0x02468ACE`), so a
-   hook must branch and forward `.skin`. See `notes/hybrid-mesh-recon.md`.
-   This is the last big asset reader still running retail code.
-5. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
-   only after the running game exercises it.
+4. `.mesh` whole-file reader `0x477f30` is **runtime-verified**: 121 mesh
+   files, park renders. The vtable slot `0x626abc` is repointed; `.skin` is
+   forwarded to the original. All major asset readers are now replaced.
+5. Remaining smaller candidates: `0x4809e0` (UV reader, not exercised by the
+   park) and the `.fnt`/overlay loaders. Keep
+   `docs/decomp/function-status.md` current; mark each entry `replaced` only
+   after the running game exercises it.

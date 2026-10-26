@@ -1,8 +1,9 @@
 # `.mesh` block reader `0x477f30` (Ghidra)
 
-Status: **ABI solved; hook queued.** This is the whole-file `.mesh`/`.skin`
-block reader; one call reads the block count and every 0xB8 block. It is the
-last big asset reader still running retail code.
+Status: **ABI solved; hook implemented and runtime-verified.** This is the
+whole-file `.mesh`/`.skin` block reader; one call reads the block count and
+every 0xB8 block. Free-game park: **121 `.mesh` files** with normal
+rendering (`notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png`).
 
 ## Contract
 
@@ -103,6 +104,19 @@ hooked, so forwarding the block loop is fine).
 - Medium: `arg1` is an `mcString*` that `0x472240` never uses; the
   `+0x88/+0x8C/+0x90` semantics and `+0x98` container are unproven; the
   stream type name "mcFile" is inferred from `v[+8]` returning counts.
+
+## Verification
+
+The vtable slot `0x626abc` was repointed to `hook_477f30` (the `0x477f30`
+code entry is untouched, so `.skin` is forwarded to the original). On the
+free-game park:
+
+```text
+counters: mesh=121 skin=2221 anim=8911 skel=21 vec16=2221 vec32=1680
+```
+
+All 121 mesh files loaded and the park rendered normally
+(`notes/park-hook-mesh-default.png`). Installed by default.
 
 ## Evidence
 

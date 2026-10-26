@@ -18,7 +18,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | --- | --- | --- | --- |
 | `0x004714b0` | generic `mgXFileImport` loader; calls vtable `+0x10` reader | decompiled, verified | used by `.skel`/`.skin`; `docs/formats/*.md` |
 | `0x00477b50` | `mgVMeshXMdl` header reader (mesh/skin; magic/hash/sentinel/name) | decompiled | vtable `0x626aac`; `.skin` doc |
-| `0x00477f30` | mesh/skin block-count + block-array reader | decompiled; ABI solved, hook queued | `notes/hybrid-mesh-recon.md` |
+| `0x00477f30` | mesh/skin block-count + block-array reader | **replaced** | vtable `0x626abc`; 121 mesh files, park reached |
 | `0x00472240` | per-block reader: name, vertices, indices, UVs, normals, colors, materials | decompiled | `.skin` doc |
 | `0x0047d460` | `u16` per-triangle array reader | **replaced** | `src/hook/dinput8_proxy.cpp`; Cpg04 2000+ calls |
 | `0x0047cc90` | child-index vector reader (`.skel`) | **replaced** | same proxy; Cpg04 2000+ calls |
@@ -250,9 +250,8 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 ## C++ reimplementations
 
 These are readable ports used by the portable viewer. The matrix, normal,
-vector, `.skin`, `.anim` and `.skel` readers are also live in the original exe
-(Phase 3 `HYB-1..5`); the `.mesh` block reader ABI is solved and queued
-(`HYB-6`).
+vector, `.skin`, `.anim`, `.skel` and `.mesh` readers are also live in the
+original exe (Phase 3 `HYB-1..6`).
 
 | Original | C++ | Status |
 | --- | --- | --- |
@@ -263,7 +262,7 @@ vector, `.skin`, `.anim` and `.skel` readers are also live in the original exe
 | `0x477890` skeleton reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 21 skeletons |
 | `0x47d880` skin bone records | `src/hook/dinput8_proxy.cpp` | **replaced live**, 2221 bones |
 | `0x4839e0` animation bone reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 8911+ keys |
-| `0x477f30` mesh block reader | — | ABI solved, hook queued |
+| `0x477f30` mesh block reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 121 mesh files |
 | `.mesh` body reader | `src/formats/mesh.cpp` | reimplemented, `--validate` |
 | `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
 | `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |

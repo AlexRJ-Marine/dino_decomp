@@ -28,6 +28,7 @@ volatile LONG g_calls_47cc90 = 0;
 volatile LONG g_calls_47d880 = 0;
 volatile LONG g_calls_4839e0 = 0;
 volatile LONG g_calls_477890 = 0;
+volatile LONG g_calls_477f30 = 0;
 
 // Engine vector: 16-byte polymorphic wrapper, data triple at +4/+8/+0xc.
 template <typename T>
@@ -195,13 +196,15 @@ bool __thiscall hook_4663a0(void* buffer, Stream* stream) {
     }
     if ((calls % 10000) == 0) {
         char line[192];
-        std::snprintf(line, sizeof(line),
-                      "counters: skin=%ld anim=%ld skel=%ld vec16=%ld vec32=%ld",
-                      static_cast<long>(g_calls_47d880),
-                      static_cast<long>(g_calls_4839e0),
-                      static_cast<long>(g_calls_477890),
-                      static_cast<long>(g_calls_47d460),
-                      static_cast<long>(g_calls_47cc90));
+        std::snprintf(
+            line, sizeof(line),
+            "counters: mesh=%ld skin=%ld anim=%ld skel=%ld vec16=%ld vec32=%ld",
+            static_cast<long>(g_calls_477f30),
+            static_cast<long>(g_calls_47d880),
+            static_cast<long>(g_calls_4839e0),
+            static_cast<long>(g_calls_477890),
+            static_cast<long>(g_calls_47d460),
+            static_cast<long>(g_calls_47cc90));
         log_line(line);
     }
     if (stream == nullptr || stream->vtable == nullptr) {
@@ -510,6 +513,95 @@ bool __thiscall hook_477890(Skeleton* self, Stream* stream, void* context) {
     return true;
 }
 
+// `.mesh`/`.skin` whole-file block reader. The vtable slot 0x626abc points at
+// 0x477f30; the hook branches on the object magic and forwards `.skin` to the
+// original function (the vtable patch leaves the code entry untouched).
+using BlockCtorFn = void(__thiscall*)(void* block);
+using BlockDtorFn = void(__thiscall*)(void* block, std::uint32_t flags);
+using BlockReadFn = bool(__thiscall*)(void* block, Stream* file, void* name);
+using InsertBlocksFn = void(__thiscall*)(void* vec, void* where,
+                                        std::uint32_t extra,
+                                        const void* value);
+using MoveBlocksFn = void*(__cdecl*)(void* first, void* last, void* dest,
+                                     void* tag);
+using ReadBlocksFn = bool(__thiscall*)(void* self, Stream* file, void* name);
+
+bool __thiscall hook_477f30(void* self, Stream* file, void* name) {
+    InterlockedIncrement(&g_calls_477f30);
+    if (self == nullptr || file == nullptr || file->vtable == nullptr) {
+        return false;
+    }
+    const std::uint32_t magic = *reinterpret_cast<std::uint32_t*>(
+        static_cast<char*>(self) + 4);
+    if (magic != 0x12345678) {
+        // `.skin` (0x02468ACE) and any other variant: use the original.
+        return reinterpret_cast<ReadBlocksFn>(exe_va(0x477f30))(self, file,
+                                                               name);
+    }
+
+    auto read = reinterpret_cast<StreamReadFn>(file->vtable[2]);
+    std::uint32_t count = 0;
+    if (read(file, &count, 4, 1) != 1) {
+        return false;
+    }
+    auto* vec = reinterpret_cast<std::uint8_t*>(
+        *reinterpret_cast<void**>(static_cast<char*>(self) + 0x14));
+    if (vec == nullptr) {
+        return false;
+    }
+    vec += 4;  // {begin, end, capacity}
+
+    alignas(16) std::uint8_t temp[0xB8];
+    reinterpret_cast<BlockCtorFn>(exe_va(0x471bd0))(temp);
+
+    auto* begin = *reinterpret_cast<std::uint8_t**>(vec);
+    auto* end = *reinterpret_cast<std::uint8_t* const*>(vec + 4);
+    const std::size_t current = static_cast<std::size_t>(end - begin) / 0xB8;
+    if (count < current) {
+        auto* new_end = begin + static_cast<std::size_t>(count) * 0xB8;
+        std::uint8_t scratch = 0;
+        new_end = static_cast<std::uint8_t*>(
+            reinterpret_cast<MoveBlocksFn>(exe_va(0x47e560))(
+                end, end, new_end, &scratch));
+        for (auto* p = new_end; p != end; p += 0xB8) {
+            reinterpret_cast<BlockDtorFn>(exe_va(0x462700))(p, 0);
+        }
+        *reinterpret_cast<std::uint8_t**>(vec + 4) = new_end;
+    } else if (count > current) {
+        reinterpret_cast<InsertBlocksFn>(exe_va(0x47dd70))(
+            vec, end, count - static_cast<std::uint32_t>(current), temp);
+    }
+    reinterpret_cast<BlockDtorFn>(exe_va(0x462700))(temp, 0);
+
+    begin = *reinterpret_cast<std::uint8_t**>(vec);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (!reinterpret_cast<BlockReadFn>(exe_va(0x472240))(
+                begin + static_cast<std::size_t>(i) * 0xB8, file, name)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool install_mesh_vtable_hook() {
+    auto* slot = reinterpret_cast<void**>(exe_va(0x626abc));
+    if (*slot != reinterpret_cast<void*>(exe_va(0x477f30))) {
+        log_line("hook: mesh vtable slot mismatch");
+        return false;
+    }
+    DWORD old_protect = 0;
+    if (!VirtualProtect(slot, sizeof(void*), PAGE_EXECUTE_READWRITE,
+                        &old_protect)) {
+        log_line("hook: mesh vtable VirtualProtect failed");
+        return false;
+    }
+    *slot = reinterpret_cast<void*>(&hook_477f30);
+    FlushInstructionCache(GetCurrentProcess(), slot, sizeof(void*));
+    VirtualProtect(slot, sizeof(void*), old_protect, &old_protect);
+    log_line("hook: FUN_00477f30 patched (vtable 0x626abc)");
+    return true;
+}
+
 bool install_detour(const char* name, std::uintptr_t rva, void* hook,
                     const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
@@ -677,7 +769,10 @@ bool install_hooks() {
     const bool g = install_detour6("FUN_00477890", 0x477890 - 0x400000,
                                    reinterpret_cast<void*>(&hook_477890),
                                    kPrologueSkel);
-    return a && b && c && d && e && f && g;
+    // The .mesh whole-file reader was verified on the free-game park
+    // (121 files); install by default.
+    const bool h = install_mesh_vtable_hook();
+    return a && b && c && d && e && f && g && h;
 }
 
 }  // namespace
@@ -715,14 +810,15 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
             "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld, "
             "hook_47d460: total calls=%ld, hook_47cc90: total calls=%ld, "
             "hook_47d880: total calls=%ld, hook_4839e0: total calls=%ld, "
-            "hook_477890: total calls=%ld",
+            "hook_477890: total calls=%ld, hook_477f30: total calls=%ld",
             static_cast<long>(g_calls_4663a0),
             static_cast<long>(g_calls_4809a0),
             static_cast<long>(g_calls_47d460),
             static_cast<long>(g_calls_47cc90),
             static_cast<long>(g_calls_47d880),
             static_cast<long>(g_calls_4839e0),
-            static_cast<long>(g_calls_477890));
+            static_cast<long>(g_calls_477890),
+            static_cast<long>(g_calls_477f30));
         log_line(line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);

@@ -775,11 +775,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   indices, UVs, normals, colors, materials, u16 triangles, three u32,
   `.skin` table). Shared with `.skin`; branch on `this+4`
   (`0x12345678` mesh / `0x02468ACE` skin).
-- [ ] Implement the hook (vtable `0x626abc` or 6-byte entry patch, forwarding
-  `.skin` to the original) and verify on the free-game park.
+- [x] Implement the vtable hook at `0x626abc` (the `0x477f30` code entry
+  stays intact for `.skin` forwarding) and verify on the free-game park:
+  **121 `.mesh` files**, normal rendering. Installed by default.
 - **Acceptance:** the park loads with `.mesh` blocks replaced.
 - **Depends on:** HYB-5.
-- **Evidence:** `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`.
+- **Evidence:** `notes/hybrid-mesh-recon.md`, `notes/hyb6-counter.txt`,
+  `notes/park-hook-mesh-default.png`, `docs/decomp/hybrid.md`.
 
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
@@ -999,7 +1001,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Load the `<island>_occupation.raw` buildability mask (0 = free,
   255 = blocked/water/building). Path, fence and building placement now
   reject blocked cells (`place-path: blocked cell ...`); the selftest covers
-  the world-to-mask mapping.
+  the world-to-mask mapping. Fence edges are checked against the stored cell
+  and the cell across the edge (edge 0 = south `(x,y-1)`, edge 1 = east
+  `(x+1,y)`); boundary neighbours are ignored and removing a path/fence is
+  not gated.
 - **Acceptance:** place/remove a path and a fence; state survives save/load.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/build.md`, `src/world/build.cpp`,
@@ -1096,14 +1101,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   slots, the 12-byte `spPark+0x148` field and the trailing `0x01` byte.
   Writer `0x0058b200` (`spPark::Save`), `0x00594cb0` (schedule).
 - [x] Run the daily settlement on the park-clock rollover: visitor ticket
-  income at `round(Entrance .bbi price * profile scale)`, wages/security zero
+  income at `trunc(Entrance .bbi price * profile scale)`, wages/security zero
   until the employee/animal actors exist. `--settle-day` for tests; 8
   visitors give `income=525`, `budget=75525`.
 - [x] Decode the per-visitor ticket value: `0x58ad95` computes
-  `round(entrance_price * profile.price_scale)`, with the scale from `.bvi`
+  `trunc(entrance_price * profile.price_scale)`, with the scale from `.bvi`
   offset `0x34` (1.0..2.5). The manual save's `125/2` is profile 6
-  (Scientist, 1.5 -> 75) + profile 9 (Kid, 1.0 -> 50). Ported into
-  `VisitorProfile::price_scale` and the daily settlement.
+  (Scientist, 1.5 -> 75) + profile 9 (Kid, 1.0 -> 50); the save import maps
+  `drsVisitor.field_20` by `field_1c == simulation object_id`, and
+  `--sav-park --settle-day` reproduces income 125 / budget 75,250.
+  Ported into `VisitorProfile::price_scale` and the daily settlement.
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once
   staff exist.
 - **Acceptance:** a 10-minute session is playable without crashes.

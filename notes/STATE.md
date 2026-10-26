@@ -1156,7 +1156,7 @@ Updated: 2026-10-26
     `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
 - P4c complete: **daily settlement on the park-clock rollover.**
   - Ticket income = sum over visitors of
-    `round(Entrance .bbi price * profile scale)`; wages and EFFECTIFS_SECU are
+    `trunc(Entrance .bbi price * profile scale)`; wages and EFFECTIFS_SECU are
     zero until staff/animal actors exist. The counters roll with
     `ParkClock::next_day()`. `--settle-day` seeds one settlement for tests;
     8 visitors give income 525, budget 75,525.
@@ -1209,12 +1209,17 @@ Updated: 2026-10-26
   - Installed by default. Next: the `.mesh` block reader.
   - Evidence: `notes/hybrid-skel-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-5.
-- HYB-6 ABI solved (hook queued): **`.mesh` whole-file reader `0x477f30`.**
-  - `char __thiscall ReadBlocks(mcFile*, mcString*)`, `RET 8`; reads the
-    block count then `0xB8` blocks via `0x472240` (name, vertices, indices,
-    UVs, normals, colors, materials, u16 triangles, three u32, `.skin`).
-  - Shared with `.skin` via `this+4` magic (`0x12345678` vs `0x02468ACE`);
-    a hook must branch and forward `.skin` to the original.
+- HYB-6 complete: **`.mesh` whole-file reader replaced and verified.**
+  - `hook_477f30` handles the block count and 0xB8-block vector
+    (`0x471bd0`, `0x47dd70`/`0x47e560`/`0x462700`) and delegates each block
+    to `0x472240`; `.skin` is forwarded to the original code entry.
+  - Installed by repointing vtable slot `0x626abc` (the `0x477f30` code
+    entry is untouched). Free-game park: **121 `.mesh` files**, normal
+    rendering (`notes/hyb6-counter.txt`,
+    `notes/park-hook-mesh-default.png`).
+  - All major asset readers are now replaced. Remaining smaller candidates:
+    `0x4809e0` (UV, not exercised by the park) and the `.fnt`/overlay
+    loaders.
   - Evidence: `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-6.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
@@ -1405,7 +1410,7 @@ Updated: 2026-10-26
    `docs/formats/wld.md`.
 9. SIM-4 rest: runtime-verify the panel rows against a populated save. The
    row mapping, category labels, daily settlement trigger and per-visitor
-   ticket value (`round(entrance * .bvi 0x34)`) are solved. See
+   ticket value (`trunc(entrance * .bvi 0x34)`) are solved. See
    `docs/decomp/economy.md`.
 10. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
    wages are solved in `docs/decomp/economy.md`. See
