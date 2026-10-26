@@ -1,8 +1,9 @@
 # P2 — retail park import mapping (`.wld` / `.sav` → port)
 
-Status: **P2a implemented** (roads/fences/buildings via `--wld-park`);
-visitors/budget/clock from `.sav` are the next step. Dinosaur positions are
-the remaining data gap.
+Status: **P2 complete.** Roads/fences/buildings/visitors/budget/clock are
+implemented, and dinosaurs spawn from the world genotype. The files carry no
+per-dinosaur position, so records are distributed inside the fence
+rectangles.
 
 ## Roads → path cells
 
@@ -112,7 +113,7 @@ field. The port's `PortState.budget`, `day` and `elapsed` map directly:
 read the budget pair instead of resetting to the difficulty budget, and seed
 `ParkClock` with the saved day/hour.
 
-## Dinosaurs - genotype + care list, no world position
+## Dinosaurs - species from the genotype
 
 The `drsDinosaur` world record carries only:
 
@@ -142,10 +143,24 @@ utf16 name           # "Ankylosaur1" at record +0x19
 So the simulation block holds the **individual dinosaur care state** (name,
 phenotype, needs), linked to the world record by `field_1c`. It does **not**
 contain a world position either: retail dinosaurs are assigned to a paddock
-and respawn at load. P2 can import the genotype + name now and spawn each
-dinosaur at a paddock centre (fence rectangle) or at the Entrance; a real
-per-dinosaur position would have to be re-derived from its paddock/building
-link, not read from the file.
+and respawn at load. The port therefore distributes them inside the saved
+fence rectangles.
+
+The species comes from the world genotype: gene 0 is the head-type pair and
+the dominant allele is `min(A, B)`. Each of the 20 base `<species>.gen` files
+has a distinct head type 0..19, so the mapping is one-to-one:
+
+```text
+0 allo   1 anky   2 brachio 3 coelo  4 deino
+5 diplo  6 gigano 7 hypsilo 8 igua   9 kentro
+10 pachy 11 parasau 12 peleca 13 proto 14 salta
+15 stego 16 trex 17 trice 18 trood 19 velo
+```
+
+Hybrids use the dominant body plan (`[18,0]` → allo, `[3,18]` → coelo).
+Cpg04 resolves to 20/20: allo 7, anky 2, coelo 4, deino 5, trood 2. The
+animation family is `simu_trans.dic` Part 10 (LightBiped for most of these,
+LowQuadruped for anky, HeavyBiped for allo).
 
 ## Integration order
 

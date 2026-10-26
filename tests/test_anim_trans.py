@@ -100,6 +100,35 @@ def test_proportion_table():
     assert table.scale("brachio", "head") == pytest.approx(1.1375, abs=1e-4)
 
 
+def test_base_species_head_types_are_unique():
+    """The 20 base `<species>.gen` files map 1:1 onto genotype gene 0."""
+    if not (GENOTYPE / "anim_trans.dic").exists():
+        pytest.skip("retail sample not present")
+    data = read_anim_trans(GENOTYPE / "anim_trans.dic")
+    head_types = {}
+    for species in data.dinosaurs:
+        path = GENOTYPE.parent / "Scenario" / "Genotype" / f"{species}.gen"
+        if not path.exists():
+            pytest.skip(f"{path.name} missing")
+        values = []
+        for line in path.read_text(encoding="cp1252", errors="replace").splitlines():
+            line = line.split("//", 1)[0]
+            for token in line.split():
+                try:
+                    values.append(int(token))
+                except ValueError:
+                    pass
+        assert values[0] == 18, species
+        head_types[species] = min(values[1], values[2])
+    assert len(set(head_types.values())) == 20
+    assert set(head_types.values()) == set(range(20))
+    # Spot checks against the design files.
+    assert head_types["allo"] == 0
+    assert head_types["deino"] == 4
+    assert head_types["trex"] == 16
+    assert head_types["velo"] == 19
+
+
 def test_scan_dictionaries():
     if not GENOTYPE.exists():
         pytest.skip("retail game tree not present")

@@ -50,7 +50,9 @@ add_executable(dino_viewer
     src/formats/sav.cpp
     src/formats/bbi.cpp
     src/formats/bvi.cpp
+    src/formats/dino_data.cpp
     src/formats/wld.cpp
+    src/formats/bai.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp

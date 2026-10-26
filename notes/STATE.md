@@ -1041,14 +1041,48 @@ Updated: 2026-10-26
     16 paths, 2 visitors, 1 building.
   - Corrected the mapping: raw `.wld` world `wx` maps to `floor(wx/4)`, not
     `floor((wx+512)/4)` (the old note was off by half the world).
-  - Open: dinosaur spawn (species/mesh link from the care-state record); the
-    `WorldDinosaur` genotype is already exposed.
+  - Dinosaurs spawn from the world genotype: gene 0's dominant allele
+    (`min(A,B)`) is the head type 0..19, one-to-one with the 20 base
+    `<species>.gen` files; the family is `simu_trans.dic` Part 10. Cpg04:
+    20/20 on isl04 (allo 7, anky 2, coelo 4, deino 5, trood 2), distributed
+    in the 9 fence rectangles because the file stores no position.
+    `--focus-dino N`, `--dino-clip`, `--no-import-dinos`.
   - Evidence: `docs/platform/world-import.md`, `notes/cpg04-park-import.png`,
+    `notes/p2-dinos.png`, `src/formats/dino_data.cpp`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
-    `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`.
+    `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`,
+    `test_cpp_wld_park_dinosaurs`,
+    `tests/test_anim_trans.py::test_base_species_head_types_are_unique`.
+- P3a complete: **dinosaur action chooser decompiled.**
+  - `FUN_0056e410` scores every available node from its `.bai` `need_deltas`
+    via `FUN_0056e5d0(need, delta, actor+0x214)`; the weight tables are
+    FOOD `[2,15,300,1]`, VIOLENCE `[1,10,60,1]`, SECU `[2,15,65,1]`,
+    REPOS `[5,20,90,1]`, indexed by the need state 0..3 (thresholds
+    `[80,60,30]` → >80 = 3, 60..80 = 0, 30..60 = 1, ≤30 = 2).
+  - `FUN_0056e670` starts the highest-scoring node with score ≥ 1 after the
+    `FUN_0056e0e0` precondition/consume gate; `FUN_0056d980` filters nodes by
+    target distance. `.bai` `field_32` is the node base score.
+  - Eat (`FOOD +30`, `VIOLENCE +10`) scores ~9009 at BAD food vs 70 at good;
+    Sleep (`SECU −50`, `REPOS +100`) scores up to 7060 at BAD rest and is
+    negative when full; all-full needs score 0 and the dinosaur stays idle.
+  - Open: the action→animation clip link (`Eat`→`Chew` etc. is inferred, not
+    verified) and the threat term details.
+  - Evidence: `notes/dino-action-chooser-recon.md`,
+    `docs/decomp/dinosaur-actions.md`, `docs/decomp/function-status.md`.
 
 ## In progress
 
+- **P4 fence-validator predicate (researcher 1 hand-off):** decode the exact
+  cell rule inside the fence/paddock validator `0x535be0` (vtable `0x642d8c`),
+  which raises `WARNING_NO_ROOM_IN_FENCE`. Evidence-only pass; no `src/`
+  edits while a parallel agent holds `src/viewer/main.cpp`.
+- **P3 action-loop port:** the chooser is decoded
+  (`notes/dino-action-chooser-recon.md`); implementation in
+  `src/world/dino_actions.*` can start now that the dinosaur `.sav` import
+  landed. It needs: need block + states, weight-table scoring,
+  `CanDoAction` preconditions, node select, need decay, and an
+  action→animation clip table. The imported dinosaurs are static actors
+  until this lands.
 - **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
@@ -1070,8 +1104,10 @@ Updated: 2026-10-26
    in the port save.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
-3. P2 rest: spawn the imported dinosaur genotypes/care-state records at a
-   paddock centre; roads/fences/buildings/visitors/budget/clock are done.
+3. P3 rest: port the chooser + need decay into `src/world/dino_actions.*`,
+   add a `--dino-actions` probe that prints the selected action for a given
+   need state, then drive the imported and single dinosaurs' animation from
+   it. Chooser evidence is in `notes/dino-action-chooser-recon.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
    through the construction UI; then frustum culling and LOD2.
@@ -1092,12 +1128,12 @@ Updated: 2026-10-26
    `docs/decomp/employee-ai.md`.
 11. User: publish `docs/community/xentax-post.md` and record any replies.
 12. SHOW research: the `.bfi` attribute-weight lists and 200..1000 score
-    steps are decoded, but their consumer is not. Next lead: the six judge
-    behaviors share `0x582d70` and differ only by vtable
-    (`0x64350c`/`0x6434e8`/...); map the score path from there.
+   steps are decoded, but their consumer is not. Next lead: the six judge
+   behaviors share `0x582d70` and differ only by vtable
+   (`0x64350c`/`0x6434e8`/...); map the score path from there.
 13. WORLD-3: confirm the retail water height. The `.lnd` float is discarded
-    by the loader (`0x51dad0`), so the port's water plane at that value is an
-    unverified convention.
+   by the loader (`0x51dad0`), so the port's water plane at that value is an
+   unverified convention.
 
 ## Blockers
 

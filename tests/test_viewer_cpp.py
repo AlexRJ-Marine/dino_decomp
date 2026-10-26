@@ -1624,6 +1624,50 @@ def test_cpp_wld_park_import(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+def test_cpp_wld_park_dinosaurs(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    shot = tmp_path / "dinos.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--focus-dino", "0", "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    # 20 dinosaurs, resolved from the dominant head-type gene to the 20 base
+    # species (hybrids pick the dominant body plan).
+    assert ("dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
+            in result.stdout)
+    image = Image.open(shot).convert("RGB")
+    assert len(image.getcolors(maxcolors=1_000_000)) > 500
+
+
+def test_cpp_wld_park_no_import_dinos():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "1", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--no-import-dinos"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "dinos:" not in result.stdout
+
+
 def test_cpp_wld_park_import_single_road():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -1667,3 +1711,17 @@ def test_cpp_sav_park_import(tmp_path):
     assert "wld: placed 1/1 buildings" in result.stdout
     image = Image.open(shot).convert("RGB")
     assert len(image.getcolors(maxcolors=1_000_000)) > 300
+
+def test_cpp_bai_action_table():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    result = subprocess.run(
+        [str(EXE), "--bai-info", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert ("actions: 64 preconditions=46 weights=43 need_deltas=134 "
+            "grants=24 elements=204 events=171") in result.stdout
+    assert "groups: 0=50 1=1 2=1 3=1 4=2 5=8 6=1" in result.stdout
+    assert "classes: 0=44 1=1 2=1 3=1 4=0 5=17" in result.stdout
+    assert "first=Exploration last=EatBaitForSmallies" in result.stdout

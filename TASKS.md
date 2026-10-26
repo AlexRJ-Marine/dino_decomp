@@ -857,13 +857,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   their state indices and the `[80,60,30]` thresholds.
 - [x] Cross-check the need-to-widget mapping against the info panel
   (`0x511d80`, `0x5138b0`, `0x5df900`).
-- [ ] Port the `.bai` score/precondition chooser that turns a BAD FOOD/REPOS
-  state into Eat (4) / Sleep (2) (DEC-2b: this is the `.bai` path, not a
-  behavior-node type), plus the visitor reaction.
+- [x] Decompile the chooser: `FUN_0056e410` scores every available node from
+  its `.bai` `need_deltas` with the per-need state weight tables
+  (FOOD 2/15/300/1, VIOLENCE 1/10/60/1, SECU 2/15/65/1, REPOS 5/20/90/1);
+  `FUN_0056e670` starts the highest score ≥ 1 after the `FUN_0056e0e0`
+  preconditions. Eat (+30 FOOD) scores ~9009 when FOOD is BAD, Sleep
+  (+100 REPOS) up to 7060 when REPOS is BAD, and all-full needs score 0.
+- [ ] Port the chooser + need decay into `src/world` and drive the viewer's
+  dinosaur animation from the selected action; add the visitor reaction.
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
-  `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`.
+  `notes/dino-action-chooser-recon.md`, `notes/dinosaur-actions-recon.md`,
+  `docs/decomp/function-status.md`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
@@ -1077,14 +1083,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Restore saved visitors (position/state/needs); profile index defaults 0
   and the saved travel target is not in the record, so state is reset to
   Choose. Needs 0..2 are restored.
-- [ ] Dinosaurs: spawn genotype/care-state records at a paddock centre.
+- [x] Dinosaurs: spawn the world genotypes in the saved fence rectangles.
+  Species = dominant head-type gene (min of gene 0's alleles) mapped onto the
+  20 base `<species>.gen` head types; family from `simu_trans.dic` Part 10.
+  Cpg04: 20/20 spawned (allo 7, anky 2, coelo 4, deino 5, trood 2).
 - **Acceptance:** a retail `.sav` loads with its roads, fences, buildings,
-  visitors and budget/clock and runs the simulation.
+  visitors, dinosaurs and budget/clock and runs the simulation.
 - **Depends on:** P2a, SIM-2b.
 - **Evidence:** `docs/platform/world-import.md`,
   `notes/world-import-mapping.md`, `notes/cpg04-park-import.png`,
+  `notes/p2-dinos.png`, `src/formats/dino_data.cpp`,
   `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
-  `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`.
+  `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`,
+  `test_cpp_wld_park_dinosaurs`, `test_cpp_wld_park_no_import_dinos`,
+  `tests/test_anim_trans.py::test_base_species_head_types_are_unique`.
 
 ### SAVE-1: Save/load
 - Reproduce enough of `.wld`/save semantics or define a new format.

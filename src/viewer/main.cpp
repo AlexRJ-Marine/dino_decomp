@@ -18,7 +18,9 @@
 #include "../formats/sav.h"
 #include "../formats/bbi.h"
 #include "../formats/bvi.h"
+#include "../formats/dino_data.h"
 #include "../formats/wld.h"
+#include "../formats/bai.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -41,6 +43,8 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <map>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -101,12 +105,17 @@ struct Options {
     std::string sav_park_path;
     bool wld_info = false;
     bool wld_park = false;
+    bool import_dinos = true;
+    std::string dino_clip = "Walk";
+    bool bai_info = false;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;
     float building_angle = 0.0f;
     float building_scale = 1.0f;
     bool focus_building = false;
+    bool focus_dinos = false;
+    int focus_dino = 0;
     bool place_entrance = true;
     std::vector<std::string> place_paths;
     std::vector<std::string> place_fences;
@@ -311,6 +320,12 @@ Options parse_args(int argc, char** argv) {
             opt.build_mode = true;
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
+        } else if (arg == "--no-import-dinos") {
+            opt.import_dinos = false;
+        } else if (arg == "--dino-clip") {
+            opt.dino_clip = next("--dino-clip");
+        } else if (arg == "--bai-info") {
+            opt.bai_info = true;
         } else if (arg == "--building-pos") {
             std::sscanf(next("--building-pos"), "%f,%f",
                         &opt.building_x, &opt.building_y);
@@ -324,6 +339,11 @@ Options parse_args(int argc, char** argv) {
                 std::atof(next("--building-scale")));
         } else if (arg == "--focus-building") {
             opt.focus_building = true;
+        } else if (arg == "--focus-dinos") {
+            opt.focus_dinos = true;
+        } else if (arg == "--focus-dino") {
+            opt.focus_dinos = true;
+            opt.focus_dino = std::atoi(next("--focus-dino"));
         } else if (arg == "--no-entrance") {
             opt.place_entrance = false;
         } else if (arg == "--place-path") {
@@ -493,12 +513,16 @@ Options parse_args(int argc, char** argv) {
                 "  --building-state N   orientation 0..3 (90-degree steps)\n"
                 "  --building-scale N   scale (default 1)\n"
                 "  --focus-building     frame the placed building\n"
+                "  --focus-dinos        frame the first imported dinosaur\n"
+                "  --focus-dino N       frame the Nth imported dinosaur\n"
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
-                "  --sav-park FILE      import a retail .sav park (visitors/budget/clock)\n"
                 "  --wld-info           print the world block and exit\n"
+                "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
+                "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
+                "  --bai-info           print the 64 action definitions and exit\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"
@@ -2131,6 +2155,58 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (opt.bai_info) {
+        try {
+            const std::vector<dino::BaiAction> actions =
+                dino::load_action_table(opt.asset_root);
+            std::size_t pre = 0;
+            std::size_t weights = 0;
+            std::size_t needs = 0;
+            std::size_t grants = 0;
+            std::size_t elements = 0;
+            std::size_t events = 0;
+            std::array<std::size_t, 7> groups{};
+            std::array<std::size_t, 6> classes{};
+            for (const dino::BaiAction& action : actions) {
+                pre += action.preconditions.size();
+                weights += action.effect_weights.size();
+                needs += action.need_deltas.size();
+                grants += action.stat_grants.size();
+                elements += action.elements.size();
+                for (const dino::BaiElement& element : action.elements) {
+                    events += element.events.size();
+                }
+                if (action.special_action < groups.size()) {
+                    ++groups[action.special_action];
+                }
+                if (action.effect_class < classes.size()) {
+                    ++classes[action.effect_class];
+                }
+            }
+            std::printf(
+                "actions: %zu preconditions=%zu weights=%zu need_deltas=%zu "
+                "grants=%zu elements=%zu events=%zu\n",
+                actions.size(), pre, weights, needs, grants, elements, events);
+            std::printf("groups:");
+            for (std::size_t i = 0; i < groups.size(); ++i) {
+                std::printf(" %zu=%zu", i, groups[i]);
+            }
+            std::printf("\nclasses:");
+            for (std::size_t i = 0; i < classes.size(); ++i) {
+                std::printf(" %zu=%zu", i, classes[i]);
+            }
+            std::printf("\n");
+            if (!actions.empty()) {
+                std::printf("first=%s last=%s\n", actions.front().name.c_str(),
+                            actions.back().name.c_str());
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "bai-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
     dino::KeyMap keymap;
     dino::load_keymap(opt.keys_path, keymap);
     for (const auto& rebind : opt.rebinds) {
@@ -3251,6 +3327,136 @@ int main(int argc, char** argv) {
                                       spawn_y - terrain.world_size * 0.5f),
                     opt.dino_angle);
     }
+
+    // P2: retail dinosaurs from a `.wld`/`.sav`. The world record carries the
+    // 18-gene genotype; the dominant head-type gene (min of allele A/B) picks
+    // one of the 20 base species 1:1, and the family table chooses its
+    // animation folder. There is no per-dinosaur position in the file, so the
+    // port distributes them inside the saved fence rectangles (paddocks).
+    struct ImportedSpecies {
+        dino::Mesh mesh;
+        dino::Skeleton skeleton;
+        dino::Skin skin;
+        dino::Animation anim;
+        std::vector<int> vertex_bone;
+        std::vector<int> bone_skel;
+        GLuint texture = 0;
+    };
+    struct ImportedDino {
+        std::shared_ptr<ImportedSpecies> assets;
+        GpuMesh gpu;
+        GpuMesh shadow;
+        float x = 0.0f;
+        float y = 0.0f;
+        float angle = 0.0f;
+        double phase = 0.0;
+    };
+    std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
+    std::vector<ImportedDino> imported_dinos;
+
+    auto load_imported_species = [&](const std::string& species,
+                                     const std::string& family,
+                                     const std::string& clip) {
+        const std::string key = species + "|" + family + "|" + clip;
+        const auto found = imported_species.find(key);
+        if (found != imported_species.end()) {
+            return found->second;
+        }
+        auto assets = std::make_shared<ImportedSpecies>();
+        const std::string dir =
+            "Data/Graphics/Actors/Dinos/" + species + "/" + species;
+        assets->mesh = dino::load_mesh(
+            resolve_asset(opt.asset_root, dir + "_lod1.mesh"));
+        assets->skeleton = dino::load_skel(
+            resolve_asset(opt.asset_root, dir + ".skel"));
+        assets->skin = dino::load_skin(
+            resolve_asset(opt.asset_root, dir + "_lod1.skin"),
+            assets->mesh.name);
+        // Same bind rule as the single-dinosaur path: the `.skin` mesh is a
+        // crouched bind pose, so rebuild it from the standing `.mesh` while
+        // keeping the skin weights.
+        if (assets->skin.mesh.positions.size() ==
+                assets->mesh.positions.size() &&
+            assets->skin.mesh.indices == assets->mesh.indices) {
+            for (std::size_t i = 0; i < assets->mesh.positions.size(); ++i) {
+                assets->skin.mesh.positions[i] = {
+                    assets->mesh.positions[i].x * 100.0f,
+                    assets->mesh.positions[i].y * 100.0f,
+                    assets->mesh.positions[i].z * 100.0f};
+            }
+            if (assets->mesh.uvs.size() == assets->mesh.positions.size()) {
+                assets->skin.mesh.uvs = assets->mesh.uvs;
+            }
+            if (assets->mesh.normals.size() == assets->mesh.positions.size()) {
+                assets->skin.mesh.normals = assets->mesh.normals;
+            }
+            if (assets->mesh.colors.size() == assets->mesh.positions.size()) {
+                assets->skin.mesh.colors = assets->mesh.colors;
+            }
+        }
+        build_skin_mapping(assets->skin, assets->skeleton, assets->vertex_bone,
+                           assets->bone_skel);
+        if (!clip.empty() && !family.empty()) {
+            assets->anim = dino::load_anim(resolve_asset(
+                opt.asset_root, "Data/Graphics/Actors/Dinos/animations/" +
+                                    family + "/" + family + "_" + clip +
+                                    ".anim"));
+        }
+        try {
+            assets->texture = upload_texture(dino::load_tga(resolve_asset(
+                opt.asset_root,
+                "Data/Graphics/Textures/actors/dinos/" + species + ".tga")));
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "dino texture %s: %s\n", species.c_str(),
+                         e.what());
+        }
+        imported_species[key] = assets;
+        return assets;
+    };
+
+    auto add_imported_dino = [&](const std::string& species,
+                                 const std::string& family,
+                                 const std::string& clip, float x, float y,
+                                 float angle) -> bool {
+        auto assets = load_imported_species(species, family, clip);
+        if (!assets) {
+            return false;
+        }
+        ImportedDino dinosaur;
+        dinosaur.assets = assets;
+        dinosaur.x = x;
+        dinosaur.y = y;
+        dinosaur.angle = angle;
+        dinosaur.phase =
+            static_cast<double>(imported_dinos.size()) * 617.0;
+        const dino::Animation* anim_ptr =
+            assets->anim.bones.empty() ? nullptr : &assets->anim;
+        dino::Mesh pose = build_skinned_mesh(
+            assets->skin.mesh, assets->skin, assets->skeleton, anim_ptr, 0.0,
+            assets->vertex_bone, assets->bone_skel, false);
+        if (assets->mesh.colors.size() == pose.positions.size()) {
+            pose.colors = assets->mesh.colors;
+        }
+        pose = place_on_terrain(std::move(pose), terrain, x, y, angle);
+        dinosaur.gpu = upload_mesh(pose, glfns);
+        const float half = terrain.world_size * 0.5f;
+        dinosaur.shadow = upload_mesh(
+            make_contact_shadow(x - half, y - half,
+                                terrain.height_at(x - half, y - half) + 0.06f,
+                                2.2f),
+            glfns);
+        imported_dinos.push_back(std::move(dinosaur));
+        return true;
+    };
+
+    auto clear_imported_dinos = [&]() {
+        for (ImportedDino& dinosaur : imported_dinos) {
+            dinosaur.gpu.destroy(glfns);
+            dinosaur.shadow.destroy(glfns);
+        }
+        imported_dinos.clear();
+    };
+
     Bounds bounds;
     for (const auto& p : display.positions) {
         bounds.add(p);
@@ -3335,6 +3541,7 @@ int main(int argc, char** argv) {
     std::vector<dino::PortBuildingState> building_instances;
     std::vector<dino::WorldRect> wld_roads;
     std::vector<dino::WorldRect> wld_fences;
+    std::vector<dino::WorldDinosaur> wld_dinosaurs;
     dino::SavSimulation sav_simulation;
     std::vector<dino::WorldFence> sav_fences;
     std::vector<dino::WorldBuilding> sav_buildings;
@@ -3580,6 +3787,7 @@ int main(int argc, char** argv) {
                         dino::read_sav_simulation(opt.sav_park_path);
                     sav_fences = world.fences;
                     sav_buildings = world.buildings;
+                    wld_dinosaurs = world.dinosaurs;
                     sav_ready = true;
                     wld_roads.clear();
                     wld_fences.clear();
@@ -3605,6 +3813,7 @@ int main(int argc, char** argv) {
             if (opt.wld_park) {
                 wld_roads.clear();
                 wld_fences.clear();
+                wld_dinosaurs = world.dinosaurs;
                 for (const dino::RoadRect& road : world.roads) {
                     wld_roads.push_back(
                         {road.x0, road.y0, road.x1, road.y1});
@@ -3703,6 +3912,15 @@ int main(int argc, char** argv) {
                 extra_items.push_back({&shadow_gpu, 0, 0.35f});
             }
         }
+        for (const ImportedDino& dinosaur : imported_dinos) {
+            if (dinosaur.gpu.vao != 0) {
+                extra_items.push_back(
+                    {&dinosaur.gpu, dinosaur.assets->texture});
+                if (dinosaur.shadow.vao != 0) {
+                    extra_items.push_back({&dinosaur.shadow, 0, 0.35f});
+                }
+            }
+        }
         for (const BuildingDraw& building : building_draws) {
             if (building.gpu.vao != 0) {
                 extra_items.push_back({&building.gpu, building.texture});
@@ -3741,6 +3959,89 @@ int main(int argc, char** argv) {
             build_grid.fence_count);
     }
 
+    if (opt.import_dinos && !wld_dinosaurs.empty() &&
+        terrain.world_size > 0.0f) {
+        dino::DinoFamilyTable family_table;
+        try {
+            family_table = dino::read_dino_family_table(
+                resolve_asset(opt.asset_root,
+                              "Data/Design/Genotype/anim_trans.dic"),
+                resolve_asset(opt.asset_root,
+                              "Data/Design/Genotype/simu_trans.dic"));
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "dino family table: %s\n", e.what());
+        }
+        std::map<int, std::string> head_species;
+        for (const std::string& species : family_table.species) {
+            try {
+                const int head = dino::read_gen_head_type(resolve_asset(
+                    opt.asset_root,
+                    "Data/Design/Scenario/Genotype/" + species + ".gen"));
+                if (head >= 0) {
+                    head_species[head] = species;
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "genotype %s: %s\n", species.c_str(),
+                             e.what());
+            }
+        }
+        int spawned = 0;
+        std::map<std::string, int> species_counts;
+        const std::size_t pen_count = wld_fences.size();
+        constexpr float kPi = 3.14159265f;
+        for (std::size_t i = 0; i < wld_dinosaurs.size(); ++i) {
+            const dino::WorldDinosaur& record = wld_dinosaurs[i];
+            const int head = static_cast<int>(std::min(
+                record.genotype[0].first, record.genotype[0].second));
+            const auto match = head_species.find(head);
+            const std::string species =
+                match != head_species.end() ? match->second : "allo";
+            std::string family = family_table.family_of(species);
+            if (family.empty()) {
+                family = "LightBiped";
+            }
+            float x = terrain.world_size * 0.5f;
+            float y = terrain.world_size * 0.5f;
+            float angle = static_cast<float>(i) * 137.5f;
+            if (pen_count > 0) {
+                const dino::WorldRect& pen = wld_fences[i % pen_count];
+                const float x0 =
+                    static_cast<float>(std::min(pen.x0, pen.x1));
+                const float x1 =
+                    static_cast<float>(std::max(pen.x0, pen.x1));
+                const float y0 =
+                    static_cast<float>(std::min(pen.y0, pen.y1));
+                const float y1 =
+                    static_cast<float>(std::max(pen.y0, pen.y1));
+                const float radius =
+                    std::max(1.0f, std::min(x1 - x0, y1 - y0) * 0.28f);
+                const float theta = static_cast<float>(i) * 2.39996323f;
+                x = (x0 + x1) * 0.5f + std::cos(theta) * radius;
+                y = (y0 + y1) * 0.5f + std::sin(theta) * radius;
+                angle = theta * 180.0f / kPi + 90.0f;
+            }
+            try {
+                if (add_imported_dino(species, family, opt.dino_clip, x, y,
+                                      angle)) {
+                    ++spawned;
+                    ++species_counts[species];
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "dino %u (%s): %s\n",
+                             record.object_id, species.c_str(), e.what());
+            }
+        }
+        if (spawned > 0) {
+            std::printf("dinos: %d/%zu spawned", spawned,
+                        wld_dinosaurs.size());
+            for (const auto& [species, count] : species_counts) {
+                std::printf(" %s=%d", species.c_str(), count);
+            }
+            std::printf("\n");
+            rebuild_extra_items();
+        }
+    }
+
     int build_tool = opt.build_mode ? 1 : 0;
     bool pending_click = false;
     float click_x = 0.0f;
@@ -3762,6 +4063,18 @@ int main(int argc, char** argv) {
     if (opt.focus_building && building_center.x < 1e29f) {
         center = building_center;
         distance = 60.0f;
+    }
+    if (opt.focus_dinos && !imported_dinos.empty()) {
+        const std::size_t focus_index = static_cast<std::size_t>(std::clamp(
+            opt.focus_dino, 0, static_cast<int>(imported_dinos.size()) - 1));
+        const ImportedDino& dinosaur = imported_dinos[focus_index];
+        const float half = terrain.world_size * 0.5f;
+        center = {dinosaur.x - half, dinosaur.y - half,
+                  terrain.height_at(dinosaur.x - half,
+                                    dinosaur.y - half) + 2.5f};
+        distance = 26.0f;
+        yaw = 225.0f;
+        pitch = 18.0f;
     }
 
     auto orbit_eye = [&]() {
@@ -3805,7 +4118,8 @@ int main(int argc, char** argv) {
         clear_buildings();
         const std::string lnd_path = resolve_asset(
             opt.asset_root,
-            "Data/Design/Landscape/" + island + "/" + island + ".lnd");        dino::Lnd new_lnd = dino::load_lnd(lnd_path);
+            "Data/Design/Landscape/" + island + "/" + island + ".lnd");
+        dino::Lnd new_lnd = dino::load_lnd(lnd_path);
         int hm_width = 0, hm_height = 0;
         const auto heights = dino::load_raw_u8(
             resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height);
@@ -3879,6 +4193,7 @@ int main(int argc, char** argv) {
         }
         dino_gpu.destroy(glfns);
         shadow_gpu.destroy(glfns);
+        clear_imported_dinos();
         if (opt.texture_path.empty()) {
             if (texture != 0) {
                 glDeleteTextures(1, &texture);
@@ -5255,6 +5570,29 @@ int main(int argc, char** argv) {
             }
         }
 
+        for (ImportedDino& dinosaur : imported_dinos) {
+            const ImportedSpecies& assets = *dinosaur.assets;
+            if (assets.anim.bones.empty() || assets.anim.duration <= 0.0) {
+                continue;
+            }
+            double anim_time = opt.anim_time;
+            if (opt.anim_time < 0.0) {
+                anim_time = std::fmod(
+                    elapsed * 4800.0 * opt.anim_speed + dinosaur.phase,
+                    static_cast<double>(assets.anim.duration));
+            }
+            dino::Mesh deformed = build_skinned_mesh(
+                assets.skin.mesh, assets.skin, assets.skeleton, &assets.anim,
+                anim_time, assets.vertex_bone, assets.bone_skel, false);
+            if (assets.mesh.colors.size() == deformed.positions.size()) {
+                deformed.colors = assets.mesh.colors;
+            }
+            deformed = place_on_terrain(std::move(deformed), terrain,
+                                        dinosaur.x, dinosaur.y,
+                                        dinosaur.angle);
+            update_mesh(dinosaur.gpu, deformed, glfns);
+        }
+
         if (!visitor_system.visitors.empty()) {
             visitor_system.update(build_grid, terrain,
                                   static_cast<float>(dt), attractions,
@@ -5573,6 +5911,14 @@ int main(int argc, char** argv) {
     }
     dino_gpu.destroy(glfns);
     shadow_gpu.destroy(glfns);
+    clear_imported_dinos();
+    for (auto& entry : imported_species) {
+        if (entry.second->texture != 0) {
+            glDeleteTextures(1, &entry.second->texture);
+            entry.second->texture = 0;
+        }
+    }
+    imported_species.clear();
     for (BuildingDraw& building : building_draws) {
         building.gpu.destroy(glfns);
         if (building.texture != 0) {

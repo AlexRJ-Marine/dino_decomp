@@ -138,6 +138,31 @@ carapace values that the edition lacks), so this is an independent editor
 data set, not a re-layout of the design genotype. Do not use these files at
 runtime.
 
+## Species selection (P2 import)
+
+The saved 18-gene genotype selects a body mesh through gene 0 (head type):
+
+```text
+dominant allele = min(allele A, allele B)     # dominance rule from gene_trans
+head type 0..19  ->  one base `<species>.gen` file
+```
+
+The 20 base design files in `Data/Design/Scenario/Genotype` (`allo.gen` ..
+`velo.gen`) have exactly 20 distinct head types 0..19, so the mapping is
+one-to-one and data-driven (no hardcoded species ids):
+
+```text
+0 allo   1 anky    2 brachio 3 coelo   4 deino
+5 diplo  6 gigano  7 hypsilo 8 igua    9 kentro
+10 pachy 11 parasau 12 peleca 13 proto 14 salta
+15 stego 16 trex   17 trice  18 trood  19 velo
+```
+
+Hybrids use the dominant body plan; e.g. `[18,0]` is allo. The port reader is
+`src/formats/dino_data.cpp` (`read_gen_head_type`); Cpg04 resolves all 20
+saved dinosaurs to five species. Tests:
+`tests/test_anim_trans.py::test_base_species_head_types_are_unique`.
+
 ## Reader
 
 `tools/formats/gen.py`:
@@ -174,7 +199,8 @@ rarity weights).
 ## Open
 
 - Phenotype mapping (gene value → mesh part/skin/carapace).
-- Head/ArmLeg/Body/Tail expression rule (no matrix).
+- Head/ArmLeg/Body/Tail expression rule (no matrix); the head-type gene now
+  selects the base species mesh, but hybrid part assembly is not ported.
 - Breeding/selection rules (rarity → random allele choice, mutations).
 - The 9 extra edition genes.
 - The dummy range discrepancy (0..39 documented vs 0..47 observed).
