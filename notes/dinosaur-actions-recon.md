@@ -246,6 +246,20 @@ their feed. The exact dinosaur-AI chooser that turns a BAD state into action
 4/2 is still open; the `.bai` action records and the dinosaur behavior tree are
 the next step.
 
+### `.bai` header consumers
+
+- `field_32` (`+0x08`) is an **additive behavior-node score** (`FUN_0056e820`);
+  `params[7]` and indexed `params[i]` are percent multipliers
+  (`FUN_0056cb30` / `FUN_0056cc20`).
+- `field_2e` (`+0x38`) is the action duration; `FUN_0056c0c0` copies it into
+  the show-behavior record `+0x1c`, and `FUN_0056d880` counts it down.
+- On expiry, `FUN_0056ddb0` consumes the `field_26`/`field_2a` end-ramp pair.
+- `flag_20` (`+0x2c`) is cloned by `FUN_0056ac80` but never read.
+- Element `+0x28` is a duration in seconds copied to the actor countdown
+  `+0x260`, not a size.
+
+See `docs/formats/bai.md` for the full map.
+
 ## Evidence
 
 - `FUN_0053e060` — actionlist.ini loader; vector stride `0xac`.
