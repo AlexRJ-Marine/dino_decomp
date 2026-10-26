@@ -34,6 +34,16 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00477890` | skeleton reader: matrices, children, parents, names, flags | decompiled, verified | 64/64 `.skel` files |
 | `0x00477610` | skeleton writer/export counterpart | decompiled (partial) | `.skel` doc |
 
+## Dinosaur behavior graph
+
+| Address | Purpose | Status | Evidence |
+| --- | --- | --- | --- |
+| `0x00521b30` | `apDinosaurBehavior` ctor (actor + two sub-behaviors) | decompiled | vtable `0x642abc`; `notes/dinosaur-behavior-graph.md` |
+| `0x00521cc0` | behavior dispatch (mode 1 -> `+0x10`, mode 2 -> `+0x0c`) | decompiled | same |
+| `0x0056cc90` | sub-behavior base ctor (node list head, actor) | decompiled | same |
+| `0x0056ce80` | behavior-graph node reader (41 node types) | decompiled (partial) | switch 0..0x28 |
+| `0x0056d5a0` | behavior-graph node writer | decompiled | node record shape |
+
 ## Overlay / menu (UI-2)
 
 | Address | Purpose | Status | Evidence |
@@ -227,6 +237,8 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
 | park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, base 9 + scale 60, 12 h day + HUD time/day |
 | free-game start camera | `src/viewer/main.cpp` (`load_island`) | reimplemented, target centre + 39/52.7/yaw 0 + FOV 80 |
+| `.sav` header + slot list | `src/formats/sav.cpp` | reimplemented, version/slot/UTF-16 name |
+| island music | `src/viewer/main.cpp` (`MusicPlayer`) | reimplemented, chunk-streamed/looped theme |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items

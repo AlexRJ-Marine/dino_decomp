@@ -100,6 +100,11 @@ two totals) are separate number widgets refreshed by `0x510430`; a fresh park
 has no spending yet, so the port fills them with `0`. The gauge budget comes
 from the selected difficulty (75,000 / 50,000 / 25,000).
 
+The in-park **Options** panel's Save/Load tabs switch to
+`OPTIONS_SAVE_PANEL`; `OPTIONS_SAVE_NAMES_LIST` lists the real
+`run/save/*.sav` names using the C++ header reader (`src/formats/sav.cpp`).
+The save/load action itself is not wired to the port's park state yet.
+
 `DIALOG_BACKGROUND` is **not** used here: it belongs to the warning, request
 and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
 while pressed (when the strip has those frames).
@@ -165,6 +170,8 @@ The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
 - `notes/park-hud-1024.png` - the park HUD re-anchored at 1024×768.
 - `notes/hud-1024.png` - the Python/oracle HUD at the same size.
 - `notes/clock-0944.png` / `notes/clock-0944-detail.png` - park clock at 09:44.
+- `notes/options-save.png` / `notes/options-save-detail.png` - Options Save
+  tab listing the real `.sav` names.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:

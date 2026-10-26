@@ -28,6 +28,9 @@ struct.
 ...         scenario manager
 ```
 
+The C++ header reader is `src/formats/sav.cpp` (`read_sav_header`); the
+viewer scans `run/save/*.sav` and prints/renders the names.
+
 The world block starts at **`0x18 + name_len`**:
 
 | Save | `name_len` | World start | Show count | Show catalog |

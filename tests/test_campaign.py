@@ -11,6 +11,7 @@ from campaign import (  # noqa: E402
     TRAIT_PATTERN,
     load_campaigns,
     read_campaign,
+    read_mission,
     scan,
 )
 from loc import read_loc  # noqa: E402
@@ -161,3 +162,82 @@ def test_mission_loc_ids_resolve():
                 if text and text not in known:
                     missing.add(text)
     assert not missing, sorted(missing)[:5]
+
+BUILDING_GROUPS = {
+    0: {"Farm"},
+    1: {"PointOfView", "SmallSeats", "MediumSeats", "LargeSeats"},
+    # Cpg07 (cut content) puts BarakSport in the entrance group.
+    2: {"ParkNat", "ParkCirc", "ParkKute", "ParkSport", "ParkViol",
+        "BarakSport"},
+    3: {"BarakNat", "BarakCirc", "BarakKute", "BarakSport", "BarakViol"},
+    4: {"SouvNat", "SouvCirc", "SouvKute", "SouvSport", "SouvViol"},
+    5: {"RestNat", "RestCirc", "RestKute", "RestSport", "RestViol"},
+    6: {"Tampodino", "Granderoue", "Manege", "Tower", "Haunted"},
+    7: {"Station", "DecoNat", "DecoKute", "DecoCirc", "DecoSport", "DecoViol"},
+    8: {"DecoNat", "DecoKute", "DecoCirc", "DecoSport", "DecoViol"},
+}
+FEATURE_GROUPS = {
+    0: {"LunchBox"},
+    1: {"CageSmall", "CageMedium", "CageHigh", "CageHuge"},
+    2: {"JudgeRace", "JudgeObstacle", "JudgeFight", "JudgeDestruction",
+        "JudgeTeam", "JudgeCapture"},
+    3: {"StaticBaitApple", "StaticBaitFlower", "StaticBaitPumpkin",
+        "StaticBaitWatermelon", "StaticBaitHay", "AnimalBaitOstrich",
+        "AnimalBaitGoat", "AnimalBaitSheep", "AnimalBaitPig", "AnimalBaitCow"},
+    4: {"WaypointTeam1", "WaypointTeam2", "WaypointTeam3", "WaypointTeam4",
+        "TileSmell", "TileSmellbad", "TileSmellBad"},
+    5: {"ObstacleBeam1", "ObstacleBeam2", "ObstacleBeam3", "ObstacleBeam4",
+        "ObstacleBeam5", "ObstacleRock", "ObstacleHole", "ObstacleHole2",
+        "ObstacleFire", "ObstaclePiege", "ObstacleMine",
+        "ObstacleForceField", "ObstacleTrappe"},
+    6: {"TileSlide", "TileJump", "TileCourage", "TilePerception",
+        "TileScotch", "TileQuad", "TileEndurance", "TileShield",
+        "TileIntelligence", "TileSpeed", "TileHeal"},
+    7: {"Danse", "TileInvisibility", "TileKickAss", "TileSleep", "Teleport"},
+    8: {"ObstacleCar", "ObstacleBusSchool", "ObstacleMiniCar",
+        "ObstacleBusLondon"},
+}
+
+
+def test_mission_content_groups():
+    """BUILDINGS/FEATURES group indices are content categories."""
+    if not SCENARIO.exists():
+        pytest.skip("retail sample not present")
+    features = {
+        line.strip()
+        for line in (GAME / "Data/Design/attractions/features/FeatureList.ini")
+        .read_text(encoding="cp1252").splitlines()
+        if line.strip()
+    }
+    drinks = {"TileSmellBad"}  # retail typo used by four Cpg02 missions
+    show_names = {path.stem.lower() for path in (SCENARIO / "Show").glob("*.shw")}
+    genotypes = {path.name for path in (SCENARIO / "Genotype").glob("*.gen")}
+    typo_missions = []
+    for path in sorted(SCENARIO.glob("Cpg0*/Cpg*_Mission*.ini")):
+        mission = read_mission(path)
+        for key, value in mission.sections.get("BUILDINGS", {}).items():
+            group = int(key[-1])
+            for name in value.split():
+                assert name in BUILDING_GROUPS[group], (path.name, key, name)
+        for key, value in mission.sections.get("FEATURES", {}).items():
+            group = int(key[-1])
+            for name in value.split():
+                assert name in FEATURE_GROUPS[group], (path.name, key, name)
+                assert name in features or name in drinks, name
+                if name in drinks:
+                    typo_missions.append(path.name)
+        for key, value in mission.sections.get("SHOWS", {}).items():
+            for name in value.split():
+                assert name.lower() in show_names, (path.name, key, name)
+        for key, value in mission.sections.get("DINOSTORE", {}).items():
+            tokens = value.split()
+            assert len(tokens) % 3 == 0, (path.name, key)
+            for index in range(0, len(tokens), 3):
+                assert tokens[index + 1].isdigit()
+                assert tokens[index + 2] in genotypes, tokens[index + 2]
+        for key, value in mission.sections.get("FRIDGE", {}).items():
+            tokens = value.split()
+            assert len(tokens) % 2 == 0, (path.name, key)
+            for genotype in tokens[1::2]:
+                assert genotype in genotypes, genotype
+    assert len(typo_missions) == 4

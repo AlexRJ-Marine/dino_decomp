@@ -475,6 +475,28 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `tools/formats/config.py`, `docs/formats/config.md`,
   `tests/test_config.py`, `notes/config-recon.md`.
 
+### FMT-16b: mission content groups
+- [x] `BuildingsN`/`FeaturesN` indices are categories (farm, seats, entrance,
+  barracks, souvenir, restaurant, ride, deco; lunchbox, cages, judges, bait,
+  waypoint/smell, obstacle, power-up tiles, special tiles, vehicles).
+- [x] `FoodSources0/1` = plant/animal food; `ShowsN` = campaign page;
+  `DinoStoreN` = per-mission store with campaign prices; `EggsN` pairs.
+- [x] Data quirks: `TileSmellBad` (4 Cpg02 missions), mixed-case `.shw`
+  names, Cpg07 `BarakSport`, repeated store entries.
+- **Evidence:** `docs/formats/campaign.md`, `tests/test_campaign.py`,
+  `notes/campaign-recon.md`.
+
+### DEC-2b: dinosaur behavior graph
+- [x] `apDinosaurBehavior` ctor `0x521b30` owns an actor and two
+  sub-behaviors (`0x56cb80`/`0x56ca80`, vtables `0x643040`/`0x64302c`).
+- [x] The graph serializer is `0x56ce80` (read, 41 node types) /
+  `0x56d5a0` (write); node record = type + 3 ints + two vectors + child +
+  actor field.
+- [ ] Decode the 41 node-type branches; the BAD FOOD/REPOS -> action 4/2
+  chooser should be a condition/action pair.
+- **Evidence:** `notes/dinosaur-behavior-graph.md`,
+  `docs/decomp/function-status.md`.
+
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
 - [x] Identify the block as `.bvi` file `0x38..0x50`: constant
@@ -843,7 +865,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `--no-sounds`, `--list-sounds`, `--play-sound`.
 - [x] Phase D (music): `ParkSoundDB.ini` island themes streamed in chunks and
   looped; `--music`/`--no-music`/`--music-volume`.
-- [ ] Phase D rest: save/load panels, menu music/lab theme switching.
+- [x] Phase D (save panel browser): the Options panel's Save/Load tabs switch
+  to `OPTIONS_SAVE_PANEL`, and `OPTIONS_SAVE_NAMES_LIST` lists the real
+  `run/save/*.sav` names parsed by the C++ header reader (`agenttest`,
+  `esfs`). Saving/loading park state is still open.
+- [ ] Phase D rest: save/load the port's park state, warning/request dialogs,
+  menu music/lab theme switching.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
@@ -855,13 +882,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/minimap-isl10-detail.png`, `notes/park-hud-1024.png`,
   `notes/hud-1024.png`, `notes/clock-0944.png`,
   `notes/park-hud.png`, `notes/park-budget.png`,
+  `notes/options-save.png`, `notes/options-save-detail.png`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
   `test_cpp_island_list_and_free_game_budgets`,
   `test_cpp_minimap_detail_view`, `test_cpp_park_hud_1024_anchor`,
-  `test_cpp_park_clock`), `tools/formats/overlay.py`,
+  `test_cpp_park_clock`, `test_cpp_options_save_panel`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video

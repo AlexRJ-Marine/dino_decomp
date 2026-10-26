@@ -234,6 +234,21 @@ bool ParkHud::click(int x, int y, std::string& action) {
     }
     const std::string name = overlay.widgets[static_cast<std::size_t>(hit)].name;
 
+    if (name == "OPTIONS_MENU_SAVE_BUTTON" ||
+        name == "OPTIONS_MENU_LOAD_BUTTON") {
+        overlay.set_visible("OPTIONS_SAVE_PANEL", true);
+        overlay.set_visible("OPTIONS_OPTIONS_PANEL", false);
+        action = name == "OPTIONS_MENU_SAVE_BUTTON" ? "options save tab"
+                                                    : "options load tab";
+        return true;
+    }
+    if (name == "OPTIONS_MENU_OPTIONS_BUTTON") {
+        overlay.set_visible("OPTIONS_SAVE_PANEL", false);
+        overlay.set_visible("OPTIONS_OPTIONS_PANEL", true);
+        action = "options tab";
+        return true;
+    }
+
     for (const char* exit_button : kLabExits) {
         if (name == exit_button) {
             hide_panels();

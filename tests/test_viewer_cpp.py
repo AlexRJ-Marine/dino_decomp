@@ -1102,3 +1102,38 @@ def test_cpp_park_music():
     assert result.returncode == 0, result.stderr
     assert "music: " in result.stdout
     assert "musEquateur.wav" in result.stdout
+
+def test_cpp_options_save_panel(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    saves = sorted((ROOT / "run" / "save").glob("*.sav"))
+    if not saves:
+        pytest.skip("retail saves not present")
+    header = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert header.returncode == 0, header.stderr
+    assert "save slot001.sav: name=agenttest version=53 slot=0" in header.stdout
+
+    shot = tmp_path / "options-save.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--no-hud", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--distance", "500",
+         "--park-click", "765,348", "--park-click", "348,73"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "park click 348,73 -> options save tab" in result.stdout
+    image = Image.open(shot).convert("RGB")
+    listing = image.crop((282, 125, 425, 341)).tobytes()
+    # Save names are yellow on the dark-red list background.
+    yellow = sum(
+        1
+        for i in range(0, len(listing), 3)
+        if listing[i] > 200 and listing[i + 1] > 200 and listing[i + 2] < 80
+    )
+    assert yellow > 20

@@ -53,11 +53,11 @@ values, `;` comments); later section/key definitions override the base.
 | `OBJECTIVES` | `Objective1..5` + `_Desc` | command strings |
 | `CONTEXT` | `Budget`/`SellBackFactor` + `Medium`/`Hard` variants | per-difficulty |
 | `PROFILES` | `VisProfiles` + Medium/Hard | allowed visitor personalities |
-| `BUILDINGS` | `Buildings0..9` | allowed buildings |
-| `FOODSOURCES` | `FoodSources0..1` | allowed food |
-| `FEATURES` | `Features0..9` | allowed park features |
-| `SHOWS` | `Shows0..9` | allowed shows |
-| `DINOSTORE` | `DinoStore0..9` | available dinosaurs |
+| `BUILDINGS` | `Buildings0..9` | allowed buildings, grouped by category |
+| `FOODSOURCES` | `FoodSources0..1` | allowed food (plants / animals) |
+| `FEATURES` | `Features0..9` | allowed park features, grouped by category |
+| `SHOWS` | `Shows0..9` | allowed shows, grouped by campaign page |
+| `DINOSTORE` | `DinoStore0..9` | available dinosaurs, store pages |
 | `FRIDGE` | `Eggs0..9` | starting eggs (`<species> <file.gen>`) |
 | `LABORATORY` | `Reproduction`, `Modification`, `Cloning`, `Mutation`, `Fridge` | lab unlocks |
 | `INTERFACE` | `Laboratory`, `Show`, `Fence`, `Building`, `Infrastructure`, `DinoPurchase`, `EggSale` | UI unlocks |
@@ -65,6 +65,61 @@ values, `;` comments); later section/key definitions override the base.
 Example `Cpg01_Mission4`: objectives `genotypedinos hypsilo 2`,
 `genotypedinos coelo 2`, `dyingdinos 0`; building `PointOfView`; egg
 `Coelophysis coelo.gen`.
+
+### Content-list groups
+
+`BuildingsN` and `FeaturesN` use the index as a **category**, not as an id
+range. The unions over all 39 missions:
+
+| `BuildingsN` | Category | Members seen |
+| ---: | --- | --- |
+| 0 | farm | `Farm` |
+| 1 | seating / viewpoint | `SmallSeats`, `MediumSeats`, `LargeSeats`, `PointOfView` |
+| 2 | park entrance | `ParkNat`, `ParkCirc`, `ParkKute`, `ParkSport`, `ParkViol` |
+| 3 | barracks / kiosk | `BarakNat`, `BarakCirc`, `BarakKute`, `BarakSport`, `BarakViol` |
+| 4 | souvenir shop | `SouvNat`, `SouvCirc`, `SouvKute`, `SouvSport`, `SouvViol` |
+| 5 | restaurant | `RestNat`, `RestCirc`, `RestKute`, `RestSport`, `RestViol` |
+| 6 | ride / attraction | `Tampodino`, `Granderoue`, `Manege`, `Tower`, `Haunted` |
+| 7 | station + decoration | `Station`, `DecoNat`, `DecoKute`, `DecoCirc`, `DecoSport`, `DecoViol` |
+| 8 | decoration | `Deco*` |
+| 9 | unused | ? |
+
+`Security`, `Entrance` and `LunchDoor` never appear in mission lists (always
+available or gated by `[INTERFACE]`).
+
+| `FeaturesN` | Category | Members seen |
+| ---: | --- | --- |
+| 0 | lunch box | `LunchBox` |
+| 1 | cages | `CageSmall..CageHuge` |
+| 2 | judges | `JudgeRace`, `JudgeObstacle`, `JudgeFight`, `JudgeDestruction` |
+| 3 | bait | `StaticBait*`, `AnimalBait*` |
+| 4 | waypoint / smell | `WaypointTeam1..4`, `TileSmell`, `TileSmellbad` |
+| 5 | obstacle | `ObstacleBeam1..5`, `ObstacleRock`, `ObstacleHole(2)`, `ObstacleFire`, `ObstaclePiege`, `ObstacleMine`, `ObstacleForceField`, `ObstacleTrappe` |
+| 6 | power-up tile | `TileSlide/Jump/Courage/Perception/Scotch/Quad/Endurance/Shield/Intelligence/Speed/Heal` |
+| 7 | special tile | `Danse`, `Teleport`, `TileInvisibility`, `TileKickAss`, `TileSleep` |
+| 8 | vehicle | `ObstacleCar`, `ObstacleBusSchool`, `ObstacleBusLondon`, `ObstacleMiniCar` |
+| 9 | unused | ? |
+
+`FoodSources0` is plant food (`FlowerFood`, `AppleFood`, `WatermelonFood`,
+`PumpkinFood`, `HayFood`); `FoodSources1` is animal food (`OstrichFood`,
+`GoatFood`, `SheepFood`, `PigFood`, `CowFood`).
+
+`ShowsN` matches the campaign page (0 = Cpg1, 1 = Cpg2, ?), with the same 39
+show names used by `FreeGame.ini`. `DinoStoreN` is the per-mission store page;
+campaign prices can be far below the free-game `Market.ini` prices
+(Velociraptor 1,100 vs 15,000; Triceratops 2,600 vs 12,000). `EggsN` is a
+flat list of `(species, .gen)` pairs; only groups 0-2 are used.
+
+### Data quirks
+
+- Four `Cpg02` missions write `TileSmellBad`; the feature list spells it
+  `TileSmellbad`. The engine resolves it on Windows (case-insensitive).
+- `.shw` file names are mixed case (`cpg4_fight_1.shw` vs
+  `Cpg4_Derby_1.shw`) while missions write `Cpg4_Fight_1`; again
+  case-insensitive resolution.
+- `Cpg07` (cut content) puts `BarakSport` in the entrance group.
+- Some mission stores repeat an entry (e.g. `Tyrannosaurus_Rex` three times,
+  `Parasaulorophus` five times).
 
 ## Objective commands
 

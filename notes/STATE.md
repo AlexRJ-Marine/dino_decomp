@@ -357,7 +357,16 @@ Updated: 2026-10-25
     (512,512,32); `--start-dino` keeps a close demo camera.
   - Evidence: `notes/ui-recon.md` ("Start camera solved"),
     `docs/platform/vertical-slice.md`, `notes/menu-start-dino.png`.
-- 271 tests pass; working tree committed (UI-2 Phase B rest plus
+- UI-2 Phase D save browser partial: **Options Save/Load tab + real slots.**
+  - `OPTIONS_MENU_SAVE/LOAD/OPTIONS_BUTTON` switch between
+    `OPTIONS_SAVE_PANEL` and `OPTIONS_OPTIONS_PANEL`.
+  - `src/formats/sav.cpp` reads the header (version, slot, UTF-16 name);
+    `OPTIONS_SAVE_NAMES_LIST` renders the names from `run/save/*.sav`
+    (`agenttest`, `esfs`).
+  - Saving/loading park state remains open.
+  - Evidence: `notes/options-save.png`, `notes/options-save-detail.png`,
+    `tests/test_viewer_cpp.py::test_cpp_options_save_panel`.
+- 279 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -527,6 +536,23 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- DEC-2b research: **dinosaur behavior graph located.**
+  - `apDinosaurBehavior` (`0x521b30`) owns the actor and two sub-behaviors;
+    the node graph is serialized by `0x56ce80` (41 node types) /
+    `0x56d5a0`.
+  - Node record: type + 3 ints + two int vectors + child link + actor field.
+  - The BAD FOOD/REPOS ? action 4/2 chooser is inside one of the 41 node
+    types; `notes/dinosaur-behavior-graph.md`.
+- FMT-16b complete: **mission content groups.**
+  - `BuildingsN`/`FeaturesN` indices are categories (farm, seats, entrance,
+    barracks, souvenir, restaurant, ride, deco; lunchbox, cages, judges,
+    bait, waypoint/smell, obstacle, power-up tiles, special tiles, vehicles).
+  - `FoodSources0/1` plant/animal; `ShowsN` campaign page; `DinoStoreN`
+    per-mission store (campaign prices far below Market.ini); `EggsN` pairs.
+  - Quirks: `TileSmellBad` in 4 Cpg02 missions, mixed-case `.shw` names,
+    Cpg07 `BarakSport`, repeated store entries.
+  - Evidence: `docs/formats/campaign.md`, `tests/test_campaign.py`,
+    `notes/campaign-recon.md`.
 - FMT-30 complete: **`Data/Config` startup/input/camera.**
   - `camera.ini` gives 5 identical motion blocks (distance 10..300,
     elevation 3..500, rotation ?/2, move 1..20, progress 0.05..0.2); the
@@ -812,7 +838,8 @@ Updated: 2026-10-25
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D rest:** save/load panels, warning/request dialogs
+- **UI-2 Phase D rest:** wire the Save/Load actions to the port's park state
+  (island/budget/clock/camera/paths), warning/request dialogs
   (`DIALOG_BACKGROUND` + `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL`),
   menu music and lab theme switching.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
@@ -825,8 +852,9 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-2 Phase D: save/load panels (OPTIONS_SAVE_PANEL + real `.sav` slot
-   names) and the warning/request/campaign-end dialogs.
+1. UI-2 Phase D: wire the save panel's Validate button to a port save/load of
+   the park state (island, budget, clock, camera, paths, visitors) and add
+   the warning/request/campaign-end dialogs.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow

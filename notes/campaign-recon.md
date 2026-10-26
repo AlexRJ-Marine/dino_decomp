@@ -110,3 +110,29 @@ world serializer with `.sav`:
   `docs/formats/campaign.md`.
 - `snoCampaignManager.cpp` / `snoCampaignDataBase.cpp` / `snoObjective.cpp`
   source strings in the exe.
+
+## Mission content groups (2026-10-26)
+
+`BuildingsN`/`FeaturesN` indices are categories, not id ranges:
+
+```
+Buildings 0 Farm, 1 seats/POV, 2 park entrance, 3 barracks, 4 souvenir,
+          5 restaurant, 6 ride/attraction, 7 Station+deco, 8 deco, 9 unused
+Features  0 LunchBox, 1 cages, 2 judges, 3 bait, 4 waypoint/smell,
+          5 obstacle, 6 power-up tile, 7 special tile, 8 vehicle, 9 unused
+```
+
+`FoodSources0` = plant food, `FoodSources1` = animal food. `ShowsN` = campaign
+page with the same 39 names as FreeGame. `DinoStoreN` = per-mission store
+(campaign prices can be far below Market.ini). `EggsN` = `(species, gen)`
+pairs, only 0..2 used.
+
+Data quirks:
+
+- 4 Cpg02 missions use `TileSmellBad` vs the list's `TileSmellbad`.
+- `.shw` names are mixed case (`cpg4_fight_1.shw`) vs mission `Cpg4_Fight_1`.
+- Cpg07 (cut) puts `BarakSport` in the entrance group.
+- Some mission stores repeat entries (Tyrannosaurus_Rex x3, Parasaulorophus x5).
+
+Test: `tests/test_campaign.py::test_mission_content_groups` checks every list
+member against the category map and against the `.list`/`.shw`/`.gen` files.

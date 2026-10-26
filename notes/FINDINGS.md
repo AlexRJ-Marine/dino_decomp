@@ -346,3 +346,14 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   hardness 6..2); no initial framing. KeyMapper.ini = 17 bindings;
   KeyFrancais.ini = 144 DIK/MIK rows (AZERTY, DIK_Q = a). Start.Ini = 800x600,
   mgSet3D -1,"HAL","SW",16, miKeyLoad key table. Dino.ini GameSpeed 50.
+- Mission content groups: BuildingsN/FeaturesN indices are categories
+  (farm/seats/entrance/barracks/souvenir/restaurant/ride/deco and
+  lunchbox/cages/judges/bait/waypoint-smell/obstacle/power-up/special/
+  vehicle). FoodSources 0=plants 1=animals. ShowsN=campaign page.
+  DinoStoreN=per-mission store with campaign prices (Velociraptor 1100).
+  Quirks: TileSmellBad (4 Cpg02), mixed-case .shw names, Cpg07 BarakSport.
+- Dinosaur behavior graph: apDinosaurBehavior ctor 0x521b30 owns the actor and
+  two sub-behaviors (vtables 0x643040/0x64302c). The graph serializer is
+  0x56ce80 (read, 41 node types) / 0x56d5a0 (write). Node record = type + 3
+  ints + two int vectors + child link + actor field. The action chooser is one
+  of the 41 node types.

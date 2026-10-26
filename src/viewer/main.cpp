@@ -15,6 +15,7 @@
 #include "../formats/lnd.h"
 #include "../formats/image.h"
 #include "../formats/fnt.h"
+#include "../formats/sav.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
@@ -2001,8 +2002,7 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "menu sounds: %s\n", e.what());
     }
-    std::unordered_map<std::string, std::string> park_sound_files;
-    try {
+    std::unordered_map<std::string, std::string> park_sound_files;    try {
         const dino::ui::IniFile sound_db = dino::ui::load_ini(
             resolve_asset(opt.asset_root, "Data/Sound/ParkSoundDB.ini"));
         for (const auto& section : sound_db.sections) {
@@ -2014,6 +2014,35 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "park sounds: %s\n", e.what());
     }
+    std::vector<std::pair<std::string, std::string>> save_slots;
+    try {
+        const std::filesystem::path save_dir("run/save");
+        if (std::filesystem::is_directory(save_dir)) {
+            for (const auto& entry :
+                 std::filesystem::directory_iterator(save_dir)) {
+                if (!entry.is_regular_file() ||
+                    entry.path().extension() != ".sav") {
+                    continue;
+                }
+                try {
+                    const dino::SavHeader header =
+                        dino::read_sav_header(entry.path().string());
+                    save_slots.emplace_back(entry.path().string(), header.name);
+                    std::printf("save %s: name=%s version=%u slot=%u\n",
+                                entry.path().filename().string().c_str(),
+                                header.name.c_str(), header.version,
+                                header.slot);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "save %s: %s\n",
+                                 entry.path().filename().string().c_str(),
+                                 e.what());
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "save scan: %s\n", e.what());
+    }
+    std::sort(save_slots.begin(), save_slots.end());
     if (opt.list_sounds) {
         for (const auto& name : menu_sound_names) {
             std::printf("sound %s: %s\n", name.c_str(),
@@ -3583,6 +3612,35 @@ int main(int argc, char** argv) {
                                                static_cast<float>(widget.height) * dpi,
                                                widget.back_color),
                              0, 1.0f, 1, view_w, view_h);
+            }
+
+            if (widget.name == "OPTIONS_SAVE_NAMES_LIST" && !save_slots.empty()) {
+                const int line_h =
+                    widget.list_line_height > 0 ? widget.list_line_height : 12;
+                const int row_w =
+                    widget.list_column0_width > 0
+                        ? widget.list_column0_width
+                        : widget.width - widget.list_scroll_width;
+                float list_scale = 1.0f;
+                GLuint list_atlas = 0;
+                const dino::Fnt* list_font =
+                    ui_font(widget.font, widget.text_height, list_scale,
+                            list_atlas);
+                if (list_font != nullptr) {
+                    const int rows = std::min(
+                        static_cast<int>(save_slots.size()),
+                        line_h > 0 ? widget.height / line_h : 0);
+                    for (int row = 0; row < rows; ++row) {
+                        const dino::Mesh block = build_text_block(
+                            *list_font, save_slots[static_cast<std::size_t>(row)].second,
+                            px(widget.abs_x), py(widget.abs_y + row * line_h),
+                            list_scale * dpi, widget.text_color, widget.justify,
+                            static_cast<float>(row_w) * dpi,
+                            static_cast<float>(line_h) * dpi);
+                        draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
+                                     view_w, view_h);
+                    }
+                }
             }
 
             std::string text = runtime_text(widget.name);
