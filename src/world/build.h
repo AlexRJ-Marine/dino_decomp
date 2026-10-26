@@ -65,6 +65,25 @@ struct WorldRect {
 void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads);
 void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences);
 
+// Retail paddock capacity model (`stFence`, 0x57dc60 / 0x57eb50). A paddock is
+// a `.wld` fence rectangle; capacity counts 4-unit cells, and each dinosaur
+// consumes a cost from the 8/16/32/64 table.
+struct Paddock {
+    WorldRect rect;
+    float capacity = 0.0f;
+    float used = 0.0f;
+    std::vector<int> occupants;  // dinosaur ids/indices
+
+    float fill() const {
+        return capacity > 0.0f ? used / capacity : 0.0f;
+    }
+};
+
+float paddock_capacity(const WorldRect& rect, float cell_size);
+float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
+bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index);
+bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index);
+
 // `fence_source` is the retail fence segment (long axis = local +Y).
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
                                    const Mesh& fence_source);

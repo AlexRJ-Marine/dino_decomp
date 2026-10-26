@@ -790,8 +790,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   charge/removal branch.
 - [ ] Runtime-confirm the `dino+0x1e0` cost index and the landscape `+0xc`
   cell size.
-- [ ] Port the paddock-capacity model + store charge into
-  `src/world/build.cpp` (research done, implementation pending).
+- [x] Port the paddock-capacity model into `src/world/build.cpp`:
+  `Paddock`, `paddock_capacity` (`(w/cell)*(h/cell)`), `paddock_cost`
+  (8/16/32/64), duplicate check, `used`/`fill`, plus `--selftest` checks.
+  Imported `.wld` dinosaurs now fill their fence rectangles under the retail
+  rule (Cpg04: 9 paddocks, capacity 492, used 160).
+- [ ] Port the store purchase branch (charge `DINOACHAT`, remove the store
+  row) and the `WARNING_NO_ROOM_IN_FENCE` panel path; the insertion state
+  must stay active on failure.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

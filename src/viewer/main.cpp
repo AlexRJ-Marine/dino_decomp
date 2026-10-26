@@ -2034,6 +2034,21 @@ int run_selftest() {
                                -512.0f + 10.5f * 4.0f, cx, cy) &&
               cx == 10 && cy == 10, "world to cell");
 
+    dino::Paddock paddock;
+    paddock.rect = {0, 0, 31, 31};
+    paddock.capacity = dino::paddock_capacity(paddock.rect, 4.0f);
+    check(paddock.capacity == 64.0f, "paddock capacity");
+    check(dino::paddock_cost(0) == 8.0f && dino::paddock_cost(1) == 16.0f &&
+              dino::paddock_cost(3) == 64.0f, "paddock cost table");
+    check(dino::paddock_add(paddock, 1, 0) && paddock.used == 8.0f,
+          "paddock add");
+    check(!dino::paddock_add(paddock, 1, 0), "paddock duplicate");
+    for (int id = 2; id <= 8; ++id) {
+        dino::paddock_add(paddock, id, 0);
+    }
+    check(paddock.used == 64.0f && paddock.fill() == 1.0f, "paddock full");
+    check(!dino::paddock_add(paddock, 9, 0), "paddock no room");
+
     dino::Terrain terrain;
     terrain.width = 16;
     terrain.height = 16;
@@ -4162,7 +4177,25 @@ int main(int argc, char** argv) {
         }
         int spawned = 0;
         std::map<std::string, int> species_counts;
-        const std::size_t pen_count = wld_fences.size();
+        // Each `.wld` fence rectangle is a paddock with the retail capacity
+        // model (stFence, 0x57dc60/0x57eb50). Imported dinosaurs have no
+        // stored position, so they fill paddocks in record order.
+        std::vector<dino::WorldRect> paddock_rects = wld_fences;
+        if (paddock_rects.empty()) {
+            for (const dino::WorldFence& fence : sav_fences) {
+                paddock_rects.push_back({fence.start_x, fence.start_y,
+                                         fence.end_x, fence.end_y});
+            }
+        }
+        std::vector<dino::Paddock> paddocks;
+        paddocks.reserve(paddock_rects.size());
+        for (const dino::WorldRect& rect : paddock_rects) {
+            dino::Paddock paddock;
+            paddock.rect = rect;
+            paddock.capacity =
+                dino::paddock_capacity(rect, build_grid.cell_size);
+            paddocks.push_back(paddock);
+        }
         constexpr float kPi = 3.14159265f;
         for (std::size_t i = 0; i < wld_dinosaurs.size(); ++i) {
             const dino::WorldDinosaur& record = wld_dinosaurs[i];
@@ -4178,22 +4211,41 @@ int main(int argc, char** argv) {
             float x = terrain.world_size * 0.5f;
             float y = terrain.world_size * 0.5f;
             float angle = static_cast<float>(i) * 137.5f;
-            if (pen_count > 0) {
-                const dino::WorldRect& pen = wld_fences[i % pen_count];
-                const float x0 =
-                    static_cast<float>(std::min(pen.x0, pen.x1));
-                const float x1 =
-                    static_cast<float>(std::max(pen.x0, pen.x1));
-                const float y0 =
-                    static_cast<float>(std::min(pen.y0, pen.y1));
-                const float y1 =
-                    static_cast<float>(std::max(pen.y0, pen.y1));
-                const float radius =
-                    std::max(1.0f, std::min(x1 - x0, y1 - y0) * 0.28f);
-                const float theta = static_cast<float>(i) * 2.39996323f;
-                x = (x0 + x1) * 0.5f + std::cos(theta) * radius;
-                y = (y0 + y1) * 0.5f + std::sin(theta) * radius;
-                angle = theta * 180.0f / kPi + 90.0f;
+            if (!paddocks.empty()) {
+                int paddock_index = -1;
+                for (std::size_t p = 0; p < paddocks.size(); ++p) {
+                    if (dino::paddock_can_add(
+                            paddocks[p], static_cast<int>(i), 0)) {
+                        paddock_index = static_cast<int>(p);
+                        break;
+                    }
+                }
+                if (paddock_index >= 0) {
+                    dino::Paddock& paddock =
+                        paddocks[static_cast<std::size_t>(paddock_index)];
+                    dino::paddock_add(paddock, static_cast<int>(i), 0);
+                    const dino::WorldRect& pen = paddock.rect;
+                    const float x0 =
+                        static_cast<float>(std::min(pen.x0, pen.x1));
+                    const float x1 =
+                        static_cast<float>(std::max(pen.x0, pen.x1));
+                    const float y0 =
+                        static_cast<float>(std::min(pen.y0, pen.y1));
+                    const float y1 =
+                        static_cast<float>(std::max(pen.y0, pen.y1));
+                    const float radius =
+                        std::max(1.0f, std::min(x1 - x0, y1 - y0) * 0.28f);
+                    const float theta =
+                        static_cast<float>(paddock.occupants.size() - 1) *
+                            2.39996323f +
+                        static_cast<float>(paddock_index) * 0.7f;
+                    x = (x0 + x1) * 0.5f + std::cos(theta) * radius;
+                    y = (y0 + y1) * 0.5f + std::sin(theta) * radius;
+                    angle = theta * 180.0f / kPi + 90.0f;
+                } else {
+                    std::printf("dino %u (%s): no paddock capacity\n",
+                                record.object_id, species.c_str());
+                }
             }
             try {
                 if (add_imported_dino(species, family, opt.dino_clip, x, y,
@@ -4213,6 +4265,16 @@ int main(int argc, char** argv) {
                 std::printf(" %s=%d", species.c_str(), count);
             }
             std::printf("\n");
+            if (!paddocks.empty()) {
+                float capacity = 0.0f;
+                float used = 0.0f;
+                for (const dino::Paddock& paddock : paddocks) {
+                    capacity += paddock.capacity;
+                    used += paddock.used;
+                }
+                std::printf("paddocks: %zu capacity=%.0f used=%.0f\n",
+                            paddocks.size(), capacity, used);
+            }
             rebuild_extra_items();
         }
     }

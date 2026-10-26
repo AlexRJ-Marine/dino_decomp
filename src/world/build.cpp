@@ -260,8 +260,7 @@ void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
     }
 }
 
-void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {
-    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
+void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
         return;
     }
     const float cell = grid.cell_size;
@@ -289,7 +288,39 @@ void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {
     }
 }
 
-void save_build(const BuildGrid& grid, const std::string& path) {    std::ofstream out(path);
+float paddock_capacity(const WorldRect& rect, float cell_size) {
+    if (cell_size <= 0.0f) {
+        return 0.0f;
+    }
+    const float w = static_cast<float>(std::abs(rect.x1 - rect.x0) + 1);
+    const float h = static_cast<float>(std::abs(rect.y1 - rect.y0) + 1);
+    return (w / cell_size) * (h / cell_size);
+}
+
+float paddock_cost(int cost_index) {
+    const int index = std::clamp(cost_index, 0, 3);
+    return 8.0f * static_cast<float>(1 << index);
+}
+
+bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index) {
+    if (std::find(paddock.occupants.begin(), paddock.occupants.end(),
+                  dinosaur_id) != paddock.occupants.end()) {
+        return false;
+    }
+    return paddock.capacity - paddock.used >= paddock_cost(cost_index);
+}
+
+bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index) {
+    if (!paddock_can_add(paddock, dinosaur_id, cost_index)) {
+        return false;
+    }
+    paddock.occupants.push_back(dinosaur_id);
+    paddock.used += paddock_cost(cost_index);
+    return true;
+}
+
+void save_build(const BuildGrid& grid, const std::string& path) {
+    std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot write build file " + path);
     }

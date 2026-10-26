@@ -1,7 +1,8 @@
 # Path and fence placement (SIM-1)
 
-Status: **working** — grid placement, save/load, undo, terrain picking and
-retail fence/path visuals.
+Status: **working** - grid placement, save/load, undo, terrain picking and
+retail fence/path visuals; the retail paddock-capacity model is ported for
+imported dinosaurs.
 
 ## Grid
 
@@ -43,6 +44,29 @@ cell edge (west/east/south/north) and toggles its canonical edge.
   per-triangle material splitting is not implemented yet.
 - Both are baked into one mesh per type and rebuilt only when placement
   changes.
+
+## Paddock capacity
+
+A `.wld` fence rectangle is a paddock (`stFence`, `0x57dc60`/`0x57eb50`):
+
+```text
+capacity = ((x1-x0+1) / cell) * ((y1-y0+1) / cell)   // float division
+cost      = 8 << index, index 0..3 -> 8 / 16 / 32 / 64
+can_add   = dinosaur not already inside && capacity - used >= cost
+add       = append occupant, used += cost, fill = used / capacity
+```
+
+`src/world/build.cpp` exposes `Paddock`, `paddock_capacity`, `paddock_cost`,
+`paddock_can_add` and `paddock_add`. Imported dinosaurs fill paddocks in
+record order, because the save stores no per-dinosaur position; Cpg04 gives
+9 paddocks, total capacity 492, and 20 dinosaurs consume 160 (cost index 0).
+
+`--selftest` checks the capacity maths, the cost table, the duplicate rule,
+filling and the no-room rejection.
+
+Open: the purchase path (store charge to `DINOACHAT`, store-row removal),
+the `WARNING_NO_ROOM_IN_FENCE` panel path, and the runtime range of
+`dinosaur+0x1e0` (the cost index). The port uses index 0 until confirmed.
 
 ## CLI (also used by tests)
 

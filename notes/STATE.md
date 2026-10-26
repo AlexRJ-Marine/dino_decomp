@@ -1087,6 +1087,21 @@ Updated: 2026-10-26
   - Evidence: `notes/p3-dino-eat.png`, `docs/platform/world-import.md`,
     `docs/decomp/dinosaur-actions.md`,
     `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`.
+- P4a complete: **paddock-capacity model ported.**
+  - `src/world/build.cpp`: `Paddock` (rectangle, capacity, used, occupants),
+    `paddock_capacity = (w/cell)*(h/cell)`, `paddock_cost` 8/16/32/64 by
+    index, duplicate rejection, `used`/`fill`, `paddock_can_add`/`add`.
+  - Imported `.wld` dinosaurs fill their fence rectangles in record order
+    under the retail rule instead of a modulo ring. Cpg04: 9 paddocks,
+    total capacity 492, 20 dinosaurs used 160 (cost index 0 → 8 each).
+  - `--selftest` now has 29 checks (capacity, costs, duplicate, fill,
+    no-room); `test_cpp_wld_park_dinosaurs` asserts the summary.
+  - Pending: the store purchase branch (`DINOACHAT` charge + store-row
+    removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the runtime
+    `dinosaur+0x1e0` cost index.
+  - Evidence: `docs/platform/build.md`, `docs/decomp/construction-validation.md`,
+    `tests/test_viewer_cpp.py::test_cpp_wld_park_dinosaurs`,
+    `test_cpp_selftest`.
 - P4 research complete (**port implementation pending**):
   **`FENCE_INSERTION` validator is a paddock-capacity test.**
   - `0x535be0` is `pvwStateFenceInsertion` (ctor `0x535b10`,
@@ -1181,11 +1196,11 @@ Updated: 2026-10-26
    float: isl01 16.0, isl02 20.0; the stale "discarded by 0x51dad0" claim is
    corrected in `docs/formats/lnd.md`). Remaining: skybox face orientation and
    the exact `.lnd` carry path from the reader scratch to the landscape.
-14. CONS-1 rest: port the paddock-capacity model + store charge into
-   `src/world/build.cpp` (reject a duplicate or `used + cost > capacity`, keep
-   the insertion state on `WARNING_NO_ROOM_IN_FENCE`), and runtime-dump
-   `[dinosaur+0x1e0]` and the landscape `+0xc` cell size. Also decode the
-   `0x535c97` 64-byte-record branch. See `docs/decomp/construction-validation.md`.
+14. CONS-1 rest: port the store purchase branch (charge `DINOACHAT`, remove
+   the store row) and the `WARNING_NO_ROOM_IN_FENCE` panel path with the
+   insertion state staying active; runtime-dump `[dinosaur+0x1e0]` and the
+   landscape `+0xc` cell size, and decode the `0x535c97` branch. The
+   capacity model itself is ported. See `docs/decomp/construction-validation.md`.
 
 ## Blockers
 

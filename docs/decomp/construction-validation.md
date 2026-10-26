@@ -1,8 +1,8 @@
 # Construction validation and the `FENCE_INSERTION` state
 
-Status: **research decoded; port implementation pending.** This is the
-game-logic companion to `docs/platform/build.md` (port grid) and
-`docs/decomp/economy.md` (budget API). Raw evidence:
+Status: **research decoded; paddock-capacity model ported; purchase/warning
+path pending.** This is the game-logic companion to `docs/platform/build.md`
+(port grid) and `docs/decomp/economy.md` (budget API). Raw evidence:
 `notes/fence-insertion-recon.md`, `notes/construction-validation.md`.
 
 Method names are descriptive; the binary has no symbols. Only
@@ -152,6 +152,17 @@ original construction flow:
    inside the rectangle.
 5. The 64-byte-record spatial test at `0x535c97` is still undecoded; do not
    claim full parity for paddock placement until it is resolved.
+
+### Port status (2026-10-26)
+
+- Done: `Paddock`, `paddock_capacity` (`(w/cell)*(h/cell)`), the
+  8/16/32/64 cost table, the duplicate check, `used`/`fill`, and
+  `--selftest` coverage in `src/world/build.cpp`.
+- Done: imported `.wld` dinosaurs fill their fence rectangles in record
+  order under the capacity rule; Cpg04 = 9 paddocks, capacity 492, used 160.
+- Pending: the store purchase branch (`DINOACHAT` charge + store-row
+  removal), the `WARNING_NO_ROOM_IN_FENCE` panel path, the player pickup
+  point, and the runtime cost index.
 
 ## Open
 

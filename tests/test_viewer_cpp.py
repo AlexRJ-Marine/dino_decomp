@@ -559,7 +559,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (23 checks)" in result.stdout
+    assert "selftest: PASS (29 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -1645,6 +1645,10 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
     # species (hybrids pick the dominant body plan).
     assert ("dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
             in result.stdout)
+    # Each fence rectangle is a paddock: capacity 492 cells total, and the 20
+    # dinosaurs consume 8 each (cost index 0; retail default until the
+    # dinosaur+0x1e0 field is confirmed).
+    assert "paddocks: 9 capacity=492 used=160" in result.stdout
     image = Image.open(shot).convert("RGB")
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
