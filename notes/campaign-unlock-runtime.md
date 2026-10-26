@@ -76,6 +76,16 @@ Consequence: the dinosaur action→clip mapping does **not** come from
 clip when a known `saDinosaur` action (Eat/Sleep) starts, or find the
 animator method that consumes `actor+0x2c0`/the `.bai` action element.
 
+## Remaining: `[dinosaur+0x1e0]`
+
+The action selector `0x56e670` exposes the live actor at `[ecx+0x28]`; the
+harness arms it after the briefing and logs
+`[[ecx+0x28]+0x1e0]`. In the last runs the post-briefing window was blank or
+too short, so no `ACTOR` line was captured. Next: re-run with the briefing
+reliably dismissed and a 60 s sim window, or force BAD FOOD so the actor
+attempts an action sooner. That value is the last open field in the paddock
+cost rule.
+
 ## Harness
 
 `scripts/x32dbg/start-campaign.ps1` starts a chosen campaign/mission through
