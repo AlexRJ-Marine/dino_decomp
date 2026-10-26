@@ -88,6 +88,13 @@ struct PortDinoState {
     double phase = 0.0;  // clip playback phase
     int size_cm = 300;
     bool carnivore = true;  // diet gene 14; older saves default to true
+    // Danger-grid caches and their phenotype sources. Older saves omit the
+    // tail; the caches then start at 0 like retail before GetCourage /
+    // ObstAttackSize1 complete.
+    int threat = 0;           // +0x2a0
+    int threat_radius = 0;    // +0x27c
+    int combined_attack = 0;  // phenotype +0x44
+    int obstacle_radius = 0;  // phenotype +0x80
 };
 
 struct PortEmployeeState {

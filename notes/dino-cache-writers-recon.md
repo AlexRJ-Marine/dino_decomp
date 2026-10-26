@@ -79,14 +79,18 @@ the harness traces the park.
 
 ## Port impact
 
-`DinoAttributes` now exposes the exact fields: `combined_attack` (`+0x44`),
+`DinoAttributes` exposes the exact fields: `combined_attack` (`+0x44`),
 `obstacle_size` (`+0x78`), `obstacle_size_sq` (`+0x7c`) and
-`obstacle_radius` (`+0x80`), all validated on 20/20 Cpg04 rows. The next
-step is to copy them into `DinoNeeds` and have `DinoActionLoop::finish_action`
-write `needs_.threat = combined_attack` on GetCourage and
-`needs_.threat_radius = obstacle_radius` on ObstAttackSize1, then feed the
-chooser's threat term. `src/world/dino_actions.cpp` already accepts
-`threat_score`.
+`obstacle_radius` (`+0x80`), all validated on 20/20 Cpg04 rows.
+`DinoNeeds` now carries `combined_attack`/`obstacle_radius`, filled from the
+phenotype on import and buy, and `DinoActionLoop::finish_action` writes
+`threat = combined_attack` on GetCourage and
+`threat_radius = obstacle_radius` on ObstAttackSize1 (the `FUN_00571190`
+completion cases). `DINOPSAV` persists both caches and sources.
+`--dino-actions` prints the two writer checks
+(`dino cache getcourage: threat=54`, `dino cache obst: radius=7`); the
+chooser's target term still passes `threat_score = 0` until the policy
+vtable `+0x14` provider is ported.
 
 Evidence addresses: `0x571190` (completion), `0x5727b0` (ApplyActionEffect),
 `0x56FED0` (phenotype copy), `0x571B50` (grid stamp).

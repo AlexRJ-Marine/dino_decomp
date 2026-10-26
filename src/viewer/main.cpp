@@ -3109,6 +3109,26 @@ int main(int argc, char** argv) {
                     previous = name;
                 }
             }
+            // Completion writers `FUN_00571190`: case 0xd copies phenotype
+            // +0x44 into the grid threat cache; case 0x1a copies +0x80 into
+            // the stamp radius. Drive both through the public loop API.
+            {
+                std::vector<dino::BaiAction> cache_actions(2);
+                cache_actions[0].name = "GetCourage";
+                cache_actions[1].name = "ObstAttackSize1";
+                dino::DinoNeeds cache_needs;
+                cache_needs.combined_attack = 54;
+                cache_needs.obstacle_radius = 7;
+                dino::DinoActionLoop cache_loop(&cache_actions, cache_needs);
+                cache_loop.restore(cache_needs, 0, 0.01);
+                cache_loop.tick(0.02);
+                std::printf("dino cache getcourage: threat=%d\n",
+                            cache_loop.needs().threat);
+                cache_loop.restore(cache_needs, 1, 0.01);
+                cache_loop.tick(0.02);
+                std::printf("dino cache obst: radius=%d\n",
+                            cache_loop.needs().threat_radius);
+            }
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "dino-actions: %s\n", e.what());
@@ -4575,7 +4595,9 @@ int main(int argc, char** argv) {
     auto add_imported_dino = [&](const std::string& species,
                                  const std::string& family,
                                  const std::string& clip, float x, float y,
-                                 float angle) -> bool {
+                                 float angle,
+                                 const dino::DinoAttributes* attributes =
+                                     nullptr) -> bool {
         auto assets = load_imported_species(species, family, clip);
         if (!assets) {
             return false;
@@ -4611,6 +4633,18 @@ int main(int argc, char** argv) {
         if (hi.x > lo.x) {
             dinosaur.needs.size_cm = static_cast<int>(
                 std::max({hi.x - lo.x, hi.y - lo.y, hi.z - lo.z}) * 100.0f);
+        }
+        if (attributes != nullptr && attributes->length_cm > 0) {
+            dinosaur.attributes = *attributes;
+            // Retail attribute 4 (`actor+0x50`) is the phenotype length, not
+            // the rest-mesh bbox; the other values feed the `.bai` gates and
+            // the GetCourage/ObstAttackSize1 completion writers.
+            dinosaur.needs.size_cm = attributes->length_cm;
+            dinosaur.needs.aggression = attributes->aggression;
+            dinosaur.needs.stamina = attributes->stamina;
+            dinosaur.needs.agility = attributes->agility;
+            dinosaur.needs.combined_attack = attributes->combined_attack;
+            dinosaur.needs.obstacle_radius = attributes->obstacle_radius;
         }
         if (opt.dino_action_loop && !dino_action_table.empty()) {
             dino::DinoActionLoopConfig config;
@@ -5382,14 +5416,18 @@ int main(int argc, char** argv) {
             float x = terrain.world_size * 0.5f;
             float y = terrain.world_size * 0.5f;
             float angle = static_cast<float>(i) * 137.5f;
+            const dino::DinoAttributes attrs =
+                phenotype_table.valid
+                    ? phenotype_table.attributes(record.genotype)
+                    : dino::DinoAttributes{};
+            const dino::DinoAttributes* attrs_ptr =
+                phenotype_table.valid ? &attrs : nullptr;
             if (!paddocks.empty()) {
                 const int cost_class =
                     phenotype_table.valid
                         ? phenotype_table.size_class(record.genotype)
                         : dino::paddock_size_class(size_for_species(species));
                 if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
-                    const dino::DinoAttributes attrs =
-                        phenotype_table.attributes(record.genotype);
                     std::fprintf(
                         stderr,
                         "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
@@ -5457,13 +5495,9 @@ int main(int argc, char** argv) {
             }
             try {
                 if (add_imported_dino(species, family, opt.dino_clip, x, y,
-                                      angle)) {
+                                      angle, attrs_ptr)) {
                     imported_dinos.back().carnivore =
                         dino::genotype_is_carnivore(record.genotype);
-                    if (phenotype_table.valid) {
-                        imported_dinos.back().attributes =
-                            phenotype_table.attributes(record.genotype);
-                    }
                     ++spawned;
                     ++species_counts[species];
                 }
@@ -5609,17 +5643,20 @@ int main(int argc, char** argv) {
                             (x0 + x1) * 0.5f + std::cos(theta) * radius;
                         const float y =
                             (y0 + y1) * 0.5f + std::sin(theta) * radius;
-                        if (add_imported_dino(species, family, opt.dino_clip,
-                                              x, y,
-                                              theta * 180.0f / kPi + 90.0f)) {
+                        const bool have_attributes =
+                            have_genotype && phenotype_table.valid;
+                        const dino::DinoAttributes buy_attrs =
+                            have_attributes
+                                ? phenotype_table.attributes(buy_genotype)
+                                : dino::DinoAttributes{};
+                        if (add_imported_dino(
+                                species, family, opt.dino_clip, x, y,
+                                theta * 180.0f / kPi + 90.0f,
+                                have_attributes ? &buy_attrs : nullptr)) {
                             imported_dinos.back().carnivore =
                                 have_genotype
                                     ? dino::genotype_is_carnivore(buy_genotype)
                                     : true;
-                            if (have_genotype && phenotype_table.valid) {
-                                imported_dinos.back().attributes =
-                                    phenotype_table.attributes(buy_genotype);
-                            }
                             dino::paddock_add(paddock, dino_id, cost_class);
                             budget_ledger.spend_dinoachat(entry->price);
                             pending_buy_price = entry->price;
@@ -6798,6 +6835,13 @@ int main(int argc, char** argv) {
                 saved.needs = dinosaur.needs.value;
                 saved.size_cm = dinosaur.needs.size_cm;
             }
+            const dino::DinoNeeds& needs =
+                dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                     : dinosaur.needs;
+            saved.threat = needs.threat;
+            saved.threat_radius = needs.threat_radius;
+            saved.combined_attack = needs.combined_attack;
+            saved.obstacle_radius = needs.obstacle_radius;
             state.dinos.push_back(saved);
         }
         for (const dino::Paddock& paddock : paddocks) {
@@ -7083,8 +7127,13 @@ int main(int argc, char** argv) {
                     dino::DinoNeeds restored;
                     restored.value = saved.needs;
                     restored.size_cm = saved.size_cm;
-                    restored.threat = std::max(0, opt.dino_threat);
-                    restored.threat_radius = std::max(0, opt.dino_radius);
+                    restored.threat =
+                        opt.dino_threat > 0 ? opt.dino_threat : saved.threat;
+                    restored.threat_radius =
+                        opt.dino_radius > 0 ? opt.dino_radius
+                                            : saved.threat_radius;
+                    restored.combined_attack = saved.combined_attack;
+                    restored.obstacle_radius = saved.obstacle_radius;
                     restored.health = std::max(0, opt.dino_health);
                     restored.max_health = std::max(0, opt.dino_max_health);
                     dinosaur.needs = restored;
@@ -8933,44 +8982,51 @@ int main(int argc, char** argv) {
                                     dino::ui::resolve_loc_text(
                                         "&WARNING_NO_ROOM_IN_FENCE",
                                         park.loc));
-                            } else if (add_imported_dino(
-                                           species, family, opt.dino_clip, wx,
-                                           wy, 0.0f)) {
-                                if (have_genotype && phenotype_table.valid) {
-                                    imported_dinos.back().attributes =
-                                        phenotype_table.attributes(genotype);
-                                }
-                                dino::paddock_add(paddock, dino_id,
-                                                  cost_class);
-                                park_budget -= pending_store_price;
-                                budget_ledger.spend_dinoachat(
-                                    pending_store_price);
-                                store_catalog.erase(
-                                    store_catalog.begin() +
-                                    pending_store_index);
-                                refresh_store_rows();
-                                park_paddocks = paddocks;
-                                float total_used = 0.0f;
-                                for (const dino::Paddock& p : paddocks) {
-                                    total_used += p.used;
-                                }
-                                std::printf(
-                                    "store: bought %s price=%d budget=%d "
-                                    "paddock=%d dinos=%zu "
-                                    "dinoachat=%d/%d used=%.0f total=%.0f\n",
-                                    entry.name.c_str(), pending_store_price,
-                                    park_budget, paddock_index,
-                                    imported_dinos.size(),
-                                    budget_ledger.dinoachat_count,
-                                    budget_ledger.dinoachat_total,
-                                    paddock.used, total_used);
-                                pending_store_index = -1;
-                                pending_store_price = 0;
-                                rebuild_extra_items();
                             } else {
-                                std::printf(
-                                    "store: %s model load failed\n",
-                                    entry.name.c_str());
+                                const bool have_attributes =
+                                    have_genotype && phenotype_table.valid;
+                                const dino::DinoAttributes store_attrs =
+                                    have_attributes
+                                        ? phenotype_table.attributes(genotype)
+                                        : dino::DinoAttributes{};
+                                if (add_imported_dino(
+                                        species, family, opt.dino_clip, wx,
+                                        wy, 0.0f,
+                                        have_attributes ? &store_attrs
+                                                        : nullptr)) {
+                                    dino::paddock_add(paddock, dino_id,
+                                                      cost_class);
+                                    park_budget -= pending_store_price;
+                                    budget_ledger.spend_dinoachat(
+                                        pending_store_price);
+                                    store_catalog.erase(
+                                        store_catalog.begin() +
+                                        pending_store_index);
+                                    refresh_store_rows();
+                                    park_paddocks = paddocks;
+                                    float total_used = 0.0f;
+                                    for (const dino::Paddock& p : paddocks) {
+                                        total_used += p.used;
+                                    }
+                                    std::printf(
+                                        "store: bought %s price=%d budget=%d "
+                                        "paddock=%d dinos=%zu "
+                                        "dinoachat=%d/%d used=%.0f "
+                                        "total=%.0f\n",
+                                        entry.name.c_str(),
+                                        pending_store_price, park_budget,
+                                        paddock_index, imported_dinos.size(),
+                                        budget_ledger.dinoachat_count,
+                                        budget_ledger.dinoachat_total,
+                                        paddock.used, total_used);
+                                    pending_store_index = -1;
+                                    pending_store_price = 0;
+                                    rebuild_extra_items();
+                                } else {
+                                    std::printf(
+                                        "store: %s model load failed\n",
+                                        entry.name.c_str());
+                                }
                             }
                         } catch (const std::exception& e) {
                             std::fprintf(stderr, "store: %s\n", e.what());

@@ -228,6 +228,14 @@ void DinoActionLoop::finish_action() {
             int& value = needs_.value[delta.need];
             value = std::max(0, std::min(99, value + delta.delta));
         }
+        // `FUN_00571190`: action 13 (GetCourage) copies phenotype +0x44 into
+        // the danger-grid threat cache +0x2a0; action 26 (ObstAttackSize1)
+        // copies phenotype +0x80 into the stamp radius +0x27c.
+        if (action.name == "GetCourage") {
+            needs_.threat = needs_.combined_attack;
+        } else if (action.name == "ObstAttackSize1") {
+            needs_.threat_radius = needs_.obstacle_radius;
+        }
     }
     ++finished_count_;
     action_index_ = -1;

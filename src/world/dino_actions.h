@@ -34,6 +34,11 @@ struct DinoNeeds {
     int max_health = 100;     // int16 +0x1d4
     int threat = 0;           // +0x2a0, the value stamped into the grid
     int threat_radius = 0;    // +0x27c, the stamp radius in world units
+    // Phenotype sources for the completion writers (`FUN_00571190`):
+    // GetCourage copies combined_attack into threat; ObstAttackSize1 copies
+    // obstacle_radius into threat_radius. These are not the caches.
+    int combined_attack = 0;  // phenotype +0x44
+    int obstacle_radius = 0;  // phenotype +0x80
     std::array<int, 31> extra{};  // other FUN_00572620 attributes
 
     int need(NeedAxis axis) const {

@@ -1293,6 +1293,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `+0x2a0` and the five cached combat stats, action 26 copies
   `+0xc8/+0xcc/+0xd0` to the obstacle-size/radius cache
   (`+0x274..+0x27c`). See `notes/dino-cache-writers-recon.md`.
+- [x] Port the writers: `DinoNeeds` carries `combined_attack`/`obstacle_radius`
+  (filled from `DinoAttributes` on import and buy), `finish_action` writes
+  `threat` on GetCourage and `threat_radius` on ObstAttackSize1, and
+  `DINOPSAV` persists both caches/sources. `--dino-actions` prints the two
+  writer checks (`threat=54`, `radius=7`); the port save round-trip is
+  `test_cpp_port_save_danger_cache`. The normal-play grid becomes live once
+  one of those actions completes (retail starts at 0).
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
   still needs the behavior-manager perception path and the chooser's
   per-action target term (policy vtable `+0x14`). The action→clip premise

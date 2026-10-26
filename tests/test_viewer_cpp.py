@@ -1576,8 +1576,7 @@ def test_cpp_port_save_dino_state(tmp_path):
     assert all(" 20 90 50 20 " in line for line in dino_lines)
     assert any(" LowQuadruped " in line for line in dino_lines)
     assert any(" HeavyBiped " in line for line in dino_lines)
-    # Clip playback phase is the last field; imported dinos start at
-    # index * 617 ms.
+    # Clip playback phase is field 15; the optional cache tail follows it.
     assert all(len(line.split()) >= 16 for line in dino_lines)
     assert any(float(line.split()[15]) != 0.0 for line in dino_lines)
 
@@ -1595,6 +1594,44 @@ def test_cpp_port_save_dino_state(tmp_path):
     # No food source after a save load (paddocks are not part of the save),
     # so the restored 20/90/50/20 state selects Sleep 6360, not Eat.
     assert "Sleep score=6360 needs=20/90/50/20" in load.stdout
+
+
+def test_cpp_port_save_danger_cache(tmp_path):
+    """The danger-grid caches and their phenotype sources survive .psav."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    target = tmp_path / "cache.psav"
+    common = [
+        str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+        "160", "--height", "120", "--no-vsync", "--no-save-config",
+        "--lnd", str(isl04), "--asset-root", str(GAME),
+        "--no-vegetation", "--no-water", "--wld-park", str(wld),
+    ]
+    save = subprocess.run(
+        common + ["--dino-threat", "54", "--dino-radius", "7",
+                  "--save-port", str(target)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert save.returncode == 0, save.stderr
+    dino_lines = [ln for ln in target.read_text().splitlines()
+                  if ln.startswith("dino ")]
+    assert len(dino_lines) == 20
+    # Tail: threat, threat_radius, combined_attack, obstacle_radius.
+    assert all(line.split()[-4] == "54" for line in dino_lines)
+    assert all(line.split()[-3] == "7" for line in dino_lines)
+    assert all(int(line.split()[-2]) > 0 for line in dino_lines)
+    assert all(int(line.split()[-1]) > 0 for line in dino_lines)
+
+    load = subprocess.run(
+        common + ["--load-port", str(target), "--secu-probe"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert load.returncode == 0, load.stderr
+    assert "threat=54 radius=7" in load.stdout
 
 
 def test_cpp_options_save_and_load_buttons(tmp_path):
@@ -2208,6 +2245,10 @@ def test_cpp_dino_action_chooser():
     assert "dino choose both: Eat 9009" in result.stdout
     assert "dino choose full: idle" in result.stdout
     assert "dino choose small: EatForSmallies 9009" in result.stdout
+    # `FUN_00571190` completion writers: GetCourage copies +0x44 into the
+    # grid threat cache, ObstAttackSize1 copies +0x80 into the stamp radius.
+    assert "dino cache getcourage: threat=54" in result.stdout
+    assert "dino cache obst: radius=7" in result.stdout
 
 def test_cpp_market_info():
     if not EXE.exists():

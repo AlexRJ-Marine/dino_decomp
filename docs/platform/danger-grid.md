@@ -57,6 +57,10 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
   `--dino-radius` and `--dino-health` make the grid live. Retail leaves
   `+0x27c`/`+0x2a0` at 0 until action 26 (ObstAttackSize1) and action 13
   (GetCourage) finish, so imported dinosaurs start with the caches at 0.
+  `DinoActionLoop::finish_action` now implements those writers from
+  `DinoNeeds::obstacle_radius` / `combined_attack` (filled from
+  `DinoAttributes`), so normal play populates the grid after the relevant
+  action completes.
 - CLI: `--dino-threat N`, `--dino-radius N`, `--dino-health CUR,MAX`,
   `--secu-probe` (one line per dinosaur per rebuild; it prints even when
   the grid is not live).
@@ -71,15 +75,14 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
   dinosaurs and checks every probe line against the formula, the raw
   0..1024 coordinates (`x > 512`), the half-health offset, health-only
   activation, a non-exact 70/169 ratio and the 0 clamp.
-- The port save stores the four need values and `size_cm` only; the danger
-  cache fields are CLI/test inputs and are not persisted, so a save made
-  with `--dino-health 50,100` reloads as 100/100 unless the flag is passed
-  again.
+- The port save now persists the four need values, `size_cm`, the two
+  danger caches (`threat`, `threat_radius`) and their phenotype sources
+  (`combined_attack`, `obstacle_radius`) as an optional tail. Older saves
+  omit the tail and reload with the caches at 0.
+- `tests/test_viewer_cpp.py::test_cpp_port_save_danger_cache` covers the
+  save/load round-trip.
 
 ## Remaining
 
-- Write `+0x27c`/`+0x2a0` from ObstAttackSize1/GetCourage completion
-  (`FUN_005727B0` cases 26/13 and `FUN_00571190`) so the grid becomes live
-  in normal play instead of only under the CLI overrides.
 - The chooser's per-action target position (policy vtable `+0x14`) and the
   visitor/obstacle reaction path.

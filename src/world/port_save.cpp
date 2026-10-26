@@ -79,7 +79,9 @@ void save_port_state(const PortState& state, const std::string& path) {
             << dinosaur.needs[3] << " " << dinosaur.action_id << " "
             << dinosaur.action_left << " " << dinosaur.size_cm << " "
             << (dinosaur.carnivore ? 1 : 0) << " " << dinosaur.phase
-            << "\n";
+            << " " << dinosaur.threat << " " << dinosaur.threat_radius
+            << " " << dinosaur.combined_attack << " "
+            << dinosaur.obstacle_radius << "\n";
     }
     for (const PortPaddockState& paddock : state.paddocks) {
         out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
@@ -251,6 +253,20 @@ PortState load_port_state(const std::string& path) {
             double phase = 0.0;
             if (parts >> phase) {
                 dinosaur.phase = phase;
+            }
+            // Optional cache tail (added after the first DINOPSAV format).
+            int value = 0;
+            if (parts >> value) {
+                dinosaur.threat = value;
+            }
+            if (parts >> value) {
+                dinosaur.threat_radius = value;
+            }
+            if (parts >> value) {
+                dinosaur.combined_attack = value;
+            }
+            if (parts >> value) {
+                dinosaur.obstacle_radius = value;
             }
             if (dinosaur.species.empty() || dinosaur.family.empty() ||
                 dinosaur.clip.empty()) {

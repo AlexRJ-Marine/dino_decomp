@@ -350,6 +350,11 @@ the Cpg04 dinosaurs have nonzero values (e.g. threat 53/radius 5,
 threat 68/radius 10, threat 40/radius 3), so the action path runs before
 the trace.
 
+Ported: `DinoActionLoop::finish_action` writes `needs_.threat` from
+`combined_attack` on GetCourage and `needs_.threat_radius` from
+`obstacle_radius` on ObstAttackSize1. `--dino-actions` checks both
+(`dino cache getcourage: threat=54`, `dino cache obst: radius=7`).
+
 ### Validation
 
 `notes/x32dbg-secu6.out.log` (Cpg04, `scripts/x32dbg/start-campaign.ps1

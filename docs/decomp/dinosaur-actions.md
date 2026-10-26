@@ -260,10 +260,16 @@ The chooser's separate threat term reads the action node's target position
 (policy vtable `+0x14`) and computes
 `threat = -cell(target) + cell(actor) - actor+0x2a0`, added as
 `need_term(SECU, threat/10)`. `FUN_00572DD0` is the target-inside-radius
-box test (`|tx-x| <= r && |ty-y| <= r`), not a world bounds test. The port
-still passes `threat_score = 0` until it models per-action target
-positions. Details: `notes/dino-action-chooser-recon.md`
-("Danger-grid population").
+box test (`|tx-x| <= r && |ty-y| <= r`), not a world bounds test.
+
+The completion writers are ported: `DinoActionLoop::finish_action` copies
+`DinoNeeds::combined_attack` (phenotype `+0x44`) into `threat` (`+0x2a0`) on
+GetCourage and `obstacle_radius` (phenotype `+0x80`) into `threat_radius`
+(`+0x27c`) on ObstAttackSize1. Imported/bought dinosaurs fill both sources
+from `DinoAttributes`; `DINOPSAV` persists the caches and sources. The
+chooser still passes `threat_score = 0` until the per-action target provider
+(policy vtable `+0x14`) is modelled. Details:
+`notes/dino-action-chooser-recon.md` ("Danger-grid population").
 
 ## Evidence
 

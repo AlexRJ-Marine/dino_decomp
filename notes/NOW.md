@@ -47,10 +47,11 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- P3-CACHE: `GetCourage`/`ObstAttackSize1` writers decoded
-  (`0x571190`/`0x5727b0`); `+0x44/+0x78/+0x80` are now exact in
-  `DinoAttributes` (20/20 Cpg04). Wire the caches into `DinoNeeds` and port
-  the chooser's target threat term.
+- P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
+  `DinoNeeds::threat`/`threat_radius` from the exact
+  `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
+  sources. The chooser's per-action target provider (policy vtable `+0x14`)
+  remains.
 - P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
   `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
@@ -62,9 +63,9 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3-CACHE wiring: on GetCourage/ObstAttackSize1 completion set
-   `DinoNeeds::threat`/`threat_radius` from `combined_attack`/
-   `obstacle_radius`, then port the chooser target term.
+1. P3 chooser target term: resolve the policy vtable `+0x14` target
+   provider (GetTarget x/y/radius) and feed `threat_score`; this also
+   unblocks the visitor/obstacle reaction.
 2. Store/lab attribute gauges: all eleven sources are exact (20/20 Cpg04);
    wire the `PROGRESS` widgets (ConstructionInterface) and the 3D preview.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
@@ -73,6 +74,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - Port the GetCourage/ObstAttackSize1 cache writers into DinoNeeds, import/buy and DINOPSAV
 - 2026-10-26 - CAMPAIGN-3 live employees: Cpg01_Mission6 employees objective succeeds with two hires
 - 2026-10-26 - CAMPAIGN-3 menu campaign flow: select/briefing/start imports Cpg04 park and runs Mission1
 - 2026-10-26 - Port the phenotype dummy/skin/carapace accumulator (Parts 4-9); all 20 Cpg04 attribute rows and the obstacle radii now match
@@ -80,7 +82,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - SIM-5 employees: .bei profiles, hire/wages, hourly feeding queue, visible nutritionist
 - 2026-10-26 - CAMPAIGN-3 mission runtime: --start-mission, MISSION_PANEL tri-state/lights, CPGEND on result
 - 2026-10-26 - CAMPAIGN-2 evaluator core (tri-state; simple + trait verbs; 30 selftest verdicts)
-- 2026-10-26 - UI-2 Phase D tail: visitor travel state/route + dino clip phase in DINOPSAV
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers
