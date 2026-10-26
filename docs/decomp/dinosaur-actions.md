@@ -217,6 +217,10 @@ action. This is confirmed by the two independent checks.
   the retail algorithm.
 - `--dino-actions` prints the chooser result for starving / tired / both /
   full / small scenarios and a 40 s action timeline.
+- The viewer runs one `DinoActionLoop` per imported dinosaur
+  (`--dino-action-loop`, `--dino-needs F,V,S,R`, `--dino-action-speed N`).
+  The default needs are `50,99,99,99`: `FUN_00570fd0` puts the food gauge at
+  50 % and the first 10 s tick rewrites UI FOOD to 50.
 - The viewer drives every imported dinosaur with `DinoActionLoop`
   (`--dino-action-loop`, `--dino-needs F,V,S,R`, `--dino-action-speed N`).
   The selected action switches the animation clip through the inferred

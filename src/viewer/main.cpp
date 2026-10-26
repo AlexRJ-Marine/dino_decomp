@@ -112,7 +112,7 @@ struct Options {
     bool bai_info = false;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
-    std::string dino_needs = "99,99,99,99";
+    std::string dino_needs = "50,99,99,99";
     float dino_action_speed = 1.0f;
     float building_x = 520.0f;
     float building_y = 376.0f;
@@ -540,7 +540,7 @@ Options parse_args(int argc, char** argv) {
                 "  --bai-info           print the 64 action definitions and exit\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
-                "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 99s)\n"
+                "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
                 "  --dino-action-speed N action duration scale (default 1)\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
@@ -3485,7 +3485,7 @@ int main(int argc, char** argv) {
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
     std::vector<ImportedDino> imported_dinos;
     std::vector<dino::BaiAction> dino_action_table;
-    std::array<int, 4> dino_initial_needs{99, 99, 99, 99};
+    std::array<int, 4> dino_initial_needs{50, 99, 99, 99};
     if (std::sscanf(opt.dino_needs.c_str(), "%d,%d,%d,%d",
                     &dino_initial_needs[0], &dino_initial_needs[1],
                     &dino_initial_needs[2], &dino_initial_needs[3]) == 4) {

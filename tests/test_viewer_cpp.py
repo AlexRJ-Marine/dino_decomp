@@ -1658,13 +1658,15 @@ def test_cpp_dino_action_loop():
         pytest.skip("retail isl04/Cpg04 missing")
 
     def run(needs):
+        args = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+                "--width", "160", "--height", "120", "--no-vsync",
+                "--no-save-config", "--lnd", str(isl04),
+                "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+                "--wld-park", str(wld), "--dino-action-loop"]
+        if needs:
+            args += ["--dino-needs", needs]
         result = subprocess.run(
-            [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
-             "--width", "160", "--height", "120", "--no-vsync",
-             "--no-save-config", "--lnd", str(isl04),
-             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
-             "--wld-park", str(wld), "--dino-action-loop", "--dino-needs",
-             needs],
+            args,
             capture_output=True, text=True, timeout=180,
         )
         assert result.returncode == 0, result.stderr
@@ -1683,6 +1685,15 @@ def test_cpp_dino_action_loop():
 
     # All-full needs score 0 on the self actions, so the dinosaur stays idle.
     assert run("99,99,99,99") == []
+
+    # Retail steady state: the food gauge starts at 50% and the first 10 s
+    # tick normalises UI FOOD to 50; that is the port default.
+    default = run(None)
+    assert len(default) == 20
+    assert any(
+        re.search(r"dino action: \w+ Eat(?:ForSmallies)? score=450 ", line)
+        for line in default
+    )
 
 
 def test_cpp_wld_park_no_import_dinos():

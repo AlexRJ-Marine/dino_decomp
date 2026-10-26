@@ -1076,7 +1076,12 @@ Updated: 2026-10-26
     (`--dino-action-loop`, `--dino-needs F,V,S,R`, `--dino-action-speed N`)
     and switches clips through the inferred name mapping.
   - Cpg04: `--dino-needs 20,90,50,90` → 20 × Eat 9009;
-    `70,90,90,20` → 20 × Sleep 7060; the default 99s stay idle.
+    `70,90,90,20` → 20 × Sleep 7060; `99,99,99,99` stays idle.
+  - Default needs are `50,99,99,99` (retail: `FUN_00570fd0` sets the food
+    gauge to 50 % and the first 10 s tick rewrites UI FOOD to 50), which
+    selects Eat/EatForSmallies at score 450.
+  - Decay rates are port tuning; the raw gauge formulas are recorded in
+    `notes/dino-action-chooser-recon.md`.
   - Open: the verified action→clip table, the SECU threat/visitor term and
     the feeding interaction.
   - Evidence: `notes/p3-dino-eat.png`, `docs/platform/world-import.md`,

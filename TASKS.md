@@ -891,7 +891,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   drive the imported dinosaurs' clips from the selected action
   (`--dino-action-loop`, `--dino-needs`, `--dino-action-speed`). Forced
   starving gives Eat 9009, tired gives Sleep 7060, all-full stays idle over
-  20 imported dinosaurs.
+  20 imported dinosaurs. Default needs are `50,99,99,99` (retail food gauge
+  starts at 50 %), which selects Eat at score 450.
 - [ ] Visitor/obstacle reaction (the threat term feeding SECU) and the
   retail-verified action→animation clip table (currently name-based/inferred:
   Eat→Chew, Sleep→Sleep, Exploration→Walk, Smell→Sniff).

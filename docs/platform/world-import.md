@@ -160,16 +160,19 @@ The file has no per-dinosaur position. The port distributes the records
 inside the saved `drsFence` rectangles (paddocks), one ring per rectangle,
 deterministically; building-only parks fall back to the map centre. The
 care-state list at the simulation offset (name/phenotype/needs) is not read
-yet, so imported dinosaurs start from the runtime default needs.
+yet, so imported dinosaurs start from the retail steady-state needs
+`50,99,99,99` (the food gauge starts at 50% and the first 10 s tick
+normalizes UI FOOD to 50).
 
 `--dino-action-loop` replaces the static clip with the retail chooser
-(`src/world/dino_actions.cpp`): the four needs decay slowly, `choose_action`
-picks `Exploration`/`Eat`/`EatForSmallies`/`Sleep` from the `.bai`
-preconditions and weight tables, and the completed action applies its need
-deltas before the next decision. `--dino-needs F,V,S,R` seeds the four needs
-and `--dino-action-speed N` scales the 30 s `.bai` durations. The clip link
-is inferred (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`, idle→
-`Neutral`); the retail mapping table is still open.
+(`src/world/dino_actions.cpp`): the four needs decay (rates are port tuning),
+`choose_action` picks `Exploration`/`Eat`/`EatForSmallies`/`Sleep` from the
+`.bai` preconditions and weight tables, and the completed action applies its
+need deltas before the next decision. `--dino-needs F,V,S,R` seeds the four
+needs (default `50,99,99,99`, the retail steady state after the first 10 s
+food tick) and `--dino-action-speed N` scales the 30 s `.bai` durations. The
+clip link is inferred (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`,
+idle→`Neutral`); the retail mapping table is still open.
 
 ## Open
 
@@ -177,7 +180,8 @@ is inferred (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`, idle→
   `actor+0x68` writer is found.
 - The dinosaur care-state list (name/phenotype/needs) is decoded only in
   notes; the port spawns from the world genotype.
-- Imported dinosaurs are static placed actors; the P3 action loop will drive
-  their needs and clips.
+- Imported dinosaurs run the `DinoActionLoop` when `--dino-action-loop` is
+  set; the open pieces are the retail action→clip table, the SECU
+  threat/visitor term and the feeding item.
 - Retail fences whose rectangles are not axis-aligned (if any) need a
   segment decomposition.
