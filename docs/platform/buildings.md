@@ -124,8 +124,11 @@ $G = "game/%MAINDIR%"
 ## Open
 
 - `model[0] = 1` slope-aligned basis (`LunchDoor`) is not implemented.
-- Build cost (the panel prices) and the construction/destruction flags in the
-  simulation object (`+0x64..+0x68`).
+- Construction cost is solved: `.bbi` file offset 21 (`Building::
+  construction_cost`), charged to the CONSTRUCTION bucket by
+  `FUN_00585d20`; the visitor entry price is file offset 25. The
+  construction/destruction flags in the simulation object (`+0x64..+0x68`)
+  remain open.
 - `BuildingList.ini` kind -> `.bbi` mapping is done through the list index;
   placement from the save/campaign path is live, placement through the
   construction UI is not.
