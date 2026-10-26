@@ -1217,14 +1217,17 @@ Updated: 2026-10-26
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
   and drive the imported dinosaurs. The old "action→clip table" premise is
   resolved: `aacDinosaurAnimator` selects a locomotion/activity slot from
-  `saDinosaur+0x2bc` plus an event animation handle (`+0x518/+0x520`), never
-  the action id. See `notes/action-clip-lead.md`. Remaining: wire the event
-  animation handle source, the SECU threat/visitor reaction term and the
-  feeding interaction (Eat currently assumes an item).
-- **UI-2 Phase C rest:** dynamic values inside sub-panels (budget ledger rows,
-  list snapshots, slider/checkbox selection), minimap water colour/partition
-  polish. Button bindings, hover/pressed states, the menu→island handoff,
-  the minimap and 1024×768 anchoring are done.
+  `saDinosaur+0x2bc` plus a `.bai` element envmap texture (`+0x518`), never
+  the action id. See `notes/action-clip-lead.md`. Remaining: wire the `.bai`
+  element bone/event overlay source, the SECU threat/visitor reaction term and
+  the feeding interaction (Eat currently assumes an item).
+- **UI-2 Phase C rest:** list snapshots, slider/checkbox selection, minimap
+  water colour/partition polish. The budget ledger rows are live: purchases,
+  construction and the daily settlement feed a current/yesterday ledger
+  (`src/world/economy.*`), and the panel shows CONSTRUCTION/DINOACHAT plus
+  the total expenses after the rollover (`notes/budget-spent.png`). Button
+  bindings, hover/pressed states, the menu→island handoff, the minimap and
+  1024×768 anchoring are done.
 - **UI-2 Phase D:** `OPTIONS_NAME_SLOT` text entry, the dialog family,
   Save/Load, building placement, the imported dinos' actor state
   (needs/action id/remaining seconds) and the visitors' profile/needs are
@@ -1250,13 +1253,13 @@ Updated: 2026-10-26
 
 1. UI-2 Phase D is closed except visitor travel state and the dino clip
    playback phase; add those if the save fidelity matters.
-2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
-   and minimap water/partition polish.
+2. UI-2 Phase C rest: list snapshots, sliders and minimap water/partition
+   polish (the budget ledger rows are done).
 3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are
    done; the "action→clip table" premise is resolved (locomotion slot +
-   event animation handle, `notes/action-clip-lead.md`). Remaining: wire the
-   event animation handle source, the SECU threat/visitor term, and model the
-   feeding item so Eat requires a real food source. See
+   element envmap texture, `notes/action-clip-lead.md`). Remaining: wire
+   the element bone/event overlay source, the SECU threat/visitor term, and
+   model the feeding item so Eat requires a real food source. See
    `notes/dino-action-chooser-recon.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: frustum culling and LOD2; the `model[0] = 1` slope basis
@@ -1290,9 +1293,10 @@ Updated: 2026-10-26
    click) and the `DINOACHAT` count/total bucket + store-row removal; refine
    the imported dinosaurs' cost class from the species baseline (port `used`
    = 384) to the individual phenotype (retail Cpg04 = 336; Allosaurus is four
-   class 2 / three class 1); decode the `0x535c97` branch. The capacity
-   model, the headless purchase core (`--buy-dino`), the catalog reader and
-   both warning panels are done. See `docs/decomp/construction-validation.md`.
+   class 2 / three class 1). The `0x535c97` branch is solved: it is the 1.5 s
+   post-placement node-reveal timer, not a validator. The capacity model, the
+   headless purchase core (`--buy-dino`), the catalog reader and both warning
+   panels are done. See `docs/decomp/construction-validation.md`.
 
 ## Blockers
 

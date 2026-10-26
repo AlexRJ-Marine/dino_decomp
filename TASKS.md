@@ -794,8 +794,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   fence/paddock `FENCE_INSERTION` state `0x535be0` decoded.
 - [x] Decoded `WARNING_NO_ROOM_IN_FENCE` as a **paddock capacity** test
   (`stFence::CanAddActor` `0x57eb50`: duplicate check + `capacity(+0x7c) −
-  used(+0x80) >= cost[8/16/32/64]`). It is not a cell-mask test; the
-  `this+0x48` branch at `0x535c97` is still undecoded.
+  used(+0x80) >= cost[8/16/32/64]`). It is not a cell-mask test. The
+  `this+0x48` branch at `0x535c97` is **not** a second validator: it is the
+  1.5 s post-placement reveal timer (3-second type-3 placement record;
+  `record+0x20` elapsed, `record+0x24` lifetime) that re-enables the new
+  dinosaur's scene node and leaves `FENCE_INSERTION`.
 - [x] Recovered the capacity initialisation (`0x57dc60`: fence rectangle /
   cell size), `AddActor` (`0x57e8a0`), `PlaceActor` (`0x57ec00`; its
   50-iteration loop is unreachable and it always returns 1) and the store
@@ -829,7 +832,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   no-money and unknown.
 - [ ] Port the interactive store panel (selection + paddock click), the
   `DINOACHAT` count/total bucket, the store-row removal (`FUN_00594270`) and
-  the insertion state staying active on failure.
+  the insertion state staying active on failure. The 1.5 s reveal delay is
+  optional (retail hides the new model until half of its 3-second placement
+  record has elapsed).
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.
@@ -1079,6 +1084,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase C rest (budget ledger): `BUDGET_*_NUMBER` category/total widgets
   show the fresh-park zeros (refresh mapping from `0x510430`); gauge budget
   follows the difficulty.
+- [x] Phase C rest (dynamic ledger): `src/world/economy.{h,cpp}` tracks the
+  current/yesterday counters; `--buy-dino`, construction placement and the
+  daily settlement feed it, and the panel shows CONSTRUCTION/DINOACHAT and
+  the total expenses after the rollover (`notes/budget-spent.png`,
+  `test_cpp_budget_panel_ledger`).
 - [ ] Phase C rest: list snapshots/sliders, minimap water colour/partition
   polish.
 - [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park
