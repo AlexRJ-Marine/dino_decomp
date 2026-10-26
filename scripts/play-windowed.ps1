@@ -63,8 +63,10 @@ public class DinoWindowShot {
             [DinoWindowShot]::PrintWindow($hwnd, $hdc, 0) | Out-Null
             $graphics.ReleaseHdc($hdc)
         } finally {
-            $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0,
-                (New-Object System.Drawing.Size $width, $height))
+            if ($PhysicalInput) {
+                $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0,
+                    (New-Object System.Drawing.Size $width, $height))
+            }
             $graphics.Dispose()
         }
         $path = Join-Path $root $Shot

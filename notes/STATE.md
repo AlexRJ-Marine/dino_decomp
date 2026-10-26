@@ -1273,13 +1273,15 @@ Updated: 2026-10-26
     deltas and the left-button byte. The physical cursor is never moved.
   - Verified end to end: Free Game -> IGUANO -> easy -> Start -> park ->
     lab/options/save, with the game in a window and no `SetCursorPos` or
-    `mouse_event` call.
+    `mouse_event` call. Also verified with OpenCode left as the foreground
+    window: the full flow ran while the game stayed behind it.
   - `play-freegame.ps1`, `start-campaign.ps1`, `trace-bad.ps1`,
     `trace-calibration.ps1`, `run-headless.ps1`, `probe-game.ps1` and
     `play-freegame-direct.ps1` default to `run-test` + virtual input;
     `-PhysicalInput` restores the legacy `run/` fullscreen path; screenshots
     go to the gitignored `notes/harness/` (`-ShotDir` override) so tracked
-    evidence is not overwritten.
+    evidence is not overwritten. The harness restores the pre-run foreground
+    window and uses `PrintWindow`, so it does not need the game in front.
     `Send-VirtualClick.ps1` is the standalone helper.
   - Evidence: `docs/platform/windowed-testing.md`,
     `notes/windowed-main-menu.png`, `notes/windowed-freegame-virtual.png`,

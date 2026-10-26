@@ -163,6 +163,8 @@ The full path was exercised with the default `play-freegame.ps1` (no
 - park loaded (`entrance_lod1.skel/skin/anim/mesh` in the trace)
 - lab, options and save panels opened
 - the physical cursor was not moved
+- the game stayed behind OpenCode; OpenCode remained the foreground window
+  for the whole run
 
 Evidence:
 

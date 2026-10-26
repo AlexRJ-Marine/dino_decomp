@@ -41,6 +41,9 @@ public class Win32 {
 Add-Type -AssemblyName System.Drawing
 
 function Save-Window([IntPtr]$hwnd, [string]$path) {
+    if (-not $PhysicalInput) {
+        [Win32]::ShowWindow($hwnd, 4) | Out-Null
+    }
     $r = New-Object Win32+RECT
     [Win32]::GetWindowRect($hwnd, [ref]$r) | Out-Null
     $w = $r.Right - $r.Left
@@ -53,7 +56,9 @@ function Save-Window([IntPtr]$hwnd, [string]$path) {
         [Win32]::PrintWindow($hwnd, $hdc, 0) | Out-Null
         $g.ReleaseHdc($hdc)
     } finally {
-        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $h))
+        if ($PhysicalInput) {
+            $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size $w, $h))
+        }
         $g.Dispose()
     }
     $savePath = Join-Path $root $path

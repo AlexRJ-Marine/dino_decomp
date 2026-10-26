@@ -19,6 +19,7 @@ using System.Runtime.InteropServices;
 public class DinoPlayFocus {
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
 }
 "@
 $previousForeground = [DinoPlayFocus]::GetForegroundWindow()
@@ -62,6 +63,12 @@ if ($hwnd -ne [IntPtr]::Zero) {
 if ($previousForeground -ne [IntPtr]::Zero) {
     [DinoPlayFocus]::SetForegroundWindow($previousForeground) | Out-Null
 }
+if ($hwnd -ne [IntPtr]::Zero) {
+    # Focus restoration can deactivate the game; position it again without
+    # activation so it stays visible in the background.
+    Start-Sleep -Milliseconds 150
+    & (Join-Path $PSScriptRoot "Set-WindowedStyle.ps1") -Hwnd $hwnd -SendToBack
+}
 
-Write-Host "Click inside the game window to give it mouse input; Alt-Tab releases it."
-Write-Host "The physical cursor is never moved or clipped by the launcher."
+Write-Host "Click inside the game window to give it mouse input; click outside to release it."
+Write-Host "The game stays in the background; the physical cursor is never moved or clipped."

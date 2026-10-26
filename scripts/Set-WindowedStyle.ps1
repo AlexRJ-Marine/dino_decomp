@@ -49,7 +49,8 @@ $width = $client.Right - $client.Left
 $height = $client.Bottom - $client.Top
 $centerX = [int](($current.Left + $current.Right) / 2)
 $centerY = [int](($current.Top + $current.Bottom) / 2)
-if ($current.Left -lt -10000 -or ($current.Right - $current.Left) -le 0) {
+if ($current.Left -lt 0 -or $current.Top -lt 0 -or
+    $current.Left -lt -10000 -or ($current.Right - $current.Left) -le 0) {
     $centerX = [int]([DinoWindowStyle]::GetSystemMetrics(0) / 2)
     $centerY = [int]([DinoWindowStyle]::GetSystemMetrics(1) / 2)
 }
