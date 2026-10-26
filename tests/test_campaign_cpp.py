@@ -146,6 +146,26 @@ def test_cpp_menu_campaign_mission_start():
     assert "mission Cpg04_Mission1: success" not in result.stdout
 
 
+def test_cpp_campaign_live_employees():
+    # Cpg01_Mission6 wants a farm (connectedbuildings, still pending) and two
+    # employees. Hired nutritionists are the live `employees all 2` source.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    mission = SCENARIO / "Cpg01" / "Cpg01_Mission6.ini"
+    if not isl01.exists() or not mission.exists():
+        pytest.skip("retail Cpg01 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--hire-nutritionist", "2", "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "employees: hired=2" in result.stdout
+    assert "mission objective 1 employees -> success" in result.stdout
+    # connectedbuildings has no port yet, so the mission itself stays pending.
+    assert "mission Cpg01_Mission6: success" not in result.stdout
+
+
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"

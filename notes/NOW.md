@@ -73,6 +73,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAMPAIGN-3 live employees: Cpg01_Mission6 employees objective succeeds with two hires
 - 2026-10-26 - CAMPAIGN-3 menu campaign flow: select/briefing/start imports Cpg04 park and runs Mission1
 - 2026-10-26 - Port the phenotype dummy/skin/carapace accumulator (Parts 4-9); all 20 Cpg04 attribute rows and the obstacle radii now match
 - 2026-10-26 - CAMPAIGN-3 live phenotype traits: cleverdinos objective succeeds on Cpg04
@@ -80,7 +81,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - CAMPAIGN-3 mission runtime: --start-mission, MISSION_PANEL tri-state/lights, CPGEND on result
 - 2026-10-26 - CAMPAIGN-2 evaluator core (tri-state; simple + trait verbs; 30 selftest verdicts)
 - 2026-10-26 - UI-2 Phase D tail: visitor travel state/route + dino clip phase in DINOPSAV
-- 2026-10-26 - CAMPAIGN-1 C++ campaign/mission reader (7/39/89, 33 verb ids; --campaign-info/--campaign-mission)
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

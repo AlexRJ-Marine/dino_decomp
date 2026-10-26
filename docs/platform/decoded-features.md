@@ -164,10 +164,10 @@ once per second and stops on success/failure. `--start-mission FILE` opens
 `MISSION_PANEL` with the briefing, five objective lines and ON/OFF lights,
 and shows `CPGEND_PANEL` on the result. Live dinosaurs are filled from the
 imported phenotype snapshots (cuteness/beauty, aggression, size, speed,
-stamina, agility, intelligence, food); hybrid/scarcity/strangeness/ornaments
-and employee roles are still empty. Menu mission selection, mission state in
-the port save and ending videos are open; show/building/isolation/hungry
-verbs stay pending.
+stamina, agility, intelligence, food); hired staff fill the `employees`
+objective from their `.bei` role names. Hybrid/scarcity/strangeness/ornaments
+are still empty. Mission state in the port save and ending videos are open;
+show/building/isolation/hungry verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them
