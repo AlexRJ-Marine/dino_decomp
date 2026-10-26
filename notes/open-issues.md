@@ -18,15 +18,18 @@ unknowns, with what was tried and the concrete next step.
 
 ## 2. `.lnd` `width` / `height`
 
-- **Values:** 520×376, 312×504, 704×448, 440×200, 480×200, 628×172, 120×492,
-  548×96, 268×276, 488×420.
+- **Values:** 520x376, 312x504, 704x448, 440x200, 480x200, 628x172,
+  120x492, 548x96, 268x276, 488x420.
 - **Ruled out:** heightmap bbox (`>0`/`>1` and every threshold 0..199), the
-  occupation-mask bbox, the basemap size (1024²), and an island-preview image
-  size (no matching TGA).
-- **Next:** decompile the `.lnd` reader — the path is built at `0x51dad0`
-  (`Data\Design\Landscape\isl`), and the `width`/`height` fields are read
-  early in the header; find where the loaded values are stored and used
-  (terrain mesh crop, pathfinding grid, or editor rectangle).
+  occupation-mask bbox, central-mass bboxes (90/95/99 percentile of the
+  buildable cells), the basemap size (1024^2), a fixed 2-unit cell grid, and
+  an island-preview image size (no matching TGA). The values do not derive
+  from the runtime terrain; they may be editor metadata the game never reads.
+- **Next:** locate the `.lnd` parser. The path is built at `0x51dad0`
+  (`Data\Design\Landscape\isl`) and the island objects are created by
+  `0x5068c0`; `0x506950` only reads the name-key string. Find the function
+  that reads the eight resource strings + the four header values and see
+  whether the `width`/`height` fields are stored/used at all.
 
 ## 3. `.bfi` body integers
 
