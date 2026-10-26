@@ -130,8 +130,10 @@ hook_4809a0: calls=97000
 2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
    caller is `0x471cd0` and it is not exercised by the park run. Promote it
    once that path is identified.
-3. Work up to `0x477890` (`.skel`), `0x47d880` (`.skin` records), and
-   `0x4839e0` (`.anim` bone records); these need the stream/container object
-   contracts, not just the file format.
+3. `0x47d880` (`.skin` per-bone table) ABI is solved: count, name,
+   u32-index vector, f32-weight vector, 64-byte matrix into a 0x6C record;
+   see `notes/hybrid-skin-recon.md`. The hook is queued (reuse helpers
+   `0x47c210`/`0x47f8c0`, `0x47a7c0`/`0x47daa0`, `0x4058b0`/`0x4056c0`).
+   Next: `0x4839e0` (`.anim` bone records) and `0x477890` (`.skel`).
 4. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.

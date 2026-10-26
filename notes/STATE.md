@@ -1146,8 +1146,11 @@ Updated: 2026-10-26
     `src/hook/dinput8_proxy.cpp`. They install cleanly and the free-game park
     stays playable, but that park calls neither; opt-in `DINO_HOOK_VECTOR=1`
     until a Cpg04 load confirms them.
-  - Evidence: `notes/hybrid-vector-recon.md`, `docs/decomp/hybrid.md`,
-    `TASKS.md` HYB-3.
+  - `.skin` per-bone reader `0x47d880` ABI solved (count, name, u32-index
+    vector, f32-weight vector, 64-byte matrix into a 0x6C record); hook
+    queued. Evidence: `notes/hybrid-skin-recon.md`.
+  - Evidence: `notes/hybrid-vector-recon.md`, `notes/hybrid-skin-recon.md`,
+    `docs/decomp/hybrid.md`, `TASKS.md` HYB-3.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the
