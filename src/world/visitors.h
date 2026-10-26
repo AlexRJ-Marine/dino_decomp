@@ -57,6 +57,8 @@ struct Visitor {
 
     // SIM-2b state.
     int profile = 0;
+    // Global `.bvi` personality id (0..9), used for the ticket price scale.
+    int global_profile = 0;
     int need0 = 39;  // GAUGE / satisfaction, can go negative (index 0)
     int need1 = 99;  // FOOD satisfaction
     int need2 = 99;  // REST satisfaction

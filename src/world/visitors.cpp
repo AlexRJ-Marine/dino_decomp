@@ -585,6 +585,7 @@ int VisitorSystem::spawn(const BuildGrid& grid, int count,
             }
         }
         visitor.profile = profile;
+        visitor.global_profile = profiles[static_cast<std::size_t>(profile)].personality_id;
         // Visitor ctor 0x5761b0: all needs 99, then need0 = (int)(99*0.4).
         visitor.need0 = 39;
         visitor.need1 = 99;

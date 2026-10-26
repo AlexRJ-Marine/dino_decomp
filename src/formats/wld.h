@@ -21,6 +21,17 @@ struct WorldBuilding {
     std::uint32_t link = 0;
 };
 
+// One `drsVisitor` world object (simple base). `field_20` is the global `.bvi`
+// profile id (0..9); `field_1c` matches the simulation visitor record id.
+struct WorldVisitor {
+    std::uint32_t object_id = 0;
+    std::uint32_t field_1c = 0;
+    std::uint32_t class_tag = 0;
+    std::uint32_t field_20 = 0;
+    std::uint32_t field_24 = 0;
+    std::uint32_t field_28 = 0;
+};
+
 struct RoadRect {
     std::int32_t x0 = 0;
     std::int32_t y0 = 0;
@@ -83,6 +94,7 @@ struct WldWorld {
     std::vector<WorldBuilding> buildings;
     std::vector<WorldFence> fences;
     std::vector<WorldDinosaur> dinosaurs;
+    std::vector<WorldVisitor> visitors;
     std::vector<RoadRect> roads;
     std::array<float, 10> camera{};
     bool has_camera = false;

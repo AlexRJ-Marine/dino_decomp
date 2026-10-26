@@ -151,15 +151,17 @@ WorldBuilding read_building(Reader& r) {
     return b;
 }
 
-void read_visitor(Reader& r) {
-    (void)r.u32("visitor object id");
-    (void)r.u32("visitor field 1c");
-    (void)r.u32("visitor class tag");
-    (void)r.u32("visitor field 20");
-    (void)r.u32("visitor field 24");
+WorldVisitor read_visitor(Reader& r) {
+    WorldVisitor v;
+    v.object_id = r.u32("visitor object id");
+    v.field_1c = r.u32("visitor field 1c");
+    v.class_tag = r.u32("visitor class tag");
+    v.field_20 = r.u32("visitor field 20");
+    v.field_24 = r.u32("visitor field 24");
     if (r.version() >= 5) {
-        (void)r.u32("visitor field 28");
+        v.field_28 = r.u32("visitor field 28");
     }
+    return v;
 }
 
 WorldDinosaur read_dinosaur(Reader& r) {
@@ -229,8 +231,9 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
 
     if (!campaign) {
         out.visitor_count = r.count("visitor count", 100000);
+        out.visitors.reserve(out.visitor_count);
         for (std::uint32_t i = 0; i < out.visitor_count; ++i) {
-            read_visitor(r);
+            out.visitors.push_back(read_visitor(r));
         }
     }
 
