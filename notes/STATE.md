@@ -287,7 +287,8 @@ Updated: 2026-10-25
     `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
     `notes/menu-start-isl10.png`,
     `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`,
-    `test_cpp_island_list_and_free_game_budgets`.
+    `test_cpp_island_list_and_free_game_budgets`,
+    `test_cpp_menu_start_all_islands` (all 10 islands).
 - UI-2 Phase C minimap complete: **rendered detail map in `MAP_RENDERVIEW`.**
   - 256×256 FBO rendered top-down, centred on the camera target and rotated
     with the camera heading (`FUN_005fb120`); visible width
@@ -369,7 +370,7 @@ Updated: 2026-10-25
   - Saving/loading park state remains open.
   - Evidence: `notes/options-save.png`, `notes/options-save-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_options_save_panel`.
-- 280 tests pass; working tree committed (UI-2 Phase B rest plus
+- 290 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,

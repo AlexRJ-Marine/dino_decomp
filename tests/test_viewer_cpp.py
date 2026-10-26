@@ -1152,3 +1152,23 @@ def test_cpp_menu_and_island_music_switch():
     assert result.returncode == 0, result.stderr
     assert "musLabo.wav" in result.stdout
     assert "musEquateur.wav" in result.stdout
+
+@pytest.mark.parametrize("row", range(10))
+def test_cpp_menu_start_all_islands(tmp_path, row):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / f"isl{row + 1:02d}.bmp"
+    island_y = 166 + row * 28 + 14
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--screenshot", str(shot),
+         "--width", "320", "--height", "200", "--no-vsync", "--no-save-config",
+         "--no-hud", "--asset-root", str(GAME), "--no-vegetation",
+         "--menu-page", "1", "--menu-click", f"200,{island_y}",
+         "--menu-click", "494,451", "--menu-click", "526,531",
+         "--menu-loading-time", "0"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    name = f"isl{row + 1:02d}"
+    assert f"start: island={name}" in result.stdout
+    assert f"island: {name} lnd=" in result.stdout
