@@ -1286,14 +1286,13 @@ Updated: 2026-10-26
    are applied. Remaining: the second `Modulate2x` water stage, the skybox
    bottom seam, a direct side-by-side still, and the exact `.lnd` carry path
    from the reader scratch to the landscape.
-14. CONS-1 rest: refine the imported dinosaurs' paddock cost class from the
-   species baseline (port `used` = 384) to the individual phenotype (retail
-   Cpg04 `used` = 336; Allosaurus is four class 2 / three class 1); port the
-   store purchase branch (charge `DINOACHAT`, remove the store row) and the
-   `WARNING_NO_ROOM_IN_FENCE` panel path with the insertion state staying
-   active; decode the `0x535c97` branch. The capacity model and both runtime
-   fields are solved (`cell = 4`, size class 0..2). See
-   `docs/decomp/construction-validation.md`.
+14. CONS-1 rest: port the interactive store panel (row selection + paddock
+   click) and the `DINOACHAT` count/total bucket + store-row removal; refine
+   the imported dinosaurs' cost class from the species baseline (port `used`
+   = 384) to the individual phenotype (retail Cpg04 = 336; Allosaurus is four
+   class 2 / three class 1); decode the `0x535c97` branch. The capacity
+   model, the headless purchase core (`--buy-dino`), the catalog reader and
+   both warning panels are done. See `docs/decomp/construction-validation.md`.
 
 ## Blockers
 
