@@ -7,10 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
 from sav import read_sav  # noqa: E402
-from shw import ShwFormatError, read_shw, scan  # noqa: E402
+from shw import read_feature_names, ShwFormatError, read_shw, scan  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
 SHOWS = GAME / "Data" / "Design" / "Scenario" / "Show"
+FEATURES = GAME / "Data" / "Design" / "attractions" / "features"
 SAMPLE = SHOWS / "Cpg1_Race_1.shw"
 SAVE = ROOT / "run" / "save" / "slot001.sav"
 
@@ -60,3 +61,49 @@ def test_rejects_unknown_section(tmp_path):
     p.write_text("// Nope\n1\n", encoding="cp1252")
     with pytest.raises(ShwFormatError):
         read_shw(p)
+
+def test_feature_indices_resolve_and_cages_match_teams():
+    """Tuples are (FeatureList index, rotation, x, y)."""
+    if not SHOWS.exists():
+        pytest.skip("retail sample not present")
+    names = read_feature_names(FEATURES)
+    assert len(names) == 62
+    assert names[0] == "CageSmall"
+    assert names[3] == "CageHuge"
+    assert names[4] == "JudgeRace"
+    assert names[26] == "WaypointTeam1"
+    assert names[42] == "ObstacleBeam5"
+    cages = teams = 0
+    for path in sorted(SHOWS.glob("*.shw")):
+        show = read_shw(path)
+        width, height = show.dimensions
+        file_cages = 0
+        judges = 0
+        for feature, rotation, x, y in show.features:
+            assert 0 <= feature < len(names)
+            assert 0 <= rotation <= 3
+            assert 0 <= x < width and 0 <= y < height
+            if feature <= 3:
+                file_cages += 1
+            if 4 <= feature <= 10:
+                judges += 1
+        assert file_cages == len(show.teams), path.name
+        assert judges >= 1, path.name
+        cages += file_cages
+        teams += len(show.teams)
+    assert cages == 174
+    assert teams == 174
+
+def test_judge_kind_and_cage_flags():
+    """Judge Kind 1..4 selects the judge feature; cage flags select cages."""
+    if not SHOWS.exists():
+        pytest.skip("retail sample not present")
+    judge_feature = {1: 4, 2: 5, 3: 7, 4: 6}  # Race, Obstacle, Fight, Destruction
+    for path in sorted(SHOWS.glob("*.shw")):
+        show = read_shw(path)
+        used_judges = {f[0] for f in show.features if 4 <= f[0] <= 10}
+        assert judge_feature[show.judge_kind] in used_judges, path.name
+        used_cages = {f[0] for f in show.features if f[0] <= 3}
+        flags = {index for index, value in enumerate(show.cage_size) if value}
+        assert used_cages == flags, path.name
+        assert show.wall_type == 1, path.name

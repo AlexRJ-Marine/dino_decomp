@@ -76,6 +76,9 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005face0` | detail-map target setup — 256×256, scale default 0.25 | decompiled | same |
 | `0x005ba6b0` / `0x005ba8f0` | widget type `RENDER` (10), `RV_ZMIN`/`RV_ZMAX` | decompiled | same |
 | `0x00529d00` | park observer update — camera FOV 80°, aspect 4:3, near ≥ 1, far 1000, clamps | decompiled | same |
+| `0x005e5960` | `camSwitcher::Update` — copies the active camera eye/target to the observer every frame | decompiled | `notes/ui-recon.md` ("Start camera solved") |
+| `0x005e5fb0` / `0x005e5f20` | camera save/load — eye, target, progress (0.1..1.0), yaw | decompiled, verified | retail save + `.wld` cameras |
+| `0x005e5d5d`..`0x005e6271` | new-camera defaults — centre target, distance 39, elevation 52.7, yaw 0 | decompiled, verified | `camera.ini`, retail save |
 | `0x00527650` | `pvwPark3DRenderView` ctor — park camera/renderer | decompiled (partial) | same |
 | `0x0050c1a0` | in-park `OPTIONS_PANEL` controller (options/save/load tabs) | decompiled | same |
 | `0x005257a0` | camera/navigation controller; `PauseGame` action | decompiled (partial) | same |
@@ -111,6 +114,9 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00585780` / `0x00585240` | economy save writer / reader (sequential stream) | decompiled | `docs/formats/sav.md` |
 | `0x00585bd0` | park budget/setup setter (confirms `+0x08`) | decompiled | same |
 | `0x0058aed0` | `spSimuManager` state read (road, visitors, park, stores) | decompiled | same |
+| `0x00586b30` | `spSimuManager::Save` (park + dino store + lab) | decompiled | same |
+| `0x0058b200` | `spPark::Save` (vectors, store, economy, schedule, `+0x148`) | decompiled | `docs/formats/sav.md` |
+| `0x0058cd60` | `spRoadNetwork::Save` (count + 16-byte rectangles) | decompiled | same |
 | `0x0058ccc0` | road-network save/load (rectangles) | decompiled | same |
 | `0x00593a60` | dinosaur-store load (20 name/id/path/description records) | decompiled | same |
 | `0x00592060` / `0x00592a00` | visitor-model values + lab store (flag, 18 gene pairs, name) | decompiled | `docs/formats/sav.md` |
@@ -219,7 +225,8 @@ hooked into the original exe (Phase 3 `HYB-1`).
 | menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
 | minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
 | HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
-| park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, GameSpeed-driven 12 h day + HUD time/day |
+| park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, base 9 + scale 60, 12 h day + HUD time/day |
+| free-game start camera | `src/viewer/main.cpp` (`load_island`) | reimplemented, target centre + 39/52.7/yaw 0 + FOV 80 |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items

@@ -149,6 +149,29 @@ def read_shw(path: Path) -> Show:
     return show
 
 
+def read_feature_names(features_dir: Path) -> list[str]:
+    """Return the ``FeatureList.ini`` order used by the .shw feature tuples.
+
+    A feature tuple is ``(feature_index, rotation, x, y)`` where
+    ``feature_index`` indexes this list (62 entries).
+    """
+    list_path = features_dir / "FeatureList.ini"
+    lines = [
+        line.strip()
+        for line in list_path.read_text(encoding="cp1252", errors="replace").splitlines()
+        if line.strip()
+    ]
+    if not lines:
+        raise ShwFormatError(f"{list_path}: empty")
+    count = int(lines[0])
+    names = lines[1:]
+    if len(names) != count:
+        raise ShwFormatError(
+            f"{list_path}: declared {count} features, found {len(names)}"
+        )
+    return names
+
+
 def scan(root: Path) -> tuple[int, list[tuple[str, str]], dict]:
     total = 0
     bad: list[tuple[str, str]] = []

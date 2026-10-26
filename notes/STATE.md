@@ -344,7 +344,20 @@ Updated: 2026-10-25
     `clicDefault`. One short SDL3 stream per click (new click cuts the old).
   - `--ui-sounds`, `--no-sounds`, `--list-sounds`, `--play-sound NAME`.
   - Evidence: `docs/platform/audio.md`, `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
-- 244 tests pass; working tree committed (UI-2 Phase B rest plus
+- AUDIO-3 complete: **island music.**
+  - `ParkSoundDB.ini` parsed; the `.lnd` music name starts a 26–28 MB theme
+    streamed in 64 KB chunks and looped when the queue drains.
+  - `--music`/`--no-music`/`--music-volume`; interactive default on.
+  - Evidence: `docs/platform/audio.md`,
+    `tests/test_viewer_cpp.py::test_cpp_park_music`.
+- UI-2 Phase B camera complete: **free-game start framing.**
+  - Target = island centre at terrain height, distance 39, elevation 52.7,
+    yaw 0 (`camera.ini` progress 0.1); park FOV 80°.
+  - Verified against `run/save/slot001.sav` eye (551,512,84.7), target
+    (512,512,32); `--start-dino` keeps a close demo camera.
+  - Evidence: `notes/ui-recon.md` ("Start camera solved"),
+    `docs/platform/vertical-slice.md`, `notes/menu-start-dino.png`.
+- 271 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -514,6 +527,69 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- FMT-30 complete: **`Data/Config` startup/input/camera.**
+  - `camera.ini` gives 5 identical motion blocks (distance 10..300,
+    elevation 3..500, rotation ?/2, move 1..20, progress 0.05..0.2); the
+    initial framing is still not in the data.
+  - `KeyMapper.ini` 17 bindings; `key/KeyFrancais.ini` 144 DIK/MIK rows,
+    AZERTY; `Start.Ini` 800?600 HAL/SW and the key-table path.
+  - Evidence: `tools/formats/config.py`, `docs/formats/config.md`,
+    `tests/test_config.py`, `notes/config-recon.md`.
+- FMT-29 complete: **`FreeGame.ini` free-game setup.**
+  - Budgets 75000/50000/25000, sell-back 1.0/0.5/0.2; lab starts at level 3;
+    interface all 7 enabled, dinosaur selling allowed.
+  - Profiles: 3 lists ? 6 triplets `(profile, first, second)`; first sums
+    180/110/60, second always 100.
+  - Shows: 39 names on pages 0..7 (8/9 empty), all `.shw` exist.
+  - Dino store: 20 entries, a subset of `Market.ini` with matching prices.
+  - Evidence: `tools/formats/freegame.py`, `docs/formats/freegame.md`,
+    `tests/test_freegame.py`, `notes/freegame-recon.md`.
+- FMT-28 complete: **`Market.ini` dinosaur store.**
+  - 54 entries in 6 pages (`DinoStore0,2..6`; page 1 absent), each
+    `(display name, price, .gen)`; prices 3,200?42,000; all genotypes exist.
+  - Unsold design genotypes: `anky2.gen`, `peleca3.gen`, `proto2.gen`.
+  - Evidence: `tools/formats/market.py`, `docs/formats/market.md`,
+    `tests/test_market.py`, `notes/market-recon.md`.
+- FMT-8b complete: **`.shw` feature grid.**
+  - Tuples are `(FeatureList index, rotation, x, y)`: all 1,679 tuples in
+    range 0..61, rotation 0..3, positions inside dimensions.
+  - Cage features (0..3) = 174 = team slots in every file.
+  - `Judge Kind` 1..4 = JudgeRace/JudgeObstacle/JudgeFight/JudgeDestruction;
+    cage-size flags equal the cage features used (43/43).
+  - `read_feature_names()` exposes the 62-entry FeatureList order.
+  - Evidence: `tools/formats/shw.py`, `docs/formats/shw.md`,
+    `tests/test_shw.py`, `notes/shw-recon.md`.
+- FMT-27 complete: **`Data/States` render-state profiles.**
+  - 34 `.ini` profiles + 18 `.txt` fragments; `mgStateInclude` expands
+    recursively (`Standard` = `Misc` + `TextureParam` + `FogParam`).
+  - Default 3D material: stage 0 `Modulate` (texture ? diffuse), `Wrap`,
+    linear min/mag, mipmaps off. Fog 1500..2000, colour (255,220,165).
+    Water: `SelectArg1` / `Modulate2x` / `Disable`.
+  - Grammar reference is `Description.txt`; four state names drifted from
+    it (`mgStateAlphablendOp`, `mgStatePointSizeMax`, `mgStateStencilFunc`,
+    `mgStateTextureMaxAnisotropy`).
+  - Evidence: `tools/formats/render_states.py`,
+    `docs/formats/render-states.md`, `tests/test_render_states.py`,
+    `notes/render-states-recon.md`.
+- FMT-25/26 complete: **`Laboratory.ini` + `GeneralParams.bgd`.**
+  - Lab: 4 levels (reproduction 0/1/1/1, clone fail 100/40/20/0, beam cap
+    0/1/2/3, fridge 4/8/8/8, mods 0/2/4/20), 3 beams, 8 costs.
+  - `.bgd`: 170 bytes ? 4 floats, sounds `rocket/trumpet/startBlast/whitle`,
+    5 scalars, a 4?4 float grid and 4 floats; all fields at known runtime
+    offsets (`0x542f80`).
+  - Evidence: `tools/formats/laboratory.py`, `general_params.py`,
+    `docs/formats/laboratory.md`, `docs/formats/general-params.md`,
+    `tests/test_laboratory.py`, `tests/test_general_params.py`,
+    `notes/laboratory-params-recon.md`.
+- FMT-24 complete: **skin/carapace textures + adornment models.**
+  - `SkinCarapaceData.ini`: 22 skins (0 = `void`) and 16 carapaces ? 3
+    textures (`nomina`/`hurt`/`blood`), all present.
+  - `AdornmentData.ini`: 49 head/body/tail LOD pairs + 4 claw types ? 4
+    sizes; all 114 models present under `Actors/elements_sup/`.
+  - The 22/16 indices are exactly the unique values of the Part 7/8 maps.
+  - Evidence: `tools/formats/genotype_assets.py`,
+    `docs/formats/genotype-assets.md`, `tests/test_genotype_assets.py`,
+    `notes/genotype-assets-recon.md`.
 - FMT-23 complete: **`.bfi` show-feature definitions (header + strings).**
   - 62/62 files: packed 12-field header 0x00..0x2c, class tag at 0x2d, then
     a nested integer/string record.
@@ -716,6 +792,19 @@ Updated: 2026-10-25
   - `entrance_lod1.skel`, `.skin`, `.anim`, `.mesh`
   - customer/person `.mesh` LODs
   - dinosaur animation `.anim` files (LowQuadruped, etc.)
+- DEC-3 park header/tail complete: **`0x293` block fully mapped.**
+  - Header: class id `2`, then `0/3` (manual/auto), `100`, `10.0/0.0`,
+    32 zero bytes.
+  - Tail: day `0`, elapsed/current seconds (23.214 manual, 0.0 auto), task
+    field `+0x18`, 11 task slots, the 12-byte `spPark+0x148` field
+    (`00 00 ad ba` + two zero dwords) and a trailing `0x01`.
+  - Writers: `0x0058b200` (`spPark::Save`), `0x00594cb0` (schedule),
+    `0x0058c260`/`0x0058c6b0`; reader `0x0058aed0` / `0x0058c210` /
+    `0x0058c620`. The schedule vector length is not serialised.
+  - `sav_graph.ParkState` exposes `class_id`, `header_a/b/c`,
+    `header_reserved`, `schedule_*`, `trailer`, `tail_final`.
+  - Evidence: `docs/formats/sav.md`, `notes/save-graph-recon.md`,
+    `tests/test_sav_graph.py::test_park_header_and_schedule`.
 
 ## In progress
 
@@ -723,10 +812,9 @@ Updated: 2026-10-25
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase B polish:** the original park camera's initial framing is not
-  yet recovered; the port still auto-frames with `bounds.extent() * 1.7`.
-- **UI-2 Phase D:** save/load panels, menu sounds, warning/request dialogs
-  (`DIALOG_BACKGROUND` + `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL`).
+- **UI-2 Phase D rest:** save/load panels, warning/request dialogs
+  (`DIALOG_BACKGROUND` + `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL`),
+  menu music and lab theme switching.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -737,26 +825,29 @@ Updated: 2026-10-25
 
 ## Next action
 
-1. UI-2 Phase C rest: dynamic values in sub-panels (budget ledger rows, list
-   snapshots, sliders) and minimap water/partition polish.
-2. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
+1. UI-2 Phase D: save/load panels (OPTIONS_SAVE_PANEL + real `.sav` slot
+   names) and the warning/request/campaign-end dialogs.
+2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
+   and minimap water/partition polish.
+3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
    (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
-3. Capture a side-by-side comparison against the original game for WORLD-3.
-4. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
-5. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
+4. Capture a side-by-side comparison against the original game for WORLD-3.
+5. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
+6. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are
    solved in `docs/decomp/dinosaur-actions.md`.
-6. DEC-3 rest: the world object graph, unlock arrays, AI/camera tail and lab
-   genotype store are solved. Remaining: park block header, `store_id`
-   semantics and a few small fields. See `docs/formats/sav.md` and
+7. DEC-3 rest: the world object graph, unlock arrays, AI/camera tail, lab
+   genotype store, park header and schedule tail are solved. Remaining:
+   `store_id` semantics, the park header field meanings (`0/3`, `100`,
+   `10.0/0.0`) and a few small fields. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
-7. SIM-4 rest: runtime-verify the panel rows against a populated save; the
+8. SIM-4 rest: runtime-verify the panel rows against a populated save; the
    row mapping, category labels and daily settlement trigger are solved. See
    `docs/decomp/economy.md`.
-8. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
+9. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
    wages are solved in `docs/decomp/economy.md`. See
    `docs/decomp/employee-ai.md`.
-9. User: publish `docs/community/xentax-post.md` and record any replies.
+10. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

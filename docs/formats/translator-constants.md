@@ -273,6 +273,30 @@ then applies the percentage records (`+0x170..+0x19c`, neutral 100) over the
 same slots. The 23 slots are the five body parts plus the 18 dummy/decoration
 parts driven by genes 4-13 and the skin/carapace tables.
 
+## Lab attribute labels and maxima
+
+`Data/Overlay/AttributeRange.ini` names the eleven attributes shown by the
+lab dinosaur panel and their display maxima, plus one modify-panel value:
+
+| Label | Max | Phenotype field |
+| --- | ---: | ---: |
+| `Perception` | 100 | `+0x38` |
+| `Beauty` | 100 | `+0x40` |
+| `Strangeness` | 100 | unknown (one of `+0x44`/`+0x48`) |
+| `Attack` | 120 | `+0x60` (combined), `+0x4c` (jaw) |
+| `Aggressiveness` | 100 | `+0x6c` |
+| `Armor` | 100 | `+0x68` |
+| `WalkSpeed` | 100 | `+0x28` |
+| `Agility` | 100 | `+0x48` |
+| `Intelligence` | 100 | `+0x3c` |
+| `Courage` | 100 | `+0x74` |
+| `Stamina` | 100 | `+0x70` |
+| `RadiationResistance` | 100 | (modify panel only) |
+
+The `+0x70`/`+0x74` mapping matches the gene 16/17 merge tables (stamina and
+courage), and `+0x6c` is the gene 15 aggression merge. `Attack` is the only
+attribute with a 120 maximum.
+
 ## Reader
 
 `tools/formats/translator_constants.py`:

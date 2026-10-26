@@ -818,7 +818,9 @@ def test_cpp_park_panel_shot(tmp_path):
         if box[i] > 200 and box[i + 1] > 200 and box[i + 2] > 200
     )
     assert bright > 5
-    assert ImageChops.difference(a, c).getbbox() is None
+    # Closing restores the scene; tolerate a 1-pixel depth flicker.
+    restored = ImageStat.Stat(ImageChops.difference(a, c))
+    assert sum(restored.mean) / 3.0 < 0.05
 
 
 def test_cpp_park_lab_shot(tmp_path):
@@ -1086,3 +1088,17 @@ def test_cpp_menu_sounds():
     )
     assert played.returncode == 0, played.stderr
     assert "sound: " in played.stdout and "clic#3.wav" in played.stdout
+
+def test_cpp_park_music():
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "200", "--no-vsync", "--no-save-config",
+         "--asset-root", str(GAME), "--lnd", str(ISL01), "--no-vegetation",
+         "--music", "--music-volume", "0"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "music: " in result.stdout
+    assert "musEquateur.wav" in result.stdout

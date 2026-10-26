@@ -192,9 +192,16 @@ The block has a **0x30-byte header**, then the economy field stream written by
 fields appear in writer order, so the file offsets differ from the runtime
 object offsets (`docs/decomp/economy.md`). Stream offset 0 is `block + 0x30`.
 The stream is **0x21a bytes** long, ending at `block + 0x24a`; the remaining
-`0x49` bytes are the schedule-manager tail and a 12-byte field.
+`0x49` bytes are the schedule-manager tail, a 12-byte park field and one
+trailing byte.
 
 ```text
+block  +0x000  u32  class id (2 = spPark)
+block  +0x004  u32  header a: 0 in the manual save, 3 in the autosave
+block  +0x008  u32  header b: 100 in both retail saves
+block  +0x00c  f32  header c: 10.0 in the manual save, 0.0 in the autosave
+block  +0x010  32 B header reserved (all zero in retail saves)
+
 stream +0x000  u32  budget (75,000 / 75,125 in retail)
 stream +0x004  f32  sellback factor (version >= 53)
 stream +0x008  u32  FOOD total
@@ -223,10 +230,25 @@ stream +0x17e  13 x u32  cumulative shop revenue
 stream +0x1b2  13 x u32  cumulative shop sale counts
 stream +0x1e6  13 x u32  cumulative totals / group counters
 stream +0x21a  end of economy stream
-block  +0x24a  schedule-manager tail (0x3d bytes: 3 time dwords, show slots)
-block  +0x287  12-byte park field
+
+block  +0x24a  u32  schedule day (`time manager +4`)
+block  +0x24e  f32  schedule elapsed seconds (`+8`; 23.214 manual, 0.0 auto)
+block  +0x252  f32  schedule current seconds (`+0xc`; same values)
+block  +0x256  u32  task vector `+0x18` (0 in retail saves)
+block  +0x25a  11 x u32  task slots (`task +0x70`; all zero in retail saves)
+block  +0x286  12 B park field `spPark+0x148` (`00 00 ad ba` + two zero dwords)
+block  +0x292  1 B  trailing byte (0x01 in both retail saves)
 block  +0x293  end of park block
 ```
+
+The schedule tail is written by `0x00594cb0`: `0x0058c260` writes the 12-byte
+time manager (`+4`, `+8`, `+0xc`) and `0x0058c6b0` writes the task vector's
+`+0x18` field followed by one `u32` per task. The vector length is **not**
+stored; the reader reuses its constructor length (11 slots), so the 0x49-byte
+tail only fits the empty form. The 12-byte field is the runtime `spPark+0x148`
+block; the constructor zeroes bytes `+0x148/+0x149` and dwords `+0x14c/+0x150`,
+which leaves `+0x14a/+0x14b` holding the debug fill `0xBAAD`. The final `0x01`
+byte is present in both retail saves but no writer has been identified yet.
 
 Both retail saves have no employees, so both staff buckets are 0. The manual
 save's `125/2` pair is the **current-day ticket income** (two visitors), not a
@@ -372,7 +394,8 @@ and the 10 camera floats. Tests: `tests/test_sav.py`,
 ## Open
 
 - World object list semantics and class names.
-- The 0x30-byte park block header (still undecoded; the economy stream is known).
+- The meaning of the park header fields (`+0x04` 0/3, `+0x08` 100, `+0x0c`
+  10.0/0.0) and the single trailing `0x01` byte at `block + 0x292`.
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - Dinosaur `store_id` meaning.

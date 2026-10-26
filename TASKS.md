@@ -173,6 +173,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Decode the 18-gene table and observed allele ranges.
 - [x] Decode expression/dominance and rarity weights from `simu_trans.dic`
   (`min` for dominant genes, average for skin-sub/carapace-sub/Agre/Stam/Cour).
+- [x] Edition 27-gene files: only slots 0-9 and 18 are used
+  (types, dummies, one 0-9 trait); 10-17/19-26 always zero. Independent
+  editor data set, not the runtime layout.
 - **Acceptance:** 77/77 parse, 1,566 genes; 18/18 gene blocks valid.
 - **Depends on:** RUN-2.
 - **Evidence:** `tools/formats/gen.py`, `gene_trans.py`,
@@ -293,6 +296,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Tail arrays (12-byte and 8-byte records pushed into the 0xac-byte
   action record) and the semantics of `field_14/18/1c/2a/2e/32` plus the
   eight params.
+- [ ] Tail arrays: disassembly shows u8, two 12-byte arrays, two
+  8-byte arrays, then scalars and 0x58-byte records; loop bounds still
+  ambiguous (`notes/bai-recon.md`).
 - **Acceptance:** all 64 headers parse; the group map and name truncation are
   checked against retail files.
 - **Depends on:** FMT-15.
@@ -379,6 +385,95 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** FMT-8, FMT-22.
 - **Evidence:** `tools/formats/bfi.py`, `docs/formats/bfi.md`,
   `tests/test_bfi.py`, `notes/bfi-recon.md`.
+
+### FMT-24: skin/carapace textures + adornment models
+- [x] `SkinCarapaceData.ini`: 22 skins (index 0 `void`) and 16 carapaces x 3
+  textures (`nomina`/`hurt`/`blood`); all textures exist.
+- [x] `AdornmentData.ini`: 49 head/body/tail LOD pairs + 4 claw types x 4
+  sizes; all 114 models exist under `Data/Graphics/Actors/elements_sup/`.
+- [x] The 22/16 indices match the `simu_trans.dic` Part 7/8 maps exactly.
+- [ ] Pinpoint the translator tables (`+0x84`/`+0x94`) and the claw index.
+- **Acceptance:** both files parse exactly; all assets resolve.
+- **Depends on:** FMT-20, FMT-17.
+- **Evidence:** `tools/formats/genotype_assets.py`,
+  `docs/formats/genotype-assets.md`, `tests/test_genotype_assets.py`,
+  `notes/genotype-assets-recon.md`.
+
+### FMT-25: `Laboratory.ini` lab upgrades/beams/costs
+- [x] All four block families parse: GENERAL (4 levels, 3 beams),
+  BEAM_INFO_1..3, UPGRADE_LEVEL_1..4, COST (8 prices).
+- [x] Level laws: reproduction unlocks at 2; cloning failure 100/40/20/0;
+  beam cap 0/1/2/3; fridge 4/8/8/8; gene modifications 0/2/4/20.
+- **Acceptance:** every key present and typed.
+- **Evidence:** `tools/formats/laboratory.py`,
+  `docs/formats/laboratory.md`, `tests/test_laboratory.py`.
+
+### FMT-26: `GeneralParams.bgd` global parameters
+- [x] 170-byte packed record: 4 floats, 4 sounds + `whitle`, 5 scalars,
+  4x4 float grid, 4 floats; runtime offsets from loader `0x542f80`.
+- [ ] Numeric meanings (times/rates/distances/ramp).
+- **Acceptance:** file ends exactly after the last float.
+- **Evidence:** `tools/formats/general_params.py`,
+  `docs/formats/general-params.md`, `tests/test_general_params.py`.
+
+### FMT-27: `Data/States` render-state profiles
+- [x] Grammar: `mgState<Name> [stage|Free] values`, `//` comments,
+  `mgStateInclude` recursive expansion; `Description.txt` is the reference.
+- [x] 34 `.ini` profiles + 18 `.txt` fragments parse; Standard expands
+  Misc + TextureParam + FogParam.
+- [x] Default 3D material = stage 0 `Modulate` (texture x diffuse), wrap,
+  linear filters, mipmaps off; fog 1500..2000 colour (255,220,165);
+  water uses 3 stages (SelectArg1 / Modulate2x / Disable).
+- [ ] Profile selection in the engine and the Dino_* pairings.
+- **Acceptance:** all profiles expand; every state name documented or listed.
+- **Evidence:** `tools/formats/render_states.py`,
+  `docs/formats/render-states.md`, `tests/test_render_states.py`,
+  `notes/render-states-recon.md`.
+
+### FMT-8b: `.shw` feature grid
+- [x] Feature tuple = `(FeatureList index, rotation, x, y)`; all 1,679
+  tuples in range 0..61 and the full range occurs.
+- [x] Rotation 0..3 (quarter turns), not team; positions always inside
+  dimensions; cage features (0..3) = 174 = team slots, per file.
+- [x] `read_feature_names()` exposes the 62-entry FeatureList order.
+- [x] `Judge Kind` 1..4 selects JudgeRace/JudgeObstacle/JudgeFight/
+  JudgeDestruction; `Available cage size` flags equal the cage features used
+  (43/43); Wall type 1 in all files.
+- [ ] Rotation direction/pivot; Wall type variants (only 1 is used).
+- **Evidence:** `tools/formats/shw.py`, `docs/formats/shw.md`,
+  `tests/test_shw.py`, `notes/shw-recon.md`.
+
+### FMT-28: `Market.ini` dinosaur store
+- [x] 54 entries in 6 store pages (`DinoStore0,2..6`; page 1 absent), each
+  `(display name, price, .gen)`; all 54 genotypes exist.
+- [x] Prices 3,200-42,000; the three unsold design .gen files are anky2,
+  peleca3, proto2.
+- [ ] Missing store page 1 and difficulty price modification.
+- **Evidence:** `tools/formats/market.py`, `docs/formats/market.md`,
+  `tests/test_market.py`, `notes/market-recon.md`.
+
+### FMT-29: `FreeGame.ini` free-game setup
+- [x] `[CONTEXT]` budgets 75000/50000/25000 and sell-back 1.0/0.5/0.2.
+- [x] `[PROFILES]` 3 lists x 6 triplets `(profile id, first, second)`;
+  first sums 180/110/60, second always 100.
+- [x] `[SHOWS]` 39 names on pages 0..7 (8/9 empty), all `.shw` exist.
+- [x] `[DINOSTORE]` 20 entries, subset of `Market.ini` with matching prices.
+- [x] `[LABORATORY]` starts at level 3; `[INTERFACE]` all 7 enabled;
+  `[SELLING] Dinosaur=1`.
+- [ ] Second profile value meaning; empty show pages 8/9.
+- **Evidence:** `tools/formats/freegame.py`, `docs/formats/freegame.md`,
+  `tests/test_freegame.py`, `notes/freegame-recon.md`.
+
+### FMT-30: `Data/Config` startup/input/camera
+- [x] `Dino.ini` user settings; `Start.Ini` engine startup (800x600, HAL/SW,
+  key table path); `GraphicOption.ini`; `ErrorListe.ini` (`NL` newline).
+- [x] `camera.ini`: 5 identical blocks (move 1..20, progress 0.05..0.2,
+  rotation pi/2, elevation 3..500, distance 10..300, hardness 6..2).
+- [x] `KeyMapper.ini` 17 bindings (camera, pad rotate, escape, rasters,
+  pause); `key/KeyFrancais.ini` 144 DIK/MIK rows, AZERTY.
+- [ ] Initial park camera framing; ConfigN -> camera mode; hardness min>max.
+- **Evidence:** `tools/formats/config.py`, `docs/formats/config.md`,
+  `tests/test_config.py`, `notes/config-recon.md`.
 
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
@@ -656,6 +751,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Decode the full park save stream: yesterday block (`+0xb2..+0x166`),
   cumulative block (`+0x166..+0x21a`), `stream_end` and the 0x49-byte
   schedule tail; document the retail reader's 32-byte misalignment.
+- [x] Decode the park block header and schedule tail: class id `2`, header
+  dwords `0/3`, `100`, `10.0/0.0`; schedule day/elapsed/current, 11 task
+  slots, the 12-byte `spPark+0x148` field and the trailing `0x01` byte.
+  Writer `0x0058b200` (`spPark::Save`), `0x00594cb0` (schedule).
 - **Acceptance:** a 10-minute session is playable without crashes.
 - **Depends on:** SIM-2.
 - **Evidence:** `notes/park-economy-recon.md`,
@@ -714,6 +813,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase B rest: load the selected island at runtime (`IslandList.ini` →
   `Data/Design/Landscape/<name>/<name>.lnd`), including terrain, basemap,
   vegetation, sky, water and GPU rebuild; free-game budgets 75k/50k/25k.
+- [x] Phase B camera: free-game start camera from `camera.ini` (target centre,
+  distance 39, elevation 52.7, yaw 0) and the original 80° park FOV; verified
+  against `run/save/slot001.sav`.
 - [x] Phase C (800×600): park HUD from `ParkInterface.Ini` + `ParkGraphicDB.ini`
   (2,694 widgets, 53 visible), runtime budget/visitor/dino/show/time/day.
 - [x] Phase C rest (bindings): `src/ui/park.cpp` maps the 12 HUD buttons, the
@@ -739,7 +841,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park
   HUD buttons (`clicDefault`, `exitClic` for Quit); `--ui-sounds`,
   `--no-sounds`, `--list-sounds`, `--play-sound`.
-- [ ] Phase D rest: save/load panels, park music/ambience.
+- [x] Phase D (music): `ParkSoundDB.ini` island themes streamed in chunks and
+  looped; `--music`/`--no-music`/`--music-volume`.
+- [ ] Phase D rest: save/load panels, menu music/lab theme switching.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

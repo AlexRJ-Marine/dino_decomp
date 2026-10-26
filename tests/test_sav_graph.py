@@ -33,11 +33,25 @@ def _visitor(object_id: int, x: int, y: int, visitor_id: int, needs: tuple[int, 
     return bytes(out)
 
 
-def _park_block(budget: int) -> bytes:
+def _park_block(
+    budget: int,
+    *,
+    header_a: int = 0,
+    header_b: int = 100,
+    header_c: float = 10.0,
+    day: int = 0,
+    elapsed: float = 0.0,
+    current: float = 0.0,
+    field_18: int = 0,
+) -> bytes:
     block = bytearray(PARK_BLOCK_SIZE)
+    struct.pack_into("<IIIf", block, 0x00, 2, header_a, header_b, header_c)
     struct.pack_into("<I", block, 0x30, budget)
     struct.pack_into("<f", block, 0x34, 1.0)
     struct.pack_into("<I", block, 0x4C, 2)  # base + 0x24
+    struct.pack_into("<IffI", block, 0x24A, day, elapsed, current, field_18)
+    block[0x286:0x292] = bytes.fromhex("0000adba0000000000000000")
+    block[0x292] = 1
     return bytes(block)
 
 
@@ -62,12 +76,12 @@ def _lab_record(genes: tuple[tuple[int, int], ...], name: str) -> bytes:
     return bytes(out)
 
 
-def _state(lab_store: bytes | None = None) -> bytes:
+def _state(lab_store: bytes | None = None, park: bytes | None = None) -> bytes:
     out = bytearray()
     out += struct.pack("<I", 1) + struct.pack("<4i", 524, 392, 524, 452)
     out += struct.pack("<3I", 0, 0, 0)
     out += struct.pack("<I", 1) + _visitor(7, 500, 400, 42, (90, 91, 92, 93, 94, 95, 96))
-    out += struct.pack("<I", 1) + _park_block(75000)
+    out += struct.pack("<I", 1) + (park if park is not None else _park_block(75000))
     out += struct.pack("<I", 2)
     out += _dino("Allosaurus", 9000, "DATA\\Design\\Scenario\\Genotype\\allo.gen", "&allo_description")
     out += _dino("Velociraptor", 15000, "DATA\\Design\\Scenario\\Genotype\\velo.gen", "&velo_description")
@@ -82,7 +96,7 @@ def _state(lab_store: bytes | None = None) -> bytes:
     return bytes(out)
 
 
-def _synthetic_save(path: Path, lab_store: bytes | None = None) -> None:
+def _synthetic_save(path: Path, lab_store: bytes | None = None, park: bytes | None = None) -> None:
     name = _utf16("slot")
     out = bytearray()
     out += struct.pack("<III", 53, 1, len(name))
@@ -93,7 +107,7 @@ def _synthetic_save(path: Path, lab_store: bytes | None = None) -> None:
     out += struct.pack("<I", len(show_path)) + show_path
     out += struct.pack("<I", len(show_name)) + show_name
     out += struct.pack("<6I", 1, 2, 3, 4, 5, 6)
-    out += _state(lab_store)
+    out += _state(lab_store, park)
     path.write_bytes(out)
 
 
@@ -114,6 +128,18 @@ def test_retail_manual_graph():
     assert graph.park.cumulative_totals[2:5] == (0xBAADF00D,) * 3
     assert graph.park.stream_end == 0x24A
     assert len(graph.park.tail) == 0x49
+    assert graph.park.class_id == 2
+    assert graph.park.header_a == 0
+    assert graph.park.header_b == 100
+    assert graph.park.header_c == 10.0
+    assert graph.park.header_reserved == b"\x00" * 32
+    assert graph.park.schedule_day == 0
+    assert graph.park.schedule_elapsed == pytest.approx(23.214, abs=0.001)
+    assert graph.park.schedule_current == pytest.approx(23.214, abs=0.001)
+    assert graph.park.schedule_field == 0
+    assert graph.park.schedule_tasks == (0,) * 11
+    assert graph.park.trailer == bytes.fromhex("0000adba0000000000000000")
+    assert graph.park.tail_final == 1
     assert len(graph.visitors) == 2
     assert [v.visitor_id for v in graph.visitors] == [38, 39]
     assert graph.visitors[0].needs == (97, 96, 99, 99, 99, 99, 99)
@@ -143,6 +169,12 @@ def test_retail_auto_graph():
     assert graph.park.cumulative_totals[2:5] == (0xBAADF00D,) * 3
     assert graph.park.stream_end == 0x24A
     assert len(graph.park.tail) == 0x49
+    assert graph.park.class_id == 2
+    assert graph.park.header_a == 3
+    assert graph.park.header_b == 100
+    assert graph.park.header_c == 0.0
+    assert graph.park.schedule_elapsed == 0.0
+    assert graph.park.tail_final == 1
     assert graph.visitors == []
     assert len(graph.dino_store) == 20
     assert graph.ai_counts == (0, 0, 0, 0, 0)
@@ -174,6 +206,28 @@ def test_synthetic_graph(tmp_path):
     assert graph.ai_entries == []
     assert graph.camera == (0.0,) * 10
     assert graph.tail_extra == b"\xaa\xbb\xcc"
+
+
+def test_park_header_and_schedule(tmp_path):
+    path = tmp_path / "sched.sav"
+    park = _park_block(
+        75000, header_a=3, header_b=100, header_c=0.0,
+        day=4, elapsed=123.5, current=120.25, field_18=7,
+    )
+    _synthetic_save(path, park=park)
+    graph = read_sav_graph(path)
+    assert graph.park.class_id == 2
+    assert graph.park.header_a == 3
+    assert graph.park.header_b == 100
+    assert graph.park.header_c == 0.0
+    assert graph.park.schedule_day == 4
+    assert graph.park.schedule_elapsed == pytest.approx(123.5)
+    assert graph.park.schedule_current == pytest.approx(120.25)
+    assert graph.park.schedule_field == 7
+    assert graph.park.schedule_tasks == (0,) * 11
+    assert graph.park.trailer == bytes.fromhex("0000adba0000000000000000")
+    assert graph.park.tail_final == 1
+    assert graph.park.to_dict()["schedule"]["day"] == 4
 
 
 def test_rejects_unknown_object_list(tmp_path):

@@ -777,3 +777,35 @@ auto-framing until the override is found.
 Next probe: trace writes to the observer position/target after `0x00527650`
 (the save's 10 camera floats and `camSwitcher` are candidates; see
 `docs/formats/sav.md`).
+
+## Start camera solved (correction to the negative probe)
+
+The ctor constants were misread: `0x43c80000` is **400.0**, not 10.0, so
+`pvwPark3DRenderView` builds eye `(400,400,140)`, target `(400,600,0)`,
+FOV 62 deg. Those values are overwritten on the first park frame by
+`camManager/camSwitcher::Update` (`FUN_005e5960`), called from
+`pvwParkObserver::Update` (`FUN_00529d00`). The saved camera is the same
+10-float state (`FUN_005e5fb0`): eye, target, progress, yaw.
+
+A new Free Game starts from the camera defaults + `Data/Config/camera.ini`:
+
+```text
+target  = island centre (512,512, terrain_z)      # terrain_z = 32 on isl01
+progress= 0.1
+distance= lerp(DistanceMin 10, DistanceMax 300, 0.1) = 39.0
+elevation=lerp(ElevationMin 3, ElevationMax 500, 0.1) = 52.7 (added to Z)
+yaw     = 0
+eye     = target + (39*cos yaw, 39*sin yaw, 52.7)
+        = (551.0, 512, 84.7)
+```
+
+Confirmed by `run/save/slot001.sav`:
+`(550.998, 512, 84.696, 512, 512, 32, 0.1, 0, 0, 0)`.
+The per-frame projection is FOV **80 deg**, aspect 4:3, near >= 1, far 1000
+(`FUN_00529d00`); 62 deg is only the ctor default. Campaign `.wld` files
+store the same camera state; a new Free Game is fixed in code/camera.ini.
+
+Port: `load_island` with `reset_view` sets the centred-world equivalent:
+target `(0,0,terrain_z)`, horizontal 39, elevation 52.7, yaw 0, and the
+park scene renders with FOV 80. `--start-dino` keeps a close demo camera so
+the allosaurus is visible.

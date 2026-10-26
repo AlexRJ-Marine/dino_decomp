@@ -48,3 +48,28 @@ def test_struct_offsets_cover_every_key():
     # The object has a deliberate 4-byte gap at +0x2B4.
     assert 0x2B4 not in offsets
     assert 0x2B0 in offsets and 0x2B8 in offsets
+
+def test_lab_attribute_ranges():
+    """The lab panel labels and their display maxima."""
+    ranges = GAME / "Data" / "Overlay" / "AttributeRange.ini"
+    if not ranges.exists():
+        pytest.skip("retail sample not present")
+    sys.path.insert(0, str(ROOT / "tools" / "formats"))
+    from overlay import parse_ini
+
+    sections = {section.name: section for section in parse_ini(ranges)}
+    dino = sections["DINO"].values
+    assert dino == {
+        "PERCEPTION": "100.0",
+        "BEAUTY": "100.0",
+        "STRANGENESS": "100.0",
+        "ATTACK": "120.0",
+        "AGGRESSIVENESS": "100.0",
+        "ARMOR": "100.0",
+        "WALKSPEED": "100.0",
+        "AGILITY": "100.0",
+        "INTELLIGENCE": "100.0",
+        "COURAGE": "100.0",
+        "STAMINA": "100.0",
+    }
+    assert sections["MODIFY"].values == {"RADIATIONRESISTANCE": "100.0"}

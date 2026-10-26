@@ -1,8 +1,8 @@
 # `.shw` show scenario
 
-Status: **solved** for the text structure; feature codes and some runtime
-fields remain open. 43/43 retail files parse, 1,679 feature lines, 174 team
-slots.
+Status: **solved** for the text structure and the feature tuples. 43/43
+retail files parse, 1,679 feature lines, 174 team slots. Only some runtime
+catalog fields remain open.
 
 ## Inventory
 
@@ -64,15 +64,54 @@ All 43 files share the same sections in this order:
 | `Judge Kind` | u32 | Judge/referee variant (1 or 2) |
 | `Available cage size` | 4 × u32 | Cage-size flags, e.g. `1 0 0 0` or `0 1 0 0` |
 | `Dimensions` | 2 × u32 | Arena width × height in grid cells (19×39, 55×55, …) |
-| `Wall type` | u32 | Wall style (1 in all inspected files) |
+| `Wall type` | u32 | Wall style (1 in all 43 files) |
 | `Number of features` | u32 | N |
 | `Features` | N × 4 × u32 | Arena props; likely `(type, rotation/team, x, y)` |
 | `Team assignments` | u32 | M |
 | `Cage number` / `Team` | M × (u32, u32) | Cage → team mapping |
 
-Feature tuples are four ints, e.g. `4 0 0 18`, `26 1 4 8`, `30 1 8 2`.
-Types seen: 0, 4, 26, 27, 30. The second value is 0/1/2/3, the third and
-fourth fit inside the arena dimensions (x/y). Exact semantics are open.
+### Feature tuples
+
+Each tuple is `(feature_index, rotation, x, y)`:
+
+- `feature_index` indexes `FeatureList.ini` (62 entries, 0..61). All 1,679
+  retail tuples are in range; the full set 0..61 occurs. Examples:
+  `0` CageSmall, `3` CageHuge, `4` JudgeRace, `26..29` WaypointTeam1..4,
+  `42` ObstacleBeam5 (the most common, 617), `50` Danse, `60/61`
+  TileQuad/TileSleep.
+- `rotation` is 0..3 (quarter turns). It is **not** the team: the team comes
+  from the separate cage?team assignment list.
+- `x`/`y` are grid cells, always `< Dimensions`.
+
+The feature files themselves (`.bfi`) give the footprint, meshes and
+textures for each index; the `.shw` only places them.
+
+Cross-checks over all 43 shows:
+
+- every position is inside the declared dimensions;
+- the number of **cage** features (indices 0..3) equals the number of team
+  slots exactly, 174 = 174, in every file;
+- every show has at least one judge feature (4..10); the derby arenas place
+  nine of them.
+
+### Judge Kind and cage flags
+
+`Judge Kind` 1..4 picks the judge feature directly:
+
+| Judge Kind | Feature | Show family |
+| ---: | ---: | --- |
+| 1 | 4 `JudgeRace` | race |
+| 2 | 5 `JudgeObstacle` | obstacle |
+| 3 | 7 `JudgeFight` | fight |
+| 4 | 6 `JudgeDestruction` | destruction |
+
+The 39 shows split 9/15/11/8. Feature 10 `JudgeTeam` appears as an extra
+marker in some obstacle/destruction shows (team variants).
+
+`Available cage size` is exactly the set of cage features used:
+`cage_size[i] == 1` iff a cage of feature index `i` (0..3 = small..huge)
+appears in the feature list. This holds for all 43 files. Ten distinct flag
+combinations occur, e.g. only-small, only-medium, small+high, all-small..high.
 
 ## Save catalog relation
 
@@ -112,7 +151,8 @@ Tests: `tests/test_shw.py` (sample + all 43 files + save correlation).
 
 ## Open
 
-- Feature tuple semantics (type codes 0/4/26/27/30, second value, x/y).
 - `Judge Kind` and `Wall type` behaviour.
+- Whether the rotation is applied clockwise or counter-clockwise and around
+  which cell corner.
 - Runtime catalog fields `param1`/`param2`/`param5`.
 - Whether the arena grid is row-major and how 19×39 maps to world units.

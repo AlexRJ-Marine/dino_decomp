@@ -302,3 +302,47 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   Judge 6, AnimalBait 5, StaticBait 5, Cage 4, Waypoint 4, LunchBox 1,
   Teleport 1. 57 .mesh + 49 .tga paths all exist; 60/62 have a
   SWITCH_FEATURE_* key.
+- Genotype graphic tables: SkinCarapaceData.ini = skin access path + 22 skin
+  textures (0=void) + carapace path + 16 carapaces x 3 (nomina/hurt/blood).
+  The 22/16 indices are exactly the unique values of simu_trans Part 7/8
+  maps. AdornmentData.ini = 49 head/body/tail LOD pairs + 4 claw types x 4
+  sizes; all 114 models exist under Data/Graphics/Actors/elements_sup/.
+- Laboratory.ini: 4 upgrade levels (reproduction unlocks at 2, cloning
+  failure 100/40/20/0, beam cap 0/1/2/3, fridge slots 4/8/8/8, gene mods
+  0/2/4/20), 3 mutation beams (6/2/2 genes, damage 10/20/40), costs breed
+  2000, clone 4000, mutations 1000/2000/3000, allele mods 1000/500/250.
+- GeneralParams.bgd: 170-byte packed record. 4 floats (3000,1800,3,1.5),
+  4 sounds ("",rocket,trumpet,startBlast) + "whitle", then 8,120,40,10,60,
+  a 4x4 float grid and 6.0/10.5/14.0/20.0. Reader 0x542f80.
+- Ten design databases load order (0x53d4d0): walls, actions, features,
+  buildings, landscape objs, visitors, employees, food sources, animal,
+  general params.
+- Data/States render states: 34 .ini profiles + 18 .txt fragments, grammar
+  `mgState<Name> [stage|Free] values` with // comments and mgStateInclude.
+  Standard = Solid/CCW/Gouraud, z Y/Y/LessEqual, alpha SrcAlpha/InvSrcAlpha/
+  Add, alpha test 128 LessEqual, fog Y (1500..2000, 255,220,165), light Y
+  ColorVertex N. Default 3D texture stage 0 = Modulate (texture x diffuse),
+  Wrap, linear, mipmaps off; stage 1 off. Water = SelectArg1/Modulate2x/
+  Disable. Description.txt is the grammar; 4 names drifted from it.
+- .shw feature tuples: (FeatureList index, rotation, x, y). All 1,679
+  tuples index 0..61; rotation 0..3; positions inside dimensions; cage
+  features (0..3) = 174 = team slots per file. Top index 42 =
+  ObstacleBeam5 (617 uses). read_feature_names() exposes the order.
+- .shw Judge Kind 1..4 selects the judge feature: 1=JudgeRace, 2=JudgeObstacle,
+  3=JudgeFight, 4=JudgeDestruction (9/15/11/8 shows). Available cage size
+  flags are exactly the cage features used (43/43). Wall type 1 everywhere.
+- Edition .gen 27-gene files: only slots 0-9 and 18 are ever non-zero
+  (0-3 species types, 4-9 dummy position/type, 18 a 0..9 trait; 10-17 and
+  19-26 always zero). Independent editor data set, not the runtime layout.
+- Market.ini: 54 dinosaur store entries in 6 pages (DinoStore0,2..6; page 1
+  absent), each (name, price, .gen). Prices 3200..42000. All genotypes exist;
+  design .gen not sold: anky2, peleca3, proto2.
+- FreeGame.ini: budgets 75000/50000/25000, sell-back 1.0/0.5/0.2; lab level 3
+  in all tracks; interface all enabled; 39 shows on pages 0..7 (8/9 empty);
+  20 dino store entries (subset of Market.ini, same prices); visitor
+  profiles 3x6 triplets (first sums 180/110/60, second always 100).
+- Data/Config: camera.ini has 5 identical camera blocks (move 1..20,
+  progress 0.05..0.2, rotation pi/2, elevation 3..500, distance 10..300,
+  hardness 6..2); no initial framing. KeyMapper.ini = 17 bindings;
+  KeyFrancais.ini = 144 DIK/MIK rows (AZERTY, DIK_Q = a). Start.Ini = 800x600,
+  mgSet3D -1,"HAL","SW",16, miKeyLoad key table. Dino.ini GameSpeed 50.

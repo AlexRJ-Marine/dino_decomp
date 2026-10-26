@@ -114,12 +114,18 @@ class Visitor:
 
 
 PARK_HEADER_SIZE = 0x30
+PARK_TRAILER_OFFSET = 0x3D  # relative to the schedule tail (block + 0x24a)
 SHOP_KINDS = 13
 
 
 @dataclass
 class ParkState:
     offset: int
+    class_id: int
+    header_a: int
+    header_b: int
+    header_c: float
+    header_reserved: bytes
     budget: int
     sellback_factor: float
     food_total: int
@@ -153,12 +159,26 @@ class ParkState:
     cumulative_sales: tuple[int, ...]
     cumulative_totals: tuple[int, ...]
     stream_end: int
+    schedule_day: int
+    schedule_elapsed: float
+    schedule_current: float
+    schedule_field: int
+    schedule_tasks: tuple[int, ...]
+    trailer: bytes
+    tail_final: int
     tail: bytes
     raw: bytes
 
     def to_dict(self) -> dict:
         return {
             "offset": self.offset,
+            "class_id": self.class_id,
+            "header": {
+                "a": self.header_a,
+                "b": self.header_b,
+                "c": self.header_c,
+                "reserved": self.header_reserved.hex(),
+            },
             "budget": self.budget,
             "sellback_factor": self.sellback_factor,
             "food": [self.food_total, self.food_count],
@@ -191,6 +211,15 @@ class ParkState:
                 "totals": list(self.cumulative_totals),
             },
             "stream_end": self.stream_end,
+            "schedule": {
+                "day": self.schedule_day,
+                "elapsed": self.schedule_elapsed,
+                "current": self.schedule_current,
+                "field_18": self.schedule_field,
+                "tasks": list(self.schedule_tasks),
+                "trailer": self.trailer.hex(),
+                "final": self.tail_final,
+            },
             "tail": self.tail.hex(),
         }
 
@@ -334,17 +363,35 @@ def _read_visitor(data: bytes, off: int) -> Visitor:
 
 
 def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
-    """Decode the economy field stream written by ``0x00585780``.
+    """Decode the 0x293-byte park record.
 
-    The stream starts after the 0x30-byte park header and stores fields in
-    writer order, not at their runtime offsets.  It ends with the cumulative
-    counter block (the 180-byte "second block" that ``0x00585240`` reads back
-    into the yesterday fields in the retail binary -- a loader bug).  The
-    remaining bytes of the 0x293-byte park block are the schedule-manager tail
-    plus a 12-byte field; they are returned as ``tail``.
+    The record is a fixed header followed by three writer-ordered streams::
+
+        0x000  u32 class id (2)
+        0x004  u32 header_a (0 manual / 3 autosave)
+        0x008  u32 header_b (100 in both retail saves)
+        0x00c  f32 header_c (10.0 manual / 0.0 autosave)
+        0x010  header_reserved (32 bytes, zero in retail saves)
+
+        0x030  economy stream, 0x21a bytes (writer ``0x00585780``)
+        0x24a  schedule manager, 0x3c bytes (writer ``0x00594cb0``):
+               u32 day, f32 elapsed, f32 current, u32 field_18,
+               11 x u32 task slots
+        0x286  12-byte park field ``spPark+0x148``
+        0x292  1 trailing byte (0x01 in both retail saves)
+
+    The economy stream stores fields in writer order, not at their runtime
+    offsets, and ends with the cumulative counter block (the 180-byte "second
+    block" that ``0x00585240`` reads back into the yesterday fields in the
+    retail binary -- a loader bug, not reproduced here).
     """
     if len(block) < PARK_HEADER_SIZE:
         raise SavGraphError(f"park block too short: {len(block)} bytes")
+    class_id = struct.unpack_from("<I", block, 0x00)[0]
+    header_a = struct.unpack_from("<I", block, 0x04)[0]
+    header_b = struct.unpack_from("<I", block, 0x08)[0]
+    header_c = struct.unpack_from("<f", block, 0x0C)[0]
+    header_reserved = block[0x10:PARK_HEADER_SIZE]
     pos = PARK_HEADER_SIZE
 
     def need(size: int, what: str) -> None:
@@ -405,8 +452,32 @@ def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
     cumulative_totals = tuple(u32(f"cumulative total[{i}]") for i in range(13))
     stream_end = pos
     tail = block[pos:]
+
+    # Schedule manager tail: 12-byte time manager, then the task vector's
+    # +0x18 field and its fixed 11 slots, then the 12-byte spPark+0x148 field
+    # and one trailing byte.  The vector length is not stored, so derive it
+    # from the tail size (0x49 bytes in both retail saves -> 11 slots).
+    if len(tail) < 0x1D:
+        raise SavGraphError(f"park schedule tail too short: {len(tail)} bytes")
+    schedule_day = struct.unpack_from("<I", tail, 0x00)[0]
+    schedule_elapsed = struct.unpack_from("<f", tail, 0x04)[0]
+    schedule_current = struct.unpack_from("<f", tail, 0x08)[0]
+    schedule_field = struct.unpack_from("<I", tail, 0x0C)[0]
+    slot_count = (len(tail) - 0x1D) // 4
+    schedule_tasks = tuple(
+        struct.unpack_from("<I", tail, 0x10 + i * 4)[0] for i in range(slot_count)
+    )
+    trailer_at = 0x10 + slot_count * 4
+    trailer = tail[trailer_at:trailer_at + 12]
+    tail_final = tail[trailer_at + 12]
+
     return ParkState(
         offset=file_offset,
+        class_id=class_id,
+        header_a=header_a,
+        header_b=header_b,
+        header_c=header_c,
+        header_reserved=header_reserved,
         budget=budget,
         sellback_factor=sellback,
         food_total=food_total,
@@ -440,6 +511,13 @@ def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
         cumulative_sales=cumulative_sales,
         cumulative_totals=cumulative_totals,
         stream_end=stream_end,
+        schedule_day=schedule_day,
+        schedule_elapsed=schedule_elapsed,
+        schedule_current=schedule_current,
+        schedule_field=schedule_field,
+        schedule_tasks=schedule_tasks,
+        trailer=trailer,
+        tail_final=tail_final,
         tail=tail,
         raw=block,
     )

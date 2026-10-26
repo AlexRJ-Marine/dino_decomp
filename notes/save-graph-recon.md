@@ -307,6 +307,45 @@ first-block total dwords before starting the second block, so the retail
 loader is 32 bytes out of phase. The parser follows the writer layout and
 exposes `yesterday_*` and `cumulative_*` separately; the loader bug is not
 reproduced in the port. The remaining 0x49 bytes of the park block are the
-schedule-manager tail (0x3d bytes) and a 12-byte field.
+schedule-manager tail (0x3c bytes), a 12-byte field and one trailing byte.
 `sav_graph._read_park_stream` and `tools/formats/economy.py` use this order;
 see `docs/formats/sav.md`.
+
+### Park header and schedule tail (2026-10-26c)
+
+`FUN_005874a0` (`spPark` ctor) and `FUN_0058b200` (`spPark::Save`, called by
+`spSimuManager::Save` at `0x00586b30`) give the runtime offsets that the block
+header mirrors:
+
+| Block | Bytes | Manual | Auto | Notes |
+| --- | --- | --- | --- | --- |
+| `+0x00` | u32 | 2 | 2 | class id (`spPark`) |
+| `+0x04` | u32 | 0 | 3 | unknown; differs between manual and autosave |
+| `+0x08` | u32 | 100 | 100 | unknown, constant in both |
+| `+0x0c` | f32 | 10.0 | 0.0 | unknown |
+| `+0x10` | 32 B | 0 | 0 | reserved/zero |
+
+The schedule tail starts at `block + 0x24a`. `0x00594cb0` (called from
+`spPark::Save`) writes it in two parts:
+
+- `0x0058c260` writes the time manager's `+4/+8/+0xc` dwords (12 bytes). In
+  the file these are day `0`, elapsed `23.214` and current `23.214` in the
+  manual save; all zero in the autosave.
+- `0x0058c6b0` writes the task vector's `+0x18` field (4 bytes) and then one
+  `u32` per task (`task + 0x70`). The vector length is not serialised; the
+  reader `0x0058c620` reuses its constructor length. Retail saves have 11
+  zero slots.
+
+The block then ends with `0x0058b200`'s final write: 12 bytes from
+`spPark+0x148`. The ctor zeroes bytes `+0x148/+0x149` and dwords
+`+0x14c/+0x150`, which leaves `+0x14a/+0x14b` = `0xBAAD` debug fill; the file
+shows `00 00 ad ba 00 00 00 00 00 00 00 00` at `block + 0x286`. One byte
+(`0x01`) remains at `block + 0x292`. No writer for it has been identified:
+the decompiled `0x0058b200` ends with the 12-byte write, so it is documented
+as an unexplained trailing byte rather than guessed.
+
+Verified offsets (both retail saves): economy stream `0x30..0x249`, schedule
+`0x24a..0x285`, park field `0x286..0x291`, trailing byte `0x292`, next dword
+(`0x293`) = dino store count `20` followed by a 22-byte UTF-16 name
+(`Allosaurus`), which pins the block size.
+

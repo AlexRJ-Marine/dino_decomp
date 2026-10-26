@@ -69,6 +69,26 @@ sound mixer: data/Sound/Interface/mixer.wav
 
 Evidence: `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
 
+## Island music
+
+`ParkSoundDB.ini` is parsed at startup (224 entries). `load_island` looks up
+the `.lnd` `music` name (`musEquateur`, `musAtoll`, `musTempere`,
+`musAfricaine`, `musLabo`) and streams that 26–28 MB WAV in 64 KB chunks,
+looping when the queue drains below one second. The player keeps one theme in
+memory at a time.
+
+Options:
+
+```text
+--music            play the island theme (interactive default)
+--no-music         disable it
+--music-volume N   gain 0..100 (default 97)
+```
+
+The music starts on the initial `--lnd` load and again after a menu-started
+island swap. `M` mutes both music and clicks. Evidence:
+`tests/test_viewer_cpp.py::test_cpp_park_music`.
+
 ## Evidence
 
 ```text

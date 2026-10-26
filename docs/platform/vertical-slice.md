@@ -50,6 +50,13 @@ Orbit mode (default): **left-drag** orbits, wheel zooms, arrows orbit, `R`
 resets. When a dinosaur is placed, the orbit target is the spawn point at
 `z = terrain + 3`; otherwise it frames the whole island.
 
+The menu-started park uses the recovered Free Game camera: target is the
+island centre at terrain height, horizontal distance 39, elevation 52.7,
+yaw 0 (`Data/Config/camera.ini` progress 0.1; retail save eye
+`(551,512,84.7)`, target `(512,512,32)` on isl01). The park scene renders
+with the original FOV **80°**; mesh-only views keep 33°. `--start-dino` uses a
+close demo camera (distance 22) so the allosaurus is visible.
+
 Free-fly mode: `--free-camera` or `C` to toggle. Controls:
 
 ```text

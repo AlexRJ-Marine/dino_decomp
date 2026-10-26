@@ -88,3 +88,20 @@ Rarity weights are 1–3 (lower = rarer). `anim_trans.dic` lists 20 dinos and
 - `docs/formats/gen.md` — spec and gene table.
 - Raw files: `game/%MAINDIR%/Data/Design/Scenario/Genotype/*.gen`.
 
+## Edition files (27 genes), 2026-10-26
+
+20 files in `Data/Edition/Genotype`. Only slots 0-9 and 18 are ever non-zero:
+
+```
+0-3   species type (all four equal per file, 0..19)
+4/5   head dummy position/type
+6/7   body dummy position/type
+8/9   tail dummy position/type
+10-17 always (0,0)
+18    one trait 0..9 (allo (8,7), trex (9,8), ...; hypsilo unset)
+19-26 always (0,0)
+```
+
+Only kentro and stego set the dummy genes: (3,46)x3 and (4,47)x3. The
+values do not match the same-named design files, so the edition set is an
+independent editor data set, not a re-layout of the design genotype.

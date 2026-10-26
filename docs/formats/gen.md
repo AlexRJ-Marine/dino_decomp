@@ -117,10 +117,26 @@ HighQuadruped, LightQuadruped, HeavyBiped, LightBiped, LowQuadruped);
 
 ## Edition genes (27)
 
-`Data/Edition/Genotype/*.gen` have 27 pairs, all bare. The design genes do
-not appear at the same indices (e.g. `allo.gen` has `(8,7)` at index 18, not
-15), and the extra 9 genes are not decoded. Do not use these files at runtime
-without the editor's mapping.
+`Data/Edition/Genotype/*.gen` have 27 pairs, all bare. Across all 20 files
+only slots **0-9 and 18** are ever non-zero:
+
+| Slots | Values | Meaning |
+| --- | --- | --- |
+| 0-3 | 0..19 | species type (head, legs, body, tail) |
+| 4/5 | 0..47 | head dummy position/type |
+| 6/7 | 0..47 | body dummy position/type |
+| 8/9 | 0..47 | tail dummy position/type |
+| 10-17 | always `(0,0)` | unused/default |
+| 18 | 0..9 | one trait, likely aggression (`allo` `(8,7)`) |
+| 19-26 | always `(0,0)` | unused/default |
+
+`kentro` and `stego` are the only files with dummy values: `(3,46)`,
+`(3,46)`, `(3,46)` and `(4,47)`, `(4,47)`, `(4,47)`. The edition values do
+**not** match the same-named design files pair-for-pair (e.g. design `allo`
+has aggression `(8,7)` at index 15, edition `allo` at 18; design `anky` has
+carapace values that the edition lacks), so this is an independent editor
+data set, not a re-layout of the design genotype. Do not use these files at
+runtime.
 
 ## Reader
 

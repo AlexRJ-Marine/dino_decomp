@@ -111,6 +111,9 @@ struct Options {
     bool ui_sounds = true;
     bool list_sounds = false;
     std::string play_sound;
+    bool music = false;
+    bool music_forced = false;
+    float music_volume = 97.0f;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -320,6 +323,15 @@ Options parse_args(int argc, char** argv) {
             opt.list_sounds = true;
         } else if (arg == "--play-sound") {
             opt.play_sound = next("--play-sound");
+        } else if (arg == "--music") {
+            opt.music = true;
+            opt.music_forced = true;
+        } else if (arg == "--no-music") {
+            opt.music = false;
+            opt.music_forced = true;
+        } else if (arg == "--music-volume") {
+            opt.music_volume = static_cast<float>(
+                std::atof(next("--music-volume")));
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -429,6 +441,9 @@ Options parse_args(int argc, char** argv) {
                 "  --no-sounds          disable UI click sounds\n"
                 "  --list-sounds        print the menu sound DB and exit\n"
                 "  --play-sound NAME    play one MenuSoundDB entry at startup\n"
+                "  --music              play the island theme (interactive default)\n"
+                "  --no-music           disable island music\n"
+                "  --music-volume N     music gain 0..100 (default 97)\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -686,6 +701,111 @@ struct UiSoundPlayer {
             SDL_DestroyAudioStream(stream);
             stream = nullptr;
         }
+    }
+};
+
+// Island music: streams a 26-28 MB theme in 64 KB chunks, looping at the end.
+struct MusicPlayer {
+    std::string asset_root;
+    SDL_AudioStream* stream = nullptr;
+    dino::Wav wav;
+    std::size_t offset = 0;
+    bool looping = true;
+    bool enabled = false;
+    float gain = 0.97f;
+    std::string current;
+
+    void stop() {
+        if (stream != nullptr) {
+            SDL_DestroyAudioStream(stream);
+            stream = nullptr;
+        }
+        wav = dino::Wav{};
+        offset = 0;
+        current.clear();
+    }
+
+    void play(const std::string& relative) {
+        if (!enabled || relative.empty()) {
+            return;
+        }
+        stop();
+        std::string path;
+        try {
+            path = dino::asset_path(asset_root, relative);
+        } catch (const std::exception&) {
+            return;
+        }
+        try {
+            wav = dino::load_wav(path);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "music load %s: %s\n", path.c_str(), e.what());
+            return;
+        }
+        if (wav.data.empty() || wav.sample_rate == 0 || wav.channels == 0) {
+            return;
+        }
+        SDL_AudioSpec spec{};
+        spec.format = wav.bits_per_sample == 16 ? SDL_AUDIO_S16 : SDL_AUDIO_U8;
+        spec.channels = wav.channels;
+        spec.freq = static_cast<int>(wav.sample_rate);
+        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                                           &spec, nullptr, nullptr);
+        if (stream == nullptr) {
+            std::fprintf(stderr, "music device: %s\n", SDL_GetError());
+            enabled = false;
+            return;
+        }
+        SDL_SetAudioStreamGain(stream, gain);
+        SDL_ResumeAudioStreamDevice(stream);
+        current = path;
+        offset = 0;
+        feed();
+        std::printf("music: %s, %u Hz, %u ch, %.1fs (loop)\n", path.c_str(),
+                    wav.sample_rate, wav.channels, wav.duration);
+    }
+
+    void feed() {
+        if (stream == nullptr || wav.data.empty()) {
+            return;
+        }
+        const int bytes_per_second =
+            static_cast<int>(wav.sample_rate) * wav.channels *
+            (wav.bits_per_sample / 8);
+        if (bytes_per_second <= 0) {
+            return;
+        }
+        while (SDL_GetAudioStreamQueued(stream) < bytes_per_second) {
+            if (offset >= wav.data.size()) {
+                if (!looping) {
+                    break;
+                }
+                offset = 0;
+            }
+            const std::size_t chunk =
+                std::min<std::size_t>(65536, wav.data.size() - offset);
+            SDL_PutAudioStreamData(stream, wav.data.data() + offset,
+                                   static_cast<int>(chunk));
+            offset += chunk;
+        }
+    }
+
+    void update() {
+        if (stream != nullptr) {
+            feed();
+        }
+    }
+
+    void set_gain(float value) {
+        gain = value;
+        if (stream != nullptr) {
+            SDL_SetAudioStreamGain(stream, gain);
+        }
+    }
+
+    void destroy() {
+        stop();
+        enabled = false;
     }
 };
 
@@ -1388,8 +1508,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
                 const SkyboxGL& skybox,
                 GLuint program,
                 const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
-                int width, int height) {
-    const dino::Mat4 proj = perspective(33.0f,
+                int width, int height, float fov_deg = 33.0f) {
+    const dino::Mat4 proj = perspective(fov_deg,
                                         static_cast<float>(width) / std::max(1, height),
                                         0.1f, 10000.0f);
     const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
@@ -1810,6 +1930,9 @@ int main(int argc, char** argv) {
     if (!opt.rebinds.empty() && !opt.no_save_keys) {
         dino::save_keymap(opt.keys_path, keymap);
     }
+    if (!opt.music_forced) {
+        opt.music = opt.frames == 0 && opt.screenshot.empty();
+    }
     if (opt.list_keys) {
         dino::print_keymap(keymap);
         return 0;
@@ -1877,6 +2000,19 @@ int main(int argc, char** argv) {
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "menu sounds: %s\n", e.what());
+    }
+    std::unordered_map<std::string, std::string> park_sound_files;
+    try {
+        const dino::ui::IniFile sound_db = dino::ui::load_ini(
+            resolve_asset(opt.asset_root, "Data/Sound/ParkSoundDB.ini"));
+        for (const auto& section : sound_db.sections) {
+            const std::string filename = section.get("FILENAME");
+            if (!filename.empty()) {
+                park_sound_files[section.name] = filename;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "park sounds: %s\n", e.what());
     }
     if (opt.list_sounds) {
         for (const auto& name : menu_sound_names) {
@@ -2368,6 +2504,16 @@ int main(int argc, char** argv) {
             ui_sound.play(sound_it->second);
         } else {
             std::fprintf(stderr, "unknown sound: %s\n", opt.play_sound.c_str());
+        }
+    }
+    MusicPlayer music;
+    music.asset_root = opt.asset_root;
+    music.enabled = opt.music;
+    music.set_gain(std::clamp(opt.music_volume / 100.0f, 0.0f, 1.0f));
+    if (opt.music && !opt.lnd_path.empty() && !lnd.music.empty()) {
+        const auto music_it = park_sound_files.find(lnd.music);
+        if (music_it != park_sound_files.end()) {
+            music.play(music_it->second);
         }
     }
 
@@ -3256,9 +3402,35 @@ int main(int argc, char** argv) {
         auto_distance = place_dino ? 22.0f
                                    : std::max(2.0f, bounds.extent() * 1.7f);
         if (reset_view) {
-            distance = opt.distance > 0.0f ? opt.distance : auto_distance;
-            yaw = opt.yaw;
-            pitch = opt.pitch;
+            if (place_dino) {
+                // Demo close-up for --start-dino; the original free game has
+                // no dinosaur placed at the centre.
+                center = dino::Vec3{
+                    spawn_x - terrain.world_size * 0.5f,
+                    spawn_y - terrain.world_size * 0.5f,
+                    terrain.height_at(spawn_x - terrain.world_size * 0.5f,
+                                      spawn_y - terrain.world_size * 0.5f) +
+                        3.0f};
+                distance = opt.distance > 0.0f ? opt.distance : 22.0f;
+                yaw = opt.yaw;
+                pitch = opt.pitch;
+            } else {
+                // Free Game start camera (camSwitcher/camera.ini): target is
+                // the island centre at terrain height, horizontal distance 39
+                // and elevation 52.7 at progress 0.1, yaw 0. Scaled for other
+                // world sizes. The retail save stores eye (551,512,84.7),
+                // target (512,512,32) on isl01.
+                const float scale = terrain.world_size / 1024.0f;
+                const float horizontal = 39.0f * scale;
+                const float elevation = 52.7f * scale;
+                center = {0.0f, 0.0f, terrain.height_at(0.0f, 0.0f)};
+                distance = std::sqrt(horizontal * horizontal +
+                                     elevation * elevation);
+                yaw = 0.0f;
+                pitch =
+                    std::asin(std::clamp(elevation / distance, -1.0f, 1.0f)) *
+                    180.0f / 3.14159265f;
+            }
             free_pos = orbit_eye();
             if (free_camera) {
                 enter_free_camera();
@@ -3270,6 +3442,12 @@ int main(int argc, char** argv) {
             "sky=%d\n",
             island.c_str(), lnd_path.c_str(), terrain.width, terrain.height,
             vegetation.groups.size(), water_z, loaded_faces);
+        if (music.enabled && !lnd.music.empty()) {
+            const auto music_it = park_sound_files.find(lnd.music);
+            if (music_it != park_sound_files.end()) {
+                music.play(music_it->second);
+            }
+        }
     };
 
     int park_hover_x = -1;
@@ -3556,6 +3734,10 @@ int main(int argc, char** argv) {
                         SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
                     }
                     ui_sound.set_muted(opt.muted);
+                    music.set_gain(opt.muted
+                                       ? 0.0f
+                                       : std::clamp(opt.music_volume / 100.0f,
+                                                    0.0f, 1.0f));
                 } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
                     free_camera = !free_camera;
                     if (free_camera) {
@@ -3718,6 +3900,7 @@ int main(int argc, char** argv) {
             }
         }
         ui_sound.update(dt);
+        music.update();
 
         if (minimap_zoom_in) {
             minimap_scale =
@@ -3927,7 +4110,8 @@ int main(int argc, char** argv) {
             }
         }
         draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
-                   view_center, width, height);
+                   view_center, width, height,
+                   terrain.world_size > 0.0f ? 80.0f : 33.0f);
 
         auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
                            int unlit) {
@@ -4127,6 +4311,7 @@ int main(int argc, char** argv) {
         SDL_DestroyAudioStream(audio);
     }
     ui_sound.destroy();
+    music.destroy();
     for (auto& group : veg_gpu) {
         group.destroy(glfns);
     }

@@ -58,3 +58,24 @@ def test_rejects_truncated(tmp_path):
     p.write_text("18\n0 0\n", encoding="cp1252")
     with pytest.raises(GenFormatError):
         read_gen(p)
+
+def test_edition_files_are_sparse_27_gene():
+    """Only slots 0-9 and 18 are used in the 20 edition files."""
+    root = Path(__file__).resolve().parents[1]
+    edition = root / "game" / "%MAINDIR%" / "Data" / "Edition" / "Genotype"
+    if not edition.exists():
+        pytest.skip("retail sample not present")
+    files = sorted(edition.glob("*.gen"))
+    assert len(files) == 20
+    for path in files:
+        data = read_gen(path)
+        assert data.gene_count == 27
+        for index, (a, b) in enumerate(data.alleles):
+            if a or b:
+                assert index <= 9 or index == 18, (path.name, index)
+        a, b, c, d = (data.alleles[i] for i in range(4))
+        assert a == b == c == d, path.name
+    kentro = read_gen(edition / "kentro.gen")
+    assert kentro.alleles[4:10] == [(3, 3), (46, 46)] * 3
+    stego = read_gen(edition / "stego.gen")
+    assert stego.alleles[4:10] == [(4, 4), (47, 47)] * 3
