@@ -1457,6 +1457,24 @@ Updated: 2026-10-26
     `docs/decomp/dinosaur-actions.md`,
     `notes/dino-action-chooser-recon.md`.
 
+- WORLD-1b / QOL-4 complete: **engine raw orientation + ground-target camera.**
+  - Heightmap and occupation raws are loaded bottom-up by the engine
+    (`mgHeightmap::Load` `0x5c06b0`, landscape grid `0x61c2d0`); the port
+    flips both at load and flips the terrain V. World cell `(520,376)` on
+    isl01 now samples file row 323 (Entrance shoreline, Z 18.0) instead of
+    row 188 (volcano, 69.4).
+  - The default orbit camera now pans its look-at target with `W/A/S/D`
+    (`Q/E` raises/lowers it), drag orbits and the wheel zooms; `C` still
+    toggles the free-fly camera. An interactive hint shows the controls for
+    the first 12 s.
+  - Evidence: `notes/terrain-orientation-recon.md`,
+    `notes/entrance-fixed2.png`, `notes/isl01-start-fixed.png`,
+    `notes/isl01-overhead2.png`, `notes/orbit-before.png`,
+    `notes/orbit-after.png`, `notes/camera-before.png`,
+    `notes/camera-after.png`, `docs/platform/qol.md`,
+    `docs/platform/terrain.md`, `docs/platform/buildings.md`,
+    `docs/formats/raw.md`; 377 tests pass.
+
 ## In progress
 
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported

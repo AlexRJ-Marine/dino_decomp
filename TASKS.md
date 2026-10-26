@@ -699,6 +699,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
   `tests/test_viewer_cpp.py`.
 
+### QOL-4: Ground-target camera movement
+- [x] `W/A/S/D` pan the default orbit target over the island; `Q/E`
+  raise/lower it; drag still orbits and the wheel zooms.
+- [x] Keep the free-fly camera on `C`; clamp it to the terrain.
+- [x] Show an interactive controls hint for the first 12 s.
+- **Acceptance:** WASD moves the park camera without entering free-fly;
+  the free-fly toggle still works.
+- **Depends on:** VIEW-1, QOL-3.
+- **Evidence:** `src/viewer/main.cpp`, `docs/platform/qol.md`,
+  `docs/platform/vertical-slice.md`, `notes/orbit-before.png`,
+  `notes/orbit-after.png`, `notes/camera-before.png`,
+  `notes/camera-after.png`.
+
 ## Phase 3 — hybrid decompilation
 
 ### DEC-6: Function status list
@@ -856,6 +869,24 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/formats/blf.md`, `src/world/{terrain,vegetation}.cpp`,
   `notes/isl01-terrain.png`, `notes/isl01-vegetation.png`,
   `tests/test_viewer_cpp.py`, `tests/test_imp.py`, `tests/test_blf.py`.
+
+### WORLD-1b: Engine raw orientation
+- [x] Prove both raw loaders flip rows: `mgHeightmap::Load` `0x5c06b0`
+  reads file rows last-to-first; the landscape grid `0x61c2d0` writes
+  `grid[height - 1 - i]`.
+- [x] Flip the heightmap and occupation mask at load
+  (`load_raw_u8(..., flip_rows=true)`) and flip the terrain V
+  (`{u, -v}`; the shader adds 1).
+- [x] Fix the isl01 Entrance: world cell `(520,376)` now samples file row
+  323 / shoreline (Z 18.0), not row 188 / volcano (69.4).
+- [x] Update the build-mask tests to engine-orientation cells.
+- **Acceptance:** the Entrance boat sits at the coast; the free-game start
+  view matches the retail framing; all tests pass.
+- **Depends on:** WORLD-1.
+- **Evidence:** `notes/terrain-orientation-recon.md`,
+  `notes/entrance-fixed2.png`, `notes/isl01-start-fixed.png`,
+  `notes/isl01-overhead2.png`, `docs/platform/terrain.md`,
+  `docs/platform/buildings.md`, `docs/formats/raw.md`.
 
 ### WORLD-2: Object placement and frustum culling
 - [x] `.bbi` building definition loader (`src/formats/bbi.cpp`): header, ten
