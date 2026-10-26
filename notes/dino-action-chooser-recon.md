@@ -294,28 +294,68 @@ raw-gauge constants are not runtime-calibrated yet.
 
 ## Danger-grid population (2026-10-26)
 
-The 8-unit danger grid read by the chooser is at world `+0x10` (row array;
-row stride `0x20`); the world descriptor also has `+0x08/+0x0c` = centre and
-`+0x27c` = world radius (`FUN_00572DD0` bounds test). It is rebuilt every
-park update in `FUN_00589CD0`:
+The 8-unit danger grid is at `[dino+0x20]`: `+0x10` is the row array, the
+cell stride is 0x20, and the grid is 128 x 128 cells over raw world units
+0..1024. The per-dinosaur fields are `+0x08/+0x0c` = position,
+`+0x27c` = stamp radius and `+0x2a0` = stamp value.
+
+`FUN_00589CD0` rebuilds the grid **once per second**, not every frame:
+`_DAT_00675a20 += dt` and the whole block runs only when it reaches 1.0.
 
 1. `FUN_005774F0(world)` clears every cell: the words at `+0`, `+4`,
    `+0x18`, `+0x1c` and the vector at `+0xc..+0x10` are zeroed.
 2. For every dinosaur in `park+0x68`, `FUN_00571B50(dino)` walks the cells
-   inside `[dino+0x08 - r, dino+0x08 + r] x [dino+0x0c - r,
-   dino+0x0c + r]` with `r = dino+0x27c` (8-unit cells, `>> 3`).
+   inside `[(x-r)>>3, (x+r)>>3] x [(y-r)>>3, (y+r)>>3]` with
+   `r = dino+0x27c`.
 3. `FUN_00571C00` adds `dino+0x2a0` to each visited cell. Its `this` is a
-   stack object `{vtable 0x643150, dino+0x214}`; `0x571b6c` stores
-   `dino+0x214` at temp `+4` and `0x571c03` reads `[temp+4 + 0x8c]` =
-   `dino+0x2a0`.
+   stack object `{vtable 0x643150, dino+0x214}`, so the value is
+   `[dino+0x214 + 0x8c]` = `dino+0x2a0`.
 
-`+0x27c` and `+0x2a0` are the phenotype-cache copies made by
-`FUN_00571190`: `+0x27c <- +0xd0` (threat/perception radius) and
-`+0x2a0 <- +0x94` (aggression/threat value). The chooser then computes
-`threat = -cell(target) + cell(actor) - actor+0x2a0`, which cancels the
-actor's own stamped value and leaves the other dinosaurs' threat at its cell
-minus the threat at the target cell.
+### SECU is computed from the grid (`FUN_00571440`)
 
-The port has no danger grid yet; its `choose_action` still passes
-`threat_score = 0`. Implementing it needs per-action target positions (the
-node target vtable `+0x14`) in addition to the grid.
+Immediately after the stamps, the same loop calls `FUN_00571440` for every
+dinosaur (`0x589dd8`):
+
+```text
+secu = 99 + trunc((health - max_health) * 100 / max_health)
+          - trunc((grid[x>>3][y>>3] - threat) * 0.1)
+if (secu < 0) secu = 0
+```
+
+- `health` = `int16 +0x16`, `max_health` = `int16 +0x1d4`. Both start at
+  the same maximum (`0x570328`, `0x57065a`, `0x570fb2`); `FUN_005724d0`
+  subtracts damage from `+0x16`.
+- `0.1` is the float at `0x675704`, written by the dinosaur ctor at
+  `0x56fec0` (`0x3dcccccd`).
+- `FUN_005982d4` is the `__ftol` wrapper; both divisions truncate toward
+  zero.
+- `+0x24c` is therefore recomputed, not decayed: any `.bai` SECU delta is
+  transient.
+
+The **threat term in the chooser** (`FUN_0056E410`) is separate: it reads
+the node's target position from the action policy vtable `+0x14` and, when
+the target is inside the actor's radius box (`FUN_00572DD0`: `|tx-x| <= r`
+and `|ty-y| <= r`), computes `-cell(target) + cell(actor) - actor+0x2a0`
+and adds `need_term(SECU, value/10)`. `FUN_00572DD0` is **not** a world
+bounds test. The port still passes `threat_score = 0` because it has no
+per-action target position.
+
+### Cache writers
+
+`+0x27c` and `+0x2a0` are filled by `FUN_00571190` when specific actions
+finish: action 26 (ObstAttackSize1) writes `+0x274/+0x278/+0x27c`, and
+action 13 (GetCourage) writes `+0x288..+0x29c` and `+0x2a0`. By the time
+the harness traces the park (after the briefing and ~5 s of simulation),
+the Cpg04 dinosaurs have nonzero values (e.g. threat 53/radius 5,
+threat 68/radius 10, threat 40/radius 3), so the action path runs before
+the trace.
+
+### Validation
+
+`notes/x32dbg-secu6.out.log` (Cpg04, `scripts/x32dbg/start-campaign.ps1
+-SecuTrace`) logs the stamps and the post-store SECU values of every 1 s
+rebuild. `tools/recon/secu_grid_check.py` rebuilds each grid and applies
+the formula: **862/862 values match exactly over 45 rebuilds**, including
+damaged dinosaurs (health 25..200 of max 169..261). The sample block is
+`notes/x32dbg-secu-sample.txt`; the checker output is
+`notes/secu-grid-validation.txt`.

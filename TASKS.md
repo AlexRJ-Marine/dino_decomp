@@ -1090,17 +1090,28 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   none, five meals deplete. See `docs/platform/feeding.md`.
 - [ ] Employee feeding (nutritionist schedule) and the exact `.bsi`
   quantity/nutrition meal semantics.
-- [ ] Visitor/obstacle reaction (the threat term feeding SECU) and the
-  retail-verified action→animation clip table (currently name-based/inferred:
-  Eat→Chew, Sleep→Sleep, Exploration→Walk, Smell→Sniff).
+- [x] Decode and port the SECU danger grid (`FUN_00589CD0` /
+  `FUN_00571440`): 128 x 128 cells of 8 raw world units, cleared/stamped
+  and recomputed once per second; SECU = `99 + health term -
+  (cell - threat)/10`. `src/world/danger_grid.*`, viewer wiring,
+  `--dino-threat`, `--dino-radius`, `--dino-health`, `--secu-probe`;
+  862/862 retail Cpg04 values match (`notes/secu-grid-validation.txt`,
+  `tools/recon/secu_grid_check.py`).
+- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
+  still needs the behavior-manager perception path and the chooser's
+  per-action target term (policy vtable `+0x14`). The action→clip premise
+  is resolved (`notes/action-clip-lead.md`: locomotion slot + element
+  envmap texture, no action table).
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
-  `notes/dino-action-chooser-recon.md`, `notes/dinosaur-actions-recon.md`,
-  `docs/decomp/function-status.md`, `notes/p3-dino-eat.png`,
+  `docs/platform/danger-grid.md`, `notes/dino-action-chooser-recon.md`,
+  `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`,
+  `notes/p3-dino-eat.png`, `notes/secu-grid-validation.txt`,
+  `tools/recon/secu_grid_check.py`,
   `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,
-  `test_cpp_food_feeding`; `docs/platform/feeding.md`,
-  `notes/food-pig-close.png`.
+  `test_cpp_danger_grid_secu`, `test_cpp_food_feeding`;
+  `docs/platform/feeding.md`, `notes/food-pig-close.png`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

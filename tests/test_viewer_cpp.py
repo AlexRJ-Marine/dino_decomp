@@ -612,7 +612,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (33 checks)" in result.stdout
+    assert "selftest: PASS (42 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -1835,6 +1835,63 @@ def test_cpp_dino_action_loop():
     default = run(None)
     assert len(default) == 20
     assert all(" Exploration score=75 " in line for line in default)
+
+
+def test_cpp_danger_grid_secu():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+
+    line_re = re.compile(
+        r"^secu: (\S+) x=([-\d.]+) y=([-\d.]+) threat=(\d+) radius=(\d+) "
+        r"cell=(\d+) health=(\d+)/(\d+) secu=(\d+)$"
+    )
+
+    def probe(extra):
+        result = subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+             "--width", "160", "--height", "120", "--no-vsync",
+             "--no-save-config", "--lnd", str(isl04),
+             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+             "--wld-park", str(wld), "--dino-action-loop", "--secu-probe"]
+            + extra,
+            capture_output=True, text=True, timeout=180,
+        )
+        assert result.returncode == 0, result.stderr
+        rows = []
+        for line in result.stdout.splitlines():
+            match = line_re.match(line)
+            if match:
+                rows.append(match.groups())
+        return rows
+
+    # `FUN_00571440`: SECU from the 8-unit grid cell under each dinosaur.
+    rows = probe(["--dino-threat", "50", "--dino-radius", "8"])
+    assert len(rows) == 20
+    entries = []
+    for _species, x, y, threat, _radius, cell, health, max_health, secu in rows:
+        x, y = float(x), float(y)
+        threat, cell = int(threat), int(cell)
+        health, max_health, secu = int(health), int(max_health), int(secu)
+        # Its own stamp always covers the cell it stands on.
+        assert cell >= threat
+        health_term = int((health - max_health) * 100 / max_health)
+        assert secu == max(0, 99 + health_term - int((cell - threat) / 10))
+        entries.append((x, y, secu))
+    assert any(int(row[5]) > int(row[3]) for row in rows)
+    assert any(int(row[8]) < 99 for row in rows)
+
+    # The damage term uses the same formula: 50 % health subtracts 50.
+    damaged = probe(["--dino-threat", "50", "--dino-radius", "8",
+                     "--dino-health", "50,100"])
+    assert len(damaged) == 20
+    healthy = {(x, y): secu for x, y, secu in entries}
+    for _species, x, y, _t, _r, _c, health, max_health, secu in damaged:
+        assert int(health) == 50 and int(max_health) == 100
+        assert int(secu) == max(0, healthy[(float(x), float(y))] - 50)
 
 
 def test_cpp_wld_park_no_import_dinos():

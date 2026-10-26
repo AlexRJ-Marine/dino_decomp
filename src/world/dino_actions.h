@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -27,6 +28,12 @@ struct DinoNeeds {
     int aggression = 50;      // attribute 18, actor+0xbc
     int stamina = 50;         // attribute 19, actor+0xc0
     int agility = 50;         // attribute 29, actor+0x1e0
+    // Danger-grid caches (actor fields, not needs). `FUN_00571440` reads
+    // them when it recomputes SECU from the grid:
+    int health = 100;         // int16 +0x16
+    int max_health = 100;     // int16 +0x1d4
+    int threat = 0;           // +0x2a0, the value stamped into the grid
+    int threat_radius = 0;    // +0x27c, the stamp radius in world units
     std::array<int, 31> extra{};  // other FUN_00572620 attributes
 
     int need(NeedAxis axis) const {
@@ -108,6 +115,13 @@ public:
     // Consume/item gate used by the next decision.
     void set_inventory(bool available) { config_.inventory = available; }
     bool inventory() const { return config_.inventory; }
+
+    // `FUN_00571440`: the park-wide danger grid owns the SECU need. The
+    // viewer pushes the recomputed value once per grid rebuild (once per
+    // second in retail). Clamped to the 0..99 need range.
+    void set_secu(int value) {
+        needs_.value[2] = std::max(0, std::min(99, value));
+    }
 
     // Number of completed actions and the name of the last one (the viewer
     // consumes a food portion when an Eat/EatForSmallies finishes).

@@ -29,6 +29,7 @@
 #include "../world/food.h"
 #include "../world/visitors.h"
 #include "../world/dino_actions.h"
+#include "../world/danger_grid.h"
 #include "../world/port_save.h"
 #include "../world/economy.h"
 #include "../ui/menu.h"
@@ -125,6 +126,11 @@ struct Options {
     bool dino_action_loop = false;
     std::string dino_needs = "50,99,99,99";
     float dino_action_speed = 1.0f;
+    int dino_threat = 0;
+    int dino_radius = 0;
+    int dino_health = 100;
+    int dino_max_health = 100;
+    bool secu_probe = false;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;
@@ -374,6 +380,15 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--dino-action-speed") {
             opt.dino_action_speed = static_cast<float>(
                 std::atof(next("--dino-action-speed")));
+        } else if (arg == "--dino-threat") {
+            opt.dino_threat = std::atoi(next("--dino-threat"));
+        } else if (arg == "--dino-radius") {
+            opt.dino_radius = std::atoi(next("--dino-radius"));
+        } else if (arg == "--dino-health") {
+            std::sscanf(next("--dino-health"), "%d,%d", &opt.dino_health,
+                        &opt.dino_max_health);
+        } else if (arg == "--secu-probe") {
+            opt.secu_probe = true;
         } else if (arg == "--building-pos") {
             std::sscanf(next("--building-pos"), "%f,%f",
                         &opt.building_x, &opt.building_y);
@@ -607,6 +622,10 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
                 "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
                 "  --dino-action-speed N action duration scale (default 1)\n"
+                "  --dino-threat N      danger-grid stamp value for every imported dinosaur\n"
+                "  --dino-radius N      danger-grid stamp radius (world units)\n"
+                "  --dino-health CUR,MAX health pair for the SECU formula (default 100,100)\n"
+                "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"
@@ -2315,6 +2334,26 @@ int run_selftest() {
     check(meshes.path_tiles == grid.path_count, "path mesh tiles");
     check(meshes.fence_segments == grid.fence_count, "fence mesh segments");
 
+    // SECU danger grid (`FUN_005774F0` / `FUN_00571B50` / `FUN_00571440`).
+    dino::DangerGrid danger;
+    danger.clear();
+    danger.stamp(100.0f, 100.0f, 4, 50);
+    check(danger.at(100.0f, 100.0f) == 50, "danger grid stamp");
+    check(danger.at(108.0f, 100.0f) == 50, "danger grid radius");
+    check(danger.at(112.0f, 100.0f) == 0, "danger grid edge");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 50, 100, 100) == 99,
+          "secu full");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 100, 100) == 94,
+          "secu threat");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 50, 100) == 44,
+          "secu health");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 25, 100) == 19,
+          "secu damage");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 0, 100) == 0,
+          "secu clamp");
+    check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 0, 0) == 94,
+          "secu no max health");
+
     if (failures == 0) {
         std::printf("selftest: PASS (%d checks)\n", checks);
     }
@@ -3827,6 +3866,11 @@ int main(int argc, char** argv) {
     };
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
     std::vector<ImportedDino> imported_dinos;
+    // Retail danger grid (`FUN_00589CD0`): cleared/stamped/recomputed once
+    // per second from the live dinosaurs. The SECU need of every dinosaur
+    // comes from the cell under its position (`FUN_00571440`).
+    dino::DangerGrid danger_grid;
+    double danger_timer = 1.0;  // rebuild on the first frame
     // Fence rectangles from a `.wld`/`.sav` import, kept for the park HUD's
     // paddock list after the import block ends.
     std::vector<dino::Paddock> park_paddocks;
@@ -3933,6 +3977,10 @@ int main(int argc, char** argv) {
         dinosaur.phase =
             static_cast<double>(imported_dinos.size()) * 617.0;
         dinosaur.needs.value = dino_initial_needs;
+        dinosaur.needs.threat = std::max(0, opt.dino_threat);
+        dinosaur.needs.threat_radius = std::max(0, opt.dino_radius);
+        dinosaur.needs.health = std::max(0, opt.dino_health);
+        dinosaur.needs.max_health = std::max(0, opt.dino_max_health);
         // The `.bai` Eat gate reads attribute 4 (size in cm); derive a rough
         // body length from the rest mesh so quadrupeds/bipeds pick the right
         // eater action.
@@ -6069,6 +6117,10 @@ int main(int argc, char** argv) {
                     dino::DinoNeeds restored;
                     restored.value = saved.needs;
                     restored.size_cm = saved.size_cm;
+                    restored.threat = std::max(0, opt.dino_threat);
+                    restored.threat_radius = std::max(0, opt.dino_radius);
+                    restored.health = std::max(0, opt.dino_health);
+                    restored.max_health = std::max(0, opt.dino_max_health);
                     dinosaur.needs = restored;
                     dinosaur.carnivore = saved.carnivore;
                     if (dinosaur.action_loop) {
@@ -7267,6 +7319,55 @@ int main(int argc, char** argv) {
                 update_mesh(dino_gpu, deformed, glfns);
             } else {
                 update_mesh(gpu, deformed, glfns);
+            }
+        }
+
+        // `FUN_00589CD0`: rebuild the 8-unit danger grid once per second, then
+        // recompute each dinosaur's SECU from the cell under its position.
+        if (!imported_dinos.empty() && terrain.world_size > 0.0f) {
+            danger_timer += dt;
+            if (danger_timer >= 1.0) {
+                danger_timer = 0.0;
+                danger_grid.clear();
+                for (const ImportedDino& dinosaur : imported_dinos) {
+                    const dino::DinoNeeds& needs =
+                        dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                             : dinosaur.needs;
+                    // ImportedDino::x/y are raw `.wld`/`.raw` units (the
+                    // terrain and placement code subtract world_size/2).
+                    danger_grid.stamp(dinosaur.x, dinosaur.y,
+                                      needs.threat_radius, needs.threat);
+                }
+                for (ImportedDino& dinosaur : imported_dinos) {
+                    dino::DinoNeeds& needs =
+                        dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                             : dinosaur.needs;
+                    // With no live danger attributes the retail caches are 0
+                    // and the grid would pin SECU to 99. Keep the configured
+                    // value in that case so `--dino-needs` fixtures still
+                    // exercise the chooser.
+                    if (needs.threat == 0 && needs.threat_radius == 0) {
+                        continue;
+                    }
+                    const float raw_x = dinosaur.x;
+                    const float raw_y = dinosaur.y;
+                    const int cell = danger_grid.at(raw_x, raw_y);
+                    const int secu = dino::secu_from_grid(
+                        danger_grid, raw_x, raw_y, needs.threat, needs.health,
+                        needs.max_health);
+                    needs.value[2] = secu;
+                    if (dinosaur.action_loop) {
+                        dinosaur.action_loop->set_secu(secu);
+                    }
+                    if (opt.secu_probe) {
+                        std::printf(
+                            "secu: %s x=%.1f y=%.1f threat=%d radius=%d "
+                            "cell=%d health=%d/%d secu=%d\n",
+                            dinosaur.species.c_str(), dinosaur.x, dinosaur.y,
+                            needs.threat, needs.threat_radius, cell,
+                            needs.health, needs.max_health, secu);
+                    }
+                }
             }
         }
 

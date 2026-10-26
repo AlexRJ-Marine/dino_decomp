@@ -239,17 +239,31 @@ action. This is confirmed by the two independent checks.
 
 ### SECU danger grid
 
-The chooser's threat term is
-`threat = -cell(target) + cell(actor) - actor+0x2a0`, read from an 8-unit
-grid at `world+0x10`. The grid is rebuilt every park update
-(`FUN_00589CD0`): `FUN_005774F0(world)` clears it, then every dinosaur
-`FUN_00571B50` stamps `dino+0x2a0` into all cells within its `+0x27c`
-radius. `+0x2a0` (aggression/threat) and `+0x27c` (threat radius) are the
-phenotype-cache copies made by `FUN_00571190` (`+0x94` / `+0xd0`). The term
-therefore cancels the actor's own stamp and rewards a target cell with less
-threat from other dinosaurs. The port has the formula but passes
-`threat_score = 0` until it models per-action target positions. Details:
-`notes/dino-action-chooser-recon.md` ("Danger-grid population").
+`FUN_00589CD0` rebuilds the 8-unit danger grid once per second
+(`DAT_00675a20` accumulator, threshold 1.0). It clears the grid
+(`FUN_005774F0`), stamps every dinosaur's `+0x2a0` into the cells within
+its `+0x27c` radius (`FUN_00571B50`), then recomputes every dinosaur's SECU:
+
+```text
+secu = 99 + trunc((health - max_health) * 100 / max_health)
+          - trunc((grid[x>>3][y>>3] - threat) * 0.1)      // clamp >= 0
+```
+
+`health` is `int16 +0x16`, `max_health` is `int16 +0x1d4`; `0.1` is the
+constant at `0x675704`. `FUN_00571440`. The SECU field is therefore
+recomputed, not decayed, and `.bai` SECU deltas are transient. Validated
+on Cpg04: **862/862 SECU values over 45 rebuilds** match the grid formula,
+including damaged dinosaurs (`notes/x32dbg-secu6.out.log`,
+`tools/recon/secu_grid_check.py`).
+
+The chooser's separate threat term reads the action node's target position
+(policy vtable `+0x14`) and computes
+`threat = -cell(target) + cell(actor) - actor+0x2a0`, added as
+`need_term(SECU, threat/10)`. `FUN_00572DD0` is the target-inside-radius
+box test (`|tx-x| <= r && |ty-y| <= r`), not a world bounds test. The port
+still passes `threat_score = 0` until it models per-action target
+positions. Details: `notes/dino-action-chooser-recon.md`
+("Danger-grid population").
 
 ## Evidence
 

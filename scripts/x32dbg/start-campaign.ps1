@@ -6,6 +6,7 @@ param(
     [switch]$GenotypeTrace,
     [switch]$UnlockCampaigns,
     [switch]$BuyDino,
+    [switch]$SecuTrace,
     [string]$GameDir = "run",
     [string]$Log = "notes\x32dbg-campaign.out.log"
 )
@@ -15,6 +16,8 @@ param(
 #   - saDinosaur::Update 0x571540: action id (+0x2c0) and +0x1e0
 #   - asItemBehavior::RegisterForAction 0x56c0c0: vtable and args
 #   - stFence::CanAddActor 0x57eb50: occupant, cost index, capacity/used
+#   - -SecuTrace: danger-grid stamps 0x571b50 and the post-store SECU at
+#     0x5714a5 (validate with tools/recon/secu_grid_check.py)
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
 # -UnlockCampaigns backs up run/save/dino.dat, writes 0F (campaigns 1-4) and
@@ -257,7 +260,16 @@ if (-not $game) {
         # 0x56e670 is the action selector; [ecx+0x28] is the saDinosaur.
         if (-not $NoTrace) {
             Send 'bp 0x56e670'
-            Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]}; run"'
+            Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} x={p:[[ecx+0x28]+8]} y={p:[[ecx+0x28]+0xc]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]} tr={p:[[ecx+0x28]+0x2a0]} r={p:[[ecx+0x28]+0x27c]} secu={p:[[ecx+0x28]+0x24c]}; run"'
+            # Danger-grid validation: one pass of 20 stamps immediately before
+            # the 20 per-dinosaur SECU recomputes.
+            if ($SecuTrace) {
+                Send 'bp 0x571b50'
+                Send 'SetBreakpointCommand 0x571b50, "log STAMP actor={p:ecx} x={p:[ecx+8]} y={p:[ecx+0xc]} tr={p:[ecx+0x2a0]} r={p:[ecx+0x27c]}; run"'
+                # After the SECU store at 0x57149f, before the epilogue.
+                Send 'bp 0x5714a5'
+                Send 'SetBreakpointCommand 0x5714a5, "log SECU actor={p:esi} secu={p:[esi+0x24c]} p14={p:[esi+0x14]} p1d4={p:[esi+0x1d4]}; run"'
+            }
             Send 'bp 0x57eb50'
             Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
             # FENCE_INSERTION state and its 64-byte-record loop.

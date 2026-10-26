@@ -61,6 +61,7 @@ add_executable(dino_viewer
     src/world/food.cpp
     src/world/visitors.cpp
     src/world/dino_actions.cpp
+    src/world/danger_grid.cpp
     src/world/port_save.cpp
     src/world/economy.cpp
 )

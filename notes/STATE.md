@@ -1393,6 +1393,25 @@ Updated: 2026-10-26
     `+0x194` divides by `pct[6]` and subtracts `acc[17]`.
   - Evidence: `notes/part-record-accumulator-recon.md`,
     `docs/formats/translator-constants.md`.
+- SECU danger grid solved, ported and retail-validated.
+  - `FUN_00589CD0` clears/stamps the 128 x 128 grid of 8-unit cells and
+    recomputes SECU once per second (`DAT_00675a20` accumulator >= 1.0).
+    `FUN_00571440`: `secu = 99 + trunc((health - max_health) * 100 /
+    max_health) - trunc((cell - threat) * 0.1)`, clamp >= 0; health
+    `+0x16`, max `+0x1d4`, 0.1 at `0x675704`.
+  - `FUN_00571B50` stamps `dino+0x2a0` within `dino+0x27c`; both are cache
+    fields written on action 26/13 completion, not at spawn.
+    `FUN_00572DD0` is the chooser's target-inside-radius box test, not a
+    world bounds test.
+  - Port: `src/world/danger_grid.{h,cpp}`, viewer rebuild + `set_secu`,
+    `--dino-threat`/`--dino-radius`/`--dino-health`/`--secu-probe`;
+    selftest 42 checks; `test_cpp_danger_grid_secu`.
+  - Validation: 862/862 retail Cpg04 values over 45 rebuilds
+    (`notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
+    `notes/secu-grid-validation.txt`, `tools/recon/secu_grid_check.py`).
+  - Evidence: `docs/platform/danger-grid.md`,
+    `docs/decomp/dinosaur-actions.md`,
+    `notes/dino-action-chooser-recon.md`.
 
 ## In progress
 
@@ -1400,11 +1419,13 @@ Updated: 2026-10-26
   and drive the imported dinosaurs. The old "action→clip table" premise is
   resolved: `aacDinosaurAnimator` selects a locomotion/activity slot from
   `saDinosaur+0x2bc` plus a `.bai` element envmap texture (`+0x518`), never
-  the action id. See `notes/action-clip-lead.md`. Remaining: wire the `.bai`
-  element bone/event overlay source and the SECU threat/visitor reaction
-  term. The feeding gate is live: `.bsi` sources, diet match and portion
-  consumption (`docs/platform/feeding.md`); employee feeding and the exact
-  quantity semantics remain.
+  the action id. See `notes/action-clip-lead.md`. The SECU danger grid is
+  ported and retail-validated (`docs/platform/danger-grid.md`); remaining is
+  the element bone/event overlay source, the GetCourage/ObstAttackSize1
+  cache writers and the visitor/obstacle perception reaction. The feeding
+  gate is live: `.bsi` sources, diet match and portion consumption
+  (`docs/platform/feeding.md`); employee feeding and the exact quantity
+  semantics remain.
 - **UI-2 Phase C rest:** list snapshots, slider/checkbox selection, minimap
   water colour/partition polish. The budget ledger rows are live: purchases,
   construction and the daily settlement feed a current/yesterday ledger
@@ -1442,13 +1463,16 @@ Updated: 2026-10-26
    polish (the budget ledger rows are done).
 3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are
    done; the "action→clip table" premise is resolved (locomotion slot +
-   element envmap texture, `notes/action-clip-lead.md`). Remaining: wire
-   the element bone/event overlay source and the SECU threat/visitor term.
-   The feeding item is modelled: `.bsi` sources (`--place-food`/
-   `--food-pos`) gate Eat by paddock/diet and deplete over meals
-   (`docs/platform/feeding.md`). The SECU threat term is decoded
-   (`0x572DD0` world-bounds + the 8-unit danger grid) and is zero until
-   visitors/guards populate the grid. See
+   element envmap texture, `notes/action-clip-lead.md`). The SECU danger
+   grid is ported and retail-validated (`docs/platform/danger-grid.md`):
+   once per second, 8-unit cells, `secu_from_grid`, `--dino-threat`/
+   `--dino-radius`/`--dino-health`/`--secu-probe`. Remaining: wire the
+   element bone/event overlay source, the GetCourage/ObstAttackSize1 cache
+   writers (action 13/26), and the visitor/obstacle perception reaction
+   (the grid is dinosaurs-only; the behavior manager's target/policy
+   vtable `+0x14` still need porting). The feeding item is modelled:
+   `.bsi` sources (`--place-food`/`--food-pos`) gate Eat by paddock/diet
+   and deplete over meals (`docs/platform/feeding.md`). See
    `notes/dino-action-chooser-recon.md` and
    `notes/phenotype-attributes-runtime.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
