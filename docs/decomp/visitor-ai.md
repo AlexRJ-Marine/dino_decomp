@@ -49,9 +49,10 @@ double at `0x006296a8` is `2.0`. The random base is
 `rand() % (int)(W[6] - W[5]) + W[5]`, i.e. `rand() % 6000 - 3000`.
 
 - `needA/B/C` are actor `+0x48`, `+0x4c`, `+0x50` (percent needs, 0-99).
-- `needIndex` is actor `+0x68`; the attraction block `+0x18` is a float array.
-- `appealScale` is attraction block `+0x24`; `attr10`/`attr11` are `+0x28`
-  and `+0x2c`.
+- `needIndex` is actor `+0x68`; it indexes the per-building appeal array
+  `attraction block +0x18`, which has one float per visitor profile.
+- `appealScale` is attraction block `+0x24` (`def+0x48`); `attr10`/`attr11`
+  are `+0x28`/`+0x2c` = `def+0x50`/`def+0x54` (per-building need deltas).
 - `dx`/`dy` are actor tile `+0x08`/`+0x0c` minus attraction tile
   `+0x18`/`+0x1c`. The price is the **definition** field `descriptor+0x1c`
   (`0x522af2`/`0x522bb2`), `.bbi` file offset 25.
@@ -110,15 +111,35 @@ definition). `FUN_005872c0` (vtable slot +0x10) builds it:
 | ---: | --- | --- |
 | +0x00..0x10 | `def+0x34..0x44` (`.bbi` 53,57,61,65,69) | five appeal weights |
 | +0x14 | `PTR_FUN_00626ad4` | vtable |
-| +0x18 | `FUN_00576550` loop | one appeal float per park need |
+| +0x18 | `FUN_00576550` loop | one appeal float per visitor profile |
 | +0x24 | `def+0x48` (`.bbi` 73) | appeal scale |
-| +0x28 | `def+0x50` (`.bbi` 69) | int (read with `FILD`) |
-| +0x2c | `def+0x54` (`.bbi` 73 bits) | int (read with `FILD`) |
+| +0x28 | `def+0x50` (`.bbi` 81) | need-1 increment (int) |
+| +0x2c | `def+0x54` (`.bbi` 85) | need-2 increment (int) |
 
-`appeal[need] = clamp(Σ_{k<5} (def+0x34+4k) × (need[k]+0x18), −100, +100)`.
-The vector is resized to the park need count by `FUN_00576860`. Entrance has
-all five weights 0, so its appeal values are 0. See
-`notes/building-def-record-recon.md`.
+`appeal[profile] = clamp(Σ_{k<5} (def+0x34+4k) × (profile[k]+0x18), −100, +100)`.
+The vector is resized to the park profile count by `FUN_00576860`
+(`*(spPark+0x78)` is the visitor-profile table, 6 entries in free game). The
+Entrance has all five weights 0, so its appeal values are 0. See
+`notes/visitor-needs-recon.md`.
+
+## Needs
+
+`actor+0x48/+0x4c/+0x50` are three int needs in 0..99. There is **no
+time-based decay**. `FUN_00522f30` (using an attraction) is the only writer:
+
+```text
+need1 += def+0x50 (if >0)
+need2 += def+0x54 (if >0)
+target = (int)(appeal[actor+0x68] / appealScale)
+if (target < 0)                 need0 += target
+else if (actor+0x58 >= target)  need0 -= 1
+else                            need0 = min(actor+0x58 + target, target)
+```
+
+The `actor+0x68` profile index selects the appeal value. The `VISITEURS_STATS`
+panel averages the needs per profile: GAUGE/INDICS ← `+0x48`,
+FOOD_STATISFACTION ← `+0x4c`, REST_STATISFACTION ← `+0x50`. Initial need
+values and the writer of `+0x68` are still unproven.
 
 ## Port model
 
@@ -129,7 +150,7 @@ elif state 1: follow path; on arrival state 2
 elif state 2: wait for duration; then state 0/1
 ```
 
-The scorer needs the constant `W` block, the actor's three needs and need
+The scorer needs the constant `W` block, the actor's three needs and profile
 index, the attraction position/radius, the definition price `+0x1c`, duration
 `+0x28`, kind `+0x6c`, and show data.
 
@@ -137,14 +158,15 @@ index, the attraction position/radius, the definition price `+0x1c`, duration
 
 - Consumer of the five variable `.bvi` weights (record `+0x24..+0x34`).
 - `0x005873e0` arrival contract.
-- Visitor need decay/satisfaction and the `VISITEURS_STATS_*` gauges.
-- The park need table `*(spPark+0x78)+0x34` (the appeal vector values).
-- `block+0x28/+0x2c` are copied from float fields but read with `FILD`; the
-  intended meaning is unresolved.
+- Visitor initial need values and the writer of the `actor+0x68` profile index.
+- The `.bvi` preference weights are the profile floats at `+0x18` (inferred,
+  not proven identical).
 
 ## Evidence
 
 - `notes/visitor-ai-recon.md` — decompiled functions and fields.
+- `notes/visitor-needs-recon.md` — profile table, three needs, attraction use
+  and HUD mapping.
 - `notes/visitor-weights-runtime.md` — live x32dbg dump of the weight vector
   and record offsets.
 - `0x00522820`, `0x00522940`, `0x00522a10`, `0x00522ff0`,

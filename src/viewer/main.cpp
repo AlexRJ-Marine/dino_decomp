@@ -3236,11 +3236,24 @@ int main(int argc, char** argv) {
         GLuint texture = 0;
     };
     std::vector<BuildingDraw> building_draws;
+    std::vector<dino::PortBuildingState> building_instances;
     dino::Vec3 building_center{1e30f, 1e30f, 1e30f};
+
+    auto clear_buildings = [&]() {
+        for (BuildingDraw& building : building_draws) {
+            building.gpu.destroy(glfns);
+            if (building.texture != 0) {
+                glDeleteTextures(1, &building.texture);
+            }
+        }
+        building_draws.clear();
+        building_instances.clear();
+        building_center = {1e30f, 1e30f, 1e30f};
+    };
 
     auto place_building = [&](const dino::BuildingDef& def, float cell_x,
                               float cell_y, int state, float extra_angle_deg,
-                              float scale) {
+                              float scale, int kind) {
         if (terrain.world_size <= 0.0f) {
             std::fprintf(stderr, "building: --lnd is required for placement\n");
             return false;
@@ -3339,6 +3352,11 @@ int main(int argc, char** argv) {
                 }
             }
             building_draws.push_back({upload_mesh(placed, glfns), texture});
+            if (kind >= 0) {
+                building_instances.push_back(
+                    {kind, static_cast<int>(cell_x), static_cast<int>(cell_y),
+                     orientation});
+            }
             std::printf(
                 "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
                 "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f\n",
@@ -3354,9 +3372,24 @@ int main(int argc, char** argv) {
 
     if (!opt.building_path.empty()) {
         try {
-            place_building(dino::load_bbi(opt.building_path), opt.building_x,
-                           opt.building_y, opt.building_state,
-                           opt.building_angle, opt.building_scale);
+            const dino::BuildingDef def = dino::load_bbi(opt.building_path);
+            int kind = -1;
+            try {
+                const std::vector<std::string> names =
+                    dino::load_building_list(resolve_asset(
+                        opt.asset_root,
+                        "Data/Design/buildings/BuildingList.ini"));
+                for (std::size_t i = 0; i < names.size(); ++i) {
+                    if (names[i] == def.name) {
+                        kind = static_cast<int>(i);
+                        break;
+                    }
+                }
+            } catch (const std::exception&) {
+            }
+            place_building(def, opt.building_x, opt.building_y,
+                           opt.building_state, opt.building_angle,
+                           opt.building_scale, kind);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "building: %s\n", e.what());
         }
@@ -3393,7 +3426,8 @@ int main(int argc, char** argv) {
                         "Data/Design/buildings/" + names[b.kind] + ".bbi"));
                     if (place_building(def, static_cast<float>(b.cell_x),
                                        static_cast<float>(b.cell_y),
-                                       static_cast<int>(b.state), 0.0f, 1.0f)) {
+                                       static_cast<int>(b.state), 0.0f, 1.0f,
+                                       static_cast<int>(b.kind))) {
                         ++placed;
                     }
                 } catch (const std::exception& e) {
@@ -3743,20 +3777,14 @@ int main(int argc, char** argv) {
         // road from the Entrance (category 10) at the island's .lnd
         // width/height. Place the same Entrance boat at that cell.
         if (opt.place_entrance) {
-            for (BuildingDraw& building : building_draws) {
-                building.gpu.destroy(glfns);
-                if (building.texture != 0) {
-                    glDeleteTextures(1, &building.texture);
-                }
-            }
-            building_draws.clear();
-            building_center = {1e30f, 1e30f, 1e30f};
+            clear_buildings();
             try {
                 const dino::BuildingDef entrance = dino::load_bbi(
                     resolve_asset(opt.asset_root,
                                   "Data/Design/buildings/Entrance.bbi"));
                 place_building(entrance, static_cast<float>(lnd.width),
-                               static_cast<float>(lnd.height), 1, 0.0f, 1.0f);
+                               static_cast<float>(lnd.height), 1, 0.0f, 1.0f,
+                               9);
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "entrance: %s\n", e.what());
             }
@@ -3927,6 +3955,7 @@ int main(int argc, char** argv) {
             saved.prev_y = visitor.prev_y;
             state.visitors.push_back(saved);
         }
+        state.buildings = building_instances;
         return state;
     };
 
@@ -4058,6 +4087,38 @@ int main(int argc, char** argv) {
             visitor_system.visitors.push_back(visitor);
         }
 
+        if (!state.buildings.empty()) {
+            clear_buildings();
+            try {
+                const std::vector<std::string> names = dino::load_building_list(
+                    resolve_asset(opt.asset_root,
+                                  "Data/Design/buildings/BuildingList.ini"));
+                for (const dino::PortBuildingState& saved : state.buildings) {
+                    if (saved.kind < 0 ||
+                        saved.kind >= static_cast<int>(names.size())) {
+                        continue;
+                    }
+                    try {
+                        const dino::BuildingDef def = dino::load_bbi(
+                            resolve_asset(opt.asset_root,
+                                          "Data/Design/buildings/" +
+                                              names[static_cast<std::size_t>(
+                                                  saved.kind)] +
+                                              ".bbi"));
+                        place_building(def,
+                                       static_cast<float>(saved.cell_x),
+                                       static_cast<float>(saved.cell_y),
+                                       saved.state, 0.0f, 1.0f, saved.kind);
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "port building %d: %s\n",
+                                     saved.kind, e.what());
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "port buildings: %s\n", e.what());
+            }
+        }
+
         rebuild_build_meshes();
         if (!visitor_system.visitors.empty() &&
             !visitor_pose1.positions.empty()) {
@@ -4079,10 +4140,10 @@ int main(int argc, char** argv) {
         minimap_focus = {1e30f, 1e30f, 1e30f};
         minimap_heading = 1e30f;
         std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
-                    "paths=%d fences=%d\n",
+                    "paths=%d fences=%d buildings=%zu\n",
                     current_island.c_str(), park_budget, park_clock.day,
                     visitor_system.visitors.size(), build_grid.path_count,
-                    build_grid.fence_count);
+                    build_grid.fence_count, building_instances.size());
     };
 
     auto save_name_sanitized = [&]() {

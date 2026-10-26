@@ -29,6 +29,13 @@ struct PortFenceState {
     int edge = 0;
 };
 
+struct PortBuildingState {
+    int kind = 0;
+    int cell_x = 0;
+    int cell_y = 0;
+    int state = 0;
+};
+
 struct PortState {
     std::string island;
     int difficulty = 0;
@@ -56,6 +63,7 @@ struct PortState {
     std::vector<std::pair<int, int>> paths;
     std::vector<PortFenceState> fences;
     std::vector<PortVisitorState> visitors;
+    std::vector<PortBuildingState> buildings;
 };
 
 // Text format: `DINOPSAV 1` followed by one record per line.

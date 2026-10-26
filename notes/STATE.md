@@ -862,10 +862,15 @@ Updated: 2026-10-26
     300·distance − 500·price`. Runtime-verified under x32dbg.
   - Show availability (`0x522ff0`), path following (`0x521490`) and obstacle
     rerouting (`0x522cb0`) mapped.
-  - Remaining: consumer of the five variable profile weights (record
-    `+0x24..+0x34`), attraction field names, need decay.
-  - Evidence: `notes/visitor-ai-recon.md`, `notes/visitor-weights-runtime.md`,
-    `docs/decomp/visitor-ai.md`, `docs/formats/bvi.md`,
+  - Needs solved except initial values: `spPark+0x78` is the visitor-profile
+    table (6 in free game), `actor+0x68` is the profile index, and
+    `+0x48/+0x4c/+0x50` are three int needs with **no time decay**. Attraction
+    use adds `def+0x50/+0x54` to needs 1/2 and adjusts need 0 from the appeal.
+  - Remaining: consumer of the five variable profile weights, initial need
+    values and the writer of `actor+0x68`.
+  - Evidence: `notes/visitor-ai-recon.md`, `notes/visitor-needs-recon.md`,
+    `notes/visitor-weights-runtime.md`, `docs/decomp/visitor-ai.md`,
+    `docs/formats/bvi.md`,
     `tools/recon/dump-visitor-weights.ps1`,
     `docs/decomp/function-status.md`.
 - STAFF research: **employee task AI decompiled.**
@@ -975,9 +980,9 @@ Updated: 2026-10-26
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D rest:** `OPTIONS_NAME_SLOT` text entry and placed
-  buildings/dinosaur state in the port save. The dialog family and Save/Load
-  are done.
+- **UI-2 Phase D rest:** `OPTIONS_NAME_SLOT` text entry and dinosaur placement
+  in the port save (placed buildings are stored). The dialog family and
+  Save/Load are done.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -988,8 +993,8 @@ Updated: 2026-10-26
 
 ## Next action
 
-1. UI-2 Phase D rest: `OPTIONS_NAME_SLOT` text entry and saving placed
-   buildings/dinosaur state.
+1. UI-2 Phase D rest: `OPTIONS_NAME_SLOT` text entry and dinosaur placement
+   in the port save.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow

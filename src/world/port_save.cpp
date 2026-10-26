@@ -53,6 +53,10 @@ void save_port_state(const PortState& state, const std::string& path) {
             << visitor.target_y << " " << visitor.prev_x << " "
             << visitor.prev_y << "\n";
     }
+    for (const PortBuildingState& building : state.buildings) {
+        out << "building " << building.kind << " " << building.cell_x << " "
+            << building.cell_y << " " << building.state << "\n";
+    }
     if (!out) {
         throw std::runtime_error("short write to port save " + path);
     }
@@ -131,6 +135,12 @@ PortState load_port_state(const std::string& path) {
                 visitor.prev_y;
             require(parts, key, path);
             state.visitors.push_back(visitor);
+        } else if (key == "building") {
+            PortBuildingState building;
+            parts >> building.kind >> building.cell_x >> building.cell_y >>
+                building.state;
+            require(parts, key, path);
+            state.buildings.push_back(building);
         }
     }
     if (!magic) {

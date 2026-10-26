@@ -1381,6 +1381,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
     if not isl03.exists() or not isl01.exists():
         pytest.skip("retail islands missing")
     target = tmp_path / "roundtrip.psav"
+    bbi = GAME / "Data" / "Design" / "buildings" / "Entrance.bbi"
     save = subprocess.run(
         [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
          "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
@@ -1389,6 +1390,8 @@ def test_cpp_port_save_roundtrip(tmp_path):
          "--place-fence", "100,100,0", "--visitors", "3",
          "--park-time", "10:30", "--park-time-scale", "30",
          "--distance", "250", "--yaw", "40", "--pitch", "25",
+         "--building", str(bbi), "--building-pos", "500,500",
+         "--building-state", "1",
          "--save-port", str(target)],
         capture_output=True, text=True, timeout=180,
     )
@@ -1401,6 +1404,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "grid 4 -512 -512 256 256" in text
     assert "path 100 100" in text and "path 100 101" in text
     assert "fence 100 100 0" in text
+    assert "building 9 500 500 1" in text
     assert sum(1 for ln in text.splitlines() if ln.startswith("visitor ")) == 3
 
     load = subprocess.run(
@@ -1413,8 +1417,10 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert load.returncode == 0, load.stderr
     assert "island: isl03" in load.stdout
     assert ("port load: island=isl03 budget=75000 day=0 visitors=3 "
-            "paths=2 fences=1") in load.stdout
+            "paths=2 fences=1 buildings=1") in load.stdout
     assert "build: 2 path cells, 1 fences" in load.stdout
+    assert ("building: Entrance mesh=" in load.stdout and
+            "cell=500.0,500.0" in load.stdout)
 
 
 def test_cpp_options_save_and_load_buttons(tmp_path):
@@ -1460,7 +1466,7 @@ def test_cpp_options_save_and_load_buttons(tmp_path):
         assert loaded.returncode == 0, loaded.stderr
         assert f"park click 300,{131 + row * 12} -> options select {row}" in loaded.stdout
         assert "park click 334,436 -> load port" in loaded.stdout
-        assert "port load: island=isl01 budget=75000 day=0 visitors=2 paths=2 fences=0" in loaded.stdout
+        assert "port load: island=isl01 budget=75000 day=0 visitors=2 paths=2 fences=0 buildings=0" in loaded.stdout
         assert "build: 2 path cells, 0 fences" in loaded.stdout
     finally:
         if target.exists():

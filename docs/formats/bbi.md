@@ -53,6 +53,12 @@ Every retail file has `model[1] = 0.0f`; only `LunchDoor.bbi` has
 `model[0] = 1`. The visitor scorer's price is the **definition** field
 `descriptor+0x1c` = file offset 25, not a block field.
 
+The five floats at file 53/57/61/65/69 are the per-profile appeal weights,
+file 73 is the appeal scale, and files 81/85 are the need-1/need-2 increments
+applied while a visitor uses the building (`FUN_00522f30`). The appeal array
+has one entry per visitor profile, computed from these weights and the
+profile's five floats.
+
 Footprints (world units, not grid cells): `Deco*` 4×4, `Barak*` 4×8,
 `SmallSeats` 4×12, `Souv*` 8×12, `Rest*` 12×12, `Manege`/`Tampodino`/
 `Haunted`/`Tower` 16×16, `Park*` 12×16, `Entrance` 24×12. Placement adds

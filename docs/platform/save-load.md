@@ -15,12 +15,14 @@ scene between sessions.
 - 4-unit build grid: cell size, origin, dimensions, every path cell and every
   canonical south/east fence edge;
 - every visitor: world position, angle, walk phase, current/target/previous
-  cells.
+  cells;
+- every placed building: `BuildingList.ini` kind, min-corner cell and
+  orientation state.
 
-Buildings are **not** stored yet: the free-game Entrance is re-created by
-`load_island` (cell = `.lnd` width/height, state 1) and scenario/world
-buildings are loaded from `.wld`/`.sav` separately. The retail `.sav` world
-block is not read here.
+Buildings are re-loaded from `Data/Design/buildings/<name>.bbi` on restore;
+the free-game Entrance is still auto-created by `load_island` when a save has
+no building list (older saves). The retail `.sav` world block is not read
+here.
 
 ## Format
 
@@ -36,6 +38,7 @@ grid <cell_size> <origin_x> <origin_y> <width> <height>
 path <x> <y>
 fence <x> <y> <edge>          # edge 0 south, 1 east
 visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y>
+building <kind> <cell_x> <cell_y> <state>
 ```
 
 Floats are written with 9 significant digits. Unknown keys are ignored on
@@ -84,7 +87,7 @@ $G = "game/%MAINDIR%"
 ```
 
 Expected: `port load: island=isl03 budget=75000 day=0 visitors=3 paths=2
-fences=1` and `build: 2 path cells, 1 fences`.
+fences=1 buildings=0` and `build: 2 path cells, 1 fences`.
 
 - `notes/port-ui-save.png` - Options Save tab with the port save rows.
 - `notes/port-ui-load2.png` - Options Load tab after selecting `[port] test`;
@@ -94,8 +97,6 @@ fences=1` and `build: 2 path cells, 1 fences`.
 
 ## Open
 
-- Store placed buildings (kind/cell/state) in the port save; currently only
-  the free-game Entrance is recreated.
 - Import retail `.sav` park state (the Python `sav_graph` parser is ready;
   the C++ reader only has the header).
 - Text entry for `OPTIONS_NAME_SLOT`; the port uses `--save-name` or the
