@@ -1441,7 +1441,10 @@ def test_cpp_building_placement_transform():
     # file row 323, i.e. the shoreline (18.0), not the volcano (69.4).
     assert "z=18.0" in line
     assert "state=1 angle=90" in line
-    assert "entrance_lod1.skin" in line
+    # The Entrance is the static LOD1 mesh at index 3 (metres, pivot space);
+    # the `.skin` full mesh is the centimetre bind mesh centred on its own
+    # origin and puts the boat on the beach without the pier.
+    assert "entrance_lod1.mesh" in line
 
 
 def test_cpp_wld_places_all_buildings():

@@ -104,3 +104,8 @@ the row flip.
   (isl01, easy) after the fix.
 - `notes/isl01-overhead2.png`: whole-island top-down with the basemap.
 - `notes/uvtest2.png`: UV quadrant check after the `-v` fix.
+
+The remaining boat offset was the model choice, not the terrain sampler: the
+port was rendering the `.skin` bind mesh instead of the static LOD1 `.mesh`.
+See `notes/entrance-model-recon.md` and
+`notes/entrance-retail-reference.png`.

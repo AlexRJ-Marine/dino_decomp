@@ -20,11 +20,16 @@ all files. This is the first world-object bring-up step for WORLD-2/SIM-2.
 comments stripped). `Entrance` is kind 9 in that list; the ten paths are
 `Data/Graphics/buildings/entrance/entrance_*`.
 
-The port loads the **primary model at mesh index 0** (a `.skin` in every
-retail `.bbi`): its full mesh is centred on the placement pivot and stored in
-centimetres. Index 3 is the static LOD1 `.mesh`; its pivot is offset (the
-Entrance mesh is ~28 units off the boat body), so it is only a fallback. The
-material texture name is resolved under the `.bbi` texture directory when
+The `.bbi` mesh order is: normal LOD1 `.skin`, crash, destroy, then either
+the static normal LOD1 `.mesh` (Entrance, seats, doors) or the construction
+model. The **static LOD1 `.mesh` at index 3 is the placement model when it
+is a normal mesh**: it is in metres and in the placement-pivot space, so the
+Entrance pier reaches the beach and the boat sits at the water end. The
+`.skin` full mesh is in centimetres and centred on its own bind origin; using
+it for the Entrance puts the boat on the beach without the pier. Buildings
+whose index 3 is the construction model fall back to the animated `.skin` at
+index 0. `--building-model skin|mesh` forces either choice for inspection.
+The material texture name is resolved under the `.bbi` texture directory when
 present, otherwise `Data/Graphics/Textures/buildings` (the Entrance material
 is `boat.tga`).
 

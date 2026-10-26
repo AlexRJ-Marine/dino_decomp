@@ -4173,20 +4173,36 @@ int main(int argc, char** argv) {
                 }
                 return true;
             };
-            // The primary model is the first `.bbi` path: a `.skin` whose full
-            // mesh is centred on the placement pivot (the static LOD1 `.mesh`
-            // at index 3 has a pivot offset and is not the actor model).
+            // `.bbi` mesh order: normal LOD1 `.skin`, crash, destroy, then
+            // either the static normal LOD1 `.mesh` (Entrance, seats, doors)
+            // or the construction model. The static normal LOD1 is in metres
+            // and in the placement-pivot space; the `.skin` full mesh is in
+            // centimetres and is centred on its own bind origin. The Entrance
+            // needs the static mesh so the pier reaches the beach and the
+            // boat sits at the water end. Other buildings fall back to the
+            // animated `.skin`.
+            auto is_static_lod1 = [&](const std::string& path) {
+                return ends_with_ci(path, ".mesh") &&
+                       path.find("_lod1") != std::string::npos &&
+                       path.find("crash") == std::string::npos &&
+                       path.find("destroy") == std::string::npos &&
+                       path.find("construction") == std::string::npos;
+            };
             std::string mesh_rel;
             if (!def.meshes.empty()) {
                 mesh_rel = def.meshes.front();
+                if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
+                    mesh_rel = def.meshes[3];
+                }
                 if (opt.building_model_mesh) {
-                    for (const std::string& candidate : def.meshes) {
-                        if (ends_with_ci(candidate, ".mesh") &&
-                            candidate.find("_lod1") != std::string::npos &&
-                            candidate.find("crash") == std::string::npos &&
-                            candidate.find("destroy") == std::string::npos) {
-                            mesh_rel = candidate;
-                            break;
+                    if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
+                        mesh_rel = def.meshes[3];
+                    } else {
+                        for (const std::string& candidate : def.meshes) {
+                            if (is_static_lod1(candidate)) {
+                                mesh_rel = candidate;
+                                break;
+                            }
                         }
                     }
                 }
