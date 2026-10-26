@@ -1199,9 +1199,17 @@ Updated: 2026-10-26
     the 0x64 runtime skeleton. The sentinel is `0x56789ABC`.
   - Free-game park: **21 `.skel` calls**, normal rendering
     (`notes/hyb5-counter.txt`, `notes/park-hook-skel-default.png`).
-  - Installed by default. Next: `0x4809e0` (UV) or the `.mesh` block readers.
+  - Installed by default. Next: the `.mesh` block reader.
   - Evidence: `notes/hybrid-skel-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-5.
+- HYB-6 ABI solved (hook queued): **`.mesh` whole-file reader `0x477f30`.**
+  - `char __thiscall ReadBlocks(mcFile*, mcString*)`, `RET 8`; reads the
+    block count then `0xB8` blocks via `0x472240` (name, vertices, indices,
+    UVs, normals, colors, materials, u16 triangles, three u32, `.skin`).
+  - Shared with `.skin` via `this+4` magic (`0x12345678` vs `0x02468ACE`);
+    a hook must branch and forward `.skin` to the original.
+  - Evidence: `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`,
+    `TASKS.md` HYB-6.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

@@ -167,5 +167,11 @@ hook_4809a0: calls=97000
 3. `0x47d880` (`.skin`), `0x4839e0` (`.anim`) and `0x477890` (`.skel`) are
    **runtime-verified**: 2221 skin bones, 8911+ animation keys, 21 skeletons,
    park renders. Next: `0x4809e0` (UV reader) and the `.mesh` block readers.
-4. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
+4. `.mesh` whole-file reader `0x477f30` ABI is solved: one block-count read,
+   then `0xB8` blocks via `0x472240` (name, vertices, indices, UVs, normals,
+   colors, materials, u16 triangles, three u32, `.skin` table). It is shared
+   with `.skin` via the `this+4` magic (`0x12345678` vs `0x02468ACE`), so a
+   hook must branch and forward `.skin`. See `notes/hybrid-mesh-recon.md`.
+   This is the last big asset reader still running retail code.
+5. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
    only after the running game exercises it.

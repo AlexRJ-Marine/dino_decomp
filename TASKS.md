@@ -765,6 +765,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/hyb5-counter.txt`, `notes/park-hook-skel-default.png`,
   `docs/decomp/hybrid.md`.
 
+### HYB-6: `.mesh` block reader
+- [x] Decode `0x477f30` (`char __thiscall ReadBlocks(mcFile*, mcString*)`,
+  `RET 8`): block count then `0xB8` blocks via `0x472240` (name, vertices,
+  indices, UVs, normals, colors, materials, u16 triangles, three u32,
+  `.skin` table). Shared with `.skin`; branch on `this+4`
+  (`0x12345678` mesh / `0x02468ACE` skin).
+- [ ] Implement the hook (vtable `0x626abc` or 6-byte entry patch, forwarding
+  `.skin` to the original) and verify on the free-game park.
+- **Acceptance:** the park loads with `.mesh` blocks replaced.
+- **Depends on:** HYB-5.
+- **Evidence:** `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).
