@@ -1,9 +1,10 @@
 # Campaign flow — data, briefing and port status
 
-Status: **retail data and briefing flow decoded; the campaign runtime is not
-ported.** The port renders the campaign menu pages and can import a campaign
-park for sandbox tests, but it does not select a mission, evaluate objectives
-or advance the campaign.
+Status: **menu campaign flow and the campaign runtime are ported.** The port
+renders the campaign select/briefing pages from `CampaignList.ini`, starts the
+selected campaign's first mission from the menu, imports `CpgNN_Save.wld`, and
+evaluates objectives. Campaign unlock persistence, mission progression and
+briefing pagination are still open.
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -68,8 +69,13 @@ CpgNN/CpgNN_Save.wld    initial park
 ## Port status
 
 - `src/ui/menu.cpp` maps page 2 = campaign select and page 3 = campaign
-  info; both render their retail backgrounds and widget sets from
-  `MenuInterface.Ini` (`--menu-page 2`, `--menu-page 3`).
+  info. `CAMPAIGN_LIST` selects rows in `CampaignList.ini` order and displays
+  each campaign's `title_id`; `CAMPAIGN_START_BUTTON` opens page 3 with the
+  campaign title, the wrapped `description_id` briefing and the matching
+  `CAMPAIGN_INFO_ISLAND_PIC_islNN`; `CAMPAIGN_INFO_START_BUTTON` starts the
+  campaign. `CAMPAIGN_CANCEL_BUTTON`/`CAMPAIGN_INFO_CANCEL_BUTTON` return to
+  the main menu. Evidence: `notes/campaign-menu-select.png`,
+  `notes/campaign-menu-briefing.png`.
 - `src/formats/campaign.{h,cpp}` parses `CampaignList.ini`, the
   `CampaignBase.ini`/`MissionBase.ini` includes and every mission:
   **7 campaigns, 39 missions, 89 objectives, 33 known verbs**. CLI:
@@ -94,10 +100,20 @@ CpgNN/CpgNN_Save.wld    initial park
   the imported dinosaurs' phenotype traits (cuteness/beauty, aggression,
   size, speed, stamina, agility, intelligence, food). Hybrid, scarcity,
   strangeness and ornaments are still 0, employees are empty and deaths are 0.
-- The port does **not** handle `CAMPAIGN_LIST` selection, `CAMPAIGN_START`
-  or `CAMPAIGN_INFO_START`; only `ISLAND_LIST`/`FREE_START` are wired. A
-  campaign mission must be started with `--start-mission`, not the menu.
-- Mission state is not stored in the port save; menu mission selection, the
+- `CAMPAIGN_INFO_START_BUTTON` loads the campaign's `[LANDSCAPE] Island` and
+  `[CONTEXT] WorldFile` through the same building/road/fence/dinosaur import
+  as `--wld-park`, sets the starting budget from the campaign plus the
+  mission `Budget` delta, and opens `MISSION_PANEL` with the first mission.
+  Example: Cpg04 -> `Isl04` + `Cpg04_Save.wld` (57 buildings, 14 roads,
+  9 fences, 20 dinosaurs), budget 20,000, Cpg04_Mission1. Evidence:
+  `notes/campaign-menu-start.png`, `tests/test_campaign_cpp.py`
+  (`test_cpp_menu_campaign_mission_start`).
+- The retail campaign list is gated by `run/save/dino.dat`; the port shows all
+  7 listed campaigns and does not read the unlock dword yet. The campaign
+  always starts at the first mission (progression is not persisted), and the
+  retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
+  `MISSION_PANEL` description.
+- Mission state is not stored in the port save; mission progression, the
   exact actor trait fields, employee roles, ending videos and the remaining
   show/building/isolation/hungry verbs are open.
 
@@ -117,15 +133,31 @@ exit. Trace switches: `-NoTrace`, `-GenotypeTrace`, `-SecuTrace`. Logs go to
 `notes/x32dbg-campaign.out.log` by default; screenshots to
 `notes/harness/`.
 
-Viewer pages (no campaign start):
+Viewer pages:
 
 ```powershell
 .\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
+  --menu-click 404,285 `
   --screenshot notes\harness\campaign-select.bmp
-.\build\port\dino_viewer.exe --frames 2 --menu-page 3 ... `
+.\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
+  --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
+  --menu-click 404,285 --menu-click 364,530 `
   --screenshot notes\harness\campaign-info.bmp
 ```
+
+Starting Cpg04_Mission1 through the menu (no `--lnd`/`--wld-park` needed):
+
+```powershell
+.\build\port\dino_viewer.exe --frames 4 --menu-page 2 --width 800 --height 600 `
+  --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
+  --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
+  --menu-loading-time 0 --screenshot notes\harness\campaign-start.bmp
+```
+
+Expect `menu campaigns: 7`, `wld: placed 57/57 buildings`, `dinos: 20/20
+spawned`, `start: campaign=Cpg04 mission=Cpg04_Mission1 island=Isl04
+budget=20000`, and the three Cpg04_Mission1 objective lines.
 
 Sandbox park:
 
@@ -172,12 +204,16 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Port the objective evaluator (33 verbs) and the campaign state machine:
-  mission select, briefing, objective tracking, success/failure, campaign-end
-  dialog and unlock persistence.
-- Wire `CAMPAIGN_LIST`/`CAMPAIGN_START`/`CAMPAIGN_INFO_START` in `Menu`.
-- Populate `MISSION_PANEL` objective text and the objective-light HUD.
+- Read `run/save/dino.dat` and gate/disable locked campaign rows; persist the
+  mission index and advance missions after `CPGEND_PANEL`.
+- Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
+  idea-bulb buttons) instead of reusing the mission description box.
+- Populate `MISSION_PANEL` objective text and the objective-light HUD (done
+  for the started mission; campaign-tier row gating remains).
 - Decide the difficulty source (`mission+0x50`) and the cut `Cpg07` policy.
+  The captured retail Cpg04 briefing showed 17,000 while `Cpg04.ini` says
+  `Budget=20000` and `Cpg04_Mission1` inherits `Budget=0`; the retail
+  starting-budget source is still open (the port uses 20,000).
 - Ending videos (`mvVideo`/DirectShow) are decoded but not ported.
 
 ## Evidence
@@ -194,6 +230,9 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `--campaign-mission`.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`,
   `test_cpp_wld_park_import`, `tests/test_campaign.py`,
-  `tests/test_campaign_cpp.py`.
-- Runtime: `scripts/x32dbg/start-campaign.ps1`; screenshots
-  `notes/campaign-park.png`, `notes/campaign-sim.png`.
+  `tests/test_campaign_cpp.py` (`test_cpp_menu_campaign_select`,
+  `test_cpp_menu_campaign_mission_start`).
+- Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
+  `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
+  `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,
+  `notes/campaign-menu-start.png`.

@@ -38,6 +38,39 @@ bool Menu::load(const std::string& asset_root) {
     return true;
 }
 
+bool Menu::load_campaigns(const std::string& scenario_root) {
+    campaigns.clear();
+    campaign_error.clear();
+    try {
+        campaigns = dino::load_campaigns(scenario_root);
+    } catch (const std::exception& e) {
+        campaign_error = e.what();
+        return false;
+    }
+    campaign = std::clamp(campaign, 0,
+                          campaigns.empty()
+                              ? 0
+                              : static_cast<int>(campaigns.size()) - 1);
+    return true;
+}
+
+const dino::Campaign* Menu::selected_campaign() const {
+    if (campaign < 0 || campaign >= static_cast<int>(campaigns.size())) {
+        return nullptr;
+    }
+    return &campaigns[static_cast<std::size_t>(campaign)];
+}
+
+const dino::CampaignMission* Menu::selected_mission() const {
+    const dino::Campaign* selected = selected_campaign();
+    if (selected == nullptr || selected->missions.empty()) {
+        return nullptr;
+    }
+    // The retail campaign starts at its current mission; progression is not
+    // persisted by the port yet, so the first mission is the entry point.
+    return &selected->missions.front();
+}
+
 int Menu::hit_test(int x, int y) const {
     // Later widgets are drawn on top; iterate backwards so nested buttons win.
     for (int i = static_cast<int>(overlay.widgets.size()) - 1; i >= 0; --i) {
@@ -107,6 +140,25 @@ void Menu::click(int x, int y) {
         const int line = widget.height > 0 ? widget.height / 10 : 28;
         const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
         island = std::clamp(selected, 0, 9);
+    } else if (name == "CAMPAIGN_LIST") {
+        const int line =
+            widget.list_line_height > 0 ? widget.list_line_height : 34;
+        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
+        campaign = campaigns.empty()
+                       ? 0
+                       : std::clamp(selected, 0,
+                                    static_cast<int>(campaigns.size()) - 1);
+    } else if (name == "CAMPAIGN_START_BUTTON") {
+        if (selected_campaign() != nullptr) {
+            page = 3;
+        }
+    } else if (name == "CAMPAIGN_INFO_START_BUTTON") {
+        if (selected_mission() != nullptr) {
+            page = 8;
+            loading = true;
+            start_campaign = true;
+            loading_timer = loading_time;
+        }
     } else if (ends_with(name, "_CANCEL_BUTTON") ||
                ends_with(name, "_BACK_BUTTON")) {
         page = 0;
@@ -115,6 +167,12 @@ void Menu::click(int x, int y) {
 }
 
 std::string Menu::text_for(const Widget& widget) const {
+    if (page == 3 && widget.name == "CAMPAIGN_INFO_TITLE") {
+        const dino::Campaign* campaign_ptr = selected_campaign();
+        if (campaign_ptr != nullptr && !campaign_ptr->title_id.empty()) {
+            return resolve_loc_text(campaign_ptr->title_id, loc);
+        }
+    }
     return resolve_loc_text(widget.text, loc);
 }
 

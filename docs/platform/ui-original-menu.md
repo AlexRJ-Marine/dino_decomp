@@ -33,8 +33,10 @@ Research details: `notes/ui-recon.md` (evidence) and
   `--placeholder-menu`, `--no-menu`.
 
 Screens: page 0 (main), page 1 (Free Game: 10-island list, difficulty, Start),
-and pages 2–8 render their retail backgrounds/widgets. Start closes the menu
-and resumes the park; other pages are display-only until Phase B/C.
+page 2 (campaign select: `CampaignList.ini` rows) and page 3 (campaign
+briefing: title, wrapped briefing, matching island picture, Start). Pages 4–8
+render their retail backgrounds/widgets. Start on page 1 or 3 closes the menu
+and loads the selected world; pages 4–8 are display-only.
 
 Evidence: `notes/menu-retail.png` (main), `notes/menu-free.png` (Free Game),
 `notes/menu-pages-sheet.png` (pages 2–8), `notes/menu-preview.png` (Python
@@ -303,6 +305,25 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `notes/menu-start-isl10.png`, `tests/test_viewer_cpp.py`
   (`test_cpp_menu_start_loads_selected_island`).
 - Open: the original park camera's initial framing is not yet recovered.
+
+### Phase B2 — Campaign pages (done)
+
+- [x] `CampaignList.ini` rows in `CAMPAIGN_LIST` (7 campaigns, `title_id` from
+      each `CpgNN.ini`); declared 34-px list rows.
+- [x] `CAMPAIGN_START_BUTTON` -> page 3 with the campaign title, wrapped
+      `description_id` briefing (16 lines, literal `\n` paragraphs) and the
+      matching `CAMPAIGN_INFO_ISLAND_PIC_islNN`.
+- [x] `CAMPAIGN_INFO_START_BUTTON` -> loading page, then the campaign's
+      `[LANDSCAPE] Island` + `[CONTEXT] WorldFile` import and the first
+      mission via the regular `MISSION_PANEL` runtime.
+- [x] Cancel buttons return to page 0; campaign data failures leave the menu
+      usable and log `menu campaigns: ...`.
+- Evidence: `notes/campaign-menu-select.png`,
+  `notes/campaign-menu-briefing.png`, `notes/campaign-menu-start.png`,
+  `tests/test_campaign_cpp.py` (`test_cpp_menu_campaign_select`,
+  `test_cpp_menu_campaign_mission_start`).
+- Open: `run/save/dino.dat` unlock gating, mission progression, the retail
+  4-page briefing counter/idea bulb, and Cpg07's cut row.
 
 ### Phase C — park HUD (done at 800×600)
 

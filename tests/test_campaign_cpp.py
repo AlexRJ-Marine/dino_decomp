@@ -98,6 +98,54 @@ def test_cpp_campaign_mission_panel():
     assert "mission Cpg04_Mission1: success" not in result.stdout
 
 
+def test_cpp_menu_campaign_select():
+    result = _run(
+        "--validate", "--asset-root", str(GAME),
+        "--menu-page", "2",
+        "--menu-click", "404,285",   # CAMPAIGN_LIST row 3 (Cpg04)
+        "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
+    )
+    assert result.returncode == 0, result.stderr
+    assert "menu campaigns: 7" in result.stdout
+    assert "menu page=3 active=1" in result.stdout
+
+
+def test_cpp_menu_campaign_mission_start():
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04 data missing")
+    # Full retail flow: campaign row -> campaign briefing -> Start. The
+    # loading page then loads Isl04, imports Cpg04_Save.wld and opens the
+    # MISSION_PANEL with the first mission.
+    result = _run(
+        "--frames", "3", "--menu-page", "2",
+        "--menu-click", "404,285",   # CAMPAIGN_LIST row 3 (Cpg04)
+        "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
+        "--menu-click", "521,449",   # CAMPAIGN_INFO_START_BUTTON
+        "--menu-loading-time", "0",
+        "--width", "320", "--height", "240", "--no-vsync", "--no-save-config",
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "campaign park:" in result.stdout and "dinos=20" in result.stdout
+    assert "wld: placed 57/57 buildings" in result.stdout
+    assert (
+        "dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
+        in result.stdout
+    )
+    assert "paddocks: 9 capacity=492 used=336" in result.stdout
+    assert (
+        "start: campaign=Cpg04 mission=Cpg04_Mission1 island=Isl04 budget=20000"
+        in result.stdout
+    )
+    assert "mission: Cpg04_Mission1 objectives=3" in result.stdout
+    # Treasury (20,000 < 25,000) and isolation stay pending; zero deaths
+    # satisfies the dyingdinos limit.
+    assert "mission objective 2 dyingdinos -> success" in result.stdout
+    assert "mission Cpg04_Mission1: success" not in result.stdout
+
+
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"

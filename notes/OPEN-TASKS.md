@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 23:00. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 23:09. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 35 open items.
 
@@ -78,7 +78,7 @@ Generated from `TASKS.md` on 2026-10-26 23:00. Do not edit; regenerate with `scr
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
 
 ## CAMPAIGN-3: Campaign menu start + live traits
-- [ ] Wire `CAMPAIGN_LIST`/`CAMPAIGN_START`/`CAMPAIGN_INFO_START` in `Menu`
+- [ ] Read `run/save/dino.dat` to gate locked campaign rows and persist/advance
 - [ ] Fill `employee_roles` and the exact actor trait fields
 - [ ] Store the mission id and verdicts in the port save; show ending videos.
 - [ ] Port the remaining show/building/isolation/hungry verbs once shows,
