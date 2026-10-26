@@ -81,10 +81,37 @@ yaw = 90 deg * state
   is no Z offset. The Entrance hull extends to z `-7.18 m` from its pivot;
   retail places the pivot exactly on the heightfield, so the visible sink is
   the asset pivot and matches the original. Only `LunchDoor.bbi` sets
-  `model[0] = 1` (slope-aligned basis); the port uses yaw-only for all.
+  `model[0] = 1` (slope-aligned basis); the basis is decoded below, the port
+  currently uses yaw-only for all.
 - `state` is the orientation consumed by `FUN_00586b80` and the jump table at
   `0x586d0c`; the footprint swap is part of the same rule. Default in the
   factory is 1.
+
+### `model[0] = 1` slope basis (`FUN_0061c510`)
+
+For the one `.bbi` with `model[0] = 1` (`LunchDoor`), the placement basis is
+recomputed from the terrain normal instead of a pure yaw. The function takes
+`(X, Y, forward)` and:
+
+1. scales the world position by the landscape `+0x14` (world→heightmap
+   sample, 0.5) and bounds-checks against the heightmap width/height `+4/+8`;
+2. builds a normal from central differences at three radii `r = 0.5, 1.0,
+   2.0`:
+   ```text
+   n = ( h(x-r, y) - h(x+r, y),
+         h(x, y-r) - h(x, y+r),
+         r^2 * height_scale^2 )
+   n = normalize(n)
+   ```
+   then normalizes the sum of the three radii;
+3. `R = normalize(forward × n)`;
+4. `U = R × n`;
+5. sets the node matrix axes to `R`, `U`, `n`
+   (`FUN_004664c0` / `FUN_004664e0` / `FUN_00466500`).
+
+The height sampler is the same `FUN_005c0b80` used by the terrain (bilinear
+u16 × 1/256). The port's yaw-only path is correct for all other buildings;
+`LunchDoor` needs this basis. `model[1]` is a Z offset and stays 0.0.
 - Engine cross-checks: isl01 Entrance at cell `(520,376)` state 1 → centre
   `(525.5,387.5)`, Z **69.4**; the port prints the same. Campaign Entrances
   sit at each island's `.lnd` width/height (isl01 `520/376`, isl02 `312/504`,
@@ -115,6 +142,8 @@ $G = "game/%MAINDIR%"
 - `notes/menu-start-entrance.png` - Free Game start on isl01 with the
   auto-placed Entrance at `(520,376)`, Z `69.4`.
 - `notes/building-placement-recon.md` - decompiled call chain and maths.
+- `FUN_0061C510` - slope-aligned basis (three-radius normal); `FUN_005C0B80`
+  height sampler; `FUN_004664C0/E0/500` basis-axis setters.
 - `notes/calibration-2026-10-26.md` - runtime Entrance cells/states and water
   Z (isl01/isl02), plus the visitor need ctor.
 - `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
@@ -123,7 +152,8 @@ $G = "game/%MAINDIR%"
 
 ## Open
 
-- `model[0] = 1` slope-aligned basis (`LunchDoor`) is not implemented.
+- `model[0] = 1` slope basis is decoded (`FUN_0061c510`: three-radius terrain
+  normal, `R = forward × n`, `U = R × n`); port implementation pending.
 - Construction cost is solved: `.bbi` file offset 21 (`Building::
   construction_cost`), charged to the CONSTRUCTION bucket by
   `FUN_00585d20`; the visitor entry price is file offset 25. The

@@ -1198,12 +1198,16 @@ Updated: 2026-10-26
   stored.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
-- WORLD-3: the skybox face order/UVs now match the retail builder
-  (`front=-X, left=+Y, back=+X, right=-Y, top=+Z, bottom=-Z`) and the water
-  uses the retail additive blend (`WaterSurface.ini`: One/One/Add) instead of
-  alpha 0.78. Remaining: the second `Modulate2x` water texture stage (coord
-  set 1, animation), park fog, and a direct side-by-side still.
-- WORLD-2 remains: `model[0] = 1` slope basis, frustum culling and LOD2.
+- WORLD-3: the skybox face order/UVs match the retail builder
+  (`front=-X, left=+Y, back=+X, right=-Y, top=+Z, bottom=-Z`), the water uses
+  the retail additive blend (`WaterSurface.ini`: One/One/Add), and the scene
+  and water fog are applied (`FogParam.txt` 1500..2000 warm,
+  `FogParam_WaterSurface.txt` 100..700 black; both linear). Remaining: the
+  second `Modulate2x` water texture stage (coord set 1, animation) and the
+  skybox bottom/side seam.
+- WORLD-2 remains: the `model[0] = 1` slope basis is decoded
+  (`FUN_0061C510`: three-radius terrain normal + orthonormal basis) but not
+  yet applied in the port; frustum culling and LOD2 remain.
   `model[1]` is 0.0 in all files. Building placement from `.wld`/`.sav` is
   solved (57/57 on Cpg04/isl04), and construction-UI placement is now live.
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
@@ -1244,10 +1248,11 @@ Updated: 2026-10-26
    behaviors share `0x582d70` and differ only by vtable
    (`0x64350c`/`0x6434e8`/...); map the score path from there.
 13. WORLD-3: water height **confirmed** (`FUN_00602cf0` = the `.lnd` float:
-   isl01 16.0, isl02 20.0) and the skybox face order now matches the retail
-   builder (`0x00600f80`/`0x00600df0`). Remaining: a direct side-by-side
-   still, water animation, and the exact `.lnd` carry path from the reader
-   scratch to the landscape.
+   isl01 16.0, isl02 20.0), the skybox face order matches the retail builder
+   (`0x00600f80`/`0x00600df0`), and scene/water fog plus the additive blend
+   are applied. Remaining: the second `Modulate2x` water stage, the skybox
+   bottom seam, a direct side-by-side still, and the exact `.lnd` carry path
+   from the reader scratch to the landscape.
 14. CONS-1 rest: refine the imported dinosaurs' paddock cost class from the
    species baseline (port `used` = 384) to the individual phenotype (retail
    Cpg04 `used` = 336; Allosaurus is four class 2 / three class 1); port the
