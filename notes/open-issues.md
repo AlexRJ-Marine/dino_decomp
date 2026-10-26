@@ -27,9 +27,15 @@ unknowns, with what was tried and the concrete next step.
   from the runtime terrain; they may be editor metadata the game never reads.
 - **Next:** locate the `.lnd` parser. The path is built at `0x51dad0`
   (`Data\Design\Landscape\isl`) and the island objects are created by
-  `0x5068c0`; `0x506950` only reads the name-key string. Find the function
-  that reads the eight resource strings + the four header values and see
-  whether the `width`/`height` fields are stored/used at all.
+  `0x5068c0`; `0x506950` only reads the name-key string.
+- **Lead (2026-10-26):** the terrain builder `0x5fb8b0` (gpkLandscape ctor)
+  reads the landscape-data object at `+0x24`, `+0x25`, `+0x26` and applies
+  fixed-point conversions: `local_24 = [0x25] * (1/256)`,
+  `local_20 = [0x26] * 256`, `local_1c = [0x24]`. Those three fields are the
+  `.lnd` header trio (unknown float, width, height) after parsing, so the
+  parser is the supplier of `param_2`. Find where that object is filled
+  (likely a `gpkLandscape`/`gdtIsland` load) and which of the two values is
+  width vs height ? the /256 and *256 scales are the last missing piece.
 
 ## 3. `.bfi` body integers
 
@@ -53,6 +59,10 @@ unknowns, with what was tried and the concrete next step.
 - **Inferred:** `0x08` (100) and `0x10` (30) are uniform across all walls and
   fit hit points/build time; no second consumer was found.
 - **Remaining:** only the seven texture-scale floats' exact roles.
+  `scale[5] == height/8` is the vertical tiling; the other six are constant
+  defaults across all 24 walls. The `gatWall.cpp` geometry builder
+  `FUN_005ee970` does not read them; the material/UV setup is the likely
+  consumer.
 
 ## 5. Dinosaur behavior-graph node types
 
