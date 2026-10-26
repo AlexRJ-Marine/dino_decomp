@@ -1,0 +1,3 @@
+counters: skin=2221 anim=8911 vec16=2221 vec32=1680
+hook_4663a0: calls=281000
+hook_4809a0: calls=96000

@@ -4,7 +4,7 @@ Status: **ABI solved; hook implemented and runtime-verified.** This is the
 per-bone skin table reader used by the `.skin` loader. It reads the full table
 for one 0xB8-byte mesh block (35 records for the full-mesh block, 0 for proxy
 blocks). On the free-game park the hook read **2221 bone records** and the
-park rendered normally (`notes/hyb4-counter.log`, `notes/park-hook-all.png`).
+park rendered normally (`notes/hyb4-counter.txt`, `notes/park-hook-all.png`).
 Per-call logging is disabled because the reader can run under the loader
 lock; the counters print from `hook_4663a0` every 10,000 calls.
 

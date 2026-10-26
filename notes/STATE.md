@@ -1181,7 +1181,7 @@ Updated: 2026-10-26
     0x2C record) using `0x484d30`/`0x486a60`, `0x4855f0`, and the hooked
     `0x4663a0`.
   - Free-game park: **2221 skin bone records**, **8911+ animation keys**,
-    normal rendering (`notes/hyb4-counter.log`, `notes/park-hook-all.png`).
+    normal rendering (`notes/hyb4-counter.txt`, `notes/park-hook-all.png`).
     Per-call logging is disabled (loader-lock deadlock); counters print from
     `hook_4663a0` every 10,000 calls. Both installed by default.
   - Next: `0x477890` (`.skel`) and `0x4809e0` (UV).

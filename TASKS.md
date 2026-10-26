@@ -749,7 +749,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** the park loads with both readers replaced.
 - **Depends on:** HYB-3.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-skin-recon.md`,
-  `notes/hybrid-anim-recon.md`, `notes/hyb4-counter.log`,
+  `notes/hybrid-anim-recon.md`, `notes/hyb4-counter.txt`,
   `notes/park-hook-all.png`, `docs/decomp/hybrid.md`.
 
 ### DEC-2: Simulation scheduler and AI update order

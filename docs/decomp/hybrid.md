@@ -89,7 +89,7 @@ reserve `0x4058b0`; the matrices go through the already-hooked `0x4663a0`.
 Implementation: `hook_47d880`/`hook_4839e0` in `src/hook/dinput8_proxy.cpp`,
 installed by default. **Runtime-verified on the free-game park:** 2221 skin
 bone records and 8911+ animation keys read, with the park rendering normally
-(`notes/park-hook-all.png`, `notes/hyb4-counter.log`). Per-call logging is
+(`notes/park-hook-all.png`, `notes/hyb4-counter.txt`). Per-call logging is
 disabled because these readers can run under the loader lock; the counters
 are printed from `hook_4663a0` every 10,000 calls. Full ABIs:
 `notes/hybrid-skin-recon.md`, `notes/hybrid-anim-recon.md`.
