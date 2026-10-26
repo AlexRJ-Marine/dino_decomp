@@ -163,6 +163,21 @@ const char* objective_verb_name(int objective_id) {
     return kObjectiveVerbs[objective_id];
 }
 
+CampaignObjective parse_objective_command(const std::string& command,
+                                          const std::string& description_id) {
+    CampaignObjective objective;
+    objective.command = command;
+    objective.description_id = description_id;
+    const std::vector<std::string> words = split_words(command);
+    if (words.empty()) {
+        return objective;
+    }
+    objective.verb = lower(words.front());
+    objective.args.assign(words.begin() + 1, words.end());
+    objective.objective_id = objective_verb_id(objective.verb);
+    return objective;
+}
+
 CampaignMission load_campaign_mission(const std::string& mission_ini) {
     const std::filesystem::path path(mission_ini);
     if (!std::filesystem::exists(path)) {
@@ -183,18 +198,9 @@ CampaignMission load_campaign_mission(const std::string& mission_ini) {
         if (trim(command).empty()) {
             continue;
         }
-        const std::vector<std::string> words = split_words(command);
-        if (words.empty()) {
-            continue;
-        }
-        CampaignObjective objective;
-        objective.command = command;
-        objective.verb = lower(words.front());
-        objective.args.assign(words.begin() + 1, words.end());
-        objective.description_id =
-            get(mission.values, "OBJECTIVES", "OBJECTIVE" + suffix + "_DESC");
-        objective.objective_id = objective_verb_id(objective.verb);
-        mission.objectives.push_back(std::move(objective));
+        mission.objectives.push_back(parse_objective_command(
+            command, get(mission.values, "OBJECTIVES",
+                         "OBJECTIVE" + suffix + "_DESC")));
     }
     return mission;
 }

@@ -153,14 +153,18 @@ Beams and gene editing come next.
 
 **Port status** the C++ reader (`src/formats/campaign.{h,cpp}`) parses all 7
 campaigns, 39 missions, 89 objectives and the 33-verb table; CLI
-`--campaign-info`/`--campaign-mission`. There is no evaluator or mission
-state machine yet. The campaign menu pages render (see `campaign-flow.md`);
-`MISSION_PANEL` is static.
+`--campaign-info`/`--campaign-mission`. The evaluator core
+(`src/world/campaign_objectives.{h,cpp}`) implements the simple/trait verbs
+and the tri-state aggregate; show/building/isolation/hungry verbs stay
+pending. There is no mission state machine or `MISSION_PANEL` verdict UI yet.
+The campaign menu pages render (see `campaign-flow.md`); `MISSION_PANEL` is
+static.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them
 on a one-second timer and show the tri-state in `MISSION_PANEL`; then add the
-trait/show verbs.
+trait/show verbs. The parser and evaluator core are done; the timer/UI is the
+next step.
 
 **Evidence** `../formats/campaign.md`, `../../notes/objectives-recon.md`,
 `../decomp/function-status.md`, `tests/test_campaign.py`.

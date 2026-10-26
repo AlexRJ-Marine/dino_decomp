@@ -56,6 +56,11 @@ Campaign load_campaign(const std::string& campaign_ini);
 // Loads one mission .ini.
 CampaignMission load_campaign_mission(const std::string& mission_ini);
 
+// Parses one `ObjectiveN` value into verb/args/id. `description_id` is the
+// matching `_Desc` localisation id.
+CampaignObjective parse_objective_command(
+    const std::string& command, const std::string& description_id = "");
+
 // `0x5658d0` verb table: ids 0..32; returns -1 for an unknown verb.
 // The retail typo `scaritydinos` is kept.
 int objective_verb_id(const std::string& verb);

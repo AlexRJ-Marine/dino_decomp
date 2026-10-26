@@ -32,6 +32,7 @@
 #include "../world/visitors.h"
 #include "../world/dino_actions.h"
 #include "../world/danger_grid.h"
+#include "../world/campaign_objectives.h"
 #include "../world/port_save.h"
 #include "../world/economy.h"
 #include "../ui/menu.h"
@@ -2367,6 +2368,163 @@ int run_selftest() {
           "secu clamp");
     check(dino::secu_from_grid(danger, 100.0f, 100.0f, 0, 0, 0) == 94,
           "secu no max health");
+
+    // Campaign objective evaluator (`snoObjective` 0x5654f0 / verb 0x5658d0).
+    auto objective = [](const char* command) {
+        return dino::parse_objective_command(command);
+    };
+    dino::CampaignState objective_state;
+    objective_state.treasury = 25000;
+    check(dino::evaluate_objective(objective("treasury 25000 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective treasury success");
+    objective_state.treasury = 100;
+    check(dino::evaluate_objective(objective("treasury 25000 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective treasury pending");
+    check(dino::evaluate_objective(objective("treasury 25000 0"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Failure,
+          "objective treasury failure");
+    objective_state.merchandise_income = 50001;
+    check(dino::evaluate_objective(objective("marchandizing 50000"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective marchandizing");
+    objective_state.deaths = 3;
+    check(dino::evaluate_objective(objective("dyingdinos 5"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective dyingdinos success");
+    objective_state.deaths = 6;
+    check(dino::evaluate_objective(objective("dyingdinos 5"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Failure,
+          "objective dyingdinos failure");
+
+    dino::CampaignVisitorState kid;
+    kid.profile = "kid";
+    kid.satisfaction = 80;
+    dino::CampaignVisitorState adult;
+    adult.profile = "adult";
+    adult.satisfaction = 90;
+    objective_state.visitors = {kid, adult};
+    check(dino::evaluate_objective(objective("visitors all 2"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective visitors all");
+    check(dino::evaluate_objective(objective("visitors kid 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective visitors profile");
+    check(dino::evaluate_objective(objective("visitors all 3"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective visitors pending");
+    check(dino::evaluate_objective(objective("happyvisitors all 80"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective happy visitors");
+    objective_state.employee_roles = {"nutritionist", "nutritionist"};
+    check(dino::evaluate_objective(objective("employees all 2"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective employees");
+    objective_state.camera_altitude = 120;
+    check(dino::evaluate_objective(objective("cameraaltitude 120"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective camera altitude");
+    objective_state.clock_minutes = 5;
+    objective_state.load_minutes = 0;
+    check(dino::evaluate_objective(objective("delaylimit 10"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective delay limit pending");
+    objective_state.clock_minutes = 11;
+    check(dino::evaluate_objective(objective("delaylimit 10"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Failure,
+          "objective delay limit failure");
+    objective_state.store_empty = true;
+    check(dino::evaluate_objective(objective("buyalldinos"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective buy all dinos");
+    objective_state.bankrupt = true;
+    check(dino::evaluate_objective(objective("bankrupt"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Failure,
+          "objective bankrupt");
+
+    dino::DinoTraitState trait;
+    trait.species = "Hypsilophodon";
+    trait.cuteness = 60;
+    trait.aggression = 90;
+    trait.hybrid = 95;
+    trait.speed = 30;
+    trait.stamina = 70;
+    trait.agility = 50;
+    trait.intelligence = 80;
+    trait.size = 100;
+    trait.beauty = 80;
+    trait.strangeness = 10;
+    trait.ornament_count = 1;
+    objective_state.dinos = {trait};
+    check(dino::evaluate_objective(objective("aggressivedinos 1 80"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective aggressive dinos");
+    check(dino::evaluate_objective(objective("aggressivedinos 2 80"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective aggressive count");
+    check(dino::evaluate_objective(objective("cutedinos 1 50"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective cute dinos");
+    check(dino::evaluate_objective(objective("hybriddinos 1 90"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective hybrid dinos");
+    check(dino::evaluate_objective(objective("speeddinos 1 25"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective speed dinos");
+    check(dino::evaluate_objective(objective("staminadinos 1 60"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective stamina dinos");
+    check(dino::evaluate_objective(objective("cleverdinos 1 70"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective clever dinos");
+    check(dino::evaluate_objective(objective("sizedagilitydinos 90 40"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective size agility");
+    check(dino::evaluate_objective(objective("ornateddinos 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective ornated dinos");
+    check(dino::evaluate_objective(objective("prettystrangedino 70 20"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective pretty strange");
+    check(dino::evaluate_objective(objective("genotypedinos hypsilo 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective genotype species");
+    check(dino::aggregate_verdict({dino::ObjectiveVerdict::Success,
+                                   dino::ObjectiveVerdict::Success}) ==
+              dino::ObjectiveVerdict::Success,
+          "objective aggregate success");
+    check(dino::aggregate_verdict({dino::ObjectiveVerdict::Success,
+                                   dino::ObjectiveVerdict::Failure}) ==
+              dino::ObjectiveVerdict::Failure,
+          "objective aggregate failure");
 
     if (failures == 0) {
         std::printf("selftest: PASS (%d checks)\n", checks);

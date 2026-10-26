@@ -1307,17 +1307,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/platform/campaign-flow.md`, `tests/test_campaign_cpp.py`.
 
 ### CAMPAIGN-2: Campaign objective evaluator
-- [ ] Port the simple evaluators (`treasury`, `marchandizing`, `dyingdinos`,
+- [x] Port the simple evaluators (`treasury`, `marchandizing`, `dyingdinos`,
   `visitors`, `employees`, `cameraaltitude`, `delaylimit`, `buyalldinos`,
   `bankrupt`) against a `CampaignState`.
-- [ ] Port the trait verbs (10-field pattern) using `DinoAttributes` and
-  `DinoNeeds`; leave the show/building verbs pending until those actors land.
+- [x] Port the trait verbs (10-field pattern) using `DinoAttributes` and
+  `DinoNeeds`-style fields; show/building/isolation/hungry verbs stay pending
+  until those actors land. `--selftest` covers 30 verdicts.
 - [ ] Wire the mission state machine and `MISSION_PANEL` tri-state
-  (pending/success/failure).
+  (pending/success/failure) to the live park.
 - **Acceptance:** Cpg04_Mission1 evaluates against the imported park and a
   synthetic state; every verdict is exercised.
-- **Evidence:** `docs/platform/decoded-features.md`,
-  `notes/objectives-recon.md`, `docs/formats/campaign.md`.
+- **Evidence:** `src/world/campaign_objectives.{h,cpp}`,
+  `docs/platform/decoded-features.md`, `notes/objectives-recon.md`,
+  `docs/formats/campaign.md`, `tests/test_campaign_cpp.py`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
@@ -1497,6 +1499,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Visitor profile + needs in `DINOPSAV` (optional tail; older saves
   restore `39/99/99`); the round-trip test checks `needs=39.0/99.0/99.0`
   after load.
+- [x] Visitor travel state + route in `DINOPSAV`: global profile,
+  `need0_at_use`, `Choose/Travel/Use/Leave`, target attraction, route index,
+  use/decay timers, RNG, done flag and the remaining route cells.
+- [x] Dinosaur clip playback phase in `DINOPSAV`: the `phase` field resumes
+  the clip at the saved offset instead of 0.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

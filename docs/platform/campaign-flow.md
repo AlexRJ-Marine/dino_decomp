@@ -76,6 +76,14 @@ CpgNN/CpgNN_Save.wld    initial park
   `--campaign-info Data/Design/Scenario` prints the tree with resolved verb
   ids; `--campaign-mission FILE` prints one mission. `tests/test_campaign_cpp.py`
   pins the counts and Cpg04_Mission1's three objectives.
+- `src/world/campaign_objectives.{h,cpp}` implements the evaluator core:
+  tri-state verdicts, `treasury`/`marchandizing`/`dyingdinos`/`visitors`/
+  `employees`/`cameraaltitude`/`delaylimit`/`buyalldinos`/`bankrupt`, the
+  `happyvisitors` check and the 10-field trait verbs (`aggressivedinos`,
+  `genotypedinos` species filter, `cutedinos`, `hybriddinos`, `speeddinos`,
+  `staminadinos`, `cleverdinos`, `sizedagilitydinos`, `ornateddinos`,
+  `prettystrangedino`). Show/building/isolation/hungry verbs stay pending.
+  `--selftest` exercises 30 verdicts.
 - The port does **not** handle `CAMPAIGN_LIST` selection, `CAMPAIGN_START`
   or `CAMPAIGN_INFO_START`; only `ISLAND_LIST`/`FREE_START` are wired. A
   campaign mission cannot be started from the port menu.
@@ -84,10 +92,10 @@ CpgNN/CpgNN_Save.wld    initial park
 - Sandbox path: `--wld-park <CpgNN_Save.wld>` or `--sav-park <save>` loads
   the campaign park (roads, fences, buildings, dinosaurs, budget, clock) for
   port tests without campaign rules. Cpg04/isl04 is the main fixture.
-- Campaign progress/full mission flow, objective evaluation, mission
-  selection, campaign-end trigger and ending videos are not ported. The
-  reader is the first slice; the evaluator is next (see
-  `decoded-features.md`).
+- Campaign progress/full mission flow, mission selection, the
+  `MISSION_PANEL` tri-state, campaign-end trigger and ending videos are not
+  ported. The reader and evaluator core are the first slices; the mission
+  state machine is next (see `decoded-features.md`).
 
 ## Verification recipes
 

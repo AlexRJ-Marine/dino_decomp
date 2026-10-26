@@ -44,6 +44,12 @@ def test_cpp_campaign_reader_counts():
             assert "id=-1" not in line, line
 
 
+def test_cpp_campaign_objective_selftest():
+    result = _run("--selftest")
+    assert result.returncode == 0, result.stderr
+    assert "selftest: PASS (71 checks)" in result.stdout
+
+
 def test_cpp_campaign_mission_objectives():
     mission = SCENARIO / "Cpg04" / "Cpg04_Mission1.ini"
     result = _run("--campaign-mission", str(mission))

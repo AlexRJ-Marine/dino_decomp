@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 22:24. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 22:27. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-35 open items.
+33 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -81,8 +81,6 @@ Generated from `TASKS.md` on 2026-10-26 22:24. Do not edit; regenerate with `scr
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
 
 ## CAMPAIGN-2: Campaign objective evaluator
-- [ ] Port the simple evaluators (`treasury`, `marchandizing`, `dyingdinos`,
-- [ ] Port the trait verbs (10-field pattern) using `DinoAttributes` and
 - [ ] Wire the mission state machine and `MISSION_PANEL` tri-state
 
 ## SIM-4: Economy and attractions
