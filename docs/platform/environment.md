@@ -1,7 +1,8 @@
 # Environment: skybox and water (WORLD-3)
 
-Status: **working** — six-face PNG skybox and a tiled water plane at the
-`.lnd` level.
+Status: **working** - six-face PNG skybox and a tiled water plane. The water
+height is a port convention, not retail data: FMT-21b proves the `.lnd` float
+is discarded by `FUN_0051dad0`.
 
 ## Skybox
 
@@ -17,8 +18,9 @@ disabled. `--skybox DIR` overrides the directory.
 
 ## Water
 
-- Level: the `.lnd` float (16.0 on isl01) by default; `--water-level N`
-  overrides, `--no-water` disables.
+- Level: a port convention. The default is the `.lnd` float (16.0 on isl01),
+  but the retail loader discards that value (`notes/open-issues.md` §2), so
+  this is **not** a verified water level. `--water-level N` overrides it.
 - Texture: the first `.lnd` water path (`Water.tga`, 256×256), repeat-wrapped,
   tiled 48× across a plane with a 6144-unit half-extent (12,288 units across) so it reaches the skybox horizon.
 - Drawn after the terrain with alpha 0.78 and depth writes off, so the
@@ -40,7 +42,8 @@ disabled. `--skybox DIR` overrides the directory.
 - Face orientation: the current mapping looks plausible but the horizon glow
   may be vertically flipped. The retail engine's exact cube convention needs a
   trace or a side-by-side screenshot.
-- Is the `.lnd` float really the water level, or a height scale? 16.0 is used
-  unchanged for now.
+- Find the actual retail water surface height/level. The `.lnd` float is dead
+  data (`notes/open-issues.md` §2), so 16.0 is an unverified port convention;
+  read the water-surface object at runtime or use a side-by-side trace.
 - Water animation (UV scroll), foam at the shoreline, and depth-based colour.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.

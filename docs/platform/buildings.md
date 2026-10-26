@@ -2,8 +2,9 @@
 
 Status: **loader + placement transform solved.** Position (footprint centre),
 orientation (`state` = 90°), terrain Z and the primary `.skin` model match the
-retail functions; `model[0]`/`model[1]` (slope flag / Z offset) are still
-unmapped. This is the first world-object bring-up step for WORLD-2/SIM-2.
+retail functions; `model[0] = 1` (slope basis, `LunchDoor`) is the only open
+placement branch. `model[1]` is 0.0 in all files. This is the first
+world-object bring-up step for WORLD-2/SIM-2.
 
 ## Loader
 

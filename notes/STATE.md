@@ -899,8 +899,12 @@ Updated: 2026-10-26
     rerouting (`0x522cb0`) mapped.
   - Needs solved except initial values: `spPark+0x78` is the visitor-profile
     table (6 in free game), `actor+0x68` is the profile index, and
-    `+0x48/+0x4c/+0x50` are three int needs with **no time decay**. Attraction
-    use adds `def+0x50/+0x54` to needs 1/2 and adjusts need 0 from the appeal.
+    `+0x48/+0x4c/+0x50` are three int needs. Timed decay is inline in
+    `FUN_00576320`/`FUN_005763f0`: need1 −1/10 s, need2 −1/7.5 s (state 1) or
+    −3 (state 3), need0 −1/12.5 s (state 0/1) or −10 (state 3), with the
+    state-2 appeal adjustment. Attraction use adds `def+0x50/+0x54` to needs
+    1/2 and adjusts need 0 from the appeal. Hitting 0 sets the leave flag
+    `+0x74`.
   - Remaining: consumer of the five variable profile weights, initial need
     values and the writer of `actor+0x68`.
   - Evidence: `notes/visitor-ai-recon.md`, `notes/visitor-needs-recon.md`,
@@ -1021,9 +1025,9 @@ Updated: 2026-10-26
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
-- WORLD-2 remains: `model[0]`/`model[1]` (slope flag / Z offset), construction
-  placement through the UI, frustum culling and LOD2. Building placement from
-  `.wld`/`.sav` is solved (57/57 on Cpg04/isl04).
+- WORLD-2 remains: `model[0] = 1` slope basis, construction placement through
+  the UI, frustum culling and LOD2. `model[1]` is 0.0 in all files. Building
+  placement from `.wld`/`.sav` is solved (57/57 on Cpg04/isl04).
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
 
 ## Next action
@@ -1035,8 +1039,8 @@ Updated: 2026-10-26
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
    (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
-5. WORLD-2 rest: map `model[0]`/`model[1]` and place buildings through the
-   construction UI; then frustum culling and LOD2.
+5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
+   through the construction UI; then frustum culling and LOD2.
 6. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
 7. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are

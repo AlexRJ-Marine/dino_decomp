@@ -759,8 +759,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   orientation (footprint swaps for odd states), engine heightfield Z, primary
   `.skin` model. isl01 Entrance = centre `(525.5,387.5)`, Z `69.4`, yaw 90°;
   Cpg04 on isl04 places 57/57 buildings.
-- [ ] `model[0]`/`model[1]` (slope-align flag / Z offset) and placement
-  through the construction UI.
+- [ ] `model[0] = 1` slope-aligned basis (`LunchDoor`) and placement through
+  the construction UI. `model[1]` is a float `0.0` at `.bbi` offset 113 in
+  all 39 files, so there is no Z offset.
 - [ ] Read scenario/landscape placement data beyond buildings; instance
   meshes; cull.
 - **Acceptance:** 1,000+ instances render at interactive FPS.
@@ -834,6 +835,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   combined draw call, fixed seed for reproducibility.
 - [x] Decompile visitor attraction scoring (`0x522a10`), travel (`0x521490`),
   attraction use (`0x5219f0`) and leave flow (`0x522940`).
+- [x] Recover the visitor-profile table (`spPark+0x78`, 6 free-game profiles),
+  the profile index (`actor+0x68`) and the timed need decay (`0x576320`/
+  `0x5763f0`: 10 s / 7.5 s / 12.5 s). Initial needs are still unproven.
 - [ ] Port the full enter → choose → use → leave flow with visitor profiles.
 - **Acceptance:** 50 visitors enter, use one attraction, and leave.
 - **Depends on:** SIM-1.
@@ -849,8 +853,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   their state indices and the `[80,60,30]` thresholds.
 - [x] Cross-check the need-to-widget mapping against the info panel
   (`0x511d80`, `0x5138b0`, `0x5df900`).
-- [ ] Decode the dinosaur-AI action chooser that turns a BAD FOOD/REPOS state
-  into `Eat` (4) / `Sleep` (2), and the visitor reaction.
+- [ ] Port the `.bai` score/precondition chooser that turns a BAD FOOD/REPOS
+  state into Eat (4) / Sleep (2) (DEC-2b: this is the `.bai` path, not a
+  behavior-node type), plus the visitor reaction.
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
@@ -974,9 +979,6 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase D (music): `ParkSoundDB.ini` island themes streamed in chunks and
   looped; menu music (`musLabo`), lab theme switching;
   `--music`/`--no-music`/`--music-volume`.
-- [x] Phase D (dialogs): `DIALOG_BACKGROUND` + `WARNING_PANEL` modal with
-  `--warning TEXT`, word-wrapped text and click-to-close; request/campaign-end
-  panels are parsed but still need triggers.
 - [x] Phase D rest: save/load the port's park state (island, budget, clock,
   camera, path/fence grid, visitors). `src/world/port_save.{h,cpp}` writes a
   `DINOPSAV 1` text file; the Options Save/Load tabs select a row, the green

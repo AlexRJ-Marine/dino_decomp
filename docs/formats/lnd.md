@@ -42,8 +42,9 @@ The file ends after the 25 vegetation strings. No trailing data.
 `isl01` vegetation starts with `isl01_ImpPalm1.imp` … and ends with `None`
 slots. These are the landscape import/prop lists used by `WORLD-1`.
 
-The float and the 0/1/2 integer are not yet named; the float is likely a water
-level or detail scale, the integer a biome/theme id. Both are recorded raw.
+The float and the 0/1/2 integer are editor metadata too; the runtime reader
+discards them (see “Runtime use” below). The float is **not** a proven water
+level.
 
 ### Runtime use of the header values
 

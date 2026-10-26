@@ -106,7 +106,7 @@ calls `load_island(name)`, which rebuilds the terrain, basemap, vegetation,
 skybox, water plane and their GPU resources and recentres the camera. All ten
 islands validate:
 
-| island | heightmap | water | notes |
+| island | heightmap | `.lnd` float (unverified) | notes |
 | --- | --- | --- | --- |
 | isl01 | 512×512, 0..92 | 16.0 | 9 vegetation groups |
 | isl02 | 512×512, 0..70 | 20.0 | |
@@ -142,8 +142,9 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
 
 ## Open questions
 
-- Meaning of the `.lnd` float (16.0/20.0): water level or height scale.
-  Height 92 with water at ~16 looks plausible.
+- `.lnd` width/height/float are editor metadata (FMT-21b): the retail loader
+  discards them. The port's water plane at the float is an unverified
+  convention; WORLD-3 must find the real water height.
 - Water plane / shoreline animation; currently the basemap ocean is painted on
   the heightfield.
 - Detailmap blending and terrain material layers.

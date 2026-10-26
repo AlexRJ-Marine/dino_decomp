@@ -20,9 +20,9 @@ lives.
 
 The graph is serialized by:
 
-- `0x0056ce80` — versioned graph reader; `param_3` is the **format
-  version** (0x29 = v41), not a node-type switch. It reads the graph header
-  and the per-node type/fields.
+- `0x0056ce80` - versioned graph reader; `param_3` is the **format
+  version** (0x25..0x2b; 0x29 is the current version, not a node-type count).
+  It reads the graph header and the per-node type/fields.
 - `0x0056d5a0` — versioned writer; walks the node list and writes each node.
 
 Node record shape (from the writer):

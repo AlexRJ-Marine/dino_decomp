@@ -1,6 +1,10 @@
 # Open issues — status and hand-off (2026-10-26)
 
-Everything else in the tree is documented and tested. These are the last
+This tracker covers **format/asset unknowns only**. Gameplay/simulation
+status lives in `notes/STATE.md`, `TASKS.md` and `docs/decomp/`; a field can be
+fully decoded here while its game logic is still unported.
+
+Everything else in the format tree is documented and tested. These are the last
 unknowns, with what was tried and the concrete next step.
 
 ## 1. `Actions.bad` first 450 floats per block

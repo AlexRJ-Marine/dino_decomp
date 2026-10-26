@@ -41,7 +41,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00521b30` | `apDinosaurBehavior` ctor (actor + two sub-behaviors) | decompiled | vtable `0x642abc`; `notes/dinosaur-behavior-graph.md` |
 | `0x00521cc0` | behavior dispatch (mode 1 -> `+0x10`, mode 2 -> `+0x0c`) | decompiled | same |
 | `0x0056cc90` | sub-behavior base ctor (node list head, actor) | decompiled | same |
-| `0x0056ce80` | behavior-graph node reader (versioned; 0x29 = v41) | decompiled (partial) | version branches, node record |
+| `0x0056ce80` | behavior-graph node reader (format versions 0x25..0x2b; 0x29 is the current version, **not** a node-type count) | decompiled | version branches, node record |
 | `0x0056d5a0` | behavior-graph node writer | decompiled | node record shape |
 
 ## Overlay / menu (UI-2)
@@ -174,6 +174,11 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00521490` | visitor path following | decompiled | same |
 | `0x00522cb0` | path obstacle avoidance / reroute | decompiled | same |
 | `0x005219f0` / `0x00522f30` | attraction use and timer | decompiled | same |
+| `0x00576320` | visitor timed need update: `+0x4c` every 10 s, `+0x50` every 7.5 s (state 1: −1, state 3: −3); clears to 0 and sets leave `+0x74` | decompiled | `notes/visitor-needs-recon.md` |
+| `0x005763f0` | visitor need 0 update: state 0/1 −1, state 2 uses `appeal/scale` and `+0x58`, state 3 −10; clamp 0..99, leave on negative | decompiled | same |
+| `0x005763b0` | visitor satisfaction gauge `+0x54 = 99 − value` | decompiled | same |
+| `0x0058abf0` | per-profile averages of `+0x48/+0x4c/+0x50` for the visitor-stats HUD | decompiled | same |
+| `0x0058a970` | visitor spawn selection: 5 s timer, profile weight `table+0x14`, cap `table+0x28`, current count `table+0x04`; queues the profile index at `park+0xc` | decompiled | same |
 | `0x00521df0` | per-visitor movement tick | decompiled | same |
 | `0x005654f0` | `snoObjective::Load` — verb id, args, evaluator pointer | decompiled | `notes/objectives-recon.md` |
 | `0x005658d0` | objective verb → id lookup (33 verbs) | decompiled | same |

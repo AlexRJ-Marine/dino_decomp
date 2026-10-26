@@ -124,8 +124,17 @@ Entrance has all five weights 0, so its appeal values are 0. See
 
 ## Needs
 
-`actor+0x48/+0x4c/+0x50` are three int needs in 0..99. There is **no
-time-based decay**. `FUN_00522f30` (using an attraction) is the only writer:
+`actor+0x48/+0x4c/+0x50` are three int needs in 0..99. They **do decay on
+timers** (`FUN_00589cd0` → `FUN_00576320` / `FUN_005763f0`):
+
+- need1 `+0x4c` −1 every 10 s;
+- need2 `+0x50` −1 every 7.5 s while travelling (state 1), −3 in state 3;
+- need0 `+0x48` gets `FUN_005763f0` every 12.5 s: −1 in state 0/1, −10 in
+  state 3, and in state 2 it is adjusted from `appeal[profile] / scale`
+  against `actor+0x58`.
+
+Hitting 0 sets the leave flag `actor+0x74` and clears `actor+0x44`.
+`FUN_00522f30` (using an attraction) is the additive writer:
 
 ```text
 need1 += def+0x50 (if >0)
