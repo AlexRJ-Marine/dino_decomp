@@ -1935,3 +1935,43 @@ def test_cpp_market_info():
     assert "market stores: 0=10 2=14 3=14 4=9 5=5 6=2" in result.stdout
     assert ("first=Allosaurus 9000 allo.gen "
             "last=Zarbosaurus 4900 zarbo.gen") in result.stdout
+
+def test_cpp_buy_dino():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+
+    def run(extra):
+        return subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+             "160", "--height", "120", "--no-vsync", "--no-save-config",
+             "--lnd", str(isl04), "--asset-root", str(GAME),
+             "--no-vegetation", "--no-water", "--wld-park", str(wld)] + extra,
+            capture_output=True, text=True, timeout=300,
+        )
+
+    success = run(["--buy-dino", "Zarbosaurus", "--park-budget", "10000"])
+    assert success.returncode == 0, success.stderr
+    assert ("buy: Zarbosaurus price=4900 budget=5100 paddock="
+            in success.stdout)
+    assert " dinos=21" in success.stdout
+    assert "paddocks: 9 capacity=492 used=400" in success.stdout
+
+    no_room = run(["--buy-dino", "Zarbosaurus", "--buy-paddock", "0"])
+    assert no_room.returncode == 0, no_room.stderr
+    assert ("buy: Zarbosaurus no paddock room "
+            "(WARNING_NO_ROOM_IN_FENCE) budget=75000") in no_room.stdout
+    assert "paddocks: 9 capacity=492 used=384" in no_room.stdout
+
+    no_money = run(["--buy-dino", "Zarbosaurus", "--park-budget", "100"])
+    assert no_money.returncode == 0, no_money.stderr
+    assert ("buy: Zarbosaurus price=4900 budget=100 "
+            "(WARNING_NOT_ENOUGH_MONEY)") in no_money.stdout
+    assert "paddocks: 9 capacity=492 used=384" in no_money.stdout
+
+    unknown = run(["--buy-dino", "Nope"])
+    assert unknown.returncode == 0, unknown.stderr
+    assert "buy: no store entry named Nope" in unknown.stdout

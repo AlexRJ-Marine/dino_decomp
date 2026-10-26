@@ -1106,10 +1106,10 @@ Updated: 2026-10-26
   - `--selftest` now has 32 checks (capacity, size class, costs, duplicate,
     fill, no-room, slope basis); `test_cpp_wld_park_dinosaurs` asserts the
     summary.
-  - Pending: the store purchase branch (`DINOACHAT` charge + store-row
-    removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the exact
-    per-individual size class. The store catalog reader is done
-    (`src/formats/market.*`, `--market-info`: 54 entries, 3,200..42,000).
+  - Pending: the store purchase UI, the `DINOACHAT` count/total bucket, the
+    store-row removal and the `WARNING_NO_ROOM_IN_FENCE` panel path. The
+    headless core (`--buy-dino`) and the catalog reader are done
+    (`src/formats/market.*`, 54 entries, 3,200..42,000).
   - Evidence: `docs/platform/build.md`, `docs/decomp/construction-validation.md`,
     `notes/paddock-capacity-verification.md`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_dinosaurs`,

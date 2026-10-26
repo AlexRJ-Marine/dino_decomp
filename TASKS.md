@@ -810,9 +810,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Dinosaur store catalog reader: `src/formats/market.{h,cpp}` and
   `--market-info`; 54 entries in stores 0/2..6, prices 3,200..42,000, all
   `(name, price, .gen)` triplets validated (matches the Python reader).
-- [ ] Port the store purchase branch (charge `DINOACHAT`, remove the store
-  row) and the `WARNING_NO_ROOM_IN_FENCE` panel path; the insertion state
-  must stay active on failure. The catalog reader is ready.
+- [x] Headless purchase core: `--buy-dino NAME [--buy-paddock N]` resolves
+  the Market.ini genotype, maps the head gene to a species, derives the size
+  class, checks capacity and budget, charges the price and spawns the
+  dinosaur. Cpg04 Zarbosaurus: 4,900, budget 10,000 → 5,100, used 400.
+  `test_cpp_buy_dino` covers success, no-room, no-money and unknown.
+- [ ] Port the store purchase UI, the `DINOACHAT` count/total bucket, the
+  store-row removal (`FUN_00594270`) and the `WARNING_NO_ROOM_IN_FENCE`
+  panel path; the insertion state must stay active on failure.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

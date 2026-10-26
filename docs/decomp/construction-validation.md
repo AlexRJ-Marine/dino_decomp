@@ -176,9 +176,14 @@ original construction flow:
   bbox (`paddock_size_class`): coelo/trood 0, anky/deino 1, allo 2. Cpg04
   `used` = 384, vs the retail 336. Exact parity needs the individual
   phenotype: Allosaurus splits four class 2 and three class 1.
-- Pending: the store purchase branch (`DINOACHAT` charge + store-row
-  removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the player pickup
-  point.
+- Done: the headless purchase core (`--buy-dino NAME`, optional
+  `--buy-paddock N`): Market.ini lookup, genotype head → species, size class,
+  capacity check (`WARNING_NO_ROOM_IN_FENCE`), budget check
+  (`WARNING_NOT_ENOUGH_MONEY`), charge and spawn. Cpg04 Zarbosaurus: price
+  4,900, budget 10,000 → 5,100, used 400.
+- Pending: the store purchase UI and the `DINOACHAT` count/total bucket, the
+  store-row removal (`FUN_00594270`), the `WARNING_NO_ROOM_IN_FENCE` panel
+  path and the player pickup point.
 
 ## Open
 

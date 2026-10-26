@@ -127,6 +127,8 @@ struct Options {
     bool place_entrance = true;
     std::string construct_name;
     std::vector<std::string> construct_positions;
+    std::string buy_dino;
+    int buy_paddock = -1;
     int park_budget_override = -1;
     bool settle_day = false;
     std::string type_text;
@@ -378,6 +380,10 @@ Options parse_args(int argc, char** argv) {
             opt.build_mode = true;
         } else if (arg == "--park-budget") {
             opt.park_budget_override = std::atoi(next("--park-budget"));
+        } else if (arg == "--buy-dino") {
+            opt.buy_dino = next("--buy-dino");
+        } else if (arg == "--buy-paddock") {
+            opt.buy_paddock = std::atoi(next("--buy-paddock"));
         } else if (arg == "--settle-day") {
             opt.settle_day = true;
         } else if (arg == "--type-text") {
@@ -555,6 +561,8 @@ Options parse_args(int argc, char** argv) {
                 "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
+                "  --buy-dino NAME      buy a Market.ini dinosaur into a paddock\n"
+                "  --buy-paddock N      paddock index for --buy-dino (default first with room)\n"
                 "  --settle-day         run one daily settlement at startup (tests/debug)\n"
                 "  --type-text TEXT     append TEXT to the Options save name (tests)\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
@@ -4333,8 +4341,13 @@ int main(int argc, char** argv) {
             build_grid.fence_count);
     }
 
+    int pending_buy_price = 0;
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
         terrain.world_size > 0.0f) {
+        const int buy_budget = opt.park_budget_override >= 0
+                                   ? opt.park_budget_override
+                                   : (sav_ready ? sav_simulation.budget
+                                                : free_game_budgets[0]);
         dino::DinoFamilyTable family_table;
         try {
             family_table = dino::read_dino_family_table(
@@ -4479,6 +4492,108 @@ int main(int argc, char** argv) {
                              record.object_id, species.c_str(), e.what());
             }
         }
+        if (!opt.buy_dino.empty()) {
+            try {
+                const dino::Market market = dino::load_market(resolve_asset(
+                    opt.asset_root, "Data/Design/Scenario/Market.ini"));
+                const dino::MarketEntry* entry = nullptr;
+                for (const dino::MarketEntry& candidate : market.entries) {
+                    if (candidate.name == opt.buy_dino) {
+                        entry = &candidate;
+                        break;
+                    }
+                }
+                if (entry == nullptr) {
+                    std::printf("buy: no store entry named %s\n",
+                                opt.buy_dino.c_str());
+                } else {
+                    const int head = dino::read_gen_head_type(resolve_asset(
+                        opt.asset_root,
+                        "Data/Design/Scenario/Genotype/" + entry->genotype));
+                    const auto match = head_species.find(head);
+                    const std::string species =
+                        match != head_species.end() ? match->second : "allo";
+                    std::string family = family_table.family_of(species);
+                    if (family.empty()) {
+                        family = "LightBiped";
+                    }
+                    const int cost_class = dino::paddock_size_class(
+                        size_for_species(species));
+                    const int dino_id =
+                        1000000 + static_cast<int>(imported_dinos.size());
+                    int paddock_index = -1;
+                    if (opt.buy_paddock >= 0 &&
+                        opt.buy_paddock < static_cast<int>(paddocks.size()) &&
+                        dino::paddock_can_add(
+                            paddocks[static_cast<std::size_t>(
+                                opt.buy_paddock)],
+                            dino_id, cost_class)) {
+                        paddock_index = opt.buy_paddock;
+                    } else if (opt.buy_paddock < 0) {
+                        for (std::size_t p = 0; p < paddocks.size(); ++p) {
+                            if (dino::paddock_can_add(paddocks[p], dino_id,
+                                                      cost_class)) {
+                                paddock_index = static_cast<int>(p);
+                                break;
+                            }
+                        }
+                    }
+                    if (paddock_index < 0) {
+                        std::printf(
+                            "buy: %s no paddock room "
+                            "(WARNING_NO_ROOM_IN_FENCE) budget=%d\n",
+                            entry->name.c_str(), buy_budget);
+                    } else if (buy_budget < entry->price) {
+                        std::printf(
+                            "buy: %s price=%d budget=%d "
+                            "(WARNING_NOT_ENOUGH_MONEY)\n",
+                            entry->name.c_str(), entry->price, buy_budget);
+                    } else {
+                        dino::Paddock& paddock =
+                            paddocks[static_cast<std::size_t>(
+                                paddock_index)];
+                        const dino::WorldRect& pen = paddock.rect;
+                        const float x0 = static_cast<float>(
+                            std::min(pen.x0, pen.x1));
+                        const float x1 = static_cast<float>(
+                            std::max(pen.x0, pen.x1));
+                        const float y0 = static_cast<float>(
+                            std::min(pen.y0, pen.y1));
+                        const float y1 = static_cast<float>(
+                            std::max(pen.y0, pen.y1));
+                        const float radius = std::max(
+                            1.0f, std::min(x1 - x0, y1 - y0) * 0.28f);
+                        const float theta =
+                            static_cast<float>(paddock.occupants.size()) *
+                                2.39996323f +
+                            static_cast<float>(paddock_index) * 0.7f;
+                        const float x =
+                            (x0 + x1) * 0.5f + std::cos(theta) * radius;
+                        const float y =
+                            (y0 + y1) * 0.5f + std::sin(theta) * radius;
+                        if (add_imported_dino(species, family, opt.dino_clip,
+                                              x, y,
+                                              theta * 180.0f / kPi + 90.0f)) {
+                            dino::paddock_add(paddock, dino_id, cost_class);
+                            pending_buy_price = entry->price;
+                            std::printf(
+                                "buy: %s price=%d budget=%d paddock=%d "
+                                "dinos=%zu\n",
+                                entry->name.c_str(), entry->price,
+                                buy_budget - entry->price, paddock_index,
+                                imported_dinos.size());
+                            rebuild_extra_items();
+                        } else {
+                            std::printf("buy: %s model load failed\n",
+                                        entry->name.c_str());
+                        }
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "buy: %s\n", e.what());
+            }
+        }
+
         if (spawned > 0) {
             std::printf("dinos: %d/%zu spawned", spawned,
                         wld_dinosaurs.size());
@@ -4906,6 +5021,9 @@ int main(int argc, char** argv) {
     }
     if (opt.park_budget_override >= 0) {
         park_budget = opt.park_budget_override;
+    }
+    if (pending_buy_price > 0) {
+        park_budget -= pending_buy_price;
     }
 
     // P4: construction placement through the retail panel. Each building's

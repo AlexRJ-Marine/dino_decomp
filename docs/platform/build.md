@@ -107,6 +107,30 @@ category name (`WARNING_NOT_ENOUGH_MONEY`) and places nothing.
 cost 2,500, budget 75,000 -> 72,500. A second placement at the same cell is
 rejected as overlapping.
 
+## Dinosaur purchase
+
+The store catalog (`Market.ini`, 54 entries) and the paddock model are wired
+together for a headless purchase:
+
+```text
+--buy-dino NAME        a Market.ini display name (e.g. Zarbosaurus)
+--buy-paddock N        optional paddock index; default first with room
+```
+
+The flow mirrors `pvwStateFenceInsertion`/`stFence`:
+
+1. resolve the genotype from the catalog, map its dominant head gene to the 20
+   base species and derive the size class;
+2. find a paddock with `capacity - used >= 8 << class` (a missing/duplicate
+   entry prints `WARNING_NO_ROOM_IN_FENCE` and does not charge);
+3. check `park_budget >= price` (`WARNING_NOT_ENOUGH_MONEY`);
+4. spawn the dinosaur, add its cost to `used`, and deduct the price.
+
+Cpg04: `--buy-dino Zarbosaurus --park-budget 10000` → price 4,900, budget
+5,100, 21 dinosaurs, paddock used 400. The retail store-row removal
+(`FUN_00594270`) and the `DINOACHAT` count/total bucket are not modelled yet;
+this is the headless core of the purchase branch.
+
 ## CLI (also used by tests)
 
 ```text
