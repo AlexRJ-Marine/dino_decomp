@@ -134,8 +134,14 @@ python tools/formats/bvi.py --dump <file.bvi>
 python tools/formats/bvi.py --scan <visitors-dir>
 ```
 
+The C++ port has `src/formats/bvi.cpp` (`load_bvi`) for the header fields used
+by SIM-2b: personality id, walk speed and the five preference weights. The
+viewer loads the six free-game easy profiles (`OldMan`, `SurferMan`,
+`ParentMan`, `KidMan`, `HooliganMan`, `ScientistMan`) with spawn weight 30.
+
 Tests: `tests/test_bvi.py` (FanMan/Surfer values, 24-file scan, 624 mesh
-paths, and the constant scoring block).
+paths, and the constant scoring block); the C++ path is covered by
+`tests/test_viewer_cpp.py::test_cpp_sim2b_visitor_state_machine`.
 
 ## Evidence
 

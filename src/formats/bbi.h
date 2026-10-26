@@ -23,6 +23,9 @@ struct BuildingDef {
     float duration = 0.0f;
     std::uint32_t price = 0;
     float appeal_scale = 0.0f;
+    std::array<float, 5> appeal_weights{};
+    std::uint32_t need_delta1 = 0;
+    std::uint32_t need_delta2 = 0;
     std::uint32_t radius_squared = 0;
     std::uint32_t model0 = 0;
     float model1 = 0.0f;

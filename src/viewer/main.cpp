@@ -17,6 +17,7 @@
 #include "../formats/fnt.h"
 #include "../formats/sav.h"
 #include "../formats/bbi.h"
+#include "../formats/bvi.h"
 #include "../formats/wld.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
@@ -142,6 +143,7 @@ struct Options {
     bool water = true;
     float water_level = -1.0f;
     int visitors = 0;
+    bool visitor_stats = false;
     std::string visitor_pose1;
     std::string visitor_pose2;
     std::string visitor_texture;
@@ -402,6 +404,8 @@ Options parse_args(int argc, char** argv) {
             opt.skybox_dir = next("--skybox");
         } else if (arg == "--visitors") {
             opt.visitors = std::atoi(next("--visitors"));
+        } else if (arg == "--visitor-stats") {
+            opt.visitor_stats = true;
         } else if (arg == "--visitor-pose1") {
             opt.visitor_pose1 = next("--visitor-pose1");
         } else if (arg == "--visitor-pose2") {
@@ -521,6 +525,7 @@ Options parse_args(int argc, char** argv) {
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --visitors N         spawn N visitors on the placed path network\n"
+                "  --visitor-stats      print visitor state/need summary at exit\n"
                 "  --visitor-pose1 FILE walk pose A (default woman_walk1)\n"
                 "  --visitor-pose2 FILE walk pose B (default woman_walk2)\n"
                 "  --visitor-texture FILE visitor texture (default wom.tga)\n"
@@ -1754,6 +1759,25 @@ std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
 }
 
+// Free-game easy profile table (`FreeGame.ini` `[PROFILES]`):
+// retraite, surfer, parent, enfant, holligan, scientific - 30 each.
+std::vector<dino::VisitorProfile> load_easy_visitor_profiles(
+    const std::string& asset_root) {
+    static const char* kFiles[6] = {
+        "OldMan.bvi",     "SurferMan.bvi", "ParentMan.bvi",
+        "KidMan.bvi",     "HooliganMan.bvi", "ScientistMan.bvi"};
+    std::vector<dino::VisitorProfile> profiles;
+    profiles.reserve(6);
+    for (const char* file : kFiles) {
+        dino::VisitorProfile profile = dino::load_bvi(resolve_asset(
+            asset_root, std::string("Data/Design/visitors/") + file));
+        profile.spawn_weight = 30;
+        profile.spawn_cap = 100;
+        profiles.push_back(std::move(profile));
+    }
+    return profiles;
+}
+
 // `Data/Design/landscape/IslandList.ini`: count then one folder name per line.
 // The original reads this in gdtIslandDataBase (FUN_00506530) and builds
 // `Data\Design\Landscape\<name>\<name>.lnd` from the selected record.
@@ -1960,6 +1984,50 @@ int run_selftest() {
     }
     check(moved, "visitors moved");
     check(on_path, "visitors stay on path cells");
+
+    // SIM-2b: exact retail score and the choose -> travel -> use loop.
+    dino::VisitorProfile ai_profile;
+    ai_profile.weights = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    ai_profile.walk_speed = 10.0f;
+    dino::Attraction ai_attraction;
+    ai_attraction.world_x = -512.0f + 105.5f * 4.0f;
+    ai_attraction.world_y = -512.0f + 100.5f * 4.0f;
+    ai_attraction.radius = 1000.0f;
+    ai_attraction.appeal_scale = 1.0f;
+    ai_attraction.appeal_weights = {10.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    ai_attraction.need_delta1 = 10;
+    ai_attraction.duration = 0.1f;
+    ai_attraction.category = 1;
+    check(dino::attraction_score(ai_attraction, ai_profile, 99, 50, 99, 10,
+                                 0) == 21010,
+          "attraction score");
+    dino::BuildGrid ai_grid;
+    ai_grid.init(4.0f, 1024.0f);
+    for (int x = 100; x <= 110; ++x) {
+        ai_grid.set_path(x, 100, true);
+    }
+    dino::VisitorSystem ai_visitors;
+    check(ai_visitors.spawn(ai_grid, 1, {ai_profile}, -1, -1, 7) == 1,
+          "ai visitor spawn");
+    dino::Visitor& ai_visitor = ai_visitors.visitors[0];
+    ai_visitor.cell_x = 100;
+    ai_visitor.cell_y = 100;
+    ai_visitor.target_x = 100;
+    ai_visitor.target_y = 100;
+    ai_visitor.x = -512.0f + 100.5f * 4.0f;
+    ai_visitor.y = -512.0f + 100.5f * 4.0f;
+    ai_visitor.need0 = 50;
+    ai_visitor.need1 = 50;
+    ai_visitor.need2 = 99;
+    ai_visitor.state = dino::VisitorState::Choose;
+    ai_visitor.rng = 1;
+    for (int i = 0; i < 30; ++i) {
+        ai_visitors.update(ai_grid, terrain, 0.1f, {ai_attraction}, -1, -1,
+                           {ai_profile});
+    }
+    check(!ai_visitors.visitors.empty(), "ai visitor survives");
+    check(ai_visitors.visitors[0].need1 > 50, "ai need1 gained");
+    check(ai_visitors.visitors[0].need0 <= 50, "ai need0 adjusted");
 
     const dino::Mesh empty_pose;
     check(visitors.build_mesh(grid, terrain, empty_pose, empty_pose)
@@ -2315,6 +2383,7 @@ int main(int argc, char** argv) {
     dino::Image water_image;
     float water_z = 0.0f;
     dino::VisitorSystem visitor_system;
+    std::vector<dino::VisitorProfile> visitor_profiles;
     dino::Mesh visitor_pose1;
     dino::Mesh visitor_pose2;
     dino::Image visitor_image;
@@ -2370,6 +2439,15 @@ int main(int argc, char** argv) {
                 build_ready = true;
 
                 if (opt.visitors > 0 || !opt.load_port_path.empty()) {
+                    if (visitor_profiles.empty()) {
+                        try {
+                            visitor_profiles =
+                                load_easy_visitor_profiles(opt.asset_root);
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr, "visitor profiles: %s\n",
+                                         e.what());
+                        }
+                    }
                     const std::string pose1 =
                         opt.visitor_pose1.empty()
                             ? resolve_asset(opt.asset_root,
@@ -2391,7 +2469,12 @@ int main(int argc, char** argv) {
                     visitor_pose1 = dino::load_mesh(pose1);
                     visitor_pose2 = dino::load_mesh(pose2);
                     visitor_image = dino::load_image(texture);
-                    const int spawned = visitor_system.spawn(build_grid, opt.visitors);
+                    const int spawned = visitor_profiles.empty()
+                                            ? visitor_system.spawn(
+                                                  build_grid, opt.visitors)
+                                            : visitor_system.spawn(
+                                                  build_grid, opt.visitors,
+                                                  visitor_profiles, -1, -1);
                     std::printf("visitors: %d spawned on %d path cells\n", spawned,
                                 build_grid.path_count);
                 }
@@ -3237,6 +3320,9 @@ int main(int argc, char** argv) {
     };
     std::vector<BuildingDraw> building_draws;
     std::vector<dino::PortBuildingState> building_instances;
+    std::vector<dino::Attraction> attractions;
+    int entrance_cell_x = -1;
+    int entrance_cell_y = -1;
     dino::Vec3 building_center{1e30f, 1e30f, 1e30f};
 
     auto clear_buildings = [&]() {
@@ -3248,6 +3334,9 @@ int main(int argc, char** argv) {
         }
         building_draws.clear();
         building_instances.clear();
+        attractions.clear();
+        entrance_cell_x = -1;
+        entrance_cell_y = -1;
         building_center = {1e30f, 1e30f, 1e30f};
     };
 
@@ -3356,6 +3445,29 @@ int main(int argc, char** argv) {
                 building_instances.push_back(
                     {kind, static_cast<int>(cell_x), static_cast<int>(cell_y),
                      orientation});
+            }
+            const int centre_cell_x = static_cast<int>(std::floor(centre_x));
+            const int centre_cell_y = static_cast<int>(std::floor(centre_y));
+            if (def.category == 10) {
+                entrance_cell_x = centre_cell_x;
+                entrance_cell_y = centre_cell_y;
+            } else if (def.category > 0) {
+                dino::Attraction attraction;
+                attraction.cell_x = centre_cell_x;
+                attraction.cell_y = centre_cell_y;
+                attraction.world_x = wx;
+                attraction.world_y = wy;
+                const float radius = static_cast<float>(def.radius_squared);
+                attraction.radius = radius > 0.0f ? radius : 32.0f;
+                attraction.appeal_scale = def.appeal_scale;
+                attraction.appeal_weights = def.appeal_weights;
+                attraction.need_delta1 = static_cast<int>(def.need_delta1);
+                attraction.need_delta2 = static_cast<int>(def.need_delta2);
+                attraction.price = static_cast<int>(def.price);
+                attraction.duration =
+                    def.duration > 0.1f ? def.duration : 10.0f;
+                attraction.category = static_cast<int>(def.category);
+                attractions.push_back(attraction);
             }
             std::printf(
                 "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
@@ -3607,10 +3719,17 @@ int main(int argc, char** argv) {
     // heightmap, skybox, water, music and vegetation list, so only the folder
     // name is selected here. Used by the Free Game start handoff.
     auto load_island = [&](const std::string& island, bool reset_view) {
+        if (visitor_profiles.empty()) {
+            try {
+                visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "visitor profiles: %s\n", e.what());
+            }
+        }
+        clear_buildings();
         const std::string lnd_path = resolve_asset(
             opt.asset_root,
-            "Data/Design/Landscape/" + island + "/" + island + ".lnd");
-        dino::Lnd new_lnd = dino::load_lnd(lnd_path);
+            "Data/Design/Landscape/" + island + "/" + island + ".lnd");        dino::Lnd new_lnd = dino::load_lnd(lnd_path);
         int hm_width = 0, hm_height = 0;
         const auto heights = dino::load_raw_u8(
             resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height);
@@ -3759,7 +3878,13 @@ int main(int argc, char** argv) {
             build_grid.undo_stack.clear();
             visitor_system.visitors.clear();
             if (opt.visitors > 0) {
-                const int spawned = visitor_system.spawn(build_grid, opt.visitors);
+                const int spawned = visitor_profiles.empty()
+                                        ? visitor_system.spawn(build_grid,
+                                                               opt.visitors)
+                                        : visitor_system.spawn(
+                                              build_grid, opt.visitors,
+                                              visitor_profiles,
+                                              entrance_cell_x, entrance_cell_y);
                 std::printf("visitors: %d spawned on %d path cells\n", spawned,
                             build_grid.path_count);
             }
@@ -3783,8 +3908,10 @@ int main(int argc, char** argv) {
                     resolve_asset(opt.asset_root,
                                   "Data/Design/buildings/Entrance.bbi"));
                 place_building(entrance, static_cast<float>(lnd.width),
-                               static_cast<float>(lnd.height), 1, 0.0f, 1.0f,
-                               9);
+                               static_cast<float>(lnd.height),
+                               std::clamp(static_cast<int>(lnd.unknown_int), 0,
+                                          3),
+                               0.0f, 1.0f, 9);
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "entrance: %s\n", e.what());
             }
@@ -4013,6 +4140,13 @@ int main(int argc, char** argv) {
                 fence_texture = upload_texture(fence_image);
             }
         }
+        if (visitor_profiles.empty()) {
+            try {
+                visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "visitor profiles: %s\n", e.what());
+            }
+        }
         if (visitor_pose1.positions.empty()) {
             const std::string pose1 =
                 opt.visitor_pose1.empty()
@@ -4084,6 +4218,18 @@ int main(int argc, char** argv) {
             visitor.target_y = saved.target_y;
             visitor.prev_x = saved.prev_x;
             visitor.prev_y = saved.prev_y;
+            visitor.profile = visitor_profiles.empty()
+                                  ? 0
+                                  : static_cast<int>(
+                                        visitor_system.visitors.size() %
+                                        visitor_profiles.size());
+            visitor.need0 = 99;
+            visitor.need1 = 99;
+            visitor.need2 = 99;
+            visitor.state = dino::VisitorState::Choose;
+            visitor.rng = 0x51ce5eedu ^
+                          static_cast<unsigned>(
+                              visitor_system.visitors.size() + 1);
             visitor_system.visitors.push_back(visitor);
         }
 
@@ -4900,7 +5046,10 @@ int main(int argc, char** argv) {
         }
 
         if (!visitor_system.visitors.empty()) {
-            visitor_system.update(build_grid, terrain, static_cast<float>(dt));
+            visitor_system.update(build_grid, terrain,
+                                  static_cast<float>(dt), attractions,
+                                  entrance_cell_x, entrance_cell_y,
+                                  visitor_profiles);
             update_mesh(visitor_gpu,
                         visitor_system.build_mesh(build_grid, terrain,
                                                   visitor_pose1, visitor_pose2),
@@ -5273,5 +5422,25 @@ int main(int argc, char** argv) {
     SDL_GL_DestroyContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit();
+    if (opt.visitor_stats && !visitor_system.visitors.empty()) {
+        int states[4] = {0, 0, 0, 0};
+        double needs[3] = {0.0, 0.0, 0.0};
+        for (const dino::Visitor& visitor : visitor_system.visitors) {
+            const int state = static_cast<int>(visitor.state);
+            if (state >= 0 && state < 4) {
+                ++states[state];
+            }
+            needs[0] += visitor.need0;
+            needs[1] += visitor.need1;
+            needs[2] += visitor.need2;
+        }
+        const double count =
+            static_cast<double>(visitor_system.visitors.size());
+        std::printf(
+            "visitor stats: count=%zu states=%d/%d/%d/%d "
+            "needs=%.1f/%.1f/%.1f\n",
+            visitor_system.visitors.size(), states[0], states[1], states[2],
+            states[3], needs[0] / count, needs[1] / count, needs[2] / count);
+    }
     return 0;
 }

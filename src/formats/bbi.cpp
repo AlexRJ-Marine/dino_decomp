@@ -121,6 +121,11 @@ BuildingDef load_bbi(const std::string& path) {
     def.duration = f32(data, 37);
     def.price = u32(data, 25);
     def.appeal_scale = f32(data, 73);
+    for (std::size_t i = 0; i < def.appeal_weights.size(); ++i) {
+        def.appeal_weights[i] = f32(data, 53 + i * 4);
+    }
+    def.need_delta1 = u32(data, 81);
+    def.need_delta2 = u32(data, 85);
     def.radius_squared = u32(data, 105);
     def.model0 = u32(data, 109);
     def.model1 = f32(data, 113);

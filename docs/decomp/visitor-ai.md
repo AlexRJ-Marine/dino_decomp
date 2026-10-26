@@ -133,41 +133,48 @@ timers** (`FUN_00589cd0` → `FUN_00576320` / `FUN_005763f0`):
   state 3, and in state 2 it is adjusted from `appeal[profile] / scale`
   against `actor+0x58`.
 
-Hitting 0 sets the leave flag `actor+0x74` and clears `actor+0x44`.
-`FUN_00522f30` (using an attraction) is the additive writer:
+Hitting 0 sets the leave flag `actor+0x74` and clears `actor+0x44`;
+need0 is allowed to go negative (index 0 skips the 0 clamp) and leaves at
+`< 0`. `FUN_00522f30` (using an attraction) is the additive writer:
 
 ```text
 need1 += def+0x50 (if >0)
 need2 += def+0x54 (if >0)
-target = (int)(appeal[actor+0x68] / appealScale)
-if (target < 0)                 need0 += target
-else if (actor+0x58 >= target)  need0 -= 1
-else                            need0 = min(actor+0x58 + target, target)
+target = (int)appeal[profile]          // raw ftol
+scaled = (int)(target / appealScale)   // ftol of the divided value
+if (target < 0)                 need0 += scaled
+elif (target <= actor+0x58)     need0 -= 1
+else                            need0 = min(scaled + actor+0x58, target)
 ```
 
-The `actor+0x68` profile index selects the appeal value. The `VISITEURS_STATS`
-panel averages the needs per profile: GAUGE/INDICS ← `+0x48`,
-FOOD_STATISFACTION ← `+0x4c`, REST_STATISFACTION ← `+0x50`. Initial need
-values and the writer of `+0x68` are still unproven.
+`actor+0x58` is the need0 value captured by `FUN_00576530` when the visitor
+reaches the attraction, not a visit counter. New visitors start at
+**99/99/99** (retail save visitors show 96..99 after a few seconds of decay).
+The `actor+0x68` profile index selects the appeal value; `FUN_0058a970`
+queues it by `rand() % (N*100)` over the `spPark+0x78` weight/cap/count table.
+The `VISITEURS_STATS` panel averages the needs per profile: GAUGE/INDICS ←
+`+0x48`, FOOD_STATISFACTION ← `+0x4c`, REST_STATISFACTION ← `+0x50`.
 
 ## Port model
 
+Implemented in `src/world/visitors.cpp` (+ `src/formats/bvi.cpp`):
+
 ```text
-if leaving: walk to exit
-elif state 0: choose attraction by weighted score, or leave
-elif state 1: follow path; on arrival state 2
-elif state 2: wait for duration; then state 0/1
+if leaving: BFS to entrance/nearest edge path; despawn on arrival
+elif state 0: 1-in-5 leave; else score attractions and BFS to the best
+elif state 1: follow the BFS route; on arrival snapshot need0, state 2
+elif state 2: wait for def duration; apply needs; return to state 0
 ```
 
-The scorer needs the constant `W` block, the actor's three needs and profile
-index, the attraction position/radius, the definition price `+0x1c`, duration
-`+0x28`, kind `+0x6c`, and show data.
+The scorer uses the constant `W` block, live needs, the `.bvi` profile index,
+the building's appeal/scale/need deltas/price/duration/radius, and Manhattan
+cell distance. `--visitor-stats` prints the state/need summary.
 
 ## Open
 
 - Consumer of the five variable `.bvi` weights (record `+0x24..+0x34`).
 - `0x005873e0` arrival contract.
-- Visitor initial need values and the writer of the `actor+0x68` profile index.
+- The actor ctor that consumes the queued `+0x68` profile index.
 - The `.bvi` preference weights are the profile floats at `+0x18` (inferred,
   not proven identical).
 

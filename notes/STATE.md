@@ -888,7 +888,14 @@ Updated: 2026-10-26
   - Evidence: `notes/scheduler-recon.md`, `docs/decomp/scheduler.md`,
     `notes/dinosaur-actions-recon.md`, `docs/decomp/dinosaur-actions.md`,
     `docs/decomp/function-status.md`.
-- SIM-2b research: **visitor attraction AI decompiled; scoring weights solved.**
+- SIM-2b complete: **visitor choose → travel → use → leave ported.**
+  - Six free-game easy `.bvi` profiles (weights/walk speed) and building
+    attractions (category 1..9) from `.bbi`; exact score, BFS routes, timed
+    need decay and the need0 snapshot rule; entrance exit and despawn.
+  - `--visitor-stats`; 50-visitor run reached 47 alive / 24 using after 30 s.
+  - Evidence: `src/world/visitors.cpp`, `src/formats/bvi.cpp`,
+    `docs/platform/visitors.md`, `docs/decomp/visitor-ai.md`,
+    `tests/test_viewer_cpp.py::test_cpp_sim2b_visitor_state_machine`.
   - `apVisitorBehavior::Update` (`0x522820`) + state transitions (`0x522940`):
     choose → travel → use attraction → leave.
   - Attraction scoring (`0x522a10`) uses a constant seven-float block from
@@ -1036,8 +1043,8 @@ Updated: 2026-10-26
    in the port save.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
-3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
-   (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
+3. P2: import fences, roads → path cells, visitors, dinosaurs and the budget/
+   clock from a real `.sav`/`.wld` into the port park.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
 5. WORLD-2 rest: implement the `model[0] = 1` slope basis and place buildings
    through the construction UI; then frustum culling and LOD2.

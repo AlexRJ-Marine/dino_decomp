@@ -513,6 +513,45 @@ def test_cpp_visitors_validate():
     assert "build: cell 4.0, grid 256x256, 24 path cells" in result.stdout
     assert "visitors: 8" in result.stdout
 
+
+def test_cpp_sim2b_visitor_state_machine(tmp_path):
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail sample not present")
+    bbi = GAME / "Data" / "Design" / "buildings" / "RestCirc.bbi"
+    if not bbi.exists():
+        pytest.skip("RestCirc.bbi missing")
+    build = tmp_path / "p1-build.txt"
+    lines = ["cell_size 4", "size 256 256"]
+    for x in range(118, 135):
+        lines += [f"path {x} 118", f"path {x} 134"]
+    for y in range(119, 134):
+        lines += [f"path 118 {y}", f"path 134 {y}"]
+    build.write_text("\n".join(lines) + "\n", encoding="ascii")
+    result = subprocess.run(
+        [str(EXE), "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--build", "--build-load", str(build), "--visitors", "8",
+         "--building", str(bbi), "--building-pos", "512,512",
+         "--building-state", "0", "--frames", "2400", "--no-vegetation",
+         "--no-water", "--visitor-stats", "--width", "320", "--height", "240",
+         "--screenshot", str(tmp_path / "p1.bmp")],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "visitors: 8 spawned on 64 path cells" in result.stdout
+    assert "building: RestCirc" in result.stdout
+    match = re.search(
+        r"visitor stats: count=8 states=(\d+)/(\d+)/(\d+)/(\d+) "
+        r"needs=([\d.]+)/([\d.]+)/([\d.]+)",
+        result.stdout,
+    )
+    assert match, result.stdout
+    states = [int(match.group(i)) for i in range(1, 5)]
+    assert sum(states) == 8
+    needs = [float(match.group(i)) for i in range(5, 8)]
+    assert needs[0] < 99.0 or needs[1] < 99.0 or needs[2] < 99.0
+
 def test_cpp_selftest():
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")
@@ -520,7 +559,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (18 checks)" in result.stdout
+    assert "selftest: PASS (23 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -1172,6 +1211,17 @@ def test_cpp_menu_start_all_islands(tmp_path, row):
     name = f"isl{row + 1:02d}"
     assert f"start: island={name}" in result.stdout
     assert f"island: {name} lnd=" in result.stdout
+    # The free-game Entrance is (lnd.width, lnd.height) with orientation
+    # lnd.unknown_int (0/1/2); runtime-confirmed on isl01/isl02 and all
+    # campaign Entrance records.
+    entrance_states = [1, 2, 2, 1, 2, 1, 0, 1, 1, 1]
+    entrance = next(
+        (ln for ln in result.stdout.splitlines() if "building: Entrance" in ln),
+        "",
+    )
+    assert entrance, result.stdout
+    assert "cell=" in entrance
+    assert f"state={entrance_states[row]} angle={entrance_states[row] * 90}" in entrance
 
 def test_cpp_warning_dialog(tmp_path):
     if not EXE.exists() or not ISL01.exists():

@@ -837,13 +837,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   attraction use (`0x5219f0`) and leave flow (`0x522940`).
 - [x] Recover the visitor-profile table (`spPark+0x78`, 6 free-game profiles),
   the profile index (`actor+0x68`) and the timed need decay (`0x576320`/
-  `0x5763f0`: 10 s / 7.5 s / 12.5 s). Initial needs are still unproven.
-- [ ] Port the full enter → choose → use → leave flow with visitor profiles.
-- **Acceptance:** 50 visitors enter, use one attraction, and leave.
+  `0x5763f0`: 10 s / 7.5 s / 12.5 s). Initial needs are 99/99/99.
+- [x] Port the full enter → choose → use → leave flow: six `.bvi` profiles,
+  building attraction records, BFS travel, exact score, need decay/snapshot,
+  entrance exit and despawn. `--visitor-stats` reports the summary.
+- **Acceptance:** visitors enter, use an attraction, and leave.
 - **Depends on:** SIM-1.
 - **Evidence:** `docs/platform/visitors.md`, `src/world/visitors.cpp`,
-  `notes/visitors.png`, `tests/test_viewer_cpp.py::test_cpp_visitors_validate`,
-  `notes/visitor-ai-recon.md`, `docs/decomp/visitor-ai.md`.
+  `src/formats/bvi.cpp`, `notes/visitors.png`,
+  `tests/test_viewer_cpp.py::test_cpp_visitors_validate`,
+  `test_cpp_sim2b_visitor_state_machine`, `notes/visitor-ai-recon.md`,
+  `docs/decomp/visitor-ai.md`.
 
 ### SIM-3: Dinosaurs
 - [x] Map all 64 action IDs, `ApplyActionEffect`, completion and the `0x1f`
