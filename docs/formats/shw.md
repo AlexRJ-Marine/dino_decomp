@@ -158,7 +158,7 @@ NoName
 <20 x 4 ints>   (FeatureList index, rotation, x, y)
 ```
 
-There is no cost, cage-size, wall-type or team list. All three are 32x72
+There is no cost, cage-size or team list. All three are 32x72
 with features inside the arena and indices 0..61. `read_shw` rejects them;
 `tools/formats/shw.py::read_demo_shw` parses them.
 

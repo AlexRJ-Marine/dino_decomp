@@ -63,21 +63,3 @@ unknowns, with what was tried and the concrete next step.
   `FUN_0056e820`/`0x56cb30`/`0x56cc20`); coordinate before diving in.
 - **Next:** decode each `switch` branch of `0x56ce80`; the BAD FOOD/REPOS →
   action 4/2 pair is one of them.
-
-## 6. Edition demo `.shw` judge value
-
-- **Solved:** schema and all 3 files (`NoName / width / height / value /
-  count / features`, 32×72).
-- **Resolved:** the fourth value is 2 in `demo8` and 6 in the other two; it is
-  not the retail judge kind (1..4). No `Edition`/`demo.shw` string or loader
-  exists in the retail exe, so this schema belongs to the **edition/editor
-  content**, not the retail runtime. Treat the value as a legacy editor field
-  (likely an old judge/team count). No further consumer exists in
-  `DinoIsland.exe`.
-
-## Cross-agent opens (not mine)
-
-- `.bai` stat-grant vector: stored and cloned, no reader (parallel agent).
-- `.bai` end-ramp renderer and the source of the indexed `params[i]`
-  multiplier (parallel agent).
-- `RadiationDamage` (`spLaboratory +0x3c`) exact consumer (mutation action).

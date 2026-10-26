@@ -96,12 +96,12 @@ schema:
 NoName
 32        width
 72        height
-6|2       judge/type value (unknown)
+6|2       wall type (index into WallList.ini: 2 MediumIron, 6 MediumWood)
 20|5|8    feature count
 features (4 ints each)
 ```
 
-No cost/cage/wall/team fields. All 3 are 32x72; features use the same
+No cost/cage/team fields; the fourth value is the wall type. All 3 are 32x72; features use the same
 (FeatureList index, rotation, x, y) tuple and stay inside the arena.
 `read_shw` rejects them; `read_demo_shw` parses them.
 

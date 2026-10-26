@@ -388,15 +388,25 @@ Updated: 2026-10-26
     (512,512,32); `--start-dino` keeps a close demo camera.
   - Evidence: `notes/ui-recon.md` ("Start camera solved"),
     `docs/platform/vertical-slice.md`, `notes/menu-start-dino.png`.
-- UI-2 Phase D save browser partial: **Options Save/Load tab + real slots.**
+- UI-2 Phase D save/load complete: **Options Save/Load + `DINOPSAV 1`.**
   - `OPTIONS_MENU_SAVE/LOAD/OPTIONS_BUTTON` switch between
     `OPTIONS_SAVE_PANEL` and `OPTIONS_OPTIONS_PANEL`.
-  - `src/formats/sav.cpp` reads the header (version, slot, UTF-16 name);
-    `OPTIONS_SAVE_NAMES_LIST` renders the names from `run/save/*.sav`
-    (`agenttest`, `esfs`).
-  - Saving/loading park state remains open.
-  - Evidence: `notes/options-save.png`, `notes/options-save-detail.png`,
-    `tests/test_viewer_cpp.py::test_cpp_options_save_panel`.
+  - `src/formats/sav.cpp` reads the retail header (version, slot, UTF-16
+    name); the list shows the real `run/save/*.sav` names (`agenttest`,
+    `esfs`) plus `[port]` `.psav` saves.
+  - `src/world/port_save.{h,cpp}` stores island, budget, clock, camera,
+    path/fence grid and visitors. The list click selects a row, the green
+    check saves/loads, the red X cancels. Loading enables the build/visitor
+    assets on demand and can switch islands.
+  - CLI `--save-port`/`--load-port`/`--save-name`; pre-frame
+    `--park-click` save/load actions are queued.
+  - Open: request/campaign-end triggers, `OPTIONS_NAME_SLOT` text entry,
+    placed buildings/dinosaur state in the save.
+  - Evidence: `docs/platform/save-load.md`, `notes/port-ui-save.png`,
+    `notes/port-ui-load2.png`,
+    `tests/test_viewer_cpp.py::test_cpp_options_save_panel`,
+    `test_cpp_port_save_roundtrip`,
+    `test_cpp_options_save_and_load_buttons`.
 - UI-2 Phase D warning dialog complete: **modal DIALOG_BACKGROUND family.**
   - `--warning TEXT` shows `WARNING_PANEL` over the FOND_GRIS dim,
     word-wrapped into `WARNING_TEXT_ZONE`; `WARNING_OUTCOME_ICON` closes it
@@ -656,6 +666,8 @@ Updated: 2026-10-26
     Cpg07 `BarakSport`, repeated store entries.
   - Briefing: the 7 `IslandSnapshot` TGAs are not shipped (dead field); the
     5 ending videos exist (Cpg06/Cpg08 empty, Cpg07 `None`).
+  - Edition demo `.shw` fourth value = wall type (`WallList.ini` index:
+    2 MediumIron, 6 MediumWood); resolved, not judge kind.
   - Evidence: `docs/formats/campaign.md`, `tests/test_campaign.py`,
     `notes/campaign-recon.md`.
 - FMT-30 complete: **`Data/Config` startup/input/camera.**
@@ -949,9 +961,9 @@ Updated: 2026-10-26
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D rest:** wire the Save/Load actions to the port's park state
-  (island/budget/clock/camera/paths), and add triggers for
-  `REQUEST_PANEL`/`CPGEND_PANEL`. The warning dialog is done.
+- **UI-2 Phase D rest:** add triggers for `REQUEST_PANEL`/`CPGEND_PANEL`,
+  `OPTIONS_NAME_SLOT` text entry, and placed buildings/dinosaur state in the
+  port save. The warning dialog and Save/Load are done.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
@@ -962,9 +974,8 @@ Updated: 2026-10-26
 
 ## Next action
 
-1. UI-2 Phase D: wire the save panel's Validate button to a port save/load of
-   the park state (island, budget, clock, camera, paths, visitors) and add
-   request/campaign-end triggers.
+1. UI-2 Phase D rest: add request/campaign-end dialog triggers, text entry
+   for `OPTIONS_NAME_SLOT`, and save placed buildings/dinosaur state.
 2. UI-2 Phase C rest: dynamic values in sub-panels (list snapshots, sliders)
    and minimap water/partition polish.
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow

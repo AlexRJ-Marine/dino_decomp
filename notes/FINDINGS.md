@@ -381,3 +381,5 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
 - .shw/.bfi placement proven: .bfi width/height is the grid footprint, .shw
   (x,y) the min corner, rotation 0/2=(w,h) 1/3=(h,w). All 43 shows tile with
   0 overlaps over 29,500 cells. 3 judge features overhang the arena edge by 1.
+- Edition demo .shw fourth value is the wall type index into WallList.ini
+  (demo8=2 MediumIron, demo/demofinale=6 MediumWood; retail show=1 Show).

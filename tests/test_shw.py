@@ -128,7 +128,8 @@ def test_edition_demo_shows():
     assert {show.features.__len__() for show in demos.values()} == {20, 5, 8}
     for show in demos.values():
         assert (show.width, show.height) == (32, 72)
-        assert show.judge in (2, 6)
+        # The fourth value is a WallList index (2 MediumIron, 6 MediumWood).
+        assert show.wall_type in (2, 6)
         assert all(
             0 <= feature < 62 and 0 <= rotation <= 3
             and 0 <= x < show.width and 0 <= y < show.height

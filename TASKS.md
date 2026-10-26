@@ -954,13 +954,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Phase D (dialogs): `DIALOG_BACKGROUND` + `WARNING_PANEL` modal with
   `--warning TEXT`, word-wrapped text and click-to-close; request/campaign-end
   panels are parsed but still need triggers.
-- [ ] Phase D rest: save/load the port's park state.
+- [x] Phase D rest: save/load the port's park state (island, budget, clock,
+  camera, path/fence grid, visitors). `src/world/port_save.{h,cpp}` writes a
+  `DINOPSAV 1` text file; the Options Save/Load tabs select a row, the green
+  check saves/loads `run/save/<name>.psav` (or the selected `[port]` row), and
+  loading enables the build/visitor assets on demand. CLI
+  `--save-port`/`--load-port`/`--save-name`.
 - [x] Phase D (save panel browser): the Options panel's Save/Load tabs switch
   to `OPTIONS_SAVE_PANEL`, and `OPTIONS_SAVE_NAMES_LIST` lists the real
   `run/save/*.sav` names parsed by the C++ header reader (`agenttest`,
-  `esfs`). Saving/loading park state is still open.
-- [ ] Phase D rest: save/load the port's park state, warning/request dialogs,
-  menu music/lab theme switching.
+  `esfs`) plus `[port]` `.psav` saves.
+- [ ] Phase D rest: request/campaign-end dialog triggers, `OPTIONS_NAME_SLOT`
+  text entry, and saving placed buildings/dinosaur state in `DINOPSAV`.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
@@ -973,13 +978,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/hud-1024.png`, `notes/clock-0944.png`,
   `notes/park-hud.png`, `notes/park-budget.png`,
   `notes/options-save.png`, `notes/options-save-detail.png`,
+  `notes/port-ui-save.png`, `notes/port-ui-load2.png`,
+  `docs/platform/save-load.md`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
   `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
   `test_cpp_island_list_and_free_game_budgets`,
   `test_cpp_minimap_detail_view`, `test_cpp_park_hud_1024_anchor`,
-  `test_cpp_park_clock`, `test_cpp_options_save_panel`), `tools/formats/overlay.py`,
+  `test_cpp_park_clock`, `test_cpp_options_save_panel`,
+  `test_cpp_port_save_roundtrip`,
+  `test_cpp_options_save_and_load_buttons`), `tools/formats/overlay.py`,
   `tests/test_overlay.py`.
 
 ### MEDIA-1: Audio and video

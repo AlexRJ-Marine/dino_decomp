@@ -153,15 +153,15 @@ def read_shw(path: Path) -> Show:
 class DemoShow:
     """Older editor show format from ``Data/Edition/Show``.
 
-    ``name / width / height / judge-feature / feature count / features`` —
-    no cost, cage flags, wall type or team list.
+    ``name / width / height / wall-type / feature count / features`` —
+    no cost, cage flags or team list.
     """
 
     path: str
     name: str
     width: int
     height: int
-    judge: int
+    wall_type: int
     features: list[tuple[int, int, int, int]]
 
     def summary(self) -> dict:
@@ -170,7 +170,7 @@ class DemoShow:
             "name": self.name,
             "width": self.width,
             "height": self.height,
-            "judge": self.judge,
+            "wall_type": self.wall_type,
             "features": len(self.features),
         }
 
@@ -201,7 +201,7 @@ def read_demo_shw(path: Path) -> DemoShow:
         name=name,
         width=width,
         height=height,
-        judge=judge,
+        wall_type=judge,
         features=features,
     )
 
