@@ -68,6 +68,42 @@ of the original architecture.
 - Verify: `scripts/check-env.ps1`; build: `scripts/build.ps1`;
   tests: `scripts/run-tests.ps1`; Ghidra: `scripts/start-ghidra.ps1`.
 
+## Runtime testing (default: windowed, non-intrusive)
+
+Normal play:
+
+```powershell
+.\scripts\play-windowed-game.ps1
+```
+
+This uses `run-window/` (Data junction, own `save/`), a normal bordered
+800x600 window, and `DINO_MOUSE_CLICK_CAPTURE=1`: mouse input is suppressed
+until you click inside the game; click outside to release. The game starts
+behind the current window and does not take focus.
+
+The x32dbg harness now defaults to **windowed + virtual input**:
+
+```powershell
+.\scripts\x32dbg\play-freegame.ps1 -Seconds 30
+.\scripts\x32dbg\start-campaign.ps1 -UnlockCampaigns
+```
+
+It uses `run-test/`, sends the game to the back, restores the pre-run
+foreground window, and delivers clicks through `DINPUT8.dll` +
+`run-test/dino_input.txt`. It does **not** require the game to be foreground
+and does **not** call `SetCursorPos`/`mouse_event`.
+
+- Rebuild the hook with `scripts\build-hook.ps1` after proxy changes.
+- First run or new checkout: `scripts\setup-test-runtime.ps1` (and
+  `-Target run-window` for normal play).
+- Screenshots go to the gitignored `notes/harness/` by default
+  (`-ShotDir` override). Do not overwrite tracked `notes/*.png` evidence.
+- `-PhysicalInput` is the legacy fullscreen + physical-mouse path. Use it only
+  when a test genuinely cannot work with virtual input.
+- Do not add new `SetCursorPos`/`mouse_event`/foreground calls to harness
+  scripts.
+- Full details: `docs/platform/windowed-testing.md`.
+
 ## Agent protocol
 
 1. Read `notes/STATE.md` and `TASKS.md`.

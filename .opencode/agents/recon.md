@@ -33,6 +33,28 @@ Read `AGENTS.md`, `notes/FINDINGS.md`, and the current task in `TASKS.md` first.
   snippet (or a short paraphrase) in `notes/<topic>.md`.
 - Never edit `original/`, `game/`, `src/`, or `tools/`.
 
+## Runtime harness
+
+Use the windowed, background-safe harness by default:
+
+```powershell
+.\scripts\x32dbg\play-freegame.ps1 -Seconds 30
+.\scripts\x32dbg\start-campaign.ps1 -UnlockCampaigns
+```
+
+- It uses `run-test/`, sends the game to the back, restores the pre-run
+  foreground window, and feeds clicks through `DINPUT8.dll` +
+  `run-test/dino_input.txt`; it does not need the game in front.
+- After proxy changes: `scripts\build-hook.ps1`, then
+  `scripts\setup-test-runtime.ps1`.
+- Screenshots go to `notes/harness/` (gitignored) by default; keep tracked
+  `notes/*.png` evidence untouched.
+- Do not add `SetCursorPos`, `mouse_event`, `SetForegroundWindow` or
+  `AppActivate` to new harness scripts. `-PhysicalInput` is only for a test
+  that genuinely cannot run virtually; document why in the evidence note.
+- Normal interactive play uses `scripts\play-windowed-game.ps1` and the
+  click-to-capture gate. Full details: `docs/platform/windowed-testing.md`.
+
 ## Output
 
 Write a short note to `notes/` with:

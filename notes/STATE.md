@@ -13,6 +13,12 @@ Updated: 2026-10-26
 - Build: CMake + Ninja from the venv
 - Extracted game: `game/%MAINDIR%/` (2,891 files, 397.5 MiB)
 - Original media: `original/` (read-only)
+- Normal windowed play: `run-window/` via `scripts/play-windowed-game.ps1`;
+  bordered 800x600, starts behind the current window, click-to-capture mouse.
+- x32dbg/test runtime: `run-test/` via the default `play-freegame.ps1` /
+  `start-campaign.ps1`; windowed, virtual input, runs in the background and
+  restores the previous foreground window. `-PhysicalInput` is the legacy
+  fullscreen path. See `docs/platform/windowed-testing.md`.
 - Live retail runs overwrite `run/save/auto/auto.sav`. Restore the test
   reference from `run/save/auto/slot001.sav` (7,116 bytes, 39 shows) before
   the save tests; a campaign autosave is ~53 KB (`notes/handoff.md`).

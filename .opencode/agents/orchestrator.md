@@ -39,6 +39,22 @@ Prefer the highest-value task that unblocks others. Do not start parallel epics.
 - When a task is complete: update `TASKS.md`, run the tests, and record the
   evidence path in `notes/STATE.md`.
 
+## Runtime policy
+
+- Prefer `scripts\play-windowed-game.ps1` for interactive checks. It uses
+  `run-window/`, stays behind the current window, and only captures mouse
+  input after a click inside the game.
+- Run x32dbg work through the default windowed harness:
+  `play-freegame.ps1` / `start-campaign.ps1`. It uses `run-test/`, virtual
+  input, keeps the game in the background, and restores the previous
+  foreground window.
+- Do not let a delegated runtime task take over the user's screen or mouse.
+  Reserve `-PhysicalInput` for a documented case that cannot work virtually.
+- Rebuild the hook after proxy changes (`scripts\build-hook.ps1`) and refresh
+  `run-test/` with `scripts\setup-test-runtime.ps1`.
+- Keep harness screenshots under `notes/harness/`; do not overwrite tracked
+  `notes/*.png` evidence. See `docs/platform/windowed-testing.md`.
+
 ## Definition of a playable port
 
 A vertical slice that: loads one island, renders its terrain and placed objects

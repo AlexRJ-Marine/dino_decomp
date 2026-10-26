@@ -40,6 +40,10 @@ relevant `docs/formats/*.md` first.
   PNG/TGA for textures, WAV for audio, JSON for metadata.
 - If a field is unknown, label it `unknown_XX` and record the evidence; never
   invent semantics.
+- If a parser needs a live retail check, use the windowed harness defaults
+  (`play-freegame.ps1` / `start-campaign.ps1`); do not move the mouse or take
+  focus. Screenshots go to `notes/harness/`. See
+  `docs/platform/windowed-testing.md`.
 
 ## Definition of done
 

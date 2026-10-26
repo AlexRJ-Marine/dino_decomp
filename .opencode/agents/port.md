@@ -44,6 +44,12 @@ Read `AGENTS.md`, `notes/STATE.md`, `TASKS.md`, and `docs/formats/*.md` first.
   simulation) and a screenshot or log for rendering.
 - Build with `scripts/build.ps1`; run `scripts/run-tests.ps1` before reporting.
 - If a format is undocumented, stop and ask `formats`/`recon` rather than guessing.
+- For interactive retail checks use `scripts\play-windowed-game.ps1`; for x32dbg
+  traces use the default windowed harness (`play-freegame.ps1` /
+  `start-campaign.ps1`). They run in the background and do not move the mouse.
+  Do not use `-PhysicalInput` unless the test cannot work virtually.
+- Put harness screenshots in `notes/harness/`, not over tracked
+  `notes/*.png` evidence. See `docs/platform/windowed-testing.md`.
 
 ## Definition of done
 
