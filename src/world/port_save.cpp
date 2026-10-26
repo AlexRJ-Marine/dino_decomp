@@ -67,7 +67,8 @@ void save_port_state(const PortState& state, const std::string& path) {
             << dinosaur.angle << " " << dinosaur.needs[0] << " "
             << dinosaur.needs[1] << " " << dinosaur.needs[2] << " "
             << dinosaur.needs[3] << " " << dinosaur.action_id << " "
-            << dinosaur.action_left << " " << dinosaur.size_cm << "\n";
+            << dinosaur.action_left << " " << dinosaur.size_cm << " "
+            << (dinosaur.carnivore ? 1 : 0) << "\n";
     }
     for (const PortPaddockState& paddock : state.paddocks) {
         out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
@@ -185,6 +186,10 @@ PortState load_port_state(const std::string& path) {
             require(parts, key, path);
             for (int& need : dinosaur.needs) {
                 need = std::clamp(need, 0, 99);
+            }
+            int carnivore = 1;
+            if (parts >> carnivore) {
+                dinosaur.carnivore = carnivore != 0;
             }
             if (dinosaur.species.empty() || dinosaur.family.empty() ||
                 dinosaur.clip.empty()) {

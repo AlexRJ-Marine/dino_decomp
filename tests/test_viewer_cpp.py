@@ -2358,4 +2358,6 @@ def test_cpp_port_save_paddocks_food(tmp_path):
             "paths=301 fences=268 buildings=57 dinos=20 paddocks=9 food=1"
             in load.stdout)
     assert "dino food: allo paddock=1 diet=carnivore source=PigFood" in load.stdout
+    # The diet gene is saved too: the anky in paddock 0 stays herbivorous.
+    assert "dino food: anky paddock=0 diet=herbivore source=none" in load.stdout
     assert "Eat score=9009 needs=20/90/50/90" in load.stdout

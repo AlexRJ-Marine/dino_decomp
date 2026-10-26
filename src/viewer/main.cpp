@@ -5836,6 +5836,7 @@ int main(int argc, char** argv) {
             saved.x = dinosaur.x;
             saved.y = dinosaur.y;
             saved.angle = dinosaur.angle;
+            saved.carnivore = dinosaur.carnivore;
             if (dinosaur.action_loop) {
                 saved.needs = dinosaur.action_loop->needs().value;
                 saved.size_cm = dinosaur.action_loop->needs().size_cm;
@@ -6069,6 +6070,7 @@ int main(int argc, char** argv) {
                     restored.value = saved.needs;
                     restored.size_cm = saved.size_cm;
                     dinosaur.needs = restored;
+                    dinosaur.carnivore = saved.carnivore;
                     if (dinosaur.action_loop) {
                         dinosaur.action_loop->restore(
                             restored, saved.action_id, saved.action_left);

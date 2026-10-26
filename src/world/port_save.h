@@ -73,6 +73,7 @@ struct PortDinoState {
     int action_id = 0x1f;
     double action_left = 0.0;
     int size_cm = 300;
+    bool carnivore = true;  // diet gene 14; older saves default to true
 };
 
 struct PortState {
