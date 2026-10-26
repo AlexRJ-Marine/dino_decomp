@@ -227,3 +227,20 @@ refresh.
   `0x00585db0`, `0x00585780` (save writer), `0x00585240` (save reader),
   `0x00541940`, `0x0053cf10`, `0x00588600`.
 - Retail `employeelist.ini` (2 entries) and `.bei` `kind_id` values.
+
+## Ticket value solved (2026-10-26)
+
+Both the settlement loop ( x58ad95..0x58adbc) and the visitor entry path
+( x5884f9..0x588514) compute the same ticket:
+
+``text
+ticket = round(entrance_price * profile_scale)
+`` 
+
+- [park+0xd8]+0x40 -> +0x1c is the Entrance .bbi visitor price (50).
+- [visitor+0x70]+0x30 is the visitor profile's scale, i.e. .bvi file
+  offset  x34 (1.0, 1.5, 1.6, 2.0, 2.1, 2.5); the port stores it as
+  `VisitorProfile::price_scale`.
+- Manual save un/save/slot001.sav has two visitors: profile ield_20=6`n  (Scientist, 1.5) and ield_20=9 (Kid, 1.0); 75 + 50 = the stored
+  125/2 ticket pair.
+- Port test: 8 easy visitors -> income 525 (5 x 75 + 3 x 50).

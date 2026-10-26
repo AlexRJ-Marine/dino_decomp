@@ -5247,9 +5247,9 @@ int main(int argc, char** argv) {
 
     // Daily settlement (0x0058ad00): wages, security, visitor tickets, then
     // the counter roll. The port has no employee/security actors yet, so those
-    // terms are zero; the ticket price is the Entrance `.bbi` visitor price
-    // (file offset 25, 50 in retail) - the exact per-visitor retail ticket
-    // value is still inferred from the manual save's 125/2 pair.
+    // terms are zero. Ticket value (0x58ad95): round(entrance_price *
+    // visitor_profile+0x30), where the Entrance `.bbi` visitor price is 50
+    // and the profile scale is `.bvi` offset 0x34 (1.0..2.5).
     auto run_daily_settlement = [&]() {
         ensure_construction_catalog();
         int ticket_price = 50;
@@ -5260,7 +5260,19 @@ int main(int argc, char** argv) {
             }
         }
         const int visitors = static_cast<int>(visitor_system.visitors.size());
-        const int tickets = visitors * ticket_price;
+        int tickets = 0;
+        for (const dino::Visitor& visitor : visitor_system.visitors) {
+            float scale = 1.0f;
+            if (visitor.profile >= 0 &&
+                visitor.profile <
+                    static_cast<int>(visitor_profiles.size())) {
+                scale = visitor_profiles[static_cast<std::size_t>(
+                                             visitor.profile)]
+                            .price_scale;
+            }
+            tickets += static_cast<int>(std::lround(
+                static_cast<double>(ticket_price) * scale));
+        }
         const int wages = 0;
         park_budget += tickets - wages;
         budget_ledger.add_ticket(tickets, visitors);

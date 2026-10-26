@@ -113,10 +113,23 @@ park_budget += income - wages
 ```
 
 `--settle-day` runs one settlement at startup for tests. 8 visitors on the
-24-cell loop gives `income=400`, `budget=75400`. The exact per-visitor retail
-ticket value is still inferred: the manual save's current-day ticket pair is
-`125/2`, not `2 * 50`; difficulty/age multipliers are not decoded. Employee
-wages (`0x585d80`) and the EFFECTIFS_SECU pass (`0x585d50`) are implemented as
+24-cell loop gives `income=525`, `budget=75525` (5 profiles at scale 1.5 and
+3 Kids at scale 1.0). The per-visitor ticket value is **solved** (`0x58ad95`):
+
+```text
+ticket = round(entrance_price * visitor_profile.price_scale)
+```
+
+- `entrance_price` = Entrance `.bbi` visitor price via `[park+0xd8]+0x40` ->
+  `+0x1c` (50 in retail).
+- `price_scale` = the visitor's profile object `+0x30`, i.e. the `.bvi`
+  per-profile scale at file offset `0x34` (1.0..2.5).
+- Manual save evidence: its two visitors are profiles 6 (Scientist, 1.5) and
+  9 (Kid, 1.0); 75 + 50 = the stored 125/2 ticket pair.
+- The same formula runs on visitor entry (`0x5883f0` -> `0x588514`) and in
+  the daily settlement (`0x58ad00` -> `0x58adbc`).
+
+Employee wages (`0x585d80`) and the EFFECTIFS_SECU pass (`0x585d50`) remain
 zero until the staff/animal actors exist.
 
 ## Budget panel (`0x00510430`)

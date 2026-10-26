@@ -530,8 +530,10 @@ def test_cpp_daily_settlement():
     )
     assert result.returncode == 0, result.stderr
     assert "visitors: 8 spawned on 24 path cells" in result.stdout
-    assert ("daily settlement: day=0 visitors=8 ticket=50 income=400 "
-            "wages=0 budget=75400") in result.stdout
+    assert ("daily settlement: day=0 visitors=8 ticket=50 income=525 "
+            "wages=0 budget=75525") in result.stdout
+    # 5 easy profiles pay 75 (scale 1.5) and 3 Kids pay 50 (scale 1.0);
+    # ticket = round(entrance 50 * .bvi offset 0x34). Fixed spawn seed.
 
 
 def test_cpp_sim2b_visitor_state_machine(tmp_path):

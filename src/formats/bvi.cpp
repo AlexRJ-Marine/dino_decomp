@@ -64,6 +64,11 @@ VisitorProfile load_bvi(const std::string& path) {
         const float value = f32(data, 28 + i * 4);
         profile.weights[i] = value;
     }
+    // File offset 0x34: per-profile ticket multiplier (1.0..2.5).
+    profile.price_scale = f32(data, 0x34);
+    if (!(profile.price_scale > 0.25f && profile.price_scale < 4.0f)) {
+        profile.price_scale = 1.0f;
+    }
     return profile;
 }
 

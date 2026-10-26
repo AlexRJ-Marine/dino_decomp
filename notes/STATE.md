@@ -1143,12 +1143,16 @@ Updated: 2026-10-26
     `src/ui/park.cpp`, `tests/test_viewer_cpp.py::test_cpp_construction_placement`,
     `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
 - P4c complete: **daily settlement on the park-clock rollover.**
-  - Ticket income = visitor count × the Entrance `.bbi` visitor price (50);
-    wages and EFFECTIFS_SECU are zero until staff/animal actors exist. The
-    counters roll with `ParkClock::next_day()`. `--settle-day` seeds one
-    settlement for tests; 8 visitors give income 400, budget 75,400.
-  - Open: the exact per-visitor ticket value (manual save 125/2) and staff
-    wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
+  - Ticket income = sum over visitors of
+    `round(Entrance .bbi price * profile scale)`; wages and EFFECTIFS_SECU are
+    zero until staff/animal actors exist. The counters roll with
+    `ParkClock::next_day()`. `--settle-day` seeds one settlement for tests;
+    8 visitors give income 525, budget 75,525.
+  - Per-visitor ticket **solved**: `0x58ad95`/`0x588514` use the `.bvi`
+    offset `0x34` scale (1.0..2.5). The manual save's two visitors are
+    profile 6 (Scientist, 1.5 -> 75) and 9 (Kid, 1.0 -> 50), matching the
+    `125/2` pair. `VisitorProfile::price_scale` drives the port settlement.
+  - Open: staff wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
   - Evidence: `docs/decomp/economy.md`,
     `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
 - HYB-3 complete: **both vector reader hooks runtime-verified.**
@@ -1327,8 +1331,9 @@ Updated: 2026-10-26
    Remaining: the park record type ids (`0/3`), the `100`/`10.0/0.0` fields
    and a few small fields. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
-9. SIM-4 rest: runtime-verify the panel rows against a populated save; the
-   row mapping, category labels and daily settlement trigger are solved. See
+9. SIM-4 rest: runtime-verify the panel rows against a populated save. The
+   row mapping, category labels, daily settlement trigger and per-visitor
+   ticket value (`round(entrance * .bvi 0x34)`) are solved. See
    `docs/decomp/economy.md`.
 10. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
    wages are solved in `docs/decomp/economy.md`. See

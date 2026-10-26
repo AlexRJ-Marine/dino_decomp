@@ -37,7 +37,7 @@ and the tail bytes are partial.
 | 24 | u32 | 2 |
 | 28..48 | 5 × f32 | preference weights (−1..1); not the scorer vector (see below) |
 | 48 | u32 | 576 |
-| 52 | f32 | unknown per-profile scale (1.0–2.5; not walk speed) |
+| 52 | f32 | **ticket price multiplier** (1.0–2.5); charged as `round(entrance_price * scale)` |
 | 56..84 | 7 × f32 | **constant tuning block**: 1, 1, 1, 500, 300, −3000, 3000 |
 | 84..95 | 3 × u32 | 0, 0, 2 |
 
@@ -151,6 +151,9 @@ paths, and the constant scoring block); the C++ path is covered by
   at `+0xD0`).
 - `FUN_0051f560` — publishes the constant block as `DAT_00675638`.
 - `FUN_0058abf0` — aggregates visitor needs by `visitor+0x68` category.
+- `0x58ad95` (settlement) / `0x5884f9` (visitor entry) — ticket value =
+  `round(entrance_price * profile_scale)`, where the scale is the record's
+  `+0x30` / file `0x34` float.
 - `notes/visitor-weights-runtime.md` — live x32dbg dump.
 - `tools/formats/bvi.py`, `tests/test_bvi.py`.
 
@@ -160,7 +163,8 @@ paths, and the constant scoring block); the C++ path is covered by
   `+0x24..+0x34`). They are **not** the attraction-scoring vector; the
   decompiled scorer uses the constant block instead. Likely need/attraction
   category weights read at visitor creation.
-- Meaning of the per-profile scale at `0x34` (1.0–2.5) and the `576` at
-  `0x30`.
+- ~~Meaning of the per-profile scale at `0x34`~~ **solved:** it is the
+  ticket-price multiplier (`round(entrance_price * scale)`; `0x58ad95` /
+  `0x588514`). The `576` at `0x30` remains open.
 - Tail prefix meaning (thresholds/rates) and the trailing mixed bytes.
 - How personality ids select visitor spawn probabilities.
