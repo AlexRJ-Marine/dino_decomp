@@ -5479,19 +5479,25 @@ int main(int argc, char** argv) {
                 std::printf(" %s=%d", species.c_str(), count);
             }
             std::printf("\n");
-            if (!paddocks.empty()) {
-                float capacity = 0.0f;
-                float used = 0.0f;
-                for (const dino::Paddock& paddock : paddocks) {
-                    capacity += paddock.capacity;
-                    used += paddock.used;
-                }
-                std::printf("paddocks: %zu capacity=%.0f used=%.0f\n",
-                            paddocks.size(), capacity, used);
-            }
             rebuild_extra_items();
         }
         park_paddocks = paddocks;
+    };
+
+    // The totals must be printed after `--buy-dino` as well; the buy path
+    // adds the new occupant to `paddocks`.
+    auto print_paddock_totals = [&]() {
+        if (paddocks.empty()) {
+            return;
+        }
+        float capacity = 0.0f;
+        float used = 0.0f;
+        for (const dino::Paddock& paddock : paddocks) {
+            capacity += paddock.capacity;
+            used += paddock.used;
+        }
+        std::printf("paddocks: %zu capacity=%.0f used=%.0f\n",
+                    paddocks.size(), capacity, used);
     };
 
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
@@ -5634,6 +5640,7 @@ int main(int argc, char** argv) {
                 std::fprintf(stderr, "buy: %s\n", e.what());
             }
         }
+        print_paddock_totals();
 
         std::printf("park list: dinos=%zu paddocks=%zu\n",
                     imported_dinos.size(), park_paddocks.size());
@@ -6947,6 +6954,7 @@ int main(int argc, char** argv) {
             import_park_layout();
             load_dino_family_tables();
             spawn_world_dinos();
+            print_paddock_totals();
             std::printf(
                 "campaign park: %s buildings=%zu roads=%zu fences=%zu "
                 "dinos=%zu\n",
