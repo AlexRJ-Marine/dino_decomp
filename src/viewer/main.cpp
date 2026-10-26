@@ -1085,11 +1085,13 @@ uniform mat4 u_mvp;
 out vec3 v_normal;
 out vec2 v_uv;
 out vec4 v_color;
+out vec3 v_world;
 void main() {
     gl_Position = u_mvp * vec4(a_pos, 1.0);
     v_normal = a_normal;
     v_uv = a_uv;
     v_color = a_color;
+    v_world = a_pos;
 }
 )GLSL";
     static const char* kFragment = R"GLSL(
@@ -1097,6 +1099,7 @@ void main() {
 in vec3 v_normal;
 in vec2 v_uv;
 in vec4 v_color;
+in vec3 v_world;
 uniform sampler2D u_texture;
 uniform int u_use_texture;
 uniform vec3 u_light_dir;
@@ -1104,6 +1107,11 @@ uniform vec3 u_light_color;
 uniform vec3 u_ambient;
 uniform float u_alpha;
 uniform int u_unlit;
+uniform vec3 u_camera;
+uniform vec3 u_fog_color;
+uniform float u_fog_near;
+uniform float u_fog_far;
+uniform int u_fog_enable;
 out vec4 frag_color;
 void main() {
     vec3 n = normalize(v_normal);
@@ -1124,6 +1132,13 @@ void main() {
     if (u_unlit == 0) {
         color = base * (u_ambient + u_light_color * (key + fill));
         color = pow(clamp(color, 0.0, 1.0), vec3(0.85));
+        if (u_fog_enable != 0) {
+            float dist = length(v_world - u_camera);
+            float fog = clamp((dist - u_fog_near) /
+                                  max(1.0, u_fog_far - u_fog_near),
+                              0.0, 1.0);
+            color = mix(color, u_fog_color, fog);
+        }
     }
     float out_alpha = u_alpha * v_color.a;
     if (u_use_texture != 0) {
@@ -1591,6 +1606,8 @@ struct DrawItem {
     float alpha = 1.0f;
     // Water: Data/States/WaterSurface.ini uses src One / dest One / Add.
     bool additive = false;
+    // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
+    int fog = 0;
 };
 
 dino::Mat4 ortho(float left, float right, float bottom, float top,
@@ -1672,7 +1689,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
                 int width, int height, float fov_deg = 33.0f) {
     const dino::Mat4 proj = perspective(fov_deg,
                                         static_cast<float>(width) / std::max(1, height),
-                                        0.1f, 10000.0f);
+                                        0.1f, 20000.0f);
     const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
     const dino::Mat4 mvp = dino::multiply(proj, view);
 
@@ -1692,6 +1709,20 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"), texture != 0 ? 1 : 0);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_texture"), 0);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
+
+    // Data/States/FogParam.txt: linear 1500..2000, colour (255,220,165).
+    const GLint camera_loc = gl.GetUniformLocation(program, "u_camera");
+    const GLint fog_color_loc = gl.GetUniformLocation(program, "u_fog_color");
+    const GLint fog_near_loc = gl.GetUniformLocation(program, "u_fog_near");
+    const GLint fog_far_loc = gl.GetUniformLocation(program, "u_fog_far");
+    const GLint fog_enable_loc = gl.GetUniformLocation(program, "u_fog_enable");
+    const float scene_fog_color[3] = {1.0f, 0.862745f, 0.647059f};
+    const float camera_pos[3] = {eye.x, eye.y, eye.z};
+    gl.Uniform3fv(camera_loc, 1, camera_pos);
+    gl.Uniform1i(fog_enable_loc, 1);
+    gl.Uniform3fv(fog_color_loc, 1, scene_fog_color);
+    gl.Uniform1f(fog_near_loc, 1500.0f);
+    gl.Uniform1f(fog_far_loc, 2000.0f);
 
     const GLint unlit_loc = gl.GetUniformLocation(program, "u_unlit");
     if (skybox.ready) {
@@ -1730,6 +1761,17 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
+        if (item.fog == 1) {
+            // Data/States/FogParam_WaterSurface.txt: 100..700, black.
+            const float water_fog[3] = {0.0f, 0.0f, 0.0f};
+            gl.Uniform3fv(fog_color_loc, 1, water_fog);
+            gl.Uniform1f(fog_near_loc, 100.0f);
+            gl.Uniform1f(fog_far_loc, 700.0f);
+        } else {
+            gl.Uniform3fv(fog_color_loc, 1, scene_fog_color);
+            gl.Uniform1f(fog_near_loc, 1500.0f);
+            gl.Uniform1f(fog_far_loc, 2000.0f);
+        }
         const bool blend = item.alpha < 1.0f || item.additive;
         if (blend) {
             glEnable(GL_BLEND);
@@ -3745,7 +3787,7 @@ int main(int argc, char** argv) {
         if (sky_images[i].width <= 0) {
             continue;
         }
-        skybox.faces[i] = upload_mesh(make_sky_face(i, 5000.0f), glfns);
+        skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
         skybox.textures[i] = upload_texture(sky_images[i]);
         if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
             ++sky_faces;
@@ -3758,7 +3800,7 @@ int main(int argc, char** argv) {
     if (water_image.width > 0 && terrain.world_size > 0.0f) {
         water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
         water_gpu = upload_mesh(
-            make_water_plane(terrain.world_size * 6.0f, water_z, 48.0f), glfns);
+            make_water_plane(terrain.world_size * 4.75f, water_z, 38.0f), glfns);
     }
 
     GpuMesh visitor_gpu;
@@ -4168,7 +4210,7 @@ int main(int argc, char** argv) {
         // Transparent pass: water last so it blends over all opaque actors.
         // WaterSurface.ini is additive (src One, dest One, add).
         if (water_gpu.vao != 0) {
-            extra_items.push_back({&water_gpu, water_texture, 1.0f, true});
+            extra_items.push_back({&water_gpu, water_texture, 1.0f, true, 1});
         }
     };
     rebuild_extra_items();
@@ -4562,7 +4604,7 @@ int main(int argc, char** argv) {
             if (sky_images[i].width <= 0) {
                 continue;
             }
-            skybox.faces[i] = upload_mesh(make_sky_face(i, 5000.0f), glfns);
+            skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
             skybox.textures[i] = upload_texture(sky_images[i]);
             if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
                 ++loaded_faces;
@@ -4573,7 +4615,7 @@ int main(int argc, char** argv) {
         if (water_image.width > 0 && terrain.world_size > 0.0f) {
             water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
             water_gpu = upload_mesh(
-                make_water_plane(terrain.world_size * 6.0f, water_z, 48.0f),
+                make_water_plane(terrain.world_size * 4.75f, water_z, 38.0f),
                 glfns);
         }
 

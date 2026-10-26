@@ -826,6 +826,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Match the retail water blend from `Data/States/WaterSurface.ini`
   (source `One`, destination `One`, op `Add`); the old alpha 0.78 was a port
   convention. Capture: `notes/p5-water-additive.png`.
+- [x] Apply the retail fog: scene `FogParam.txt` 1500..2000 (255,220,165) and
+  water `FogParam_WaterSurface.txt` 100..700 (black), both linear. The water
+  plane is 4,864 units half-extent (38 tiles) inside an 8,000-unit skybox
+  with a 20,000 far plane. Capture: `notes/p5-water-fog3.png`.
 - [x] Match the retail skybox cube mapping from the geometry builder
   `0x00600f80` / draw `0x00600df0`: front=-X, left=+Y, back=+X, right=-Y,
   top=+Z, bottom=-Z, UVs (0,0),(1,0),(0,1),(1,1), v=0 at the PNG top.

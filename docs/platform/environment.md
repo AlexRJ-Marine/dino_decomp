@@ -30,16 +30,19 @@ is `notes/p5-sky.png`.
 
 - Level: the `.lnd` float (16.0 on isl01, 20.0 on isl02), runtime-confirmed
   through the water-quad Z at `FUN_00602cf0`; `--water-level N` overrides.
-- Texture: the first `.lnd` water path (`Water.tga`, 256×256), repeat-wrapped,
-  tiled 48× across a plane with a 6144-unit half-extent (12,288 units across) so it reaches the skybox horizon.
+- Texture: the first `.lnd` water path (`Water.tga`, 256?256), repeat-wrapped,
+  tiled 38? across a plane with a 4,864-unit half-extent (9,728 units across).
 - Drawn after the terrain with **additive blending** (`Data/States/
   WaterSurface.ini`: source `One`, destination `One`, op `Add`) and depth
   writes off, so the shoreline shows through. The old port used alpha 0.78,
   which is not the retail state.
+- **Water fog** is per-material: `Data/States/FogParam_WaterSurface.txt` uses
+  100..700 with a black colour, so the ocean fades to the sky before the plane
+  edge. Scene fog (`FogParam.txt`, 1500..2000, colour 255,220,165) is applied
+  to the other lit materials. Both are linear.
 - Retail also binds the same water texture to a second texture stage with
-  `Modulate2x` (coordinate set 1, likely a scrolling layer), and applies the
-  park fog. Neither is implemented yet; the current capture is
-  `notes/p5-water-additive.png`.
+  `Modulate2x` (coordinate set 1, likely a scrolling layer); that is not
+  implemented yet. Current capture: `notes/p5-water-fog3.png`.
 
 ## Evidence
 
@@ -50,7 +53,8 @@ is `notes/p5-sky.png`.
   bottom).
 - `notes/water-10.png`, `notes/water-16.png` — level comparison (old alpha
   blend).
-- `notes/p5-water-additive.png` — retail additive blend, current port state.
+- `notes/p5-water-additive.png` — additive blend without fog.
+- `notes/p5-water-fog3.png` — additive water + per-material fog (current).
 - `tests/test_viewer_cpp.py::test_cpp_skybox_and_water` asserts
   `environment: skybox 6/6 faces, water yes at z=16.0 (256x256)`.
 
@@ -58,6 +62,7 @@ is `notes/p5-sky.png`.
 
 - The skybox face order/UVs are solved from the retail builder; a side-by-side
   screenshot against the original remains for final visual confirmation.
-- Water animation/two-stage `Modulate2x` texture (coordinate set 1) and park
-  fog are not implemented; the additive blend is now retail-matched.
+- Water animation/two-stage `Modulate2x` texture (coordinate set 1) is not
+  implemented; the additive blend, scene fog and water fog are now retail-
+  matched. The skybox bottom/side seam is still visible at some angles.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.
