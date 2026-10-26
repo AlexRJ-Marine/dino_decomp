@@ -212,6 +212,13 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00570fd0` | need/raw-gauge reset (rest full, food 50%, needs 99) | decompiled | same |
 | `0x005714b0` | need value → GOOD/MID/BAD state index | decompiled | same |
 | `0x00571350` | recompute all four need states | decompiled | same |
+| `0x0056e410` | `apDinosaurBehavior` node score pass: `.bai` need deltas × need-state weights, rest cost, threat term, percent | decompiled | `notes/dino-action-chooser-recon.md` |
+| `0x0056e5d0` | `need_term(need, delta, actor+0x214)`: upper clamp, state weight table `0x643054/64/74/84` | decompiled | same |
+| `0x0056e670` | action selection: max node score ≥ 1, can-do check, switch/stop current | decompiled | same |
+| `0x0056d980` | node availability: distance² vs target radius, class filtering | decompiled | same |
+| `0x0056e0e0` | `saDinosaur::CanDoAction`: `.bai` preconditions + consume/item gate | decompiled | same |
+| `0x00572620` | attribute id → actor field (needs 0..3 at `+0x244`, size 4/12) | decompiled | same |
+| `0x00569660` | per-action element selector: Σ attr×weight + rand, first element `time >= score` | decompiled | same |
 | `0x00572e10` | most-urgent need index (0..3, 4 = none) | decompiled | same |
 | `0x00511d80` / `0x005138b0` / `0x005df900` | dinosaur need widgets and tab update | decompiled | same |
 | `0x005ca960` | dynamic `dsound.dll` / `winmm.dll` loader | decompiled | `docs/decomp/media.md` |

@@ -25,6 +25,7 @@
 #include "../world/vegetation.h"
 #include "../world/build.h"
 #include "../world/visitors.h"
+#include "../world/dino_actions.h"
 #include "../world/port_save.h"
 #include "../ui/menu.h"
 #include "../ui/park.h"
@@ -108,6 +109,7 @@ struct Options {
     bool import_dinos = true;
     std::string dino_clip = "Walk";
     bool bai_info = false;
+    bool dino_actions_info = false;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;
@@ -326,6 +328,8 @@ Options parse_args(int argc, char** argv) {
             opt.dino_clip = next("--dino-clip");
         } else if (arg == "--bai-info") {
             opt.bai_info = true;
+        } else if (arg == "--dino-actions") {
+            opt.dino_actions_info = true;
         } else if (arg == "--building-pos") {
             std::sscanf(next("--building-pos"), "%f,%f",
                         &opt.building_x, &opt.building_y);
@@ -523,6 +527,7 @@ Options parse_args(int argc, char** argv) {
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
                 "  --bai-info           print the 64 action definitions and exit\n"
+                "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"
@@ -2203,6 +2208,62 @@ int main(int argc, char** argv) {
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "bai-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
+    if (opt.dino_actions_info) {
+        try {
+            const std::vector<dino::BaiAction> actions =
+                dino::load_action_table(opt.asset_root);
+            if (actions.size() != 64) {
+                std::fprintf(stderr, "dino-actions: expected 64 actions, got %zu\n",
+                             actions.size());
+                return 1;
+            }
+            // The retail behavior graph only contains the self/special actions
+            // for these needs; the other 60 need a perceived world target.
+            const std::vector<std::string> nodes = {
+                "Exploration", "Eat", "EatForSmallies", "Sleep"};
+            const auto make_needs = [](int food, int violence, int secu,
+                                       int repos, int size) {
+                dino::DinoNeeds needs;
+                needs.value = {food, violence, secu, repos};
+                needs.size_cm = size;
+                return needs;
+            };
+            struct Scenario {
+                const char* name;
+                dino::DinoNeeds needs;
+            };
+            const Scenario scenarios[] = {
+                {"starving", make_needs(20, 90, 50, 90, 250)},
+                {"tired", make_needs(70, 90, 90, 20, 250)},
+                {"both", make_needs(20, 90, 50, 20, 250)},
+                {"full", make_needs(99, 99, 99, 99, 250)},
+                {"small", make_needs(20, 90, 50, 90, 150)},
+            };
+            std::printf("dino actions: %zu nodes=%zu\n", actions.size(),
+                        nodes.size());
+            for (const Scenario& scenario : scenarios) {
+                const dino::DinoNeeds& needs = scenario.needs;
+                std::printf("dino states %s: %d %d %d %d\n", scenario.name,
+                            dino::need_state(needs.value[0]),
+                            dino::need_state(needs.value[1]),
+                            dino::need_state(needs.value[2]),
+                            dino::need_state(needs.value[3]));
+                const auto choice =
+                    dino::choose_action(actions, needs, nodes, true);
+                if (choice) {
+                    std::printf("dino choose %s: %s %d\n", scenario.name,
+                                choice->name.c_str(), choice->score);
+                } else {
+                    std::printf("dino choose %s: idle\n", scenario.name);
+                }
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "dino-actions: %s\n", e.what());
             return 1;
         }
     }

@@ -1725,3 +1725,19 @@ def test_cpp_bai_action_table():
     assert "groups: 0=50 1=1 2=1 3=1 4=2 5=8 6=1" in result.stdout
     assert "classes: 0=44 1=1 2=1 3=1 4=0 5=17" in result.stdout
     assert "first=Exploration last=EatBaitForSmallies" in result.stdout
+
+def test_cpp_dino_action_chooser():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    result = subprocess.run(
+        [str(EXE), "--dino-actions", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "dino actions: 64 nodes=4" in result.stdout
+    assert "dino states starving: 2 3 1 3" in result.stdout
+    assert "dino choose starving: Eat 9009" in result.stdout
+    assert "dino choose tired: Sleep 7060" in result.stdout
+    assert "dino choose both: Eat 9009" in result.stdout
+    assert "dino choose full: idle" in result.stdout
+    assert "dino choose small: EatForSmallies 9009" in result.stdout

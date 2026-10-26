@@ -173,10 +173,28 @@ in that order and enables the matching FOOD/REPOS/VIOLENCE/SECU state widget.
 
 `Eat` (action 4) and `Sleep` (action 2) are real `actionlist.ini` actions.
 Their need feed is the FOOD/REPOS pair above; the FOOD gauge starts at 50 % of
-its maximum and the REPOS gauge starts full. The exact dinosaur-AI chooser that
-turns a BAD FOOD/REPOS state into action 4/2 is **not decoded yet** (the `.bai`
-action records and the `apDinosaurBehavior` action selection are the next
-step). The state machine and thresholds it must use are now known.
+its maximum and the REPOS gauge starts full.
+
+**The chooser is solved** (`FUN_0056e410` / `FUN_0056e5d0` /
+`FUN_0056e670`): every available action node is scored from its `.bai`
+`need_deltas` using a per-need weight table indexed by the need's
+GOOD/MID/BAD state:
+
+```text
+FOOD     [2, 15, 300, 1]
+VIOLENCE [1, 10,  60, 1]
+SECU     [2, 15,  65, 1]
+REPOS    [5, 20,  90, 1]
+```
+
+`Eat` (+30 FOOD, +10 VIOLENCE) therefore scores ~9009 when FOOD is BAD and 70
+when it is GOOD; `Sleep` (−50 SECU, +100 REPOS) scores up to 7060 when REPOS
+is BAD and is negative when it is full. The highest-scoring available node
+(score ≥ 1) starts, so a starving dinosaur eats and a tired one sleeps without
+any need→action table. Deltas are capped at the current need: +100 on a need
+of 20 adds 79, +30 on 90 adds 9. Preconditions add the size gate (`Eat`:
+size ≥ 200 cm, `EatForSmallies`: ≤ 200). Full formula and evidence:
+`notes/dino-action-chooser-recon.md`.
 
 ### Idle sentinel
 
@@ -185,6 +203,18 @@ step). The state machine and thresholds it must use are now known.
 `0x1f`. `0x00571190` sets `+0x2c0 = 0x1f` after every completed action.
 Therefore **`0x1f` is the idle/finished sentinel**, not a real `JumpHole`
 action. This is confirmed by the two independent checks.
+
+## Port status
+
+- `src/world/dino_actions.{h,cpp}`: `DinoNeeds` (four values + states +
+  attribute accessor), the retail weight tables, `need_term`, `score_action`,
+  `preconditions_ok` and `choose_action`.
+- `--dino-actions` prints the chooser result for starving / tired / both /
+  full / small scenarios using the self-action node set.
+- Tests: `tests/test_dino_actions.py` (Python oracle) and
+  `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser`.
+- Open for the next increment: need decay into the needs, action duration and
+  need-delta application, and the action→animation clip link.
 
 ## Evidence
 
