@@ -3,6 +3,7 @@ param(
     [int]$CampaignRow = 3,
     [int]$MissionRow = 0,
     [switch]$NoTrace,
+    [switch]$UnlockCampaigns,
     [string]$GameDir = "run",
     [string]$Log = "notes\x32dbg-campaign.out.log"
 )
@@ -14,12 +15,21 @@ param(
 #   - stFence::CanAddActor 0x57eb50: occupant, cost index, capacity/used
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
+# -UnlockCampaigns backs up run/save/dino.dat, writes 0F (campaigns 1-4) and
+# restores it after the run; without it the campaign must already be unlocked.
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
 $h = "C:\Tools\x64dbg\release\x32\headless.exe"
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
+$dinoDat = Join-Path $wd "save\dino.dat"
+$dinoDatBackup = $null
+if ($UnlockCampaigns -and (Test-Path $dinoDat)) {
+    $dinoDatBackup = [System.IO.File]::ReadAllBytes($dinoDat)
+    [System.IO.File]::WriteAllBytes($dinoDat, [byte[]](0x0F, 0, 0, 0))
+    Write-Host "unlocked campaigns 1-4 (dino.dat backed up)"
+}
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -229,6 +239,10 @@ if (-not $game) {
 Start-Sleep -Seconds ([Math]::Max(2, $Seconds - 40))
 Send 'exit'
 if (-not $p.WaitForExit(15000)) { $p.Kill() }
+if ($null -ne $dinoDatBackup) {
+    [System.IO.File]::WriteAllBytes($dinoDat, $dinoDatBackup)
+    Write-Host "restored dino.dat"
+}
 $out = $outTask.Result
 $err = $errTask.Result
 $out | Set-Content -Path $logPath -Encoding utf8

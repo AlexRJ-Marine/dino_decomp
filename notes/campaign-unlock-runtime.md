@@ -113,14 +113,17 @@ cost rule.
 the retail menu and logs:
 
 - `0x57dc60` stFence ctor (rectangle + cell-size pointer),
-- `0x571540` `saDinosaur::Update` (`+0x2c0` action id, `+0x1e0` cost field),
-- `0x56c0c0` clip-pair registration (vtable + args),
+- `0x571540`/`0x56e670` dinosaur update/action selection (`+0x2c0`, `+0x1e0`),
+- `0x570fd0` need reset (load-time size-class dump),
+- `0x56c0c0` state-id registration (vtable + args),
 - `0x57eb50` `stFence::CanAddActor` (occupant, cost index, capacity/used).
 
-The trace is timing-sensitive under x32dbg: install breakpoints only after the
-mission page is reached, and dismiss the briefing before expecting
-`saDinosaur::Update` hits. The run also overwrites `run/save/auto/auto.sav`;
-restore it from `run/save/auto/slot001.sav` if a save test follows.
+Use `-UnlockCampaigns` to back up `run/save/dino.dat`, write `0F 00 00 00`
+(campaigns 1-4), and restore it automatically after the run. `-NoTrace` skips
+all breakpoints for a screenshot-only run. The trace is timing-sensitive under
+x32dbg: it now waits for a rendered window and dismisses the briefing before
+expecting sim hits. The run also overwrites `run/save/auto/auto.sav`; restore
+it from `run/save/auto/slot001.sav` if a save test follows.
 
 ## Evidence
 
