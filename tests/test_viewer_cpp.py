@@ -1758,6 +1758,32 @@ def test_cpp_wld_park_import_single_road():
     assert ("park import: roads=1 path_cells=16 fences=0 fence_edges=0"
             in result.stdout)
 
+def test_cpp_options_name_entry():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    target = ROOT / "run" / "save" / "portname.psav"
+    target.unlink(missing_ok=True)
+    try:
+        result = subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+             "--width", "800", "--height", "600", "--no-vsync",
+             "--no-save-config", "--lnd", str(ISL01),
+             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+             "--type-text", "portname", "--park-click", "765,348",
+             "--park-click", "348,73", "--park-click", "349,381",
+             "--park-click", "334,436"],
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "park click 349,381 -> options name edit" in result.stdout
+        assert "port save: run/save/portname.psav" in result.stdout
+        assert target.exists()
+    finally:
+        target.unlink(missing_ok=True)
+
+
 def test_cpp_construction_placement():
     if not EXE.exists():
         pytest.skip("viewer not built")

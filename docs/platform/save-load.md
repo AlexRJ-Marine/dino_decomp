@@ -53,6 +53,11 @@ load; a missing `DINOPSAV` header or a different version is an error.
 - Options Save/Load panel:
   - `OPTIONS_MENU_SAVE_BUTTON` / `OPTIONS_MENU_LOAD_BUTTON` switch tabs;
   - `OPTIONS_SAVE_NAMES_LIST` selects a row (12-px lines);
+  - `OPTIONS_NAME_SLOT` (an EDIT widget) starts text entry on the Save tab;
+    SDL text input appends printable ASCII (24-char cap) and Backspace
+    deletes. Clicking another HUD control ends the edit. `Overlay::hit_test`
+    now includes EDIT widgets; `--type-text TEXT` replaces the name for
+    scripted tests;
   - `OPTIONS_VALIDATE_BUTTON` emits `save port` or `load port` for the active
     tab; the viewer writes/reads `run/save/<name>.psav` or the selected
     `[port]` row and hides `OPTIONS_PANEL`;

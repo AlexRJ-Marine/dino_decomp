@@ -1056,8 +1056,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `DIALOG_BACKGROUND` family; `--warning`, `--request`, `--campaign-end`,
   word-wrapped text zones, accept/cancel/close icons. The panels use
   `ALIGN_CENTER` (request/campaign-end are not at their authored top-left).
-- [ ] Phase D rest: `OPTIONS_NAME_SLOT` text entry and dinosaur placement in
-  `DINOPSAV` (placed buildings are stored).
+- [x] Phase D rest: `OPTIONS_NAME_SLOT` text entry (EDIT hit-testing, SDL
+  text input/backspace, 24-char cap, `--type-text` for tests) and building
+  placement in `DINOPSAV`. Dinosaur placement in the save is still open.
+- [ ] Dinosaur actor state (needs/action) in `DINOPSAV`.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.

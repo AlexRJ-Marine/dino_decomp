@@ -283,7 +283,8 @@ bool Overlay::visible_in_tree(int widget_index) const {
 int Overlay::hit_test(int x, int y) const {
     for (int i = static_cast<int>(widgets.size()) - 1; i >= 0; --i) {
         const Widget& widget = widgets[static_cast<std::size_t>(i)];
-        if (widget.type != "BUTTON" && widget.type != "LIST") {
+        if (widget.type != "BUTTON" && widget.type != "LIST" &&
+            widget.type != "EDIT") {
             continue;
         }
         if (!widget.enable || !visible_in_tree(i)) {

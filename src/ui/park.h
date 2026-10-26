@@ -49,6 +49,15 @@ public:
     const std::string& options_tab() const { return options_tab_; }
     int save_selected() const { return save_selected_; }
 
+    // Options Save: the editable root name. Clicking OPTIONS_NAME_SLOT starts
+    // text entry; the viewer feeds SDL text input into these helpers.
+    const std::string& save_name() const { return save_name_; }
+    void set_save_name(const std::string& name) { save_name_ = name; }
+    bool name_edit_active() const { return name_edit_; }
+    void end_name_edit() { name_edit_ = false; }
+    void append_name_char(char c);
+    void backspace_name();
+
     Overlay overlay;
     Loc loc;
 
@@ -64,6 +73,8 @@ private:
     std::string dialog_text_;
     std::string options_tab_ = "save";
     int save_selected_ = -1;
+    std::string save_name_ = "quicksave";
+    bool name_edit_ = false;
 };
 
 }  // namespace dino::ui

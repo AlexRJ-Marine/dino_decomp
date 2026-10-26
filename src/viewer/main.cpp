@@ -127,6 +127,7 @@ struct Options {
     std::vector<std::string> construct_positions;
     int park_budget_override = -1;
     bool settle_day = false;
+    std::string type_text;
     std::vector<std::string> place_paths;
     std::vector<std::string> place_fences;
     std::string pick_test;
@@ -375,6 +376,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_budget_override = std::atoi(next("--park-budget"));
         } else if (arg == "--settle-day") {
             opt.settle_day = true;
+        } else if (arg == "--type-text") {
+            opt.type_text = next("--type-text");
         } else if (arg == "--place-path") {
             opt.place_paths.push_back(next("--place-path"));
             opt.build_mode = true;
@@ -549,6 +552,7 @@ Options parse_args(int argc, char** argv) {
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --settle-day         run one daily settlement at startup (tests/debug)\n"
+                "  --type-text TEXT     append TEXT to the Options save name (tests)\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
@@ -2528,6 +2532,14 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"),
             park_error);
         if (loaded) {
+            park.set_save_name(opt.save_name);
+            if (!opt.type_text.empty()) {
+                park.set_save_name("");
+                for (char c : opt.type_text) {
+                    park.append_name_char(c);
+                }
+                opt.save_name = park.save_name();
+            }
             auto dialog_text = [&](const std::string& value) {
                 return !value.empty() && value[0] == '&'
                            ? dino::ui::resolve_loc_text(value, park.loc)
@@ -3071,6 +3083,7 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return 1;
     }
+    SDL_StartTextInput(window);
     SDL_GLContext context = SDL_GL_CreateContext(window);
     if (!context) {
         std::fprintf(stderr, "SDL_GL_CreateContext failed: %s\n", SDL_GetError());
@@ -5394,6 +5407,9 @@ int main(int argc, char** argv) {
             if (name == "BUDGET_AMOUNT") {
                 return std::to_string(park_budget);
             }
+            if (name == "OPTIONS_NAME_SLOT") {
+                return park.save_name();
+            }
             if (name == "VISITOR_AMOUNT") {
                 return std::to_string(visitor_system.visitors.size());
             }
@@ -5683,9 +5699,20 @@ int main(int argc, char** argv) {
             }
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
+            } else if (event.type == SDL_EVENT_TEXT_INPUT) {
+                if (park.loaded() && park.name_edit_active() &&
+                    park.options_tab() == "save") {
+                    for (const char* c = event.text.text; *c != '\0'; ++c) {
+                        park.append_name_char(*c);
+                    }
+                    opt.save_name = park.save_name();
+                }
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
                 const SDL_Keycode key = event.key.key;
-                if (key == keymap[dino::KeyAction::Quit]) {
+                if (park.name_edit_active() && key == SDLK_BACKSPACE) {
+                    park.backspace_name();
+                    opt.save_name = park.save_name();
+                } else if (key == keymap[dino::KeyAction::Quit]) {
                     running = false;
                 } else if (key == keymap[dino::KeyAction::OrbitLeft]) {
                     yaw -= 4.0f;

@@ -1175,9 +1175,10 @@ Updated: 2026-10-26
   list snapshots, slider/checkbox selection), minimap water colour/partition
   polish. Button bindings, hover/pressed states, the menu→island handoff,
   the minimap and 1024×768 anchoring are done.
-- **UI-2 Phase D rest:** `OPTIONS_NAME_SLOT` text entry and dinosaur placement
-  in the port save (placed buildings are stored). The dialog family and
-  Save/Load are done.
+- **UI-2 Phase D (remaining):** `OPTIONS_NAME_SLOT` text entry is done (EDIT
+  hit-testing, SDL text input/backspace, `--type-text`), as are the dialog
+  family, Save/Load and building placement. Dinosaur actor state
+  (needs/action) is still not stored in `DINOPSAV`.
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.

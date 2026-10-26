@@ -266,8 +266,28 @@ void ParkHud::open_panel(const std::string& name) {
 
 void ParkHud::close_panel(const std::string& name) {
     overlay.set_visible(name, false);
+    if (name == "OPTIONS_PANEL") {
+        name_edit_ = false;
+    }
     if (is_lab_center(name)) {
         show_hud(true);
+    }
+}
+
+void ParkHud::append_name_char(char c) {
+    if (save_name_.size() >= 24) {
+        return;
+    }
+    const unsigned char value = static_cast<unsigned char>(c);
+    if (value < 32 || value > 126) {
+        return;
+    }
+    save_name_.push_back(c);
+}
+
+void ParkHud::backspace_name() {
+    if (!save_name_.empty()) {
+        save_name_.pop_back();
     }
 }
 
@@ -296,6 +316,9 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return false;
     }
     const std::string name = overlay.widgets[static_cast<std::size_t>(hit)].name;
+    if (name != "OPTIONS_NAME_SLOT") {
+        name_edit_ = false;
+    }
 
     if (dialog_kind_ != DialogKind::none) {
         if (dialog_kind_ == DialogKind::warning &&
@@ -333,6 +356,13 @@ bool ParkHud::click(int x, int y, std::string& action) {
         overlay.set_visible("OPTIONS_SAVE_PANEL", false);
         overlay.set_visible("OPTIONS_OPTIONS_PANEL", true);
         action = "options tab";
+        return true;
+    }
+    if (name == "OPTIONS_NAME_SLOT") {
+        if (options_tab_ == "save") {
+            name_edit_ = true;
+            action = "options name edit";
+        }
         return true;
     }
     if (name == "OPTIONS_SAVE_NAMES_LIST") {
