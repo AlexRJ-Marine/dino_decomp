@@ -383,3 +383,10 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   0 overlaps over 29,500 cells. 3 judge features overhang the arena edge by 1.
 - Edition demo .shw fourth value is the wall type index into WallList.ini
   (demo8=2 MediumIron, demo/demofinale=6 MediumWood; retail show=1 Show).
+- .bfi body fully decoded (62/62 exact EOF): fixed sequential stream, not
+  class-dependent. Judge kind 1 Race..6 Capture; show-type list; food kind
+  equals .bsi/.bni ids 0..9; header 0x19 = price; header 0x1d = waypoint
+  team; header 0x21 = display type; 8 mesh/texture slots (state i uses i and
+  i+3); 7 effect INIs; attribute-weight lists with score steps
+  200/400/600/800/1000; 3 sound names; duration pair; SWITCH_* key is a
+  construction-kit section.

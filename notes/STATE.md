@@ -752,13 +752,25 @@ Updated: 2026-10-26
   - Evidence: `tools/formats/genotype_assets.py`,
     `docs/formats/genotype-assets.md`, `tests/test_genotype_assets.py`,
     `notes/genotype-assets-recon.md`.
-- FMT-23 complete: **`.bfi` show-feature definitions (header + strings).**
-  - 62/62 files: packed 12-field header 0x00..0x2c, class tag at 0x2d, then
-    a nested integer/string record.
+- FMT-23 complete: **`.bfi` show-feature definitions (full body).**
+  - 62/62 files parse to an exact EOF. The body is a fixed sequential
+    stream; the class tag does not change its shape.
+  - 12-field header 0x00..0x2c, tag at 0x2d, then judge kind, show types,
+    food kind, field pair, actions, anim flag/speed, state count, 8
+    mesh/texture slots, texture dir, model scale, 7 effect INIs, 3 u32,
+    billboard dir, attribute-weight lists, score steps, sounds, duration
+    pair, category, switch key and tail flag.
+  - Judge kinds 1..6; food kinds match `.bsi`/`.bni` 0..9; price is header
+    `0x19`; waypoint team is header `0x1d`; display type header `0x21`;
+    `state_count` is read by the mesh renderer `0x621770` (model *i* uses
+    slots *i* and *i+3*); judge arena mesh is `effects[5]`.
   - Tags: Tile 26 (incl. `Danse` and trap/hole obstacles), empty 10 (large
     props), Judge 6, AnimalBait 5, StaticBait 5, Cage 4, Waypoint 4,
-    LunchBox 1, Teleport 1.
-  - 57 `.mesh` + 49 `.tga` paths, all present; 60/62 `SWITCH_FEATURE_*` keys.
+    LunchBox 1, Teleport 1. 57 `.mesh` + 49 `.tga`, all present;
+    60/62 switch keys are real construction-kit sections.
+  - Remaining: only field semantics (`field_3c`/`field_40`,
+    `anim_flag`/`anim_speed`, `field_11`/`field_15`, `field_154..15c`,
+    scoring arithmetic).
   - Evidence: `tools/formats/bfi.py`, `docs/formats/bfi.md`,
     `tests/test_bfi.py`, `notes/bfi-recon.md`.
 - FMT-22 complete: **`.bwi` wall definitions.**

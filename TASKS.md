@@ -404,8 +404,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Class tags: Tile 26, empty 10 (large props), Judge 6, AnimalBait 5,
   StaticBait 5, Cage 4, Waypoint 4, LunchBox 1, Teleport 1.
 - [x] 57 `.mesh` + 49 `.tga` paths extracted, all present; 60/62 switch keys.
-- [ ] Integer fields after the class tag (action bindings, durations, scores);
-  JudgeCapture/JudgeTeam switch keys; multi-cell footprint behaviour.
+- [x] Full body parse: `judge_kind`, show types, `food_kind`, price,
+  waypoint team, display type, actions, 8 mesh/texture slots, texture dir,
+  7 effect INIs, billboard dir, attribute-weight lists, score steps, sounds,
+  duration pair, switch key and tail flag.  62/62 exact EOF.
+- [x] Judge kinds 1..6, food kinds match `.bsi`/`.bni` (0..9), price =
+  header `0x19`, waypoint team = header `0x1d`, `state_count` read by the
+  mesh renderer (`0x621770`), judge arena mesh in `effects[5]`,
+  60/62 switch keys are real construction-kit sections.
+- [ ] Semantics only: `field_3c`/`field_40`, `anim_flag`/`anim_speed`,
+  `field_11`/`field_15`, `field_154..15c`, scoring arithmetic.
 - **Acceptance:** all 62 files and assets resolve.
 - **Depends on:** FMT-8, FMT-22.
 - **Evidence:** `tools/formats/bfi.py`, `docs/formats/bfi.md`,
@@ -550,8 +558,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`notes/asset-coverage.md`).
 - [x] Demo `.shw` fourth value is the `WallList.ini` wall type (2 MediumIron,
   6 MediumWood), not a judge kind.
-- [x] Remaining unknowns: `.lnd` w/h, `.bfi` body ints, behavior-graph nodes;
-  `Actions.bad` is editor/demo data (never opened by the retail game).
+- [x] Remaining unknowns: `.lnd` w/h, `.bfi` field semantics only (body
+  solved), behavior-graph nodes; `Actions.bad` is editor/demo data (never
+  opened by the retail game).
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data

@@ -120,3 +120,65 @@ other classes share the generic path.
 
 Next concrete step: decompile the class-tag branch targets and split the body
 into (a) generic fields + (b) the four tagged variants.
+
+## Resolution (2026-10-26): body solved, class-independent
+
+The previous "variable width" conclusion was wrong.  The 8/9-byte
+misalignment came from treating the record as two-u32 records; re-reading
+the loader with the real base register (`esi = record + 0x84`) showed a
+single fixed body shape for all 62 files.  The four tagged classes only set
+a boolean at record `+0x34`; they do not change the body.
+
+Strict parse (exact EOF on 62/62):
+
+```
+judge_kind u32                 0..6
+show_types u32 n + n bytes     1..6 set
+food_kind u32                  .bsi/.bni kind id
+field_3c u32                   10000 / 50000 (waypoint)
+field_40 u32                   100 / 70 (bait) / 500 (waypoint)
+actions u32 n + n strings      ActionList names
+anim_flag u32                  0 cage, else 1
+anim_speed f32                 0.0 / 0.1 / 0.25
+state_count u32                1..3
+mesh_slots 8 strings           state i LOD1 at i, LOD2 at i+3; slot 6/7 texture
+texture_dir string
+model_scale f32                1.0 / 0.25
+effects 7 strings              explosion/decal INIs; judges: arena mesh at [5]
+field_154/158/15c 3 x u32      0; judge third = 8.0
+billboard_dir string
+attribute_sets                 u32 n; n x (u32 m + m strings)
+score_steps                    u32 n; n x u32 (200..1000)
+sounds 3 strings
+duration f32, duration_frames f32
+category u32                   1 Beam5, 2 default, 4 LunchBox
+switch_key string
+trailing string
+tail_flag u8                   1 only LunchBox
+```
+
+Proven values:
+
+- `judge_kind` = 1 Race, 2 Obstacle, 3 Fight, 4 Destruction, 5 Team,
+  6 Capture (the six Judge files).
+- `food_kind` matches `.bsi` `kind_id` / `.bni` `food_kind` exactly:
+  Flower 0, Apple 1, Watermelon 2, Pumpkin 3, Hay 4, Ostrich 5, Goat 6,
+  Sheep 7, Pig 8, Cow 9.
+- header `0x19` = price (judges 50, waypoints 10, cages 400/800/1200/2400,
+  beams 300/400/500/750).
+- header `0x1d` = waypoint team 1..4.
+- `state_count` is read by the mesh renderer `0x621770`: model *i* is built
+  from slots *i* and *i+3*.
+- The judge arena mesh is `effects[5]` (`course.mesh`, `boxe.mesh`,
+  `derby.mesh`, `foot.mesh`, `obstacle.mesh`, `capture.mesh`).
+- `switch_key` is a real `[section]` in `ConstructionInterface.Ini` /
+  `Infopanels.Ini` (60/62; JudgeCapture and JudgeTeam have none).
+- `attribute_sets` vocabulary: agility, courage, combat, protection,
+  perception, intelligence, agress; repeats = weight.  Slots 3/4 are
+  always empty.
+- `score_steps` are always 200/400/600/800/1000.
+
+Still open (semantics only, format is complete): exact scoring arithmetic,
+`field_3c`/`field_40`, `anim_flag`/`anim_speed`, `field_11`/`field_15`, the
+3-value `field_154` block.  No consumer was isolated for those fields; they
+are documented by position and value family.

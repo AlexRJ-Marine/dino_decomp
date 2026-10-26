@@ -38,16 +38,21 @@ unknowns, with what was tried and the concrete next step.
 
 ## 3. `.bfi` body integers
 
-- **Solved:** 12-field header `0x00..0x2c`, class tag at `0x2d`, all strings
-  (actions, 57 meshes, 49 textures, effect INIs, switch keys) and the
-  footprint (proven by the `.shw` tiling).
-- **Open:** the integer fields after the class tag (action bindings, scores,
-  durations).
-- **Next:** the `.bfi` loader `0x53ed30` uses the same reader pattern as the
-  `.bai` loader; 73 reader calls are extracted, but a fixed "6 u32 + string"
-  hypothesis only fits 7/62 files (the body is variable-width). Map each
-  call's destination record offset next (initial mapping is in
-  `notes/bfi-recon.md`; the class-tag branches gate the body shape).
+- **Solved:** the full body is a fixed sequential stream; all 62 files parse
+  to an exact EOF with `tools/formats/bfi.py`.  The class tag does not change
+  the body shape (it only sets a boolean at record `+0x34`).
+- **Solved fields:** judge kind (1 Race..6 Capture), show-type list, food
+  kind (`.bsi`/`.bni` ids 0..9), price (header `0x19`), waypoint team
+  (header `0x1d`), display type (header `0x21`), action names, 8 mesh/texture
+  slots, texture dir, 7 effect INIs, billboard dir, attribute-weight lists
+  (agility/courage/combat/protection/perception/intelligence/agress),
+  score steps 200..1000, 3 sound names, duration pair, switch key and tail
+  flag.  Full layout in `docs/formats/bfi.md`.
+- **Remaining (semantics only):** exact use of `field_3c`/`field_40`,
+  `anim_flag`/`anim_speed`, `field_11`/`field_15`, the 3-value
+  `field_154` block, and the scoring arithmetic for the attribute lists.
+- **Evidence:** `notes/bfi-recon.md` ("Resolution"), `0x5475c0`/`0x54a630`
+  record copy, `0x621770` mesh renderer.
 
 ## 4. `.bwi` field semantics
 
