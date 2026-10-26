@@ -108,6 +108,9 @@ struct Options {
     std::string park_time;
     float park_advance = 0.0f;
     bool start_dino = false;
+    bool ui_sounds = true;
+    bool list_sounds = false;
+    std::string play_sound;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -309,6 +312,14 @@ Options parse_args(int argc, char** argv) {
                 std::atof(next("--park-advance")));
         } else if (arg == "--start-dino") {
             opt.start_dino = true;
+        } else if (arg == "--ui-sounds") {
+            opt.ui_sounds = true;
+        } else if (arg == "--no-sounds") {
+            opt.ui_sounds = false;
+        } else if (arg == "--list-sounds") {
+            opt.list_sounds = true;
+        } else if (arg == "--play-sound") {
+            opt.play_sound = next("--play-sound");
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -414,6 +425,10 @@ Options parse_args(int argc, char** argv) {
                 "  --park-time-scale N  override the clock time scale (default 60)\n"
                 "  --park-advance N     advance the clock N real seconds at startup\n"
                 "  --start-dino         place an allosaurus at the menu-started park\n"
+                "  --ui-sounds          enable menu/park click sounds in screenshots\n"
+                "  --no-sounds          disable UI click sounds\n"
+                "  --list-sounds        print the menu sound DB and exit\n"
+                "  --play-sound NAME    play one MenuSoundDB entry at startup\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -591,6 +606,87 @@ struct ParkClock {
     }
 
     std::string day_text() const { return std::to_string(day + 1); }
+};
+
+// ---------------------------------------------------------------------------
+// Menu/park UI click sounds (MenuSoundDB.ini). A click cuts the previous
+// sound; SDL3 makes one short device stream per click.
+// ---------------------------------------------------------------------------
+struct UiSoundPlayer {
+    std::string asset_root;
+    std::unordered_map<std::string, dino::Wav> cache;
+    SDL_AudioStream* stream = nullptr;
+    double remaining = 0.0;
+    bool enabled = true;
+    bool muted = false;
+
+    void play(const std::string& relative) {
+        if (!enabled || relative.empty()) {
+            return;
+        }
+        std::string path;
+        try {
+            path = dino::asset_path(asset_root, relative);
+        } catch (const std::exception&) {
+            return;
+        }
+        auto it = cache.find(path);
+        if (it == cache.end()) {
+            try {
+                it = cache.emplace(path, dino::load_wav(path)).first;
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "sound load %s: %s\n", path.c_str(), e.what());
+                return;
+            }
+        }
+        const dino::Wav& wav = it->second;
+        if (stream != nullptr) {
+            SDL_DestroyAudioStream(stream);
+            stream = nullptr;
+        }
+        SDL_AudioSpec spec{};
+        spec.format = wav.bits_per_sample == 16 ? SDL_AUDIO_S16 : SDL_AUDIO_U8;
+        spec.channels = wav.channels;
+        spec.freq = static_cast<int>(wav.sample_rate);
+        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                                           &spec, nullptr, nullptr);
+        if (stream == nullptr) {
+            std::fprintf(stderr, "sound device: %s\n", SDL_GetError());
+            enabled = false;
+            return;
+        }
+        SDL_SetAudioStreamGain(stream, muted ? 0.0f : 1.0f);
+        SDL_ResumeAudioStreamDevice(stream);
+        SDL_PutAudioStreamData(stream, wav.data.data(),
+                               static_cast<int>(wav.data.size()));
+        remaining = wav.duration;
+        std::printf("sound: %s\n", path.c_str());
+    }
+
+    void set_muted(bool value) {
+        muted = value;
+        if (stream != nullptr) {
+            SDL_SetAudioStreamGain(stream, muted ? 0.0f : 1.0f);
+        }
+    }
+
+    void update(double dt) {
+        if (stream == nullptr) {
+            return;
+        }
+        remaining -= dt;
+        if (remaining <= 0.0) {
+            SDL_DestroyAudioStream(stream);
+            stream = nullptr;
+        }
+    }
+
+    void destroy() {
+        if (stream != nullptr) {
+            SDL_DestroyAudioStream(stream);
+            stream = nullptr;
+        }
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -1767,6 +1863,29 @@ int main(int argc, char** argv) {
                 park_clock.time_text(false).c_str(),
                 park_clock.day_text().c_str());
 
+    std::unordered_map<std::string, std::string> menu_sound_files;
+    std::vector<std::string> menu_sound_names;
+    try {
+        const dino::ui::IniFile sound_db = dino::ui::load_ini(
+            resolve_asset(opt.asset_root, "Data/Sound/MenuSoundDB.ini"));
+        for (const auto& section : sound_db.sections) {
+            const std::string filename = section.get("FILENAME");
+            if (!filename.empty()) {
+                menu_sound_files[section.name] = filename;
+                menu_sound_names.push_back(section.name);
+            }
+        }
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "menu sounds: %s\n", e.what());
+    }
+    if (opt.list_sounds) {
+        for (const auto& name : menu_sound_names) {
+            std::printf("sound %s: %s\n", name.c_str(),
+                        menu_sound_files[name].c_str());
+        }
+        return 0;
+    }
+
     dino::ui::Menu menu;
     bool menu_loaded = false;
     dino::ui::ParkHud park;
@@ -2232,12 +2351,24 @@ int main(int argc, char** argv) {
     }
 
     Uint32 init_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
-    if (!opt.wav_path.empty()) {
+    if (!opt.wav_path.empty() || opt.ui_sounds) {
         init_flags |= SDL_INIT_AUDIO;
     }
     if (!SDL_Init(init_flags)) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
+    }
+    UiSoundPlayer ui_sound;
+    ui_sound.asset_root = opt.asset_root;
+    ui_sound.enabled = opt.ui_sounds;
+    ui_sound.muted = opt.muted;
+    if (!opt.play_sound.empty()) {
+        const auto sound_it = menu_sound_files.find(opt.play_sound);
+        if (sound_it != menu_sound_files.end()) {
+            ui_sound.play(sound_it->second);
+        } else {
+            std::fprintf(stderr, "unknown sound: %s\n", opt.play_sound.c_str());
+        }
     }
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -3348,8 +3479,23 @@ int main(int argc, char** argv) {
                         }
                     } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                                event.button.button == SDL_BUTTON_LEFT) {
-                        menu.click(static_cast<int>(event.button.x - off_x),
-                                   static_cast<int>(event.button.y - off_y));
+                        const int mx = static_cast<int>(event.button.x - off_x);
+                        const int my = static_cast<int>(event.button.y - off_y);
+                        const int menu_hit = menu.hit_test(mx, my);
+                        if (menu_hit >= 0) {
+                            const std::string& name =
+                                menu.overlay.widgets[static_cast<std::size_t>(
+                                    menu_hit)]
+                                    .name;
+                            const std::string sound_name =
+                                name == "QUIT_BUTTON" ? "exitClic" : "clicDefault";
+                            const auto sound_it =
+                                menu_sound_files.find(sound_name);
+                            if (sound_it != menu_sound_files.end()) {
+                                ui_sound.play(sound_it->second);
+                            }
+                        }
+                        menu.click(mx, my);
                         if (menu.quit) {
                             running = false;
                         }
@@ -3409,6 +3555,7 @@ int main(int argc, char** argv) {
                     if (audio != nullptr) {
                         SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
                     }
+                    ui_sound.set_muted(opt.muted);
                 } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
                     free_camera = !free_camera;
                     if (free_camera) {
@@ -3456,6 +3603,11 @@ int main(int argc, char** argv) {
                         if (!action.empty()) {
                             std::printf("park click %d,%d -> %s\n", dx, dy,
                                         action.c_str());
+                            const auto sound_it =
+                                menu_sound_files.find("clicDefault");
+                            if (sound_it != menu_sound_files.end()) {
+                                ui_sound.play(sound_it->second);
+                            }
                         }
                         continue;
                     }
@@ -3565,6 +3717,7 @@ int main(int argc, char** argv) {
                 park_clock.next_day();
             }
         }
+        ui_sound.update(dt);
 
         if (minimap_zoom_in) {
             minimap_scale =
@@ -3973,6 +4126,7 @@ int main(int argc, char** argv) {
     if (audio != nullptr) {
         SDL_DestroyAudioStream(audio);
     }
+    ui_sound.destroy();
     for (auto& group : veg_gpu) {
         group.destroy(glfns);
     }

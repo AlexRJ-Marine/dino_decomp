@@ -177,3 +177,15 @@ def test_attribute_and_part_order():
     assert data.part_order == ["Head", "Arm", "Leg", "Body", "Tail"]
     for attribute in data.attribute_order:
         assert (data.part_order[0], attribute) in data.attributes
+
+def test_attribute_diagonal_is_matrix_diagonal():
+    """The 20-value diagonal line duplicates matrix[i][i] in all 55 tables."""
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert len(data.attributes) == 55
+    for (part, attribute), table in data.attributes.items():
+        assert table.diagonal == [table.matrix[i][i] for i in range(20)], (
+            part,
+            attribute,
+        )

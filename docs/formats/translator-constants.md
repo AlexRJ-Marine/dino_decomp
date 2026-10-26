@@ -246,6 +246,33 @@ at `+0x98/+0xac/+0xc0` and the five part scale factors at `+0xd4..+0xe4`
 matching Part 2 merge table weight (`+0x3bc` head, `+0x3c0` legs,
 `+0x3c8` tail) and normalises by the body part size.
 
+### Conventional appeal and part records
+
+`0x00617250` also computes the conventional need input:
+
+```text
+P+0x194 = ConventionalLimbDisparityFactor / N
+        + ConventionalLimbHomogeneityFactor * (homozygous parts)
+```
+
+The five part pairs are compared; every part whose two alleles are equal adds
+`ConventionalLimbHomogeneityFactor` (12), so a pure breed scores
+`5 * 12 = 60`. `N` is the part-record cache size (1 for a pure breed), so a
+pure dinosaur gets `40 / 1 + 60 = 100` and a five-pair hybrid gets
+`40 / 5 + 0 = 8`. The need formula then applies `ConventionalNeedFactor`
+(0.5). The decompiler cannot show where `N` is stored; the pure-breed case
+pins the scale.
+
+The translator also keeps a per-allele-pair **part record cache**
+(`0x0061bab0` find / `0x0061a860` insert). Each record is a 0x10-byte entry
+in the table at translator `+0x84` with an `int` array at `+4`.
+`0x00619a60` walks 23 phenotype part slots (`P+0xe8..`) and adds seven ints,
+one optional int (selector `translator+0x114`) and six more, each scaled by
+`part width (P+0xac) / reference width (translator+0xa4)`. `0x00619b80`
+then applies the percentage records (`+0x170..+0x19c`, neutral 100) over the
+same slots. The 23 slots are the five body parts plus the 18 dummy/decoration
+parts driven by genes 4-13 and the skin/carapace tables.
+
 ## Reader
 
 `tools/formats/translator_constants.py`:

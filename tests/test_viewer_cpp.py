@@ -1065,3 +1065,24 @@ def test_cpp_menu_start_with_dino(tmp_path):
     diff = ImageChops.difference(first.crop(region), second.crop(region))
     stat = ImageStat.Stat(diff)
     assert sum(stat.mean) / 3 > 5.0
+
+def test_cpp_menu_sounds():
+    if not EXE.exists() or not GAME.exists():
+        pytest.skip("viewer or retail data missing")
+    listed = subprocess.run(
+        [str(EXE), "--list-sounds", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert listed.returncode == 0, listed.stderr
+    assert "sound clicDefault: data/Sound/Interface/clic#3.wav" in listed.stdout
+    assert "sound exitClic: data/Sound/Interface/clic#9.wav" in listed.stdout
+
+    played = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
+         "--height", "200", "--no-vsync", "--no-save-config",
+         "--asset-root", str(GAME), "--lnd", str(ISL01), "--no-vegetation",
+         "--play-sound", "clicDefault"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert played.returncode == 0, played.stderr
+    assert "sound: " in played.stdout and "clic#3.wav" in played.stdout

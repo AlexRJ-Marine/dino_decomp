@@ -338,7 +338,13 @@ Updated: 2026-10-25
     centre with its contact shadow and walk animation.
   - Evidence: `notes/menu-start-dino.png`, `docs/platform/vertical-slice.md`,
     `tests/test_viewer_cpp.py::test_cpp_menu_start_with_dino`.
-- 232 tests pass; working tree committed (UI-2 Phase B rest plus
+- AUDIO-2 complete: **menu/park click sounds.**
+  - `MenuSoundDB.ini` (5 entries) parsed at startup; menu buttons play
+    `clicDefault`, Quit plays `exitClic`, park HUD actions play
+    `clicDefault`. One short SDL3 stream per click (new click cuts the old).
+  - `--ui-sounds`, `--no-sounds`, `--list-sounds`, `--play-sound NAME`.
+  - Evidence: `docs/platform/audio.md`, `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
+- 244 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -495,10 +501,37 @@ Updated: 2026-10-25
   - Five dinosaur-need formulas (`0x618020`): beauty, danger, spectacular
     (cube root of a 3-dimension volume × 60 / 1346), conventional, taming.
   - Phenotype accumulator fields `+0x18..+0x194` and the add/normalize part
-    builders (`0x619c70`/`0x619d90`) mapped; gene→part record open.
+    builders (`0x619c70`/`0x619d90`) mapped.
+  - **`simu_trans.dic` -> translator map solved** (`0x6180e0`): Part 1 at
+    `+0x1b8`, Part 2 at `+0x3bc`, the 11 Part 3 groups at `+0x308/+0x200/
+    +0x31c/+0x214/+0x330/+0x344/+0x358/+0x36c/+0x2e0/+0x2f4/+0x380`,
+    Parts 4-10 at `+0x394..+0x460`.
+  - Runtime genotype = 18 genes x 3 ints (`[3g]`/`[3g+1]` alleles).
+    `0x617250` maps part -> gene `[0,1,1,2,3]`, looks up
+    `table[part][alleleB][alleleA]`, sums Perception/Intelligence/
+    Beauty/Armor/Agility over the five parts and reads Attack per part;
+    `0x619830` writes the five part lengths/widths/heights and scales.
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- FMT-23 complete: **`.bfi` show-feature definitions (header + strings).**
+  - 62/62 files: packed 12-field header 0x00..0x2c, class tag at 0x2d, then
+    a nested integer/string record.
+  - Tags: Tile 26 (incl. `Danse` and trap/hole obstacles), empty 10 (large
+    props), Judge 6, AnimalBait 5, StaticBait 5, Cage 4, Waypoint 4,
+    LunchBox 1, Teleport 1.
+  - 57 `.mesh` + 49 `.tga` paths, all present; 60/62 `SWITCH_FEATURE_*` keys.
+  - Evidence: `tools/formats/bfi.py`, `docs/formats/bfi.md`,
+    `tests/test_bfi.py`, `notes/bfi-recon.md`.
+- FMT-22 complete: **`.bwi` wall definitions.**
+  - 24/24 files: version 4, height 2/4/6/8, cost class 10/15/30, a `u8`
+    electrified flag, seven unaligned floats at 0x15, seven
+    length-prefixed strings from 0x31, `u32 4` and two `SWITCH_*` keys.
+  - `scales[5] == height/8`; the four `*Elect` files are the only electrified
+    ones; every mesh/texture path exists.
+  - Loader `0x53d9a0` builds 0xb4-byte records, matching the file layout.
+  - Evidence: `tools/formats/bwi.py`, `docs/formats/bwi.md`,
+    `tests/test_bwi.py`, `notes/bwi-recon.md`.
 - FMT-21 complete: **island `.raw` heightmap + occupation mask.**
   - Heightmap 512×512 u8; occupation 1024×1024 u8 with values {0,255}.
   - 0 = buildable land, 255 = blocked/water; 0 cells are higher and never

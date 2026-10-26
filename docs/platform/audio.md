@@ -40,6 +40,35 @@ Options:
 mute=M
 ```
 
+## UI click sounds
+
+`MenuSoundDB.ini` is parsed at startup (5 entries). Menu button clicks play
+`clicDefault` (`clic#3.wav`), `QUIT_BUTTON` plays `exitClic` (`clic#9.wav`),
+and park HUD button actions also play `clicDefault`. Each click opens a short
+SDL3 device stream for the WAV; a new click cuts the previous one. Audio is
+best-effort: a missing device logs a warning and disables the player.
+
+Options:
+
+```text
+--ui-sounds        enable click sounds in screenshot/test runs
+--no-sounds        disable UI click sounds
+--list-sounds      print the MenuSoundDB entries and exit
+--play-sound NAME  play one entry at startup (smoke test)
+```
+
+`--list-sounds` output:
+
+```text
+sound clicDefault: data/Sound/Interface/clic#3.wav
+sound clic: data/Sound/Interface/clic#2.wav
+sound exitClic: data/Sound/Interface/clic#9.wav
+sound music: data/Sound/Musics/musLabo.wav
+sound mixer: data/Sound/Interface/mixer.wav
+```
+
+Evidence: `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
+
 ## Evidence
 
 ```text

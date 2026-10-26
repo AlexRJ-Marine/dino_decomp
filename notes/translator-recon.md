@@ -127,3 +127,103 @@ translation records. The exact record layout is still open.
 - Gene translation values → part records `+0x128..+0x19c`.
 - The `+0x2b4` gap.
 - Names of the remaining accumulator fields.
+
+## 2026-10-26 - `simu_trans.dic` -> translator object and translation
+
+`FUN_006180e0` is the `.dic` loader called from the translator constructor
+`FUN_00615e80`. It consumes the ten parts in file order and stores them at:
+
+```text
+Part 1  0x12 gene tables                  +0x1b8
+Part 2  4 merge tables                    +0x3bc
+Part 3  Length       (5 parts)            +0x308
+        Width                             +0x200
+        Height                            +0x31c
+        Weight                            +0x214
+        Perception                        +0x330
+        Intelligence                      +0x344
+        Beauty                            +0x358
+        Armor                             +0x36c
+        Speed                             +0x2e0
+        Attack                            +0x2f4
+        Agility                           +0x380
+Part 4  3 x 6-wide dummy disposition      +0x394
+Part 5  3 x 5-wide dummy type             +0x3a0
+Part 6  influence table 0 / 1             +0x80 / +0x90
+        5 reference widths                +0xa4..+0xb4
+Part 7  skin map (8x3)                    +0x20
+        582                               +0xa0
+        two 22x18 tables                  +0x40 / +0x50
+Part 8  carapace map (6x3)                +0x30
+        two 16x18 tables                  +0x60 / +0x70
+Part 9  min 20 / max 20                   +0x404 / +0x460
+Part 10 20 default families               +0x14
+```
+
+`FUN_006189e0(count=5)` reads one attribute's five part tables and stores
+five object pointers. `FUN_00618c20` reads the 3 dummy subtables;
+`FUN_00619070` reads a single influence table; `FUN_00618e60` reads the
+skin/carapace maps; `FUN_00619310` reads the min/max arrays.
+
+The runtime genotype is **18 genes x 3 ints**: `[3g]` = allele A,
+`[3g+1]` = allele B, `[3g+2]` unused by the translator. Gene order is the
+`.gen` order (0 head, 1 legs, 2 body, 3 tail, 4..9 dummies, 10/11 skin,
+12/13 carapace, 14 diet, 15 aggression, 16 stamina, 17 courage). This is why
+`FUN_00617250` reads pairs at `3*0, 3*1, 3*2, 3*3, 3*10, 3*11, 3*14..3*17`.
+
+`FUN_00617250(translator, genotype, phenotype)` maps part -> gene:
+`Head->0, Arm->1, Leg->1, Body->2, Tail->3`, and for each part looks up
+`table[part][alleleB][alleleA]`. It sums five attribute groups over the
+parts: Perception (`+0x330` -> P+0x38), Intelligence (`+0x344` -> P+0x3c),
+Beauty (`+0x358` -> P+0x40), Armor (`+0x36c` -> P+0x68), Agility
+(`+0x380` -> P+0x48, jump at P+0x34).
+
+Attack is per part (`+0x2f4`): P+0x4c head, P+0x50 body, P+0x54 arm,
+P+0x58 leg (zero for bipeds), P+0x5c tail, P+0x60 sum.
+
+`FUN_00619830` runs first and writes the five part lengths at P+0x98, the
+five widths at P+0xac and the five heights at P+0xc0, then the five part
+scale factors at P+0xd4..P+0xe4. Each scale blends the two parents with the
+matching Part 2 merge table (`+0x3bc` head, `+0x3c0` legs, `+0x3c8` tail,
+indexed `[alleleB][alleleA]`) and normalises by the body part length.
+
+Family: `FUN_00617250` picks `Part 10[allele]` from the legs-type pair and
+uses `merge[legs] < 50` to choose the parent; `+0x1b4` is 0 for families
+2/3 (biped) and 1 otherwise.
+
+## Open
+
+- The third int of each genotype triple (`[3g+2]`).
+- The Body attack lookup shows the head-type pair in the decompiler; verify.
+
+### Conventional appeal and the part-record cache
+
+`FUN_00617250` lines 182-204 compare the two alleles of each of the five
+parts and add `ConventionalLimbHomogeneityFactor` (+0x29c = 12) for every
+homozygous part (max 60). Line 260 then sets the phenotype field at +0x194:
+
+```text
+P[0x194] = ConventionalLimbDisparityFactor(+0x298 = 40) / N + homozygous * 12
+```
+
+A pure breed has N = 1 and 5 homozygous parts -> 100; the five-need formula
+multiplies by ConventionalNeedFactor 0.5 -> 50. This closes the meaning of
+`P[0x194]` in the "conventional" formula.
+
+The same function builds a per-allele-pair part-record cache
+(`FUN_00578310` init, `FUN_0061bab0` lower_bound, `FUN_0061a860` insert).
+Records live in the table at translator +0x84 (0x10-byte entries, int array
+at +4). `FUN_00619a60(translator, phenotype)` walks 23 slots at P+0xe8:
+
+- for each non-null slot, `f = P[0xac + gene*4] / translator[0xa4 + gene*4]`
+  (part width / reference width);
+- adds 7 ints from the record into translator +0x128 (additive), one extra
+  int selected by `translator+0x114` when it is not 0x12, and 6 more into
+  translator +0x158;
+- `FUN_00619b80` runs the percentage pass: +0x170..+0x19c += record - 100.
+
+`N` (the cache size) is not visible in the decompiled expression; the
+pure-breed identity (40 + 60 = 100) fixes the scale.
+- Part 3's 20-value diagonal line duplicates `matrix[i][i]` for all 55
+  tables; `FUN_006189e0` skips those 20 file lines and builds only the 20x20
+  matrix (indexed `[alleleB][alleleA]`).

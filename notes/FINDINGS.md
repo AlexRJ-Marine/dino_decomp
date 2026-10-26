@@ -277,3 +277,28 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   Design/Graphics occupation copies differ by <1%; the .lnd references the
   Design copy. The .lnd width/height 520x376 is not a texture size. Reader
   tools/formats/raw.py, spec docs/formats/raw.md.
+- simu_trans.dic -> translator object: FUN_006180e0 loads the ten parts into
+  the translator. Part 1 +0x1b8; Part 2 +0x3bc; Part 3 in file order
+  Length +0x308, Width +0x200, Height +0x31c, Weight +0x214, Perception
+  +0x330, Intelligence +0x344, Beauty +0x358, Armor +0x36c, Speed +0x2e0,
+  Attack +0x2f4, Agility +0x380; Parts 4-10 at +0x394..+0x460. Each Part 3
+  group is five part pointers in file order Head, Arm, Leg, Body, Tail.
+- Runtime genotype = 18 genes x 3 ints: [3g]=allele A, [3g+1]=allele B,
+  [3g+2] unused. FUN_00617250 maps part->gene [0,1,1,2,3] and looks up
+  table[part][alleleB][alleleA]; sums Perception->P+0x38, Intelligence->
+  P+0x3c, Beauty->P+0x40, Armor->P+0x68, Agility->P+0x48; Attack per part
+  at P+0x4c..0x5c. FUN_00619830 writes the part lengths +0x98, widths +0xac,
+  heights +0xc0 and scale factors +0xd4..+0xe4.
+- .bwi walls: 24 files, packed struct. u32 4, f32 height (2/4/6/8), u32 100,
+  u32 cost class (10 wood / 15 others / 30 plates), u32 30, u8 electrified,
+  then SEVEN UNALIGNED floats at 0x15 (1.0, 0.5, 0.25, 0.6, 2.0, height/8,
+  0.125), then seven length-prefixed strings at 0x31 (4 textures, 2 meshes,
+  texture dir), u32 4, and two SWITCH_* keys. Loader 0x53d9a0 builds 0xb4-byte
+  records. scales[5] == height/8; only *Elect files are electrified.
+- .bfi show features: 62 files. 12-field packed header 0x00..0x2c (footprint
+  w/h, f32 vertical, variant, u8 flag, then five int flags/costs), class tag
+  string at 0x2d, then a nested integer/string record. Tags: Tile 26 (incl.
+  Danse + trap/hole obstacles), empty 10 (beams/buses/car/minicar/rock),
+  Judge 6, AnimalBait 5, StaticBait 5, Cage 4, Waypoint 4, LunchBox 1,
+  Teleport 1. 57 .mesh + 49 .tga paths all exist; 60/62 have a
+  SWITCH_FEATURE_* key.

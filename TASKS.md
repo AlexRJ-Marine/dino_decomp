@@ -306,8 +306,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   spectacular (cube root of a volume × 60 / 1346), conventional, taming.
 - [x] Map the phenotype accumulator fields (`+0x18..+0x194`) and the additive
   (`FUN_00619c70`) / normalizing (`FUN_00619d90`) part-record builders.
-- [ ] Map the 18 gene translation values onto the part records
-  (`+0x128..+0x19c`) and name the remaining phenotype fields.
+- [x] Map every `simu_trans.dic` part onto its translator-object offset
+  (`FUN_006180e0`): 11 Part 3 attribute groups at `+0x308/+0x200/+0x31c/
+  +0x214/+0x330/+0x344/+0x358/+0x36c/+0x2e0/+0x2f4/+0x380`, Parts 4-10 at
+  `+0x394..+0x460`.
+- [x] Runtime genotype = 18 genes x 3 ints (`[3g]`/`[3g+1]` alleles); the
+  translation (`FUN_00617250`) maps part -> gene `[0,1,1,2,3]` and looks up
+  `table[part][alleleB][alleleA]`; five attributes are summed over the parts
+  and Attack is per part.
+- [ ] Name the remaining phenotype fields (`+0x18`, `+0x20`, `+0x24`, `+0x64`,
+  `+0x78`...) and verify the Body-attack gene pair.
 - **Acceptance:** all 41 keys parse; the need formulas match the assembly.
 - **Depends on:** FMT-9.
 - **Evidence:** `tools/formats/translator_constants.py`,
@@ -345,6 +353,32 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** FMT-7.
 - **Evidence:** `tools/formats/raw.py`, `docs/formats/raw.md`,
   `tests/test_raw.py`, `notes/raw-recon.md`, `notes/occupation-masks.png`.
+
+### FMT-22: `.bwi` wall definitions
+- [x] 24/24 parse: version 4, height 2/4/6/8, three ints, `u8` electrified,
+  seven unaligned floats at 0x15, seven length-prefixed strings from 0x31,
+  `u32 4`, two switch keys.
+- [x] Height/material laws: `scales[5] == height/8`; cost class 10/15/30;
+  electrified exactly the four `*Elect` files; every asset path resolves.
+- [ ] `field_08`/`field_0c`/`field_10` semantics and the consumer of the
+  `SWITCH_*` keys (absent from every INI/loc file).
+- **Acceptance:** 24 files round-trip; all mesh/texture paths exist.
+- **Depends on:** WORLD-1 (mesh/imp paths).
+- **Evidence:** `tools/formats/bwi.py`, `docs/formats/bwi.md`,
+  `tests/test_bwi.py`, `notes/bwi-recon.md`.
+
+### FMT-23: `.bfi` show-feature definitions
+- [x] 62/62 parse: packed 12-field header (0x00..0x2c), class tag string at
+  0x2d, then a nested integer/string record.
+- [x] Class tags: Tile 26, empty 10 (large props), Judge 6, AnimalBait 5,
+  StaticBait 5, Cage 4, Waypoint 4, LunchBox 1, Teleport 1.
+- [x] 57 `.mesh` + 49 `.tga` paths extracted, all present; 60/62 switch keys.
+- [ ] Integer fields after the class tag (action bindings, durations, scores);
+  JudgeCapture/JudgeTeam switch keys; multi-cell footprint behaviour.
+- **Acceptance:** all 62 files and assets resolve.
+- **Depends on:** FMT-8, FMT-22.
+- **Evidence:** `tools/formats/bfi.py`, `docs/formats/bfi.md`,
+  `tests/test_bfi.py`, `notes/bfi-recon.md`.
 
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
@@ -702,7 +736,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   follows the difficulty.
 - [ ] Phase C rest: list snapshots/sliders, minimap water colour/partition
   polish.
-- [ ] Phase D: save/load panels, menu sounds.
+- [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park
+  HUD buttons (`clicDefault`, `exitClic` for Quit); `--ui-sounds`,
+  `--no-sounds`, `--list-sounds`, `--play-sound`.
+- [ ] Phase D rest: save/load panels, park music/ambience.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
