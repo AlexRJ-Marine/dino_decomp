@@ -42,8 +42,11 @@ is `boat.tga`).
 --focus-building      frame the first placed building (distance 60)
 ```
 
-Placement uses the retail rules below. The free-game save places `Entrance`
-(kind 9) at cell `(520,376)`, state 1 → centre `(525.5,387.5)`, yaw 90°.
+Placement uses the retail rules below. The free-game Entrance is
+`(lnd.width, lnd.height)` with orientation `lnd.unknown_int` (0/1/2),
+runtime-confirmed: isl01 `(520,376) state 1`, isl02 `(312,504) state 2`, and
+all seven campaign Entrance records match. For isl01 this gives centre
+`(525.5,387.5)`, yaw 90°.
 
 ## Placement transform (solved)
 
@@ -112,6 +115,8 @@ $G = "game/%MAINDIR%"
 - `notes/menu-start-entrance.png` - Free Game start on isl01 with the
   auto-placed Entrance at `(520,376)`, Z `69.4`.
 - `notes/building-placement-recon.md` - decompiled call chain and maths.
+- `notes/calibration-2026-10-26.md` - runtime Entrance cells/states and water
+  Z (isl01/isl02), plus the visitor need ctor.
 - `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
   `test_cpp_building_placement_transform`,
   `test_cpp_wld_reader_matches_retail`.

@@ -1,6 +1,7 @@
 # `.lnd` format
 
 Status: **solved** — 10/10 island descriptors parse, 25 vegetation slots each.
+Header semantics are runtime-confirmed for the Entrance and water (see below).
 
 ## Layout
 
@@ -14,10 +15,10 @@ u32 len + NUL-terminated string  x 8:
     5  water TGA
     6  second water TGA
     7  occupation RAW
-f32  unknown                (16.0 .. 26.0)
-u32  width                  (heightmap/basemap width)
-u32  height
-u32  unknown                (0, 1 or 2)
+f32  water_level            (16.0 .. 26.0; runtime water surface Z)
+u32  entrance_cell_x        (free-game Entrance cell, 0..1024)
+u32  entrance_cell_y
+u32  entrance_state         (0, 1 or 2; 90-degree orientation)
 u32 len + NUL-terminated music name
 25 x (u32 len + NUL-terminated vegetation .imp path or "None")
 ```
@@ -26,7 +27,7 @@ The file ends after the 25 vegetation strings. No trailing data.
 
 ## Inventory
 
-| File | Float | W×H | Unknown | Music | Vegetation |
+| File | Water Z | Entrance cell | State | Music | Vegetation |
 | --- | ---: | --- | ---: | --- | ---: |
 | `isl01.lnd` | 16.0 | 520×376 | 1 | `musEquateur` | 25 |
 | `isl02.lnd` | 20.0 | 312×504 | 2 | `musAtoll` | 25 |
@@ -42,24 +43,27 @@ The file ends after the 25 vegetation strings. No trailing data.
 `isl01` vegetation starts with `isl01_ImpPalm1.imp` … and ends with `None`
 slots. These are the landscape import/prop lists used by `WORLD-1`.
 
-The float and the 0/1/2 integer are editor metadata too; the runtime reader
-discards them (see “Runtime use” below). The float is **not** a proven water
-level.
+## Header semantics (runtime-confirmed)
 
-### Runtime use of the header values
+The four header values are **not** editor metadata:
 
-The only full `.lnd` reader is `FUN_0051dad0` (island load, called from the
-Free Game start `0x403e10`). It reads the eight resource strings, the float,
-`width`, `height`, the 0/1/2 value, the music name and the 25 vegetation
-strings. The four header values are read into stack scratch and **never used
-again** ? the destination slots are abandoned before the music string. The
-second `.lnd` reader `FUN_00506950` only reads the name-key string.
+- `entrance_cell_x`/`entrance_cell_y` are the free-game Entrance cell.
+- `entrance_state` (0/1/2) is the Entrance orientation (90-degree state).
+- `water_level` is the water-surface Z.
 
-So `width`, `height`, the float and the 0/1/2 value are **editor metadata**;
-the retail runtime discards them. The float is therefore not a proven water
-level. (The former lead about the terrain builder `0x5fb8b0` reading
-`+0x24/+0x25/+0x26` was a misread: those are detail-map parameters set by
-`FUN_005f3f10` to 20000 / 1.0 / 0.05.)
+Evidence: runtime `FUN_00586b80` on new free games gives isl01
+`(520,376) state 1` and isl02 `(312,504) state 2`, exactly
+`isl01.lnd 520/376/1` and `isl02.lnd 312/504/2`; all seven campaign
+`Cpg0*_Save.wld` Entrance records match their island values. Runtime
+`FUN_00602cf0` gives water Z `16.0` on isl01 and `20.0` on isl02, matching
+the `.lnd` float. See `notes/calibration-2026-10-26.md`.
+
+`FUN_0051dad0` reads the four values into stack scratch and does not use them
+directly; the exact code path that carries them to the Entrance/landscape
+objects is still open. The second `.lnd` reader `FUN_00506950` only reads the
+name-key string. (The former lead about the terrain builder `0x5fb8b0`
+reading `+0x24/+0x25/+0x26` was a misread: those are detail-map parameters
+set by `FUN_005f3f10` to 20000 / 1.0 / 0.05.)
 
 ## Reader/API
 

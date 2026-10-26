@@ -106,7 +106,7 @@ calls `load_island(name)`, which rebuilds the terrain, basemap, vegetation,
 skybox, water plane and their GPU resources and recentres the camera. All ten
 islands validate:
 
-| island | heightmap | `.lnd` float (unverified) | notes |
+| island | heightmap | water Z | notes |
 | --- | --- | --- | --- |
 | isl01 | 512×512, 0..92 | 16.0 | 9 vegetation groups |
 | isl02 | 512×512, 0..70 | 20.0 | |
@@ -142,9 +142,10 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
 
 ## Open questions
 
-- `.lnd` width/height/float are editor metadata (FMT-21b): the retail loader
-  discards them. The port's water plane at the float is an unverified
-  convention; WORLD-3 must find the real water height.
+- `.lnd` width/height are the free-game Entrance cell; the 0/1/2 value is its
+  orientation; the float is the water Z (runtime-confirmed on isl01/isl02,
+  `notes/calibration-2026-10-26.md`). The terrain mesh itself is 1024 units
+  regardless of these fields.
 - Water plane / shoreline animation; currently the basemap ocean is painted on
   the heightfield.
 - Detailmap blending and terrain material layers.

@@ -795,16 +795,20 @@ Updated: 2026-10-26
   - Loader `0x53d9a0` builds 0xb4-byte records, matching the file layout.
   - Evidence: `tools/formats/bwi.py`, `docs/formats/bwi.md`,
     `tests/test_bwi.py`, `notes/bwi-recon.md`.
-- FMT-21b complete: **`.lnd` width/height are editor metadata.**
-  - The only full `.lnd` reader `0x51dad0` reads the eight resource strings,
-    the float, width, height and the 0/1/2 value into stack scratch, then
-    never uses them again (the music and 25 vegetation strings follow).
-  - `0x506950` only reads the name-key string. So the header values are not
-    consumed by the retail runtime; no terrain/mask derivation fits either.
-  - Correction: the terrain builder `0x5fb8b0` `+0x24/+0x25/+0x26` fields are
-    detail-map parameters (`FUN_005f3f10` sets 20000/1.0/0.05), not the
-    `.lnd` trio. The `.lnd` float is not a proven water level.
-  - Evidence: `docs/formats/lnd.md`, `notes/open-issues.md`.
+- FMT-21b corrected: **`.lnd` header semantics runtime-confirmed.**
+  - `width`/`height` = free-game Entrance cell; the 0/1/2 value = Entrance
+    orientation; the float = water surface Z.
+  - Runtime `FUN_00586b80`: isl01 `(520,376) state 1`, isl02 `(312,504)
+    state 2`, matching the `.lnd` fields; all seven campaign Entrance records
+    match. Runtime `FUN_00602cf0`: water Z 16.0 (isl01) / 20.0 (isl02),
+    matching the float.
+  - `FUN_0051dad0` reads the four values into stack scratch; the exact carry
+    path to the Entrance/landscape objects is still open (the earlier “dead
+    metadata” conclusion was wrong).
+  - The terrain builder `0x5fb8b0` `+0x24/+0x25/+0x26` fields are detail-map
+    parameters (`FUN_005f3f10` sets 20000/1.0/0.05), not the `.lnd` trio.
+  - Evidence: `docs/formats/lnd.md`, `notes/calibration-2026-10-26.md`,
+    `notes/open-issues.md`.
 - FMT-21 complete: **island `.raw` heightmap + occupation mask.**
   - Heightmap 512×512 u8; occupation 1024×1024 u8 with values {0,255}.
   - 0 = buildable land, 255 = blocked/water; 0 cells are higher and never
@@ -896,6 +900,11 @@ Updated: 2026-10-26
   - Evidence: `src/world/visitors.cpp`, `src/formats/bvi.cpp`,
     `docs/platform/visitors.md`, `docs/decomp/visitor-ai.md`,
     `tests/test_viewer_cpp.py::test_cpp_sim2b_visitor_state_machine`.
+  - **P0 review correction:** the actor ctor `FUN_005761b0` initializes
+    need0 to `39` (`int(99*0.4)`), not `99`; and the need1 10 s decay pauses
+    when `state == Use && target duration != 0`, not when `need_delta1 != 0`.
+    `notes/calibration-2026-10-26.md` has the disassembly and runtime hit.
+    The ported `visitors.cpp` still has the old values; apply the two fixes.
   - `apVisitorBehavior::Update` (`0x522820`) + state transitions (`0x522940`):
     choose → travel → use attraction → leave.
   - Attraction scoring (`0x522a10`) uses a constant seven-float block from

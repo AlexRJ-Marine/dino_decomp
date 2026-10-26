@@ -4229,7 +4229,7 @@ int main(int argc, char** argv) {
                                   : static_cast<int>(
                                         visitor_system.visitors.size() %
                                         visitor_profiles.size());
-            visitor.need0 = 99;
+            visitor.need0 = 39;
             visitor.need1 = 99;
             visitor.need2 = 99;
             visitor.state = dino::VisitorState::Choose;

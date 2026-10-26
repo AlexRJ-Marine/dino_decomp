@@ -19,28 +19,26 @@ unknowns, with what was tried and the concrete next step.
   consumed; the file is editor/demo data. Its internal floats remain
   undocumented but are not a live gameplay table.
 
-## 2. `.lnd` `width` / `height`
+## 2. `.lnd` `width` / `height` / float / 0/1/2
 
-- **Solved (dead data):** the only full `.lnd` reader is `FUN_0051dad0`
-  (island load, called from the Free Game start `0x403e10`).  It reads the
-  eight resource strings, then the float, width, height and the 0/1/2 value,
-  then the music name and the 25 vegetation strings.  The four header values
-  are read into stack scratch and **never read again**: the destination slots
-  are overwritten/abandoned before the music string (capstone scan: no later
-  access to the float/width/height slots).  The second `.lnd` reader
-  `FUN_00506950` only reads the name-key string.
-- **Ruled out earlier:** heightmap bbox (`>0`/`>1` and every threshold
-  0..199), the occupation-mask bbox, central-mass bboxes, the basemap size
-  (1024^2), a fixed 2-unit cell grid, and a preview-image size.
-- **Conclusion:** `width`, `height`, the float and the 0/1/2 value are
-  editor/tool metadata.  The retail runtime never consumes them, so the
-  values need no further decoding.
-- **Correction:** the old lead about the terrain builder `0x5fb8b0` reading
-  dword `+0x24/+0x25/+0x26` was wrong.  Those are detail-map parameters set
-  by `FUN_005f3f10` to `20000`, `1.0` and `0.05`; they are not the `.lnd`
-  header trio.  Also note the `.lnd` float is **not** a proven runtime water
-  level ? the reader discards it.  The port's water plane uses it as a
-  convention; WORLD-3 should confirm the retail water height separately.
+- **Correction (runtime): no longer dead data.** `FUN_0051dad0` reads the
+  four values into stack scratch and does not use them directly, but the
+  retail data and runtime prove they are consumed elsewhere:
+  - `width`/`height` are the free-game **Entrance cell**.
+  - the `0/1/2` value is the Entrance **orientation state**.
+  - the float is the **water surface Z**.
+- Runtime `FUN_00586b80` (building ctor): isl01 `(520,376) state 1`, isl02
+  `(312,504) state 2`, exactly `isl01.lnd 520/376/1` and
+  `isl02.lnd 312/504/2`. All seven campaign `Cpg0*_Save.wld` Entrance
+  records match their island `.lnd` width/height/0-1-2.
+- Runtime `FUN_00602cf0` water quad: isl01 `16.0`, isl02 `20.0`, matching the
+  `.lnd` float.
+- **Open:** the exact code path that carries the four values from the `.lnd`
+  stack scratch to the Entrance/landscape objects. The `.lnd` reader may be a
+  second copy or the values may be re-read by the scenario setup.
+- **Evidence:** `notes/calibration-2026-10-26.md`,
+  `notes/x32dbg-calibration-isl01b.out.log`,
+  `notes/x32dbg-calibration-isl02.out.log`.
 
 ## 3. `.bfi` body integers
 

@@ -124,10 +124,16 @@ Entrance has all five weights 0, so its appeal values are 0. See
 
 ## Needs
 
-`actor+0x48/+0x4c/+0x50` are three int needs in 0..99. They **do decay on
-timers** (`FUN_00589cd0` → `FUN_00576320` / `FUN_005763f0`):
+`actor+0x48/+0x4c/+0x50` are three int needs (need0 may go negative; the
+others clamp to 0..99). The actor ctor
+`FUN_005761b0` initializes `+0x48..+0x64 = 99`, then sets
+`need0 = (int)(99 * 0.4) = 39`; so a new visitor starts at **(39, 99, 99)**.
 
-- need1 `+0x4c` −1 every 10 s;
+They **do decay on timers** (`FUN_00589cd0` → `FUN_00576320` /
+`FUN_005763f0`):
+
+- need1 `+0x4c` −1 every 10 s, paused while using an attraction with a
+  nonzero duration;
 - need2 `+0x50` −1 every 7.5 s while travelling (state 1), −3 in state 3;
 - need0 `+0x48` gets `FUN_005763f0` every 12.5 s: −1 in state 0/1, −10 in
   state 3, and in state 2 it is adjusted from `appeal[profile] / scale`
@@ -148,8 +154,7 @@ else                            need0 = min(scaled + actor+0x58, target)
 ```
 
 `actor+0x58` is the need0 value captured by `FUN_00576530` when the visitor
-reaches the attraction, not a visit counter. New visitors start at
-**99/99/99** (retail save visitors show 96..99 after a few seconds of decay).
+reaches the attraction, not a visit counter.
 The `actor+0x68` profile index selects the appeal value; `FUN_0058a970`
 queues it by `rand() % (N*100)` over the `spPark+0x78` weight/cap/count table.
 The `VISITEURS_STATS` panel averages the needs per profile: GAUGE/INDICS ←
@@ -174,7 +179,9 @@ cell distance. `--visitor-stats` prints the state/need summary.
 
 - Consumer of the five variable `.bvi` weights (record `+0x24..+0x34`).
 - `0x005873e0` arrival contract.
-- The actor ctor that consumes the queued `+0x68` profile index.
+- The writer of the `actor+0x68` profile index; the ctor `FUN_005761b0`
+  receives it as `param_6`, but the queue consumer that passes it is not
+  located.
 - The `.bvi` preference weights are the profile floats at `+0x18` (inferred,
   not proven identical).
 

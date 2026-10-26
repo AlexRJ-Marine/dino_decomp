@@ -51,7 +51,22 @@ else actor[0x48] = min(actor+0x58 + target, target)
 `block+0x24` = `def+0x48` appeal scale (4.0). `block+0x28/+0x2c` are
 `def+0x50/+0x54` (int), i.e. the per-building need increments.
 
-### Timed decay (correction)
+### Initial state (ctor `FUN_005761b0`)
+
+The visitor actor ctor sets `+0x48..+0x64` to 99, then:
+
+```text
+00576210 FILD [ESI+0x48]          ; 99.0
+00576213 FMUL float [0x00643180]   ; 0.4
+00576219 CALL 0x005982d4           ; __ftol
+0057621e MOV [ESI+0x48],EAX        ; 39
+```
+
+So **initial needs are `(39, 99, 99)`**. The ctor also sets
+`+0x54..+0x64 = 99`, `+0x68 = profile index`, `+0x28 = 0`, `+0x74 = 0`.
+Runtime `VNEED` on both spawned visitors confirms `n0=39, n1=99, n2=99`.
+
+### Timed decay
 
 `FUN_00589cd0` runs three free-running timers and calls `FUN_00576320` for
 every visitor actor (`spPark+0x80` vector):
@@ -61,6 +76,10 @@ every visitor actor (`spPark+0x80` vector):
 | `_DAT_00675a2c` | 10.0 s | `FUN_00576320(..., tick1=1)`: need1 `+0x4c` −1 |
 | `_DAT_00675a30` | 7.5 s | `FUN_00576320(..., tick2=1)`: need2 `+0x50` −1 in state 1, −3 in state 3 |
 | `_DAT_00675a34` | 12.5 s | `FUN_00576320(..., tick3=1)`: `FUN_005763f0` (need0) |
+
+`FUN_00576320` pauses the need1 10 s decay while the visitor is in state 2
+(using an attraction) and the target's duration `+0x28` is nonzero. It is not
+a "need delta" or a feeding flag.
 
 `FUN_005763f0` (need0):
 
@@ -126,11 +145,9 @@ Update mapping: GAUGE/INDICS ← average `+0x48`; FOOD_STATISFACTION ← average
 - Spawn selection `FUN_0058a970`: profile weight `table+0x14`, cap
   `table+0x28`, current count `table+0x04`; `rand() % (N*100)` picks the
   profile, queued at `park+0xc`.
-- **New-visitor initial needs are unproven.** The ctor was not located; the
-  timed update above assumes values already set. A fresh retail save's
-  0x50-byte visitor records show 96-99 in all seven serialized "need" dwords
-  (not necessarily `+0x48..50`), so the absolute start values need a runtime
-  or ctor check.
+- **New-visitor initial needs are solved:** `(39, 99, 99)` from
+  `FUN_005761b0`; see “Initial state” above. The earlier save-record guess
+  (96-99) is superseded.
 
 ## Uncertainties
 
