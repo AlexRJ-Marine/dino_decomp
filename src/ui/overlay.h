@@ -41,6 +41,7 @@ struct Widget {
     int base_height = 0;
     int priority = 0;
     float zpriority = 0.0f;
+    bool has_zpriority = false;
 
     bool visible = true;
     bool enable = true;

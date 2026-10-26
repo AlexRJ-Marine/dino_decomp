@@ -3674,6 +3674,9 @@ int main(int argc, char** argv) {
     };
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
     std::vector<ImportedDino> imported_dinos;
+    // Fence rectangles from a `.wld`/`.sav` import, kept for the park HUD's
+    // paddock list after the import block ends.
+    std::vector<dino::Paddock> park_paddocks;
     std::vector<dino::BaiAction> dino_action_table;
     std::array<int, 4> dino_initial_needs{50, 99, 99, 99};
     if (std::sscanf(opt.dino_needs.c_str(), "%d,%d,%d,%d",
@@ -4636,6 +4639,9 @@ int main(int argc, char** argv) {
             }
             rebuild_extra_items();
         }
+        park_paddocks = paddocks;
+        std::printf("park list: dinos=%zu paddocks=%zu\n",
+                    imported_dinos.size(), park_paddocks.size());
     }
 
     int build_tool = opt.build_mode ? 1 : 0;
@@ -5781,32 +5787,45 @@ int main(int argc, char** argv) {
         auto py = [&](int value) { return static_cast<float>(value) * dpi; };
 
         std::vector<int> order;
-        for (int i = 0; i < static_cast<int>(park.overlay.widgets.size()); ++i) {
-            if (park.overlay.widgets[static_cast<std::size_t>(i)].name ==
-                    "RENDERVIEW" ||
-                !park.overlay.visible_in_tree(i)) {
-                continue;
-            }
-            order.push_back(i);
-        }
-        std::sort(order.begin(), order.end(), [&](int a, int b) {
+        auto draw_less = [&](int a, int b) {
             const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
             const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
-            // Dialog text must draw above its *_TEXT_BACK_ZONE and the wood
-            // frame, regardless of its lower ZPRIORITY.
-            if (is_text_zone(wa.name) && !is_text_zone(wb.name)) {
-                return false;
-            }
-            if (is_text_zone(wb.name) && !is_text_zone(wa.name)) {
-                return true;
-            }
             if (wa.priority != wb.priority) {
                 return wa.priority < wb.priority;
             }
             if (wa.zpriority != wb.zpriority) {
-                return wa.zpriority < wb.zpriority;
+                // Lower ZPRIORITY is nearer the viewer in the retail overlay;
+                // draw the far widgets first and the near ones last.
+                return wa.zpriority > wb.zpriority;
             }
             return a < b;
+        };
+        // moWidget::Draw (0x005c5bf0) draws the widget, then its child list in
+        // priority order. A flat ZPRIORITY sort loses that nesting: a list
+        // slot's snapshot would cover its indicator strip. Walk the tree.
+        std::function<void(int)> append_widget = [&](int i) {
+            const dino::ui::Widget& widget =
+                park.overlay.widgets[static_cast<std::size_t>(i)];
+            if (widget.name == "RENDERVIEW" ||
+                !park.overlay.visible_in_tree(i)) {
+                return;
+            }
+            order.push_back(i);
+            std::vector<int> children = widget.children;
+            std::sort(children.begin(), children.end(), draw_less);
+            for (int child : children) {
+                append_widget(child);
+            }
+        };
+        std::vector<int> roots = park.overlay.roots;
+        std::sort(roots.begin(), roots.end(), draw_less);
+        for (int root : roots) {
+            append_widget(root);
+        }
+        // Dialog text must draw above its *_TEXT_BACK_ZONE and the wood frame.
+        std::stable_partition(order.begin(), order.end(), [&](int i) {
+            return !is_text_zone(
+                park.overlay.widgets[static_cast<std::size_t>(i)].name);
         });
 
         auto runtime_text = [&](const std::string& name) -> std::string {
@@ -5820,13 +5839,57 @@ int main(int argc, char** argv) {
                 return std::to_string(visitor_system.visitors.size());
             }
             if (name == "DINO_AMOUNT") {
-                return place_dino ? "1" : "0";
+                const std::size_t count =
+                    imported_dinos.size() + (place_dino ? 1 : 0);
+                return std::to_string(count);
             }
             if (name == "SHOW_AMOUNT") {
                 return "0";
             }
             if (name == "PADDOCK_AMOUNT") {
-                return "0";
+                return std::to_string(park_paddocks.size());
+            }
+            const auto slot_index = [](const std::string& widget_name,
+                                       const char* prefix) -> int {
+                const std::size_t prefix_len = std::strlen(prefix);
+                if (widget_name.rfind(prefix, 0) != 0) {
+                    return -1;
+                }
+                return std::atoi(widget_name.c_str() + prefix_len) - 1;
+            };
+            if (name.rfind("DINO_NAME_SLOT", 0) == 0) {
+                const int slot = slot_index(name, "DINO_NAME_SLOT");
+                if (slot >= 0 && slot < static_cast<int>(imported_dinos.size())) {
+                    return imported_dinos[static_cast<std::size_t>(slot)].species;
+                }
+                return "";
+            }
+            if (name.rfind("FENCE_NAME_SLOT", 0) == 0) {
+                const int slot = slot_index(name, "FENCE_NAME_SLOT");
+                if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+                    return "Paddock " + std::to_string(slot + 1);
+                }
+                return "";
+            }
+            if (name.rfind("FENCE_LIST_QUANTITY_SLOT", 0) == 0) {
+                const int slot = slot_index(name, "FENCE_LIST_QUANTITY_SLOT");
+                if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+                    return std::to_string(
+                        park_paddocks[static_cast<std::size_t>(slot)]
+                            .occupants.size());
+                }
+                return "";
+            }
+            if (name.rfind("FENCE_LIST_POURCENT_SLOT", 0) == 0) {
+                const int slot = slot_index(name, "FENCE_LIST_POURCENT_SLOT");
+                if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+                    const float percent =
+                        park_paddocks[static_cast<std::size_t>(slot)].fill() *
+                        100.0f;
+                    return std::to_string(
+                        static_cast<int>(percent + 0.5f));
+                }
+                return "";
             }
             if (name == "PARK_CURRENT_TIME") {
                 return park_clock.time_text(false);

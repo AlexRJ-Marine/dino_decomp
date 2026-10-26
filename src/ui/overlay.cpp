@@ -94,6 +94,7 @@ bool Overlay::load_interface(const std::string& interface_path,
             widget.height = to_int(section.get("HEIGHT"));
             widget.priority = to_int(section.get("PRIORITY"));
             widget.zpriority = to_float(section.get("ZPRIORITY"));
+            widget.has_zpriority = section.has("ZPRIORITY");
             widget.visible = section.get("VISIBLE") != "0";
             widget.enable = section.get("ENABLE") != "0";
             widget.texture = section.get("TEXTURE");
@@ -145,6 +146,39 @@ bool Overlay::load_interface(const std::string& interface_path,
                 widgets[static_cast<std::size_t>(widget.parent_index)]
                     .children.push_back(
                         static_cast<int>(&widget - widgets.data()));
+            }
+        }
+
+        // moWidget::Draw walks the tree parent-first. The flat draw list sorts
+        // by ZPRIORITY, so a child without its own value must inherit the
+        // nearest ancestor's; otherwise z=0 children (list slots, names) draw
+        // under the z=0.49 panel art.
+        for (Widget& widget : widgets) {
+            if (widget.has_zpriority) {
+                continue;
+            }
+            int parent = widget.parent_index;
+            while (parent >= 0) {
+                const Widget& ancestor = widgets[static_cast<std::size_t>(parent)];
+                if (ancestor.has_zpriority) {
+                    widget.zpriority = ancestor.zpriority;
+                    break;
+                }
+                parent = ancestor.parent_index;
+            }
+        }
+
+        // Text-only children (the list counters, names) sit on top of their
+        // parent's panel art even when the INI gives them a lower ZPRIORITY.
+        for (Widget& widget : widgets) {
+            if (!widget.texture.empty() || widget.font.empty() ||
+                widget.parent_index < 0) {
+                continue;
+            }
+            const Widget& parent = widgets[static_cast<std::size_t>(
+                widget.parent_index)];
+            if (widget.zpriority <= parent.zpriority) {
+                widget.zpriority = parent.zpriority + 0.001f;
             }
         }
 

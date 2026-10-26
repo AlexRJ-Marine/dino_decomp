@@ -2035,3 +2035,39 @@ def test_cpp_budget_panel_ledger(tmp_path):
                 (230, 398, 312, 426)):
         diff = ImageChops.difference(a.crop(box), b.crop(box))
         assert diff.getbbox() is not None
+
+def test_cpp_park_fence_and_dino_lists(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+
+    def run(click, shot):
+        return subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-input",
+             "--no-vsync", "--no-save-config", "--width", "800",
+             "--height", "600", "--lnd", str(isl04), "--asset-root", str(GAME),
+             "--no-vegetation", "--no-water", "--wld-park", str(wld),
+             "--park-click", click, "--screenshot", str(shot)],
+            capture_output=True, text=True, timeout=300,
+        )
+
+    fence_shot = tmp_path / "fence-list.bmp"
+    fence = run("492,584", fence_shot)
+    assert fence.returncode == 0, fence.stderr
+    assert "park click 492,584 -> open FENCE_LIST_PANEL" in fence.stdout
+    assert "park list: dinos=20 paddocks=9" in fence.stdout
+    image = Image.open(fence_shot).convert("RGB")
+    # The first paddock name and its counters are drawn from park state.
+    assert len(image.crop((175, 541, 239, 557)).getcolors(maxcolors=100000)) > 20
+    assert len(image.crop((172, 490, 187, 501)).getcolors(maxcolors=100000)) > 5
+    assert len(image.crop((172, 525, 187, 536)).getcolors(maxcolors=100000)) > 5
+
+    dino_shot = tmp_path / "dino-list.bmp"
+    dinos = run("302,584", dino_shot)
+    assert dinos.returncode == 0, dinos.stderr
+    assert "park click 302,584 -> open DINO_LIST_PANEL" in dinos.stdout
+    image = Image.open(dino_shot).convert("RGB")
+    assert len(image.crop((176, 541, 240, 557)).getcolors(maxcolors=100000)) > 20

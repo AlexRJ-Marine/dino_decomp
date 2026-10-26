@@ -171,6 +171,31 @@ The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
   `--park-advance N` advances it N real seconds and
   `--park-time-scale N` overrides 60.0.
 
+### Park list snapshots
+
+The imported `.wld`/`.sav` park state feeds the two bottom list panels:
+
+- `PADDOCK_AMOUNT` and `DINO_AMOUNT` are the real fence-rectangle and
+  imported-dinosaur counts.
+- `FENCE_LIST_PANEL` fills its five slots with `Paddock N`, the occupant count
+  and the capacity percentage. The remaining paddocks are reachable with the
+  scroll buttons once scrolling is wired.
+- `DINO_LIST_PANEL` fills its five name slots with the species of the first
+  five imported dinosaurs (the slot art and need/size indicators are the
+  retail TEXTURE frames).
+
+The HUD draw order now follows `moWidget::Draw` (`0x005c5bf0`): walk the widget
+tree parent-first, sort each child list by `PRIORITY` and then descending
+`ZPRIORITY` (a lower value is nearer the viewer), and draw text-only children
+after their parent's art. The previous flat ascending-Z sort hid the list
+indicator strips under the snapshot buttons.
+
+Evidence: `notes/park-fence-list.png`, `notes/park-dino-list.png`,
+`tests/test_viewer_cpp.py::test_cpp_park_fence_and_dino_lists`.
+
+The five slot thumbnails are still the generic `DINO_SNAPSHOT_SLOT1` frame;
+live 3D snapshots per dinosaur remain open.
+
 ## Evidence
 
 - `notes/hud.png` — HUD over the isl01 view.

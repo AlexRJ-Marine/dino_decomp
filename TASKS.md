@@ -1112,8 +1112,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   daily settlement feed it, and the panel shows CONSTRUCTION/DINOACHAT and
   the total expenses after the rollover (`notes/budget-spent.png`,
   `test_cpp_budget_panel_ledger`).
-- [ ] Phase C rest: list snapshots/sliders, minimap water colour/partition
-  polish.
+- [x] Phase C rest (list snapshots): `DINO_AMOUNT`/`PADDOCK_AMOUNT` and the
+  five `DINO_LIST_PANEL`/`FENCE_LIST_PANEL` slots are populated from the
+  imported `.wld`/`.sav` park (species names, occupant counts, capacity
+  percentages). The park HUD now follows `moWidget::Draw` tree order
+  (parent-first, descending `ZPRIORITY`) so list indicator strips are not
+  covered by the snapshot art (`notes/park-fence-list.png`,
+  `notes/park-dino-list.png`, `test_cpp_park_fence_and_dino_lists`).
+- [ ] Phase C rest: sliders and minimap water colour/partition polish; live
+  3D thumbnails in the list slots.
 - [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park
   HUD buttons (`clicDefault`, `exitClic` for Quit); `--ui-sounds`,
   `--no-sounds`, `--list-sounds`, `--play-sound`.
