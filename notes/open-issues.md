@@ -47,7 +47,8 @@ unknowns, with what was tried and the concrete next step.
 - **Next:** the `.bfi` loader `0x53ed30` uses the same reader pattern as the
   `.bai` loader; 73 reader calls are extracted, but a fixed "6 u32 + string"
   hypothesis only fits 7/62 files (the body is variable-width). Map each
-  call's destination record offset next.
+  call's destination record offset next (initial mapping is in
+  `notes/bfi-recon.md`; the class-tag branches gate the body shape).
 
 ## 4. `.bwi` field semantics
 

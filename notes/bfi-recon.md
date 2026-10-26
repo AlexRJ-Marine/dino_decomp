@@ -83,3 +83,40 @@ After the class tag the loader does a long run of `1 x u32` reads with a
 files, so the body is variable-width (the AnimalBait files contain a packed
 byte array `01 02 05 06 09` where others have a u32). The next step is to map
 the actual destinations of the 73 calls (record offsets), not just the sizes.
+
+## Destination mapping (2026-10-26)
+
+The `.bfi` half of `0x53ed30` (before the `0x53fb00` building loader starts at
+`0x53ff01`) reads the body into these runtime-record offsets:
+
+```
+53f126  1x4  record +0x0c (via [ebx+ecx+0xc])
+53f139  1x4  +0x04
+53f14c  1x4  +0x08
+53f15f  1x4  +0x0c
+53f172  1x1  +0x10
+53f185  1x4  +0x14
+53f198  1x4  +0x18
+53f1ab  1x4  +0x1c
+53f1be  1x4  +0x20
+53f1d5  1x4  temp (string length/count)
+53f1f2..53f25a  string read (count from a temp)
+53f367  1x4  +? (string length)
+53f388  1x4  +?
+53f3cb  1x1  byte
+53f3f3  1x4  temp
+53f422  4x4  block? (count 1, size 4 at 0x53f422? see note)
+53f435  1x4
+53f463  1x4  temp
+53f5f1  1x4  +0x68 region
+...      alternating u32/string pairs, then 3x4 at 0x53f9ae, 1x4 at 0x53fa20
+```
+
+Key point: the body is not uniform. The string/LOD/enum blocks differ per
+feature class, which is why a single fixed parser fails. The per-class shape
+must be taken from the class tag: the four tag-specific branches in the
+loader correspond to `StaticBait`, `AnimalBait`, `Waypoint`, `Teleport`; all
+other classes share the generic path.
+
+Next concrete step: decompile the class-tag branch targets and split the body
+into (a) generic fields + (b) the four tagged variants.
