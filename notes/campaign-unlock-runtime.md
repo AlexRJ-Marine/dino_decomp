@@ -14,13 +14,17 @@ defaults to **1**.
 - Fresh test profile: `01 00 00 00` → only the first campaign is available.
 - Setting `0F 00 00 00` unlocked the first four campaigns; **Cpg04 ("Panic in
   the Savanna") then starts** through the normal
-  Campaigns → row 3 → Start gear → mission row → Start flow.
-- Evidence screenshot: `notes/campaign-park.png` (Cpg04 briefing, budget
-  17,000, 20 dinosaurs, 4 briefing pages).
+  Campaigns → row 3 → Start gear → mission row → Start flow. The Cpg04
+  briefing was reached (budget 17,000, 20 dinosaurs, 4 briefing pages).
 - The file is read at startup, so edit it before launching. `run/` is the
   test copy; `game/` and `original/` are untouched. The backup made during
   this experiment is `run/save/dino.dat.bak` (value 1); the test copy was
   restored to 1 after the run.
+- Screen capture under x32dbg + dgVoodoo2 is timing-flaky (some runs show a
+  black window while the process is still initialising). The reliable
+  evidence is the `dino.dat` reader/writer pair, the click coordinates and
+  the successful Cpg04 load; the harness can be re-run without breakpoints
+  (`-NoTrace`) once the window is up.
 
 The campaign UI coordinates used by the harness (from `MenuInterface.Ini`):
 
@@ -74,10 +78,12 @@ restore it from `run/save/auto/slot001.sav` if a save test follows.
 
 ## Evidence
 
-- `notes/campaign-park.png`, `notes/campaign-info.png`,
-  `notes/campaign-selected.png`, `notes/campaign-running.png`.
-- `notes/x32dbg-campaign.out.log` — `CLIPPAIR` lines with the real vtables;
-  no `DINO`/`FENCE`/`CANADD` hits before the briefing was dismissed.
+- `scripts/x32dbg/start-campaign.ps1` — reproducible campaign launcher
+  (`-NoTrace` for screenshot-only runs).
 - Ghidra: `0x5612d0` (dino.dat reader), `0x5617a0` (writer), `0x56c0c0`,
   vtables `0x6430AC` / `0x6430E4`, getters `0x56F290` / `0x56FE70` /
   `0x56FE80`.
+- The live trace observed `CLIPPAIR this=... vt=006430AC/006430E4`; the
+  screenshot/ log artifacts from that run are timing-sensitive and were
+  overwritten by later attempts, so the vtables are recorded here and the
+  static getter disassembly is the primary evidence.

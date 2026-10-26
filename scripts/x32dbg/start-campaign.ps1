@@ -2,6 +2,7 @@ param(
     [int]$Seconds = 60,
     [int]$CampaignRow = 3,
     [int]$MissionRow = 0,
+    [switch]$NoTrace,
     [string]$GameDir = "run",
     [string]$Log = "notes\x32dbg-campaign.out.log"
 )
@@ -141,14 +142,16 @@ if (-not $game) {
 
         # Install the trace breakpoints now that the menu is past its asset
         # loading, then resume once so the next Start click is not blocked.
-        Send 'bp 0x57dc60'
-        Send 'SetBreakpointCommand 0x57dc60, "log FENCE this={p:ecx} p0={p:[esp+4]} p1={p:[esp+8]} cellptr={p:[esp+0xc]} cell={p:[[esp+0xc]]} x0={p:[[esp+4]]} y0={p:[[esp+4]+4]} x1={p:[[esp+8]]} y1={p:[[esp+8]+4]}; run"'
-        Send 'bp 0x571540'
-        Send 'SetBreakpointCommand 0x571540, "log DINO this={p:ecx} act={p:[ecx+0x2c0]} f1e0={p:[ecx+0x1e0]} f1dc={p:[ecx+0x1dc]} f1e4={p:[ecx+0x1e4]}; run"'
-        Send 'bp 0x56c0c0'
-        Send 'SetBreakpointCommand 0x56c0c0, "log CLIPPAIR this={p:ecx} vt={p:[ecx]} a2={p:[esp+4]} a3={p:[esp+8]} a4={p:[esp+0xc]} a5={p:[esp+0x10]}; run"'
-        Send 'bp 0x57eb50'
-        Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+        if (-not $NoTrace) {
+            Send 'bp 0x57dc60'
+            Send 'SetBreakpointCommand 0x57dc60, "log FENCE this={p:ecx} p0={p:[esp+4]} p1={p:[esp+8]} cellptr={p:[esp+0xc]} cell={p:[[esp+0xc]]} x0={p:[[esp+4]]} y0={p:[[esp+4]+4]} x1={p:[[esp+8]]} y1={p:[[esp+8]+4]}; run"'
+            Send 'bp 0x571540'
+            Send 'SetBreakpointCommand 0x571540, "log DINO this={p:ecx} act={p:[ecx+0x2c0]} f1e0={p:[ecx+0x1e0]} f1dc={p:[ecx+0x1dc]} f1e4={p:[ecx+0x1e4]}; run"'
+            Send 'bp 0x56c0c0'
+            Send 'SetBreakpointCommand 0x56c0c0, "log CLIPPAIR this={p:ecx} vt={p:[ecx]} a2={p:[esp+4]} a3={p:[esp+8]} a4={p:[esp+0xc]} a5={p:[esp+0x10]}; run"'
+            Send 'bp 0x57eb50'
+            Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+        }
         Send 'run'
         Start-Sleep -Milliseconds 500
 
