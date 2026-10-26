@@ -525,15 +525,37 @@ Updated: 2026-10-26
   - Evidence: `tools/formats/anim_trans.py`,
     `docs/formats/anim-trans.md`, `tests/test_anim_trans.py`,
     `notes/anim-trans-recon.md`.
-- FMT-18 partial: **`.bai` action header decoded.**
-  - 64/64 files parse; packed header `name[20]`, fields at `+0x14..+0x32`,
-    `params[8]` at `+0x36`, variable tail from `+0x56`.
+- FMT-18 complete: **`.bai` action definitions fully solved.**
+  - 64/64 files parse to an exact EOF: packed header `name[20]`, fields at
+    `+0x14..+0x32`, `params[8]`, then `consume_flag` and five counted
+    sections (preconditions, effect weights, need deltas, stat grants,
+    effect class + 0x58-byte elements).
   - `field_20` high byte = special-action group (exploration 1, runaway 2,
     sleep 3, dino attack 4, obstacle attack 5, victory 6); long names are
     truncated to 19 chars in the file itself.
-  - Tail arrays and field semantics remain open.
+  - Loader `0x0053e060` rotates every pair: preconditions
+    `(attribute, comparison, threshold)` -> `(threshold, attribute,
+    comparison)`; weights `(attribute, unused, weight)` -> `(unused, weight,
+    attribute)`; needs `(need, delta)` -> `(delta, need)`; grants
+    `(attribute, value)` -> `(value, attribute)`.
+  - `FUN_0056e0e0` gates on the preconditions and the `consume_flag`
+    inventory check; `FUN_00569660` scores elements with
+    `sum(attribute*weight) + rand()%field_14` and picks the first element
+    whose `time >= score`; `FUN_0056e410`/`FUN_0056e5d0` apply need deltas;
+    `FUN_00569a00` executes an element; `FUN_005727b0` applies events.
+  - Event kinds are **effect ids**, not action ids, and the third field is a
+    **percentage of the current value** (`value + current*percent/100`),
+    proven by `GetQuad` (125..400%). Attribute ids were corrected from
+    `FUN_00572620` + jump table `0x00572730` (4/5 = integer size class,
+    7/8 = float body dimensions, 13 = weight total, 14 = second weight).
+  - Retail totals: 46 preconditions/33 files, 43 weights/33, 134 need
+    deltas, 24 grants, 204 elements/63 files, 171 events; effect classes
+    0/1/2/3/5 = 44/1/1/1/17.
+  - Open: consumers of `field_26/2a/2e/32`, `params[8]`, `flag_20` and the
+    stat-grant vector.
   - Evidence: `tools/formats/bai.py`, `docs/formats/bai.md`,
-    `tests/test_bai.py`.
+    `tests/test_bai.py`, `notes/bai-recon.md`,
+    `notes/bai-tail-parse.json`.
 - FMT-19 complete: **`TranslatorConstants.ini` + genotype translator.**
   - 41 `[SIMU_CONSTANTS]` keys map to translator `+0x228..+0x2dc`.
   - Five dinosaur-need formulas (`0x618020`): beauty, danger, spectacular

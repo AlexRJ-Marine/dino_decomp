@@ -293,14 +293,22 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   64/64 files parse; names match `ActionList.ini` order.
 - [x] Decode the special-action group in the high byte of `field_20`
   (exploration/runaway/sleep/attack/obstacle/victory).
-- [ ] Tail arrays (12-byte and 8-byte records pushed into the 0xac-byte
-  action record) and the semantics of `field_14/18/1c/2a/2e/32` plus the
-  eight params.
-- [ ] Tail arrays: disassembly shows u8, two 12-byte arrays, two
-  8-byte arrays, then scalars and 0x58-byte records; loop bounds still
-  ambiguous (`notes/bai-recon.md`).
-- **Acceptance:** all 64 headers parse; the group map and name truncation are
-  checked against retail files.
+- [x] Decode the full variable tail: `consume_flag`, preconditions, effect
+  weights, need deltas, stat grants, `effect_class` and the 0x58-byte effect
+  elements with their events. 64/64 files parse to an exact EOF.
+- [x] Decode the consumers: `FUN_0056e0e0` (precondition/consume gate),
+  `FUN_00569660` (element scorer/selector), `FUN_0056e410`/`FUN_0056e5d0`
+  (need deltas), `FUN_00569a00` (element execution), `FUN_005727b0` (event
+  effects), `FUN_00572620` (attribute ids) and `FUN_0056a490` (radius).
+- [x] Correct the event semantics: the third field is a percentage of the
+  current value (`value + current * percent / 100`), and event kinds are
+  effect ids, not `ActionList.ini` action ids.
+- **Acceptance:** all 64 headers and tails parse; the group map, name
+  truncation, runtime rotations and event percentages are checked against
+  retail files.
+- **Open (not blocking):** the consumers of `field_26/2a/2e/32`, `params[8]`,
+  `flag_20` and the stat-grant vector are not located; they are listed in
+  `docs/formats/bai.md`.
 - **Depends on:** FMT-15.
 - **Evidence:** `tools/formats/bai.py`, `docs/formats/bai.md`,
   `tests/test_bai.py`.
