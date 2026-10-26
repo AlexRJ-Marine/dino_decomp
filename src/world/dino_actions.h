@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -76,6 +77,10 @@ struct DinoActionLoopConfig {
     double secu_decay = 0.0;
     double repos_decay = 0.5;
     double action_scale = 1.0;    // multiplies the `.bai` field_2e duration
+    // The `.bai` consume/item gate: retail only offers Eat when the target
+    // food source exists. The viewer sets this per dinosaur from the food
+    // sources in its paddock.
+    bool inventory = false;
 };
 
 class DinoActionLoop {
@@ -100,6 +105,17 @@ public:
     // the next tick.
     void restore(const DinoNeeds& needs, int action_id, double action_left);
 
+    // Consume/item gate used by the next decision.
+    void set_inventory(bool available) { config_.inventory = available; }
+    bool inventory() const { return config_.inventory; }
+
+    // Number of completed actions and the name of the last one (the viewer
+    // consumes a food portion when an Eat/EatForSmallies finishes).
+    int finished_count() const { return finished_count_; }
+    const std::string& last_finished_action() const {
+        return last_finished_;
+    }
+
 private:
     void decide();
     void finish_action();
@@ -112,6 +128,8 @@ private:
     double elapsed_ = 0.0;
     double duration_ = 0.0;
     double decision_ = 0.0;
+    int finished_count_ = 0;
+    std::string last_finished_;
 };
 
 // FUN_0056e670: highest score >= 1 among the candidate nodes. An empty

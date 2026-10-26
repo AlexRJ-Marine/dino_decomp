@@ -203,7 +203,7 @@ void DinoActionLoop::decide() {
         return;
     }
     const auto choice =
-        choose_action(*actions_, needs_, config_.node_names, true);
+        choose_action(*actions_, needs_, config_.node_names, config_.inventory);
     if (!choice) {
         return;
     }
@@ -218,8 +218,10 @@ void DinoActionLoop::decide() {
 void DinoActionLoop::finish_action() {
     if (actions_ != nullptr && action_index_ >= 0 &&
         static_cast<std::size_t>(action_index_) < actions_->size()) {
-        for (const BaiNeedDelta& delta :
-             (*actions_)[static_cast<std::size_t>(action_index_)].need_deltas) {
+        const BaiAction& action =
+            (*actions_)[static_cast<std::size_t>(action_index_)];
+        last_finished_ = action.name;
+        for (const BaiNeedDelta& delta : action.need_deltas) {
             if (delta.need > 3) {
                 continue;
             }
@@ -227,6 +229,7 @@ void DinoActionLoop::finish_action() {
             value = std::max(0, std::min(99, value + delta.delta));
         }
     }
+    ++finished_count_;
     action_index_ = -1;
     elapsed_ = 0.0;
     duration_ = 0.0;

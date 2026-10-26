@@ -253,6 +253,10 @@ DinoGenotype read_gen_genotype(const std::string& path) {
     return genotype;
 }
 
+bool genotype_is_carnivore(const DinoGenotype& genotype) {
+    return genotype[14].first == 1 && genotype[14].second == 1;
+}
+
 int DinoPhenotypeTable::length_cm(const DinoGenotype& genotype) const {
     if (!valid || proportions.size() < 20) {
         return 0;

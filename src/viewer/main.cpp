@@ -26,6 +26,7 @@
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
+#include "../world/food.h"
 #include "../world/visitors.h"
 #include "../world/dino_actions.h"
 #include "../world/port_save.h"
@@ -116,6 +117,9 @@ struct Options {
     bool market_info = false;
     std::string store_ini_path;
     std::string food_info_dir;
+    std::string place_food;
+    std::string food_pos;
+    std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
@@ -353,6 +357,12 @@ Options parse_args(int argc, char** argv) {
             opt.store_ini_path = next("--store-info");
         } else if (arg == "--food-info") {
             opt.food_info_dir = next("--food-info");
+        } else if (arg == "--place-food") {
+            opt.place_food = next("--place-food");
+        } else if (arg == "--food-pos") {
+            opt.food_pos = next("--food-pos");
+        } else if (arg == "--camera-target") {
+            opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -589,6 +599,9 @@ Options parse_args(int argc, char** argv) {
                 "  --market-info        print the dinosaur store catalog and exit\n"
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"
+                "  --place-food NAME    place a .bsi food source in the park\n"
+                "  --food-pos X,Y       food source cell (default: first paddock)\n"
+                "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -1968,6 +1981,25 @@ std::vector<dino::VisitorProfile> load_easy_visitor_profiles(
     return profiles;
 }
 
+// Full 10-profile `.bvi` table, indexed by the global personality id
+// (`VisitorList.ini` order 0..9). Used for the per-visitor ticket scale of
+// saved visitors, whose `drsVisitor.field_20` is this global id.
+std::vector<dino::VisitorProfile> load_all_visitor_profiles(
+    const std::string& asset_root) {
+    static const char* kFiles[10] = {
+        "SurferMan.bvi",   "HooliganMan.bvi", "ParentMan.bvi",
+        "BlaseMan.bvi",    "OldMan.bvi",      "RicheMan.bvi",
+        "ScientistMan.bvi", "FanMan.bvi",     "SpdMan.bvi",
+        "KidMan.bvi"};
+    std::vector<dino::VisitorProfile> profiles;
+    profiles.reserve(10);
+    for (const char* file : kFiles) {
+        profiles.push_back(dino::load_bvi(resolve_asset(
+            asset_root, std::string("Data/Design/visitors/") + file)));
+    }
+    return profiles;
+}
+
 // `Data/Design/landscape/IslandList.ini`: count then one folder name per line.
 // The original reads this in gdtIslandDataBase (FUN_00506530) and builds
 // `Data\Design\Landscape\<name>\<name>.lnd` from the selected record.
@@ -2859,6 +2891,7 @@ int main(int argc, char** argv) {
     float water_z = 0.0f;
     dino::VisitorSystem visitor_system;
     std::vector<dino::VisitorProfile> visitor_profiles;
+    std::vector<dino::VisitorProfile> all_visitor_profiles;
     dino::Mesh visitor_pose1;
     dino::Mesh visitor_pose2;
     dino::Image visitor_image;
@@ -2926,9 +2959,21 @@ int main(int argc, char** argv) {
                                 build_grid.origin_y +
                                     (static_cast<float>(gy) + 0.5f) * cs);
                         };
-                        if (!free_cell(x, y) ||
-                            !free_cell(x - (edge == 1 ? 1 : 0),
-                                       y - (edge == 0 ? 1 : 0))) {
+                        // Edge 0 is the south edge (shared with y-1); edge 1
+                        // is the east edge (shared with x+1). Out-of-bounds
+                        // neighbours are allowed so a boundary edge can still
+                        // be placed.
+                        auto edge_ok = [&](int gx, int gy, int e) {
+                            if (!free_cell(gx, gy)) {
+                                return false;
+                            }
+                            if (e == 1) {
+                                return gx + 1 >= build_grid.width ||
+                                       free_cell(gx + 1, gy);
+                            }
+                            return gy <= 0 || free_cell(gx, gy - 1);
+                        };
+                        if (!edge_ok(x, y, edge)) {
                             std::fprintf(stderr,
                                          "place-fence: blocked cell %d,%d\n", x,
                                          y);
@@ -3772,6 +3817,7 @@ int main(int argc, char** argv) {
         std::string species;
         std::string family;
         std::string clip;
+        bool carnivore = true;  // diet gene 14; drives the food source match
         dino::DinoNeeds needs;
         std::optional<dino::DinoActionLoop> action_loop;
         float x = 0.0f;
@@ -4027,6 +4073,7 @@ int main(int argc, char** argv) {
     dino::SavSimulation sav_simulation;
     std::vector<dino::WorldFence> sav_fences;
     std::vector<dino::WorldBuilding> sav_buildings;
+    std::vector<dino::WorldVisitor> sav_world_visitors;
     bool sav_ready = false;
     std::vector<dino::Attraction> attractions;
     int entrance_cell_x = -1;
@@ -4298,6 +4345,7 @@ int main(int argc, char** argv) {
                         dino::read_sav_simulation(opt.sav_park_path);
                     sav_fences = world.fences;
                     sav_buildings = world.buildings;
+                    sav_world_visitors = world.visitors;
                     wld_dinosaurs = world.dinosaurs;
                     sav_ready = true;
                     wld_roads.clear();
@@ -4403,6 +4451,10 @@ int main(int argc, char** argv) {
     };
 
     std::vector<DrawItem> extra_items;
+    std::vector<dino::FoodDef> food_defs;
+    std::vector<dino::FoodSource> food_sources;
+    GpuMesh food_gpu;
+    GLuint food_texture = 0;
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
         for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
@@ -4431,6 +4483,10 @@ int main(int argc, char** argv) {
                     extra_items.push_back({&dinosaur.shadow, 0, 0.35f});
                 }
             }
+        }
+        if (food_gpu.vao != 0 && !food_sources.empty() &&
+            food_sources.front().remaining > 0.0f) {
+            extra_items.push_back({&food_gpu, food_texture});
         }
         for (const BuildingDraw& building : building_draws) {
             if (building.gpu.vao != 0) {
@@ -4640,6 +4696,8 @@ int main(int argc, char** argv) {
             try {
                 if (add_imported_dino(species, family, opt.dino_clip, x, y,
                                       angle)) {
+                    imported_dinos.back().carnivore =
+                        dino::genotype_is_carnivore(record.genotype);
                     ++spawned;
                     ++species_counts[species];
                 }
@@ -4752,6 +4810,10 @@ int main(int argc, char** argv) {
                         if (add_imported_dino(species, family, opt.dino_clip,
                                               x, y,
                                               theta * 180.0f / kPi + 90.0f)) {
+                            imported_dinos.back().carnivore =
+                                have_genotype
+                                    ? dino::genotype_is_carnivore(buy_genotype)
+                                    : true;
                             dino::paddock_add(paddock, dino_id, cost_class);
                             budget_ledger.spend_dinoachat(entry->price);
                             pending_buy_price = entry->price;
@@ -4797,6 +4859,148 @@ int main(int argc, char** argv) {
                     imported_dinos.size(), park_paddocks.size());
     }
 
+    // Food sources (`--place-food`): the `.bsi` definition supplies the model,
+    // texture and portion count; the position is a build-grid cell and
+    // defaults to the first paddock centre.
+    if (!opt.place_food.empty()) {
+        try {
+            food_defs = dino::load_food_defs(
+                opt.asset_root,
+                resolve_asset(opt.asset_root, "Data/Design/foodsource"));
+            int def_index = -1;
+            for (std::size_t i = 0; i < food_defs.size(); ++i) {
+                if (food_defs[i].name == opt.place_food) {
+                    def_index = static_cast<int>(i);
+                    break;
+                }
+            }
+            if (def_index < 0) {
+                const int kind = std::atoi(opt.place_food.c_str());
+                for (std::size_t i = 0; i < food_defs.size(); ++i) {
+                    if (food_defs[i].kind == kind) {
+                        def_index = static_cast<int>(i);
+                        break;
+                    }
+                }
+            }
+            if (def_index < 0) {
+                std::printf("food: unknown source %s\n",
+                            opt.place_food.c_str());
+            } else {
+                float fx = 0.0f;
+                float fy = 0.0f;
+                bool have_position = false;
+                int cx = 0;
+                int cy = 0;
+                if (std::sscanf(opt.food_pos.c_str(), "%d,%d", &cx, &cy) == 2) {
+                    fx = (static_cast<float>(cx) + 0.5f) *
+                         build_grid.cell_size;
+                    fy = (static_cast<float>(cy) + 0.5f) *
+                         build_grid.cell_size;
+                    have_position = true;
+                } else if (!paddocks.empty()) {
+                    const dino::WorldRect& rect = paddocks.front().rect;
+                    fx = (static_cast<float>(std::min(rect.x0, rect.x1)) +
+                          static_cast<float>(std::max(rect.x0, rect.x1)) +
+                          1.0f) *
+                         0.5f;
+                    fy = (static_cast<float>(std::min(rect.y0, rect.y1)) +
+                          static_cast<float>(std::max(rect.y0, rect.y1)) +
+                          1.0f) *
+                         0.5f;
+                    have_position = true;
+                }
+                if (!have_position) {
+                    std::printf("food: no position (use --food-pos X,Y)\n");
+                } else {
+                    const dino::FoodDef& def =
+                        food_defs[static_cast<std::size_t>(def_index)];
+                    food_sources.push_back({def_index, fx, fy, def.quantity});
+                    try {
+                        dino::Mesh mesh = dino::load_mesh(resolve_asset(
+                            opt.asset_root, def.mesh));
+                        std::printf("food mesh: %s verts=%zu tris=%zu\n",
+                                    def.mesh.c_str(), mesh.positions.size(),
+                                    mesh.indices.size() / 3);
+                        mesh = place_on_terrain(std::move(mesh), terrain, fx,
+                                                fy, 0.0f);
+                        food_gpu = upload_mesh(mesh, glfns);
+                        if (!def.texture.empty()) {
+                            food_texture = upload_texture(dino::load_tga(
+                                resolve_asset(opt.asset_root, def.texture)));
+                        }
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "food mesh: %s\n", e.what());
+                    }
+                    rebuild_extra_items();
+                    std::printf(
+                        "food: %s kind=%d at %.1f,%.1f portions=%.2f "
+                        "texture=%s\n",
+                        def.name.c_str(), def.kind, fx, fy, def.quantity,
+                        def.texture.empty() ? "none" : def.texture.c_str());
+                }
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "food: %s\n", e.what());
+        }
+    }
+
+    // Paddock helpers for the feeding gate.
+    auto paddock_at = [&](float x, float y) -> int {
+        for (std::size_t p = 0; p < paddocks.size(); ++p) {
+            const dino::WorldRect& r = paddocks[p].rect;
+            if (x >= static_cast<float>(std::min(r.x0, r.x1)) &&
+                x <= static_cast<float>(std::max(r.x0, r.x1)) &&
+                y >= static_cast<float>(std::min(r.y0, r.y1)) &&
+                y <= static_cast<float>(std::max(r.y0, r.y1))) {
+                return static_cast<int>(p);
+            }
+        }
+        return -1;
+    };
+    auto paddock_food = [&](int paddock, bool carnivore)
+        -> dino::FoodSource* {
+        if (paddock < 0 ||
+            paddock >= static_cast<int>(paddocks.size())) {
+            return nullptr;
+        }
+        const dino::WorldRect& r =
+            paddocks[static_cast<std::size_t>(paddock)].rect;
+        for (dino::FoodSource& source : food_sources) {
+            if (source.remaining <= 0.0f || source.def < 0 ||
+                source.def >= static_cast<int>(food_defs.size())) {
+                continue;
+            }
+            if (dino::food_is_carnivore(
+                    food_defs[static_cast<std::size_t>(source.def)].kind) !=
+                carnivore) {
+                continue;
+            }
+            if (source.x >= static_cast<float>(std::min(r.x0, r.x1)) &&
+                source.x <= static_cast<float>(std::max(r.x0, r.x1)) &&
+                source.y >= static_cast<float>(std::min(r.y0, r.y1)) &&
+                source.y <= static_cast<float>(std::max(r.y0, r.y1))) {
+                return &source;
+            }
+        }
+        return nullptr;
+    };
+    if (opt.dino_action_loop) {
+        for (const ImportedDino& dinosaur : imported_dinos) {
+            const int pen = paddock_at(dinosaur.x, dinosaur.y);
+            const dino::FoodSource* source =
+                paddock_food(pen, dinosaur.carnivore);
+            std::printf("dino food: %s paddock=%d diet=%s source=%s\n",
+                        dinosaur.species.c_str(), pen,
+                        dinosaur.carnivore ? "carnivore" : "herbivore",
+                        source != nullptr
+                            ? food_defs[static_cast<std::size_t>(
+                                            source->def)]
+                                  .name.c_str()
+                            : "none");
+        }
+    }
+
     int build_tool = opt.build_mode ? 1 : 0;
     int pending_construct_kind = -1;
     bool pending_click = false;
@@ -4840,6 +5044,16 @@ int main(int argc, char** argv) {
         distance = opt.distance > 0.0f ? opt.distance : 26.0f;
         yaw = opt.yaw;
         pitch = opt.pitch;
+    }
+    if (!opt.camera_target.empty()) {
+        float tx = 0.0f;
+        float ty = 0.0f;
+        if (std::sscanf(opt.camera_target.c_str(), "%f,%f", &tx, &ty) == 2) {
+            center = {tx, ty, terrain.height_at(tx, ty) + 2.5f};
+            distance = opt.distance > 0.0f ? opt.distance : 12.0f;
+            yaw = opt.yaw;
+            pitch = opt.pitch;
+        }
     }
 
     auto orbit_eye = [&]() {
@@ -5055,9 +5269,17 @@ int main(int argc, char** argv) {
                             build_grid.origin_y +
                                 (static_cast<float>(gy) + 0.5f) * cs);
                     };
-                    if (!free_cell(x, y) ||
-                        !free_cell(x - (edge == 1 ? 1 : 0),
-                                   y - (edge == 0 ? 1 : 0))) {
+                    auto edge_ok = [&](int gx, int gy, int e) {
+                        if (!free_cell(gx, gy)) {
+                            return false;
+                        }
+                        if (e == 1) {
+                            return gx + 1 >= build_grid.width ||
+                                   free_cell(gx + 1, gy);
+                        }
+                        return gy <= 0 || free_cell(gx, gy - 1);
+                    };
+                    if (!edge_ok(x, y, edge)) {
                         std::fprintf(stderr,
                                      "place-fence: blocked cell %d,%d\n", x, y);
                         continue;
@@ -5226,7 +5448,15 @@ int main(int argc, char** argv) {
                 visitor.cell_y = saved.y / 4;
                 visitor.target_x = visitor.cell_x;
                 visitor.target_y = visitor.cell_y;
+                int global_profile = 0;
+                for (const dino::WorldVisitor& wv : sav_world_visitors) {
+                    if (wv.field_1c == saved.object_id) {
+                        global_profile = static_cast<int>(wv.field_20);
+                        break;
+                    }
+                }
                 visitor.profile = 0;
+                visitor.global_profile = global_profile;
                 visitor.need0 = static_cast<int>(saved.needs[0]);
                 visitor.need1 = static_cast<int>(saved.needs[1]);
                 visitor.need2 = static_cast<int>(saved.needs[2]);
@@ -5352,6 +5582,14 @@ int main(int argc, char** argv) {
                         def.name.c_str());
             return false;
         }
+        // Retail gates the budget first (0x5306e1 -> FUN_0052bed0), then the
+        // placement/ground checks.
+        if (park_budget < static_cast<int>(def.construction_cost)) {
+            std::printf(
+                "construction: %s needs %u, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
+                def.name.c_str(), def.construction_cost, park_budget);
+            return false;
+        }
         const float half = terrain.world_size * 0.5f;
         for (int y = cell_y; y < cell_y + h; ++y) {
             for (int x = cell_x; x < cell_x + w; ++x) {
@@ -5363,12 +5601,6 @@ int main(int argc, char** argv) {
                     return false;
                 }
             }
-        }
-        if (park_budget < static_cast<int>(def.construction_cost)) {
-            std::printf(
-                "construction: %s needs %u, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
-                def.name.c_str(), def.construction_cost, park_budget);
-            return false;
         }
         if (!place_building(def, static_cast<float>(cell_x),
                             static_cast<float>(cell_y), state, 0.0f, 1.0f,
@@ -5458,18 +5690,32 @@ int main(int argc, char** argv) {
             }
         }
         const int visitors = static_cast<int>(visitor_system.visitors.size());
+        if (all_visitor_profiles.empty()) {
+            try {
+                all_visitor_profiles =
+                    load_all_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
+            }
+        }
+        const std::vector<dino::VisitorProfile>& ticket_profiles =
+            all_visitor_profiles.empty() ? visitor_profiles
+                                         : all_visitor_profiles;
         int tickets = 0;
         for (const dino::Visitor& visitor : visitor_system.visitors) {
-            float scale = 1.0f;
-            if (visitor.profile >= 0 &&
-                visitor.profile <
-                    static_cast<int>(visitor_profiles.size())) {
-                scale = visitor_profiles[static_cast<std::size_t>(
-                                             visitor.profile)]
-                            .price_scale;
+            int index = visitor.global_profile;
+            if (index < 0 ||
+                index >= static_cast<int>(ticket_profiles.size())) {
+                index = visitor.profile;
             }
-            tickets += static_cast<int>(std::lround(
-                static_cast<double>(ticket_price) * scale));
+            const float scale =
+                (index >= 0 &&
+                 index < static_cast<int>(ticket_profiles.size()))
+                    ? ticket_profiles[static_cast<std::size_t>(index)]
+                          .price_scale
+                    : 1.0f;
+            tickets += static_cast<int>(
+                static_cast<float>(ticket_price) * scale);
         }
         const int wages = 0;
         park_budget += tickets - wages;
@@ -6929,9 +7175,42 @@ int main(int argc, char** argv) {
 
         for (ImportedDino& dinosaur : imported_dinos) {
             if (dinosaur.action_loop) {
+                // The `.bai` consume gate: Eat is only available when the
+                // dinosaur's paddock holds a matching food source.
+                const int pen = paddock_at(dinosaur.x, dinosaur.y);
+                dinosaur.action_loop->set_inventory(
+                    paddock_food(pen, dinosaur.carnivore) != nullptr);
+                const int finished_before =
+                    dinosaur.action_loop->finished_count();
                 const std::string previous =
                     dinosaur.action_loop->action_name();
                 dinosaur.action_loop->tick(dt);
+                if (dinosaur.action_loop->finished_count() !=
+                    finished_before) {
+                    const std::string& finished =
+                        dinosaur.action_loop->last_finished_action();
+                    if (finished == "Eat" || finished == "EatForSmallies") {
+                        dino::FoodSource* source =
+                            paddock_food(pen, dinosaur.carnivore);
+                        if (source != nullptr) {
+                            source->remaining =
+                                std::max(0.0f, source->remaining - 1.0f);
+                            const std::string& food_name =
+                                food_defs[static_cast<std::size_t>(
+                                              source->def)]
+                                    .name;
+                            std::printf(
+                                "dino eat: %s <- %s remaining=%.2f\n",
+                                dinosaur.species.c_str(), food_name.c_str(),
+                                source->remaining);
+                            if (source->remaining <= 0.0f) {
+                                std::printf("food: %s depleted\n",
+                                            food_name.c_str());
+                                rebuild_extra_items();
+                            }
+                        }
+                    }
+                }
                 const std::string& action =
                     dinosaur.action_loop->action_name();
                 if (action != previous) {
@@ -7152,11 +7431,11 @@ int main(int argc, char** argv) {
                                     (static_cast<float>(gy) + 0.5f) * cs);
                         };
                         if (build_tool == 1) {
-                            if (!cell_buildable(cx, cy)) {
+                            const bool removing = build_grid.path_at(cx, cy);
+                            if (!removing && !cell_buildable(cx, cy)) {
                                 std::printf("placement: blocked cell\n");
                             } else {
-                                build_grid.set_path(cx, cy,
-                                                    !build_grid.path_at(cx, cy));
+                                build_grid.set_path(cx, cy, !removing);
                             }
                         } else if (build_tool == 3 &&
                                    pending_construct_kind >= 0) {
@@ -7188,14 +7467,25 @@ int main(int argc, char** argv) {
                             if (cy + 1 < build_grid.height) {
                                 consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
                             }
-                            if (!cell_buildable(ex, ey) ||
-                                !cell_buildable(ex - (edge == 1 ? 1 : 0),
-                                                ey - (edge == 0 ? 1 : 0))) {
+                            const bool removing =
+                                build_grid.fence_at(ex, ey, edge);
+                            bool allowed = removing;
+                            if (!allowed) {
+                                const bool inside = cell_buildable(ex, ey);
+                                bool neighbour = true;
+                                if (edge == 1) {
+                                    if (ex + 1 < build_grid.width) {
+                                        neighbour = cell_buildable(ex + 1, ey);
+                                    }
+                                } else if (ey > 0) {
+                                    neighbour = cell_buildable(ex, ey - 1);
+                                }
+                                allowed = inside && neighbour;
+                            }
+                            if (!allowed) {
                                 std::printf("placement: blocked cell\n");
                             } else {
-                                build_grid.set_fence(
-                                    ex, ey, edge,
-                                    !build_grid.fence_at(ex, ey, edge));
+                                build_grid.set_fence(ex, ey, edge, !removing);
                             }
                         }
                         if (build_grid.path_count + build_grid.fence_count != before) {

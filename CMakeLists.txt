@@ -58,6 +58,7 @@ add_executable(dino_viewer
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp
+    src/world/food.cpp
     src/world/visitors.cpp
     src/world/dino_actions.cpp
     src/world/port_save.cpp

@@ -156,14 +156,25 @@ The flow mirrors `pvwStateFenceInsertion`/`stFence`:
 3. check `park_budget >= price` (`WARNING_NOT_ENOUGH_MONEY`);
 4. spawn the dinosaur, add its cost to `used`, and deduct the price.
 
-Cpg04: `--buy-dino Zarbosaurus --park-budget 10000` → price 4,900, budget
-5,100, 21 dinosaurs, paddock used 400. Both failures show the retail warning
-panel when the park HUD is loaded (`WARNING_NO_ROOM_IN_FENCE` → “There is not
-enough room in the enclosure.”, `WARNING_NOT_ENOUGH_MONEY` → “Not enough
-money!”; `notes/buy-warning.png`). The retail store-row removal
-(`FUN_00594270`), the `DINOACHAT` count/total bucket and the interactive
-insertion state are not modelled yet; this is the headless core of the
-purchase branch.
+Cpg04: `--buy-dino Zarbosaurus --park-budget 10000` -> price 4,900,
+budget 5,100, 21 dinosaurs, paddock used 352 (336 + the class-2 cost).
+Both failures show the retail warning panel when the park HUD is loaded
+(`WARNING_NO_ROOM_IN_FENCE` -> "There is not enough room in the
+enclosure.", `WARNING_NOT_ENOUGH_MONEY` -> "Not enough money!";
+`notes/buy-warning.png`).
+
+The interactive `DINO_ACHAT_SAVE_PANEL` uses the same core: six-row
+viewport/selection (`src/ui/park.*`), SAVE checks the budget and arms the
+insertion, the ground click runs `paddock_can_add`, charges the price, feeds
+`BudgetLedger::spend_dinoachat`, places the dinosaur and removes the catalog
+row (`notes/store-panel-recon.md`, `notes/store-panel.png`).
+
+## Feeding
+
+`--place-food NAME|KIND` and `--food-pos CELL_X,CELL_Y` place a `.bsi` food
+source; the `.bai` consume gate then hides Eat unless the dinosaur's paddock
+holds a matching source, and each meal consumes a portion. See
+`docs/platform/feeding.md`.
 
 ## CLI (also used by tests)
 

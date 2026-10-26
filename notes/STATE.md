@@ -553,6 +553,21 @@ Updated: 2026-10-26
   quantities are Flower 0.25 and Ostrich 0.15 (the Python docs said 0.2).
   - Evidence: `src/formats/bsi.{h,cpp}`, `tests/test_viewer_cpp.py`,
     `docs/formats/bsi.md`.
+- P3 feeding slice complete: **placed `.bsi` source gates Eat and depletes.**
+  - `src/world/food.{h,cpp}` resolves `asset[0]` mesh +
+    `<texture_dir>/<stem>.tga` (or the stem without `_lodN`/`_partN`);
+    `--place-food NAME|KIND` + `--food-pos CELL_X,CELL_Y` place it.
+  - `DinoActionLoopConfig::inventory` is the `.bai` consume gate; the
+    viewer sets it per dinosaur from a source in its paddock matching the
+    diet (gene 14, `(1,1)` = carnivore). A completed Eat removes one
+    portion (`quantity` = portions is inferred); at 0 the source leaves the
+    scene and the dinosaur explores instead.
+  - Cpg04 PigFood in paddock 1: three allos choose Eat 9009, the herbivore
+    anky sees `source=none`, five meals deplete it. Without a food source
+    the chooser now selects Exploration (1580 starving / 75 at 50 %).
+  - Evidence: `docs/platform/feeding.md`, `notes/food-pig-close.png`,
+    `tests/test_viewer_cpp.py::test_cpp_food_feeding`,
+    `test_cpp_dino_action_loop`.
 - FMT-13 complete: **`.bni` animal profiles.**
   - 5/5 parse: variant, size, limit, food value, quantity, food kind,
     5–12 meshes + texture dir; food kinds match `.bsi`; 33 meshes exist.
@@ -1349,8 +1364,10 @@ Updated: 2026-10-26
   resolved: `aacDinosaurAnimator` selects a locomotion/activity slot from
   `saDinosaur+0x2bc` plus a `.bai` element envmap texture (`+0x518`), never
   the action id. See `notes/action-clip-lead.md`. Remaining: wire the `.bai`
-  element bone/event overlay source, the SECU threat/visitor reaction term and
-  the feeding interaction (Eat currently assumes an item).
+  element bone/event overlay source and the SECU threat/visitor reaction
+  term. The feeding gate is live: `.bsi` sources, diet match and portion
+  consumption (`docs/platform/feeding.md`); employee feeding and the exact
+  quantity semantics remain.
 - **UI-2 Phase C rest:** list snapshots, slider/checkbox selection, minimap
   water colour/partition polish. The budget ledger rows are live: purchases,
   construction and the daily settlement feed a current/yesterday ledger
@@ -1389,11 +1406,12 @@ Updated: 2026-10-26
 3. P3 rest: the chooser, probe and `DinoActionLoop` viewer integration are
    done; the "action→clip table" premise is resolved (locomotion slot +
    element envmap texture, `notes/action-clip-lead.md`). Remaining: wire
-   the element bone/event overlay source, the SECU threat/visitor term, and
-   model the feeding item so Eat requires a real food source. The C++
-   `.bsi` reader is ready (`--food-info`, `src/formats/bsi.*`); the SECU
-   threat term is decoded (`0x572DD0` world-bounds + the 8-unit danger grid)
-   and is zero until visitors/guards populate the grid. See
+   the element bone/event overlay source and the SECU threat/visitor term.
+   The feeding item is modelled: `.bsi` sources (`--place-food`/
+   `--food-pos`) gate Eat by paddock/diet and deplete over meals
+   (`docs/platform/feeding.md`). The SECU threat term is decoded
+   (`0x572DD0` world-bounds + the 8-unit danger grid) and is zero until
+   visitors/guards populate the grid. See
    `notes/dino-action-chooser-recon.md` and
    `notes/phenotype-attributes-runtime.md`.
 4. Capture a side-by-side comparison against the original game for WORLD-3.

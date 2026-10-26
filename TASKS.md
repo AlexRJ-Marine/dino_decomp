@@ -1052,9 +1052,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`DinoActionLoop`: decay, decision, `.bai` need deltas on completion) and
   drive the imported dinosaurs' clips from the selected action
   (`--dino-action-loop`, `--dino-needs`, `--dino-action-speed`). Forced
-  starving gives Eat 9009, tired gives Sleep 7060, all-full stays idle over
-  20 imported dinosaurs. Default needs are `50,99,99,99` (retail food gauge
-  starts at 50 %), which selects Eat at score 450.
+  starving gives Eat 9009 when food is present, tired gives Sleep 7060,
+  all-full stays idle over 20 imported dinosaurs. Default needs are
+  `50,99,99,99` (retail food gauge starts at 50 %), which selects Eat at 450
+  when food is present.
+- [x] Food-source feeding slice: `.bsi` definitions in C++
+  (`src/formats/bsi.*`, `src/world/food.*`), `--place-food NAME|KIND` +
+  `--food-pos CELL_X,CELL_Y`; `DinoActionLoopConfig::inventory` is the
+  `.bai` consume gate, set per dinosaur from a matching source in its
+  paddock (diet = gene 14, `(1,1)` carnivore); each completed Eat removes
+  one portion (quantity = portions is inferred) and depletion removes the
+  source. Cpg04 PigFood in paddock 1: three allos Eat 9009, the anky sees
+  none, five meals deplete. See `docs/platform/feeding.md`.
+- [ ] Employee feeding (nutritionist schedule) and the exact `.bsi`
+  quantity/nutrition meal semantics.
 - [ ] Visitor/obstacle reaction (the threat term feeding SECU) and the
   retail-verified action→animation clip table (currently name-based/inferred:
   Eat→Chew, Sleep→Sleep, Exploration→Walk, Smell→Sniff).
@@ -1063,7 +1074,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
   `notes/dino-action-chooser-recon.md`, `notes/dinosaur-actions-recon.md`,
   `docs/decomp/function-status.md`, `notes/p3-dino-eat.png`,
-  `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`.
+  `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,
+  `test_cpp_food_feeding`; `docs/platform/feeding.md`,
+  `notes/food-pig-close.png`.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

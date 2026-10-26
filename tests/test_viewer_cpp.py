@@ -240,6 +240,18 @@ def test_cpp_occupation_mask_blocks_placement():
     assert "place-path: blocked cell 130,94" in result.stderr
     assert "1 path cells, 0 fences" in result.stdout
 
+    # East edge (edge 1) is shared with (x+1,y), not (x-1,y). Cell (107,82)
+    # has a blocked east neighbour (108,82); (106,82) is free on both sides.
+    fence = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--build", "--place-fence", "107,82,1",
+         "--place-fence", "106,82,1"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert fence.returncode == 0, fence.stderr
+    assert "place-fence: blocked cell 107,82" in fence.stderr
+    assert "1 fences" in fence.stdout
+
 
 def test_cpp_pick_terrain(tmp_path):
     if not EXE.exists():
@@ -1560,7 +1572,9 @@ def test_cpp_port_save_dino_state(tmp_path):
     assert ("port load: island=isl04 budget=75000 day=0 visitors=0 "
             "paths=301 fences=268 buildings=57 dinos=20") in load.stdout
     assert "dino action: " in load.stdout
-    assert "Eat score=9009 needs=20/90/50/20" in load.stdout
+    # No food source after a save load (paddocks are not part of the save),
+    # so the restored 20/90/50/20 state selects Sleep 6360, not Eat.
+    assert "Sleep score=6360 needs=20/90/50/20" in load.stdout
 
 
 def test_cpp_options_save_and_load_buttons(tmp_path):
@@ -1801,10 +1815,12 @@ def test_cpp_dino_action_loop():
         return [line for line in result.stdout.splitlines()
                 if line.startswith("dino action:")]
 
+    # Without a food source the `.bai` consume gate hides Eat; the starving
+    # dinosaurs pick Exploration instead (score 1580).
     starving = run("20,90,50,90")
     assert len(starving) == 20
-    assert any(re.search(r"dino action: \w+ Eat score=9009 "
-                         r"needs=20/90/50/90", line) for line in starving)
+    assert all(" Exploration score=1580 " in line for line in starving)
+    assert not any(" Eat" in line for line in starving)
 
     tired = run("70,90,90,20")
     assert len(tired) == 20
@@ -1815,13 +1831,10 @@ def test_cpp_dino_action_loop():
     assert run("99,99,99,99") == []
 
     # Retail steady state: the food gauge starts at 50% and the first 10 s
-    # tick normalises UI FOOD to 50; that is the port default.
+    # tick normalises UI FOOD to 50; without food the dinosaur explores.
     default = run(None)
     assert len(default) == 20
-    assert any(
-        re.search(r"dino action: \w+ Eat(?:ForSmallies)? score=450 ", line)
-        for line in default
-    )
+    assert all(" Exploration score=75 " in line for line in default)
 
 
 def test_cpp_wld_park_no_import_dinos():
@@ -1948,6 +1961,29 @@ def test_cpp_sav_park_import(tmp_path):
     assert "wld: placed 1/1 buildings" in result.stdout
     image = Image.open(shot).convert("RGB")
     assert len(image.getcolors(maxcolors=1_000_000)) > 300
+
+
+def test_cpp_sav_ticket_value():
+    # The manual save's two visitors are drsVisitor profiles 6 (Scientist,
+    # 1.5 -> 75) and 9 (Kid, 1.0 -> 50); the stored ticket pair is 125/2.
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not isl01.exists() or not save.exists():
+        pytest.skip("retail isl01/save missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--sav-park", str(save),
+         "--settle-day"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "sav visitors: 2 restored" in result.stdout
+    assert ("daily settlement: day=0 visitors=2 ticket=50 income=125 "
+            "wages=0 budget=75250") in result.stdout
 
 def test_cpp_bai_action_table():
     if not EXE.exists():
@@ -2237,3 +2273,49 @@ def test_cpp_food_info():
     for line in lines:
         feeder = line.split("feeder=")[1].split(" ui=")[0].replace("\\", "/")
         assert (GAME / feeder).exists(), feeder
+
+
+def test_cpp_food_feeding():
+    """A placed .bsi source gates Eat by paddock and diet, then depletes."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+
+    def run(frames, speed=None, needs=None):
+        args = [
+            str(EXE), "--frames", str(frames), "--no-menu", "--no-hud",
+            "--width", "160", "--height", "120", "--no-vsync",
+            "--no-save-config", "--lnd", str(isl04),
+            "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+            "--wld-park", str(wld), "--place-food", "PigFood",
+            "--food-pos", "118,94", "--dino-action-loop",
+        ]
+        if speed is not None:
+            args += ["--dino-action-speed", str(speed)]
+        if needs is not None:
+            args += ["--dino-needs", needs]
+        result = subprocess.run(args, capture_output=True, text=True,
+                                timeout=300)
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    log = run(3, needs="20,90,50,90")
+    assert "food: PigFood kind=8 at 474.0,378.0 portions=5.00" in log
+    # Row 1 is the herbivore anky in paddock 0; paddock 1 holds three allos.
+    assert ("dino food: anky paddock=0 diet=herbivore source=none"
+            in log)
+    assert ("dino food: allo paddock=1 diet=carnivore source=PigFood"
+            in log)
+    assert log.count(" Eat score=9009 ") == 3
+    assert "dino eat:" not in log
+
+    # Fast actions: five meals deplete the pig and the source leaves the scene.
+    log = run(900, speed=100, needs="20,90,50,90")
+    assert log.count("dino eat: allo <- PigFood") == 5
+    assert "remaining=0.00" in log
+    assert "food: PigFood depleted" in log
+    # After depletion the carnivores fall back to Exploration.
+    assert "dino action: allo Exploration" in log

@@ -33,6 +33,10 @@ using DinoGenotype =
     std::array<std::pair<std::uint32_t, std::uint32_t>, 18>;
 DinoGenotype read_gen_genotype(const std::string& path);
 
+// Diet gene (14) expression: `Diet` matrix [[1,1],[1,2]] with translation
+// 1 = herbivore, 2 = carnivore, so only a (1,1) pair is carnivorous.
+bool genotype_is_carnivore(const DinoGenotype& genotype);
+
 // Phenotype length tables used by the paddock size class (`saDinosaur+0x1e0`).
 // `proportion.dat` supplies the five part ratios (head, arm, body, leg, tail)
 // for the 20 base species; `simu_trans.dic` Part 2 supplies the Head/Tail merge
