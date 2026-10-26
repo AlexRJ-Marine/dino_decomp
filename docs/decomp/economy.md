@@ -108,9 +108,13 @@ time) and then `0x0058ad00`. The clock itself is documented in
 ```text
 ticket_price = Entrance .bbi visitor price (offset 25, 50 in retail)
 income       = sum(trunc(ticket_price * profile.price_scale) for each visitor)
-wages        = 0                     // no employee actors yet
+wages        = sum(employee .bei dword 8) over hired staff
 park_budget += income - wages
 ```
+
+The port charges the role-0 staff bucket with `spend_staff(0, wage)` per
+employee before `settle()`; the hire cost itself is a generic purchase
+(`0x585c00`) and is not counted as a wage.
 
 `--settle-day` runs one settlement at startup for tests. 8 visitors on the
 24-cell loop gives `income=525`, `budget=75525` (5 profiles at scale 1.5 and
@@ -129,8 +133,9 @@ ticket = trunc(entrance_price * visitor_profile.price_scale)
 - The same formula runs on visitor entry (`0x5883f0` -> `0x588514`) and in
   the daily settlement (`0x58ad00` -> `0x58adbc`).
 
-Employee wages (`0x585d80`) and the EFFECTIFS_SECU pass (`0x585d50`) remain
-zero until the staff/animal actors exist.
+Employee wages (`0x585d80`) are produced when the port has hired
+Nutritionists (`src/world/employees.*`); EFFECTIFS_SECU remains zero because
+no Guard/security actors exist.
 
 ## Budget panel (`0x00510430`)
 
@@ -257,9 +262,10 @@ yesterday block through `runtime_text`, so a park with purchases shows the
 CONSTRUCTION and DINOACHAT rows and the total-expenses field after a day
 rollover (`notes/budget-spent.png`).
 
-The remaining gaps are the sources the port does not produce yet: staff wages,
-EFFECTIFS_SECU, shop sales and lab actions. The cumulative block and the
-save round-trip of the ledger are also not modelled.
+The remaining gaps are the sources the port does not produce yet:
+EFFECTIFS_SECU, shop sales and lab actions. Staff wages are produced when
+Nutritionists are hired (`employees.md`). The cumulative block and the save
+round-trip of the ledger are also not modelled.
 
 ## Evidence
 

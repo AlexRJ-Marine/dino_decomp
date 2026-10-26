@@ -2516,6 +2516,52 @@ def test_cpp_food_feeding():
     assert "dino action: allo Exploration" in log
 
 
+def test_cpp_employee_info():
+    """The .bei reader returns the two retail employee profiles."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    result = subprocess.run(
+        [str(EXE), "--employee-info", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert ("employee: Nutritionist kind=0 wage=500 height=1.70 walk=2.00 "
+            "action=2.50 work=3.00 meshes=5 sounds=2") in log
+    assert ("employee: Guard kind=1 wage=500 height=1.70 walk=1.00 "
+            "action=2.50 work=3.00 meshes=4 sounds=2") in log
+    assert "employee profiles: 2" in log
+
+
+def test_cpp_employee_feeding_and_wages():
+    """A nutritionist feeds the placed source; wages hit the daily settlement."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--place-food", "PigFood", "--food-pos", "118,94",
+         "--hire-nutritionist", "2", "--feed-now", "--settle-day",
+         "--park-budget", "75000"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    # The `.bei` dword 8 (500) is both the hire cost and the daily wage.
+    assert "employees: hired=2 wage=500 budget=74000" in log
+    assert "feed: assigned=1 completed=1 serviced=1 sources=1" in log
+    assert "feed: source def=8 remaining=5.000 capacity=5.000" in log
+    # 75,000 - 2*500 hire - 2*500 wages = 73,000 (no visitors in the .wld).
+    assert ("daily settlement: day=0 visitors=0 ticket=50 income=0 "
+            "wages=1000 budget=73000") in log
+
+
 def test_cpp_port_save_paddocks_food(tmp_path):
     """Paddock capacity/occupancy and placed food survive a .psav round-trip."""
     if not EXE.exists():

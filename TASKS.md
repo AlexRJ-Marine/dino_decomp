@@ -1341,13 +1341,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Wire `CAMPAIGN_LIST`/`CAMPAIGN_START`/`CAMPAIGN_INFO_START` in `Menu`
   so a mission starts from the campaign pages instead of `--start-mission`.
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots
-  (cuteness/beauty, aggression, size, speed, stamina, agility,
-  intelligence, food). Cpg01_Mission9 (`cleverdinos 1 80`) succeeds on
-  the Cpg04 park.
+  (cuteness/beauty, aggression, size, speed, stamina, agility, intelligence,
+  food). Cpg01_Mission9 (`cleverdinos 1 80`) succeeds on the Cpg04 park.
 - [ ] Fill `employee_roles` and the exact actor trait fields
   (`+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/+0x1e0/+0x8c`)
-  once those systems land; hybrid/scarcity/strangeness/ornaments are
-  still 0.
+  once those systems land; hybrid/scarcity/strangeness/ornaments are still 0.
 - [ ] Store the mission id and verdicts in the port save; show ending videos.
 - [ ] Port the remaining show/building/isolation/hungry verbs once shows,
   connected buildings and isolation tags exist.
@@ -1705,6 +1703,23 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - 60 FPS at 1080p on the target machine; reproducible builds.
 - **Acceptance:** zip build runs on a clean Windows VM.
 - **Depends on:** UI-1, SAVE-1.
+
+### SIM-5: Employees and staff (port)
+- [x] C++ `.bei` reader (`src/formats/bei.*`): 2 profiles, kind/wage/speeds/
+  work duration, 9 meshes and 2 sounds.
+- [x] `src/world/employees.*`: Nutritionist hiring, hourly queue seeded from
+  every placed food source, walk + 3 s work + refill, daily wage bucket.
+- [x] Viewer: `--employee-info`, `--hire-nutritionist N`, `--feed-now`,
+  `EFFECTIFS_FOOD` live count, standing-pose employee actor.
+- [x] Tests: `test_cpp_employee_info`, `test_cpp_employee_feeding_and_wages`.
+- **Acceptance:** Cpg04 + PigFood: 2 hires cost 1,000; one feed completes and
+  refills the source; settlement charges 1,000 wages. Photo
+  `notes/employees.png`.
+- **Depends on:** P3 feeding, SIM-4 economy.
+- **Evidence:** `docs/platform/employees.md`, `docs/decomp/employee-ai.md`,
+  `docs/decomp/economy.md`, `docs/formats/bei.md`.
+- **Open:** interactive `EFFECTIFS_NUTRI_*` buttons, save round-trip, guard
+  role, walking animation.
 
 ## Backlog / research
 

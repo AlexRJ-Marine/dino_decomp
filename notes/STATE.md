@@ -1560,6 +1560,23 @@ Updated: 2026-10-26
     `notes/entrance-model-skin.png`, `notes/entrance-model-mesh.png`,
     `docs/platform/buildings.md`; `test_cpp_building_placement_transform`
     asserts `entrance_lod1.mesh`; 377 tests pass.
+- SIM-5 first slice complete: **employees hired, feeding queue, wages, actor.**
+  - `src/formats/bei.*` reads the two retail profiles (Nutritionist 0 /
+    Guard 1; wage 500 = header dword 8 = hire cost and daily wage; work
+    duration 3.0 = dword 10). `src/world/employees.*` implements the hourly
+    queue over every placed food source, walk at the `.bei` speed, 3 s work,
+    refill to the `.bsi` quantity, and the role-0 wage bucket at settlement.
+  - Viewer: `--employee-info`, `--hire-nutritionist N`, `--feed-now`,
+    `EFFECTIFS_FOOD` live count, and a visible standing-pose employee
+    (`notes/employees.png`).
+  - Cpg04 + PigFood: 2 hires cost 1,000; one feed assigned/completed;
+    settlement wages 1,000 -> budget 73,000.
+  - Open: interactive `EFFECTIFS_NUTRI_*` buttons, save round-trip, guard
+    role, walking animation, exact `FUN_00576d50` food-level semantics.
+  - Evidence: `docs/platform/employees.md`, `docs/decomp/employee-ai.md`,
+    `docs/decomp/economy.md`, `docs/formats/bei.md`,
+    `tests/test_viewer_cpp.py::test_cpp_employee_info`,
+    `test_cpp_employee_feeding_and_wages`.
 
 ## In progress
 
