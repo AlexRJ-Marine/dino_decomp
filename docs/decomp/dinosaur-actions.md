@@ -228,7 +228,8 @@ action. This is confirmed by the two independent checks.
   `Smell`→`Sniff`, `Victory`→`Winner`, `RunAway`→`Run`, idle→`Neutral`).
   The loop prints `dino action: <species> <name> score=<n> needs=...` on
   each action change. Cpg04 with `--dino-needs 20,90,50,90` gives 20 Eat
-  9009; `70,90,90,20` gives 20 Sleep 7060; the default 99s stay idle.
+  9009; `70,90,90,20` gives 20 Sleep 7060; `99,99,99,99` stays idle. The
+  default `50,99,99,99` selects Eat/EatForSmallies 450 (one Eat per dino).
 - Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests),
   `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser` and
   `test_cpp_dino_action_loop`.
