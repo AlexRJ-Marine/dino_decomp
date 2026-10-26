@@ -41,6 +41,7 @@ def test_entrance_profile():
     assert building.flag == 1
     assert building.category == 10
     assert building.duration == pytest.approx(10.0)
+    assert building.construction_cost == 30
     assert building.price == 50
     assert building.appeal_scale == pytest.approx(4.0)
     assert building.radius_squared == 1024
@@ -71,6 +72,25 @@ def test_header_fields_all_buildings():
         assert building.flag == 1
         if name in expected_categories:
             assert building.category == expected_categories[name]
+
+
+def test_construction_cost_is_file_offset_21():
+    """`pvwStateBuildingConstruction` charges D+0x18, not the visitor price."""
+    if not BUILDINGS.exists():
+        pytest.skip("retail game tree not present")
+    costs = {
+        "Entrance": 30, "DecoCirc": 50, "LunchDoor": 100, "Security": 100,
+        "BarakCirc": 500, "Farm": 500, "ParkNat": 500,
+        "MediumSeats": 600, "LargeSeats": 800,
+        "SouvCirc": 2000, "Station": 2000, "RestCirc": 2500,
+        "Tower": 5000, "Manege": 5000,
+    }
+    for name, expected in costs.items():
+        building = read_bbi(BUILDINGS / f"{name}.bbi")
+        assert building.construction_cost == expected, name
+        assert building.header_words[2] == expected, name
+    # The visitor ticket price is a different field.
+    assert read_bbi(BUILDINGS / "RestCirc.bbi").price == 30
 
 
 def test_scan_all_buildings():

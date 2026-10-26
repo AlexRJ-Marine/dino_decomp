@@ -40,7 +40,8 @@ definition base.
 | 8 | +0x08 | f32 | scale | 1.0 |
 | 12 | +0x0c | u8 | flag (1 in all retail files) | 1 |
 | 13 | +0x10 | u32 | first of 27 unaligned words | 100 |
-| 25 | +0x1c | u32 | **price** (visitor scorer `descriptor+0x1c`) | 50 |
+| 21 | +0x18 | u32 | **construction cost** (`0x5306e1`/`0x5307ac`) | 30 |
+| 25 | +0x1c | u32 | **visitor entry price** (`descriptor+0x1c`) | 50 |
 | 37 | +0x28 | f32 | **visit duration** seconds (`FUN_005219f0`) | 10.0 |
 | 49 | +0x6c | u32 | **category** (0..12; 10 = Entrance) | 10 |
 | 73 | +0x48 | f32 | **appeal scale** (`attraction+0x24`) | 4.0 |
@@ -52,6 +53,15 @@ definition base.
 Every retail file has `model[1] = 0.0f`; only `LunchDoor.bbi` has
 `model[0] = 1`. The visitor scorer's price is the **definition** field
 `descriptor+0x1c` = file offset 25, not a block field.
+
+**Construction cost is file offset 21** (`D+0x18`, `header_words[2]`), not the
+visitor price at 25. `pvwStateBuildingConstruction` (`0x530640`) computes the
+definition base `D` from the 500-byte element array and pushes `[EBP+0x18]`
+both into the affordability gate `FUN_0052bed0` (`0x5306e1`) and the
+CONSTRUCTION budget setter `FUN_00585d20` (`0x5307ac`). Retail values:
+Entrance 30, Deco 50, LunchDoor/Security 100, Barak/Farm/Park 500,
+MediumSeats 600, LargeSeats 800, Souv/Station 2000, Rest 2500,
+Tower/Manege/Tampodino/Haunted/Granderoue 5000.
 
 The five floats at file 53/57/61/65/69 are the per-profile appeal weights,
 file 73 is the appeal scale, and files 81/85 are the need-1/need-2 increments

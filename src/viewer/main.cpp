@@ -123,6 +123,9 @@ struct Options {
     bool focus_dinos = false;
     int focus_dino = 0;
     bool place_entrance = true;
+    std::string construct_name;
+    std::vector<std::string> construct_positions;
+    int park_budget_override = -1;
     std::vector<std::string> place_paths;
     std::vector<std::string> place_fences;
     std::string pick_test;
@@ -361,6 +364,14 @@ Options parse_args(int argc, char** argv) {
             opt.focus_dino = std::atoi(next("--focus-dino"));
         } else if (arg == "--no-entrance") {
             opt.place_entrance = false;
+        } else if (arg == "--construct") {
+            opt.construct_name = next("--construct");
+            opt.build_mode = true;
+        } else if (arg == "--construct-pos") {
+            opt.construct_positions.push_back(next("--construct-pos"));
+            opt.build_mode = true;
+        } else if (arg == "--park-budget") {
+            opt.park_budget_override = std::atoi(next("--park-budget"));
         } else if (arg == "--place-path") {
             opt.place_paths.push_back(next("--place-path"));
             opt.build_mode = true;
@@ -531,6 +542,9 @@ Options parse_args(int argc, char** argv) {
                 "  --focus-dinos        frame the first imported dinosaur\n"
                 "  --focus-dino N       frame the Nth imported dinosaur\n"
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
+                "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
+                "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
+                "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
@@ -2501,6 +2515,7 @@ int main(int argc, char** argv) {
     int pending_minimap_zoom = 0;
     bool pending_port_save = false;
     bool pending_port_load = false;
+    std::string pending_construct_widget;
     if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
@@ -2543,6 +2558,8 @@ int main(int argc, char** argv) {
                         pending_port_save = true;
                     } else if (action == "load port") {
                         pending_port_load = true;
+                    } else if (action.rfind("construct ", 0) == 0) {
+                        pending_construct_widget = action.substr(10);
                     }
                     std::printf("park click %d,%d -> %s\n", x, y,
                                 action.empty() ? "consumed" : action.c_str());
@@ -4280,6 +4297,7 @@ int main(int argc, char** argv) {
     }
 
     int build_tool = opt.build_mode ? 1 : 0;
+    int pending_construct_kind = -1;
     bool pending_click = false;
     float click_x = 0.0f;
     float click_y = 0.0f;
@@ -4682,6 +4700,159 @@ int main(int argc, char** argv) {
                     park_budget, park_clock.day, park_clock.elapsed,
                     wld_roads.size());
     }
+    if (opt.park_budget_override >= 0) {
+        park_budget = opt.park_budget_override;
+    }
+
+    // P4: construction placement through the retail panel. Each building's
+    // `.bbi` tail lists the `CONSTRUC_*_BUTTON` widget that builds it; the
+    // charge is `.bbi` file offset 21 (`D+0x18`), proven by
+    // `pvwStateBuildingConstruction` (0x5306e1 / 0x5307ac).
+    std::vector<std::string> construction_names;
+    std::vector<dino::BuildingDef> construction_defs;
+    auto ensure_construction_catalog = [&]() {
+        if (!construction_defs.empty()) {
+            return;
+        }
+        construction_names = dino::load_building_list(
+            resolve_asset(opt.asset_root,
+                          "Data/Design/buildings/BuildingList.ini"));
+        construction_defs.reserve(construction_names.size());
+        for (const std::string& name : construction_names) {
+            try {
+                construction_defs.push_back(dino::load_bbi(resolve_asset(
+                    opt.asset_root,
+                    "Data/Design/buildings/" + name + ".bbi")));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "building %s: %s\n", name.c_str(),
+                             e.what());
+                construction_defs.push_back({});
+            }
+        }
+    };
+    auto construction_kind_for_widget = [&](const std::string& widget) {
+        ensure_construction_catalog();
+        for (std::size_t i = 0; i < construction_defs.size(); ++i) {
+            for (const std::string& ui : construction_defs[i].tail_strings) {
+                if (ui == widget) {
+                    return static_cast<int>(i);
+                }
+            }
+        }
+        return -1;
+    };
+    auto construction_kind_for_name = [&](const std::string& name) {
+        ensure_construction_catalog();
+        if (name.rfind("CONSTRUC_", 0) == 0) {
+            return construction_kind_for_widget(name);
+        }
+        for (std::size_t i = 0; i < construction_names.size(); ++i) {
+            if (construction_names[i] == name) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    };
+    auto construction_overlaps = [&](int kind, int cell_x, int cell_y,
+                                     int state) {
+        const dino::BuildingDef& def =
+            construction_defs[static_cast<std::size_t>(kind)];
+        const int w = state % 2 == 0 ? static_cast<int>(def.footprint_w)
+                                     : static_cast<int>(def.footprint_h);
+        const int h = state % 2 == 0 ? static_cast<int>(def.footprint_h)
+                                     : static_cast<int>(def.footprint_w);
+        for (const dino::PortBuildingState& other : building_instances) {
+            if (other.kind < 0 ||
+                other.kind >= static_cast<int>(construction_defs.size())) {
+                continue;
+            }
+            const dino::BuildingDef& od =
+                construction_defs[static_cast<std::size_t>(other.kind)];
+            const int ow = other.state % 2 == 0
+                               ? static_cast<int>(od.footprint_w)
+                               : static_cast<int>(od.footprint_h);
+            const int oh = other.state % 2 == 0
+                               ? static_cast<int>(od.footprint_h)
+                               : static_cast<int>(od.footprint_w);
+            if (cell_x < other.cell_x + ow && other.cell_x < cell_x + w &&
+                cell_y < other.cell_y + oh && other.cell_y < cell_y + h) {
+                return true;
+            }
+        }
+        return false;
+    };
+    auto try_construct = [&](int kind, int cell_x, int cell_y,
+                             int state) -> bool {
+        if (kind < 0 || kind >= static_cast<int>(construction_defs.size())) {
+            std::printf("construction: unknown building\n");
+            return false;
+        }
+        const dino::BuildingDef& def =
+            construction_defs[static_cast<std::size_t>(kind)];
+        const int w = state % 2 == 0 ? static_cast<int>(def.footprint_w)
+                                     : static_cast<int>(def.footprint_h);
+        const int h = state % 2 == 0 ? static_cast<int>(def.footprint_h)
+                                     : static_cast<int>(def.footprint_w);
+        const int world = static_cast<int>(terrain.world_size);
+        if (cell_x < 0 || cell_y < 0 || cell_x + w > world ||
+            cell_y + h > world) {
+            std::printf("construction: %s outside the island\n",
+                        def.name.c_str());
+            return false;
+        }
+        if (construction_overlaps(kind, cell_x, cell_y, state)) {
+            std::printf("construction: %s overlaps another building\n",
+                        def.name.c_str());
+            return false;
+        }
+        if (park_budget < static_cast<int>(def.construction_cost)) {
+            std::printf(
+                "construction: %s needs %u, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
+                def.name.c_str(), def.construction_cost, park_budget);
+            return false;
+        }
+        if (!place_building(def, static_cast<float>(cell_x),
+                            static_cast<float>(cell_y), state, 0.0f, 1.0f,
+                            kind)) {
+            return false;
+        }
+        park_budget -= static_cast<int>(def.construction_cost);
+        rebuild_extra_items();
+        std::printf("construction: %s cost=%u budget=%d cell=%d,%d\n",
+                    def.name.c_str(), def.construction_cost, park_budget,
+                    cell_x, cell_y);
+        return true;
+    };
+
+    const std::string selected_construct =
+        !opt.construct_name.empty() ? opt.construct_name
+                                    : pending_construct_widget;
+    if (!selected_construct.empty()) {
+        const int kind = construction_kind_for_name(selected_construct);
+        if (kind < 0) {
+            std::printf("construction: no building named %s\n",
+                        selected_construct.c_str());
+        } else {
+            build_tool = 3;
+            pending_construct_kind = kind;
+            std::printf("construction: %s selected, cost=%u\n",
+                        construction_defs[static_cast<std::size_t>(kind)]
+                            .name.c_str(),
+                        construction_defs[static_cast<std::size_t>(kind)]
+                            .construction_cost);
+        }
+    }
+    if (!selected_construct.empty() && !opt.construct_positions.empty()) {
+        const int kind = construction_kind_for_name(selected_construct);
+        for (const std::string& position : opt.construct_positions) {
+            int x = 0;
+            int y = 0;
+            if (std::sscanf(position.c_str(), "%d,%d", &x, &y) == 2) {
+                try_construct(kind, x, y, 0);
+            }
+        }
+    }
+
     int park_layout_w = 800;
     int park_layout_h = 600;
     dino::Vec3 minimap_focus{1e30f, 1e30f, 1e30f};
@@ -5533,6 +5704,7 @@ int main(int argc, char** argv) {
                     std::printf("build tool: fence\n");
                 } else if (key == SDLK_0) {
                     build_tool = 0;
+                    pending_construct_kind = -1;
                     std::printf("build tool: off\n");
                 } else if (key == SDLK_U) {
                     if (build_grid.undo()) {
@@ -5591,6 +5763,39 @@ int main(int argc, char** argv) {
                                     park_sound_files.find(lnd.music);
                                 if (island_music != park_sound_files.end()) {
                                     music.play(island_music->second);
+                                }
+                            }
+                            if (action.rfind("construct ", 0) == 0) {
+                                const std::string widget = action.substr(10);
+                                const int kind =
+                                    construction_kind_for_widget(widget);
+                                if (kind < 0) {
+                                    std::printf(
+                                        "construction: no building for %s\n",
+                                        widget.c_str());
+                                } else {
+                                    const dino::BuildingDef& def =
+                                        construction_defs[static_cast<
+                                            std::size_t>(kind)];
+                                    if (park_budget <
+                                        static_cast<int>(
+                                            def.construction_cost)) {
+                                        std::printf(
+                                            "construction: %s needs %u, "
+                                            "budget %d "
+                                            "(WARNING_NOT_ENOUGH_MONEY)\n",
+                                            def.name.c_str(),
+                                            def.construction_cost,
+                                            park_budget);
+                                    } else {
+                                        build_tool = 3;
+                                        pending_construct_kind = kind;
+                                        std::printf(
+                                            "construction: %s selected, "
+                                            "cost=%u (click the ground)\n",
+                                            def.name.c_str(),
+                                            def.construction_cost);
+                                    }
                                 }
                             }
                         }
@@ -5906,6 +6111,13 @@ int main(int argc, char** argv) {
                         const int before = build_grid.path_count + build_grid.fence_count;
                         if (build_tool == 1) {
                             build_grid.set_path(cx, cy, !build_grid.path_at(cx, cy));
+                        } else if (build_tool == 3 &&
+                                   pending_construct_kind >= 0) {
+                            const float half = terrain.world_size * 0.5f;
+                            try_construct(
+                                pending_construct_kind,
+                                static_cast<int>(std::floor(hit.x + half)),
+                                static_cast<int>(std::floor(hit.y + half)), 0);
                         } else {
                             const float cs = build_grid.cell_size;
                             const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;

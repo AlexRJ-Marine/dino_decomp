@@ -21,7 +21,8 @@ struct BuildingDef {
     // Named fields used by the simulation (see notes/building-def-record-recon.md).
     std::uint32_t category = 0;
     float duration = 0.0f;
-    std::uint32_t price = 0;
+    std::uint32_t construction_cost = 0;  // file 21 (D+0x18)
+    std::uint32_t price = 0;              // file 25: visitor entry price
     float appeal_scale = 0.0f;
     std::array<float, 5> appeal_weights{};
     std::uint32_t need_delta1 = 0;

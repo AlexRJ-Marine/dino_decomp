@@ -130,7 +130,8 @@ $G = "game/%MAINDIR%"
   construction/destruction flags in the simulation object (`+0x64..+0x68`)
   remain open.
 - `BuildingList.ini` kind -> `.bbi` mapping is done through the list index;
-  placement from the save/campaign path is live, placement through the
-  construction UI is not.
+  placement from the save/campaign path is live, and the construction panel
+  path (`CONSTRUC_*_BUTTON` -> `--construct`) now charges the build cost and
+  checks footprint overlap (`docs/platform/build.md`).
 - Skinned/animated building parts (the `.skel`/`.anim` at indices 8/9) and
   destruction meshes; only the full-mesh bind pose is rendered.

@@ -1,8 +1,8 @@
 # Path and fence placement (SIM-1)
 
-Status: **working** - grid placement, save/load, undo, terrain picking and
-retail fence/path visuals; the retail paddock-capacity model is ported for
-imported dinosaurs.
+Status: **working** - grid placement, save/load, undo, terrain picking,
+retail fence/path visuals, the retail paddock-capacity model and building
+placement through the retail construction panel.
 
 ## Grid
 
@@ -70,6 +70,39 @@ the `WARNING_NO_ROOM_IN_FENCE` panel path, and the runtime range of
 Per-paddock numbers and the all-campaign scan:
 `notes/paddock-capacity-verification.md`.
 
+## Building construction (P4b)
+
+The retail panel path is wired end-to-end:
+
+```text
+OPEN_CONSTRUCTION (right panel) -> OPEN_BUILDING -> category tab
+  -> CONSTRUC_*_BUTTON (from the `.bbi` tail) -> click the ground
+```
+
+`ParkHud::click` exposes the category tabs (`CONSTRUCTION_BUILDINGS_BUTTON`,
+`CONSTRUCTION_BARAQUES_BUTTON`, ...) and every `CONSTRUC_*_BUTTON` as a
+`construct <widget>` action; the viewer resolves the widget to its
+`BuildingList.ini` index by scanning the `.bbi` `tail_strings`.
+
+The charge is **`.bbi` file offset 21** (`D+0x18`), proven by
+`pvwStateBuildingConstruction` (`0x5306e1` gate, `0x5307ac`
+`FUN_00585d20`); file offset 25 is the visitor entry price, not the build
+cost. The port checks the footprint against existing buildings and the
+island bounds, then deducts the cost from `park_budget` (the HUD
+`BUDGET_AMOUNT` follows immediately). A failed check prints the retail
+category name (`WARNING_NOT_ENOUGH_MONEY`) and places nothing.
+
+```text
+--construct NAME        select by BuildingList name or CONSTRUC_*_BUTTON
+--construct-pos X,Y     place the selected building (repeatable, map units)
+--park-budget N         override the start budget (tests/debug)
+```
+
+`--park-click 748,177 --park-click 582,28 --park-click 577,243
+--construct-pos 600,300` selects `RestCirc` through the panel and places it:
+cost 2,500, budget 75,000 -> 72,500. A second placement at the same cell is
+rejected as overlapping.
+
 ## CLI (also used by tests)
 
 ```text
@@ -84,9 +117,10 @@ Per-paddock numbers and the all-campaign scan:
 ```
 
 `--selftest` builds a grid, toggles paths/fences, checks undo and world→cell
-mapping, spawns 12 visitors on a 40-cell loop for 900 update steps, verifies
-they moved and stayed on path cells, and checks the baked mesh counts. It
-prints `selftest: PASS (18 checks)` and is covered by pytest.
+mapping, spawns visitors and runs the SIM-2b scorer, checks the dinosaur
+action chooser and the paddock capacity/cost/duplicate/fill rules, and checks
+the baked mesh counts. It prints `selftest: PASS (N checks)`; pytest asserts
+the count.
 
 Placement file (`notes/build-test.txt` style):
 

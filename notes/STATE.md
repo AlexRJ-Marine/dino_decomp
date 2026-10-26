@@ -1103,7 +1103,22 @@ Updated: 2026-10-26
     `notes/paddock-capacity-verification.md`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_dinosaurs`,
     `test_cpp_selftest`.
-- P4 research complete (**port implementation pending**):
+- P4b complete: **building construction through the retail panel.**
+  - The construction panel now switches its six `CONSTRUC_*_GROUP` categories
+    and exposes every `CONSTRUC_*_BUTTON` as a `construct <widget>` action.
+    The viewer resolves the widget through the `.bbi` `tail_strings` and
+    places the building on the next ground click.
+  - Build cost is `.bbi` file offset 21 (`D+0x18`), proven at
+    `pvwStateBuildingConstruction` `0x5306e1` (gate `FUN_0052bed0`) and
+    `0x5307ac` (`FUN_00585d20`). File offset 25 is the visitor entry price.
+  - Budget and footprint overlap are checked; the HUD `BUDGET_AMOUNT` follows.
+    RestCirc costs 2,500. `--construct`, `--construct-pos` (repeatable),
+    `--park-budget` cover the tests.
+  - Evidence: `docs/platform/build.md`, `docs/formats/bbi.md`,
+    `src/ui/park.cpp`, `tests/test_viewer_cpp.py::test_cpp_construction_placement`,
+    `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
+- P4 research complete (**capacity + building placement ported**; store
+  purchase and the warning panel remain):
   **`FENCE_INSERTION` validator is a paddock-capacity test.**
   - `0x535be0` is `pvwStateFenceInsertion` (ctor `0x535b10`,
     `FUN_0052bd10(0x12, "FENCE_INSERTION")`, vtable `0x642d80`). It places a

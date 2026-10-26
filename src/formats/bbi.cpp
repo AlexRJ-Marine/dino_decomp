@@ -119,6 +119,7 @@ BuildingDef load_bbi(const std::string& path) {
     }
     def.category = u32(data, 49);
     def.duration = f32(data, 37);
+    def.construction_cost = u32(data, 21);
     def.price = u32(data, 25);
     def.appeal_scale = f32(data, 73);
     for (std::size_t i = 0; i < def.appeal_weights.size(); ++i) {

@@ -79,6 +79,22 @@ const Binding kOpeners[] = {
     {"OBJECTIF_PANEL_LIGHTS_GROUP", "MISSION_PANEL"},
 };
 
+// Building-category tabs inside CONSTRUCTION_BUILDINGS_PANEL. Each tab shows
+// one CONSTRUC_*_GROUP; the group's buttons come from the `.bbi` tail names.
+struct GroupBinding {
+    const char* button;
+    const char* group;
+};
+
+const GroupBinding kConstructionGroups[] = {
+    {"CONSTRUCTION_BARAQUES_BUTTON", "CONSTRUC_BARAQUES_GROUP"},
+    {"CONSTRUCTION_BUILDINGS_BUTTON", "CONSTRUC_RESTAURANT_GROUP"},
+    {"CONSTRUCTION_SOUVENIRS_BUTTON", "CONSTRUC_SOUVENIRS_GROUP"},
+    {"CONSTRUCTION_BLACKBOX_BUTTON", "CONSTRUC_BLACKBOX_GROUP"},
+    {"CONSTRUCTION_FOUNTAIN_BUTTON", "CONSTRUC_FOUNTAIN_GROUP"},
+    {"CONSTRUCTION_TREEDECO_BUTTON", "CONSTRUC_TREEDECO_GROUP"},
+};
+
 // Info-panel controller page 8 / state deactivation is reached through the
 // panel's own close, cancel, validate or put-back button.
 const Binding kClosers[] = {
@@ -239,6 +255,13 @@ void ParkHud::open_panel(const std::string& name) {
     } else {
         show_hud(true);
     }
+    if (name == "CONSTRUCTION_BUILDINGS_PANEL") {
+        for (const GroupBinding& group : kConstructionGroups) {
+            overlay.set_visible(
+                group.group,
+                std::string(group.group) == "CONSTRUC_RESTAURANT_GROUP");
+        }
+    }
 }
 
 void ParkHud::close_panel(const std::string& name) {
@@ -382,6 +405,24 @@ bool ParkHud::click(int x, int y, std::string& action) {
     }
     if (name == "MAP_PANEL_ZOOMOUT_BUTTON") {
         action = "minimap zoom out";
+        return true;
+    }
+
+    for (const GroupBinding& group : kConstructionGroups) {
+        if (name == group.button) {
+            for (const GroupBinding& other : kConstructionGroups) {
+                overlay.set_visible(other.group, other.group == group.group);
+            }
+            action = std::string("construction group ") + group.group;
+            return true;
+        }
+    }
+
+    // Building pick buttons. Each `.bbi` tail lists its own CONSTRUC_*_BUTTON
+    // widget; the viewer maps that name back to the BuildingList.ini index.
+    if (name.rfind("CONSTRUC_", 0) == 0 && name.size() > 8 &&
+        name.compare(name.size() - 7, 7, "_BUTTON") == 0) {
+        action = "construct " + name;
         return true;
     }
 

@@ -1738,6 +1738,42 @@ def test_cpp_wld_park_import_single_road():
     assert ("park import: roads=1 path_cells=16 fences=0 fence_edges=0"
             in result.stdout)
 
+def test_cpp_construction_placement():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    # Retail panel path: open the building panel, select the restaurant tab,
+    # click CONSTRUC_RESTAURANT3_BUTTON, then place on the ground.
+    args = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+            "--width", "800", "--height", "600", "--no-vsync",
+            "--no-save-config", "--lnd", str(ISL01),
+            "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+            "--no-entrance", "--park-click", "748,177",
+            "--park-click", "582,28", "--park-click", "577,243",
+            "--construct-pos", "600,300", "--construct-pos", "600,300"]
+    result = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert ("park click 577,243 -> "
+            "construct CONSTRUC_RESTAURANT3_BUTTON") in result.stdout
+    assert "construction: RestCirc selected, cost=2500" in result.stdout
+    assert ("construction: RestCirc cost=2500 budget=72500 cell=600,300"
+            in result.stdout)
+    assert "construction: RestCirc overlaps another building" in result.stdout
+
+    poor = subprocess.run(
+        [str(EXE), "--frames", "1", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config", "--lnd",
+         str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--no-entrance", "--park-budget", "100",
+         "--construct", "RestCirc", "--construct-pos", "600,300"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert poor.returncode == 0, poor.stderr
+    assert ("construction: RestCirc needs 2500, budget 100 "
+            "(WARNING_NOT_ENOUGH_MONEY)") in poor.stdout
+
+
 def test_cpp_sav_park_import(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")

@@ -795,6 +795,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (8/16/32/64), duplicate check, `used`/`fill`, plus `--selftest` checks.
   Imported `.wld` dinosaurs now fill their fence rectangles under the retail
   rule (Cpg04: 9 paddocks, capacity 492, used 160).
+- [x] Port building placement through the retail panel: category tabs and
+  `CONSTRUC_*_BUTTON` resolve to `BuildingList.ini`, the charge is `.bbi`
+  file offset 21 (`D+0x18`), footprint overlap and budget are checked, and
+  the HUD budget follows. `--construct`, `--construct-pos`, `--park-budget`.
+  `--park-click 748,177 582,28 577,243 --construct-pos 600,300` places
+  RestCirc (2,500; budget 75,000 -> 72,500).
 - [ ] Port the store purchase branch (charge `DINOACHAT`, remove the store
   row) and the `WARNING_NO_ROOM_IN_FENCE` panel path; the insertion state
   must stay active on failure.
@@ -804,7 +810,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** WORLD-2, P2.
 - **Evidence:** `notes/fence-insertion-recon.md`,
   `docs/decomp/construction-validation.md`,
-  `notes/construction-validation.md`.
+  `notes/construction-validation.md`, `docs/platform/build.md`,
+  `tests/test_viewer_cpp.py::test_cpp_construction_placement`,
+  `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
 
 ### WORLD-3: Skybox, water, lighting
 - [x] PNG skybox faces (`front/back/left/right/top/bottom`) via stb_image;

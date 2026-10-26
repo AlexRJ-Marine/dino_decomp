@@ -68,7 +68,13 @@ class Building:
         return self._f32(37)
 
     @property
+    def construction_cost(self) -> int:
+        """Cost charged to the CONSTRUCTION budget (`0x5306e1`/`0x5307ac`)."""
+        return self._u32(21)
+
+    @property
     def price(self) -> int:
+        """Visitor entry price used by the attraction scorer."""
         return self._u32(25)
 
     @property
@@ -105,6 +111,7 @@ class Building:
             "header_words": list(self.header_words),
             "category": self.category,
             "duration": self.duration,
+            "construction_cost": self.construction_cost,
             "price": self.price,
             "appeal_scale": self.appeal_scale,
             "radius_squared": self.radius_squared,
