@@ -1108,9 +1108,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   park draw loop fills the gauge track proportionally. Allosaurus:
   STAMINA 40, COURAGE 70, INTELLIGENCE 38, AGILITY 50, SPEED 2 (raw walk
   speed), ARMOR 25, AGGRESSIVENESS 80, ATTACK 80/120 (jaw attack; the
-  five-part total is 335), BEAUTY 20, PERCEPTION 34. ORIGINALITY
-  (`+0x194` conventional appeal) remains 0 until that formula is ported.
-  Evidence: `notes/store-gauges.png`,
+  five-part total is 335), BEAUTY 20, PERCEPTION 34, ORIGINALITY 0
+  (`100 - +0x194`; all part pairs homogeneous). The Leoparus breed shows
+  ORIGINALITY 67. Evidence: `notes/store-gauges.png`,
+  `notes/store-gauges-originality.png`,
   `test_cpp_store_attribute_gauges`.
 - [x] Fix the list draw order: the text-only-child z adjustment raised the
   list to `parent + 0.001`, but lower ZPRIORITY is nearer, so the wood panel

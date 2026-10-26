@@ -66,15 +66,16 @@ See `notes/lanes.md`. Default split:
 1. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. Store panel polish: the eleven `PROGRESS` gauges are wired (10 exact +
-   `ORIGINALITY` 0); add the 3D preview actor and decode `+0x194`
-   conventional appeal for `ORIGINALITY`.
+2. Store panel polish: all eleven `PROGRESS` gauges are live (`+0x194`
+   originality ported); add the 3D preview actor in
+   `DINO_ACHAT_SAVE_RENDER_VIEW`.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
 4. SIM-4: runtime-verify the budget panel rows against a populated save.
 5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-26 - Port +0x194 conventional appeal; all 11 store gauges now live (Allosaurus 0, Leoparus originality 67)
 - 2026-10-26 - CAMPAIGN-3 mission advance: CPGEND success starts the next mission (Mission11 -> Mission12)
 - 2026-10-26 - CAMPAIGN-3 mission id in DINOPSAV: --load-port resumes the active mission
 - 2026-10-26 - Wire the store attribute gauges to DinoAttributes (10/11; ORIGINALITY awaits +0x194)
@@ -82,7 +83,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - Port the GetCourage/ObstAttackSize1 cache writers into DinoNeeds, import/buy and DINOPSAV
 - 2026-10-26 - CAMPAIGN-3 live employees: Cpg01_Mission6 employees objective succeeds with two hires
 - 2026-10-26 - CAMPAIGN-3 menu campaign flow: select/briefing/start imports Cpg04 park and runs Mission1
-- 2026-10-26 - Port the phenotype dummy/skin/carapace accumulator (Parts 4-9); all 20 Cpg04 attribute rows and the obstacle radii now match
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

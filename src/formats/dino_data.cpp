@@ -345,6 +345,12 @@ void read_translator_constants(const std::string& path,
             table.danger_visibility_divider = parse_int(value, path);
         } else if (key == "MaxPerception") {
             table.max_perception = parse_int(value, path);
+        } else if (key == "ConventionalLimbDisparityFactor") {
+            table.conventional_limb_disparity_factor =
+                parse_int(value, path);
+        } else if (key == "ConventionalLimbHomogeneityFactor") {
+            table.conventional_limb_homogeneity_factor =
+                parse_int(value, path);
         } else if (key == "SizeCategory1MaxLength") {
             table.size_category_max[0] = parse_int(value, path);
         } else if (key == "SizeCategory2MaxLength") {
@@ -736,6 +742,40 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.obstacle_size =
         (visibility_divider / 2 + out.height_cm) / visibility_divider;
 
+    // `+0x194` conventional appeal (`FUN_00617250`): 40 / distinct part
+    // allele pairs + 12 * homozygous parts. The accumulator then applies
+    // slot 17 (subtracted) and the slot-6 percentage.
+    {
+        static constexpr int kPartGene[5] = {0, 1, 1, 2, 3};
+        std::array<std::pair<std::uint32_t, std::uint32_t>, 5> pairs{};
+        int homogeneous = 0;
+        for (int part = 0; part < 5; ++part) {
+            const auto& gene =
+                genotype[static_cast<std::size_t>(kPartGene[part])];
+            pairs[static_cast<std::size_t>(part)] = gene;
+            if (gene.first == gene.second) {
+                homogeneous += conventional_limb_homogeneity_factor;
+            }
+        }
+        int distinct = 0;
+        for (int i = 0; i < 5; ++i) {
+            bool seen = false;
+            for (int j = 0; j < i; ++j) {
+                if (pairs[static_cast<std::size_t>(j)] ==
+                    pairs[static_cast<std::size_t>(i)]) {
+                    seen = true;
+                    break;
+                }
+            }
+            if (!seen) {
+                ++distinct;
+            }
+        }
+        out.conventional_appeal =
+            conventional_limb_disparity_factor / std::max(1, distinct) +
+            homogeneous;
+    }
+
     // `FUN_00619a60` (additive) and `FUN_00619b80` (percentage) walk the 23
     // dummy slots; the skin and carapace additions follow in `FUN_00617250`.
     // The final value is `trunc(P * pct/100 + 1e-4) + trunc(acc)` for the int
@@ -908,6 +948,18 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.stamina = normalise(out.stamina, 14);
     out.courage = normalise(out.courage, 15);
     out.obstacle_size = normalise(out.obstacle_size, 16);
+    // `+0x194`: the percentage pass divides by slot 6, the additive pass
+    // subtracts slot 17 (`0x619d90` then `0x619c70`).
+    if (pct[6] != 0) {
+        out.conventional_appeal = static_cast<int>(
+            static_cast<float>(out.conventional_appeal) * 100.0f /
+                static_cast<float>(pct[6]) + 1e-4f) -
+            static_cast<int>(acc[17]);
+    }
+    out.conventional_appeal =
+        std::clamp(out.conventional_appeal, 0, 100);
+    // The store shows Strangeness/ORIGINALITY: a conventional body is low.
+    out.originality = 100 - out.conventional_appeal;
 
     // `FUN_00619fb0` clamps the final values with the Part 9 table.
     if (has_attribute_limits) {

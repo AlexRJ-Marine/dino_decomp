@@ -160,14 +160,14 @@ selected Market genotype's `DinoAttributes`; `ParkHud::update_store_gauges`
 fills each `DINO_ACHAT_ATTRIBUTES_*_GAUGE/INDICS`, and the draw loop renders
 the proportional fill. Allosaurus: STAMINA 40, COURAGE 70, INTELLIGENCE 38,
 AGILITY 50, SPEED 2, ARMOR 25, AGGRESSIVENESS 80, ATTACK 80/120, BEAUTY 20,
-PERCEPTION 34; ORIGINALITY is 0 until the `+0x194` conventional-appeal
-formula is ported. Evidence: `notes/store-gauges.png`,
+PERCEPTION 34, ORIGINALITY 0 (all part pairs homogeneous; `+0x194` is 100).
+The Leoparus breed has distinct dummy alleles and shows ORIGINALITY 67.
+Evidence: `notes/store-gauges.png`, `notes/store-gauges-originality.png`,
 `test_cpp_store_attribute_gauges`.
 
 Remaining: the 3D preview actor (the `DINO_ACHAT_SAVE_RENDER_VIEW` well),
-`ORIGINALITY`, restoring the panel after a dismissed warning, and the
-mission/free-game catalog selection (the port currently uses `Market.ini` for
-all modes).
+restoring the panel after a dismissed warning, and the mission/free-game
+catalog selection (the port currently uses `Market.ini` for all modes).
 
 ### Draw-order fix
 

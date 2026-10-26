@@ -4,6 +4,7 @@ param(
     [int]$MissionRow = 0,
     [switch]$NoTrace,
     [switch]$GenotypeTrace,
+    [switch]$ProviderTrace,
     [switch]$UnlockCampaigns,
     [switch]$BuyDino,
     [switch]$SecuTrace,
@@ -300,6 +301,13 @@ if (-not $game) {
         if (-not $NoTrace) {
             Send 'bp 0x56e670'
             Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} x={p:[[ecx+0x28]+8]} y={p:[[ecx+0x28]+0xc]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]} tr={p:[[ecx+0x28]+0x2a0]} r={p:[[ecx+0x28]+0x27c]} secu={p:[[ecx+0x28]+0x24c]}; run"'
+            if ($ProviderTrace) {
+                # FUN_0056e410 calls the action target provider at node+0x3c:
+                #   MOV ECX,[ESI+0x3c]; MOV EAX,[ECX]; CALL [EAX+0x14]
+                # ECX=provider, EAX=vtable, ESI=node.
+                Send 'bp 0x56e455'
+                Send 'SetBreakpointCommand 0x56e455, "log PROVIDER obj={p:ecx} vt={p:[ecx]} fn={p:[[ecx]+0x14]} r18={p:[[ecx]+0x18]} r1c={p:[[ecx]+0x1c]} node={p:esi} action={p:[esi+0x38]} target={p:[esi+0x3c]}; bc 0x56e455; run"'
+            }
             # Danger-grid validation: one pass of 20 stamps immediately before
             # the 20 per-dinosaur SECU recomputes.
             if ($SecuTrace) {

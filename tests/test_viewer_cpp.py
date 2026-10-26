@@ -2447,6 +2447,7 @@ def test_cpp_store_attribute_gauges(tmp_path):
          "--lnd", str(isl04), "--asset-root", str(GAME),
          "--no-vegetation", "--no-water", "--wld-park", str(wld),
          "--park-click", "765,298", "--park-click", "160,88",
+         "--park-click", "160,124",
          "--screenshot", str(shot)],
         capture_output=True, text=True, timeout=300, env=env,
     )
@@ -2454,12 +2455,18 @@ def test_cpp_store_attribute_gauges(tmp_path):
     # Allosaurus from Market.ini: the accumulator values are the live Cpg04
     # row (stamina 40, courage 70, intelligence 38, ...). The Attack gauge is
     # the jaw attack (80) because AttributeRange.ini caps it at 120; the
-    # five-part total is 335. ORIGINALITY (+0x194 conventional appeal) is
-    # still unported and stays 0.
+    # five-part total is 335. ORIGINALITY is 100 - conventional appeal
+    # (+0x194); Allosaurus is fully conventional (0), the Leoparus breed has
+    # distinct dummy alleles (67).
     assert ("store gauges: Allosaurus ORIGINALITY=0/100 STAMINA=40/100 "
             "COURAGE=70/100 INTELLIGENCE=38/100 AGILITY=50/100 SPEED=2/100 "
             "ARMOR=25/100 AGGRESSIVENESS=80/100 ATTACK=80/120 BEAUTY=20/100 "
             "PERCEPTION=34/100") in result.stdout
+    assert ("store gauges: Allosaurus Leoparus ORIGINALITY=67/100 "
+            "STAMINA=41/100 COURAGE=70/100 INTELLIGENCE=32/100 "
+            "AGILITY=46/100 SPEED=2/100 ARMOR=60/100 "
+            "AGGRESSIVENESS=50/100 ATTACK=51/120 BEAUTY=38/100 "
+            "PERCEPTION=58/100") in result.stdout
     assert shot.exists() and shot.stat().st_size > 0
 
 

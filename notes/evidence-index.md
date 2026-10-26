@@ -20,7 +20,7 @@ add a row when a claim becomes something later work depends on.
 | Dinosaur chooser / `.bai` scoring | `docs/decomp/dinosaur-actions.md`, `notes/dino-action-chooser-recon.md` | `tests/test_viewer_cpp.py::test_cpp_dino_action_loop` |
 | SECU danger grid (8-unit cells, once per second) | `docs/platform/danger-grid.md` | `tests/test_viewer_cpp.py::test_cpp_danger_grid_secu` |
 | GetCourage/ObstAttackSize1 cache writers + DINOPSAV tail | `docs/decomp/dinosaur-actions.md`, `docs/platform/danger-grid.md`, `notes/dino-cache-writers-recon.md` | `test_cpp_dino_action_chooser`, `test_cpp_port_save_danger_cache` |
-| Store attribute gauges (11 PROGRESS/INDICS) | `notes/store-panel-recon.md`, `notes/phenotype-attributes-runtime.md`, `notes/store-gauges.png` | `test_cpp_store_attribute_gauges` |
+| Store attribute gauges (11 PROGRESS/INDICS, `+0x194` originality) | `notes/store-panel-recon.md`, `notes/phenotype-attributes-runtime.md`, `notes/store-gauges.png`, `notes/store-gauges-originality.png` | `test_cpp_store_attribute_gauges` |
 | Daily economy settlement + per-visitor ticket | `docs/decomp/economy.md` | `tools/formats/economy.py`, `tests/test_economy.py` |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |

@@ -3377,7 +3377,7 @@ int main(int argc, char** argv) {
                                   entry.genotype));
             const dino::DinoAttributes attrs =
                 phenotype_table.attributes(genotype);
-            values = {0,
+            values = {attrs.originality,
                       attrs.stamina,
                       attrs.courage,
                       attrs.intelligence,

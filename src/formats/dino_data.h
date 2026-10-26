@@ -99,6 +99,8 @@ struct DinoAttributes {
     int obstacle_size = 0;            // +0x78 (GetObstacleSize)
     int obstacle_size_sq = 0;         // +0x7c
     int obstacle_radius = 0;          // +0x80 (danger-grid stamp radius)
+    int conventional_appeal = 0;      // +0x194 (conventional need input)
+    int originality = 0;              // store ORIGINALITY/Strangeness gauge
     int size_class = -1;              // +0x190
     int family = -1;                  // +0x1ac
     bool quadruped = true;            // +0x1b4
@@ -181,6 +183,8 @@ struct DinoPhenotypeTable {
     int visibility_divider = 10;
     int danger_visibility_divider = 40;
     int max_perception = 90;
+    int conventional_limb_disparity_factor = 40;
+    int conventional_limb_homogeneity_factor = 12;
 
     bool valid = false;
 

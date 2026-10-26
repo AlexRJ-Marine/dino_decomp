@@ -181,11 +181,26 @@ Mapping used:
 | ATTACK | `attack_head` | jaw attack; total is 179..345, max is 120 |
 | BEAUTY | `beauty` | |
 | PERCEPTION | `perception` | |
-| ORIGINALITY | — | `+0x194` conventional appeal, still 0 |
+| ORIGINALITY | `originality` | `100 - conventional_appeal` (`+0x194`) |
+
+`+0x194` conventional appeal (`FUN_00617250`):
+
+```text
+pairs       = genotype pairs for genes {0,1,1,2,3}  (Head/Arm/Leg/Body/Tail)
+homogeneous = 12 * count(pair.a == pair.b)          // ConventionalLimbHomogeneityFactor
+distinct    = number of unique pairs
+P           = 40 / distinct + homogeneous           // ConventionalLimbDisparityFactor
+P           = trunc(P * 100 / pct[6] + 1e-4) - trunc(acc[17])   // clamp 0..100
+originality = 100 - P
+```
+
+Allosaurus (all part pairs `(0,0)`) gives P = 100, originality 0; the
+Allosaurus Leoparus breed has distinct dummy alleles and gives 67.
 
 Allosaurus from `Market.ini` reproduces the live Cpg04 row: STAMINA 40,
 COURAGE 70, INTELLIGENCE 38, AGILITY 50, ARMOR 25, AGGRESSIVENESS 80, ATTACK
-80/120, BEAUTY 20, PERCEPTION 34. Evidence: `notes/store-gauges.png`,
+80/120, BEAUTY 20, PERCEPTION 34, ORIGINALITY 0. Evidence:
+`notes/store-gauges.png`, `notes/store-gauges-originality.png`,
 `test_cpp_store_attribute_gauges`. The 3D preview actor remains.
 
 ## Reproduction
