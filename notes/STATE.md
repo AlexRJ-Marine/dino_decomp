@@ -1283,9 +1283,9 @@ Updated: 2026-10-26
 13. WORLD-3: water height **confirmed** (`FUN_00602cf0` = the `.lnd` float:
    isl01 16.0, isl02 20.0), the skybox face order matches the retail builder
    (`0x00600f80`/`0x00600df0`), and scene/water fog plus the additive blend
-   are applied. Remaining: the second `Modulate2x` water stage, the skybox
-   bottom seam, a direct side-by-side still, and the exact `.lnd` carry path
-   from the reader scratch to the landscape.
+   are applied. The `.lnd` carry path is solved (`notes/lnd-carry-recon.md`).
+   Remaining: the second `Modulate2x` water stage, the skybox bottom seam and
+   a direct side-by-side still.
 14. CONS-1 rest: port the interactive store panel (row selection + paddock
    click) and the `DINOACHAT` count/total bucket + store-row removal; refine
    the imported dinosaurs' cost class from the species baseline (port `used`

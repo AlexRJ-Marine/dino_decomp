@@ -56,14 +56,41 @@ Evidence: runtime `FUN_00586b80` on new free games gives isl01
 `isl01.lnd 520/376/1` and `isl02.lnd 312/504/2`; all seven campaign
 `Cpg0*_Save.wld` Entrance records match their island values. Runtime
 `FUN_00602cf0` gives water Z `16.0` on isl01 and `20.0` on isl02, matching
-the `.lnd` float. See `notes/calibration-2026-10-26.md`.
+the `.lnd` float. See `notes/calibration-2026-10-26.md` and
+`notes/lnd-carry-recon.md`.
 
-`FUN_0051dad0` reads the four values into stack scratch and does not use them
-directly; the exact code path that carries them to the Entrance/landscape
-objects is still open. The second `.lnd` reader `FUN_00506950` only reads the
-name-key string. (The former lead about the terrain builder `0x5fb8b0`
-reading `+0x24/+0x25/+0x26` was a misread: those are detail-map parameters
-set by `FUN_005f3f10` to 20000 / 1.0 / 0.05.)
+### Carry path (solved)
+
+`FUN_0051dad0` reads the four values straight into a stack **landscape
+descriptor** at `[esp+0x6c]` (frame base `B`):
+
+| Field | Struct offset | Read |
+| --- | ---: | --- |
+| water level (f32) | `+0x54` | `0x51e0bd`/`0x51e0cb` |
+| Entrance cell x | `+0x9c` | `0x51e0d4`/`0x51e0e2` |
+| Entrance cell y | `+0xa0` | `0x51e0eb`/`0x51e0f9` |
+| orientation | `+0xa4` | `0x51e102`..`0x51e125` |
+
+The descriptor is passed to `FUN_005f3f10(&struct)` at `0x51e24a`:
+
+- **Water:** `0x51e24a -> 0x5f3ffe -> FUN_005fb8b0`; `0x5fbde0` pushes
+  `[ESI+0x54]` as the 5th argument of the water ctor `0x602b80`, which
+  stores it at `+0x30`; `FUN_00602cf0` reads `+0x30` for the quad Z. The raw
+  float is also copied to the terrain object `+0x38` (`0x5fbe0a`). No
+  transform.
+- **Entrance:** at `0x51e29b` the loader loops the 500-byte building
+  definitions (`park+0x8c`, `[def+0x78] == 10`) and calls
+  `FUN_0053b330(index, &cell, state)` at `0x51e309`. That ctor stores
+  `+0x14 = cell.x`, `+0x18 = cell.y`, `+0x1c = index`, `+0x30 = state`
+  (`0x53b364/0x53b377/0x53b37a`) and registers the object. The creation
+  listener `FUN_0053d1a0` at `0x53c145` pushes `&obj+0x14` and `[obj+0x30]`
+  into `0x586950 -> FUN_00589100` (AddBuilding), and `FUN_00586b80` stores
+  `this[2] = cell_x`, `this[3] = cell_y`, `this[0x12] = state`.
+
+The second `.lnd` reader `FUN_00506950` only reads the name-key string. (The
+former lead about the terrain builder `0x5fb8b0` reading
+`+0x24/+0x25/+0x26` was a misread: those are detail-map parameters set by
+`FUN_005f3f10` to 20000 / 1.0 / 0.05.)
 
 ## Reader/API
 

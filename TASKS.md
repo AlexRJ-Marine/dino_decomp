@@ -374,8 +374,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   and never height 0 on all 10 islands.
 - [x] Design vs Graphics occupation copies differ by <1%; `.lnd` references
   the Design copy.
-- [ ] `.lnd` `width/height` (520×376) meaning, the 255 sub-classes (water vs
-  cliff vs cover) and `isl00`.
+- [x] `.lnd` `width/height` (520×376) = the free-game Entrance cell, the
+  0/1/2 value = its orientation and the float = water Z. The four values fill
+  a stack landscape descriptor (`+0x9c/+0xa0/+0xa4`, water `+0x54`) and reach
+  `FUN_0053b330`/`FUN_00586b80` and the water object `0x602b80` with no
+  transform (`notes/lnd-carry-recon.md`).
+- [ ] The 255 occupation sub-classes (water vs cliff vs cover) and `isl00`.
 - **Acceptance:** 10 islands scan; masks binary; 0-is-land holds.
 - **Depends on:** FMT-7.
 - **Evidence:** `tools/formats/raw.py`, `docs/formats/raw.md`,
