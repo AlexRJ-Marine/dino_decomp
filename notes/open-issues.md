@@ -44,13 +44,15 @@ unknowns, with what was tried and the concrete next step.
 
 ## 4. `.bwi` field semantics
 
-- **Solved:** full struct, all 24 files, assets, height law, cost class,
-  electrified flag, 0xb4-byte runtime record, and the `SWITCH_*` keys are
-  **dead data** (no lookup table anywhere, no prefix in the exe).
-- **Open:** what `0x08` (100), `0x0c` (10/15/30) and `0x10` (30) mean.
-- **Next:** find the wall record's consumers (construction budget setter and
-  the wall renderer) and compare `0x0c` with the budget delta when a wall is
-  built (cost) vs dino damage (hit points).
+- **Solved:** full struct, all 24 files, assets, height law, electrified flag,
+  0xb4-byte runtime record, and the `SWITCH_*` keys are **dead data** (no
+  lookup table anywhere, no prefix in the exe).
+- **Solved:** `0x0c` (10/15/30) is the construction cost. The build path at
+  `0x52b2dd` passes the wall wrapper's `+0x1c` (the embedded wall record's
+  `+0x0c`) to `FUN_00585d20`, the CONSTRUCTION budget setter.
+- **Inferred:** `0x08` (100) and `0x10` (30) are uniform across all walls and
+  fit hit points/build time; no second consumer was found.
+- **Remaining:** only the seven texture-scale floats' exact roles.
 
 ## 5. Dinosaur behavior-graph node types
 
