@@ -807,9 +807,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   the HUD budget follows. `--construct`, `--construct-pos`, `--park-budget`.
   `--park-click 748,177 582,28 577,243 --construct-pos 600,300` places
   RestCirc (2,500; budget 75,000 -> 72,500).
+- [x] Dinosaur store catalog reader: `src/formats/market.{h,cpp}` and
+  `--market-info`; 54 entries in stores 0/2..6, prices 3,200..42,000, all
+  `(name, price, .gen)` triplets validated (matches the Python reader).
 - [ ] Port the store purchase branch (charge `DINOACHAT`, remove the store
   row) and the `WARNING_NO_ROOM_IN_FENCE` panel path; the insertion state
-  must stay active on failure.
+  must stay active on failure. The catalog reader is ready.
 - **Acceptance:** the port can reject a full paddock and charge a store
   dinosaur with the original rules, with `WARNING_NO_ROOM_IN_FENCE` keeping
   the insertion state active.

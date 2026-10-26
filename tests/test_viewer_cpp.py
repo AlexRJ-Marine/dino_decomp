@@ -1922,3 +1922,16 @@ def test_cpp_dino_action_chooser():
     assert "dino choose both: Eat 9009" in result.stdout
     assert "dino choose full: idle" in result.stdout
     assert "dino choose small: EatForSmallies 9009" in result.stdout
+
+def test_cpp_market_info():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    result = subprocess.run(
+        [str(EXE), "--market-info", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "market: entries=54 stores=6 prices=3200..42000" in result.stdout
+    assert "market stores: 0=10 2=14 3=14 4=9 5=5 6=2" in result.stdout
+    assert ("first=Allosaurus 9000 allo.gen "
+            "last=Zarbosaurus 4900 zarbo.gen") in result.stdout

@@ -66,11 +66,28 @@ the triplet count, integer prices and `.gen` suffix. Tests:
 `tests/test_market.py` (54 entries, store counts, spot entries, genotypes
 exist, the three unsold design files).
 
+### C++ reader
+
+`src/formats/market.{h,cpp}`: `load_market(path)` returns the same entries in
+store order (`DinoStore0,2..6`) and validates the triplets, integer prices and
+`.gen` suffix. The includes are ignored because all `[DINOSTORE]` keys live in
+`Market.ini` itself.
+
+```text
+dino_viewer.exe --market-info --asset-root game/%MAINDIR%
+market: entries=54 stores=6 prices=3200..42000
+market stores: 0=10 2=14 3=14 4=9 5=5 6=2
+first=Allosaurus 9000 allo.gen last=Zarbosaurus 4900 zarbo.gen
+```
+
+Tests: `tests/test_viewer_cpp.py::test_cpp_market_info`.
+
 ## Evidence
 
 - `Data/Design/Scenario/Market.ini` (read-only).
 - `Data/Design/Scenario/Genotype/*.gen`.
-- `tools/formats/market.py`, `tests/test_market.py`.
+- `tools/formats/market.py`, `tests/test_market.py`,
+  `src/formats/market.{h,cpp}`.
 
 ## Open
 

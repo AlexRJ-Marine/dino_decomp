@@ -53,6 +53,7 @@ add_executable(dino_viewer
     src/formats/dino_data.cpp
     src/formats/wld.cpp
     src/formats/bai.cpp
+    src/formats/market.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp

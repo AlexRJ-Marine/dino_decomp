@@ -1103,11 +1103,13 @@ Updated: 2026-10-26
     under the retail rule instead of a modulo ring. Cpg04: 9 paddocks,
     total capacity 492, 20 dinosaurs used 384 (species-bbox size classes;
     retail individual classes give 336).
-  - `--selftest` now has 30 checks (capacity, size class, costs, duplicate,
-    fill, no-room); `test_cpp_wld_park_dinosaurs` asserts the summary.
+  - `--selftest` now has 32 checks (capacity, size class, costs, duplicate,
+    fill, no-room, slope basis); `test_cpp_wld_park_dinosaurs` asserts the
+    summary.
   - Pending: the store purchase branch (`DINOACHAT` charge + store-row
-    removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the runtime
-    `dinosaur+0x1e0` cost index.
+    removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the exact
+    per-individual size class. The store catalog reader is done
+    (`src/formats/market.*`, `--market-info`: 54 entries, 3,200..42,000).
   - Evidence: `docs/platform/build.md`, `docs/decomp/construction-validation.md`,
     `notes/paddock-capacity-verification.md`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_dinosaurs`,
