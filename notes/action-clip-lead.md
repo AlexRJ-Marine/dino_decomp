@@ -73,21 +73,44 @@ So `[actor+0x28]+0x314/+0x316` are **item/show animation state ids**, not an
 action-id→clip table. This lead is closed. Details:
 `notes/campaign-unlock-runtime.md`.
 
-## Revised next trace
+## Conclusion: there is no action→clip table
 
-1. Break at the animator's clip-play method (the function that consumes
-   `actor+0x28` animation slots) or at `FUN_00508420`, and watch which clip
-   index is passed when `saDinosaur+0x2c0` (action id) changes.
-2. Force a known action in the retail park (Eat from BAD FOOD, or Sleep from
-   BAD REPOS) and correlate the played clip with the `anim_trans.dic` order.
-3. Then map all 64 action ids and replace the port's inferred names.
+The `aacDinosaurAnimator` vtable is `0x6480B0` (ctor `0x5D4880`). Its update
+method `FUN_005D82F0` reads `saDinosaur+0x2BC` and, when the value is 0..2,
+blends the matching animation slot (`FUN_005D8870(1, animator + value*2 + 5)`
+then `FUN_005D8960`). A separate branch reads `saDinosaur+0x514`,
+`+0x518` and `+0x520` and blends an **event/overlay animation object**
+(`FUN_00607200` on the actor's animation handle).
+
+`+0x2BC` is a locomotion/activity state 0..4, written by the saDinosaur
+constructor (`0x57031F`, `0x570604`), reset to 0 (`0x570FA5`) and updated by
+the 5 s/10 s AI passes (`0x57250D..0x5725AC`, including value 4). It is **not**
+the action id `+0x2C0`. The action id is never passed to the animator; action
+visuals are the `.bai` element bones/events and the `.seq` event animations.
+
+So the earlier premise ("find the 64-entry action→clip table") is wrong. The
+port should:
+
+1. drive the locomotion slot from movement/activity (Neutral/Walk/Run), and
+2. play the action's element bones/events as overlays, not swap a whole-body
+   clip per action.
+
+The current inferred name mapping (`Eat`→`Chew`, etc.) is a port convenience,
+not retail behavior.
+
+## Remaining evidence
+
+- The `+0x518/+0x520` animation handle's source (which `.bai`/`.seq` event
+  sets it) is not traced; it is the real action-visual entry point.
+- Locomotion-state thresholds (when `+0x2BC` becomes 0/1/2/4) come from the
+  periodic AI passes, not the action loop.
 
 ## Evidence
 
 - `tools/formats/anim_trans.py` — 51-clip order.
-- Ghidra: `0x65e4d0` table (raw dump), `0x5d8e60` animation manager,
-  `0x56c0c0` state-id writer, `0x56F290`/`0x56FE70`/`0x56FE80` getters,
-  `0x521cc0`/`0x521e18` dinosaur update call, `0x642abc`/`0x64302c`/`0x643040`
-  vtables.
-- `notes/campaign-unlock-runtime.md`,
-  `docs/formats/anim-trans.md`, `notes/dino-action-chooser-recon.md`.
+- Ghidra: `0x5D4880` animator ctor (vtable `0x6480B0`), `0x5D82F0`
+  locomotion/overlay update, `0x5D8870`/`0x5D8960` blend/play, `0x57031F`
+  `+0x2BC` init, `0x57250D..0x5725AC` periodic state writes.
+- Runtime: `0x56c0c0` vtables `0x6430AC`/`0x6430E4` return show/item state ids
+  0/0 and state/1 (`notes/campaign-unlock-runtime.md`).
+- `docs/formats/anim-trans.md`, `notes/dino-action-chooser-recon.md`.
