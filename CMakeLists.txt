@@ -60,6 +60,7 @@ add_executable(dino_viewer
     src/world/visitors.cpp
     src/world/dino_actions.cpp
     src/world/port_save.cpp
+    src/world/economy.cpp
 )
 
 target_compile_features(dino_viewer PRIVATE cxx_std_20)

@@ -28,6 +28,7 @@
 #include "../world/visitors.h"
 #include "../world/dino_actions.h"
 #include "../world/port_save.h"
+#include "../world/economy.h"
 #include "../ui/menu.h"
 #include "../ui/park.h"
 #include "../ui/ini.h"
@@ -113,6 +114,7 @@ struct Options {
     bool bai_info = false;
     bool market_info = false;
     std::string store_ini_path;
+    bool budget_info = false;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
     std::string dino_needs = "50,99,99,99";
@@ -346,6 +348,8 @@ Options parse_args(int argc, char** argv) {
             opt.market_info = true;
         } else if (arg == "--store-info") {
             opt.store_ini_path = next("--store-info");
+        } else if (arg == "--budget-info") {
+            opt.budget_info = true;
         } else if (arg == "--dino-actions") {
             opt.dino_actions_info = true;
         } else if (arg == "--dino-action-loop") {
@@ -577,6 +581,7 @@ Options parse_args(int argc, char** argv) {
                 "  --bai-info           print the 64 action definitions and exit\n"
                 "  --market-info        print the dinosaur store catalog and exit\n"
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
+                "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
                 "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
@@ -4349,6 +4354,7 @@ int main(int argc, char** argv) {
             build_grid.fence_count);
     }
 
+    dino::BudgetLedger budget_ledger;
     int pending_buy_price = 0;
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
         terrain.world_size > 0.0f) {
@@ -4591,6 +4597,7 @@ int main(int argc, char** argv) {
                                               x, y,
                                               theta * 180.0f / kPi + 90.0f)) {
                             dino::paddock_add(paddock, dino_id, cost_class);
+                            budget_ledger.spend_dinoachat(entry->price);
                             pending_buy_price = entry->price;
                             std::printf(
                                 "buy: %s price=%d budget=%d paddock=%d "
@@ -5155,6 +5162,8 @@ int main(int argc, char** argv) {
             return false;
         }
         park_budget -= static_cast<int>(def.construction_cost);
+        budget_ledger.spend_construction(
+            static_cast<int>(def.construction_cost));
         rebuild_extra_items();
         std::printf("construction: %s cost=%u budget=%d cell=%d,%d\n",
                     def.name.c_str(), def.construction_cost, park_budget,
@@ -5209,6 +5218,8 @@ int main(int argc, char** argv) {
         const int tickets = visitors * ticket_price;
         const int wages = 0;
         park_budget += tickets - wages;
+        budget_ledger.add_ticket(tickets, visitors);
+        budget_ledger.settle();
         std::printf(
             "daily settlement: day=%d visitors=%d ticket=%d income=%d "
             "wages=%d budget=%d\n",
@@ -5217,6 +5228,30 @@ int main(int argc, char** argv) {
     };
     if (opt.settle_day) {
         run_daily_settlement();
+    }
+    if (opt.budget_info) {
+        std::printf(
+            "budget ledger: dinoachat=%d/%d construction=%d/%d tickets=%d/%d "
+            "food=%d/%d secu=%d/%d labo=%d/%d ventes=%d/%d\n",
+            budget_ledger.dinoachat_count, budget_ledger.dinoachat_total,
+            budget_ledger.construction_count,
+            budget_ledger.construction_total, budget_ledger.ticket_count,
+            budget_ledger.ticket_total, budget_ledger.food_count,
+            budget_ledger.food_total, budget_ledger.secu_count,
+            budget_ledger.secu_total, budget_ledger.laboaction_count,
+            budget_ledger.laboaction_total, budget_ledger.ventes_count,
+            budget_ledger.ventes_total);
+        std::printf(
+            "budget yesterday: dinoachat=%d/%d construction=%d/%d "
+            "tickets=%d/%d\n",
+            budget_ledger.y_dinoachat_count, budget_ledger.y_dinoachat_total,
+            budget_ledger.y_construction_count,
+            budget_ledger.y_construction_total, budget_ledger.y_ticket_count,
+            budget_ledger.y_ticket_total);
+        std::printf(
+            "budget totals: expenses=%d income=%d net=%d\n",
+            budget_ledger.expenses(), budget_ledger.income(),
+            budget_ledger.net());
     }
 
     int park_layout_w = 800;
@@ -5800,12 +5835,91 @@ int main(int argc, char** argv) {
                 return park_clock.day_text();
             }
             // Budget-panel fields are separate number widgets refreshed by
-            // 0x510430. A fresh park has no spending yet, so every category
-            // and both totals are zero.
+            // 0x510430. The panel shows the yesterday block (docs/decomp/
+            // economy.md); only the categories the port currently changes
+            // are non-zero.
             if (name.rfind("BUDGET_", 0) == 0 &&
                 name.size() > 7 &&
                 name.compare(name.size() - 7, 7, "_NUMBER") == 0) {
+                if (name == "BUDGET_DINOACHAT_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_dinoachat_count);
+                }
+                if (name == "BUDGET_DINOACHAT_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_dinoachat_total);
+                }
+                if (name == "BUDGET_CONSTRUCTION_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_construction_count);
+                }
+                if (name == "BUDGET_CONSTRUCTION_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_construction_total);
+                }
+                if (name == "BUDGET_LABOACTION_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_laboaction_count);
+                }
+                if (name == "BUDGET_LABOACTION_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_laboaction_total);
+                }
+                if (name == "BUDGET_ENTREES_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_ticket_count);
+                }
+                if (name == "BUDGET_ENTREES_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_ticket_total);
+                }
+                if (name == "BUDGET_VENTES_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_ventes_count);
+                }
+                if (name == "BUDGET_VENTES_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_ventes_total);
+                }
+                if (name == "BUDGET_FOOD_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_food_count);
+                }
+                if (name == "BUDGET_FOOD_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_food_total);
+                }
+                if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_NUMBER") {
+                    return std::to_string(budget_ledger.y_secu_count);
+                }
+                if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_secu_total);
+                }
+                if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
+                    return "0";  // live employee count
+                }
+                if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
+                    return std::to_string(budget_ledger.y_staff_food_total);
+                }
+                const struct ShopRow {
+                    const char* prefix;
+                    int kind;
+                } shop_rows[] = {
+                    {"BUDGET_RESTOS_", 1},     {"BUDGET_BARAQUES_", 2},
+                    {"BUDGET_SOUVENIRS_", 3},  {"BUDGET_BOITNOIRE_", 4},
+                    {"BUDGET_POINTDEVUE_", 5}, {"BUDGET_GRADINS_", 6},
+                };
+                for (const ShopRow& row : shop_rows) {
+                    if (name.rfind(row.prefix, 0) != 0) {
+                        continue;
+                    }
+                    const std::size_t index =
+                        static_cast<std::size_t>(row.kind);
+                    if (name.find("_COST_NUMBER") != std::string::npos) {
+                        return std::to_string(
+                            budget_ledger.y_shop_revenue[index]);
+                    }
+                    return std::to_string(
+                        budget_ledger.y_shop_sales[index]);
+                }
+                if (name == "BUDGET_TOTAL_LEFT_COST_NUMBER") {
+                    return std::to_string(budget_ledger.expenses());
+                }
+                if (name == "BUDGET_TOTAL_RIGHT_COST_NUMBER") {
+                    return std::to_string(budget_ledger.income());
+                }
                 return "0";
+            }
+            if (name == "BUDGET_TOTAL_PRICE_PANEL_PRICE_ZONE") {
+                return std::to_string(budget_ledger.net());
             }
             return "";
         };

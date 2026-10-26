@@ -232,6 +232,22 @@ updates the totals but not the rows.
 A save taken after one in-game day is the quickest way to validate the row
 mapping at runtime.
 
+## Port status
+
+`src/world/economy.{h,cpp}` implements the ledger: current/yesterday copies of
+FOOD, EFFECTIFS_FOOD/SECU, DINOACHAT, LABOACTION, CONSTRUCTION, ENTREES, the
+seven shop revenue/sale counters and VENTES, plus `settle()`, `expenses()`,
+`income()` and `net()`. The viewer feeds it from the purchase
+(`--buy-dino`), the construction placement, and the daily settlement
+(tickets + `settle()` on the clock rollover). The HUD budget panel reads the
+yesterday block through `runtime_text`, so a park with purchases shows the
+CONSTRUCTION and DINOACHAT rows and the total-expenses field after a day
+rollover (`notes/budget-spent.png`).
+
+The remaining gaps are the sources the port does not produce yet: staff wages,
+EFFECTIFS_SECU, shop sales and lab actions. The cumulative block and the
+save round-trip of the ledger are also not modelled.
+
 ## Evidence
 
 - Ghidra: `0x00585150` (economy ctor), `0x00585bd0`, `0x00585c00`,

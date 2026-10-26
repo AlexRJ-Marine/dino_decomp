@@ -1989,3 +1989,49 @@ def test_cpp_freegame_store():
     assert "store stores: 0=3 2=4 3=4 4=4 5=4 6=1" in result.stdout
     assert ("first=Allosaurus 9000 allo.gen "
             "last=Velociraptor 15000 velo.gen") in result.stdout
+
+def test_cpp_budget_panel_ledger(tmp_path):
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    from PIL import ImageChops
+
+    def run(extra, shot):
+        result = subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+             "800", "--height", "600", "--no-vsync", "--no-save-config",
+             "--lnd", str(isl04), "--asset-root", str(GAME),
+             "--no-vegetation", "--no-water", "--wld-park", str(wld),
+             "--park-click", "97,584", "--settle-day", "--budget-info",
+             "--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=300,
+        )
+        assert result.returncode == 0, result.stderr
+        return result
+
+    zero_shot = tmp_path / "zero.bmp"
+    spent_shot = tmp_path / "spent.bmp"
+    zero = run([], zero_shot)
+    assert ("budget yesterday: dinoachat=0/0 construction=0/0 tickets=0/0"
+            in zero.stdout)
+    assert "budget totals: expenses=0 income=0 net=0" in zero.stdout
+
+    spent = run(["--buy-dino", "Zarbosaurus", "--construct", "RestCirc",
+                 "--construct-pos", "600,300"], spent_shot)
+    assert ("budget ledger: dinoachat=0/0 construction=0/0 tickets=0/0"
+            in spent.stdout)
+    assert ("budget yesterday: dinoachat=1/4900 construction=1/2500 "
+            "tickets=0/0") in spent.stdout
+    assert "budget totals: expenses=7400 income=0 net=-7400" in spent.stdout
+
+    a = Image.open(zero_shot).convert("RGB")
+    b = Image.open(spent_shot).convert("RGB")
+    # CONSTRUCTION and DINOACHAT rows (count + cost) and the total-expenses
+    # field must change between a fresh park and one with 4,900 + 2,500 spent.
+    for box in ((150, 214, 310, 238), (150, 252, 310, 276),
+                (230, 398, 312, 426)):
+        diff = ImageChops.difference(a.crop(box), b.crop(box))
+        assert diff.getbbox() is not None
