@@ -1053,6 +1053,13 @@ Updated: 2026-10-26
    wages are solved in `docs/decomp/economy.md`. See
    `docs/decomp/employee-ai.md`.
 11. User: publish `docs/community/xentax-post.md` and record any replies.
+12. SHOW research: the `.bfi` attribute-weight lists and 200..1000 score
+    steps are decoded, but their consumer is not. Next lead: the six judge
+    behaviors share `0x582d70` and differ only by vtable
+    (`0x64350c`/`0x6434e8`/...); map the score path from there.
+13. WORLD-3: confirm the retail water height. The `.lnd` float is discarded
+    by the loader (`0x51dad0`), so the port's water plane at that value is an
+    unverified convention.
 
 ## Blockers
 
