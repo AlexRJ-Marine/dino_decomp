@@ -79,20 +79,33 @@ The `aacDinosaurAnimator` vtable is `0x6480B0` (ctor `0x5D4880`). Its update
 method `FUN_005D82F0` reads `saDinosaur+0x2BC` and, when the value is 0..2,
 blends the matching animation slot (`FUN_005D8870(1, animator + value*2 + 5)`
 then `FUN_005D8960`). A separate branch reads `saDinosaur+0x514`,
-`+0x518` and `+0x520` and blends an **event/overlay animation object**
-(`FUN_00607200` on the actor's animation handle).
+`+0x518` and `+0x520` and applies an **event/envmap texture string**
+(`FUN_00607200` on the actor's string).
 
 `+0x2BC` is a locomotion/activity state 0..4, written by the saDinosaur
 constructor (`0x57031F`, `0x570604`), reset to 0 (`0x570FA5`) and updated by
 the 5 s/10 s AI passes (`0x57250D..0x5725AC`, including value 4). It is **not**
-the action id `+0x2C0`. The action id is never passed to the animator; action
-visuals are the `.bai` element bones/events and the `.seq` event animations.
+the action id `+0x2C0`; the action id is never passed to the animator.
+
+The `+0x518` string is the **`.bai` element's texture path** (the bonus
+envmap TGAs: `blindage.tga`, `endurance.tga`, `jump.tga`, `quaddamage.tga`,
+`speed.tga`). `ApplyActionEffect` copies it into `saDinosaur+0x518` and sets
+`+0x514 = 1`; the animator then applies it through `FUN_00607200` /
+`FUN_005D8870` / `FUN_005D8960` as a material/envmap effect, not as a clip.
+So the action visuals are:
+
+- a locomotion/activity slot from `+0x2BC`,
+- a bonus envmap texture from the element string,
+- bone/event effects from the `.bai` element and `.seq` events.
+
+There is no whole-body action clip to look up.
 
 So the earlier premise ("find the 64-entry action→clip table") is wrong. The
 port should:
 
-1. drive the locomotion slot from movement/activity (Neutral/Walk/Run), and
-2. play the action's element bones/events as overlays, not swap a whole-body
+1. drive the locomotion slot from movement/activity (Neutral/Walk/Run),
+2. apply the `.bai` element envmap texture for bonus actions, and
+3. play the action's element bones/events as overlays, not swap a whole-body
    clip per action.
 
 The current inferred name mapping (`Eat`→`Chew`, etc.) is a port convenience,
@@ -100,8 +113,8 @@ not retail behavior.
 
 ## Remaining evidence
 
-- The `+0x518/+0x520` animation handle's source (which `.bai`/`.seq` event
-  sets it) is not traced; it is the real action-visual entry point.
+- The element `bones`/event effects are applied by the animator/sequence
+  system; the exact bone-overlay path is not traced.
 - Locomotion-state thresholds (when `+0x2BC` becomes 0/1/2/4) come from the
   periodic AI passes, not the action loop.
 
