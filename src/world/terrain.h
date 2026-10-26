@@ -18,9 +18,19 @@ struct Terrain {
     float height_scale = 1.0f;
     std::vector<std::uint8_t> heights;
 
+    // Retail buildability mask (`<island>_occupation.raw`, 1024x1024 u8):
+    // 0 = free/buildable, 255 = blocked (water, cliff or a placed building).
+    std::vector<std::uint8_t> occupation;
+    int occupation_width = 0;
+    int occupation_height = 0;
+
     // Bilinear height in world units. Coordinates are centred on the island:
     // both span [-world_size/2, +world_size/2].
     float height_at(float world_x, float world_y) const;
+
+    // True when the centred world point maps to a free occupation cell.
+    // Missing/invalid masks return true so the port keeps working without one.
+    bool buildable(float world_x, float world_y) const;
 };
 
 // Slope-aligned placement basis (FUN_0061c510): the normal is the normalized

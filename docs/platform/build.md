@@ -1,8 +1,9 @@
 # Path and fence placement (SIM-1)
 
 Status: **working** - grid placement, save/load, undo, terrain picking,
-retail fence/path visuals, the retail paddock-capacity model and building
-placement through the retail construction panel.
+retail fence/path visuals, the retail paddock-capacity model, the
+`<island>_occupation.raw` buildability mask and building placement through
+the retail construction panel.
 
 ## Grid
 
@@ -31,6 +32,26 @@ still works. Placement picks the terrain by ray-marching the heightfield from
 the camera through the mouse pixel and bisecting the last step (24 iterations);
 the hit must be inside the island bounds. The fence tool chooses the nearest
 cell edge (west/east/south/north) and toggles its canonical edge.
+
+## Buildability mask
+
+Each island ships `Data/Design/Landscape/<island>/<island>_occupation.raw`:
+a 1024×1024 `u8` map over the same 1024-unit world (1 unit per cell). The
+values are `0` (free/buildable) and `255` (blocked: water, cliff, vegetation
+or an existing building — the 77,923 free isl01 cells exclude the Entrance
+footprint). `Terrain::buildable(world_x, world_y)` maps the centred world
+coordinate to the mask (`mx = x + 512`, `my = y + 512`) and returns true only
+for `0`.
+
+- Path, fence and construction placement check the mask; a blocked cell
+  prints `placement: blocked cell`, and the CLI placement prints
+  `place-path: blocked cell X,Y` / `place-fence: ...` and skips it.
+- The fence check tests both cells adjacent to the edge.
+- `try_construct` checks every cell of the `.bbi` footprint.
+- Retail `.wld`/`.sav` roads and fences are imported unfiltered (they are
+  already valid in the source data).
+- Missing masks (e.g. a synthetic test island) keep the previous permissive
+  behaviour.
 
 ## Visuals
 
@@ -182,11 +203,16 @@ build: cell 4.0, grid 256x256, 2 path cells, 1 fences; mesh 2 tiles, 1 segments
 - `tests/test_viewer_cpp.py`:
   - `test_cpp_build_save_load` (counts, file contents, reload)
   - `test_cpp_pick_terrain` (ray pick returns a cell)
-- `src/world/build.cpp`, `src/world/build.h`.
+  - `test_cpp_occupation_mask_blocks_placement` (blocked isl01 cell rejected)
+- `src/world/build.cpp`, `src/world/build.h`, `src/world/terrain.cpp`
+  (`Terrain::buildable`, mask load).
+- `notes/raw-recon.md`, `notes/occupation-masks.png` — the `.raw` mask
+  (0 = buildable, 255 = blocked).
 
 ## Open items
 
-- Validation rules: block steep slopes, water, buildings, dinosaur pens.
+- Validation rules beyond the occupation mask: steep slopes and dinosaur
+  pens.
 - Costs/limits and a HUD (needs the overlay/UI layer).
 - Path connectivity / visitors (SIM-2).
 - Per-triangle fence material split (material 1 is `laser2.tga`, 8 triangles).

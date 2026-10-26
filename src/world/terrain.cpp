@@ -128,6 +128,23 @@ float Terrain::height_at(float world_x, float world_y) const {
     return (h0 + (h1 - h0) * fy) * height_scale;
 }
 
+bool Terrain::buildable(float world_x, float world_y) const {
+    if (occupation.empty() || occupation_width <= 0 ||
+        occupation_height <= 0 || world_size <= 0.0f) {
+        return true;  // no mask: keep the previous permissive behaviour
+    }
+    const int mx = static_cast<int>(
+        std::floor((world_x / world_size + 0.5f) *
+                   static_cast<float>(occupation_width)));
+    const int my = static_cast<int>(
+        std::floor((world_y / world_size + 0.5f) *
+                   static_cast<float>(occupation_height)));
+    if (mx < 0 || mx >= occupation_width || my < 0 || my >= occupation_height) {
+        return false;
+    }
+    return occupation[static_cast<std::size_t>(my) * occupation_width + mx] == 0;
+}
+
 TerrainBasis slope_basis(const Terrain& terrain, float world_x, float world_y,
                          float yaw_radians) {
     Vec3 normal{0.0f, 0.0f, 0.0f};

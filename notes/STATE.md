@@ -212,8 +212,13 @@ Updated: 2026-10-26
   - Terrain ray-pick + click placement (`1`/`2`/`0`/`U`), retail paddock
     fence mesh and `ground.tga` path tiles.
   - Placement save/load text format; `--place-path`/`--place-fence`.
+  - Buildability mask: `<island>_occupation.raw` (1024×1024, 0 = free,
+    255 = blocked) loaded into `Terrain`; path/fence/construction placement
+    rejects blocked cells. Selftest check 33 and
+    `test_cpp_occupation_mask_blocks_placement`.
   - Evidence: `docs/platform/build.md`, `src/world/build.cpp`,
-    `notes/build-preview.png`, `notes/build-preview2.png`,
+    `src/world/terrain.cpp`, `notes/build-preview.png`,
+    `notes/build-preview2.png`, `notes/raw-recon.md`,
     `tests/test_viewer_cpp.py`.
 - WORLD-3 implemented (side-by-side comparison pending): skybox + water.
   - Six 128×128 PNG skybox faces via vendored `stb_image`; unlit cube drawn

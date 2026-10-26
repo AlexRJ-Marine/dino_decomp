@@ -949,12 +949,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`1` path, `2` fence, `0` off, `U` undo).
 - [x] Retail paddock fence mesh + `ground.tga` path tiles, baked per type.
 - [x] Save/load placement files; CLI `--place-path` / `--place-fence`.
+- [x] Load the `<island>_occupation.raw` buildability mask (0 = free,
+  255 = blocked/water/building). Path, fence and building placement now
+  reject blocked cells (`place-path: blocked cell ...`); the selftest covers
+  the world-to-mask mapping.
 - **Acceptance:** place/remove a path and a fence; state survives save/load.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/build.md`, `src/world/build.cpp`,
-  `notes/build-preview.png`, `notes/build-preview2.png`,
-  `tests/test_viewer_cpp.py` (`test_cpp_build_save_load`,
-  `test_cpp_pick_terrain`).
+  `src/world/terrain.cpp`, `notes/build-preview.png`,
+  `notes/build-preview2.png`, `tests/test_viewer_cpp.py`
+  (`test_cpp_build_save_load`, `test_cpp_pick_terrain`,
+  `test_cpp_occupation_mask_blocks_placement`).
 
 ### SIM-2: Visitor agents
 - [x] Visitors spawn on placed path cells and walk cell-to-cell (random
