@@ -95,6 +95,9 @@ seconds of Shift+Left (90 deg/s), and `distance 65.6 -> 10.0` after one
 second of `+`. Evidence: `notes/camera-retail-controls.txt`,
 `notes/camera-retail-start.png`, `notes/camera-retail-pan-left.png`,
 `notes/camera-retail-rotate-left.png`, `notes/camera-retail-zoom-in.png`.
+The on-screen `NAVIGATION_PANEL` path was verified with
+`--park-click 693,370` -> `camera pan forward` (the camera moved);
+`notes/camera-nav-base.png` / `notes/camera-nav-pan.png`.
 Full viewer suite: 394 passed.
 
 ## Remaining open items
