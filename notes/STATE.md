@@ -214,8 +214,10 @@ Updated: 2026-10-26
   - Placement save/load text format; `--place-path`/`--place-fence`.
   - Buildability mask: `<island>_occupation.raw` (1024×1024, 0 = free,
     255 = blocked) loaded into `Terrain`; path/fence/construction placement
-    rejects blocked cells. Selftest check 33 and
-    `test_cpp_occupation_mask_blocks_placement`.
+    rejects blocked cells. Fence edges test the stored cell and the cell
+    across the edge (edge 0 = south `(x,y-1)`, edge 1 = east `(x+1,y)`);
+    boundary neighbours are ignored and removing a path/fence is not gated.
+    Selftest check 33 and `test_cpp_occupation_mask_blocks_placement`.
   - Evidence: `docs/platform/build.md`, `src/world/build.cpp`,
     `src/world/terrain.cpp`, `notes/build-preview.png`,
     `notes/build-preview2.png`, `notes/raw-recon.md`,
@@ -1176,12 +1178,16 @@ Updated: 2026-10-26
     `ParkClock::next_day()`. `--settle-day` seeds one settlement for tests;
     8 visitors give income 525, budget 75,525.
   - Per-visitor ticket **solved**: `0x58ad95`/`0x588514` use the `.bvi`
-    offset `0x34` scale (1.0..2.5). The manual save's two visitors are
-    profile 6 (Scientist, 1.5 -> 75) and 9 (Kid, 1.0 -> 50), matching the
-    `125/2` pair. `VisitorProfile::price_scale` drives the port settlement.
+    offset `0x34` scale (1.0..2.5), truncated. The manual save's two visitors
+    are profile 6 (Scientist, 1.5 -> 75) and 9 (Kid, 1.0 -> 50), matching the
+    `125/2` pair. The save import maps `drsVisitor.field_20` by
+    `field_1c == simulation object_id`, so `--sav-park --settle-day` now
+    reproduces income 125 / budget 75,250. `VisitorProfile::price_scale` and
+    `Visitor.global_profile` drive the settlement.
   - Open: staff wages (`0x585d80`) / EFFECTIFS_SECU (`0x585d50`).
   - Evidence: `docs/decomp/economy.md`,
-    `tests/test_viewer_cpp.py::test_cpp_daily_settlement`.
+    `tests/test_viewer_cpp.py::test_cpp_daily_settlement`,
+    `test_cpp_sav_ticket_value`.
 - HYB-3 complete: **both vector reader hooks runtime-verified.**
   - Decoded the engine vector: 16-byte `{vptr, first, last, end}`, resize to
     the count, insert helpers `0x47d500` (u16) / `0x47cac0` (u32), count-first
