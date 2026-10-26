@@ -191,17 +191,37 @@ void ParkHud::show_hud(bool visible) {
 
 void ParkHud::show_warning(const std::string& text) {
     hide_panels();
-    warning_text_ = text;
-    warning_open_ = true;
+    dialog_kind_ = DialogKind::warning;
+    dialog_text_ = text;
     overlay.set_visible("REQUEST_PANEL", false);
     overlay.set_visible("CPGEND_PANEL", false);
     overlay.set_visible("WARNING_PANEL", true);
     overlay.set_visible("DIALOG_BACKGROUND", true);
 }
 
+void ParkHud::show_request(const std::string& text) {
+    hide_panels();
+    dialog_kind_ = DialogKind::request;
+    dialog_text_ = text;
+    overlay.set_visible("WARNING_PANEL", false);
+    overlay.set_visible("CPGEND_PANEL", false);
+    overlay.set_visible("REQUEST_PANEL", true);
+    overlay.set_visible("DIALOG_BACKGROUND", true);
+}
+
+void ParkHud::show_campaign_end(const std::string& text) {
+    hide_panels();
+    dialog_kind_ = DialogKind::campaign_end;
+    dialog_text_ = text;
+    overlay.set_visible("WARNING_PANEL", false);
+    overlay.set_visible("REQUEST_PANEL", false);
+    overlay.set_visible("CPGEND_PANEL", true);
+    overlay.set_visible("DIALOG_BACKGROUND", true);
+}
+
 void ParkHud::close_dialog() {
-    warning_open_ = false;
-    warning_text_.clear();
+    dialog_kind_ = DialogKind::none;
+    dialog_text_.clear();
     overlay.set_visible("WARNING_PANEL", false);
     overlay.set_visible("REQUEST_PANEL", false);
     overlay.set_visible("CPGEND_PANEL", false);
@@ -235,7 +255,7 @@ bool ParkHud::click(int x, int y, std::string& action) {
     }
     const int hit = overlay.hit_test(x, y);
     if (hit < 0) {
-        if (warning_open_) {
+        if (dialog_kind_ != DialogKind::none) {
             return true;
         }
         // Clicks on a visible panel or on the always-on HUD are consumed so
@@ -254,10 +274,23 @@ bool ParkHud::click(int x, int y, std::string& action) {
     }
     const std::string name = overlay.widgets[static_cast<std::size_t>(hit)].name;
 
-    if (warning_open_) {
-        if (name == "WARNING_OUTCOME_ICON") {
+    if (dialog_kind_ != DialogKind::none) {
+        if (dialog_kind_ == DialogKind::warning &&
+            name == "WARNING_OUTCOME_ICON") {
             close_dialog();
             action = "close warning";
+        } else if (dialog_kind_ == DialogKind::request) {
+            if (name == "REQUEST_VALIDATE_ICON") {
+                close_dialog();
+                action = "accept request";
+            } else if (name == "REQUEST_CANCEL_ICON") {
+                close_dialog();
+                action = "cancel request";
+            }
+        } else if (dialog_kind_ == DialogKind::campaign_end &&
+                   name == "CPGEND_OUTCOME_ICON") {
+            close_dialog();
+            action = "close campaign end";
         }
         return true;
     }

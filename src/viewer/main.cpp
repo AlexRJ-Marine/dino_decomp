@@ -133,6 +133,8 @@ struct Options {
     bool music_forced = false;
     float music_volume = 97.0f;
     std::string warning_text;
+    std::string request_text;
+    std::string campaign_end_text;
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
@@ -382,6 +384,10 @@ Options parse_args(int argc, char** argv) {
                 std::atof(next("--music-volume")));
         } else if (arg == "--warning") {
             opt.warning_text = next("--warning");
+        } else if (arg == "--request") {
+            opt.request_text = next("--request");
+        } else if (arg == "--campaign-end") {
+            opt.campaign_end_text = next("--campaign-end");
         } else if (arg == "--no-park-hud") {
             opt.park_hud = false;
         } else if (arg == "--park-hover") {
@@ -507,6 +513,8 @@ Options parse_args(int argc, char** argv) {
                 "  --no-music           disable island music\n"
                 "  --music-volume N     music gain 0..100 (default 97)\n"
                 "  --warning TEXT       show the retail warning dialog\n"
+                "  --request TEXT       show the retail request dialog\n"
+                "  --campaign-end TEXT  show the retail campaign-end dialog\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
@@ -2203,13 +2211,23 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root, "Data/Overlay/ParkEng.loc"),
             park_error);
         if (loaded) {
+            auto dialog_text = [&](const std::string& value) {
+                return !value.empty() && value[0] == '&'
+                           ? dino::ui::resolve_loc_text(value, park.loc)
+                           : value;
+            };
             if (!opt.warning_text.empty()) {
-                const std::string text =
-                    opt.warning_text[0] == '&'
-                        ? dino::ui::resolve_loc_text(opt.warning_text, park.loc)
-                        : opt.warning_text;
+                const std::string text = dialog_text(opt.warning_text);
                 park.show_warning(text);
                 std::printf("park warning: %s\n", text.c_str());
+            } else if (!opt.request_text.empty()) {
+                const std::string text = dialog_text(opt.request_text);
+                park.show_request(text);
+                std::printf("park request: %s\n", text.c_str());
+            } else if (!opt.campaign_end_text.empty()) {
+                const std::string text = dialog_text(opt.campaign_end_text);
+                park.show_campaign_end(text);
+                std::printf("park campaign end: %s\n", text.c_str());
             }
             // Apply scripted HUD clicks early so --validate can report them;
             // minimap zoom actions are replayed once the render target exists.
@@ -4147,6 +4165,24 @@ int main(int argc, char** argv) {
         }
         const int hovered =
             park_hover_x >= 0 ? park.overlay.hit_test(park_hover_x, park_hover_y) : -1;
+        auto dialog_zone = [&]() -> const char* {
+            switch (park.dialog_kind()) {
+                case dino::ui::ParkHud::DialogKind::warning:
+                    return "WARNING_TEXT_ZONE";
+                case dino::ui::ParkHud::DialogKind::request:
+                    return "REQUEST_TEXT_ZONE";
+                case dino::ui::ParkHud::DialogKind::campaign_end:
+                    return "CPGEND_TEXT_ZONE";
+                default:
+                    return "";
+            }
+        };
+        auto is_text_zone = [](const std::string& name) {
+            static const std::string suffix = "_TEXT_ZONE";
+            return name.size() >= suffix.size() &&
+                   name.compare(name.size() - suffix.size(), suffix.size(),
+                                suffix) == 0;
+        };
         const float dpi = logical_w > 0
                               ? static_cast<float>(view_w) / static_cast<float>(logical_w)
                               : 1.0f;
@@ -4165,12 +4201,12 @@ int main(int argc, char** argv) {
         std::sort(order.begin(), order.end(), [&](int a, int b) {
             const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
             const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
-            // The warning text must draw above WARNING_TEXT_BACK_ZONE and
-            // the wood frame, regardless of its lower ZPRIORITY.
-            if (wa.name == "WARNING_TEXT_ZONE" && wb.name != "WARNING_TEXT_ZONE") {
+            // Dialog text must draw above its *_TEXT_BACK_ZONE and the wood
+            // frame, regardless of its lower ZPRIORITY.
+            if (is_text_zone(wa.name) && !is_text_zone(wb.name)) {
                 return false;
             }
-            if (wb.name == "WARNING_TEXT_ZONE" && wa.name != "WARNING_TEXT_ZONE") {
+            if (is_text_zone(wb.name) && !is_text_zone(wa.name)) {
                 return true;
             }
             if (wa.priority != wb.priority) {
@@ -4266,7 +4302,7 @@ int main(int argc, char** argv) {
                              0, 1.0f, 1, view_w, view_h);
             }
 
-            if (widget.name == "WARNING_TEXT_ZONE" && park.dialog_open()) {
+            if (widget.name == dialog_zone() && park.dialog_open()) {
                 const int line_h =
                     widget.list_line_height > 0 ? widget.list_line_height : 15;
                 float list_scale = 1.0f;
@@ -4299,7 +4335,7 @@ int main(int argc, char** argv) {
                         }
                         word.clear();
                     };
-                    for (const char ch : park.warning_text()) {
+                    for (const char ch : park.dialog_text()) {
                         if (ch == '\n') {
                             flush_word();
                             flush_line();

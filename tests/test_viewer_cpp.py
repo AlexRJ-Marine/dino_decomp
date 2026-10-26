@@ -1465,3 +1465,80 @@ def test_cpp_options_save_and_load_buttons(tmp_path):
     finally:
         if target.exists():
             target.unlink()
+
+def test_cpp_request_dialog(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    opened = tmp_path / "request.bmp"
+    accepted = tmp_path / "accepted.bmp"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME),
+              "--no-vegetation", "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (opened, ["--request", "A visitor requests a food stand."]),
+        (accepted, ["--request", "A visitor requests a food stand.",
+                    "--park-click", "384,370"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        if extra:
+            assert "park request: A visitor requests a food stand." in result.stdout
+        if shot == accepted:
+            assert "park click 384,370 -> accept request" in result.stdout
+    a = Image.open(base).convert("RGB")
+    b = Image.open(opened).convert("RGB")
+    c = Image.open(accepted).convert("RGB")
+    assert sum(b.getpixel((50, 300))) < sum(a.getpixel((50, 300)))
+    # Request text zone is centred: 283,274 at 800x600.
+    area = b.crop((283, 274, 520, 300)).tobytes()
+    bright = sum(
+        1 for i in range(0, len(area), 3)
+        if area[i] > 220 and area[i + 1] > 220 and area[i + 2] > 220
+    )
+    assert bright > 20
+    assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
+
+
+def test_cpp_campaign_end_dialog(tmp_path):
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "base.bmp"
+    opened = tmp_path / "cpgend.bmp"
+    closed = tmp_path / "cpgend_closed.bmp"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config", "--no-hud",
+              "--lnd", str(ISL01), "--asset-root", str(GAME),
+              "--no-vegetation", "--distance", "500"]
+    for shot, extra in (
+        (base, []),
+        (opened, ["--campaign-end", "Campaign complete."]),
+        (closed, ["--campaign-end", "Campaign complete.",
+                  "--park-click", "401,447"]),
+    ):
+        result = subprocess.run(
+            common + ["--screenshot", str(shot)] + extra,
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        if extra:
+            assert "park campaign end: Campaign complete." in result.stdout
+        if shot == closed:
+            assert "park click 401,447 -> close campaign end" in result.stdout
+    a = Image.open(base).convert("RGB")
+    b = Image.open(opened).convert("RGB")
+    c = Image.open(closed).convert("RGB")
+    assert sum(b.getpixel((50, 300))) < sum(a.getpixel((50, 300)))
+    # Campaign text zone is centred: 282,200 at 800x600.
+    area = b.crop((282, 200, 520, 225)).tobytes()
+    bright = sum(
+        1 for i in range(0, len(area), 3)
+        if area[i] > 220 and area[i + 1] > 220 and area[i + 2] > 220
+    )
+    assert bright > 20
+    assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))

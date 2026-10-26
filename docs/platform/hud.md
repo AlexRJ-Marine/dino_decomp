@@ -103,17 +103,25 @@ from the selected difficulty (75,000 / 50,000 / 25,000).
 The in-park **Options** panel's Save/Load tabs switch to
 `OPTIONS_SAVE_PANEL`; `OPTIONS_SAVE_NAMES_LIST` lists the real
 `run/save/*.sav` names using the C++ header reader (`src/formats/sav.cpp`).
-The save/load action itself is not wired to the port's park state yet.
+The save/load action is wired to the port's park state; see
+`docs/platform/save-load.md`.
 
-### Warning dialog
+### Dialog family (warning / request / campaign end)
 
-`DIALOG_BACKGROUND` (FOND_GRIS, black alpha 106) + `WARNING_PANEL` is the
-modal warning family used by the original for errors. `--warning TEXT` shows
-one for screenshots/tests; `WARNING_OUTCOME_ICON` closes it and clicks behind
-the dim are consumed. The text is word-wrapped into `WARNING_TEXT_ZONE` and
-drawn above `WARNING_TEXT_BACK_ZONE` (its authored ZPRIORITY alone would put
-it underneath). `REQUEST_PANEL`/`CPGEND_PANEL` are parsed but have no trigger
-yet.
+`DIALOG_BACKGROUND` (FOND_GRIS, black alpha 106) + one of `WARNING_PANEL`,
+`REQUEST_PANEL` or `CPGEND_PANEL` is the modal dialog family. `--warning TEXT`,
+`--request TEXT` and `--campaign-end TEXT` show each for screenshots/tests.
+The panels use `ALIGN_CENTER`, so at 800×600 they sit at `(258,204)`,
+`(258,204)` and `(258,125)` respectively (not their authored top-left).
+
+- `WARNING_OUTCOME_ICON` closes the warning (action `close warning`).
+- `REQUEST_VALIDATE_ICON` accepts (`accept request`) and
+  `REQUEST_CANCEL_ICON` cancels (`cancel request`).
+- `CPGEND_OUTCOME_ICON` closes the campaign-end panel.
+- Any click behind the dim is consumed while a dialog is open.
+- The text is word-wrapped into `WARNING_TEXT_ZONE` / `REQUEST_TEXT_ZONE` /
+  `CPGEND_TEXT_ZONE` and drawn above its `*_TEXT_BACK_ZONE` (the authored
+  ZPRIORITY alone would put it underneath).
 
 `DIALOG_BACKGROUND` is **not** used here: it belongs to the warning, request
 and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
@@ -183,6 +191,10 @@ The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
 - `notes/options-save.png` / `notes/options-save-detail.png` - Options Save
   tab listing the real `.sav` names.
 - `notes/warning.png` / `notes/warning-detail.png` - modal warning dialog.
+- `notes/request.png` / `notes/campaign-end.png` - request and campaign-end
+  dialogs with their text zones.
+- `tests/test_viewer_cpp.py::test_cpp_request_dialog`,
+  `test_cpp_campaign_end_dialog`.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
 - `tests/test_viewer_cpp.py`:

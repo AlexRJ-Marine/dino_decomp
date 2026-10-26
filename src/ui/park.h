@@ -20,18 +20,24 @@ namespace dino::ui {
 // by any of these panels (evidence: notes/ui-recon.md).
 class ParkHud {
 public:
+    enum class DialogKind { none, warning, request, campaign_end };
+
     bool load(const std::string& interface_path, const std::string& db_path,
               const std::string& loc_path, std::string& error);
     bool loaded() const { return loaded_; }
     bool hud_hidden() const { return hud_hidden_; }
     bool is_visible(const std::string& root) const;
 
-    // Modal warning dialog (DIALOG_BACKGROUND + WARNING_PANEL). The text is
-    // resolved by the caller; the port only renders it.
+    // Modal DIALOG_BACKGROUND family: WARNING_PANEL, REQUEST_PANEL and
+    // CPGEND_PANEL. The text is resolved by the caller; the port only renders.
     void show_warning(const std::string& text);
+    void show_request(const std::string& text);
+    void show_campaign_end(const std::string& text);
     void close_dialog();
-    bool dialog_open() const { return warning_open_; }
-    const std::string& warning_text() const { return warning_text_; }
+    bool dialog_open() const { return dialog_kind_ != DialogKind::none; }
+    DialogKind dialog_kind() const { return dialog_kind_; }
+    const std::string& dialog_text() const { return dialog_text_; }
+    const std::string& warning_text() const { return dialog_text_; }
 
     // Handles a click at design-space (x, y). `action` receives a short
     // description such as "open BUDGET_PANEL"; returns true when the click
@@ -54,8 +60,8 @@ private:
 
     bool loaded_ = false;
     bool hud_hidden_ = false;
-    bool warning_open_ = false;
-    std::string warning_text_;
+    DialogKind dialog_kind_ = DialogKind::none;
+    std::string dialog_text_;
     std::string options_tab_ = "save";
     int save_selected_ = -1;
 };
