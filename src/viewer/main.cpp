@@ -19,6 +19,7 @@
 #include "../formats/bbi.h"
 #include "../formats/bvi.h"
 #include "../formats/dino_data.h"
+#include "../formats/campaign.h"
 #include "../formats/wld.h"
 #include "../formats/bai.h"
 #include "../formats/market.h"
@@ -119,6 +120,8 @@ struct Options {
     bool market_info = false;
     std::string store_ini_path;
     std::string food_info_dir;
+    std::string campaign_info_dir;
+    std::string campaign_mission_path;
     std::string place_food;
     std::string food_pos;
     std::string camera_target;
@@ -365,6 +368,10 @@ Options parse_args(int argc, char** argv) {
             opt.store_ini_path = next("--store-info");
         } else if (arg == "--food-info") {
             opt.food_info_dir = next("--food-info");
+        } else if (arg == "--campaign-info") {
+            opt.campaign_info_dir = next("--campaign-info");
+        } else if (arg == "--campaign-mission") {
+            opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--place-food") {
             opt.place_food = next("--place-food");
         } else if (arg == "--food-pos") {
@@ -619,6 +626,8 @@ Options parse_args(int argc, char** argv) {
                 "  --market-info        print the dinosaur store catalog and exit\n"
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"
+                "  --campaign-info DIR  scan Data/Design/Scenario campaigns/missions and exit\n"
+                "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
@@ -2365,6 +2374,88 @@ int run_selftest() {
     return failures == 0 ? 0 : 1;
 }
 
+std::string join_args(const std::vector<std::string>& args) {
+    std::string text;
+    for (const std::string& arg : args) {
+        if (!text.empty()) {
+            text += " ";
+        }
+        text += arg;
+    }
+    return text.empty() ? "-" : text;
+}
+
+int run_campaign_info(const std::string& scenario_root) {
+    try {
+        const std::vector<dino::Campaign> campaigns =
+            dino::load_campaigns(scenario_root);
+        int missions = 0;
+        int objectives = 0;
+        int unknown = 0;
+        for (const dino::Campaign& campaign : campaigns) {
+            missions += static_cast<int>(campaign.missions.size());
+            for (const dino::CampaignMission& mission : campaign.missions) {
+                objectives += static_cast<int>(mission.objectives.size());
+                for (const dino::CampaignObjective& objective :
+                     mission.objectives) {
+                    if (objective.objective_id < 0) {
+                        ++unknown;
+                    }
+                }
+            }
+        }
+        std::printf(
+            "campaigns: %zu missions: %d objectives: %d unknown: %d verbs: %d\n",
+            campaigns.size(), missions, objectives, unknown,
+            dino::objective_verb_count());
+        for (const dino::Campaign& campaign : campaigns) {
+            std::printf(
+                "campaign %s island=%s budget=%d sellback=%.2f missions=%zu "
+                "world=%s title=%s\n",
+                campaign.name.c_str(), campaign.island.c_str(),
+                campaign.budget, campaign.sell_back, campaign.missions.size(),
+                campaign.world_file.c_str(), campaign.title_id.c_str());
+            for (const dino::CampaignMission& mission : campaign.missions) {
+                std::printf("  mission %s objectives=%zu title=%s\n",
+                            mission.name.c_str(), mission.objectives.size(),
+                            mission.title_id.c_str());
+                for (const dino::CampaignObjective& objective :
+                     mission.objectives) {
+                    std::printf("    objective id=%d verb=%s args=%s desc=%s\n",
+                                objective.objective_id,
+                                objective.verb.c_str(),
+                                join_args(objective.args).c_str(),
+                                objective.description_id.c_str());
+                }
+            }
+        }
+        return unknown == 0 ? 0 : 1;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "campaign info: %s\n", e.what());
+        return 1;
+    }
+}
+
+int run_campaign_mission_info(const std::string& mission_path) {
+    try {
+        const dino::CampaignMission mission =
+            dino::load_campaign_mission(mission_path);
+        std::printf("mission %s objectives=%zu title=%s\n",
+                    mission.name.c_str(), mission.objectives.size(),
+                    mission.title_id.c_str());
+        for (const dino::CampaignObjective& objective : mission.objectives) {
+            std::printf("objective id=%d verb=%s args=%s desc=%s\n",
+                        objective.objective_id, objective.verb.c_str(),
+                        join_args(objective.args).c_str(),
+                        objective.description_id.c_str());
+        }
+        return 0;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "campaign mission: %s\n", e.what());
+        return 1;
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -2372,6 +2463,12 @@ int main(int argc, char** argv) {
 
     if (opt.selftest) {
         return run_selftest();
+    }
+    if (!opt.campaign_info_dir.empty()) {
+        return run_campaign_info(opt.campaign_info_dir);
+    }
+    if (!opt.campaign_mission_path.empty()) {
+        return run_campaign_mission_info(opt.campaign_mission_path);
     }
 
     if (opt.wld_info) {
@@ -5949,6 +6046,18 @@ int main(int argc, char** argv) {
             saved.prev_y = visitor.prev_y;
             saved.profile = visitor.profile;
             saved.needs = {visitor.need0, visitor.need1, visitor.need2};
+            saved.global_profile = visitor.global_profile;
+            saved.need0_at_use = visitor.need0_at_use;
+            saved.state = static_cast<int>(visitor.state);
+            saved.target_attraction = visitor.target_attraction;
+            saved.route_index = static_cast<int>(visitor.route_index);
+            saved.use_timer = visitor.use_timer;
+            saved.decay0 = visitor.decay0;
+            saved.decay1 = visitor.decay1;
+            saved.decay2 = visitor.decay2;
+            saved.rng = visitor.rng;
+            saved.done = visitor.done;
+            saved.route = visitor.route;
             state.visitors.push_back(saved);
         }
         state.buildings = building_instances;
@@ -5961,6 +6070,7 @@ int main(int argc, char** argv) {
             saved.y = dinosaur.y;
             saved.angle = dinosaur.angle;
             saved.carnivore = dinosaur.carnivore;
+            saved.phase = dinosaur.phase;
             if (dinosaur.action_loop) {
                 saved.needs = dinosaur.action_loop->needs().value;
                 saved.size_cm = dinosaur.action_loop->needs().size_cm;
@@ -6141,10 +6251,24 @@ int main(int argc, char** argv) {
             visitor.need0 = saved.needs[0];
             visitor.need1 = saved.needs[1];
             visitor.need2 = saved.needs[2];
-            visitor.state = dino::VisitorState::Choose;
-            visitor.rng = 0x51ce5eedu ^
-                          static_cast<unsigned>(
-                              visitor_system.visitors.size() + 1);
+            visitor.global_profile = saved.global_profile;
+            visitor.need0_at_use = saved.need0_at_use;
+            visitor.state = static_cast<dino::VisitorState>(
+                std::clamp(saved.state, 0, 3));
+            visitor.target_attraction = saved.target_attraction;
+            visitor.route = saved.route;
+            visitor.route_index = static_cast<std::size_t>(std::clamp(
+                saved.route_index, 0, static_cast<int>(visitor.route.size())));
+            visitor.use_timer = saved.use_timer;
+            visitor.decay0 = saved.decay0;
+            visitor.decay1 = saved.decay1;
+            visitor.decay2 = saved.decay2;
+            visitor.done = saved.done;
+            visitor.rng = saved.rng != 0
+                              ? saved.rng
+                              : 0x51ce5eedu ^
+                                    static_cast<unsigned>(
+                                        visitor_system.visitors.size() + 1);
             visitor_system.visitors.push_back(visitor);
         }
 
@@ -6199,6 +6323,7 @@ int main(int argc, char** argv) {
                     restored.max_health = std::max(0, opt.dino_max_health);
                     dinosaur.needs = restored;
                     dinosaur.carnivore = saved.carnivore;
+                    dinosaur.phase = saved.phase;
                     if (dinosaur.action_loop) {
                         dinosaur.action_loop->restore(
                             restored, saved.action_id, saved.action_left);

@@ -70,6 +70,12 @@ CpgNN/CpgNN_Save.wld    initial park
 - `src/ui/menu.cpp` maps page 2 = campaign select and page 3 = campaign
   info; both render their retail backgrounds and widget sets from
   `MenuInterface.Ini` (`--menu-page 2`, `--menu-page 3`).
+- `src/formats/campaign.{h,cpp}` parses `CampaignList.ini`, the
+  `CampaignBase.ini`/`MissionBase.ini` includes and every mission:
+  **7 campaigns, 39 missions, 89 objectives, 33 known verbs**. CLI:
+  `--campaign-info Data/Design/Scenario` prints the tree with resolved verb
+  ids; `--campaign-mission FILE` prints one mission. `tests/test_campaign_cpp.py`
+  pins the counts and Cpg04_Mission1's three objectives.
 - The port does **not** handle `CAMPAIGN_LIST` selection, `CAMPAIGN_START`
   or `CAMPAIGN_INFO_START`; only `ISLAND_LIST`/`FREE_START` are wired. A
   campaign mission cannot be started from the port menu.
@@ -79,7 +85,9 @@ CpgNN/CpgNN_Save.wld    initial park
   the campaign park (roads, fences, buildings, dinosaurs, budget, clock) for
   port tests without campaign rules. Cpg04/isl04 is the main fixture.
 - Campaign progress/full mission flow, objective evaluation, mission
-  selection, campaign-end trigger and ending videos are not ported.
+  selection, campaign-end trigger and ending videos are not ported. The
+  reader is the first slice; the evaluator is next (see
+  `decoded-features.md`).
 
 ## Verification recipes
 
@@ -119,6 +127,18 @@ Sandbox park:
 
 Expect `wld park: ... buildings=57 ... dinos=20` and the park HUD counts.
 
+Reader:
+
+```powershell
+.\build\port\dino_viewer.exe --campaign-info "game\%MAINDIR%\Data\Design\Scenario"
+.\build\port\dino_viewer.exe --campaign-mission "...\Cpg04\Cpg04_Mission1.ini"
+```
+
+Expect `campaigns: 7 missions: 39 objectives: 89 unknown: 0 verbs: 33`, the
+Cpg04 line (`island=Isl04 budget=20000 missions=4`), and the three
+Cpg04_Mission1 objectives (`isolateddinos 71` id 18, `treasury 25000 1` id 0,
+`dyingdinos 5` id 2).
+
 ## Gaps / next work
 
 - Port the objective evaluator (33 verbs) and the campaign state machine:
@@ -138,7 +158,11 @@ Expect `wld park: ... buildings=57 ... dinos=20` and the park HUD counts.
 - `docs/platform/world-import.md` — `--wld-park` / `--sav-park`.
 - `src/ui/menu.cpp` — page mapping; `src/viewer/main.cpp` — page rendering,
   `--menu-page`, `--wld-park`.
+- `src/formats/campaign.{h,cpp}` — C++ `CampaignList`/`CampaignBase`/
+  `MissionBase` reader and 33-verb table; `--campaign-info`/
+  `--campaign-mission`.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`,
-  `test_cpp_wld_park_import`, `tests/test_campaign.py`.
+  `test_cpp_wld_park_import`, `tests/test_campaign.py`,
+  `tests/test_campaign_cpp.py`.
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`.

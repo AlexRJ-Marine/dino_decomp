@@ -1291,6 +1291,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_danger_grid_secu`, `test_cpp_food_feeding`;
   `docs/platform/feeding.md`, `notes/food-pig-close.png`.
 
+### CAMPAIGN-1: C++ campaign/mission reader
+- [x] Add `src/formats/campaign.{h,cpp}`: `CampaignList.ini`, the
+  `CampaignBase.ini`/`MissionBase.ini` `#INCLUDE` merge (child overrides),
+  campaign context, mission lists and `Objective1..5` parsing with the
+  33-entry verb table (`0x5658d0` ids).
+- [x] CLI `--campaign-info DIR` (tree + resolved objective ids) and
+  `--campaign-mission FILE`; no SDL/window needed.
+- [x] `tests/test_campaign_cpp.py` against the retail tree: **7 campaigns,
+  39 missions, 89 objectives, 0 unknown verbs**, Cpg04 context and the three
+  Cpg04_Mission1 objectives.
+- **Acceptance:** counts match the Python oracle (`tests/test_campaign.py`);
+  every retail objective line resolves to an id 0..32.
+- **Evidence:** `src/formats/campaign.{h,cpp}`,
+  `docs/platform/campaign-flow.md`, `tests/test_campaign_cpp.py`.
+
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
   daily settlement (`0x585c00`..`0x585e10`, `0x58ad00`).

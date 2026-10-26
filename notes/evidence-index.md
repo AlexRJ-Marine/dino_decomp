@@ -32,4 +32,5 @@ add a row when a claim becomes something later work depends on.
 | Feature status matrix (retail feature/screen -> status/evidence/tests) | `docs/platform/feature-status.md` | `tests/test_feature_matrix.py` |
 | Park panel contract + verification recipes | `docs/platform/park-panels.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_park_panels` |
 | Campaign flow: menu -> briefing -> park, unlock, difficulty | `docs/platform/campaign-flow.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages` |
+| C++ campaign reader (7 campaigns / 39 missions / 89 objectives / 33 verbs) | `src/formats/campaign.h`, `src/formats/campaign.cpp`, `docs/platform/campaign-flow.md` | `tests/test_campaign_cpp.py` |
 | Decoded feature port contracts (shows/employees/animals/lab/objectives) | `docs/platform/decoded-features.md` | `tests/test_feature_matrix.py` |

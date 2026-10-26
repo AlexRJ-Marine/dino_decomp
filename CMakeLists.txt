@@ -56,6 +56,7 @@ add_executable(dino_viewer
     src/formats/bai.cpp
     src/formats/market.cpp
     src/formats/bsi.cpp
+    src/formats/campaign.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp

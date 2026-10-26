@@ -151,8 +151,11 @@ Beams and gene editing come next.
 - Mission selection uses `mission+0x50` for budget/sellback/profiles;
   buildings/features/shows/store lists are difficulty-independent.
 
-**Port status** no parser/evaluator or mission state machine. The campaign
-menu pages render (see `campaign-flow.md`); `MISSION_PANEL` is static.
+**Port status** the C++ reader (`src/formats/campaign.{h,cpp}`) parses all 7
+campaigns, 39 missions, 89 objectives and the 33-verb table; CLI
+`--campaign-info`/`--campaign-mission`. There is no evaluator or mission
+state machine yet. The campaign menu pages render (see `campaign-flow.md`);
+`MISSION_PANEL` is static.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them

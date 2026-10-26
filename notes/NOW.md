@@ -47,6 +47,7 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- CAMPAIGN-1: C++ campaign/mission reader + objective ids (port lane, build/port)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
   writers, visitor/obstacle perception reaction.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -65,6 +66,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAMPAIGN-1 C++ campaign/mission reader (7/39/89, 33 verb ids; --campaign-info/--campaign-mission)
 - 2026-10-26 - DOCS-4 decoded feature port contracts (shows/employees/animals/lab/objectives)
 - 2026-10-26 - CAM-1 rest: camera.ini Config1 parser, data-driven speeds/limits, FUN_00529d00 height smoothing
 - 2026-10-26 - DOCS-3 campaign flow dossier (menu -> briefing -> park, unlock/difficulty, harness recipes)
@@ -72,7 +74,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - CAM-1: retail camera controls (arrows pan, Shift+arrows rotate at pi/2, +/- zoom; CAM-1 open items: active-camera math/hardness)
 - 2026-10-26 - DOCS-1 feature status matrix + docs index (46 screens/499 controls cross-linked; matrix test)
 - 2026-10-26 - Workflow tooling: NOW dashboard, lanes, lane build dirs, fast test selection, skills and commands
-- HYB-7 `.fnt` loader replaced; phenotype attributes ported and reviewed
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers
