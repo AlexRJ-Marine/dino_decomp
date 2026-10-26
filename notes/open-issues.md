@@ -8,13 +8,12 @@ unknowns, with what was tried and the concrete next step.
 - **Solved:** 9,244 B = `u32 5` + 5 × 462 floats; the 5 blocks match the five
   animation families; the last 12 floats per block are playback scales
   (0.8–2.0, same family as `.bai` `field_18`).
-- **Open:** the first 450 floats of each block.
-- **Tried:** size-prefixed block guesses (no match); float statistics
-  (time-like first value, two large coordinates, near-zero rotation-like
-  middle) — consistent with a baked path, not proven.
-- **Next:** find the consumer of park init `+0x38`
-  (`DATA\Design\Actions\bad`, set in `0x51d1d0`) or trace the file open under
-  x32dbg, then dump the parsed object.
+- **Resolved (runtime):** the retail game never opens `Actions.bad`. A full
+  x32dbg `CreateFileA/W` trace from startup through Free Game start and a
+  dinosaur-bearing `slot001.sav` load shows `.bai`/`.bwi`/`.bfi`/`.anim`/
+  `.mesh` opens but no `.bad`. The park-init `+0x38` path is stored but never
+  consumed; the file is editor/demo data. Its internal floats remain
+  undocumented but are not a live gameplay table.
 
 ## 2. `.lnd` `width` / `height`
 

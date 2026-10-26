@@ -34,3 +34,13 @@ The first values may be stride/path data for a demo/behaviour replay.
 
 Find the reader (park init `+0x38` consumer) or trace the file at runtime to
 name the fields.
+
+## Runtime trace (2026-10-26)
+
+`scripts/x32dbg/trace-bad.ps1` runs the retail game from startup through Free
+Game start, opens the Options load panel, loads `slot001.sav` (a park with a
+dinosaur), and logs every `CreateFileA`/`CreateFileW` call. The log
+(`notes/x32dbg-bad3.out.log`) contains `.bai`, `.bwi`, `.bfi`, `.anim`,
+`.mesh`, `.skel` and `.skin` opens but **no `Actions.bad` open**. The path at
+park-init `+0x38` is stored but never consumed by the retail runtime; the file
+is editor/demo data. This closes the loader question negatively.

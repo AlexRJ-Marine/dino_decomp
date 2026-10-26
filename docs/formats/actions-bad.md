@@ -40,8 +40,13 @@ The five blocks are equal and each has 462 floats (5 ? 462 = 2,310).
 The five blocks match the five animation families
 (`HighQuadruped`, `LightQuadruped`, `HeavyBiped`, `LightBiped`,
 `LowQuadruped`), and the trailing 12 values are per-action playback speeds.
-The leading coordinate pairs are probably stride/path data. This is not yet
-proven; a runtime trace of the loader would settle it.
+The leading coordinate pairs are probably stride/path data.
+
+**Runtime result:** a full x32dbg trace from startup through Free Game start
+and loading `slot001.sav` (which spawns a dinosaur) logs every `CreateFileA/W`
+call. `Data/Design/Actions.bad` is **never opened**. The path is only stored
+at park-init `+0x38`; the retail runtime has no consumer for it. Treat the
+file as editor/demo data, not a live gameplay table.
 
 ## Reader
 
@@ -64,6 +69,7 @@ exact size).
 
 ## Open
 
-- The loader and the real meaning of the first 450 floats per block.
+- The real meaning of the first 450 floats per block (editor/demo data; no
+  retail loader).
 - Whether the blocks are families in the `anim_trans.dic` order.
 - Whether the 12 tail values index action ids 0..11 or another action list.

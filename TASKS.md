@@ -550,15 +550,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`notes/asset-coverage.md`).
 - [x] Demo `.shw` fourth value is the `WallList.ini` wall type (2 MediumIron,
   6 MediumWood), not a judge kind.
-- [ ] Remaining unknowns: `Actions.bad`, `.lnd` w/h, `.bfi` body ints,
-  behavior-graph nodes.
+- [x] Remaining unknowns: `.lnd` w/h, `.bfi` body ints, behavior-graph nodes;
+  `Actions.bad` is editor/demo data (never opened by the retail game).
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data
 - [x] 9,244 bytes = `u32 5` + 5 x 462 floats; reader validates the division.
 - [x] Each block ends in 12 playback-scale values (0.8..2.0), matching the
   `.bai` `field_18` range; the 5 blocks match the 5 animation families.
-- [ ] Loader and the meaning of the first 450 floats per block.
+- [x] Runtime trace: the retail game never opens `Actions.bad` (startup ->
+  Free Game -> `slot001.sav` with a dinosaur logged every CreateFile call).
+  The park-init path is stored but unused; the file is editor/demo data.
+- [ ] The internal meaning of the first 450 floats per block (editor-only;
+  not a live gameplay table).
 - **Evidence:** `tools/formats/actions_bad.py`,
   `docs/formats/actions-bad.md`, `tests/test_actions_bad.py`,
   `notes/actions-bad-recon.md`.
