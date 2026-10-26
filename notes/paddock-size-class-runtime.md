@@ -30,12 +30,12 @@ else class = 3
 and `P+0x04`/`P+0x08` are the head/body/tail part lengths:
 
 ```text
-if (P+0x1b4 == 0) {           // non-biped (families 2/3 are biped)
+if (P+0x1b4 == 0) {           // 0 = biped (families 2/3)
+    P+0x04 = P+0x98 + P+0xa4 / 2;    // half the body twice
+    P+0x08 = P+0xa8 + P+0xa4 / 2;
+} else {                      // non-biped
     P+0x04 = P+0x98 + P+0xa4;        // head + body
     P+0x08 = P+0xa8;                 // tail
-} else {
-    P+0x04 = P+0x98 + P+0xa4 / 2;    // biped: half the body twice
-    P+0x08 = P+0xa8 + P+0xa4 / 2;
 }
 length = P+0x04 + P+0x08
 ```
@@ -103,11 +103,11 @@ give 606.
 
 ## Divergence from the `.wld`
 
-The `.wld` genotype list predicts rows 1-6, 8 and 12 exactly (including the
-hybrid `(0,4)` head/body in row 7: 158 and 140). Ten of the 20 rows differ,
-e.g. row 7's tail is 194 in the live game but the `.wld` `(0,4)` Part 3/merge
-composition gives 206; rows 9-11 and 13 also differ. The class still matches
-for 19/20 rows (row 11 is class 2 live vs 1 from the file).
+The `.wld` genotype list predicts 14 of the 20 rows exactly (rows 1-6, 8, 12,
+14-18, 20). The mismatches are rows 7, 9, 10, 11, 13 and 19. Row 7 is the
+closest: the `(0,4)` head/body values are exact (158 and 140) but the live tail
+is 194 where the `.wld` `(0,4)` Part 3/merge composition gives 206. The class
+still matches for 19/20 rows (row 11 is class 2 live vs 1 from the file).
 
 So the live park does **not** use the `.wld` genotypes unchanged for every
 record (the mission/store path may recombine them), or the hybrid table is
@@ -142,5 +142,6 @@ Cpg04 `used` (384) will not match retail (336).
 - `FUN_0057EB50` (`0x57ebc3` reads `+0x1e0`).
 - `TranslatorConstants.ini` keys at translator `+0x244..+0x250`
   (`docs/formats/translator-constants.md`).
-- Runtime: `notes/x32dbg-campaign.out.log` `DINORESET` lines,
-  `scripts/x32dbg/start-campaign.ps1` (Cpg04 mission 1).
+- Runtime: `scripts/x32dbg/start-campaign.ps1` (Cpg04 mission 1) and its
+  generated, gitignored `notes/x32dbg-campaign.out.log` `DINORESET` lines;
+  the 20-value table above is the durable copy.
