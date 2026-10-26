@@ -475,6 +475,14 @@ def widget_entry(interface: Interface, widget: Widget, root: str, loc: Loc | Non
                     row["label"] = labels[index]
             entry["rows"] = rows
             entry["row_height"] = rows[1]["y"] - rows[0]["y"] if len(rows) > 1 else 0
+        scroll_width = widget.as_int("LB_VSCROLL_WIDTH")
+        if scroll_width > 0 and widget.height > 44:
+            scroll_x = widget.abs_x + widget.width - scroll_width // 2
+            entry["scroll"] = {
+                "width": scroll_width,
+                "up": [scroll_x, widget.abs_y + 11],
+                "down": [scroll_x, widget.abs_y + widget.height - 11],
+            }
     return entry
 
 
@@ -614,6 +622,14 @@ def md_rows_table(widget: dict) -> list[str]:
             f"| {row['index']} | **{row['click'][0]},{row['click'][1]}** | "
             f"{md_cell(row.get('label', ''))} |"
         )
+    if widget.get("scroll"):
+        scroll = widget["scroll"]
+        lines.append("")
+        lines.append(
+            f"Scrollbar width {scroll['width']} px: up "
+            f"**{scroll['up'][0]},{scroll['up'][1]}**, down "
+            f"**{scroll['down'][0]},{scroll['down'][1]}**."
+        )
     return lines
 
 
@@ -711,10 +727,11 @@ def render_markdown(ui_map: dict) -> str:
         "| Park -> Paddock list | 492,584 | `OPEN_PADDOCK_LIST_PANEL` |",
         "",
         "`ISLAND_LIST` row `n` is at `y = 183 + 34 * n`; only eight rows",
-        "(0-7) fit, so islands 9-10 require the list scrollbar. The harness",
-        "click at 260,183 is row 0. `CAMPAIGN_LIST` row `n` is at",
-        "`y = 183 + 34 * n` (eight campaign rows). `CAMPAIGN_INFO_DESCRIPTION`",
-        "rows are 17 px apart: `y = 150 + 17 * n`.",
+        "(0-7) fit, so islands 9-10 require the list scrollbar (down click",
+        "**352,440**, up **352,177**). The harness click at 260,183 is row 0.",
+        "`CAMPAIGN_LIST` row `n` is at `y = 183 + 34 * n` (eight campaign",
+        "rows). `CAMPAIGN_INFO_DESCRIPTION` rows are 17 px apart:",
+        "`y = 150 + 17 * n`.",
         "",
         "## Screen index",
         "",

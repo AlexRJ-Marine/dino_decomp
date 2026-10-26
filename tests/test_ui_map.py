@@ -76,6 +76,11 @@ def test_menu_list_rows():
     assert islands["rows"][0]["label"] == "IGUANAO"
     assert islands["rows"][7]["click"] == [269, 421]
     assert islands["rows"][7]["label"] == "SANTO DIPLODO"
+    assert islands["scroll"] == {
+        "width": 22,
+        "up": [352, 177],
+        "down": [352, 440],
+    }
 
     campaigns = _control(ui_map, "menu-campaign-select", "CAMPAIGN_LIST")
     assert campaigns["row_height"] == 34
@@ -121,6 +126,10 @@ def test_every_click_is_inside_its_rect():
             if "rows" in control:
                 for row in control["rows"]:
                     assert y <= row["click"][1] < y + h
+            if "scroll" in control:
+                for point in (control["scroll"]["up"], control["scroll"]["down"]):
+                    assert x <= point[0] < x + w
+                    assert y <= point[1] < y + h
 
 
 def test_key_controls_are_active_when_their_screen_opens():

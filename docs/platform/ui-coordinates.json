@@ -287,7 +287,18 @@
               "label": "SANTO DIPLODO"
             }
           ],
-          "row_height": 34
+          "row_height": 34,
+          "scroll": {
+            "width": 22,
+            "up": [
+              352,
+              177
+            ],
+            "down": [
+              352,
+              440
+            ]
+          }
         },
         {
           "name": "FREE_EASY_BUTTON",
@@ -513,7 +524,18 @@
               "label": "THE DINOS' LAST STAND"
             }
           ],
-          "row_height": 34
+          "row_height": 34,
+          "scroll": {
+            "width": 10,
+            "up": [
+              492,
+              177
+            ],
+            "down": [
+              492,
+              440
+            ]
+          }
         },
         {
           "name": "CAMPAIGN_START_BUTTON",
@@ -733,7 +755,18 @@
               ]
             }
           ],
-          "row_height": 17
+          "row_height": 17,
+          "scroll": {
+            "width": 22,
+            "up": [
+              373,
+              153
+            ],
+            "down": [
+              373,
+              411
+            ]
+          }
         },
         {
           "name": "CAMPAIGN_INFO_START_BUTTON",
@@ -944,7 +977,18 @@
               ]
             }
           ],
-          "row_height": 20
+          "row_height": 20,
+          "scroll": {
+            "width": 22,
+            "up": [
+              515,
+              151
+            ],
+            "down": [
+              515,
+              409
+            ]
+          }
         },
         {
           "name": "LOAD_LOAD_BUTTON",
@@ -1355,7 +1399,18 @@
               ]
             }
           ],
-          "row_height": 34
+          "row_height": 34,
+          "scroll": {
+            "width": 10,
+            "up": [
+              498,
+              178
+            ],
+            "down": [
+              498,
+              441
+            ]
+          }
         },
         {
           "name": "CINEMATICS_START_BUTTON",
@@ -3988,7 +4043,18 @@
               ]
             }
           ],
-          "row_height": 28
+          "row_height": 28,
+          "scroll": {
+            "width": 30,
+            "up": [
+              535,
+              80
+            ],
+            "down": [
+              535,
+              423
+            ]
+          }
         },
         {
           "name": "PREDEFINED_SHOW_LIST",
@@ -4108,7 +4174,18 @@
               ]
             }
           ],
-          "row_height": 30
+          "row_height": 30,
+          "scroll": {
+            "width": 15,
+            "up": [
+              543,
+              80
+            ],
+            "down": [
+              543,
+              423
+            ]
+          }
         },
         {
           "name": "PREDEFINED_SHOW_VALIDATE",
@@ -5262,7 +5339,18 @@
               ]
             }
           ],
-          "row_height": 12
+          "row_height": 12,
+          "scroll": {
+            "width": 15,
+            "up": [
+              233,
+              81
+            ],
+            "down": [
+              233,
+              275
+            ]
+          }
         },
         {
           "name": "DINO_ACHAT_SAVE_TEXT_ZONE_PANEL",
@@ -5390,7 +5478,18 @@
               ]
             }
           ],
-          "row_height": 12
+          "row_height": 12,
+          "scroll": {
+            "width": 15,
+            "up": [
+              425,
+              323
+            ],
+            "down": [
+              425,
+              459
+            ]
+          }
         },
         {
           "name": "DINO_ACHAT_SAVE_OUTCOME_SAVE",
@@ -5709,7 +5808,18 @@
               ]
             }
           ],
-          "row_height": 12
+          "row_height": 12,
+          "scroll": {
+            "width": 15,
+            "up": [
+              418,
+              136
+            ],
+            "down": [
+              418,
+              330
+            ]
+          }
         },
         {
           "name": "OPTIONS_MUSIC_HS",
@@ -5953,7 +6063,18 @@
               ]
             }
           ],
-          "row_height": 15
+          "row_height": 15,
+          "scroll": {
+            "width": 15,
+            "up": [
+              525,
+              78
+            ],
+            "down": [
+              525,
+              156
+            ]
+          }
         },
         {
           "name": "MISSION_PANEL_OUTCOME_OK",
@@ -6046,7 +6167,18 @@
               ]
             }
           ],
-          "row_height": 15
+          "row_height": 15,
+          "scroll": {
+            "width": 15,
+            "up": [
+              528,
+              448
+            ],
+            "down": [
+              528,
+              526
+            ]
+          }
         }
       ],
       "open": [
@@ -12157,7 +12289,18 @@
               ]
             }
           ],
-          "row_height": 15
+          "row_height": 15,
+          "scroll": {
+            "width": 15,
+            "up": [
+              513,
+              287
+            ],
+            "down": [
+              513,
+              312
+            ]
+          }
         },
         {
           "name": "WARNING_OUTCOME_ICON",
@@ -12240,7 +12383,18 @@
               ]
             }
           ],
-          "row_height": 15
+          "row_height": 15,
+          "scroll": {
+            "width": 15,
+            "up": [
+              513,
+              285
+            ],
+            "down": [
+              513,
+              310
+            ]
+          }
         },
         {
           "name": "REQUEST_VALIDATE_ICON",
@@ -12424,7 +12578,18 @@
               ]
             }
           ],
-          "row_height": 15
+          "row_height": 15,
+          "scroll": {
+            "width": 15,
+            "up": [
+              513,
+              211
+            ],
+            "down": [
+              513,
+              389
+            ]
+          }
         },
         {
           "name": "CPGEND_OUTCOME_ICON",

@@ -90,10 +90,11 @@ point and still be inside the same rectangle.
 | Park -> Paddock list | 492,584 | `OPEN_PADDOCK_LIST_PANEL` |
 
 `ISLAND_LIST` row `n` is at `y = 183 + 34 * n`; only eight rows
-(0-7) fit, so islands 9-10 require the list scrollbar. The harness
-click at 260,183 is row 0. `CAMPAIGN_LIST` row `n` is at
-`y = 183 + 34 * n` (eight campaign rows). `CAMPAIGN_INFO_DESCRIPTION`
-rows are 17 px apart: `y = 150 + 17 * n`.
+(0-7) fit, so islands 9-10 require the list scrollbar (down click
+**352,440**, up **352,177**). The harness click at 260,183 is row 0.
+`CAMPAIGN_LIST` row `n` is at `y = 183 + 34 * n` (eight campaign
+rows). `CAMPAIGN_INFO_DESCRIPTION` rows are 17 px apart:
+`y = 150 + 17 * n`.
 
 ## Screen index
 
@@ -194,6 +195,8 @@ Roots: `FREE_GAME_PAGE`. Controls: 6.
 | 6 | **269,387** | BEAURIVAGE |
 | 7 | **269,421** | SANTO DIPLODO |
 
+Scrollbar width 22 px: up **352,177**, down **352,440**.
+
 ### Campaign select — `menu-campaign-select`
 
 Eight campaign rows. Rows 1-4 are unlocked by `save/dino.dat`; the harness writes 0x0F for them.
@@ -220,6 +223,8 @@ Roots: `CAMPAIGN_SELECT_PAGE`. Controls: 3.
 | 5 | **409,353** | QUIET PLEASE - ACTION! |
 | 6 | **409,387** | UN PARC A LA DERIVE |
 | 7 | **409,421** | THE DINOS' LAST STAND |
+
+Scrollbar width 10 px: up **492,177**, down **492,440**.
 
 ### Campaign briefing / mission list — `menu-campaign-info`
 
@@ -256,6 +261,8 @@ Roots: `CAMPAIGN_INFO_PAGE`. Controls: 3.
 | 14 | **266,388** |  |
 | 15 | **266,405** |  |
 
+Scrollbar width 22 px: up **373,153**, down **373,411**.
+
 ### Load game — `menu-load-game`
 
 The save-name list is the clickable region; row height has not been measured against a populated list yet.
@@ -288,6 +295,8 @@ Roots: `LOAD_GAME_PAGE`. Controls: 3.
 | 11 | **409,370** |  |
 | 12 | **409,390** |  |
 | 13 | **409,410** |  |
+
+Scrollbar width 22 px: up **515,151**, down **515,409**.
 
 ### Main-menu options — `menu-options`
 
@@ -337,6 +346,8 @@ Roots: `CINEMATICS_PAGE`. Controls: 3.
 | 5 | **415,354** |  |
 | 6 | **415,388** |  |
 | 7 | **415,422** |  |
+
+Scrollbar width 10 px: up **498,178**, down **498,441**.
 
 ### Credits — `menu-credits`
 
@@ -556,6 +567,8 @@ Roots: `PREDEFINED_SHOW_PANEL`. Controls: 4.
 | 11 | **366,391** |  |
 | 12 | **366,419** |  |
 
+Scrollbar width 30 px: up **535,80**, down **535,423**.
+
 `PREDEFINED_SHOW_LIST` rows (row height 30 px):
 
 | Row | Click | Label |
@@ -572,6 +585,8 @@ Roots: `PREDEFINED_SHOW_PANEL`. Controls: 4.
 | 9 | **366,354** |  |
 | 10 | **366,384** |  |
 | 11 | **366,414** |  |
+
+Scrollbar width 15 px: up **543,80**, down **543,423**.
 
 ### Road / metro construction — `park-construction-road`
 
@@ -674,6 +689,8 @@ Roots: `DINO_ACHAT_SAVE_PANEL`. Controls: 4.
 | 16 | **168,268** |  |
 | 17 | **168,280** |  |
 
+Scrollbar width 15 px: up **233,81**, down **233,275**.
+
 `DINO_ACHAT_SAVE_TEXT_ZONE_PANEL` rows (row height 12 px):
 
 | Row | Click | Label |
@@ -691,6 +708,8 @@ Roots: `DINO_ACHAT_SAVE_PANEL`. Controls: 4.
 | 10 | **300,438** |  |
 | 11 | **300,450** |  |
 | 12 | **300,462** |  |
+
+Scrollbar width 15 px: up **425,323**, down **425,459**.
 
 ### In-park options / save / load — `park-options`
 
@@ -738,6 +757,8 @@ Roots: `OPTIONS_PANEL`. Controls: 12.
 | 16 | **353,323** |  |
 | 17 | **353,335** |  |
 
+Scrollbar width 15 px: up **418,136**, down **418,330**.
+
 ### Mission / objectives — `park-mission`
 
 Opened by the campaign objective light, not by a HUD button. Two scrolling text zones and an OK button.
@@ -763,6 +784,8 @@ Roots: `MISSION_PANEL`. Controls: 3.
 | 4 | **327,134** |  |
 | 5 | **327,149** |  |
 
+Scrollbar width 15 px: up **525,78**, down **525,156**.
+
 `MISSION_PANEL_TIPS` rows (row height 15 px):
 
 | Row | Click | Label |
@@ -773,6 +796,8 @@ Roots: `MISSION_PANEL`. Controls: 3.
 | 3 | **330,489** |  |
 | 4 | **330,504** |  |
 | 5 | **330,519** |  |
+
+Scrollbar width 15 px: up **528,448**, down **528,526**.
 
 ### Dinosaur list — `park-dino-list`
 
@@ -1253,6 +1278,8 @@ Roots: `WARNING_PANEL`. Controls: 2.
 | 1 | **401,298** |  |
 | 2 | **401,313** |  |
 
+Scrollbar width 15 px: up **513,287**, down **513,312**.
+
 ### Request dialog — `dialog-request`
 
 Modal visitor/request prompt. Validate and Cancel sit side by side at the bottom.
@@ -1272,6 +1299,8 @@ Roots: `REQUEST_PANEL`. Controls: 3.
 | 0 | **401,281** |  |
 | 1 | **401,296** |  |
 | 2 | **401,311** |  |
+
+Scrollbar width 15 px: up **513,285**, down **513,310**.
 
 ### Campaign-end dialog — `dialog-campaign-end`
 
@@ -1301,6 +1330,8 @@ Roots: `CPGEND_PANEL`. Controls: 2.
 | 10 | **401,357** |  |
 | 11 | **401,372** |  |
 | 12 | **401,387** |  |
+
+Scrollbar width 15 px: up **513,211**, down **513,389**.
 
 ## Radial menus (dead data)
 
