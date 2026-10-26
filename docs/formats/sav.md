@@ -97,7 +97,13 @@ u32   path byte length (NUL included)
 ...   ASCII path, e.g. DATA\design\scenario\show\Cpg1_Race_1.shw
 u32   name byte length (NUL included, UTF-16)
 ...   UTF-16LE display name
-6 x u32 parameters
+6 x u32 parameters (fully decoded, see docs/formats/shw.md):
+  0 Cost
+  1 constant 4
+  2 cage-size flags packed as 4 bytes: sum(cage_size[i] << (8*i))
+  3 arena width
+  4 arena height
+  5 judge kind
 ```
 
 Both retail saves contain 39 records. Example:
@@ -132,7 +138,7 @@ u32 dino_store_count         # 20
 dino_store_count x record:
     u32 name_bytes (UTF-16LE, NUL included)
     UTF-16LE name
-    u32 store_id / price
+    u32 price                 # store price, matches FreeGame.ini [DINOSTORE]
     u32 path_bytes (ASCII, NUL included)
     ASCII path
     u32 description_bytes (ASCII, NUL included)
@@ -279,7 +285,7 @@ loader bug in the port. Evidence: `0x00585240` at `0x0058560b`
 
 ### Dinosaur store
 
-The 20 records are genotype references, not the gene values:
+The 20 records are genotype references plus their store price:
 
 ```text
 Allosaurus         9000   DATA\Design\Scenario\Genotype\allo.gen
@@ -289,9 +295,11 @@ Brachiosaurus     42000   DATA\Design\Scenario\Genotype\brachio.gen
 Velociraptor      15000   DATA\Design\Scenario\Genotype\velo.gen
 ```
 
-The `store_id` values look like purchase prices, but that is still a
-hypothesis. The actual 18-gene table is loaded from the `.gen` file when the
-record is read (`FUN_00593a60` → `FUN_00595f40` → `FUN_00584c20`).
+The price field is proven, not guessed: all 20 names, prices and `.gen` paths
+match `Data/Design/Scenario/FreeGame.ini` `[DINOSTORE]` in order (the same
+values appear in `Market.ini` for those genotypes). The actual 18-gene table is
+loaded from the `.gen` file when the record is read
+(`FUN_00593a60` -> `FUN_00595f40` -> `FUN_00584c20`).
 
 ### Lab store
 
@@ -397,10 +405,11 @@ and the 10 camera floats. Tests: `tests/test_sav.py`,
 ## Open
 
 - World object list semantics and class names.
-- The meaning of the park header fields (`+0x04` 0/3, `+0x08` 100, `+0x0c`
-  10.0/0.0) and the single trailing `0x01` byte at `block + 0x292`.
+- The park block's leading `2` is consumed by the reader `FUN_0058aed0` as a
+  **record count**, not necessarily a class id; it then reads a type id +
+  payload per record. The `class id` label and the meanings of the following
+  fields (`0/3`, `100`, `10.0/0.0`) remain provisional.
+- The single trailing `0x01` byte at `block + 0x292`.
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
-- Dinosaur `store_id` meaning.
 - The AI/camera field split; the byte layout is solved.
-- Show parameter semantics.

@@ -55,13 +55,13 @@ def _park_block(
     return bytes(block)
 
 
-def _dino(name: str, store_id: int, path: str, desc: str) -> bytes:
+def _dino(name: str, price: int, path: str, desc: str) -> bytes:
     n = _utf16(name)
     p = path.encode("ascii") + b"\x00"
     d = desc.encode("ascii") + b"\x00"
     return (
         struct.pack("<I", len(n)) + n
-        + struct.pack("<I", store_id)
+        + struct.pack("<I", price)
         + struct.pack("<I", len(p)) + p
         + struct.pack("<I", len(d)) + d
     )
@@ -145,7 +145,7 @@ def test_retail_manual_graph():
     assert graph.visitors[0].needs == (97, 96, 99, 99, 99, 99, 99)
     assert len(graph.dino_store) == 20
     assert graph.dino_store[0].name == "Allosaurus"
-    assert graph.dino_store[0].store_id == 9000
+    assert graph.dino_store[0].price == 9000
     assert graph.dino_store[-1].name == "Velociraptor"
     assert graph.visitor_model == (3, 3, 3, 3, 3)
     assert graph.lab_count == 8

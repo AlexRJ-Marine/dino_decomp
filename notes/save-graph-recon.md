@@ -89,7 +89,7 @@ u32 dino_store_count         # 20
 dino_store_count x record:
     u32 name_bytes (UTF-16LE, NUL included)
     UTF-16LE name
-    u32 store_id / price
+    u32 price
     u32 path_bytes (ASCII, NUL included)
     ASCII path
     u32 description_bytes (ASCII, NUL included)
@@ -185,10 +185,11 @@ Brachiosaurus     42000   DATA\Design\Scenario\Genotype\brachio.gen
 Velociraptor      15000   DATA\Design\Scenario\Genotype\velo.gen
 ```
 
-The `store_id` values look like purchase prices, but that is still a
-hypothesis. The `.gen` path and description are stored as strings; the
-18-gene table itself is **not** in this record (it is loaded from the `.gen`
-file when the record is read).
+The price field is proven: all 20 names, prices and `.gen` paths match
+`Data/Design/Scenario/FreeGame.ini` `[DINOSTORE]` in file order, and those
+prices also appear in `Market.ini`. The `.gen` path and description are stored
+as strings; the 18-gene table itself is **not** in this record (it is loaded
+from the `.gen` file when the record is read).
 
 ### Lab store
 
@@ -262,9 +263,11 @@ of implausible lab name lengths).
 ## 5. Open
 
 - World object list semantics and the `0x12`–`0x18` class names.
-- Park fields beyond budget (`+0x20`, `+0x24`, `+0x58`) and the `0x28`-byte
-  block header.
-- Whether the dinosaur `store_id` is a price or an ID.
+- Park fields beyond budget (`+0x20`, `+0x24`, `+0x58`) and the 0x30-byte
+  block header. The reader `FUN_0058aed0` consumes the leading `2` as a
+  **record count** and then a 4-byte type id + payload per record, so the
+  `class id` label is provisional; the record type ids (manual 0, autosave 3)
+  are unnamed.
 - The semantic split of the 10 camera floats (position/target/up/FOV).
 - The variable campaign/world header before the show catalog.
 

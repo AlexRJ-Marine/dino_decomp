@@ -25,7 +25,7 @@ Layout (version 53, as produced by the retail game)::
     dino_store_count x record:
         u32 name_bytes (UTF-16LE, NUL included)
         UTF-16LE name
-        u32 store_id
+        u32 price
         u32 path_bytes (ASCII, NUL included)
         ASCII path
         u32 description_bytes (ASCII, NUL included)
@@ -227,14 +227,14 @@ class ParkState:
 @dataclass
 class DinoStoreEntry:
     name: str
-    store_id: int
+    price: int
     path: str
     description: str
 
     def to_dict(self) -> dict:
         return {
             "name": self.name,
-            "store_id": self.store_id,
+            "price": self.price,
             "path": self.path,
             "description": self.description,
         }
@@ -572,7 +572,7 @@ def read_sav_graph(path: Path) -> SavGraph:
         name_len = _u32(data, off, f"dino {i} name length")
         off += 4
         name, off = _string(data, off, name_len, "utf-16-le", f"dino {i} name")
-        store_id = _u32(data, off, f"dino {i} store id")
+        price = _u32(data, off, f"dino {i} price")
         off += 4
         path_len = _u32(data, off, f"dino {i} path length")
         off += 4
@@ -580,7 +580,7 @@ def read_sav_graph(path: Path) -> SavGraph:
         desc_len = _u32(data, off, f"dino {i} description length")
         off += 4
         desc, off = _string(data, off, desc_len, "ascii", f"dino {i} description")
-        dinos.append(DinoStoreEntry(name, store_id, dino_path, desc))
+        dinos.append(DinoStoreEntry(name, price, dino_path, desc))
 
     visitor_model = tuple(_u32(data, off + i * 4, f"visitor model {i}") for i in range(5))
     off += 20
@@ -674,7 +674,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(v.to_dict(), indent=2))
     if args.dinos:
         for d in graph.dino_store:
-            print(f"{d.name:16} id={d.store_id:6} {d.path}")
+            print(f"{d.name:16} price={d.price:6} {d.path}")
     print(json.dumps(graph.summary(), indent=2))
     return 0
 
