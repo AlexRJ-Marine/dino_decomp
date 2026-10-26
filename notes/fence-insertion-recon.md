@@ -118,8 +118,22 @@ cost table:
 constructor dereferences it (`uVar3 = *param_4`) and divides in **float**.
 The same cell value is used by the wall rasteriser (`stWall.cpp`,
 `FUN_00584200`); its caller is `stPerimeter::AddSegment` (`0x582210`). The
-port's 4-unit grid (`floor(wx/4)`) is the working value; a runtime dump would
-close the last doubt.
+port's 4-unit grid (`floor(wx/4)`) is the working value.
+
+**Cell-size confirmation (retail data):** all 14 `drsFence` records in the
+seven parseable campaign `.wld` files have inclusive world spans
+(`x1-x0+1`, `y1-y0+1`) divisible by 4, with no exceptions:
+
+```text
+(24,24) x5   (32,32) x3   (32,24)   (16,32)   (32,48)   (32,16)
+(24,48)      (24,40)
+```
+
+That gives integer cell capacities for every retail paddock at `cell = 4`
+(e.g. Cpg04 `(452,312)-(467,343)` = 4 x 8 cells = 32), which closes the
+"landscape +0xc" question by data geometry. A runtime dump of
+`*(uint*)(landscape+0xc)` would still be a nice belt-and-braces check but is
+no longer a blocker.
 
 `stFence::AddActor` (`0x57e8a0`) appends the dinosaur pointer to `+0x98` and
 does:
@@ -186,11 +200,27 @@ over `record+0xa8..+0xac`. If the find returns the end it sets state 5 and
 leaves. This is a **list/duplicate selection check**; there is no position or
 footprint data in it.
 
-`0x535c97..0x535cf4` (`this+0x48`) walks `[this+0x58]` as **64-byte
-records** (`SAR EAX,6`), compares `record+0x2c` with the selected dinosaur,
-and fails if `record+0x24 * 0.5 < record+0x20` (`0x62544c = 0.5f`). That is a
-spatial/ratio test and may be the footprint/room rule the earlier note was
-looking for. **Not decoded**; listed as open.
+`0x535c97..0x535cf4` (`this+0x48`) walks `[this+0x58]`, a vector of **64-byte
+records** (`SAR EAX,6`), matching `record+0x2c` against the selected record's
+`+0x34`. On a match it computes:
+
+```asm
+FLD  float [record+0x24]
+FMUL float [0x62544c]      ; 0.5f
+FCOMP float [record+0x20]
+; if 0.5*record+0x24 < record+0x20 -> failure
+MOV  [[selected+0x30]+0x10], 1
+MOV  [this+0x18], 5
+CALL [vtable+8]            ; leave
+```
+
+`this+0x58` is initialised in the state enter slot to the vector at
+`[[[tool+0x10]+0x14]+0xbc]` (vtable/begin/end at +0xbc). The 64-byte record
+type is not identified: `+0x20`/`+0x24` are floats, `+0x2c` is the key, and
+`+0x30` is a pointer whose byte `+0x10` is set on failure. It may be the
+simulation manager's placed-object/dinosaur record; a runtime dump of
+`[EBP+4]` at `0x535cb6` is the next step. It is **not** decoded by this pass.
+
 
 ## Port recipe (P4)
 
@@ -211,10 +241,12 @@ looking for. **Not decoded**; listed as open.
 - Runtime-dump `[dinosaur+0x1e0]` at `0x57ebc3`: confirm the cost index range
   and meaning. The save layout uses it as a `0x18`-byte vector cursor, so the
   fence-path object/value must be checked.
-- Runtime-dump `*(uint*)(landscape+0xc)` at `0x57dc60` entry to confirm the
-  cell size is 4.
-- Decode `0x535c97`'s 64-byte-record spatial test (`record+0x24 * 0.5 <
-  record+0x20`).
+- ~~Runtime-dump `*(uint*)(landscape+0xc)` to confirm the cell size is 4~~
+  **confirmed by retail geometry:** all 14 `.wld` fences have inclusive spans
+  divisible by 4, giving integer capacities (e.g. Cpg04 4 x 8 = 32). A runtime
+  dump is optional.
+- Identify the `0x535c97` 64-byte-record type and its `+0x20`/`+0x24` floats:
+  runtime-dump the record vector at `0x535cb6` (`[EBP+4]`).
 - Whether path tiles charge the CONSTRUCTION budget (only the wall path and
   the dinosaur store price are proven budget setters).
 
