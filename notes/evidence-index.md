@@ -34,4 +34,5 @@ add a row when a claim becomes something later work depends on.
 | Campaign flow: menu -> briefing -> park, unlock, difficulty | `docs/platform/campaign-flow.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages` |
 | C++ campaign reader (7 campaigns / 39 missions / 89 objectives / 33 verbs) | `src/formats/campaign.h`, `src/formats/campaign.cpp`, `docs/platform/campaign-flow.md` | `tests/test_campaign_cpp.py` |
 | Campaign objective evaluator core (simple + trait verbs, tri-state) | `src/world/campaign_objectives.h`, `src/world/campaign_objectives.cpp`, `docs/platform/decoded-features.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_objective_selftest` |
+| Campaign mission runtime + MISSION_PANEL tri-state | `src/world/campaign_runtime.h`, `src/world/campaign_runtime.cpp`, `docs/platform/campaign-flow.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_mission_panel`, `test_cpp_campaign_mission_success` |
 | Decoded feature port contracts (shows/employees/animals/lab/objectives) | `docs/platform/decoded-features.md` | `tests/test_feature_matrix.py` |

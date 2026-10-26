@@ -81,6 +81,12 @@ public:
     static constexpr int store_visible_rows() { return 6; }
     int store_row_at(int x, int y) const;
 
+    // Mission panel (`MISSION_PANEL`) and the objective ON/OFF lights.
+    // `verdicts` uses 0 pending / 1 success / 2 failure (ObjectiveVerdict).
+    void show_mission_panel();
+    void set_mission_verdicts(const std::vector<int>& verdicts);
+    void clear_mission();
+
     Overlay overlay;
     Loc loc;
 

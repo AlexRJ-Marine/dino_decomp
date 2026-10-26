@@ -70,3 +70,51 @@ def test_cpp_campaign_mission_objectives():
         "objective id=2 verb=dyingdinos args=5 "
         "desc=&Cpg4_Mission1_Objective3_Description"
     ) in result.stdout
+
+
+def test_cpp_campaign_mission_panel():
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg04" / "Cpg04_Mission1.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission: Cpg04_Mission1 objectives=3" in result.stdout
+    assert (
+        "mission objective 0 isolateddinos: Isolate the aggressive dinos "
+        "(aggressiveness > 70)" in result.stdout
+    )
+    # Budget 25,000 and zero deaths satisfy two objectives; isolateddinos
+    # needs the isolation tags (not ported), so the mission stays pending.
+    assert "mission objective 1 treasury -> success" in result.stdout
+    assert "mission objective 2 dyingdinos -> success" in result.stdout
+    assert "mission Cpg04_Mission1: success" not in result.stdout
+
+
+def test_cpp_campaign_mission_success():
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"
+    if not isl01.exists() or not mission.exists():
+        pytest.skip("retail Cpg01 mission data missing")
+    args = [
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--build", "--visitors", "30", "--start-mission", str(mission),
+    ]
+    for x in range(126, 133):
+        args += ["--place-path", f"{x},126", "--place-path", f"{x},132"]
+    for y in range(127, 132):
+        args += ["--place-path", f"126,{y}", "--place-path", f"132,{y}"]
+    result = _run(*args)
+    assert result.returncode == 0, result.stderr
+    assert "visitors: 30 spawned on 24 path cells" in result.stdout
+    assert "mission objective 0 visitors -> success" in result.stdout
+    assert "mission Cpg01_Mission11: success" in result.stdout

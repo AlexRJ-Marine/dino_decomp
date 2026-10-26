@@ -1318,13 +1318,27 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Port the trait verbs (10-field pattern) using `DinoAttributes` and
   `DinoNeeds`-style fields; show/building/isolation/hungry verbs stay pending
   until those actors land. `--selftest` covers 30 verdicts.
-- [ ] Wire the mission state machine and `MISSION_PANEL` tri-state
-  (pending/success/failure) to the live park.
+- [x] Wire the mission state machine and `MISSION_PANEL` tri-state
+  (pending/success/failure) to the live park: `CampaignRuntime` evaluates
+  once per second, `--start-mission FILE` opens the panel, `MISSION_PANEL`
+  shows briefing/tips/objective lines and ON/OFF lights, and `CPGEND_PANEL`
+  appears on success/failure.
 - **Acceptance:** Cpg04_Mission1 evaluates against the imported park and a
   synthetic state; every verdict is exercised.
 - **Evidence:** `src/world/campaign_objectives.{h,cpp}`,
+  `src/world/campaign_runtime.{h,cpp}`,
   `docs/platform/decoded-features.md`, `notes/objectives-recon.md`,
-  `docs/formats/campaign.md`, `tests/test_campaign_cpp.py`.
+  `docs/formats/campaign.md`, `tests/test_campaign_cpp.py`,
+  `notes/mission-panel.png`.
+
+### CAMPAIGN-3: Campaign menu start + live traits
+- [ ] Wire `CAMPAIGN_LIST`/`CAMPAIGN_START`/`CAMPAIGN_INFO_START` in `Menu`
+  so a mission starts from the campaign pages instead of `--start-mission`.
+- [ ] Fill `CampaignState.dinos` from `DinoAttributes`/`DinoNeeds` and
+  `employee_roles` from staff actors so the trait verbs evaluate live.
+- [ ] Store the mission id and verdicts in the port save; show ending videos.
+- [ ] Port the remaining show/building/isolation/hungry verbs once shows,
+  connected buildings and isolation tags exist.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

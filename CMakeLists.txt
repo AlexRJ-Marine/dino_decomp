@@ -57,14 +57,17 @@ add_executable(dino_viewer
     src/formats/market.cpp
     src/formats/bsi.cpp
     src/formats/campaign.cpp
+    src/formats/bei.cpp
     src/world/terrain.cpp
     src/world/vegetation.cpp
     src/world/build.cpp
     src/world/food.cpp
+    src/world/employees.cpp
     src/world/visitors.cpp
     src/world/dino_actions.cpp
     src/world/danger_grid.cpp
     src/world/campaign_objectives.cpp
+    src/world/campaign_runtime.cpp
     src/world/port_save.cpp
     src/world/economy.cpp
 )

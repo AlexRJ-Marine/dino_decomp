@@ -206,6 +206,35 @@ void ParkHud::show_hud(bool visible) {
     hud_hidden_ = !visible;
 }
 
+void ParkHud::show_mission_panel() {
+    open_panel("MISSION_PANEL");
+}
+
+void ParkHud::set_mission_verdicts(const std::vector<int>& verdicts) {
+    const int count =
+        std::min(5, static_cast<int>(verdicts.size()));
+    for (int i = 1; i <= 5; ++i) {
+        const std::string prefix = "OBJECTIF" + std::to_string(i) + "_PANEL";
+        const bool has = i <= count;
+        const bool success = has && verdicts[static_cast<std::size_t>(i - 1)] == 1;
+        overlay.set_visible(prefix, has);
+        overlay.set_visible(prefix + "_LIGHT_ON", success);
+        overlay.set_visible(prefix + "_LIGHT_OFF", has && !success);
+        overlay.set_visible(prefix + "_LIGHT2_ON", success);
+        overlay.set_visible(prefix + "_LIGHT2_OFF", has && !success);
+        overlay.set_visible("OBJECTIF_PANEL_LIGHT" + std::to_string(i) + "_ON",
+                            success);
+        overlay.set_visible("OBJECTIF_PANEL_LIGHT" + std::to_string(i) + "_OFF",
+                            has && !success);
+    }
+    overlay.set_visible("OBJECTIF_PANEL_LIGHTS_GROUP", count > 0);
+}
+
+void ParkHud::clear_mission() {
+    set_mission_verdicts({});
+    close_panel("MISSION_PANEL");
+}
+
 void ParkHud::show_warning(const std::string& text) {
     hide_panels();
     dialog_kind_ = DialogKind::warning;

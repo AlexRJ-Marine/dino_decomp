@@ -73,7 +73,7 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 | `park-lab-fridge` | `SELECT_LAB_FRIDGE` (453,514) | `FRIDGE_BACK` (439,525) | static | partial | - |
 | `park-lab-clone` | `SELECT_LAB_CLONE` (361,513) | `CLONE_BACK` (439,507) | static | partial | - |
 | `park-attraction-stats` | `CONSTRUCTION_KIT_STATS_ICON` (84,527) | `ATTRACTION_STATS_OUTCOME_CANCEL` (488,375) | static | partial | `test_cpp_park_panels` |
-| `park-mission` | `OBJECTIF_PANEL_LIGHTS_GROUP` (12,50, inactive until a mission) | `MISSION_PANEL_OUTCOME_OK` (320,407) | static | partial | - |
+| `park-mission` | `OBJECTIF_PANEL_LIGHTS_GROUP` (12,50, inactive until a mission) | `MISSION_PANEL_OUTCOME_OK` (320,407) | briefing/tips, five objective lines, ON/OFF lights when `--start-mission` runs | partial | `test_campaign_cpp.py` |
 | `park-food` | no HUD opener | - | static | partial | `test_cpp_food_feeding` (CLI only) |
 | info panels: `park-dino-info`, `park-cage-info`, `park-building-info`, `park-staff-security`, `park-staff-food`, `park-cage-list`, `park-dino-placement` | world pick / legacy | - | static or not shown | not ported | - |
 | `dialog-warning` | event or `--warning` | `WARNING_OUTCOME_ICON` | text zone | ported | `test_cpp_warning_dialog` |
@@ -107,6 +107,11 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 - **Construction:** the three sub-buttons replace the bar; the buildings
   panel switches six `CONSTRUC_*_GROUP`s and every `.bbi` button emits
   `construct <widget>`; the kit's stats/list icons open the info panels.
+- **Mission panel:** with `--start-mission FILE` the briefing description,
+  tips, five objective descriptions and the ON/OFF lights are populated;
+  verdicts update every second and `CPGEND_PANEL` appears on success/failure.
+  The menu does not start missions yet and live dino/employee traits are not
+  filled.
 
 ## Recipes
 

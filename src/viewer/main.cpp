@@ -24,15 +24,18 @@
 #include "../formats/bai.h"
 #include "../formats/market.h"
 #include "../formats/bsi.h"
+#include "../formats/bei.h"
 #include "camera_config.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
 #include "../world/build.h"
 #include "../world/food.h"
+#include "../world/employees.h"
 #include "../world/visitors.h"
 #include "../world/dino_actions.h"
 #include "../world/danger_grid.h"
 #include "../world/campaign_objectives.h"
+#include "../world/campaign_runtime.h"
 #include "../world/port_save.h"
 #include "../world/economy.h"
 #include "../ui/menu.h"
@@ -123,8 +126,12 @@ struct Options {
     std::string food_info_dir;
     std::string campaign_info_dir;
     std::string campaign_mission_path;
+    std::string start_mission_path;
     std::string place_food;
     std::string food_pos;
+    int hire_nutritionists = 0;
+    bool feed_now = false;
+    bool employee_info = false;
     std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
@@ -373,10 +380,19 @@ Options parse_args(int argc, char** argv) {
             opt.campaign_info_dir = next("--campaign-info");
         } else if (arg == "--campaign-mission") {
             opt.campaign_mission_path = next("--campaign-mission");
+        } else if (arg == "--start-mission") {
+            opt.start_mission_path = next("--start-mission");
         } else if (arg == "--place-food") {
             opt.place_food = next("--place-food");
         } else if (arg == "--food-pos") {
             opt.food_pos = next("--food-pos");
+        } else if (arg == "--hire-nutritionist" ||
+                   arg == "--hire-nutritionists") {
+            opt.hire_nutritionists = std::atoi(next("--hire-nutritionist"));
+        } else if (arg == "--feed-now") {
+            opt.feed_now = true;
+        } else if (arg == "--employee-info") {
+            opt.employee_info = true;
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
@@ -629,8 +645,12 @@ Options parse_args(int argc, char** argv) {
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"
                 "  --campaign-info DIR  scan Data/Design/Scenario campaigns/missions and exit\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
+                "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
+                "  --hire-nutritionist N hire N nutritionists (500 each)\n"
+                "  --feed-now           run one hourly feeding pass at startup\n"
+                "  --employee-info      print the .bei employee profiles and exit\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
@@ -812,6 +832,8 @@ struct ParkClock {
     int minute() const {
         return static_cast<int>(elapsed * minutes_per_second()) % 60;
     }
+    // Absolute park minute, used by campaign objectives (`delaylimit`).
+    int minutes() const { return day * 720 + hour() * 60 + minute(); }
 
     void advance(double dt) {
         new_hour = false;
@@ -1644,6 +1666,59 @@ dino::Mesh build_text_block(const dino::Fnt& font, const std::string& text,
         append_mesh(out, glyphs);
     }
     return out;
+}
+
+std::string wrap_text(const std::string& text, std::size_t width) {
+    std::string out;
+    std::string word;
+    std::size_t line = 0;
+    auto flush = [&]() {
+        if (word.empty()) {
+            return;
+        }
+        if (line != 0 && line + 1 + word.size() > width) {
+            out += '\n';
+            line = 0;
+        } else if (line != 0) {
+            out += ' ';
+            ++line;
+        }
+        out += word;
+        line += word.size();
+        word.clear();
+    };
+    for (std::size_t i = 0; i <= text.size(); ++i) {
+        const char ch = i < text.size() ? text[i] : ' ';
+        if (ch == '\\' && i + 1 < text.size() && text[i + 1] == 'n') {
+            flush();
+            out += '\n';
+            line = 0;
+            ++i;
+        } else if (ch == '\n') {
+            flush();
+            out += '\n';
+            line = 0;
+        } else if (ch == ' ' || ch == '\t' || ch == '\r') {
+            flush();
+        } else {
+            word.push_back(ch);
+        }
+    }
+    flush();
+    return out;
+}
+
+std::string limit_lines(const std::string& text, std::size_t max_lines) {
+    std::size_t line = 1;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '\n') {
+            ++line;
+            if (line > max_lines) {
+                return text.substr(0, i);
+            }
+        }
+    }
+    return text;
 }
 
 dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
@@ -2806,6 +2881,28 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (opt.employee_info) {
+        try {
+            const std::vector<dino::EmployeeProfile> profiles =
+                dino::load_employee_list(
+                    resolve_asset(opt.asset_root, "Data/Design/employees"));
+            for (const dino::EmployeeProfile& profile : profiles) {
+                std::printf(
+                    "employee: %s kind=%d wage=%d height=%.2f walk=%.2f "
+                    "action=%.2f work=%.2f meshes=%zu sounds=%zu\n",
+                    profile.name.c_str(), profile.kind, profile.wage,
+                    profile.height, profile.walk_speed, profile.action_speed,
+                    profile.work_duration, profile.meshes.size(),
+                    profile.sounds.size());
+            }
+            std::printf("employee profiles: %zu\n", profiles.size());
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "employee-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
     if (opt.dino_actions_info) {
         try {
             const std::vector<dino::BaiAction> actions =
@@ -2952,6 +3049,9 @@ int main(int argc, char** argv) {
                 park_clock.time_text(false).c_str(),
                 park_clock.day_text().c_str());
 
+    std::optional<dino::CampaignRuntime> campaign_runtime;
+    std::vector<dino::ObjectiveVerdict> last_mission_verdicts;
+
     std::unordered_map<std::string, std::string> menu_sound_files;
     std::vector<std::string> menu_sound_names;
     try {
@@ -3081,6 +3181,36 @@ int main(int argc, char** argv) {
                 std::fprintf(stderr, "store catalog: %s\n", e.what());
             }
             refresh_store_rows();
+            if (!opt.start_mission_path.empty()) {
+                try {
+                    const dino::CampaignMission mission =
+                        dino::load_campaign_mission(opt.start_mission_path);
+                    campaign_runtime.emplace();
+                    campaign_runtime->start(mission, park_clock.minutes());
+                    last_mission_verdicts.assign(
+                        mission.objectives.size(),
+                        dino::ObjectiveVerdict::Pending);
+                    park.set_mission_verdicts(
+                        std::vector<int>(mission.objectives.size(), 0));
+                    park.show_mission_panel();
+                    std::printf("mission: %s objectives=%zu\n",
+                                mission.name.c_str(),
+                                mission.objectives.size());
+                    for (std::size_t i = 0; i < mission.objectives.size();
+                         ++i) {
+                        const dino::CampaignObjective& objective =
+                            mission.objectives[i];
+                        std::printf(
+                            "mission objective %zu %s: %s\n", i,
+                            objective.verb.c_str(),
+                            dino::ui::resolve_loc_text(objective.description_id,
+                                                       park.loc)
+                                .c_str());
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "start mission: %s\n", e.what());
+                }
+            }
             auto dialog_text = [&](const std::string& value) {
                 return !value.empty() && value[0] == '&'
                            ? dino::ui::resolve_loc_text(value, park.loc)
@@ -4362,6 +4492,10 @@ int main(int argc, char** argv) {
 
     GpuMesh visitor_gpu;
     GLuint visitor_texture_id = 0;
+    GpuMesh employee_gpu;
+    GLuint employee_texture_id = 0;
+    dino::Mesh employee_pose;
+    dino::Image employee_image;
     if (!visitor_system.visitors.empty()) {
         visitor_texture_id = upload_texture(visitor_image);
         visitor_gpu = upload_mesh(
@@ -4815,6 +4949,9 @@ int main(int argc, char** argv) {
         if (visitor_gpu.vao != 0) {
             extra_items.push_back({&visitor_gpu, visitor_texture_id});
         }
+        if (employee_gpu.vao != 0) {
+            extra_items.push_back({&employee_gpu, employee_texture_id});
+        }
         if (dino_gpu.vao != 0) {
             extra_items.push_back({&dino_gpu, dino_texture});
             if (shadow_gpu.vao != 0) {
@@ -5237,6 +5374,17 @@ int main(int argc, char** argv) {
     // Food sources (`--place-food`): the `.bsi` definition supplies the model,
     // texture and portion count; the position is a build-grid cell and
     // defaults to the first paddock centre.
+    if (food_defs.empty() &&
+        (!opt.place_food.empty() || opt.hire_nutritionists > 0 ||
+         opt.feed_now)) {
+        try {
+            food_defs = dino::load_food_defs(
+                opt.asset_root,
+                resolve_asset(opt.asset_root, "Data/Design/foodsource"));
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "food defs: %s\n", e.what());
+        }
+    }
     if (!opt.place_food.empty()) {
         try {
             food_defs = dino::load_food_defs(
@@ -5863,6 +6011,135 @@ int main(int argc, char** argv) {
         park_budget -= pending_buy_price;
     }
 
+    // Employees (first slice). Retail hires only Nutritionists (0x5366c0,
+    // employee index 0) and charges the `.bei` dword 8 as a generic purchase
+    // (0x588600 -> 0x585c00). The same value is the daily wage at settlement
+    // (0x585d80, role bucket 0). Guards are a wage bucket only.
+    std::vector<dino::EmployeeProfile> employee_profiles;
+    dino::EmployeeSystem employee_system;
+    if (opt.hire_nutritionists > 0 || opt.feed_now) {
+        try {
+            employee_profiles = dino::load_employee_list(
+                resolve_asset(opt.asset_root, "Data/Design/employees"));
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "employees: %s\n", e.what());
+        }
+    }
+    if (opt.hire_nutritionists > 0 && !employee_profiles.empty()) {
+        int nutritionist = -1;
+        for (std::size_t i = 0; i < employee_profiles.size(); ++i) {
+            if (employee_profiles[i].kind == 0) {
+                nutritionist = static_cast<int>(i);
+                break;
+            }
+        }
+        if (nutritionist < 0) {
+            std::printf("employees: no nutritionist profile\n");
+        } else {
+            const int wage =
+                employee_profiles[static_cast<std::size_t>(nutritionist)].wage;
+            const float half = terrain.world_size * 0.5f;
+            float spawn_x = half;
+            float spawn_y = half;
+            if (entrance_cell_x >= 0 && entrance_cell_y >= 0) {
+                spawn_x = (static_cast<float>(entrance_cell_x) + 0.5f) *
+                          build_grid.cell_size;
+                spawn_y = (static_cast<float>(entrance_cell_y) + 0.5f) *
+                          build_grid.cell_size;
+            }
+            int hired = 0;
+            for (int n = 0; n < opt.hire_nutritionists; ++n) {
+                if (park_budget < wage) {
+                    std::printf("hire: not enough money wage=%d budget=%d\n",
+                                wage, park_budget);
+                    break;
+                }
+                park_budget -= wage;
+                employee_system.hire(employee_profiles, nutritionist, spawn_x,
+                                     spawn_y);
+                ++hired;
+            }
+            std::printf("employees: hired=%d wage=%d budget=%d\n", hired, wage,
+                        park_budget);
+        }
+    }
+    if (opt.feed_now) {
+        const int assigned = employee_system.start_hour(
+            employee_profiles, food_sources, food_defs, true);
+        int completed = 0;
+        for (int step = 0; step < 20; ++step) {
+            completed += employee_system.update(
+                10.0f, employee_profiles, food_sources, food_defs);
+        }
+        std::printf(
+            "feed: assigned=%d completed=%d serviced=%d sources=%zu\n",
+            assigned, completed, employee_system.serviced, food_sources.size());
+        for (const dino::FoodSource& source : food_sources) {
+            const float capacity =
+                source.def >= 0 &&
+                        source.def < static_cast<int>(food_defs.size())
+                    ? food_defs[static_cast<std::size_t>(source.def)].quantity
+                    : 0.0f;
+            std::printf("feed: source def=%d remaining=%.3f capacity=%.3f\n",
+                        source.def, static_cast<double>(source.remaining),
+                        static_cast<double>(capacity));
+        }
+    }
+
+    // Load the Nutritionist standing pose + texture once; the hourly walk is
+    // a straight move, so one pose is enough for the first slice.
+    if (!employee_system.employees.empty() && employee_pose.positions.empty()) {
+        int nutritionist = -1;
+        for (std::size_t i = 0; i < employee_profiles.size(); ++i) {
+            if (employee_profiles[i].kind == 0) {
+                nutritionist = static_cast<int>(i);
+                break;
+            }
+        }
+        if (nutritionist >= 0) {
+            const dino::EmployeeProfile& profile =
+                employee_profiles[static_cast<std::size_t>(nutritionist)];
+            try {
+                if (!profile.meshes.empty()) {
+                    employee_pose = dino::load_mesh(
+                        resolve_asset(opt.asset_root, profile.meshes.front()));
+                }
+                const auto ends_with_tga = [](const std::string& text) {
+                    if (text.size() < 4) {
+                        return false;
+                    }
+                    std::string tail = text.substr(text.size() - 4);
+                    for (char& c : tail) {
+                        c = static_cast<char>(
+                            std::tolower(static_cast<unsigned char>(c)));
+                    }
+                    return tail == ".tga";
+                };
+                for (const std::string& asset : profile.assets) {
+                    if (ends_with_tga(asset)) {
+                        employee_image = dino::load_image(
+                            resolve_asset(opt.asset_root, asset));
+                        break;
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "employee assets: %s\n", e.what());
+            }
+        }
+    }
+    if (employee_gpu.vao == 0 && !employee_pose.positions.empty() &&
+        !employee_system.employees.empty()) {
+        if (employee_image.width > 0) {
+            employee_texture_id = upload_texture(employee_image);
+        }
+        employee_gpu = upload_mesh(
+            employee_system.build_mesh(terrain, employee_pose), glfns);
+        std::printf("employees: rendered=%zu pose_vertices=%zu\n",
+                    employee_system.employees.size(),
+                    employee_pose.positions.size());
+        rebuild_extra_items();
+    }
+
     // P4: construction placement through the retail panel. Each building's
     // `.bbi` tail lists the `CONSTRUC_*_BUTTON` widget that builds it; the
     // charge is `.bbi` file offset 21 (`D+0x18`), proven by
@@ -6099,7 +6376,16 @@ int main(int argc, char** argv) {
             tickets += static_cast<int>(
                 static_cast<float>(ticket_price) * scale);
         }
-        const int wages = 0;
+        const int wages = employee_system.daily_wages(employee_profiles);
+        for (const dino::Employee& employee : employee_system.employees) {
+            if (employee.profile < 0 ||
+                employee.profile >= static_cast<int>(employee_profiles.size())) {
+                continue;
+            }
+            const dino::EmployeeProfile& profile =
+                employee_profiles[static_cast<std::size_t>(employee.profile)];
+            budget_ledger.spend_staff(profile.kind, profile.wage);
+        }
         park_budget += tickets - wages;
         budget_ledger.add_ticket(tickets, visitors);
         budget_ledger.settle();
@@ -6831,6 +7117,24 @@ int main(int argc, char** argv) {
         });
 
         auto runtime_text = [&](const std::string& name) -> std::string {
+            if (campaign_runtime) {
+                const dino::CampaignMission& mission =
+                    campaign_runtime->mission();
+                static const std::string suffix = "_PANEL_EXPLICATION";
+                if (name.rfind("OBJECTIF", 0) == 0 &&
+                    name.size() > suffix.size() &&
+                    name.compare(name.size() - suffix.size(), suffix.size(),
+                                 suffix) == 0) {
+                    const int index = std::atoi(name.c_str() + 8) - 1;
+                    if (index >= 0 &&
+                        index < static_cast<int>(mission.objectives.size())) {
+                        return dino::ui::resolve_loc_text(
+                            mission.objectives[static_cast<std::size_t>(index)]
+                                .description_id,
+                            park.loc);
+                    }
+                }
+            }
             if (name == "BUDGET_AMOUNT") {
                 return std::to_string(park_budget);
             }
@@ -6949,7 +7253,8 @@ int main(int argc, char** argv) {
                     return std::to_string(budget_ledger.y_secu_total);
                 }
                 if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
-                    return "0";  // live employee count
+                    return std::to_string(
+                        employee_system.count_role(employee_profiles, 0));
                 }
                 if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
                     return std::to_string(budget_ledger.y_staff_food_total);
@@ -7202,6 +7507,50 @@ int main(int argc, char** argv) {
                     static_cast<float>(widget.height) * dpi);
                 draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
             }
+        }
+
+        // The mission description/tips are LIST widgets whose back area has a
+        // higher ZPRIORITY than the list in the overlay data; drawing them
+        // per-widget would put the back area over the text. Draw these two
+        // after the normal widget pass so they stay readable.
+        if (campaign_runtime) {
+            const dino::CampaignMission& mission = campaign_runtime->mission();
+            auto draw_mission_text = [&](const char* widget_name,
+                                         const std::string& text) {
+                if (text.empty()) {
+                    return;
+                }
+                const int index = park.overlay.find(widget_name);
+                if (index < 0 || !park.overlay.visible_in_tree(index)) {
+                    return;
+                }
+                const dino::ui::Widget& widget =
+                    park.overlay.widgets[static_cast<std::size_t>(index)];
+                float scale = 1.0f;
+                GLuint atlas = 0;
+                if (const dino::Fnt* font = ui_font(
+                        widget.font, widget.text_height, scale, atlas)) {
+                    const dino::Mesh block = build_text_block(
+                        *font, text, px(widget.abs_x), py(widget.abs_y),
+                        scale * dpi, widget.text_color, widget.justify,
+                        static_cast<float>(widget.width) * dpi,
+                        static_cast<float>(widget.height) * dpi);
+                    draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w,
+                                 view_h);
+                }
+            };
+            draw_mission_text(
+                "MISSION_PANEL_EXPLICATION",
+                limit_lines(wrap_text(dino::ui::resolve_loc_text(
+                                          mission.description_id, park.loc),
+                                      58),
+                            6));
+            draw_mission_text(
+                "MISSION_PANEL_TIPS",
+                limit_lines(wrap_text(dino::ui::resolve_loc_text(
+                                          mission.hint_id, park.loc),
+                                      58),
+                            6));
         }
     };
 
@@ -7587,9 +7936,88 @@ int main(int argc, char** argv) {
 
         if (park.loaded() && !start_screen) {
             park_clock.advance(dt);
+            if (park_clock.new_hour && !employee_system.employees.empty()) {
+                const int assigned = employee_system.start_hour(
+                    employee_profiles, food_sources, food_defs);
+                if (assigned > 0) {
+                    std::printf("feed: hour=%d assigned=%d\n",
+                                park_clock.hour(), assigned);
+                }
+            }
+            employee_system.update(dt, employee_profiles, food_sources,
+                                   food_defs);
+            if (employee_gpu.vao != 0 && !employee_pose.positions.empty()) {
+                update_mesh(employee_gpu,
+                            employee_system.build_mesh(terrain, employee_pose),
+                            glfns);
+            }
             if (park_clock.end_of_day) {
                 run_daily_settlement();
                 park_clock.next_day();
+            }
+        }
+        if (campaign_runtime && campaign_runtime->active()) {
+            dino::CampaignState mission_state;
+            mission_state.treasury = park_budget;
+            for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
+                mission_state.merchandise_income +=
+                    budget_ledger.shop_revenue[i];
+            }
+            // The port has no death counter or staff actors yet; both stay at
+            // zero (dyingdinos passes, employees stays pending).
+            mission_state.deaths = 0;
+            mission_state.camera_altitude = static_cast<int>(
+                (free_camera ? free_pos : orbit_eye()).z);
+            mission_state.clock_minutes = park_clock.minutes();
+            mission_state.store_empty = store_catalog.empty();
+            mission_state.bankrupt = park_budget < 0;
+            // VisitorList.ini personality order 0..9; mission objective
+            // profile strings use these names.
+            static const char* const kProfileNames[10] = {
+                "surfer",  "holligan", "parent", "blase",    "retraite",
+                "riche",   "scientific", "amoureux", "spd", "enfant"};
+            for (const dino::Visitor& visitor : visitor_system.visitors) {
+                dino::CampaignVisitorState state_visitor;
+                const int profile = visitor.global_profile;
+                state_visitor.profile =
+                    profile >= 0 && profile < 10
+                        ? kProfileNames[profile]
+                        : std::to_string(visitor.profile);
+                state_visitor.satisfaction = visitor.need0;
+                mission_state.visitors.push_back(state_visitor);
+            }
+            campaign_runtime->tick(dt, mission_state);
+            const auto& verdicts = campaign_runtime->verdicts();
+            if (verdicts != last_mission_verdicts) {
+                std::vector<int> values;
+                values.reserve(verdicts.size());
+                for (dino::ObjectiveVerdict verdict : verdicts) {
+                    values.push_back(static_cast<int>(verdict));
+                }
+                park.set_mission_verdicts(values);
+                for (std::size_t i = 0; i < verdicts.size(); ++i) {
+                    if (i < last_mission_verdicts.size() &&
+                        verdicts[i] == last_mission_verdicts[i]) {
+                        continue;
+                    }
+                    std::printf(
+                        "mission objective %zu %s -> %s\n", i,
+                        campaign_runtime->mission()
+                            .objectives[i]
+                            .verb.c_str(),
+                        dino::verdict_name(verdicts[i]));
+                }
+                last_mission_verdicts = verdicts;
+            }
+            if (campaign_runtime->finished()) {
+                const bool success = campaign_runtime->overall() ==
+                                     dino::ObjectiveVerdict::Success;
+                std::printf("mission %s: %s\n",
+                            campaign_runtime->mission().name.c_str(),
+                            success ? "success" : "failure");
+                park.show_campaign_end(success ? "Mission complete."
+                                               : "Mission failed.");
+                campaign_runtime->stop();
             }
         }
         ui_sound.update(dt);
@@ -8463,6 +8891,11 @@ int main(int argc, char** argv) {
     fence_gpu.destroy(glfns);
     water_gpu.destroy(glfns);
     visitor_gpu.destroy(glfns);
+    employee_gpu.destroy(glfns);
+    if (employee_texture_id != 0) {
+        glDeleteTextures(1, &employee_texture_id);
+        employee_texture_id = 0;
+    }
     hud_gpu.destroy(glfns);
     menu_gpu.destroy(glfns);
     for (auto& entry : ui_textures) {

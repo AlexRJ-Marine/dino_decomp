@@ -153,18 +153,21 @@ Beams and gene editing come next.
 
 **Port status** the C++ reader (`src/formats/campaign.{h,cpp}`) parses all 7
 campaigns, 39 missions, 89 objectives and the 33-verb table; CLI
-`--campaign-info`/`--campaign-mission`. The evaluator core
+`--campaign-info`/`--campaign-mission`. The evaluator
 (`src/world/campaign_objectives.{h,cpp}`) implements the simple/trait verbs
-and the tri-state aggregate; show/building/isolation/hungry verbs stay
-pending. There is no mission state machine or `MISSION_PANEL` verdict UI yet.
-The campaign menu pages render (see `campaign-flow.md`); `MISSION_PANEL` is
-static.
+and the tri-state aggregate; `src/world/campaign_runtime.{h,cpp}` evaluates
+once per second and stops on success/failure. `--start-mission FILE` opens
+`MISSION_PANEL` with the briefing, five objective lines and ON/OFF lights,
+and shows `CPGEND_PANEL` on the result. Live dinosaur/employee traits are
+still empty (trait verbs pending), and menu mission selection, mission state
+in the port save and ending videos are open; show/building/isolation/hungry
+verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them
-on a one-second timer and show the tri-state in `MISSION_PANEL`; then add the
-trait/show verbs. The parser and evaluator core are done; the timer/UI is the
-next step.
+on a one-second timer and show the tri-state in `MISSION_PANEL`. All of that
+is done; the next step is filling `CampaignState.dinos` from
+`DinoAttributes` and wiring `CAMPAIGN_LIST`/`CAMPAIGN_START` in the menu.
 
 **Evidence** `../formats/campaign.md`, `../../notes/objectives-recon.md`,
 `../decomp/function-status.md`, `tests/test_campaign.py`.

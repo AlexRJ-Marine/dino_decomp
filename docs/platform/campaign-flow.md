@@ -84,18 +84,20 @@ CpgNN/CpgNN_Save.wld    initial park
   `staminadinos`, `cleverdinos`, `sizedagilitydinos`, `ornateddinos`,
   `prettystrangedino`). Show/building/isolation/hungry verbs stay pending.
   `--selftest` exercises 30 verdicts.
+- `src/world/campaign_runtime.{h,cpp}` drives a started mission: objective
+  evaluation once per second, tri-state aggregate, stop on success/failure.
+- `--start-mission FILE` starts a mission in the loaded park, opens
+  `MISSION_PANEL` with the briefing description, tips, five objective lines
+  and ON/OFF lights, updates them live, and shows `CPGEND_PANEL` on
+  success/failure. The live state fills treasury, visitor count/satisfaction,
+  merchandise revenue, camera altitude, clock, store-empty and bankruptcy;
+  dinos/employees are still empty (trait verbs pending) and deaths are 0.
 - The port does **not** handle `CAMPAIGN_LIST` selection, `CAMPAIGN_START`
   or `CAMPAIGN_INFO_START`; only `ISLAND_LIST`/`FREE_START` are wired. A
-  campaign mission cannot be started from the port menu.
-- `MISSION_PANEL` renders, but no objective text or verdict is populated.
-  `CPGEND_PANEL` is available through `--campaign-end TEXT`.
-- Sandbox path: `--wld-park <CpgNN_Save.wld>` or `--sav-park <save>` loads
-  the campaign park (roads, fences, buildings, dinosaurs, budget, clock) for
-  port tests without campaign rules. Cpg04/isl04 is the main fixture.
-- Campaign progress/full mission flow, mission selection, the
-  `MISSION_PANEL` tri-state, campaign-end trigger and ending videos are not
-  ported. The reader and evaluator core are the first slices; the mission
-  state machine is next (see `decoded-features.md`).
+  campaign mission must be started with `--start-mission`, not the menu.
+- Mission state is not stored in the port save; menu mission selection, live
+  dinosaur/employee traits, ending videos and the remaining show/building/
+  isolation/hungry verbs are open.
 
 ## Verification recipes
 
@@ -146,6 +148,25 @@ Expect `campaigns: 7 missions: 39 objectives: 89 unknown: 0 verbs: 33`, the
 Cpg04 line (`island=Isl04 budget=20000 missions=4`), and the three
 Cpg04_Mission1 objectives (`isolateddinos 71` id 18, `treasury 25000 1` id 0,
 `dyingdinos 5` id 2).
+
+Mission run (Cpg04/isl04, treasury satisfied, isolation pending):
+
+```powershell
+.\build\port\dino_viewer.exe --frames 2 --no-menu --width 800 --height 600 `
+  --no-vsync --no-save-config --lnd "...\isl04.lnd" --asset-root game\%MAINDIR% `
+  --no-vegetation --no-water --wld-park "...\Cpg04_Save.wld" `
+  --park-budget 25000 --start-mission "...\Cpg04_Mission1.ini"
+```
+
+Expect `mission: Cpg04_Mission1 objectives=3`, the three objective lines,
+`mission objective 1 treasury -> success`, `mission objective 2 dyingdinos ->
+success`, and no success/failure aggregate (isolateddinos is pending).
+
+A mission that completes: `Cpg01_Mission11` (`visitors all 30`) on isl01 with
+a 24-cell path loop and `--visitors 30` prints `mission objective 0 visitors
+-> success` and `mission Cpg01_Mission11: success`, then opens
+`CPGEND_PANEL`. The panel shows the briefing description, tips, objective
+lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
