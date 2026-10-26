@@ -116,13 +116,18 @@ CpgNN/CpgNN_Save.wld    initial park
   retail locked-row art is still unproven. Evidence:
   `notes/campaign-menu-unlock.png` (mask `0x0F`, row 3 selected; rows 5–7
   locked).
-- The campaign always starts at the first mission (progression is not
-  persisted), and the retail 4-page briefing (`1/4` + idea bulb) is collapsed
-  into the current `MISSION_PANEL` description.
+- The campaign menu starts at the first mission. On success, closing
+  `CPGEND` starts the next mission in the same campaign (`MissionN+1`), applies
+  its `CONTEXT.Budget` delta and reopens `MISSION_PANEL`; `--auto-continue` is
+  the headless test hook. Progression is not persisted across restarts (only
+  the active mission id is in `DINOPSAV`), and the last mission's campaign-end
+  text/video/unlock write are still open.
+- The retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
+  `MISSION_PANEL` description.
 - `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
-  recomputed by the first runtime tick, not stored. Mission progression, the
-  exact actor trait fields, ending videos and the remaining
+  recomputed by the first runtime tick, not stored. Campaign-completion
+  progression, the exact actor trait fields, ending videos and the remaining
   show/building/isolation/hungry verbs are open.
 
 ## Verification recipes
@@ -217,6 +222,11 @@ the `DINOPSAV`; a later `--load-port` run with the same island resumes the
 mission and prints `mission: Cpg04_Mission1 objectives=3` plus the live
 verdicts (no `--wld-park`/`--start-mission` needed on load).
 
+Mission advance: the Cpg01_Mission11 run above with `--auto-continue` prints
+`mission Cpg01_Mission11: success`, then `campaign: next mission
+Cpg01_Mission12 budget=75000` and `mission: Cpg01_Mission12 objectives=2`.
+Without the flag, click `CPGEND_OUTCOME_ICON` (401,447) to advance.
+
 A mission that completes: `Cpg01_Mission11` (`visitors all 30`) on isl01 with
 a 24-cell path loop and `--visitors 30` prints `mission objective 0 visitors
 -> success` and `mission Cpg01_Mission11: success`, then opens
@@ -225,8 +235,9 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Persist the mission index and advance missions after `CPGEND_PANEL`; write
-  the next campaign's unlock bit to `dino.dat`.
+- Persist the mission index across restarts and write the next campaign's
+  unlock bit when a campaign's final mission completes; show the campaign
+  ending text/video.
 - Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
   idea-bulb buttons) instead of reusing the mission description box.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
@@ -255,6 +266,7 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`,
   `test_cpp_campaign_mission_port_save`,
+  `test_cpp_campaign_auto_advance`,
   `test_cpp_campaign_live_employees`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots

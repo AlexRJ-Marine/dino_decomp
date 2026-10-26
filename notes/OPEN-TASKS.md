@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-26 23:38. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-26 23:45. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-35 open items.
+36 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -78,7 +78,8 @@ Generated from `TASKS.md` on 2026-10-26 23:38. Do not edit; regenerate with `scr
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
 
 ## CAMPAIGN-3: Campaign menu start + live traits
-- [ ] Persist/advance the mission index; port the retail 4-page briefing
+- [ ] Persist the mission index across restarts; write the next campaign's
+- [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [ ] Fill the exact actor trait fields
 - [ ] Show the ending videos.
 - [ ] Port the remaining show/building/isolation/hungry verbs once shows,

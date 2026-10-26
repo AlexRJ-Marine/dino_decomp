@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -56,6 +57,11 @@ Campaign load_campaign(const std::string& campaign_ini);
 
 // Loads one mission .ini.
 CampaignMission load_campaign_mission(const std::string& mission_ini);
+
+// Next mission in the same campaign (`MissionN+1`), or nullopt at the end.
+// Reloads the parent `CpgNN.ini` from the mission path.
+std::optional<CampaignMission> next_campaign_mission(
+    const CampaignMission& current);
 
 // Parses one `ObjectiveN` value into verb/args/id. `description_id` is the
 // matching `_Desc` localisation id.

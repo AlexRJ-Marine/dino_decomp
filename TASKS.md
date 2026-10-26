@@ -1370,8 +1370,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_campaign_cpp.py::test_cpp_menu_campaign_*`.
 - [x] Read `run/save/dino.dat` and disable locked campaign rows
   (missing = 1; `--dino-dat FILE` for tests). Cpg04 needs mask `0x0F`.
-- [ ] Persist/advance the mission index; port the retail 4-page briefing
-  (`1/4` + idea bulb).
+- [x] Advance to the next mission when `CPGEND` closes; apply the next
+  mission's `Budget` delta. Cpg01_Mission11 -> Mission12 (`--auto-continue`).
+- [ ] Persist the mission index across restarts; write the next campaign's
+  unlock bit on the final mission and show the campaign ending text/video.
+- [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots
   (cuteness/beauty, aggression, size, speed, stamina, agility, intelligence,
   food). Cpg01_Mission9 (`cleverdinos 1 80`) succeeds on the Cpg04 park.

@@ -239,6 +239,34 @@ def test_cpp_campaign_mission_port_save(tmp_path):
     assert "mission objective 2 dyingdinos -> success" in second.stdout
 
 
+def test_cpp_campaign_auto_advance():
+    # Closing CPGEND on a successful mission starts the next mission in the
+    # same campaign. --auto-continue is the headless test hook.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"
+    if not isl01.exists() or not mission.exists():
+        pytest.skip("retail Cpg01 mission data missing")
+    args = [
+        "--frames", "4", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--build", "--visitors", "30", "--start-mission", str(mission),
+        "--auto-continue",
+    ]
+    for x in range(126, 133):
+        args += ["--place-path", f"{x},126", "--place-path", f"{x},132"]
+    for y in range(127, 132):
+        args += ["--place-path", f"126,{y}", "--place-path", f"132,{y}"]
+    result = _run(*args)
+    assert result.returncode == 0, result.stderr
+    assert "mission Cpg01_Mission11: success" in result.stdout
+    assert "campaign: next mission Cpg01_Mission12 budget=75000" in result.stdout
+    assert "mission: Cpg01_Mission12 objectives=2" in result.stdout
+    # Mission12's happyvisitors succeeds; connectedbuildings stays pending.
+    assert "mission objective 1 happyvisitors -> success" in result.stdout
+    assert "mission Cpg01_Mission12: success" not in result.stdout
+
+
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"

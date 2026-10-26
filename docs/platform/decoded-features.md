@@ -167,7 +167,8 @@ imported phenotype snapshots (cuteness/beauty, aggression, size, speed,
 stamina, agility, intelligence, food); hired staff fill the `employees`
 objective from their `.bei` role names. Hybrid/scarcity/strangeness/ornaments
 are still empty. `DINOPSAV` stores the active mission id and `--load-port`
-resumes it; ending videos and mission progression are open;
+resumes it; a successful mission advances to the next one in the campaign,
+while campaign completion/ending videos remain open;
 show/building/isolation/hungry verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators

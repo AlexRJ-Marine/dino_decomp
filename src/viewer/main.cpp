@@ -129,6 +129,7 @@ struct Options {
     std::string campaign_info_dir;
     std::string campaign_mission_path;
     std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
+    bool auto_continue = false;  // test hook: advance past CPGEND automatically
     std::string start_mission_path;
     std::string place_food;
     std::string food_pos;
@@ -387,6 +388,8 @@ Options parse_args(int argc, char** argv) {
             opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--dino-dat") {
             opt.dino_dat_path = next("--dino-dat");
+        } else if (arg == "--auto-continue") {
+            opt.auto_continue = true;
         } else if (arg == "--start-mission") {
             opt.start_mission_path = next("--start-mission");
         } else if (arg == "--place-food") {
@@ -659,6 +662,7 @@ Options parse_args(int argc, char** argv) {
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
+                "  --auto-continue      advance past CPGEND without a click (test hook)\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
                 "  --hire-nutritionist N hire N nutritionists (500 each)\n"
@@ -3210,6 +3214,7 @@ int main(int argc, char** argv) {
 
     std::optional<dino::CampaignRuntime> campaign_runtime;
     std::vector<dino::ObjectiveVerdict> last_mission_verdicts;
+    std::optional<dino::CampaignMission> pending_next_mission;
 
     std::unordered_map<std::string, std::string> menu_sound_files;
     std::vector<std::string> menu_sound_names;
@@ -6327,6 +6332,21 @@ int main(int argc, char** argv) {
     int park_hover_y = -1;
     int park_active_index = -1;
     int park_budget = free_game_budgets[0];
+    auto advance_campaign = [&]() {
+        if (!pending_next_mission) {
+            return;
+        }
+        const dino::CampaignMission next = *pending_next_mission;
+        pending_next_mission.reset();
+        const auto delta = next.values.find("CONTEXT.BUDGET");
+        if (delta != next.values.end()) {
+            park_budget += std::atoi(delta->second.c_str());
+        }
+        park.close_dialog();
+        std::printf("campaign: next mission %s budget=%d\n",
+                    next.name.c_str(), park_budget);
+        start_campaign_mission(next);
+    };
     if (sav_ready) {
         park_budget = sav_simulation.budget;
         park_clock.day = sav_simulation.day;
@@ -8268,6 +8288,8 @@ int main(int argc, char** argv) {
                                 do_port_load(path);
                             }
                             park.overlay.set_visible("OPTIONS_PANEL", false);
+                        } else if (action == "close campaign end") {
+                            advance_campaign();
                         }
                         if (!action.empty()) {
                             std::printf("park click %d,%d -> %s\n", dx, dy,
@@ -8605,12 +8627,22 @@ int main(int argc, char** argv) {
             if (campaign_runtime->finished()) {
                 const bool success = campaign_runtime->overall() ==
                                      dino::ObjectiveVerdict::Success;
-                std::printf("mission %s: %s\n",
-                            campaign_runtime->mission().name.c_str(),
+                const dino::CampaignMission finished =
+                    campaign_runtime->mission();
+                std::printf("mission %s: %s\n", finished.name.c_str(),
                             success ? "success" : "failure");
+                pending_next_mission.reset();
+                if (success) {
+                    pending_next_mission =
+                        dino::next_campaign_mission(finished);
+                }
                 park.show_campaign_end(success ? "Mission complete."
                                                : "Mission failed.");
                 campaign_runtime->stop();
+                if (opt.auto_continue) {
+                    park.close_dialog();
+                    advance_campaign();
+                }
             }
         }
         ui_sound.update(dt);

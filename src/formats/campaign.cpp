@@ -205,6 +205,30 @@ CampaignMission load_campaign_mission(const std::string& mission_ini) {
     return mission;
 }
 
+std::optional<CampaignMission> next_campaign_mission(
+    const CampaignMission& current) {
+    if (current.path.empty()) {
+        return std::nullopt;
+    }
+    const std::filesystem::path dir =
+        std::filesystem::path(current.path).parent_path();
+    const std::string campaign_name = dir.filename().string();
+    if (campaign_name.empty()) {
+        return std::nullopt;
+    }
+    try {
+        const Campaign campaign =
+            load_campaign((dir / (campaign_name + ".ini")).string());
+        for (std::size_t i = 0; i + 1 < campaign.missions.size(); ++i) {
+            if (campaign.missions[i].name == current.name) {
+                return campaign.missions[i + 1];
+            }
+        }
+    } catch (const std::exception&) {
+    }
+    return std::nullopt;
+}
+
 Campaign load_campaign(const std::string& campaign_ini) {
     const std::filesystem::path path(campaign_ini);
     if (!std::filesystem::exists(path)) {
