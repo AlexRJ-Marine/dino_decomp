@@ -221,7 +221,12 @@ void start_leaving(Visitor& visitor, const BuildGrid& grid, int exit_x,
     int tx = exit_x;
     int ty = exit_y;
     if (!grid.path_at(tx, ty)) {
-        if (!nearest_path_cell(grid, grid.origin_x, grid.origin_y, tx, ty)) {
+        const bool exit_in_bounds = grid.in_bounds(exit_x, exit_y);
+        const float wx = exit_in_bounds ? cell_center_x(grid, exit_x)
+                                        : grid.origin_x;
+        const float wy = exit_in_bounds ? cell_center_y(grid, exit_y)
+                                        : grid.origin_y;
+        if (!nearest_path_cell(grid, wx, wy, tx, ty)) {
             visitor.done = true;
             return;
         }

@@ -3446,8 +3446,14 @@ int main(int argc, char** argv) {
                     {kind, static_cast<int>(cell_x), static_cast<int>(cell_y),
                      orientation});
             }
-            const int centre_cell_x = static_cast<int>(std::floor(centre_x));
-            const int centre_cell_y = static_cast<int>(std::floor(centre_y));
+            const int centre_cell_x = static_cast<int>(std::floor(
+                centre_x / (build_grid.cell_size > 0.0f
+                                ? build_grid.cell_size
+                                : 4.0f)));
+            const int centre_cell_y = static_cast<int>(std::floor(
+                centre_y / (build_grid.cell_size > 0.0f
+                                ? build_grid.cell_size
+                                : 4.0f)));
             if (def.category == 10) {
                 entrance_cell_x = centre_cell_x;
                 entrance_cell_y = centre_cell_y;
