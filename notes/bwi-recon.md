@@ -93,6 +93,14 @@ This matches the file layout exactly (record stride 0xb4).
 
 ## Open
 
-- `field_08`/`field_0c`/`field_10` semantics.
 - The seven floats' meanings.
 - Consumer of the `SWITCH_*` keys.
+
+## Field semantics (2026-10-26)
+
+`field_0c` is the construction cost. The build path at `0x0052b2dd` loads
+`[EDI+0x1c]` and calls `FUN_00585d20` (the CONSTRUCTION budget setter). `EDI`
+is the wall-manager wrapper (stride 0x1d8, wall record embedded at `+0x10`),
+so wrapper `+0x1c` is the wall's `+0x0c`: the 10/15/30 cost class. `field_08`
+(100) and `field_10` (30) are uniform and fit hit points/build time; those two
+labels are inferred.

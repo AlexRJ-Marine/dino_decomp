@@ -383,8 +383,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `u32 4`, two switch keys.
 - [x] Height/material laws: `scales[5] == height/8`; cost class 10/15/30;
   electrified exactly the four `*Elect` files; every asset path resolves.
-- [ ] `field_08`/`field_0c`/`field_10` semantics and the consumer of the
-  `SWITCH_*` keys (absent from every INI/loc file).
+- [x] `field_0c` is the construction cost (10/15/30) passed to the
+  CONSTRUCTION budget setter; `field_08`/`field_10` are uniform 100/30 and
+  fit hit points/build time (inferred).
+- [ ] Consumer of the `SWITCH_*` keys (absent from every INI/loc file).
 - **Acceptance:** 24 files round-trip; all mesh/texture paths exist.
 - **Depends on:** WORLD-1 (mesh/imp paths).
 - **Evidence:** `tools/formats/bwi.py`, `docs/formats/bwi.md`,

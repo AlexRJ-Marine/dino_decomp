@@ -55,9 +55,15 @@ byte early on the first string length.
 `scales[5]` is exactly `height / 8` for all 20 material walls
 (2→0.25, 4→0.5, 6→0.75, 8→1.0). `Fence`/`Show` use 1.0 at height 8.
 
-`field_0c` separates the materials: Wood 10, Bamboo/Iron/Steel/Elect 15,
-Plates 30. It is the most likely build cost or hit-point multiplier.
-`field_08` is 100 and `field_10` is 30 for all 24 files.
+`field_0c` is the **construction cost** charged by `FUN_00585d20`: the wall
+manager wrapper embeds the 0xb4 wall record at `+0x10`, and the build path at
+`0x0052b2dd`/`0x0052b342` passes wrapper `+0x1c` (= wall `+0x0c`) to the
+CONSTRUCTION budget setter. The values 10/15/30 therefore separate wood,
+bamboo/iron/steel/elect and plates.
+
+`field_08` (100) and `field_10` (30) are uniform across all 24 walls. Their
+positions and values fit **hit points** and **build time**; those two labels
+are inferred, not proven by a second consumer.
 
 ### Electrified
 
@@ -122,7 +128,10 @@ electrified set, scale law, widget prefixes, every asset path exists).
 
 ## Open
 
-- Exact meaning of `field_08` (100), `field_0c` (10/15/30) and `field_10` (30).
 - Consumer of the two `SWITCH_*` keys (absent from every INI/loc file).
 - Which of the seven floats are UV scale, crack threshold, shadow strength,
   and so on.
+
+The three header ints are understood: `0x08`/`0x10` are the uniform 100/30
+(hit points/build time, inferred) and `0x0c` is the construction cost
+(10/15/30), proven by the build call `0x0052b2dd` -> `0x00585d20`.
