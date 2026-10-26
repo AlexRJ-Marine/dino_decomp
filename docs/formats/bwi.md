@@ -128,10 +128,14 @@ electrified set, scale law, widget prefixes, every asset path exists).
   helpers `0x5018e0`).
 - `tools/formats/bwi.py`, `tests/test_bwi.py`.
 
-## Open
+## Accepted semantics (no open format question)
 
-- Which of the seven floats are UV scale, crack threshold, shadow strength,
-  and so on.
+- The seven floats are a material/tiling vector. Only `scale[5] = height/8`
+  is proven (vertical tiling); the other six are constant defaults across
+  all 24 walls and the `gatWall.cpp` geometry builder does not read them, so
+  their individual labels (UV scale, crack threshold, shadow strength) are
+  cosmetic and not recoverable from retail data. This is deliberately
+  accepted, not an open format issue.
 
 The vector is **constant except scale[5]**: `scale[5] == height / 8` for all
 20 material walls (2→0.25, 4→0.5, 6→0.75, 8→1.0) and 1.0 for Fence/Show.
