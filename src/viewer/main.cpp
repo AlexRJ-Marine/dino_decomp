@@ -112,6 +112,7 @@ struct Options {
     std::string dino_clip = "Walk";
     bool bai_info = false;
     bool market_info = false;
+    std::string store_ini_path;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
     std::string dino_needs = "50,99,99,99";
@@ -343,6 +344,8 @@ Options parse_args(int argc, char** argv) {
             opt.bai_info = true;
         } else if (arg == "--market-info") {
             opt.market_info = true;
+        } else if (arg == "--store-info") {
+            opt.store_ini_path = next("--store-info");
         } else if (arg == "--dino-actions") {
             opt.dino_actions_info = true;
         } else if (arg == "--dino-action-loop") {
@@ -573,6 +576,7 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
                 "  --bai-info           print the 64 action definitions and exit\n"
                 "  --market-info        print the dinosaur store catalog and exit\n"
+                "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
                 "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
@@ -2384,20 +2388,24 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (opt.market_info) {
+    if (opt.market_info || !opt.store_ini_path.empty()) {
         try {
+            const bool explicit_store = !opt.store_ini_path.empty();
             const dino::Market market = dino::load_market(resolve_asset(
-                opt.asset_root, "Data/Design/Scenario/Market.ini"));
+                opt.asset_root,
+                explicit_store ? opt.store_ini_path
+                               : "Data/Design/Scenario/Market.ini"));
+            const char* label = explicit_store ? "store" : "market";
             int min_price = market.entries.front().price;
             int max_price = min_price;
             for (const dino::MarketEntry& entry : market.entries) {
                 min_price = std::min(min_price, entry.price);
                 max_price = std::max(max_price, entry.price);
             }
-            std::printf("market: entries=%zu stores=%zu prices=%d..%d\n",
+            std::printf("%s: entries=%zu stores=%zu prices=%d..%d\n", label,
                         market.entries.size(), market.stores.size(),
                         min_price, max_price);
-            std::printf("market stores:");
+            std::printf("%s stores:", label);
             for (const int store : market.stores) {
                 std::size_t count = 0;
                 for (const dino::MarketEntry& entry : market.entries) {

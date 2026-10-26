@@ -82,6 +82,18 @@ first=Allosaurus 9000 allo.gen last=Zarbosaurus 4900 zarbo.gen
 
 Tests: `tests/test_viewer_cpp.py::test_cpp_market_info`.
 
+The same parser handles the free-game subset in `FreeGame.ini` (20 entries in
+the same six store keys, prices 4,000..42,000):
+
+```text
+dino_viewer.exe --store-info Data/Design/Scenario/FreeGame.ini --asset-root game/%MAINDIR%
+store: entries=20 stores=6 prices=4000..42000
+store stores: 0=3 2=4 3=4 4=4 5=4 6=1
+first=Allosaurus 9000 allo.gen last=Velociraptor 15000 velo.gen
+```
+
+Tests: `tests/test_viewer_cpp.py::test_cpp_freegame_store`.
+
 ## Evidence
 
 - `Data/Design/Scenario/Market.ini` (read-only).

@@ -1975,3 +1975,17 @@ def test_cpp_buy_dino():
     unknown = run(["--buy-dino", "Nope"])
     assert unknown.returncode == 0, unknown.stderr
     assert "buy: no store entry named Nope" in unknown.stdout
+
+def test_cpp_freegame_store():
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    result = subprocess.run(
+        [str(EXE), "--store-info", "Data/Design/Scenario/FreeGame.ini",
+         "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "store: entries=20 stores=6 prices=4000..42000" in result.stdout
+    assert "store stores: 0=3 2=4 3=4 4=4 5=4 6=1" in result.stdout
+    assert ("first=Allosaurus 9000 allo.gen "
+            "last=Velociraptor 15000 velo.gen") in result.stdout
