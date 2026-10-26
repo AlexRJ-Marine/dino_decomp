@@ -115,11 +115,14 @@ composed by more than a plain two-allele blend. Do not treat the `.wld`
 genotype as the final phenotype for the size class until the live genotype is
 traced.
 
-Next experiment: capture the live 18-gene pointer at a **per-spawn** site
-(`0x586520`, args `[esp+4]` = actor+0x3c, `[esp+8]` = genotype pointer) with a
-minimal one-value log, then dump the 18 pairs from the log address. Breakpoint
-probes at `0x619830` with multi-dereference commands flooded/hung the headless
-harness; keep the log expression to a single `{p:...}` value per line.
+Next experiment: capture the live 18-gene block at a **per-spawn** site.
+`0x586520` is the saDinosaur spawn used by `pvwParkView`; disassembly at
+`0x586528`/`0x58653b` shows that its first stack argument (`[esp+4]` at entry)
+is the genotype pointer (`actor+0x3c`), passed to `FUN_00617250` and
+`FUN_00618020`. A breakpoint there fires once per dinosaur, so log the six
+values for genes 0/2/3 in one command. (Probes at `0x619830` flood: that
+function is called continuously, and a multi-dereference log command hung the
+headless harness.)
 
 ## Port guidance
 
