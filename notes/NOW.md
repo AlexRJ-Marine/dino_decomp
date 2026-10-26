@@ -47,7 +47,6 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- DOCS-1: feature status matrix + roadmap/docs index (recon lane, docs-only)
 - P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
   writers, visitor/obstacle perception reaction.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
