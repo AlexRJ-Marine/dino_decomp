@@ -184,15 +184,23 @@ The save park block is **not** a raw memory dump. It has a 0x30-byte header,
 then the economy field stream written by `0x00585780` in **writer order**:
 budget, sellback, FOOD, EFFECTIFS_SECU, tickets, two flag bytes, the two staff
 buckets, 13 shop revenues, 13 sale counts, the four group pairs, the yesterday
-block and the cumulative block. The loader `0x00585240` reads the same stream
-in the same order. The reader is `sav_graph._read_park_stream`.
+block and the cumulative block. The stream is 0x21a bytes; the park block's
+remaining 0x49 bytes are the schedule tail and a 12-byte field. The loader
+`0x00585240` reads the same stream in the same order, **except** that for
+version >= 46 it reads the cumulative block into the yesterday fields and
+starts it 32 bytes early (it consumes only 5 of the 13 first-block total
+dwords). That is a retail loader bug; the parser follows the writer layout.
+The reader is `sav_graph._read_park_stream`.
 
 Consequences for save inspection:
 
 - the budget is the first stream dword (`block + 0x30`);
 - the manual save's current-day ticket pair is `125 / 2` (two visitors), which
   is stream `+0x18/+0x1c`, not runtime `+0x20/+0x24`;
-- both staff buckets are 0 in both retail saves (no employees).
+- both staff buckets are 0 in both retail saves (no employees);
+- the yesterday block starts at stream `+0xb2` and the cumulative block at
+  stream `+0x166`; both end with a 13-dword totals group whose entries 2..4
+  are the computed expenses/income/net.
 
 **Fresh-save caveat.** The yesterday block `+0xc4..+0x16c` is zeroed at park
 creation and only written by the first day rollover (`0x00585e10`). The three

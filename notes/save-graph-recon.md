@@ -269,6 +269,19 @@ writes a 0x30-byte block header followed by a sequential stream in this order:
 
 The budget is the first stream dword (`block + 0x30`). The manual save's
 `125/2` pair is the current-day ticket income (stream `+0x18/+0x1c`), not
-`+0x20/+0x24`. The three computed totals (stream `+0x12a/+0x12e/+0x132`)
-contain `0xBAADF00D` in a fresh save. `sav_graph._read_park_stream` and
-`tools/formats/economy.py` now use this order; see `docs/formats/sav.md`.
+`+0x20/+0x24`. The stream is 0x21a bytes; the three computed totals are the
+2nd..4th dwords of the 13-dword totals group (stream `+0x132/+0x136/+0x13a`,
+and again in the cumulative block at `+0x1e6/+0x1ea/+0x1ee`). They contain
+`0xBAADF00D` in a fresh save.
+
+**Correction (2026-10-26b): the "second block" is the cumulative block.**
+`0x00585240` is version-gated at `0x0058560b` (`cmp [esp+0x18],0x2e`). For
+version >= 46 it reads 180 bytes into `+0xbc..+0x16c`, but `0x00585780`
+writes those bytes from `+0x170..+0x220`. It also reads only 5 of the 13
+first-block total dwords before starting the second block, so the retail
+loader is 32 bytes out of phase. The parser follows the writer layout and
+exposes `yesterday_*` and `cumulative_*` separately; the loader bug is not
+reproduced in the port. The remaining 0x49 bytes of the park block are the
+schedule-manager tail (0x3d bytes) and a 12-byte field.
+`sav_graph._read_park_stream` and `tools/formats/economy.py` use this order;
+see `docs/formats/sav.md`.

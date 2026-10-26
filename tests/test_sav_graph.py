@@ -99,6 +99,10 @@ def test_retail_manual_graph():
     assert graph.park.ticket_total == 125
     assert graph.park.ticket_count == 2
     assert graph.park.staff_buckets == (0, 0)
+    assert graph.park.yesterday_totals[2:5] == (0xBAADF00D,) * 3
+    assert graph.park.cumulative_totals[2:5] == (0xBAADF00D,) * 3
+    assert graph.park.stream_end == 0x24A
+    assert len(graph.park.tail) == 0x49
     assert len(graph.visitors) == 2
     assert [v.visitor_id for v in graph.visitors] == [38, 39]
     assert graph.visitors[0].needs == (97, 96, 99, 99, 99, 99, 99)
@@ -125,6 +129,9 @@ def test_retail_auto_graph():
     assert graph.park is not None
     assert graph.park.budget == 75000
     assert graph.park.ticket_total == 0
+    assert graph.park.cumulative_totals[2:5] == (0xBAADF00D,) * 3
+    assert graph.park.stream_end == 0x24A
+    assert len(graph.park.tail) == 0x49
     assert graph.visitors == []
     assert len(graph.dino_store) == 20
     assert graph.ai_counts == (0, 0, 0, 0, 0)
@@ -142,6 +149,9 @@ def test_synthetic_graph(tmp_path):
     assert graph.park is not None
     assert graph.park.budget == 75000
     assert graph.park.ticket_count == 2
+    assert graph.park.stream_end == 0x24A
+    assert len(graph.park.tail) == 0x49
+    assert graph.park.cumulative_revenue == (0,) * 13
     assert len(graph.visitors) == 1
     assert graph.visitors[0].object_id == 7
     assert graph.visitors[0].visitor_id == 42

@@ -1390,7 +1390,8 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
                               const dino::Skeleton& skeleton,
                               const dino::Animation* anim, double time,
                               const std::vector<int>& vertex_bone,
-                              const std::vector<int>& bone_skel) {
+                              const std::vector<int>& bone_skel,
+                              bool bind_from_skin) {
     std::vector<dino::Mat4> locals;
     locals.reserve(skeleton.bones.size());
     for (const auto& bone : skeleton.bones) {
@@ -1410,12 +1411,33 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
     for (const auto& matrix : world) {
         raw.push_back(dino::raw_centimetres(matrix));
     }
+
+    // `mesh` bind: use the skeleton rest inverse so the standing .mesh is
+    // exact at rest for every LOD (pachy LOD2/LOD3 store a bent-neck bind).
+    // `skin` bind: the source mesh is in the skin's bind pose, so use the
+    // stored inverse_bind.
+    std::vector<dino::Mat4> rest_inverse;
+    if (!bind_from_skin) {
+        const auto rest_world = skeleton.world_matrices();
+        rest_inverse.reserve(rest_world.size());
+        for (const auto& matrix : rest_world) {
+            rest_inverse.push_back(dino::inverse(dino::raw_centimetres(matrix)));
+        }
+    }
+
     std::vector<dino::Mat4> skin_matrices(skin.bones.size());
     for (std::size_t i = 0; i < skin.bones.size(); ++i) {
         const int skel_index = bone_skel[i];
-        skin_matrices[i] = skel_index >= 0
-            ? dino::multiply(skin.bones[i].inverse_bind, raw[static_cast<std::size_t>(skel_index)])
-            : dino::identity();
+        if (skel_index < 0) {
+            skin_matrices[i] = dino::identity();
+            continue;
+        }
+        const dino::Mat4& bind_matrix =
+            bind_from_skin
+                ? skin.bones[i].inverse_bind
+                : rest_inverse[static_cast<std::size_t>(skel_index)];
+        skin_matrices[i] = dino::multiply(
+            bind_matrix, raw[static_cast<std::size_t>(skel_index)]);
     }
 
     dino::Mesh out = bind;
@@ -2137,9 +2159,11 @@ int main(int argc, char** argv) {
             const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
             const double t = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
             const dino::Mesh bind = build_skinned_mesh(skin.mesh, skin, skeleton,
-                                                       nullptr, 0.0, vertex_bone, bone_skel);
+                                                       nullptr, 0.0, vertex_bone, bone_skel,
+                                                       opt.skin_bind_from_skin);
             const dino::Mesh pose = build_skinned_mesh(skin.mesh, skin, skeleton,
-                                                       anim_ptr, t, vertex_bone, bone_skel);
+                                                       anim_ptr, t, vertex_bone, bone_skel,
+                                                       opt.skin_bind_from_skin);
             auto print_bounds = [](const char* label, const dino::Mesh& m) {
                 dino::Vec3 lo{1e30f, 1e30f, 1e30f};
                 dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
@@ -2152,6 +2176,17 @@ int main(int argc, char** argv) {
             };
             print_bounds("skin bind", bind);
             print_bounds("skin pose", pose);
+            float rest_error = 0.0f;
+            for (std::size_t i = 0; i < bind.positions.size(); ++i) {
+                const dino::Vec3& a = bind.positions[i];
+                const dino::Vec3& b = skin.mesh.positions[i];
+                rest_error = std::max(
+                    rest_error,
+                    std::sqrt((a.x * 100.0f - b.x) * (a.x * 100.0f - b.x) +
+                              (a.y * 100.0f - b.y) * (a.y * 100.0f - b.y) +
+                              (a.z * 100.0f - b.z) * (a.z * 100.0f - b.z)));
+            }
+            std::printf("skin rest max error: %.4f cm\n", rest_error);
         }
         if (build_ready) {
             const dino::BuildMeshes meshes =
@@ -2581,7 +2616,8 @@ int main(int argc, char** argv) {
     auto pose_dino = [&](double time) {
         const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
         dino::Mesh pose = build_skinned_mesh(skin.mesh, skin, skeleton, anim_ptr, time,
-                                             vertex_bone, bone_skel);
+                                             vertex_bone, bone_skel,
+                                             opt.skin_bind_from_skin);
         if (mesh.colors.size() == pose.positions.size()) {
             pose.colors = mesh.colors;
         }
@@ -2596,7 +2632,8 @@ int main(int argc, char** argv) {
         display = build_skinned_mesh(skin.mesh, skin, skeleton,
                                      anim.bones.empty() ? nullptr : &anim,
                                      opt.anim_time >= 0.0 ? opt.anim_time : 0.0,
-                                     vertex_bone, bone_skel);
+                                     vertex_bone, bone_skel,
+                                     opt.skin_bind_from_skin);
         if (mesh.colors.size() == display.positions.size()) {
             display.colors = mesh.colors;
         }
@@ -3587,7 +3624,8 @@ int main(int argc, char** argv) {
             const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
             dino::Mesh deformed = build_skinned_mesh(skin.mesh, skin, skeleton,
                                                      anim_ptr, anim_time,
-                                                     vertex_bone, bone_skel);
+                                                     vertex_bone, bone_skel,
+                                                     opt.skin_bind_from_skin);
             if (mesh.colors.size() == deformed.positions.size()) {
                 deformed.colors = mesh.colors;
             }

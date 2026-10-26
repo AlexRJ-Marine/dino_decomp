@@ -186,30 +186,41 @@ The block has a **0x30-byte header**, then the economy field stream written by
 `0x00585780` and read by `0x00585240`. The stream is **not** a memory dump:
 fields appear in writer order, so the file offsets differ from the runtime
 object offsets (`docs/decomp/economy.md`). Stream offset 0 is `block + 0x30`.
+The stream is **0x21a bytes** long, ending at `block + 0x24a`; the remaining
+`0x49` bytes are the schedule-manager tail and a 12-byte field.
 
 ```text
-stream +0x00  u32  budget (75,000 / 75,125 in retail)
-stream +0x04  f32  sellback factor (version > 52)
-stream +0x08  u32  FOOD total
-stream +0x0c  u32  FOOD count
-stream +0x10  u32  EFFECTIFS_SECU total
-stream +0x14  u32  EFFECTIFS_SECU count
-stream +0x18  u32  ticket income total (125 in the manual save)
-stream +0x1c  u32  ticket income count (2 in the manual save)
-stream +0x20  2 x u8  bankruptcy flags
-stream +0x22  2 x u32  staff expense buckets
-stream +0x2a  12/13 x u32  shop revenue, kind 0..12
-stream +0x5e  12/13 x u32  shop sale counts, kind 0..12
-stream +0x92  u32  DINOACHAT count / total
-stream +0x9a  u32  CONSTRUCTION count / total
-stream +0xa2  u32  LABOACTION count / total
-stream +0xaa  u32  VENTES count / total
-stream +0xb2  2 x u32  yesterday staff buckets
-stream +0xba  u32  yesterday FOOD total / count
-stream +0xc2  u32  yesterday SECU total / count
-stream +0xca  13 x u32  yesterday shop revenue
-stream +0xfa  13 x u32  yesterday shop sale counts
-stream +0x12a 13 x u32  yesterday ticket/totals/groups
+stream +0x000  u32  budget (75,000 / 75,125 in retail)
+stream +0x004  f32  sellback factor (version >= 53)
+stream +0x008  u32  FOOD total
+stream +0x00c  u32  FOOD count
+stream +0x010  u32  EFFECTIFS_SECU total
+stream +0x014  u32  EFFECTIFS_SECU count
+stream +0x018  u32  ticket income total (125 in the manual save)
+stream +0x01c  u32  ticket income count (2 in the manual save)
+stream +0x020  2 x u8  bankruptcy flags
+stream +0x022  2 x u32  staff expense buckets
+stream +0x02a  13 x u32  shop revenue, kind 0..12
+stream +0x05e  13 x u32  shop sale counts, kind 0..12
+stream +0x092  u32  DINOACHAT count / total
+stream +0x09a  u32  CONSTRUCTION count / total
+stream +0x0a2  u32  LABOACTION count / total
+stream +0x0aa  u32  VENTES count / total
+stream +0x0b2  2 x u32  yesterday staff buckets
+stream +0x0ba  u32  yesterday FOOD total / count
+stream +0x0c2  u32  yesterday SECU total / count
+stream +0x0ca  13 x u32  yesterday shop revenue
+stream +0x0fe  13 x u32  yesterday shop sale counts
+stream +0x132  13 x u32  yesterday totals / group counters
+stream +0x166  2 x u32  cumulative staff buckets
+stream +0x16e  2 x (u32 total, u32 count)  cumulative FOOD / SECU
+stream +0x17e  13 x u32  cumulative shop revenue
+stream +0x1b2  13 x u32  cumulative shop sale counts
+stream +0x1e6  13 x u32  cumulative totals / group counters
+stream +0x21a  end of economy stream
+block  +0x24a  schedule-manager tail (0x3d bytes: 3 time dwords, show slots)
+block  +0x287  12-byte park field
+block  +0x293  end of park block
 ```
 
 Both retail saves have no employees, so both staff buckets are 0. The manual
@@ -217,10 +228,21 @@ save's `125/2` pair is the **current-day ticket income** (two visitors), not a
 staff bucket.
 
 **Fill pattern.** The three computed totals (`+0x144/+0x148/+0x14c`, stream
-`+0x12a/+0x12e/+0x132`) are only written by the panel refresh `0x00586070`.
-A fresh save therefore contains the debug fill **`0xBAADF00D`** in those three
+`+0x132/+0x136/+0x13a` and again in the cumulative block at
+`+0x1e6/+0x1ea/+0x1ee`) are only written by the panel refresh `0x00586070`.
+A fresh save therefore contains the debug fill **`0xBAADF00D`** in those six
 fields. `tools/formats/economy.py` masks it and reports the totals as
 unsettled. The yesterday row counters are zero until the first day rollover.
+
+**Loader bug.** For version >= 46 (`0x2e`) `0x00585240` reads the cumulative
+block back into the *yesterday* runtime fields (`+0xbc..+0x16c`) instead of
+`+0x170..+0x220`, and it consumes only 5 of the 13 first-block total dwords
+before doing so. The retail loader is therefore misaligned by 32 bytes for
+version-53 saves. The parser follows the **writer** layout and exposes the
+two blocks separately (`yesterday_*` and `cumulative_*`); do not reproduce the
+loader bug in the port. Evidence: `0x00585240` at `0x0058560b`
+(`cmp [esp+0x18],0x2e`) reads `+0xbc..+0x16c`, while `0x00585780` writes
+`+0x170..+0x220`.
 
 `FUN_00585bd0` (constructor setter) writes the same runtime `+0x08` budget and
 `+0x98` sellback fields, confirming the field identities.

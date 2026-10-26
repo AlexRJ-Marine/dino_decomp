@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -1014,3 +1015,27 @@ def test_cpp_park_clock():
     )
     assert rolled.returncode == 0, rolled.stderr
     assert "park clock: scale=60.0 base=9 time=09:00 day=2" in rolled.stdout
+
+def test_cpp_pachy_lod2_mesh_bind():
+    if not EXE.exists() or not (GAME / "Data/Graphics/Actors/Dinos/pachy").exists():
+        pytest.skip("viewer or retail data missing")
+    pachy = GAME / "Data/Graphics/Actors/Dinos/pachy"
+    common = [str(EXE), "--validate", "--asset-root", str(GAME),
+              "--mesh", str(pachy / "pachy_lod2.mesh"),
+              "--skel", str(pachy / "pachy.skel"),
+              "--skin", str(pachy / "pachy_lod2.skin")]
+    mesh = subprocess.run(common + ["--skin-bind", "mesh"],
+                          capture_output=True, text=True, timeout=120)
+    assert mesh.returncode == 0, mesh.stderr
+    match = re.search(r"skin rest max error: ([0-9.]+) cm", mesh.stdout)
+    assert match is not None
+    # The standing .mesh bind must be exact at rest for pachy LOD2.
+    assert float(match.group(1)) < 0.01
+
+    skin = subprocess.run(common + ["--skin-bind", "skin"],
+                          capture_output=True, text=True, timeout=120)
+    assert skin.returncode == 0, skin.stderr
+    match = re.search(r"skin rest max error: ([0-9.]+) cm", skin.stdout)
+    assert match is not None
+    # The .skin full mesh is the crouched/bent-neck bind pose.
+    assert float(match.group(1)) > 1.0

@@ -39,7 +39,8 @@ Layout (version 53, as produced by the retail game)::
 The park block has a 0x30-byte header.  The economy field stream begins at
 ``block + 0x30`` and stores fields in **writer order**, not at their runtime
 offsets (writer ``0x00585780``): budget, sellback, FOOD, staff, ticket,
-staff buckets, shop arrays, groups.  See ``docs/formats/sav.md``.
+staff buckets, shop arrays, groups, the yesterday block and the cumulative
+block.  The stream is 0x21a bytes long.  See ``docs/formats/sav.md``.
 
 See ``docs/formats/sav.md`` and ``notes/save-graph-recon.md``.
 """
@@ -139,6 +140,14 @@ class ParkState:
     yesterday_revenue: tuple[int, ...]
     yesterday_sales: tuple[int, ...]
     yesterday_totals: tuple[int, ...]
+    cumulative_staff_buckets: tuple[int, int]
+    cumulative_food: tuple[int, int]
+    cumulative_secu: tuple[int, int]
+    cumulative_revenue: tuple[int, ...]
+    cumulative_sales: tuple[int, ...]
+    cumulative_totals: tuple[int, ...]
+    stream_end: int
+    tail: bytes
     raw: bytes
 
     def to_dict(self) -> dict:
@@ -167,6 +176,16 @@ class ParkState:
                 "sales": list(self.yesterday_sales),
                 "totals": list(self.yesterday_totals),
             },
+            "cumulative": {
+                "staff_buckets": list(self.cumulative_staff_buckets),
+                "food": list(self.cumulative_food),
+                "secu": list(self.cumulative_secu),
+                "revenue": list(self.cumulative_revenue),
+                "sales": list(self.cumulative_sales),
+                "totals": list(self.cumulative_totals),
+            },
+            "stream_end": self.stream_end,
+            "tail": self.tail.hex(),
         }
 
 
@@ -284,7 +303,11 @@ def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
     """Decode the economy field stream written by ``0x00585780``.
 
     The stream starts after the 0x30-byte park header and stores fields in
-    writer order, not at their runtime offsets.
+    writer order, not at their runtime offsets.  It ends with the cumulative
+    counter block (the 180-byte "second block" that ``0x00585240`` reads back
+    into the yesterday fields in the retail binary -- a loader bug).  The
+    remaining bytes of the 0x293-byte park block are the schedule-manager tail
+    plus a 12-byte field; they are returned as ``tail``.
     """
     if len(block) < PARK_HEADER_SIZE:
         raise SavGraphError(f"park block too short: {len(block)} bytes")
@@ -340,6 +363,14 @@ def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
     yesterday_revenue = tuple(u32(f"yesterday revenue[{i}]") for i in range(SHOP_KINDS))
     yesterday_sales = tuple(u32(f"yesterday sales[{i}]") for i in range(SHOP_KINDS))
     yesterday_totals = tuple(u32(f"yesterday total[{i}]") for i in range(13))
+    cumulative_staff = (u32("cumulative staff 0"), u32("cumulative staff 1"))
+    cumulative_food = (u32("cumulative food total"), u32("cumulative food count"))
+    cumulative_secu = (u32("cumulative secu total"), u32("cumulative secu count"))
+    cumulative_revenue = tuple(u32(f"cumulative revenue[{i}]") for i in range(SHOP_KINDS))
+    cumulative_sales = tuple(u32(f"cumulative sales[{i}]") for i in range(SHOP_KINDS))
+    cumulative_totals = tuple(u32(f"cumulative total[{i}]") for i in range(13))
+    stream_end = pos
+    tail = block[pos:]
     return ParkState(
         offset=file_offset,
         budget=budget,
@@ -368,6 +399,14 @@ def _read_park_stream(block: bytes, file_offset: int) -> ParkState:
         yesterday_revenue=yesterday_revenue,
         yesterday_sales=yesterday_sales,
         yesterday_totals=yesterday_totals,
+        cumulative_staff_buckets=cumulative_staff,
+        cumulative_food=cumulative_food,
+        cumulative_secu=cumulative_secu,
+        cumulative_revenue=cumulative_revenue,
+        cumulative_sales=cumulative_sales,
+        cumulative_totals=cumulative_totals,
+        stream_end=stream_end,
+        tail=tail,
         raw=block,
     )
 
@@ -494,8 +533,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("save", type=Path)
     ap.add_argument("--visitors", action="store_true", help="list visitor records")
     ap.add_argument("--dinos", action="store_true", help="list dinosaur-store records")
+    ap.add_argument("--park", action="store_true", help="dump the decoded park state")
     args = ap.parse_args(argv)
     graph = read_sav_graph(args.save)
+    if args.park and graph.park is not None:
+        print(json.dumps(graph.park.to_dict(), indent=2))
     if args.visitors:
         for v in graph.visitors:
             print(json.dumps(v.to_dict(), indent=2))

@@ -55,6 +55,35 @@ inline Vec3 normalize(const Vec3& v) {
     return n > 0.0f ? Vec3{v.x / n, v.y / n, v.z / n} : Vec3{0.0f, 0.0f, 0.0f};
 }
 
+// Affine inverse of [A 0; t 1] (row-vector convention, translation in row 3).
+inline Mat4 inverse(const Mat4& m) {
+    const float a00 = m.m[0], a01 = m.m[1], a02 = m.m[2];
+    const float a10 = m.m[4], a11 = m.m[5], a12 = m.m[6];
+    const float a20 = m.m[8], a21 = m.m[9], a22 = m.m[10];
+    const float det = a00 * (a11 * a22 - a12 * a21) -
+                      a01 * (a10 * a22 - a12 * a20) +
+                      a02 * (a10 * a21 - a11 * a20);
+    if (std::fabs(det) < 1e-12f) {
+        return identity();
+    }
+    const float inv_det = 1.0f / det;
+    Mat4 out;
+    out.m[0] = (a11 * a22 - a12 * a21) * inv_det;
+    out.m[1] = (a02 * a21 - a01 * a22) * inv_det;
+    out.m[2] = (a01 * a12 - a02 * a11) * inv_det;
+    out.m[4] = (a12 * a20 - a10 * a22) * inv_det;
+    out.m[5] = (a00 * a22 - a02 * a20) * inv_det;
+    out.m[6] = (a02 * a10 - a00 * a12) * inv_det;
+    out.m[8] = (a10 * a21 - a11 * a20) * inv_det;
+    out.m[9] = (a01 * a20 - a00 * a21) * inv_det;
+    out.m[10] = (a00 * a11 - a01 * a10) * inv_det;
+    const float tx = m.m[12], ty = m.m[13], tz = m.m[14];
+    out.m[12] = -(tx * out.m[0] + ty * out.m[4] + tz * out.m[8]);
+    out.m[13] = -(tx * out.m[1] + ty * out.m[5] + tz * out.m[9]);
+    out.m[14] = -(tx * out.m[2] + ty * out.m[6] + tz * out.m[10]);
+    return out;
+}
+
 // The skeleton world matrix is in metres (root scale 0.01); skinning works in
 // raw centimetres. W_raw = W_scaled @ diag(100, 100, 100, 1).
 inline Mat4 raw_centimetres(const Mat4& scaled) {

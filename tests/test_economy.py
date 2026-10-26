@@ -35,6 +35,12 @@ def build_park_stream(
     yesterday_revenue=(0,) * 13,
     yesterday_sales=(0,) * 13,
     yesterday_totals=(0,) * 13,
+    cumulative_staff=(0, 0),
+    cumulative_food=(0, 0),
+    cumulative_secu=(0, 0),
+    cumulative_revenue=(0,) * 13,
+    cumulative_sales=(0,) * 13,
+    cumulative_totals=(0,) * 13,
 ) -> bytes:
     """Build a block using the writer order of ``0x00585780``."""
     block = bytearray(BLOCK_SIZE)
@@ -70,6 +76,12 @@ def build_park_stream(
     u32(*yesterday_revenue)
     u32(*yesterday_sales)
     u32(*yesterday_totals)
+    u32(*cumulative_staff)
+    u32(*cumulative_food)
+    u32(*cumulative_secu)
+    u32(*cumulative_revenue)
+    u32(*cumulative_sales)
+    u32(*cumulative_totals)
     return bytes(block)
 
 
@@ -112,6 +124,28 @@ def test_ledger_rows_match_panel_refresh():
     assert result.totals == {"expenses": 60, "income": 61, "net": 1}
 
 
+def test_cumulative_block_is_separate_from_yesterday():
+    block = build_park_stream(
+        yesterday_food=(10, 1),
+        yesterday_totals=(0, 0, 100, 200, 100) + (0,) * 8,
+        cumulative_food=(999, 7),
+        cumulative_revenue=tuple(range(100, 113)),
+        cumulative_sales=tuple(range(200, 213)),
+        cumulative_totals=(1, 2, 3, 4, 5) + (0,) * 8,
+    )
+    from sav_graph import _read_park_stream
+
+    park = _read_park_stream(block, 0)
+    assert park.yesterday_food == (10, 1)
+    assert park.cumulative_food == (999, 7)
+    assert park.cumulative_revenue == tuple(range(100, 113))
+    assert park.cumulative_sales == tuple(range(200, 213))
+    assert park.stream_end == 0x24A
+    result = ledger(block)
+    # The panel reads the yesterday block only.
+    assert (result.rows[0].amount, result.rows[0].count) == (10, 1)
+
+
 def test_ledger_marks_poison_totals_unsettled():
     block = build_park_stream(yesterday_totals=(0, 0, POISON, POISON, POISON) + (0,) * 8)
     result = ledger(block)
@@ -135,6 +169,9 @@ def test_retail_save_ticket_pair():
     assert park.budget == 75_125
     assert (park.ticket_total, park.ticket_count) == (125, 2)
     assert park.staff_buckets == (0, 0)
+    assert park.stream_end == 0x24A
+    assert len(park.tail) == 0x49
+    assert park.cumulative_totals[2:5] == (0xBAADF00D,) * 3
     result = ledger(park.raw)
     assert result.budget == 75_125
     # A fresh park has never rolled a day: the yesterday rows are zero and the

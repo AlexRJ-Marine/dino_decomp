@@ -16,9 +16,9 @@ text, ten `// Part N : title` sections:
 | 4 | dummy disposition table | 3 × 48 × 6 | solved |
 | 5 | dummy type table | 3 × 48 × 5 | solved |
 | 6 | dummy influence table | 2 × 50 × 18 + 5 widths | solved |
-| 7 | skin translation/influence | 8 × 3, then 582 × 22 × 18 | inventoried |
-| 8 | carapace translation/influence | 6 × 3, then 16 × 18 | inventoried |
-| 9 | min & max attributes | 20 + 20 values | inventoried |
+| 7 | skin translation/influence | 8×3 map + 582 + 2×22×18 | solved structurally |
+| 8 | carapace translation/influence | 6×3 map + 2×16×18 | solved structurally |
+| 9 | min & max attributes | 20 + 20 values | solved |
 | 10 | default family per base dinosaur | 20 indices | solved |
 
 ## Part 1 — genes
@@ -150,14 +150,43 @@ second is a percentage (100 = neutral). The reference widths normalise the
 bonus by member size (`// Reference width for members, used in dummy bonus
 computation`).
 
-## Parts 7–9 (inventory)
+## Parts 7–9 — skin, carapace, min/max
 
-- **Skin** (Part 7): `8:` skin types, each `3:` + 3 values (allele→skin
-  mapping), then `582` rows of `22:` + `18:` + 18 ints (influence matrix).
-- **Carapace** (Part 8): `6:` carapace types, each `3:` + 3 values, then
-  `16` rows of `18:` + 18 ints.
-- **Min/max attributes** (Part 9): 20 min values (0, 0, 0, …) and 20 max
-  values (100000, 100000, 100.0, 100, 200×14, 65536), plus a trailing 100.
+### Part 7 — skin
+
+```text
+8:  (3: 0 0 0) (3: 1 2 3) ... (3: 19 20 21)   skin type -> 3 subtype ids
+582                                            single value, meaning open
+22:  22 x (18: + 18 ints)                      influence table 0
+22:  22 x (18: + 18 ints)                      influence table 1
+```
+
+The 8 skin types map to consecutive subtype triples: type 0 -> `0,0,0`,
+type 1 -> `1,2,3`, …, type 7 -> `19,20,21`. The two 22×18 tables are the
+bonus/percentage pair (first row of table 0 is all zeros; first row of table
+1 is all 100 except a 101 at the end). The single `582` is not explained yet.
+
+### Part 8 — carapace
+
+```text
+6:  (3: 0 0 0) (3: 1 2 3) ... (3: 13 14 15)
+16:  16 x (18: + 18 ints)
+16:  16 x (18: + 18 ints)
+```
+
+Six carapace types -> subtype triples `0..15`; two 16×18 influence tables
+(first row all zeros / all 100).
+
+### Part 9 — min/max attributes
+
+20 minimum values (all `0`, with `0.000000` at index 2) and 20 maximum
+values:
+
+```text
+100000 100000 100.0 100 200 200 ... 200 65536 100
+```
+
+(14 × `200` between index 4 and 17.)
 
 ## Reader
 
@@ -176,12 +205,15 @@ Returns `SimuTrans` with:
 - `.dummy_type` — `{Head, Body, Tail}` 48 × 5 (Part 5);
 - `.dummy_influence` — two 50 × 18 tables (Part 6);
 - `.member_reference_widths` — the five widths (Part 6 tail);
+- `.skin_map`, `.skin_unknown`, `.skin_influence` (Part 7);
+- `.carapace_map`, `.carapace_influence` (Part 8);
+- `.min_attributes`, `.max_attributes` (Part 9);
 - `.default_families` and `.family_of(index)` (Part 10);
 - `.part_headers` — the ten `(number, title)` pairs.
 
-Tests: `tests/test_simu_trans.py` (18 genes, 10 parts, 4 merge tables equal
-to `anim_trans.dic`, 55 attribute tables, dummy tables, reference widths
-equal to `graphic_trans.dic`, family table).
+Tests: `tests/test_simu_trans.py` (18 genes, 10 parts, Part 2 == `anim_trans`,
+55 attribute tables, dummy tables, reference widths == `graphic_trans`,
+skin/carapace maps and influence tables, min/max, family table).
 
 ## Evidence
 
@@ -194,8 +226,9 @@ equal to `graphic_trans.dic`, family table).
 
 ## Open
 
-- Parts 7–9 exact record semantics (skin/carapace/min-max).
-- Exact meaning of the Part 4 disposition tags and Part 5 type ids.
+- Exact meaning of the Part 4 disposition tags, Part 5 type ids and the
+  Part 6/7/8 influence values (the two tables look like bonus + percentage).
+- The single Part 7 value `582`.
 - How Part 3's 20×20 merge matrices combine hybrid parts.
 - The gene→Part 3 lookup used by the translator (which attribute/part a
   gene allele selects).

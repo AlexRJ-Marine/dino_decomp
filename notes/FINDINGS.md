@@ -262,3 +262,12 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   20x20 merge ratios. Part 10 maps the 20 species to 5 animation families
   (3/4/3/7/3; pachy = LightBiped). Reader tools/formats/simu_trans.py, spec
   docs/formats/simu-trans.md.
+- simu_trans.dic parts 4-6: Part 4 is 3 x 48 x 6 (Head/Body/Tail dummy
+  disposition), Part 5 is 3 x 48 x 5 (dummy types 0..49), Part 6 is TWO
+  50 x 18 influence tables plus five member reference widths
+  (100,100,100,300,150 = graphic_trans.dic). The 48 rows match the .gen
+  dummy position range and the 50 rows match the Part 5 type ids.
+- simu_trans.dic parts 7-9: Part 7 = 8x3 skin type->subtype map (0..21) +
+  a single 582 + two 22x18 influence tables; Part 8 = 6x3 carapace map
+  (0..15) + two 16x18 tables; Part 9 = 20 min (all 0) + 20 max
+  (100000,100000,100,100,200x14,65536,100). All 10 parts now parse.

@@ -109,8 +109,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   rest for 58/60 dinosaur skins; only pachy LOD2/LOD3 store a bent-neck pose.
   Use `inv(skeleton rest)` as the `.mesh` bind, `inverse_bind` for the
   `.skin` bind.
-- [ ] Apply the bind-matrix choice in `build_skinned_mesh` (snippet in
-  `notes/lod-bind-recon.md`).
+- [x] Apply the bind-matrix choice in `build_skinned_mesh` (snippet in
+  `notes/lod-bind-recon.md`): rest inverse for `mesh`, `inverse_bind` for
+  `skin`; `--validate` prints the rest error.
 - **Evidence:** `notes/lod-bind-recon.md`, `tools/recon/analyze_lod_bind.py`,
   `tests/test_skin.py::test_pachy_lod2_bind_pose_retarget`,
   `test_only_pachy_lod23_bind_pose_differs`, `docs/formats/skin.md`.
@@ -319,7 +320,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (1,600 cells).
 - [x] Part 3: 11 attributes × 5 parts = 55 tables (20 diagonal + 20×20).
 - [x] Part 10: 20 default family indices, counts 3/4/3/7/3; pachy = LightBiped.
-- [ ] Parts 4–9 (dummy/skin/carapace) semantics and the gene→Part 3 lookup.
+- [x] Parts 4–6: 3 × 48 dummy disposition (6 ints) and type (5 ints) tables;
+  two 50 × 18 influence tables; five member reference widths equal to
+  `graphic_trans.dic`.
+- [x] Parts 7–9: skin `8×3` map + two `22×18` tables (+ a `582` value),
+  carapace `6×3` map + two `16×18` tables, 20 min / 20 max attributes.
+- [ ] Influence-value semantics, the Part 7 `582`, and the gene→Part 3
+  lookup.
 - **Acceptance:** 10 parts found, 55 attribute tables, Part 2 == anim_trans.
 - **Depends on:** FMT-9, FMT-17.
 - **Evidence:** `tools/formats/simu_trans.py`,

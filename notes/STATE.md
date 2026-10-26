@@ -325,7 +325,14 @@ Updated: 2026-10-25
     totals. The gauge shows the difficulty budget.
   - Evidence: `notes/park-budget.png`, `notes/park-budget-detail.png`,
     `tests/test_viewer_cpp.py::test_cpp_park_panel_shot`.
-- 221 tests pass; working tree committed (UI-2 Phase B rest plus
+- FMT-3b C++ handoff complete: **LOD bind-matrix choice.**
+  - `build_skinned_mesh` uses `inv(skeleton rest raw)` for the `.mesh` bind
+    and the skin's `inverse_bind` for `--skin-bind skin`.
+  - `--validate` prints `skin rest max error`: pachy LOD2 mesh bind
+    0.0001 cm (was ~4.3 cm), skin bind 7.8464 cm; allo LOD1 0.0001 cm.
+  - Evidence: `notes/lod-bind-recon.md`, `docs/formats/skin.md`,
+    `tests/test_viewer_cpp.py::test_cpp_pachy_lod2_mesh_bind`.
+- 226 tests pass; working tree committed (UI-2 Phase B rest plus
   FMT-9/10/11 and DEC-2 research).
 - UI-RECON complete: **retail overlay/menu research delivered.**
   - The UI is data-driven at 800×600: `MenuInterface.Ini` (114 widgets,
@@ -481,12 +488,16 @@ Updated: 2026-10-25
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
-- FMT-20 complete: **`simu_trans.dic` parts 2/3/10.**
-  - 10 part headers; Part 2's four 20×20 merge tables are byte-identical to
-    `anim_trans.dic` (1,600 cells).
+- FMT-20 complete: **`simu_trans.dic` all 10 parts structurally parsed.**
+  - Part 2's four 20×20 merge tables are byte-identical to `anim_trans.dic`
+    (1,600 cells).
   - Part 3: 11 attributes × 5 parts = 55 tables (20 diagonal + 20×20).
+  - Parts 4–6: 3 × 48 disposition/type tables; two 50×18 influence tables;
+    five reference widths = `graphic_trans.dic`.
+  - Parts 7–9: skin `8×3` + two `22×18`, carapace `6×3` + two `16×18`,
+    20 min / 20 max attributes.
   - Part 10: 20 default family indices (3/4/3/7/3); pachy = LightBiped.
-  - Parts 4–9 inventoried; gene→Part 3 lookup still open.
+  - Semantics of the influence values and the Part 7 `582` remain open.
   - Evidence: `tools/formats/simu_trans.py`,
     `docs/formats/simu-trans.md`, `tests/test_simu_trans.py`,
     `notes/simu-trans-recon.md`.

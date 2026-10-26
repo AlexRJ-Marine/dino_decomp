@@ -8,8 +8,10 @@ inspected without the game.
 
 The park block is a 0x30-byte header followed by the economy field stream
 written by ``0x00585780`` in **writer order** (budget, sellback, FOOD, staff,
-ticket, staff buckets, shop arrays, groups, yesterday block).  The stream is
-parsed by ``sav_graph._read_park_stream``.
+ticket, staff buckets, shop arrays, groups, yesterday block, cumulative
+block).  The stream is parsed by ``sav_graph._read_park_stream``; the panel
+refresh reads only the yesterday block, so the cumulative block is exposed for
+inspection but does not feed the ledger.
 
 See ``docs/decomp/economy.md`` and ``docs/formats/sav.md``.
 """

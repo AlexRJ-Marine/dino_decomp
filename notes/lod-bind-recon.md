@@ -128,3 +128,19 @@ for (std::size_t i = 0; i < skin.bones.size(); ++i) {
   lower-LOD mesh exported from a different pose).
 - Whether any prop skin has a similar mismatch (the scan covered dinosaurs
   only; `allo`/props were not).
+
+## C++ implementation (2026-10-26)
+
+`build_skinned_mesh` now takes `bind_from_skin`:
+
+- `mesh` (default): `bind = inverse(raw_centimetres(skeleton.rest_world))`;
+- `skin`: `bind = skin.bones[i].inverse_bind`.
+
+`dino::inverse` was added to `src/formats/math.h` for the affine row-vector
+matrix. The viewer prints `skin rest max error: X cm` under `--validate`:
+
+- pachy LOD2, `--skin-bind mesh`: **0.0001 cm** (was ~4.3 cm);
+- pachy LOD2, `--skin-bind skin`: 7.8464 cm (the crouched/bent bind, expected);
+- allo LOD1, mesh: 0.0001 cm.
+
+Test: `tests/test_viewer_cpp.py::test_cpp_pachy_lod2_mesh_bind`.

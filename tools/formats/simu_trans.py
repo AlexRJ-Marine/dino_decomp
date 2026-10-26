@@ -86,6 +86,13 @@ class SimuTrans:
     dummy_type: dict[str, list[list[int]]] = field(default_factory=dict)
     dummy_influence: list[list[list[int]]] = field(default_factory=list)
     member_reference_widths: list[int] = field(default_factory=list)
+    skin_map: list[list[int]] = field(default_factory=list)
+    skin_unknown: int = 0
+    skin_influence: list[list[list[int]]] = field(default_factory=list)
+    carapace_map: list[list[int]] = field(default_factory=list)
+    carapace_influence: list[list[list[int]]] = field(default_factory=list)
+    min_attributes: list[float] = field(default_factory=list)
+    max_attributes: list[float] = field(default_factory=list)
     part_headers: list[tuple[int, str]] = field(default_factory=list)
 
     def family_of(self, dinosaur_index: int) -> str:
@@ -111,6 +118,21 @@ class SimuTrans:
                 for table in self.dummy_influence
             ],
             "member_reference_widths": self.member_reference_widths,
+            "skin_map": [len(self.skin_map), len(self.skin_map[0]) if self.skin_map else 0],
+            "skin_unknown": self.skin_unknown,
+            "skin_influence": [
+                [len(table), len(table[0]) if table else 0]
+                for table in self.skin_influence
+            ],
+            "carapace_map": [
+                len(self.carapace_map), len(self.carapace_map[0]) if self.carapace_map else 0
+            ],
+            "carapace_influence": [
+                [len(table), len(table[0]) if table else 0]
+                for table in self.carapace_influence
+            ],
+            "min_attributes": len(self.min_attributes),
+            "max_attributes": len(self.max_attributes),
             "default_families": {
                 FAMILIES[i]: self.default_families.count(i)
                 for i in range(len(FAMILIES))
@@ -233,6 +255,26 @@ def _dummy_influence(
     return tables, widths
 
 
+def _counted_blocks(
+    tokens: list[str], index: int
+) -> tuple[list[list[int]], int]:
+    """Read ``N:`` then N × (``W:`` + W ints); return blocks and next index."""
+    count = int(tokens[index].rstrip(":"))
+    index += 1
+    blocks: list[list[int]] = []
+    for _ in range(count):
+        width = int(tokens[index].rstrip(":"))
+        index += 1
+        values: list[int] = []
+        while len(values) < width:
+            values.extend(int(token) for token in tokens[index].split())
+            index += 1
+        if len(values) != width:
+            raise SimuTransError("counted block width mismatch")
+        blocks.append(values)
+    return blocks, index
+
+
 def read_simu_trans(path: Path) -> SimuTrans:
     lines = path.read_text(encoding="cp1252", errors="replace").splitlines()
     headers = _part_offsets(lines)
@@ -245,6 +287,8 @@ def read_simu_trans(path: Path) -> SimuTrans:
     part5_start = starts[5]
     part6_start = starts[6]
     part7_start = starts[7]
+    part8_start = starts[8]
+    part9_start = starts[9]
 
     merge: dict[str, MergeTable] = {}
     for match, body in _block(lines, part2_start, part3_start, MERGE_RE):
@@ -290,6 +334,39 @@ def read_simu_trans(path: Path) -> SimuTrans:
             f"member reference widths: {len(reference_widths)} values"
         )
 
+    def tokens_between(start: int, end: int) -> list[str]:
+        return [
+            line.strip()
+            for line in lines[start + 1:end]
+            if line.strip() and not line.strip().startswith("//")
+        ]
+
+    skin_tokens = tokens_between(part7_start, part8_start)
+    skin_map, index = _counted_blocks(skin_tokens, 0)
+    skin_unknown = int(skin_tokens[index])
+    index += 1
+    skin_influence: list[list[list[int]]] = []
+    for _ in range(2):
+        table, index = _counted_blocks(skin_tokens, index)
+        skin_influence.append(table)
+    if index != len(skin_tokens):
+        raise SimuTransError("skin part: trailing tokens")
+
+    carapace_tokens = tokens_between(part8_start, part9_start)
+    carapace_map, index = _counted_blocks(carapace_tokens, 0)
+    carapace_influence: list[list[list[int]]] = []
+    for _ in range(2):
+        table, index = _counted_blocks(carapace_tokens, index)
+        carapace_influence.append(table)
+    if index != len(carapace_tokens):
+        raise SimuTransError("carapace part: trailing tokens")
+
+    minmax = [float(token) for token in tokens_between(part9_start, part10_start)]
+    if len(minmax) != 40:
+        raise SimuTransError(f"min/max attributes: {len(minmax)} values")
+    min_attributes = minmax[:20]
+    max_attributes = minmax[20:40]
+
     return SimuTrans(
         path=str(path),
         genes=read_gene_trans(path),
@@ -300,6 +377,13 @@ def read_simu_trans(path: Path) -> SimuTrans:
         dummy_type=dummy_type,
         dummy_influence=dummy_influence,
         member_reference_widths=reference_widths,
+        skin_map=skin_map,
+        skin_unknown=skin_unknown,
+        skin_influence=skin_influence,
+        carapace_map=carapace_map,
+        carapace_influence=carapace_influence,
+        min_attributes=min_attributes,
+        max_attributes=max_attributes,
         part_headers=[(n, title) for n, _, title in headers],
     )
 

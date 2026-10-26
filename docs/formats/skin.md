@@ -214,7 +214,8 @@ Because `R_bone = inv(W_bind)`, the skin bind mesh is reproduced at `W_bind`.
 For the `.mesh` rest pose, use `inv(W_skel_rest_raw)` as the bind (see the
 LOD section above); this equals `R_bone` for 58/60 dinosaur skins and keeps
 the standing pose for pachy LOD2/LOD3. The viewer exposes the two choices as
-`--skin-bind mesh` (default) and `--skin-bind skin`.
+`--skin-bind mesh` (default) and `--skin-bind skin`, and `--validate` prints
+the rest error (pachy LOD2 mesh bind: 0.0001 cm; skin bind: 7.8464 cm).
 
 Evidence: `notes/isl01-dino-meshbind.png` (standing, `.mesh` bind) vs the
 earlier crouched `.skin` bind; `notes/isl01-dino-walk.png` shows

@@ -95,6 +95,50 @@ def test_dummy_disposition_and_type():
     assert data.dummy_type["Head"][1] == [7, 8, 9, 8, 0]
 
 
+def test_skin_and_carapace_tables():
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert data.skin_map == [
+        [0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9],
+        [10, 11, 12], [13, 14, 15], [16, 17, 18], [19, 20, 21],
+    ]
+    assert data.skin_unknown == 582
+    assert len(data.skin_influence) == 2
+    for table in data.skin_influence:
+        assert len(table) == 22 and all(len(row) == 18 for row in table)
+    assert data.skin_influence[0][0] == [0] * 18
+    assert data.skin_influence[1][0][:17] == [100] * 17
+    assert data.skin_influence[1][0][17] == 101
+
+    assert data.carapace_map == [
+        [0, 0, 0], [1, 2, 3], [4, 5, 6],
+        [7, 8, 9], [10, 11, 12], [13, 14, 15],
+    ]
+    assert len(data.carapace_influence) == 2
+    for table in data.carapace_influence:
+        assert len(table) == 16 and all(len(row) == 18 for row in table)
+    assert data.carapace_influence[0][0] == [0] * 18
+    assert data.carapace_influence[1][0] == [100] * 18
+
+
+def test_min_max_attributes():
+    if not SIMU.exists():
+        pytest.skip("retail sample not present")
+    data = read_simu_trans(SIMU)
+    assert data.min_attributes == [0.0] * 20
+    assert len(data.max_attributes) == 20
+    assert data.max_attributes[0] == 100000.0
+    assert data.max_attributes[1] == 100000.0
+    assert data.max_attributes[2] == 100.0
+    assert data.max_attributes[18] == 65536.0
+    assert data.max_attributes[19] == 100.0
+    assert data.max_attributes[3] == 100.0
+    assert data.max_attributes[4:18] == [200.0] * 14
+    assert data.max_attributes[18] == 65536.0
+    assert data.max_attributes[19] == 100.0
+
+
 def test_dummy_influence_and_reference_widths():
     if not SIMU.exists():
         pytest.skip("retail sample not present")

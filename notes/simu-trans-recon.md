@@ -84,14 +84,18 @@ The 48 rows align with the `.gen` dummy position range (0..47); the 50 rows
 of Part 6 align with the Part 5 type ids (0..49). The 18 columns are the
 member/bone groups.
 
-## Parts 7–9 (inventory)
+## Parts 7–9 — skin, carapace, min/max
 
-- Part 7: `8:` skin types × (`3:` + 3 values), then `582` × (`22:` + `18:` +
-  18 ints) — skin allele mapping + influence.
-- Part 8: `6:` carapace types × (`3:` + 3 values), then `16` × (`18:` + 18
-  ints).
-- Part 9: 20 min values (all 0 except a 0.000000 at index 2) and 20 max
-  values (`100000, 100000, 100.0, 100, 200×14, 65536`), plus a trailing 100.
+- Part 7: `8:` skin types × (`3:` + 3 values) = type 0 `0,0,0`, type 1
+  `1,2,3`, …, type 7 `19,20,21`; a single value `582`; then two `22:` tables
+  of 22 × (`18:` + 18 ints). Table 0 row 0 all zeros; table 1 row 0 is
+  `100×17, 101`.
+- Part 8: `6:` carapace types × 3 values (`0..15`); two `16:` tables of
+  16 × (`18:` + 18 ints). Table 0 row 0 zeros; table 1 row 0 all 100.
+- Part 9: 20 min values (all 0) and 20 max values
+  (`100000, 100000, 100.0, 100, 200×14, 65536, 100`).
+
+The `582` value and the exact bonus/percentage semantics remain open.
 
 ## Tooling
 
