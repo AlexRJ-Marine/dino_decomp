@@ -46,8 +46,14 @@ for `0`.
 - Path, fence and construction placement check the mask; a blocked cell
   prints `placement: blocked cell`, and the CLI placement prints
   `place-path: blocked cell X,Y` / `place-fence: ...` and skips it.
-- The fence check tests both cells adjacent to the edge.
-- `try_construct` checks every cell of the `.bbi` footprint.
+- The fence check tests the stored cell and the cell across the edge: edge 0
+  is the south edge (shared with `(x, y-1)`), edge 1 is the east edge (shared
+  with `(x+1, y)`). A neighbour outside the grid is ignored, so a boundary
+  edge with a free inside cell is allowed.
+- Removing an existing path/fence is not gated (only adding is), so a tile
+  covered by a later building can still be removed.
+- `try_construct` checks the budget first (retail `0x5306e1`), then every cell
+  of the `.bbi` footprint.
 - Retail `.wld`/`.sav` roads and fences are imported unfiltered (they are
   already valid in the source data).
 - Missing masks (e.g. a synthetic test island) keep the previous permissive

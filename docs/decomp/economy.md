@@ -107,7 +107,7 @@ time) and then `0x0058ad00`. The clock itself is documented in
 
 ```text
 ticket_price = Entrance .bbi visitor price (offset 25, 50 in retail)
-income       = visitor_count * ticket_price
+income       = sum(trunc(ticket_price * profile.price_scale) for each visitor)
 wages        = 0                     // no employee actors yet
 park_budget += income - wages
 ```
@@ -117,7 +117,7 @@ park_budget += income - wages
 3 Kids at scale 1.0). The per-visitor ticket value is **solved** (`0x58ad95`):
 
 ```text
-ticket = round(entrance_price * visitor_profile.price_scale)
+ticket = trunc(entrance_price * visitor_profile.price_scale)
 ```
 
 - `entrance_price` = Entrance `.bbi` visitor price via `[park+0xd8]+0x40` ->
