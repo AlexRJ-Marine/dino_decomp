@@ -23,6 +23,51 @@ HMODULE g_real_dinput8 = nullptr;
 DirectInput8CreateFn g_real_create = nullptr;
 volatile LONG g_calls_4663a0 = 0;
 volatile LONG g_calls_4809a0 = 0;
+volatile LONG g_calls_47d460 = 0;
+volatile LONG g_calls_47cc90 = 0;
+
+// Engine vector: 16-byte polymorphic wrapper, data triple at +4/+8/+0xc.
+template <typename T>
+struct Vec {
+    void* vptr;
+    T* first;
+    T* last;
+    T* end;
+};
+
+using InsertFn = void(__thiscall*)(void* pfirst, void* where, std::uint32_t count,
+                                   const void* value);
+
+bool resize_to(Vec<std::uint16_t>& vec, std::uint32_t count, InsertFn insert) {
+    const std::size_t current =
+        static_cast<std::size_t>(vec.last - vec.first);
+    if (count < current) {
+        vec.last = vec.first + count;
+    } else if (count > current) {
+        const std::uint32_t zero = 0;
+        insert(&vec.first, vec.last, count - static_cast<std::uint32_t>(current),
+               &zero);
+    }
+    return true;
+}
+
+bool resize_to(Vec<std::uint32_t>& vec, std::uint32_t count, InsertFn insert) {
+    const std::size_t current =
+        static_cast<std::size_t>(vec.last - vec.first);
+    if (count < current) {
+        vec.last = vec.first + count;
+    } else if (count > current) {
+        const std::uint32_t zero = 0;
+        insert(&vec.first, vec.last, count - static_cast<std::uint32_t>(current),
+               &zero);
+    }
+    return true;
+}
+
+std::uintptr_t exe_va(std::uint32_t va) {
+    return reinterpret_cast<std::uintptr_t>(GetModuleHandleA(nullptr)) +
+           (va - 0x400000);
+}
 
 void log_line(const char* text) {
     HANDLE file = CreateFileA("dino_hook.log", FILE_APPEND_DATA, FILE_SHARE_READ,
@@ -76,6 +121,60 @@ bool __thiscall hook_4809a0(void* buffer, Stream* stream) {
     return read(stream, buffer, 4, 3) == 3;
 }
 
+// Replacement for FUN_0047d460: read a u32 count then `count` u16 elements
+// into the vector at [ECX+4..0xc] (mesh record +0x14 subobject, member +0x78).
+bool __thiscall hook_47d460(Vec<std::uint16_t>* vec, Stream* stream) {
+    const LONG calls = InterlockedIncrement(&g_calls_47d460);
+    if (calls == 1 || (calls % 1000) == 0) {
+        char line[96];
+        std::snprintf(line, sizeof(line), "hook_47d460: calls=%ld",
+                      static_cast<long>(calls));
+        log_line(line);
+    }
+    if (vec == nullptr || stream == nullptr || stream->vtable == nullptr) {
+        return false;
+    }
+    auto read = reinterpret_cast<StreamReadFn>(stream->vtable[2]);
+    std::uint32_t count = 0;
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    resize_to(*vec, count, reinterpret_cast<InsertFn>(exe_va(0x47d500)));
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (read(stream, &vec->first[i], 2, 1) != 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Replacement for FUN_0047cc90: read a u32 count then `count` u32 child
+// indices into one bone's inner vector (the `.skel` child lists).
+bool __thiscall hook_47cc90(Vec<std::uint32_t>* vec, Stream* stream) {
+    const LONG calls = InterlockedIncrement(&g_calls_47cc90);
+    if (calls == 1 || (calls % 1000) == 0) {
+        char line[96];
+        std::snprintf(line, sizeof(line), "hook_47cc90: calls=%ld",
+                      static_cast<long>(calls));
+        log_line(line);
+    }
+    if (vec == nullptr || stream == nullptr || stream->vtable == nullptr) {
+        return false;
+    }
+    auto read = reinterpret_cast<StreamReadFn>(stream->vtable[2]);
+    std::uint32_t count = 0;
+    if (read(stream, &count, 4, 1) != 1) {
+        return false;
+    }
+    resize_to(*vec, count, reinterpret_cast<InsertFn>(exe_va(0x47cac0)));
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (read(stream, &vec->first[i], 4, 1) != 1) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool install_detour(const char* name, std::uintptr_t rva, void* hook,
                     const std::uint8_t (&expected)[5]) {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
@@ -115,18 +214,80 @@ bool install_detour(const char* name, std::uintptr_t rva, void* hook,
     return true;
 }
 
+// The vector readers start with an 8-byte prologue
+// (push ecx; push ebx; push esi; push edi; mov edi,[esp+0x14]), so the
+// 5-byte jump splits an instruction. Patch 8 bytes: jmp rel32 + 3 NOP.
+bool install_detour8(const char* name, std::uintptr_t rva, void* hook,
+                     const std::uint8_t (&expected)[8]) {
+    auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
+    if (base == nullptr) {
+        log_line("hook: GetModuleHandle(NULL) failed");
+        return false;
+    }
+    auto* target = base + rva;
+    if (std::memcmp(target, expected, 8) != 0) {
+        char line[128];
+        std::snprintf(line, sizeof(line), "hook: %s prologue mismatch", name);
+        log_line(line);
+        return false;
+    }
+    DWORD old_protect = 0;
+    if (!VirtualProtect(target, 8, PAGE_EXECUTE_READWRITE, &old_protect)) {
+        log_line("hook: VirtualProtect failed");
+        return false;
+    }
+    const auto from = reinterpret_cast<std::intptr_t>(target) + 5;
+    const auto to = reinterpret_cast<std::intptr_t>(hook);
+    const auto relative = to - from;
+    if (relative < INT32_MIN || relative > INT32_MAX) {
+        VirtualProtect(target, 8, old_protect, &old_protect);
+        log_line("hook: relative jump out of range");
+        return false;
+    }
+    target[0] = 0xE9;
+    const auto rel32 = static_cast<std::int32_t>(relative);
+    std::memcpy(target + 1, &rel32, sizeof(rel32));
+    target[5] = 0x90;
+    target[6] = 0x90;
+    target[7] = 0x90;
+    FlushInstructionCache(GetCurrentProcess(), target, 8);
+    VirtualProtect(target, 8, old_protect, &old_protect);
+    char line[128];
+    std::snprintf(line, sizeof(line), "hook: %s patched", name);
+    log_line(line);
+    return true;
+}
+
 bool install_hooks() {
     // 0x4663a0: 64-byte matrix, prologue 8B C1 6A 10 8B.
     static constexpr std::uint8_t kPrologue_4663a0[5] = {0x8B, 0xC1, 0x6A, 0x10, 0x8B};
     // 0x4809a0: 12-byte normal, prologue 8B C1 6A 03 8B.
     static constexpr std::uint8_t kPrologue_4809a0[5] = {0x8B, 0xC1, 0x6A, 0x03, 0x8B};
+    // 0x47d460 / 0x47cc90: 51 53 56 57 8B 7C 24 14.
+    static constexpr std::uint8_t kPrologueVector[8] = {0x51, 0x53, 0x56,
+                                                        0x57, 0x8B, 0x7C,
+                                                        0x24, 0x14};
     const bool a = install_detour("FUN_004663a0", 0x4663A0 - 0x400000,
                                   reinterpret_cast<void*>(&hook_4663a0),
                                   kPrologue_4663a0);
     const bool b = install_detour("FUN_004809a0", 0x4809A0 - 0x400000,
                                   reinterpret_cast<void*>(&hook_4809a0),
                                   kPrologue_4809a0);
-    return a && b;
+    // The vector readers are opt-in until a campaign/dinosaur run confirms
+    // them: set DINO_HOOK_VECTOR=1 before launching. The default proxy keeps
+    // the two proven detours only.
+    char value[8] = {};
+    const bool vectors =
+        GetEnvironmentVariableA("DINO_HOOK_VECTOR", value, sizeof(value)) > 0;
+    const bool c =
+        !vectors || install_detour8("FUN_0047d460", 0x47D460 - 0x400000,
+                                    reinterpret_cast<void*>(&hook_47d460),
+                                    kPrologueVector);
+    const bool d =
+        !vectors || install_detour8("FUN_0047cc90", 0x47CC90 - 0x400000,
+                                    reinterpret_cast<void*>(&hook_47cc90),
+                                    kPrologueVector);
+    return a && b && c && d;
 }
 
 }  // namespace
@@ -158,11 +319,14 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
                                           : "DINPUT8 real DLL load FAILED");
         install_hooks();
     } else if (reason == DLL_PROCESS_DETACH) {
-        char line[128];
+        char line[192];
         std::snprintf(line, sizeof(line),
-                      "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld",
+                      "hook_4663a0: total calls=%ld, hook_4809a0: total calls=%ld, "
+                      "hook_47d460: total calls=%ld, hook_47cc90: total calls=%ld",
                       static_cast<long>(g_calls_4663a0),
-                      static_cast<long>(g_calls_4809a0));
+                      static_cast<long>(g_calls_4809a0),
+                      static_cast<long>(g_calls_47d460),
+                      static_cast<long>(g_calls_47cc90));
         log_line(line);
         if (g_real_dinput8 != nullptr) {
             FreeLibrary(g_real_dinput8);

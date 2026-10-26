@@ -724,6 +724,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/decomp/hybrid.md`,
   `notes/hook-4663a0-4809a0.log`.
 
+### HYB-3: Vector readers
+- [x] Decode the engine vector ABI: 16-byte wrapper `{vptr, first, last,
+  end}`, resize-to-count, insert helpers `0x47d500`/`0x47cac0`, count-first
+  stream reads.
+- [x] Implement `0x47d460` (u16 array, mesh record) and `0x47cc90` (`.skel`
+  child index list, u32 per bone) as 8-byte detours. Both install cleanly and
+  the free-game park remains playable; they are opt-in via
+  `DINO_HOOK_VECTOR=1` until a campaign/dinosaur load exercises them.
+- [ ] Runtime-verify the calls and the resulting `.skel` child lists during a
+  Cpg04 load (then make them default).
+- **Acceptance:** the campaign park loads with both vector readers replaced.
+- **Depends on:** HYB-1/2, FMT-4.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/hybrid-vector-recon.md`,
+  `docs/decomp/hybrid.md`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

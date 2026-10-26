@@ -1,7 +1,9 @@
 # Hybrid decompilation
 
-Status: **HYB-1/2 complete** — the original exe runs with two retail functions
-replaced by recovered C++.
+Status: **HYB-1/2 complete; HYB-3 vector readers implemented opt-in.** The
+original exe runs with the matrix and normal readers replaced by recovered
+C++; the two vector readers are built and install cleanly, pending a
+campaign-load call check (`DINO_HOOK_VECTOR=1`).
 
 ## Mechanism
 
@@ -57,6 +59,24 @@ return stream->vtable->read(buffer, 4, 3) == 3;
 The proxy is verified to keep the game playable. During a park session the
 matrix reader is called ~281,000 times and the normal reader ~95,000 times.
 
+### `FUN_0047d460` / `FUN_0047cc90` — vector readers (opt-in)
+
+Both are `__thiscall bool f(void* this, Stream* stream)` with `RET 4`:
+
+```text
+read u32 count, resize the 16-byte vector wrapper {vptr, first, last, end}
+to the count (0x47d500 for u16 / 0x47cac0 for u32 insert), then read
+count elements one at a time.
+```
+
+`0x47cc90` is the `.skel` child-index list (u32 per bone); `0x47d460` reads a
+u16 array at `+0x78` of a 0xb8-byte mesh record. The 8-byte prologue
+`51 53 56 57 8B 7C 24 14` needs an 8-byte patch (`E9 rel32` + 3 NOP).
+Implementation: `hook_47d460`/`hook_47cc90` in `src/hook/dinput8_proxy.cpp`.
+They are **opt-in** (`DINO_HOOK_VECTOR=1`) until a campaign/dinosaur load
+exercises them; the free-game park calls neither. Full ABI:
+`notes/hybrid-vector-recon.md`.
+
 ## Build/run
 
 ```powershell
@@ -104,9 +124,9 @@ hook_4809a0: calls=97000
 
 ## Next
 
-1. Add the next detours: `0x47d460` (u16 array reader) and `0x47cc90` (child
-   index list) — these touch the engine's vector class, so port the vector
-   contract first.
+1. Runtime-verify `0x47d460`/`0x47cc90` during a campaign load (set
+   `DINO_HOOK_VECTOR=1`; the free-game park calls neither). The ABI is
+   solved in `notes/hybrid-vector-recon.md`; the detours are implemented.
 2. `0x4809e0` is a 2-float (UV) reader using stream vtable slot `+4`; its only
    caller is `0x471cd0` and it is not exercised by the park run. Promote it
    once that path is identified.
