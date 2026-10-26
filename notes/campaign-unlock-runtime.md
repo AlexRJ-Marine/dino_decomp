@@ -59,6 +59,22 @@ dinosaurs with `[ecx+0x1e0]` = `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`
 — the size/cost class used by the paddock capacity table. This closes the
 last open field of the P4 capacity rule.
 
+Matching that sequence to the world dinosaur order in `Cpg04_Save.wld`
+(head-type gene: 1 anky, 0 allo, 18 trood, 3 coelo, 4 deino) gives:
+
+| Species | Individuals | Classes |
+| --- | ---: | --- |
+| coelo | 4 | 0, 0, 0, 0 |
+| trood | 2 | 0, 0 |
+| anky | 2 | 1, 1 |
+| deino | 5 | 1, 1, 1, 1, 1 |
+| allo | 7 | 2, 2, 2, 2, 1, 1, 1 |
+
+So the class is a per-individual size class, not a pure species constant:
+Allosaurus splits 4/3 between class 2 and class 1. The species baseline is
+still useful for the port, but exact parity needs the individual's phenotype
+size (length/height/weight), not just the head-type species.
+
 ## `0x56c0c0` is not the dinosaur action→clip map
 
 A live Cpg04 run logged `FUN_0056c0c0` (`asItemBehavior::RegisterForAction`)

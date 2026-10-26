@@ -93,12 +93,23 @@ The occupant vector uses 4-byte pointers and a 4-wide unrolled scan; it is
 adds its cost to `used` and stores `fill = used / capacity`. `CanAddActor`
 therefore rejects both a full paddock and a duplicate insertion.
 
-The index at `dinosaur+0x1e0` is an integer in this path. A freshly
-constructed actor has it zeroed (`FUN_004bc690`, `0x4bc9e8`), which selects
-cost 8. On the `saDinosaur` save layout (`0x573590`) the same offset is a
-`0x18`-byte vector cursor/end pointer, and attribute id 29 (`0x572620`) returns
-it as a stat. Its range and meaning are **unconfirmed**; use index 0 until a
-runtime dump settles it.
+The index at `dinosaur+0x1e0` is an integer **size/cost class** in this path.
+Runtime-confirmed on a live Cpg04 load: the need-reset `0x570fd0` logged
+`[dinosaur+0x1e0]` = `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0` for the 20
+world dinosaurs. Correlated with the world order:
+
+| Species | Individuals | Classes |
+| --- | ---: | --- |
+| coelo | 4 | 0, 0, 0, 0 |
+| trood | 2 | 0, 0 |
+| anky | 2 | 1, 1 |
+| deino | 5 | 1, 1, 1, 1, 1 |
+| allo | 7 | 2, 2, 2, 2, 1, 1, 1 |
+
+The class is a per-individual size class (Allosaurus splits 4/3), not a pure
+species constant. The table supports 0..3 (8/16/32/64). The port must derive
+it from the individual's phenotype size, not a constant; a species baseline
+is a useful first approximation.
 
 ## Placement point
 
@@ -137,13 +148,14 @@ index**, not the cost.
 
 ## Port implications
 
-`src/world/build.cpp` currently has no paddock-capacity model. To match the
+`src/world/build.cpp` now has the paddock model (`Paddock`,
+`paddock_capacity`, `paddock_cost`, `paddock_can_add/add`). To match the
 original construction flow:
 
 1. Treat each closed fence rectangle as a paddock with
    `capacity = (w/4.0f) * (h/4.0f)`.
-2. Give each dinosaur a cost of `8 << index` (index 0 = 8 until the runtime
-   field is confirmed).
+2. Give each dinosaur a cost of `8 << index`, where `index` is its size class
+   0..3 (runtime Cpg04 values are 0/1/2), not a constant.
 3. Reject an insertion when the dinosaur is already inside or
    `capacity - used < cost`, show `WARNING_NO_ROOM_IN_FENCE`, and **keep the
    insertion state active**.
@@ -159,17 +171,20 @@ original construction flow:
   8/16/32/64 cost table, the duplicate check, `used`/`fill`, and
   `--selftest` coverage in `src/world/build.cpp`.
 - Done: imported `.wld` dinosaurs fill their fence rectangles in record
-  order under the capacity rule; Cpg04 = 9 paddocks, capacity 492, used 160.
+  order under the capacity rule; Cpg04 = 9 paddocks, capacity 492.
+- **Deviation:** the port passes cost index 0 for every imported dinosaur,
+  so Cpg04 `used` = 160. The retail classes are six 0s, ten 1s and four 2s,
+  i.e. `used` = 336. The class must be derived from the dinosaur's size.
 - Pending: the store purchase branch (`DINOACHAT` charge + store-row
-  removal), the `WARNING_NO_ROOM_IN_FENCE` panel path, the player pickup
-  point, and the runtime cost index.
+  removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the player pickup
+  point.
 
 ## Open
 
-- Runtime-dump `[dinosaur+0x1e0]` at `0x57ebc3` to confirm the cost index
-  range and meaning.
-- Runtime-dump `*(uint*)(landscape+0xc)` at `0x57dc60` entry to confirm the
-  cell size is 4.
+- ~~Runtime-dump `[dinosaur+0x1e0]`~~ **resolved:** size/cost class 0..3;
+  live Cpg04 values `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`.
+- ~~Runtime-dump `*(uint*)(landscape+0xc)`~~ **resolved:** `cell = 4` at
+  runtime (all nine Cpg04 stFence ctors logged `cell=00000004`).
 - Decode the `0x535c97` 64-byte-record branch (`record+0x24 * 0.5 <
   record+0x20`).
 - Whether path tiles charge `CONSTRUCTION` (only the wall path and the
@@ -178,6 +193,9 @@ original construction flow:
 ## Evidence
 
 - `notes/fence-insertion-recon.md` — full disassembly/decompilation log.
+- `notes/campaign-unlock-runtime.md` — live Cpg04 trace: `cell=4`, the 20
+  dinosaur size classes, and the campaign/progression `dino.dat`.
+- `scripts/x32dbg/start-campaign.ps1` — reproducible campaign trace harness.
 - `notes/construction-validation.md` — budget gate and first pass.
 - `docs/decomp/economy.md` — budget setters and category mapping.
 - `docs/platform/build.md` — port grid and placement rules.
