@@ -94,6 +94,29 @@ Cross-checks over all 43 shows:
 - every show has at least one judge feature (4..10); the derby arenas place
   nine of them.
 
+### Footprints, rotation and anchoring
+
+The `.bfi` `width`/`height` are the feature's **grid footprint** and the
+`.shw` `(x, y)` is its **min-corner anchor**:
+
+- rotation 0/2 keeps `(width, height)`;
+- rotation 1/3 swaps to `(height, width)`.
+
+Tiling every retail show with these footprints produces **zero overlaps**:
+43/43 shows, 1,679 features, **29,500 occupied cells**, no shared cell. That
+pins the anchor, the rotation rule and the `.bfi` footprint meaning at once.
+
+The only exceptions are 3 **judge** features that overhang the arena edge by
+one cell (they are 4x4 and placed at the last row):
+
+| Show | Judge | Position | Arena |
+| --- | --- | --- | --- |
+| `Cpg2_Obst_1` | 5 JudgeObstacle | (9, 36) | 23x39 |
+| `Cpg2_Obst_Mission4` | 5 JudgeObstacle | (9, 84) | 23x87 |
+| `Cpg4_Derby_1` | 6 JudgeDestruction | (33, 32) | 71x35 |
+
+Every non-judge feature fits inside the declared dimensions.
+
 ### Judge Kind and cage flags
 
 `Judge Kind` 1..4 picks the judge feature directly:
@@ -113,20 +136,40 @@ marker in some obstacle/destruction shows (team variants).
 appears in the feature list. This holds for all 43 files. Ten distinct flag
 combinations occur, e.g. only-small, only-medium, small+high, all-small..high.
 
+## Edition demo shows
+
+`Data/Edition/Show/{demo,demo8,demofinale}.shw` use an older, smaller schema:
+
+```text
+NoName
+32              arena width
+72              arena height
+6               a judge/type value (2 or 6; meaning open)
+20              feature count
+<20 x 4 ints>   (FeatureList index, rotation, x, y)
+```
+
+There is no cost, cage-size, wall-type or team list. All three are 32x72
+with features inside the arena and indices 0..61. `read_shw` rejects them;
+`tools/formats/shw.py::read_demo_shw` parses them.
+
 ## Save catalog relation
 
 The save stores a 39-record catalog (see `docs/formats/sav.md`). For all 39
-records the `.shw` file exists and:
+records the `.shw` file exists and every field matches exactly:
 
-- `param0 == Cost` — 39/39.
-- `param3/param4 == Dimensions` — 39/39.
-- `param1` is `4` in all 39 records (unknown runtime field).
-- `param2` is `1` or `256` and does not equal `Judge Kind`.
-- `param5` is `1` or `2` and does not equal `cage_size[0]`.
+| Save `params[i]` | `.shw` field |
+| ---: | --- |
+| 0 | `Cost` |
+| 1 | constant `4` |
+| 2 | `Available cage size` packed as 4 bytes: `sum(cage_size[i] << (8*i))` |
+| 3 | `Dimensions[0]` (width) |
+| 4 | `Dimensions[1]` (height) |
+| 5 | `Judge Kind` |
 
-So the catalog is a **runtime snapshot** of the show manager: static fields
-(cost, dimensions) match the text file; the remaining two fields are state
-(judge/flags/cage variant), not literal `.shw` values.
+So the catalog is a straight runtime snapshot of the `.shw` fields, not a
+separate state. Examples: `Cpg1_Race_1` ? `(1800, 4, 1, 19, 39, 1)`;
+`Cpg1_Race_2` ? `(7000, 4, 1, 27, 75, 4)`.
 
 ## Reader
 
@@ -151,7 +194,7 @@ Tests: `tests/test_shw.py` (sample + all 43 files + save correlation).
 
 ## Open
 
-- `Judge Kind` and `Wall type` behaviour.
+- `Wall type` behaviour (only 1 is used).
 - Whether the rotation is applied clockwise or counter-clockwise and around
   which cell corner.
 - Runtime catalog fields `param1`/`param2`/`param5`.

@@ -303,12 +303,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Correct the event semantics: the third field is a percentage of the
   current value (`value + current * percent / 100`), and event kinds are
   effect ids, not `ActionList.ini` action ids.
+- [x] Decode the remaining header consumers: `field_32` is an additive
+  behavior-node score (`FUN_0056e820`); `params[7]` and indexed `params[i]`
+  are percent score multipliers (`FUN_0056cb30`/`FUN_0056cc20`);
+  `field_2e` is the action duration (`FUN_0056c0c0`/`FUN_0056d880`);
+  `field_26`/`field_2a` are the end-of-action ramp pair (`FUN_0056ddb0`);
+  `flag_20` is copied by `FUN_0056ac80` but never read. Element `+0x28` is a
+  duration in seconds, not a size.
 - **Acceptance:** all 64 headers and tails parse; the group map, name
   truncation, runtime rotations and event percentages are checked against
   retail files.
-- **Open (not blocking):** the consumers of `field_26/2a/2e/32`, `params[8]`,
-  `flag_20` and the stat-grant vector are not located; they are listed in
-  `docs/formats/bai.md`.
+- **Open (not blocking):** the renderer that consumes the end-ramp vectors and
+  the object behind the indexed `params[i]` multiplier are not located; the
+  stat-grant vector has no reader (stored/cloned but unused). They are listed
+  in `docs/formats/bai.md`.
 - **Depends on:** FMT-15.
 - **Evidence:** `tools/formats/bai.py`, `docs/formats/bai.md`,
   `tests/test_bai.py`.
@@ -412,6 +420,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   BEAM_INFO_1..3, UPGRADE_LEVEL_1..4, COST (8 prices).
 - [x] Level laws: reproduction unlocks at 2; cloning failure 100/40/20/0;
   beam cap 0/1/2/3; fridge 4/8/8/8; gene modifications 0/2/4/20.
+- [x] Runtime layout (`0x5912d0`): arrays at `+0x14..+0x24`, costs at
+  `+0x2c/+0x30/+0x34`, beams at `+0x38/+0x3c`, allele mods `+0x40..+0x48`.
+  `MutationSurvivalChance` is never read (dead 100).
 - **Acceptance:** every key present and typed.
 - **Evidence:** `tools/formats/laboratory.py`,
   `docs/formats/laboratory.md`, `tests/test_laboratory.py`.
@@ -432,6 +443,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Default 3D material = stage 0 `Modulate` (texture x diffuse), wrap,
   linear filters, mipmaps off; fog 1500..2000 colour (255,220,165);
   water uses 3 stages (SelectArg1 / Modulate2x / Disable).
+- [x] Park registry `0x600800`: 16 indexed states (FakeShadow,
+  DualTexturing, envmap, Wall, Shadow_Wall, AttractionGround, Waypoint,
+  additif, SelectedWall, TileFeature, DetailMap, Helper,
+  Shadow_Building, HelperBuilding, minimap, Clouds); menu list in
+  `0x42da60` + WaterSurface in `0x602b80`.
 - [ ] Profile selection in the engine and the Dino_* pairings.
 - **Acceptance:** all profiles expand; every state name documented or listed.
 - **Evidence:** `tools/formats/render_states.py`,
@@ -444,9 +460,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Rotation 0..3 (quarter turns), not team; positions always inside
   dimensions; cage features (0..3) = 174 = team slots, per file.
 - [x] `read_feature_names()` exposes the 62-entry FeatureList order.
+- [x] `Data/Edition/Show` demos use an older schema (`NoName / w / h /
+  judge / count / features`); `read_demo_shw` parses all 3.
 - [x] `Judge Kind` 1..4 selects JudgeRace/JudgeObstacle/JudgeFight/
   JudgeDestruction; `Available cage size` flags equal the cage features used
   (43/43); Wall type 1 in all files.
+- [x] Save catalog params: cost, constant 4, cage flags (4 bytes),
+  dimensions, judge kind ? 39/39 exact.
+- [x] Footprint tiling: `.bfi` w/h as the rotated footprint with (x,y) as
+  min corner gives 0 overlaps over 29,500 cells; 3 judges overhang by 1.
 - [ ] Rotation direction/pivot; Wall type variants (only 1 is used).
 - **Evidence:** `tools/formats/shw.py`, `docs/formats/shw.md`,
   `tests/test_shw.py`, `notes/shw-recon.md`.
@@ -491,6 +513,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `DinoStoreN` = per-mission store with campaign prices; `EggsN` pairs.
 - [x] Data quirks: `TileSmellBad` (4 Cpg02 missions), mixed-case `.shw`
   names, Cpg07 `BarakSport`, repeated store entries.
+- [x] Briefing assets: the 7 `IslandSnapshot` TGAs are not shipped (dead);
+  the 5 ending videos exist (Cpg06/Cpg08 empty, Cpg07 `None`).
 - **Evidence:** `docs/formats/campaign.md`, `tests/test_campaign.py`,
   `notes/campaign-recon.md`.
 
@@ -504,6 +528,27 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   chooser should be a condition/action pair.
 - **Evidence:** `notes/dinosaur-behavior-graph.md`,
   `docs/decomp/function-status.md`.
+
+### AUDIT-1: asset coverage index
+- [x] Every one of the 2,891 files mapped to a spec or an explicit open item
+  (`notes/asset-coverage.md`).
+- [ ] Remaining unknowns: `Actions.bad`, `.lnd` w/h, demo `.shw` judge value,
+  `.bfi` body ints, `.bwi` field semantics, behavior-graph nodes.
+- **Evidence:** `notes/asset-coverage.md`.
+
+### FMT-31: `Actions.bad` behaviour data
+- [x] 9,244 bytes = `u32 5` + 5 x 462 floats; reader validates the division.
+- [x] Each block ends in 12 playback-scale values (0.8..2.0), matching the
+  `.bai` `field_18` range; the 5 blocks match the 5 animation families.
+- [ ] Loader and the meaning of the first 450 floats per block.
+- **Evidence:** `tools/formats/actions_bad.py`,
+  `docs/formats/actions-bad.md`, `tests/test_actions_bad.py`,
+  `notes/actions-bad-recon.md`.
+
+### OPEN-1: remaining unknowns tracker
+- [x] Every remaining unknown is listed with status, what was tried and the
+  concrete next step in `notes/open-issues.md`.
+- **Evidence:** `notes/open-issues.md`, `notes/asset-coverage.md`.
 
 ### SIM-2b-W: visitor attraction scoring weights
 - [x] Prove `DAT_00675638` is set once from the profile record `+0xD0`.
@@ -670,11 +715,32 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `tests/test_viewer_cpp.py`, `tests/test_imp.py`, `tests/test_blf.py`.
 
 ### WORLD-2: Object placement and frustum culling
-- Read scenario/landscape placement data; instance meshes; cull.
+- [x] `.bbi` building definition loader (`src/formats/bbi.cpp`): header, ten
+  asset paths, tail strings; static placement with `--building`,
+  `--building-pos`, `--building-state`, `--building-angle`, `--building-scale`.
+- [x] `.wld`/`.sav` world-block reader (`src/formats/wld.cpp`): versions
+  50–53, fences/shows/animals/employees/buildings/dinosaurs, roads, camera;
+  `--wld-info` matches the Python parser on all seven worlds and `slot001.sav`.
+- [x] Building transform solved: footprint-centre position, `state` = 90°
+  orientation (footprint swaps for odd states), engine heightfield Z, primary
+  `.skin` model. isl01 Entrance = centre `(525.5,387.5)`, Z `69.4`, yaw 90°;
+  Cpg04 on isl04 places 57/57 buildings.
+- [ ] `model[0]`/`model[1]` (slope-align flag / Z offset) and placement
+  through the construction UI.
+- [ ] Read scenario/landscape placement data beyond buildings; instance
+  meshes; cull.
 - **Acceptance:** 1,000+ instances render at interactive FPS.
 - **Depends on:** WORLD-1.
-- **Status:** placement and batching done (1,536 instances in 9 draws);
-  frustum culling and the scenario/building placements remain.
+- **Status:** vegetation placement and batching done (1,536 instances in 9
+  draws); buildings load from `.bbi`/`.wld`/`.sav` with the retail transform;
+  frustum culling and non-building scenario placements remain.
+- **Evidence:** `docs/platform/buildings.md`,
+  `notes/building-placement-recon.md`, `notes/cpg04-buildings.png`,
+  `notes/entrance-center2.png`,
+  `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
+  `test_cpp_building_placement_transform`,
+  `test_cpp_wld_places_all_buildings`,
+  `test_cpp_wld_reader_matches_retail`.
 
 ### WORLD-3: Skybox, water, lighting
 - [x] PNG skybox faces (`front/back/left/right/top/bottom`) via stb_image;
@@ -970,11 +1036,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   **Done:** `docs/decomp/scheduler.md`, `notes/scheduler-recon.md`,
   `docs/decomp/dinosaur-actions.md` (64 action IDs mapped); runtime
   confirmation, the idle sentinel and need-gauge names remain.
-- DEC-3: Map the `.wld` save format. **Solved for versions 50–53:** header,
+- DEC-3: Map the `.wld` save format. **Solved for versions 50-53:** header,
   world object graph, objective list, unlock arrays, 39-show catalog,
-  simulation-state prefix, lab genotype store and the AI/camera tail. A few
-  field semantics remain. See `docs/formats/sav.md`,
-  `docs/formats/wld.md`, `notes/save-graph-recon.md`,
+  simulation-state prefix, lab genotype store and the AI/camera tail. The
+  dinosaur-store price is solved (matches `FreeGame.ini` `[DINOSTORE]`); a few
+  fields remain (park record type ids and small fields). See
+  `docs/formats/sav.md`, `docs/formats/wld.md`, `notes/save-graph-recon.md`,
   `notes/world-objects-recon.md`, `tools/formats/sav_graph.py`,
   `tools/formats/wld.py`.
 - DEC-4: Recover the original assert-string source map into `docs/architecture.md`.

@@ -78,3 +78,50 @@ occurs. 43/43 exact. Ten combinations occur:
 `1110`, `1100`, `0110`, `0111`, `1001`.
 
 `Wall type` is 1 in all 43 files (one wall style).
+
+## Edition demo shows (2026-10-26)
+
+`Data/Edition/Show/{demo,demo8,demofinale}.shw` are a different, older
+schema:
+
+```
+NoName
+32        width
+72        height
+6|2       judge/type value (unknown)
+20|5|8    feature count
+features (4 ints each)
+```
+
+No cost/cage/wall/team fields. All 3 are 32x72; features use the same
+(FeatureList index, rotation, x, y) tuple and stay inside the arena.
+`read_shw` rejects them; `read_demo_shw` parses them.
+
+## Save catalog fields (2026-10-26)
+
+All 39 catalog records are a straight snapshot of the `.shw`:
+
+```
+params[0] = Cost
+params[1] = 4 (constant)
+params[2] = cage flags packed as 4 bytes (sum(cage_size[i] << (8*i)))
+params[3] = Dimensions[0]
+params[4] = Dimensions[1]
+params[5] = Judge Kind
+```
+
+Verified 39/39 against `run/save/slot001.sav`; `tests/test_shw.py` checks it.
+The earlier note that `param2` is "1 or 256" and `param5` is "1 or 2" came
+from a partial sample: the full set includes 0x10000/0x1000000 combinations
+(multi-cage shows) and judge kinds 1..4.
+
+## Footprint tiling (2026-10-26)
+
+Using `.bfi` width/height as the grid footprint, rotation 0/2 = (w,h) and
+1/3 = (h,w), and the tuple (x,y) as the min corner, all 43 shows tile with
+**zero overlaps**: 1,679 features -> 29,500 cells, no shared cell. This
+proves the anchor, rotation and footprint semantics.
+
+Only 3 judge features overhang the arena edge by one cell (4x4 at the last
+row): Cpg2_Obst_1 (9,36 in 23x39), Cpg2_Obst_Mission4 (9,84 in 23x87),
+Cpg4_Derby_1 (33,32 in 71x35).

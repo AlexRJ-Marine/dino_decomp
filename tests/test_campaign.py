@@ -241,3 +241,25 @@ def test_mission_content_groups():
             for genotype in tokens[1::2]:
                 assert genotype in genotypes, genotype
     assert len(typo_missions) == 4
+
+def test_campaign_briefing_assets():
+    """Ending videos exist; the island snapshots are not shipped."""
+    if not (SCENARIO / "CampaignList.ini").exists():
+        pytest.skip("retail sample not present")
+    campaigns = load_campaigns(SCENARIO)
+    videos = {path.name.lower() for path in GAME.rglob("*.mpg")}
+    snapshots = {path.name.lower() for path in GAME.rglob("*.tga")}
+    used_snapshots = 0
+    used_videos = 0
+    for campaign in campaigns:
+        briefing = campaign.sections.get("BRIEFING", {})
+        snapshot = briefing.get("ISLANDSNAPSHOT", "")
+        if snapshot:
+            used_snapshots += 1
+            assert snapshot.lower() not in snapshots, snapshot  # dead field
+        ending = briefing.get("ENDINGVIDEO", "")
+        if ending and ending.lower() not in ("", "none"):
+            used_videos += 1
+            assert ending.lower() in videos, ending
+    assert used_snapshots == 7
+    assert used_videos == 5

@@ -84,3 +84,22 @@ The strings are the celebration/firework sound set (`rocket`, `trumpet`,
 - Numeric meanings in GeneralParams.bgd (times/rates/distances/ramp).
 - Upgrade price source (not in Laboratory.ini).
 - Whether `RadiationDamage` is a probability or a stat hit.
+
+## Runtime object (2026-10-26)
+
+`FUN_005912d0` (spLaboratory ctor) reads the INI into arrays:
+
+```
++0x14 u8[levels]   ReproductionAvailable
++0x18 u32[levels]  MaxGeneModifications
++0x1c u32[levels]  CloningFailurePercentage
++0x20 u32[levels]  MutationBeamMaxStrength
++0x24 u32[levels]  FridgeSlots
++0x2c Breed        +0x30 Cloning      +0x34 u32[beams] Mutation1..3
++0x38 u32[beams]   NumAlteredGenes
++0x3c u32[beams]   RadiationDamage
++0x40 RareAlleleModification +0x44 Uncommon +0x48 Common
+```
+
+`MutationSurvivalChance` is not referenced anywhere in the exe, so the retail
+100 is dead data; the beam risk is `RadiationDamage`, stored per beam.

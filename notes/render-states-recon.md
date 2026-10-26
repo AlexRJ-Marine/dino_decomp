@@ -79,3 +79,22 @@ the opaque lit reference; Shape2D/Font profiles cover the HUD.
 - Profile selection in the engine (by name string).
 - Dino_* profile pairing with actors.
 - The four doc drifts.
+
+## Registry (2026-10-26)
+
+`FUN_00600800` registers the park states by index:
+
+```
+0 Dino_FakeShadow     1 Dino_DualTexturing  2 Dino_envmap
+3 Dino_Wall           4 Dino_Shadow_Wall    5 Dino_AttractionGround
+6 Waypoint            7 Dino_additif        8 Dino_SelectedWall
+9 Dino_TileFeature   10 DetailMap          11 Helper
+12 Dino_Shadow_Building 13 Dino_HelperBuilding 14 Dino_minimap
+15 Dino_Clouds
+```
+
+`FUN_0042da60` loads the menu states (Censor, Skybox, Texture,
+TextureLighted, TextureAlpha, TextureAlphaLighted, Shape, ShapeAlpha,
+ShapeColor2D, ShapeColorAlpha2D, ShapeTexture2D, ShapeTextureAlpha2D,
+Font) and derives the two-sided variants. `FUN_00602b80` registers
+WaterSurface separately.

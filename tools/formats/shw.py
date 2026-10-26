@@ -149,6 +149,63 @@ def read_shw(path: Path) -> Show:
     return show
 
 
+@dataclass
+class DemoShow:
+    """Older editor show format from ``Data/Edition/Show``.
+
+    ``name / width / height / judge-feature / feature count / features`` —
+    no cost, cage flags, wall type or team list.
+    """
+
+    path: str
+    name: str
+    width: int
+    height: int
+    judge: int
+    features: list[tuple[int, int, int, int]]
+
+    def summary(self) -> dict:
+        return {
+            "path": self.path,
+            "name": self.name,
+            "width": self.width,
+            "height": self.height,
+            "judge": self.judge,
+            "features": len(self.features),
+        }
+
+
+def read_demo_shw(path: Path) -> DemoShow:
+    lines = [
+        line.strip()
+        for line in path.read_text(encoding="cp1252", errors="replace").splitlines()
+        if line.strip()
+    ]
+    if len(lines) < 6:
+        raise ShwFormatError(f"{path}: demo show too short")
+    name = lines[0]
+    width, height, judge, count = (int(value) for value in lines[1:5])
+    rows = lines[5:]
+    if len(rows) != count:
+        raise ShwFormatError(
+            f"{path}: demo feature count {count} != {len(rows)}"
+        )
+    features = []
+    for row in rows:
+        values = [int(value) for value in row.split()]
+        if len(values) != 4:
+            raise ShwFormatError(f"{path}: demo feature row {row!r}")
+        features.append(tuple(values))
+    return DemoShow(
+        path=str(path),
+        name=name,
+        width=width,
+        height=height,
+        judge=judge,
+        features=features,
+    )
+
+
 def read_feature_names(features_dir: Path) -> list[str]:
     """Return the ``FeatureList.ini`` order used by the .shw feature tuples.
 

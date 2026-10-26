@@ -29,6 +29,19 @@ values, `;` comments); later section/key definitions override the base.
 | `MISSION` | `MissionList` |
 | `CONTEXT` | `WorldFile`, `Budget`, `SellBackFactor` |
 
+### Campaign briefing fields
+
+| Key | Content | Retail check |
+| --- | --- | --- |
+| `Title` | `&loc` id | all resolve |
+| `DescriptionText` | `&loc` id | all resolve |
+| `IslandSnapshot` | `islandNN_snapshot.tga` | **none of the 7 TGAs are shipped** (dead field) |
+| `EndingText` | `&loc` id | resolves |
+| `EndingVideoName` | `&loc` id | resolves |
+| `EndingVideo` | `.mpg` file | basket/tennis/trampoline/Trappe/mixe exist; Cpg06/Cpg08 empty; Cpg07 `None` |
+
+`Cpg07` (cut) uses `EndingVideo="None"` and `Cpg08` reuses `island07_snapshot.tga`.
+
 ## CampaignList table
 
 | Campaign | Island | Budget | Missions | World file | Size |

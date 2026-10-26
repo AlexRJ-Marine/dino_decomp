@@ -50,6 +50,46 @@ Four names used by the retail files are missing from or misspelled in
 `mgStatePointSizeMax` (doc `mgStatePointSizeMAx`), `mgStateStencilFunc` and
 `mgStateTextureMaxAnisotropy` (not documented).
 
+## Park render-state registry (16 slots)
+
+`0x00600800` registers the park actor states by **index**; the renderer
+selects a state by number, so these indices are part of the engine contract:
+
+| Index | Profile | Used for |
+| ---: | --- | --- |
+| 0 | `Dino_FakeShadow.ini` | fake shadow blobs |
+| 1 | `Dino_DualTexturing.ini` | dual-texture rendering |
+| 2 | `Dino_envmap.ini` | environment mapping |
+| 3 | `Dino_Wall.ini` | walls |
+| 4 | `Dino_Shadow_Wall.ini` | wall shadows |
+| 5 | `Dino_AttractionGround.ini` | attraction floors |
+| 6 | `Waypoint.ini` | waypoints |
+| 7 | `Dino_additif.ini` | additive pass |
+| 8 | `Dino_SelectedWall.ini` | selected wall |
+| 9 | `Dino_TileFeature.ini` | tile features |
+| 10 | `DetailMap.ini` | terrain detail map |
+| 11 | `Helper.ini` | helper markers |
+| 12 | `Dino_Shadow_Building.ini` | building shadows |
+| 13 | `Dino_HelperBuilding.ini` | building helpers |
+| 14 | `Dino_minimap.ini` | minimap |
+| 15 | `Dino_Clouds.ini` | clouds |
+
+## Menu / general registry
+
+`0x0042da60` loads the non-park profiles:
+
+```text
+Censor.ini  Skybox.ini  Texture.ini  TextureLighted.ini
+TextureAlpha.ini  TextureAlphaLighted.ini
+Shape.ini  ShapeAlpha.ini  ShapeColor2D.ini  ShapeColorAlpha2D.ini
+ShapeTexture2D.ini  ShapeTextureAlpha2D.ini  Font.ini
+```
+
+It also derives named two-sided variants from them:
+`TextureTwoSided`, `TextureAlphaTwoSided`, `TextureAlphaLightedTwoSided`,
+`TextureLightedTwoSided`. `0x00602b80` registers `WaterSurface.ini`
+separately for the water pass.
+
 ## Profiles
 
 `Standard.ini` is the canonical opaque lit profile:

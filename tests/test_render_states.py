@@ -87,3 +87,48 @@ def test_every_name_is_documented():
             if state.name in undocumented:
                 continue
             assert state.name in description, state.name
+
+PARK_REGISTRY = [
+    "Dino_FakeShadow.ini",
+    "Dino_DualTexturing.ini",
+    "Dino_envmap.ini",
+    "Dino_Wall.ini",
+    "Dino_Shadow_Wall.ini",
+    "Dino_AttractionGround.ini",
+    "Waypoint.ini",
+    "Dino_additif.ini",
+    "Dino_SelectedWall.ini",
+    "Dino_TileFeature.ini",
+    "DetailMap.ini",
+    "Helper.ini",
+    "Dino_Shadow_Building.ini",
+    "Dino_HelperBuilding.ini",
+    "Dino_minimap.ini",
+    "Dino_Clouds.ini",
+]
+MENU_REGISTRY = [
+    "Censor.ini",
+    "SkyBox.ini",
+    "Texture.ini",
+    "TextureLighted.ini",
+    "TextureAlpha.ini",
+    "TextureAlphaLighted.ini",
+    "Shape.ini",
+    "ShapeAlpha.ini",
+    "ShapeColor2D.ini",
+    "ShapeColorAlpha2D.ini",
+    "ShapeTexture2D.ini",
+    "ShapeTextureAlpha2D.ini",
+    "Font.ini",
+]
+
+
+def test_registry_profiles_exist():
+    """The 16 park slots and 13 menu profiles are all present and parse."""
+    if not STATES.exists():
+        pytest.skip("retail sample not present")
+    for name in PARK_REGISTRY + MENU_REGISTRY:
+        path = STATES / name
+        assert path.exists(), name
+        profile = read_render_state(path)
+        assert profile.states, name

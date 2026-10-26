@@ -145,6 +145,28 @@ Updated: 2026-10-26
   - Evidence: `src/hook/dinput8_proxy.cpp`, `scripts/build-hook.ps1`,
     `scripts/play-freegame-direct.ps1`, `docs/decomp/hybrid.md`,
     `notes/park-hook.png`, `notes/hook-4663a0-4809a0.log`.
+- WORLD-2a complete: **`.bbi` building loader + retail placement transform.**
+  - `src/formats/bbi.cpp` reads the 121-byte header, ten asset paths and tail
+    strings; `src/formats/wld.cpp` reads the shared `.wld`/`.sav` world block
+    (versions 50–53) and exposes every `drsBuilding`.
+  - Placement solved from `0x53d1a0`/`0x589100`/`0x586b80`/`0x5fecf0`/
+    `0x61ffc0`: `cell_x/cell_y` is the footprint min corner, `state` is the
+    90° orientation (odd states swap the footprint), the model sits at the
+    footprint centre on the engine heightfield, and the primary `.skin` is
+    the actor model. isl01 Entrance = centre `(525.5,387.5)`, Z `69.4`,
+    yaw 90°. The terrain sampler now matches `FUN_005c0b80` (`world*0.5`,
+    sample 0 at -512).
+  - Cpg04 on isl04 places 57/57 buildings, including 12 skinned primaries
+    (`load_skin_auto` in `src/formats/skin.cpp`).
+  - Open: `model[0]`/`model[1]` (slope flag / Z offset) and construction-UI
+    placement.
+  - Evidence: `docs/platform/buildings.md`,
+    `notes/building-placement-recon.md`, `notes/entrance-save.png`,
+    `notes/entrance-center2.png`, `notes/cpg04-buildings.png`,
+    `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
+    `test_cpp_building_placement_transform`,
+    `test_cpp_wld_places_all_buildings`,
+    `test_cpp_wld_reader_matches_retail`.
 - WORLD-1 complete: **isl01 terrain + 1,536 placed trees.**
   - `.lnd` + 512×512 8-bit heightmap → 1024-unit terrain (522,242 triangles),
     basemap TGA, bilinear heights.
@@ -432,7 +454,7 @@ Updated: 2026-10-26
     an ASCII name. Writer `0x592b20` → genotype writer `0x585100` (18 pairs);
     reader `0x592a00` → `0x584ed0`. Runtime record is 0xe8 bytes; the file
     stores only flag/genotype/name. Retail saves have 8 empty slots.
-  - Remaining: a few field semantics (park header, store_id meaning).
+  - Remaining: a few field semantics (park header type ids).
   - Evidence: `notes/save-recon.md`, `notes/save-graph-recon.md`,
     `notes/world-objects-recon.md`, `docs/formats/sav.md`,
     `docs/formats/wld.md`, `tools/formats/sav.py`, `sav_graph.py`,
@@ -551,8 +573,17 @@ Updated: 2026-10-26
   - Retail totals: 46 preconditions/33 files, 43 weights/33, 134 need
     deltas, 24 grants, 204 elements/63 files, 171 events; effect classes
     0/1/2/3/5 = 44/1/1/1/17.
-  - Open: consumers of `field_26/2a/2e/32`, `params[8]`, `flag_20` and the
-    stat-grant vector.
+  - Header consumers solved: `field_32` is an additive behavior-node score
+    (`FUN_0056e820`); `params[7]` and indexed `params[i]` are percent score
+    multipliers (`FUN_0056cb30`/`FUN_0056cc20`, built by
+    `apDinosaurBehavior`); `field_2e` is the action duration
+    (`FUN_0056c0c0`/`FUN_0056d880`); `field_26`/`field_2a` form the
+    end-of-action ramp pair consumed by `FUN_0056ddb0`; `flag_20` is copied
+    by `FUN_0056ac80` but never read. Element `+0x28` is a duration in
+    seconds, not a size.
+  - Open: the renderer of the end-ramp vectors and the source object for the
+    indexed `params[i]` multiplier; the stat-grant vector is stored and
+    cloned but has no reader.
   - Evidence: `tools/formats/bai.py`, `docs/formats/bai.md`,
     `tests/test_bai.py`, `notes/bai-recon.md`,
     `notes/bai-tail-parse.json`.
@@ -574,6 +605,22 @@ Updated: 2026-10-26
   - Evidence: `tools/formats/translator_constants.py`,
     `docs/formats/translator-constants.md`,
     `tests/test_translator_constants.py`, `notes/translator-recon.md`.
+- OPEN-1 complete: **remaining-unknowns tracker** (`notes/open-issues.md`)
+  with status, attempts and next steps for `Actions.bad`, `.lnd` w/h,
+  `.bfi` body, `.bwi` fields/switch keys, behavior-graph nodes and the demo
+  `.shw` value.
+- FMT-31 complete: **`Actions.bad` structure.**
+  - 9,244 bytes = `u32 5` + 5 ? 462 floats. Each block ends in 12
+    playback-scale values (0.8?2.0) matching the `.bai` `field_18` range;
+    the 5 blocks match the 5 animation families.
+  - First 450 floats per block remain unidentified (no loader yet).
+  - Evidence: `tools/formats/actions_bad.py`,
+    `docs/formats/actions-bad.md`, `tests/test_actions_bad.py`,
+    `notes/actions-bad-recon.md`.
+- AUDIT-1 complete: **asset coverage index** (`notes/asset-coverage.md`):
+  all 2,891 files mapped to specs; remaining unknowns listed (`Actions.bad`,
+  `.lnd` width/height, demo `.shw` judge value, `.bfi` body ints, `.bwi`
+  field semantics, behavior-graph nodes).
 - DEC-2b research: **dinosaur behavior graph located.**
   - `apDinosaurBehavior` (`0x521b30`) owns the actor and two sub-behaviors;
     the node graph is serialized by `0x56ce80` (41 node types) /
@@ -589,6 +636,8 @@ Updated: 2026-10-26
     per-mission store (campaign prices far below Market.ini); `EggsN` pairs.
   - Quirks: `TileSmellBad` in 4 Cpg02 missions, mixed-case `.shw` names,
     Cpg07 `BarakSport`, repeated store entries.
+  - Briefing: the 7 `IslandSnapshot` TGAs are not shipped (dead field); the
+    5 ending videos exist (Cpg06/Cpg08 empty, Cpg07 `None`).
   - Evidence: `docs/formats/campaign.md`, `tests/test_campaign.py`,
     `notes/campaign-recon.md`.
 - FMT-30 complete: **`Data/Config` startup/input/camera.**
@@ -621,6 +670,9 @@ Updated: 2026-10-26
   - `Judge Kind` 1..4 = JudgeRace/JudgeObstacle/JudgeFight/JudgeDestruction;
     cage-size flags equal the cage features used (43/43).
   - `read_feature_names()` exposes the 62-entry FeatureList order.
+  - Footprints: `.bfi` w/h is the grid footprint, `(x,y)` the min corner,
+    rotation 0/2=(w,h) 1/3=(h,w). All 43 shows tile with 0 overlaps over
+    29,500 cells; 3 judges overhang the edge by 1.
   - Evidence: `tools/formats/shw.py`, `docs/formats/shw.md`,
     `tests/test_shw.py`, `notes/shw-recon.md`.
 - FMT-27 complete: **`Data/States` render-state profiles.**
@@ -632,6 +684,8 @@ Updated: 2026-10-26
   - Grammar reference is `Description.txt`; four state names drifted from
     it (`mgStateAlphablendOp`, `mgStatePointSizeMax`, `mgStateStencilFunc`,
     `mgStateTextureMaxAnisotropy`).
+  - Park registry `0x600800`: 16 indexed states (0 FakeShadow ? 15 Clouds);
+    menu list in `0x42da60`, WaterSurface in `0x602b80`.
   - Evidence: `tools/formats/render_states.py`,
     `docs/formats/render-states.md`, `tests/test_render_states.py`,
     `notes/render-states-recon.md`.
@@ -856,9 +910,10 @@ Updated: 2026-10-26
   - `entrance_lod1.skel`, `.skin`, `.anim`, `.mesh`
   - customer/person `.mesh` LODs
   - dinosaur animation `.anim` files (LowQuadruped, etc.)
-- DEC-3 park header/tail complete: **`0x293` block fully mapped.**
-  - Header: class id `2`, then `0/3` (manual/auto), `100`, `10.0/0.0`,
-    32 zero bytes.
+- DEC-3 park header/tail complete: **`0x293` block mapped.**
+  - Header: the leading `2` is consumed by `FUN_0058aed0` as a record count,
+    not a proven class id; then `0/3` (manual/autosave type id), `100`,
+    `10.0/0.0`, 32 zero bytes.
   - Tail: day `0`, elapsed/current seconds (23.214 manual, 0.0 auto), task
     field `+0x18`, 11 task slots, the 12-byte `spPark+0x148` field
     (`00 00 ad ba` + two zero dwords) and a trailing `0x01`.
@@ -882,10 +937,10 @@ Updated: 2026-10-26
 - Phase 3 vertical slice otherwise works: island, vegetation, dinosaur, free
   camera, path/fence, sky/water, visitors, HUD.
 - WORLD-3 polish remains: skybox orientation vs the original, water tuning.
-- WORLD-2 remains: culling, LOD2, scenario/building placements.
+- WORLD-2 remains: `model[0]`/`model[1]` (slope flag / Z offset), construction
+  placement through the UI, frustum culling and LOD2. Building placement from
+  `.wld`/`.sav` is solved (57/57 on Cpg04/isl04).
 - QOL-2 (UI scaling) builds on the `.fnt` renderer.
-- FMT-3b C++ handoff (not blocking): apply the `.mesh` bind-matrix choice in
-  `build_skinned_mesh`; the rule and snippet are in `notes/lod-bind-recon.md`.
 
 ## Next action
 
@@ -897,22 +952,24 @@ Updated: 2026-10-26
 3. SIM-2b: port the decompiled visitor choose → travel → use → leave flow
    (`docs/decomp/visitor-ai.md`) and bind visitor profiles/needs.
 4. Capture a side-by-side comparison against the original game for WORLD-3.
-5. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
-6. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
+5. WORLD-2 rest: map `model[0]`/`model[1]` and place buildings through the
+   construction UI; then frustum culling and LOD2.
+6. Continue hybrid detours (`0x47d460`, `0x47cc90`) when contracts are ported.
+7. DEC-2 follow-up: runtime-confirm the task order and `0x1f` idle sentinel,
    and name the two dinosaur need gauges (`+0x96`, `+0x97`); action IDs are
    solved in `docs/decomp/dinosaur-actions.md`.
-7. DEC-3 rest: the world object graph, unlock arrays, AI/camera tail, lab
-   genotype store, park header and schedule tail are solved. Remaining:
-   `store_id` semantics, the park header field meanings (`0/3`, `100`,
-   `10.0/0.0`) and a few small fields. See `docs/formats/sav.md` and
+8. DEC-3 rest: the world object graph, unlock arrays, AI/camera tail, lab
+   genotype store, park tail and the dinosaur-store price are solved.
+   Remaining: the park record type ids (`0/3`), the `100`/`10.0/0.0` fields
+   and a few small fields. See `docs/formats/sav.md` and
    `docs/formats/wld.md`.
-8. SIM-4 rest: runtime-verify the panel rows against a populated save; the
+9. SIM-4 rest: runtime-verify the panel rows against a populated save; the
    row mapping, category labels and daily settlement trigger are solved. See
    `docs/decomp/economy.md`.
-9. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
+10. STAFF rest: decode job kind `0xb`; roles (Nutritionist 0 / Guard 1) and
    wages are solved in `docs/decomp/economy.md`. See
    `docs/decomp/employee-ai.md`.
-10. User: publish `docs/community/xentax-post.md` and record any replies.
+11. User: publish `docs/community/xentax-post.md` and record any replies.
 
 ## Blockers
 

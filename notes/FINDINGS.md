@@ -357,3 +357,27 @@ are compact binary parameter blocks. `.lnd` uses length-prefixed strings (name +
   0x56ce80 (read, 41 node types) / 0x56d5a0 (write). Node record = type + 3
   ints + two int vectors + child link + actor field. The action chooser is one
   of the 41 node types.
+- Render-state registry: FUN_00600800 registers 16 park states by index
+  (0 FakeShadow, 1 DualTexturing, 2 envmap, 3 Wall, 4 Shadow_Wall,
+  5 AttractionGround, 6 Waypoint, 7 additif, 8 SelectedWall, 9 TileFeature,
+  10 DetailMap, 11 Helper, 12 Shadow_Building, 13 HelperBuilding, 14 minimap,
+  15 Clouds). Menu profiles load in FUN_0042da60 + WaterSurface in FUN_00602b80.
+- Data/Edition/Show demos: 3 .shw in an older schema (NoName, width, height,
+  judge value 2|6, feature count, 4-int features; no cost/cage/wall/teams).
+  All 32x72. read_demo_shw parses them; the retail reader rejects them.
+- Actions.bad: 9244 bytes = u32 5 + 5 x 462 floats. Each block ends in 12
+  playback scales (0.8..2.0, same family as .bai field_18); the 5 blocks
+  match the 5 animation families. First 450 floats per block still unknown.
+- Save show catalog params fully decoded (39/39): p0=Cost, p1=4 constant,
+  p2=cage flags packed as 4 bytes (sum(cage_size[i]<<8i)), p3/p4=dimensions,
+  p5=Judge Kind. The old "param2 1|256, param5 1|2" was a partial sample.
+- spLaboratory runtime layout (0x5912d0): +0x14..+0x24 level arrays,
+  +0x2c/+0x30 breed/clone costs, +0x34 mutation costs, +0x38 NumAlteredGenes,
+  +0x3c RadiationDamage, +0x40..+0x48 allele modification costs.
+  MutationSurvivalChance is never referenced in the exe (dead 100).
+- Campaign briefing: the 7 IslandSnapshot TGAs are not shipped (dead field);
+  ending videos basket/tennis/trampoline/Trappe/mixe exist, Cpg06/Cpg08 empty,
+  Cpg07 "None"; Cpg08 reuses island07_snapshot.tga.
+- .shw/.bfi placement proven: .bfi width/height is the grid footprint, .shw
+  (x,y) the min corner, rotation 0/2=(w,h) 1/3=(h,w). All 43 shows tile with
+  0 overlaps over 29,500 cells. 3 judge features overhang the arena edge by 1.

@@ -58,6 +58,33 @@ the beam strength cap rises 0 → 3; the gene-modification cap is 0/2/4/20.
 These are the park-budget costs shown by the lab panels
 (`LabInterfaceBreed/Clone/Fridge/Modify.Ini`).
 
+## Runtime object (`spLaboratory`, `0x005912d0`)
+
+The lab manager reads the INI into arrays sized by `MaxUpgradeLevel` and
+`MaxBeamStrength`:
+
+| Offset | Type | Key |
+| ---: | --- | --- |
+| `+0x14` | `u8[MaxUpgradeLevel]` | `ReproductionAvailable` |
+| `+0x18` | `u32[MaxUpgradeLevel]` | `MaxGeneModifications` |
+| `+0x1c` | `u32[MaxUpgradeLevel]` | `CloningFailurePercentage` |
+| `+0x20` | `u32[MaxUpgradeLevel]` | `MutationBeamMaxStrength` |
+| `+0x24` | `u32[MaxUpgradeLevel]` | `FridgeSlots` |
+| `+0x2c` | `u32` | `COST/Breed` |
+| `+0x30` | `u32` | `COST/Cloning` |
+| `+0x34` | `u32[MaxBeamStrength]` | `COST/Mutation1..3` |
+| `+0x38` | `u32[MaxBeamStrength]` | `BEAM_INFO_n/NumAlteredGenes` |
+| `+0x3c` | `u32[MaxBeamStrength]` | `BEAM_INFO_n/RadiationDamage` |
+| `+0x40` | `u32` | `COST/RareAlleleModification` |
+| `+0x44` | `u32` | `COST/UncommonAlleleModification` |
+| `+0x48` | `u32` | `COST/CommonAlleleModification` |
+
+`MutationSurvivalChance` is **never read** by the loader (no string
+reference in the exe): the retail value `100` is dead data. The beam risk is
+therefore `RadiationDamage` (stored per beam), not a survival roll.
+`RadiationDamage` is an integer consumed by the mutation action (its exact
+use is still open).
+
 ## Reader
 
 `tools/formats/laboratory.py` reuses `overlay.parse_ini` and returns a
