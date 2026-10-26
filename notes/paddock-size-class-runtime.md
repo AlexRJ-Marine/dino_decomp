@@ -115,6 +115,12 @@ composed by more than a plain two-allele blend. Do not treat the `.wld`
 genotype as the final phenotype for the size class until the live genotype is
 traced.
 
+Next experiment: capture the live 18-gene pointer at a **per-spawn** site
+(`0x586520`, args `[esp+4]` = actor+0x3c, `[esp+8]` = genotype pointer) with a
+minimal one-value log, then dump the 18 pairs from the log address. Breakpoint
+probes at `0x619830` with multi-dereference commands flooded/hung the headless
+harness; keep the log expression to a single `{p:...}` value per line.
+
 ## Port guidance
 
 `src/world/build.cpp::paddock_size_class` currently uses 300/900/1400. The
