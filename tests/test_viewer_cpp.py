@@ -1791,6 +1791,85 @@ def test_cpp_cpg04_phenotype_lengths():
     assert "paddocks: 9 capacity=492 used=336" in result.stdout
 
 
+def test_cpp_cpg04_phenotype_attributes():
+    """Computed phenotype attributes against the live Cpg04 ctor table.
+
+    `notes/phenotype-attributes-runtime.md` records the 20 live rows. The
+    base layer (parts 3 + the gene expressions) reproduces every row except
+    the dummy/skin/carapace accumulator residuals: row 1 (all dummy genes
+    (1,1)) shifts beauty/agility/armor/attack/intelligence, and rows 10, 11
+    and 13 shift the attack total. See docs/formats/translator-constants.md.
+    """
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    env = dict(os.environ, DINO_DEBUG_PHENO="1")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld)],
+        capture_output=True, text=True, timeout=180, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = [line for line in (result.stdout + result.stderr).splitlines()
+             if line.startswith("pheno ")]
+    assert len(lines) == 20
+
+    def fields(line):
+        out = {}
+        for token in line.split():
+            if "=" in token:
+                key, value = token.split("=", 1)
+                out[key] = value
+        return out
+
+    rows = [fields(line) for line in lines]
+    # Live/baseline columns. Intelligence row 1 is 15 here (the live ctor
+    # value is 18 because of the dummy accumulator).
+    assert [int(r["wid"]) for r in rows] == [
+        139, 260, 260, 260, 69, 69, 187, 71, 165, 165,
+        260, 72, 111, 111, 111, 111, 111, 111, 74, 74,
+    ]
+    assert [int(r["hei"]) for r in rows] == [
+        234, 420, 420, 420, 150, 150, 323, 148, 291, 291,
+        432, 147, 181, 210, 210, 210, 210, 210, 147, 147,
+    ]
+    assert [int(r["P"]) for r in rows] == [
+        12, 34, 34, 34, 51, 51, 45, 45, 42, 42,
+        46, 41, 33, 57, 57, 57, 57, 57, 41, 41,
+    ]
+    assert [int(r["I"]) for r in rows] == [
+        15, 38, 38, 38, 105, 105, 40, 91, 56, 57,
+        32, 78, 35, 48, 48, 48, 48, 48, 77, 77,
+    ]
+    assert [int(r["B"]) for r in rows] == [
+        30, 20, 20, 20, 45, 45, 23, 49, 31, 32,
+        21, 54, 35, 30, 30, 30, 30, 30, 55, 55,
+    ]
+    assert [int(r["Arm"]) for r in rows] == [
+        70, 25, 25, 25, 30, 30, 33, 28, 25, 27,
+        27, 30, 58, 45, 45, 45, 45, 45, 30, 30,
+    ]
+    # Rows 10/11/13 carry the documented accumulator attack delta.
+    assert [int(r["Atk"]) for r in rows] == [
+        229, 335, 335, 335, 179, 179, 332, 202, 250, 273,
+        357, 225, 287, 325, 325, 325, 325, 325, 225, 225,
+    ]
+    # Gene expressions: Agre/Stam/Cour at (a+b)//2 (the live rows 11/13
+    # differ by the dummy accumulator).
+    assert [(int(r["Ag"]), int(r["St"]), int(r["Co"])) for r in rows] == [
+        (70, 70, 70), (80, 40, 70), (80, 40, 70), (80, 40, 70),
+        (70, 20, 40), (70, 20, 40), (90, 50, 75), (60, 40, 30),
+        (70, 40, 50), (70, 40, 70), (80, 50, 75), (60, 40, 40),
+        (70, 40, 70), (90, 50, 80), (90, 50, 80), (90, 50, 80),
+        (90, 50, 80), (90, 50, 80), (60, 30, 50), (60, 30, 50),
+    ]
+
+
 def test_cpp_dino_action_loop():
     if not EXE.exists():
         pytest.skip("viewer not built")

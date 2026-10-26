@@ -1,7 +1,6 @@
 # Phenotype attributes (runtime trace)
 
-Status: **first layer and Intelligence solved; the part-record accumulator
-is still open.**
+Status: **solved; ported to C++ (accumulator residual remains).**
 This extends `notes/phenotype-length-runtime.md`. The 20 Cpg04 dinosaurs were
 logged at the `saDinosaur` ctor (`0x56FED0`) with the full phenotype field set;
 the table below is the durable copy.
@@ -14,8 +13,9 @@ the table below is the durable copy.
 | `+0x0c` | width | part width sum/scales |
 | `+0x14` | height | part height sum/scales |
 | `+0x18` / `+0x1c` | volume int / float (`x*0.001` scale) | length x width x height |
-| `+0x28` | walk speed (float) | `+0x1b * WalkingSpeedCoef * 0.01` |
-| `+0x2c` | run speed (float) | walking * RunningSpeedCoef, 0 below min motricity |
+| `+0x28` | violence evolution (`aggression * ViolenceEvolutionRate * 0.01`) | `+0x6c * 0.4 * 0.01` |
+| `+0x2c` | walk speed (float) | `body length * WalkingSpeedCoef * motricity` |
+| `+0x30` | run speed (float) | `body length * RunningSpeedCoef * motricity`, 0 below the min |
 | `+0x34` | jump | `JumpPercentage * agility / 100` |
 | `+0x38` | Perception | Part 3 sum + `PerceptionHeightPercentage * height / 100` |
 | `+0x3c` | Intelligence (UI label) | `trunc(25 * Part3IntSum / V^0.22)` (see below) |
@@ -73,7 +73,17 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
   expressions for the dummy-zero rows, except rows 11/13 where the part
   records add +-2..5.
 - **Perception**: base + 2..4, matching the height percentage term.
-- **Walk speed** (`+0x28`, float): 0.240..0.360 for the 20 Cpg04 genotypes.
+- **Walk speed is not the `+0x28` column.** The 0.240..0.360 values in the
+  table are `+0x28` = `aggression * 0.004` (violence evolution). The real
+  walk/run speeds are `+0x2c`/`+0x30 =
+  body_length * (0.1|0.4) * motricity`, `motricity = speed_sum / weight^0.85`.
+  The C++ port computes them (`DinoAttributes::walk_speed/run_speed`); the
+  retail units are centimetres per second.
+- **Port status.** `src/formats/dino_data.*` now parses all Part 3 groups,
+  the Part 1 Agre/Stam/Cour matrices, Part 10 and `TranslatorConstants.ini`,
+  and computes the full attribute set (`DinoAttributes`). The Cpg04 test
+  reproduces 16/20 live rows exactly; the residuals are the unported
+  dummy/skin/carapace accumulator. `DINO_DEBUG_PHENO=1` prints every field.
 - **Intelligence (`+0x3c`) solved.** It is an encephalization quotient, not
   the Part 3 sum:
 

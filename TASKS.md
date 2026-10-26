@@ -950,6 +950,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   width/reference, percentage pass adds `value-100`; skin/carapace are
   separate Part-7/8 additions. Application formula and field map solved
   (`notes/part-record-accumulator-recon.md`).
+- [x] Port the base phenotype: Part 3 groups (Length/Width/Height/Weight/
+  Speed/Perception/Intelligence/Beauty/Armor/Agility/Attack), Part 1
+  Agre/Stam/Cour dominance matrices, Part 10 families and
+  `TranslatorConstants.ini`. `DinoAttributes` reproduces 16/20 live Cpg04
+  rows exactly (dimensions, perception, intelligence, beauty, agility,
+  armor, attack, gene expressions); `DINO_DEBUG_PHENO=1` prints all
+  fields and `test_cpp_cpg04_phenotype_attributes` locks the table.
 - [ ] Port the accumulator so the store/lab attribute gauges and visitor
   needs read exact values; the duplicate slots are the first suspect for the
   +2/+3 Cpg04 Intelligence residuals. The base sums + gene expressions

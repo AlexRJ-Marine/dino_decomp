@@ -1393,6 +1393,21 @@ Updated: 2026-10-26
     `+0x194` divides by `pct[6]` and subtracts `acc[17]`.
   - Evidence: `notes/part-record-accumulator-recon.md`,
     `docs/formats/translator-constants.md`.
+- Phenotype attribute port complete (base layer): **`DinoAttributes`.**
+  - `src/formats/dino_data.*` parses every Part 3 group, the Part 1
+    Agre/Stam/Cour dominance matrices, Part 10 and
+    `TranslatorConstants.ini`; `FUN_00619830` dimensions/weight/speed and
+    `FUN_00617250` attacks/perception/intelligence/beauty/armor/agility are
+    implemented.
+  - Gene expressions use `matrix[alleleA][alleleB]` (the old averaged
+    translation rule was wrong; the matrix diagonal equals the translation).
+  - Cpg04: 16/20 live rows exact; residuals are the unported dummy/skin/
+    carapace accumulator (row 1, rows 10/11/13 attack, rows 11/13 beauty/
+    armor). `test_cpp_cpg04_phenotype_attributes` locks all 20 rows, and
+    `test_cpp_cpg04_phenotype_lengths` still passes (the tail merge now uses
+    the tail allele pair).
+  - Evidence: `notes/phenotype-attributes-runtime.md`,
+    `docs/formats/translator-constants.md`, `docs/formats/gen.md`.
 - SECU danger grid solved, ported and retail-validated.
   - `FUN_00589CD0` clears/stamps the 128 x 128 grid of 8-unit cells and
     recomputes SECU once per second (`DAT_00675a20` accumulator >= 1.0).

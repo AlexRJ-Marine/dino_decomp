@@ -94,7 +94,7 @@ rarity weights. Two expression rules are used:
 | Genes | Rule |
 | --- | --- |
 | `HDDi`, `HDTy`, `BDDi`, `BDTy`, `TDDi`, `TDTy`, `SknTyp`, `CarTyp`, `Diet` | `translation[min(a, b)]` — the lower allele is dominant |
-| `SknSub`, `CarSub`, `Agre`, `Stam`, `Cour` | `translation[(a + b) // 2]` — averaged |
+| `SknSub`, `CarSub`, `Agre`, `Stam`, `Cour` | `matrix[a][b]` - the 10x10 dominance table (its diagonal matches the averaged `translation[(a + b) // 2]`) |
 | `Head`, `ArmLeg`, `Body`, `Tail` | no matrix; expression rule not proven (likely `min`) |
 
 Examples with `allo.gen`:

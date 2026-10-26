@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -90,7 +92,7 @@ std::vector<int> read_int_tokens(const std::vector<std::string>& lines,
 // A Part 2/3 table: count (20), 20 diagonal values, then a 20x20 matrix.
 void read_merge_block(const std::vector<std::string>& lines,
                       const std::string& marker, const std::string& path,
-                      std::array<std::array<int, 20>, 20>& out) {
+                      DinoPartTable& out) {
     const std::size_t at = find_section(lines, marker, path) + 1;
     const int expected = 20;
     const std::vector<int> tokens =
@@ -104,6 +106,115 @@ void read_merge_block(const std::vector<std::string>& lines,
         for (int col = 0; col < expected; ++col) {
             out[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)] =
                 tokens[cursor++];
+        }
+    }
+}
+
+// Part 3 holds eleven attribute groups x five body parts, each a 20x20 table.
+void read_part_group(const std::vector<std::string>& lines,
+                     const std::string& attribute, const std::string& path,
+                     std::array<DinoPartTable, 5>& out) {
+    static const char* kParts[5] = {"Head", "Arm", "Leg", "Body", "Tail"};
+    for (int part = 0; part < 5; ++part) {
+        read_merge_block(lines,
+                         std::string(kParts[part]) + " : " + attribute, path,
+                         out[static_cast<std::size_t>(part)]);
+    }
+}
+
+// Part 1: `// Translation of the gene <Code>`, then a count, that many
+// expressed values and a count x count dominance matrix. Agre/Stam/Cour use
+// `matrix[alleleA][alleleB]` (the averaged translation is the matrix's own
+// content; see docs/formats/gen.md).
+DinoGeneTable read_gene_table(const std::vector<std::string>& lines,
+                              const std::string& code,
+                              const std::string& path) {
+    const std::string marker = "// Translation of the gene <" + code + ">";
+    const std::size_t at = find_section(lines, marker, path) + 1;
+    if (at >= lines.size()) {
+        throw std::runtime_error("dino data: truncated gene " + code);
+    }
+    const int count = parse_int(lines[at], path);
+    if (count != 10) {
+        throw std::runtime_error("dino data: gene " + code +
+                                 " translation count is not 10");
+    }
+    const std::vector<int> values =
+        read_int_tokens(lines, at + 1, 10 + 100, path);
+    DinoGeneTable out;
+    for (int i = 0; i < 10; ++i) {
+        out.translation[static_cast<std::size_t>(i)] =
+            values[static_cast<std::size_t>(i)];
+    }
+    for (int row = 0; row < 10; ++row) {
+        for (int col = 0; col < 10; ++col) {
+            out.matrix[static_cast<std::size_t>(row)]
+                      [static_cast<std::size_t>(col)] =
+                values[static_cast<std::size_t>(10 + row * 10 + col)];
+        }
+    }
+    return out;
+}
+
+float parse_float(const std::string& text) {
+    return static_cast<float>(std::atof(text.c_str()));
+}
+
+// TranslatorConstants.ini `[SIMU_CONSTANTS]`; missing keys keep the
+// documented retail default.
+void read_translator_constants(const std::string& path,
+                               DinoPhenotypeTable& table) {
+    std::ifstream in(path);
+    if (!in) {
+        return;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        const std::size_t equal = line.find('=');
+        if (equal == std::string::npos) {
+            continue;
+        }
+        const std::string key = trim(line.substr(0, equal));
+        const std::string value = trim(line.substr(equal + 1));
+        if (key == "FoodConsumptionRate") {
+            table.food_consumption_rate = parse_float(value);
+        } else if (key == "ViolenceEvolutionRate") {
+            table.violence_evolution_rate = parse_float(value);
+        } else if (key == "WalkingSpeedCoef") {
+            table.walking_speed_coef = parse_float(value);
+        } else if (key == "RunningSpeedCoef") {
+            table.running_speed_coef = parse_float(value);
+        } else if (key == "MinMotricityToRun") {
+            table.min_motricity_to_run = parse_float(value);
+        } else if (key == "JumpPercentage") {
+            table.jump_percentage = parse_float(value);
+        } else if (key == "PerceptionHeightPercentage") {
+            table.perception_height_percentage = parse_float(value);
+        } else if (key == "IntelligenceMultiplier") {
+            table.intelligence_multiplier = parse_float(value);
+        } else if (key == "IntelligencePower") {
+            table.intelligence_power = parse_float(value);
+        } else if (key == "MotricityPower") {
+            table.motricity_power = parse_float(value);
+        } else if (key == "SizeCategory1MaxLength") {
+            table.size_category_max[0] = parse_int(value, path);
+        } else if (key == "SizeCategory2MaxLength") {
+            table.size_category_max[1] = parse_int(value, path);
+        } else if (key == "SizeCategory3MaxLength") {
+            table.size_category_max[2] = parse_int(value, path);
+        } else if (key == "SizeCategory4MaxLength") {
+            table.size_category_max[3] = parse_int(value, path);
+        } else if (key == "SizeCategory1Radius") {
+            table.size_category_radius[0] = parse_int(value, path);
+        } else if (key == "SizeCategory2Radius") {
+            table.size_category_radius[1] = parse_int(value, path);
+        } else if (key == "SizeCategory3Radius") {
+            table.size_category_radius[2] = parse_int(value, path);
+        } else if (key == "SizeCategory4Radius") {
+            table.size_category_radius[3] = parse_int(value, path);
         }
     }
 }
@@ -257,66 +368,219 @@ bool genotype_is_carnivore(const DinoGenotype& genotype) {
     return genotype[14].first == 1 && genotype[14].second == 1;
 }
 
-int DinoPhenotypeTable::length_cm(const DinoGenotype& genotype) const {
+DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) const {
+    DinoAttributes out;
     if (!valid || proportions.size() < 20) {
-        return 0;
+        return out;
     }
-    const auto allele_a = [&](std::size_t gene) {
-        return static_cast<int>(genotype[gene].first);
-    };
-    const auto allele_b = [&](std::size_t gene) {
-        return static_cast<int>(genotype[gene].second);
-    };
-    const int a0 = allele_a(0), b0 = allele_b(0);
-    const int a2 = allele_a(2), b2 = allele_b(2);
-    const int a3 = allele_a(3), b3 = allele_b(3);
-    if (a0 < 0 || a0 >= 20 || b0 < 0 || b0 >= 20 || a2 < 0 || a2 >= 20 ||
-        b2 < 0 || b2 >= 20 || a3 < 0 || a3 >= 20 || b3 < 0 || b3 >= 20) {
-        return 0;
+    static constexpr int kGene[5] = {0, 1, 1, 2, 3};
+    int allele_a[5] = {};
+    int allele_b[5] = {};
+    for (int part = 0; part < 5; ++part) {
+        const auto& gene = genotype[static_cast<std::size_t>(kGene[part])];
+        if (gene.first >= 20 || gene.second >= 20) {
+            return out;
+        }
+        allele_a[part] = static_cast<int>(gene.first);
+        allele_b[part] = static_cast<int>(gene.second);
     }
-    // FUN_00619830: for each part, scale = blend(proportion) * body / table,
-    // then the stored part length is table * scale (float32), truncated.
-    // The body itself is the raw Part 3 Body Length cell.
-    const float mh = static_cast<float>(head_merge[b0][a0]) / 100.0f;
-    const float head_ratio =
-        mh * proportions[static_cast<std::size_t>(b0)][0] +
-        (1.0f - mh) * proportions[static_cast<std::size_t>(a0)][0];
-    const float mt = static_cast<float>(tail_merge[b3][a3]) / 100.0f;
-    const float tail_ratio =
-        mt * proportions[static_cast<std::size_t>(b3)][4] +
-        (1.0f - mt) * proportions[static_cast<std::size_t>(a3)][4];
-    const int body = body_length[b2][a2];
-    const int table_head = head_length[b0][a0];
-    const int table_tail = tail_length[b3][a3];
-    const float body_f = static_cast<float>(body);
-    const int head = static_cast<int>(
-        static_cast<float>(table_head) *
-        (head_ratio / static_cast<float>(table_head) * body_f));
-    const int tail = static_cast<int>(
-        static_cast<float>(table_tail) *
-        (tail_ratio / static_cast<float>(table_tail) * body_f));
-    return head + body + tail;
+
+    int raw_length[5] = {};
+    int raw_width[5] = {};
+    int raw_height[5] = {};
+    for (int part = 0; part < 5; ++part) {
+        const auto& table = static_cast<std::size_t>(part);
+        raw_length[part] =
+            length[table][static_cast<std::size_t>(allele_b[part])]
+                         [static_cast<std::size_t>(allele_a[part])];
+        raw_width[part] =
+            width[table][static_cast<std::size_t>(allele_b[part])]
+                        [static_cast<std::size_t>(allele_a[part])];
+        raw_height[part] =
+            height[table][static_cast<std::size_t>(allele_b[part])]
+                         [static_cast<std::size_t>(allele_a[part])];
+    }
+
+    const auto blend = [&](int part, int column, float merge) {
+        const float a = proportions[static_cast<std::size_t>(allele_a[part])]
+                                    [static_cast<std::size_t>(column)];
+        const float b = proportions[static_cast<std::size_t>(allele_b[part])]
+                                    [static_cast<std::size_t>(column)];
+        return (1.0f - merge) * a + merge * b;
+    };
+    const float merge_head =
+        static_cast<float>(head_merge[static_cast<std::size_t>(allele_b[0])]
+                                    [static_cast<std::size_t>(allele_a[0])]) *
+        0.01f;
+    const float merge_arm_leg =
+        static_cast<float>(
+            arm_leg_merge[static_cast<std::size_t>(allele_b[1])]
+                         [static_cast<std::size_t>(allele_a[1])]) *
+        0.01f;
+    const float merge_tail =
+        static_cast<float>(tail_merge[static_cast<std::size_t>(allele_b[4])]
+                                    [static_cast<std::size_t>(allele_a[4])]) *
+        0.01f;
+
+    const float body = static_cast<float>(raw_length[3]);
+    if (raw_length[0] == 0 || raw_height[1] == 0 || raw_height[2] == 0 ||
+        raw_length[4] == 0) {
+        return out;
+    }
+    float scale[5] = {};
+    scale[0] = blend(0, 0, merge_head) * (body / static_cast<float>(raw_length[0]));
+    scale[1] = blend(1, 1, merge_arm_leg) * (body / static_cast<float>(raw_height[1]));
+    scale[2] = blend(1, 2, merge_arm_leg) * (body / static_cast<float>(raw_height[2]));
+    scale[3] = 1.0f;
+    scale[4] = blend(4, 4, merge_tail) * (body / static_cast<float>(raw_length[4]));
+
+    const auto truncate = [](float value) { return static_cast<int>(value); };
+    for (int part = 0; part < 5; ++part) {
+        out.part_length[part] = truncate(static_cast<float>(raw_length[part]) *
+                                         scale[part]);
+        out.part_width[part] = truncate(static_cast<float>(raw_width[part]) *
+                                        scale[part]);
+        out.part_height[part] = truncate(static_cast<float>(raw_height[part]) *
+                                         scale[part]);
+    }
+
+    // +0x1ac family: the ArmLeg merge picks the expressed legs allele, and the
+    // phenotype uses row A (unlike the attribute tables, which use [B][A]).
+    out.family = arm_leg_merge[static_cast<std::size_t>(allele_a[1])]
+                              [static_cast<std::size_t>(allele_b[1])] < 50
+                    ? default_family[static_cast<std::size_t>(allele_a[1])]
+                    : default_family[static_cast<std::size_t>(allele_b[1])];
+    out.quadruped = !(out.family == 2 || out.family == 3);
+    const int body_half = out.part_length[3] / 2;
+    const int front = out.quadruped ? out.part_length[0] + body_half
+                                    : out.part_length[0] + out.part_length[3];
+    const int back = out.quadruped ? out.part_length[4] + body_half
+                                   : out.part_length[4];
+    out.length_cm = front + back;  // +0x00 = +0x04 + +0x08
+    out.width_cm = out.part_width[3] + std::max(out.part_width[1], out.part_width[2]);
+    out.height_cm =
+        out.part_height[0] + std::max(out.part_height[1], out.part_height[2]);
+    out.size_class = -1;
+    for (int category = 0; category < 4; ++category) {
+        if (out.length_cm <= size_category_max[static_cast<std::size_t>(category)]) {
+            out.size_class = category;
+            break;
+        }
+    }
+    if (out.size_class < 0) {
+        out.size_class = 3;
+    }
+
+    int weight_sum = 0;
+    int speed_sum = 0;
+    for (int part = 0; part < 5; ++part) {
+        const auto table = static_cast<std::size_t>(part);
+        const auto b = static_cast<std::size_t>(allele_b[part]);
+        const auto a = static_cast<std::size_t>(allele_a[part]);
+        weight_sum += truncate(static_cast<float>(weight[table][b][a]) * scale[part]);
+        speed_sum += truncate(static_cast<float>(speed[table][b][a]) * scale[part]);
+    }
+    out.weight_kg = weight_sum;
+    out.food_consumption =
+        truncate(static_cast<float>(weight_sum) * food_consumption_rate * 0.01f);
+    const float motricity =
+        out.weight_kg > 0
+            ? static_cast<float>(speed_sum) /
+                  static_cast<float>(std::pow(static_cast<double>(out.weight_kg),
+                                              motricity_power))
+            : 0.0f;
+    out.walk_speed = static_cast<float>(out.part_length[3]) * walking_speed_coef *
+                     motricity;
+    out.run_speed = motricity >= min_motricity_to_run
+                        ? static_cast<float>(out.part_length[3]) *
+                              running_speed_coef * motricity
+                        : 0.0f;
+
+    const auto express = [&](const DinoGeneTable& table, int gene) {
+        const int a = static_cast<int>(genotype[static_cast<std::size_t>(gene)].first);
+        const int b = static_cast<int>(genotype[static_cast<std::size_t>(gene)].second);
+        if (a < 0 || a > 9 || b < 0 || b > 9) {
+            return 0;
+        }
+        return table.matrix[static_cast<std::size_t>(a)]
+                           [static_cast<std::size_t>(b)];
+    };
+    out.aggression = express(agre, 15);
+    out.stamina = express(stam, 16);
+    out.courage = express(cour, 17);
+    out.violence_evolution = static_cast<float>(out.aggression) *
+                             violence_evolution_rate * 0.01f;
+
+    int perception_sum = 0;
+    int intelligence_sum = 0;
+    int beauty_sum = 0;
+    int armor_sum = 0;
+    int agility_sum = 0;
+    for (int part = 0; part < 5; ++part) {
+        const auto table = static_cast<std::size_t>(part);
+        const auto b = static_cast<std::size_t>(allele_b[part]);
+        const auto a = static_cast<std::size_t>(allele_a[part]);
+        perception_sum += perception[table][b][a];
+        intelligence_sum += intelligence[table][b][a];
+        beauty_sum += beauty[table][b][a];
+        armor_sum += armor[table][b][a];
+        agility_sum += agility[table][b][a];
+    }
+    out.perception = perception_sum + truncate(perception_height_percentage *
+                                               static_cast<float>(out.height_cm) /
+                                               100.0f);
+    out.perception = std::min(out.perception, 90);  // MaxPerception
+    // Intelligence is an encephalization quotient, not the Part 3 sum.
+    const std::int32_t volume =
+        static_cast<std::int32_t>(out.length_cm) * out.width_cm * out.height_cm;
+    out.intelligence =
+        volume > 0
+            ? truncate(intelligence_multiplier *
+                       static_cast<float>(intelligence_sum) /
+                       static_cast<float>(std::pow(static_cast<double>(volume),
+                                                   intelligence_power)))
+            : 0;
+    out.intelligence = std::clamp(out.intelligence, 0, 200);
+    out.beauty = beauty_sum;
+    out.armor = armor_sum;
+    out.agility = agility_sum;
+    out.jump = truncate(jump_percentage * static_cast<float>(out.agility) / 100.0f);
+
+    const auto attack_at = [&](int part, int voice) {
+        const int ai = voice == 0 ? 0 : 1;
+        return attack[static_cast<std::size_t>(part)]
+                     [static_cast<std::size_t>(allele_b[ai])]
+                     [static_cast<std::size_t>(allele_a[ai])];
+    };
+    const auto scaled_attack = [&](int value, int part) {
+        return truncate(static_cast<float>(value) *
+                        std::sqrt(scale[part]));
+    };
+    out.attack_head = scaled_attack(attack_at(0, 0), 0);
+    out.attack_body = scaled_attack(attack_at(3, 0), 0);
+    out.attack_arm = scaled_attack(attack_at(1, 1), 1);
+    out.attack_leg = scaled_attack(attack_at(2, 1), 2);
+    out.attack_tail = scaled_attack(attack_at(4, 3), 4);
+    if (out.quadruped) {
+        out.attack_leg = 0;
+    }
+    out.attack_total = out.attack_head + out.attack_body + out.attack_arm +
+                       out.attack_leg + out.attack_tail;
+    out.combined_attack = (out.aggression + out.attack_total) / 6;
+    return out;
+}
+
+int DinoPhenotypeTable::length_cm(const DinoGenotype& genotype) const {
+    return attributes(genotype).length_cm;
 }
 
 int DinoPhenotypeTable::size_class(const DinoGenotype& genotype) const {
-    if (!valid) {
-        return -1;
-    }
-    const int length = length_cm(genotype);
-    if (length <= 200) {
-        return 0;
-    }
-    if (length <= 620) {
-        return 1;
-    }
-    if (length <= 900) {
-        return 2;
-    }
-    return 3;
+    return attributes(genotype).size_class;
 }
 
 DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,
-                                       const std::string& simu_trans_path) {
+                                       const std::string& simu_trans_path,
+                                       const std::string& constants_path) {
     DinoPhenotypeTable table;
 
     std::ifstream in(proportion_path, std::ios::binary);
@@ -344,14 +608,39 @@ DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,
     const std::vector<std::string> lines = read_lines(simu_trans_path);
     read_merge_block(lines, "Head : merge ratio", simu_trans_path,
                      table.head_merge);
+    read_merge_block(lines, "ArmLeg : merge ratio", simu_trans_path,
+                     table.arm_leg_merge);
     read_merge_block(lines, "Tail : merge ratio", simu_trans_path,
                      table.tail_merge);
-    read_merge_block(lines, "Head : Length", simu_trans_path,
-                     table.head_length);
-    read_merge_block(lines, "Body : Length", simu_trans_path,
-                     table.body_length);
-    read_merge_block(lines, "Tail : Length", simu_trans_path,
-                     table.tail_length);
+    read_part_group(lines, "Length", simu_trans_path, table.length);
+    read_part_group(lines, "Width", simu_trans_path, table.width);
+    read_part_group(lines, "Height", simu_trans_path, table.height);
+    read_part_group(lines, "Weight", simu_trans_path, table.weight);
+    read_part_group(lines, "Speed", simu_trans_path, table.speed);
+    read_part_group(lines, "Perception", simu_trans_path, table.perception);
+    read_part_group(lines, "Intelligence", simu_trans_path, table.intelligence);
+    read_part_group(lines, "Beauty", simu_trans_path, table.beauty);
+    read_part_group(lines, "Armor", simu_trans_path, table.armor);
+    read_part_group(lines, "Agility", simu_trans_path, table.agility);
+    read_part_group(lines, "Attack", simu_trans_path, table.attack);
+    table.agre = read_gene_table(lines, "Agre", simu_trans_path);
+    table.stam = read_gene_table(lines, "Stam", simu_trans_path);
+    table.cour = read_gene_table(lines, "Cour", simu_trans_path);
+
+    // Part 10: count (20) then one default family index per base dinosaur.
+    const std::size_t part10 =
+        find_section(lines, "// Part 10", simu_trans_path) + 1;
+    const std::vector<int> families =
+        read_int_tokens(lines, part10, 21, simu_trans_path);
+    if (families[0] != 20) {
+        throw std::runtime_error("dino data: Part 10 count mismatch");
+    }
+    for (int i = 0; i < 20; ++i) {
+        table.default_family[static_cast<std::size_t>(i)] =
+            families[static_cast<std::size_t>(i + 1)];
+    }
+
+    read_translator_constants(constants_path, table);
     table.valid = true;
     return table;
 }

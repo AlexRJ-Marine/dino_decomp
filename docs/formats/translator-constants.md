@@ -243,16 +243,20 @@ The Attack group (`+0x2f4`) is looked up per part instead of summed:
 
 ```text
 phenotype +0x4c = Attack[part 0]  pair (head type)
-phenotype +0x50 = Attack[part 3]  pair (head type)   # see note
+phenotype +0x50 = Attack[part 3]  pair (head type)   # real retail quirk
 phenotype +0x54 = Attack[part 1]  pair (legs type)
-phenotype +0x58 = Attack[part 2]  pair (legs type)   # zeroed for bipeds
+phenotype +0x58 = Attack[part 2]  pair (legs type)   # zeroed for quadrupeds
 phenotype +0x5c = Attack[part 4]  pair (tail type)
 phenotype +0x60 = sum of the five
 ```
 
+Each part value is multiplied by `sqrt(scale[part])` and truncated
+(`0x617914..0x61797a`). `+0x44 = (aggression + +0x60) / 6`.
+
 The array is in file order (`Head, Arm, Leg, Body, Tail`), so `+0x50` is
-Body attack; the decompiler shows it reading the head-type pair, which is
-kept as observed until a runtime check settles it.
+Body attack; the head-type pair on the Body table is byte-confirmed at
+`0x6178b9` (not a decompiler artifact). `+0x58` is zeroed for **quadrupeds**
+(`+0x1b4 == 1`), not bipeds.
 
 Other phenotype fields written by `0x00617250`:
 
@@ -263,8 +267,9 @@ Other phenotype fields written by `0x00617250`:
 | `+0x10` | size-category radius (`SizeCategory*Radius`) |
 | `+0x18` | weight (Part 3 Weight group x part scale, kg) |
 | `+0x1c` | `weight * FoodConsumptionRate * 0.01` |
-| `+0x28` | walk speed = `+0x1b * WalkingSpeedCoef * 0.01` |
-| `+0x2c` | run speed (0 below `MinMotricityToRun`) |
+| `+0x28` | violence evolution = `aggression * ViolenceEvolutionRate * 0.01` (float) |
+| `+0x2c` | walk speed = `body length * WalkingSpeedCoef * motricity` (float) |
+| `+0x30` | run speed = `body length * RunningSpeedCoef * motricity`, 0 below `MinMotricityToRun` |
 | `+0x34` | jump = `JumpPercentage * agility / 100` |
 | `+0x3c` | Intelligence quotient (see below) |
 | `+0x6c` | aggression merge (`+0x1f4` table, gene 15 pair) |
@@ -301,6 +306,47 @@ near-neutral accumulator passes follow (`0x619df0`:
 18/20 Cpg04 rows match the first term exactly; the two residuals (+2/+3) are
 the unported dummy/skin/carapace accumulator. Example: base 85,
 742×260×420 cm³ -> `25*85 / V^0.22 = 38.68 -> 38`.
+
+### Dimensions, weight and speed (`FUN_00619830`)
+
+Per part `i` (Head/Arm/Leg/Body/Tail, gene `{0,1,1,2,3}`), with
+`L/W/H = Part3[part][alleleB][alleleA]`:
+
+```text
+m0 = HeadMerge[B0][A0] * 0.01
+m1 = ArmLegMerge[B1][A1] * 0.01
+m3 = TailMerge[B4][A4] * 0.01
+
+s[0] = blend(prop[A0][0], prop[B0][0], m0) * L_body / L_head
+s[1] = blend(prop[A1][1], prop[B1][1], m1) * L_body / H_arm
+s[2] = blend(prop[A1][2], prop[B1][2], m1) * L_body / H_leg
+s[3] = 1.0
+s[4] = blend(prop[A4][4], prop[B4][4], m3) * L_body / L_tail
+
+part_length/width/height[i] = trunc(table[i] * s[i])   // float32, __ftol
+```
+
+Note the arm and leg scales divide by the part **height**, while the head and
+tail divide by their own length. Part widths/heights live at `+0xac`/`+0xc0`
+(stride 4), lengths at `+0x98`, scales at `+0xd4`.
+
+```text
++0x00 = +0x04 + +0x08
++0x04 = L_head + (quadruped ? L_body/2 : L_body)
++0x08 = L_tail + (quadruped ? L_body/2 : 0)
++0x0c = W_body + max(W_arm, W_leg)
++0x14 = H_head + max(H_arm, H_leg)
++0x18 = sum trunc(Weight[i] * s[i])                        // kg
++0x1c = trunc(+0x18 * FoodConsumptionRate * 0.01)
+S     = sum trunc(Speed[i] * s[i])
+motricity = S / pow(+0x18, MotricityPower)
+```
+
+`+0x1ac` family = `default_family[ArmLegMerge[A1][B1] < 50 ? A1 : B1]`
+(note row `A` here, unlike the attribute tables); family 2/3
+(HeavyBiped/LightBiped) gives `+0x1b4 = 0`, everything else quadruped.
+The Part 6 reference widths are `[100,100,100,300,150]` and are only the
+denominators of the accumulator's width ratio.
 
 ### Conventional appeal and part records
 
@@ -343,7 +389,7 @@ lab dinosaur panel and their display maxima, plus one modify-panel value:
 | `Attack` | 120 | `+0x60` (combined), `+0x4c` (jaw) |
 | `Aggressiveness` | 100 | `+0x6c` |
 | `Armor` | 100 | `+0x68` |
-| `WalkSpeed` | 100 | `+0x28` |
+| `WalkSpeed` | 100 | `+0x2c` |
 | `Agility` | 100 | `+0x48` |
 | `Intelligence` | 100 | `+0x3c` |
 | `Courage` | 100 | `+0x74` |

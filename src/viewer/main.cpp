@@ -137,6 +137,7 @@ struct Options {
     float building_angle = 0.0f;
     float building_scale = 1.0f;
     bool focus_building = false;
+    bool building_model_mesh = false;
     bool focus_dinos = false;
     int focus_dino = 0;
     bool place_entrance = true;
@@ -400,6 +401,9 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--building-scale") {
             opt.building_scale = static_cast<float>(
                 std::atof(next("--building-scale")));
+        } else if (arg == "--building-model") {
+            opt.building_model_mesh =
+                std::string(next("--building-model")) == "mesh";
         } else if (arg == "--focus-building") {
             opt.focus_building = true;
         } else if (arg == "--focus-dinos") {
@@ -4173,6 +4177,17 @@ int main(int argc, char** argv) {
             std::string mesh_rel;
             if (!def.meshes.empty()) {
                 mesh_rel = def.meshes.front();
+                if (opt.building_model_mesh) {
+                    for (const std::string& candidate : def.meshes) {
+                        if (ends_with_ci(candidate, ".mesh") &&
+                            candidate.find("_lod1") != std::string::npos &&
+                            candidate.find("crash") == std::string::npos &&
+                            candidate.find("destroy") == std::string::npos) {
+                            mesh_rel = candidate;
+                            break;
+                        }
+                    }
+                }
             }
             dino::Mesh placed;
             if (ends_with_ci(mesh_rel, ".skin")) {
@@ -4581,7 +4596,9 @@ int main(int argc, char** argv) {
             resolve_asset(opt.asset_root,
                           "Data/Design/Genotype/proportion.dat"),
             resolve_asset(opt.asset_root,
-                          "Data/Design/Genotype/simu_trans.dic"));
+                          "Data/Design/Genotype/simu_trans.dic"),
+            resolve_asset(opt.asset_root,
+                          "Data/Design/Genotype/TranslatorConstants.ini"));
     } catch (const std::exception& e) {
         std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
     }
@@ -4693,17 +4710,33 @@ int main(int argc, char** argv) {
                         ? phenotype_table.size_class(record.genotype)
                         : dino::paddock_size_class(size_for_species(species));
                 if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
+                    const dino::DinoAttributes attrs =
+                        phenotype_table.attributes(record.genotype);
                     std::fprintf(
                         stderr,
                         "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
-                        "class=%d\n",
+                        "class=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
+                        "Atk=%d Ag=%d St=%d Co=%d walk=%.3f run=%.3f "
+                        "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
+                        "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
                         i, record.genotype[0].first,
                         record.genotype[0].second,
                         record.genotype[2].first,
                         record.genotype[2].second,
                         record.genotype[3].first,
                         record.genotype[3].second,
-                        phenotype_table.length_cm(record.genotype), cost_class);
+                        phenotype_table.length_cm(record.genotype), cost_class,
+                        attrs.width_cm, attrs.height_cm, attrs.perception,
+                        attrs.intelligence, attrs.beauty, attrs.agility,
+                        attrs.armor, attrs.attack_total, attrs.aggression,
+                        attrs.stamina, attrs.courage, attrs.walk_speed,
+                        attrs.run_speed, attrs.jump, attrs.weight_kg,
+                        attrs.part_length[0], attrs.part_length[1],
+                        attrs.part_length[2], attrs.part_length[3],
+                        attrs.part_length[4], record.genotype[15].first,
+                        record.genotype[15].second, record.genotype[16].first,
+                        record.genotype[16].second, record.genotype[17].first,
+                        record.genotype[17].second);
                 }
                 int paddock_index = -1;
                 for (std::size_t p = 0; p < paddocks.size(); ++p) {
