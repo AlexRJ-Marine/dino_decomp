@@ -222,3 +222,7 @@ files.
 - `field_11` / `field_15` (100/10, 200/1 … 500/5): likely score and
   difficulty; pairs track the large props.
 - `field_154..15c`: always zero except the judge third value 8.0.
+
+## C++ reader (port)
+
+`src/formats/bfi.{h,cpp}` parses all 62 files to an exact EOF (header, class tag, judge kind, category, footprint, 8 mesh slots, arena `effects[5]`, switch key). `dino_viewer --show-info` joins every `.shw` tuple with its BFI footprint and tiles the show: Cpg1_Race_1 is 224 cells / 0 overlaps and **43/43 shows tile with 0 overlaps** (29,500 cells). Test: `test_cpp_show_info`.

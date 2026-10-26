@@ -26,6 +26,7 @@
 #include "../formats/bsi.h"
 #include "../formats/bei.h"
 #include "../formats/shw.h"
+#include "../formats/bfi.h"
 #include "camera_config.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
@@ -2932,6 +2933,34 @@ int main(int argc, char** argv) {
             const std::vector<std::string> feature_names =
                 dino::load_feature_list(resolve_asset(
                     opt.asset_root, "Data/Design/attractions/features"));
+            std::vector<dino::BfiFeature> bfi_features;
+            try {
+                bfi_features = dino::load_bfi_dir(resolve_asset(
+                    opt.asset_root, "Data/Design/attractions/features"));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "show-info .bfi: %s\n", e.what());
+            }
+            std::printf("bfi features: %zu\n", bfi_features.size());
+            const auto find_bfi = [&](const std::string& name)
+                -> const dino::BfiFeature* {
+                for (const dino::BfiFeature& bfi : bfi_features) {
+                    if (bfi.name.size() != name.size()) {
+                        continue;
+                    }
+                    bool same = true;
+                    for (std::size_t i = 0; i < name.size(); ++i) {
+                        if (std::tolower(static_cast<unsigned char>(bfi.name[i])) !=
+                            std::tolower(static_cast<unsigned char>(name[i]))) {
+                            same = false;
+                            break;
+                        }
+                    }
+                    if (same) {
+                        return &bfi;
+                    }
+                }
+                return nullptr;
+            };
             const bool list_features = paths.size() == 1;
             for (const std::string& path : paths) {
                 const dino::ShwShow show = dino::load_shw(path);
@@ -2943,20 +2972,58 @@ int main(int argc, char** argv) {
                     show.height, show.wall_type, show.cage_size[0],
                     show.cage_size[1], show.cage_size[2], show.cage_size[3],
                     show.features.size(), show.teams.size());
-                if (list_features) {
-                    for (const auto& feature : show.features) {
-                        const std::string feature_name =
-                            feature[0] >= 0 &&
-                                    feature[0] <
-                                        static_cast<int>(feature_names.size())
-                                ? feature_names[static_cast<std::size_t>(
-                                      feature[0])]
-                                : std::string("?");
-                        std::printf(
-                            "show feature: idx=%d rot=%d x=%d y=%d name=%s\n",
-                            feature[0], feature[1], feature[2], feature[3],
-                            feature_name.c_str());
+                std::vector<int> cells(
+                    static_cast<std::size_t>(show.width) * show.height, 0);
+                int overlaps = 0;
+                for (const auto& feature : show.features) {
+                    const std::string feature_name =
+                        feature[0] >= 0 &&
+                                feature[0] <
+                                    static_cast<int>(feature_names.size())
+                            ? feature_names[static_cast<std::size_t>(
+                                  feature[0])]
+                            : std::string("?");
+                    const dino::BfiFeature* bfi = find_bfi(feature_name);
+                    int fw = bfi != nullptr ? bfi->width : 1;
+                    int fh = bfi != nullptr ? bfi->height : 1;
+                    if ((feature[1] & 1) != 0) {
+                        std::swap(fw, fh);
                     }
+                    for (int dy = 0; dy < fh; ++dy) {
+                        for (int dx = 0; dx < fw; ++dx) {
+                            const int cx = feature[2] + dx;
+                            const int cy = feature[3] + dy;
+                            if (cx >= 0 && cy >= 0 && cx < show.width &&
+                                cy < show.height) {
+                                if (cells[static_cast<std::size_t>(cy) *
+                                              show.width +
+                                          cx]++ > 0) {
+                                    ++overlaps;
+                                }
+                            }
+                        }
+                    }
+                    if (list_features) {
+                        std::printf(
+                            "show feature: idx=%d rot=%d x=%d y=%d name=%s "
+                            "w=%d h=%d\n",
+                            feature[0], feature[1], feature[2], feature[3],
+                            feature_name.c_str(), fw, fh);
+                    }
+                }
+                int occupied = 0;
+                for (const int cell : cells) {
+                    if (cell > 0) {
+                        ++occupied;
+                    }
+                }
+                std::printf("show tiling: %s cells=%d overlaps=%d\n",
+                            std::filesystem::path(path)
+                                .stem()
+                                .string()
+                                .c_str(),
+                            occupied, overlaps);
+                if (list_features) {
                     for (const auto& team : show.teams) {
                         std::printf("show team: cage=%d team=%d\n", team.first,
                                     team.second);
@@ -8279,8 +8346,8 @@ int main(int argc, char** argv) {
                 mission_state.merchandise_income +=
                     budget_ledger.shop_revenue[i];
             }
-            // The port has no death counter or staff actors yet; both stay at
-            // zero (dyingdinos passes, employees stays pending).
+            // The port has no death counter; deaths stay zero (dyingdinos
+            // passes). Hired staff feed the `employees` objective.
             mission_state.deaths = 0;
             mission_state.camera_altitude = static_cast<int>(
                 (free_camera ? free_pos : orbit_eye()).z);
@@ -8301,6 +8368,19 @@ int main(int argc, char** argv) {
                         : std::to_string(visitor.profile);
                 state_visitor.satisfaction = visitor.need0;
                 mission_state.visitors.push_back(state_visitor);
+            }
+            // Hired staff are the live `employees` source. The objective
+            // profile strings match the `.bei` role names
+            // (Nutritionist/Guard); "all" matches any role.
+            for (const dino::Employee& employee : employee_system.employees) {
+                if (employee.profile >= 0 &&
+                    employee.profile <
+                        static_cast<int>(employee_profiles.size())) {
+                    mission_state.employee_roles.push_back(
+                        employee_profiles[static_cast<std::size_t>(
+                                              employee.profile)]
+                            .name);
+                }
             }
             // Live trait snapshot. The objective slots are actor fields
             // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/

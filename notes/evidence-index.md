@@ -29,7 +29,7 @@ add a row when a claim becomes something later work depends on.
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
 | Employee profiles + hire/wage/feeding | `docs/platform/employees.md`, `docs/decomp/employee-ai.md` | `tests/test_viewer_cpp.py::test_cpp_employee_info`, `test_cpp_employee_feeding_and_wages`, `notes/employees.png` |
-| `.shw` show scenarios (C++ reader) | `docs/formats/shw.md` | `tests/test_viewer_cpp.py::test_cpp_show_info` |
+| `.shw` + `.bfi` show grid (C++ tiling) | `docs/formats/shw.md`, `docs/formats/bfi.md` | `tests/test_viewer_cpp.py::test_cpp_show_info` |
 | Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |
 | Feature status matrix (retail feature/screen -> status/evidence/tests) | `docs/platform/feature-status.md` | `tests/test_feature_matrix.py` |
 | Park panel contract + verification recipes | `docs/platform/park-panels.md` | `tests/test_feature_matrix.py`, `tests/test_viewer_cpp.py::test_cpp_park_panels` |

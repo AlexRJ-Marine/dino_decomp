@@ -2607,6 +2607,9 @@ def test_cpp_show_info():
     assert result.returncode == 0, result.stderr
     assert ("show: Cpg1_Race_1 name=&cpg1_race_1 cost=1800 judge=1 "
             "dims=19x39 wall=1 cages=1,0,0,0 features=14 teams=2") in result.stdout
+    assert "bfi features: 62" in result.stdout
+    assert "show tiling: Cpg1_Race_1 cells=224 overlaps=0" in result.stdout
+    assert sum("overlaps=0" in line for line in result.stdout.splitlines()) == 43
     assert "shows: 43" in result.stdout
     single = subprocess.run(
         [str(EXE), "--show-info", str(show_dir / "Cpg1_Race_1.shw"),
