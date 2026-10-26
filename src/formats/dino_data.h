@@ -41,7 +41,7 @@ bool genotype_is_carnivore(const DinoGenotype& genotype);
 using DinoPartTable = std::array<std::array<int, 20>, 20>;
 
 // Part 1 gene expression table: 10 expressed values and the 10x10 dominance
-// matrix read by Agre/Stam/Cour (`matrix[alleleA][alleleB]`).
+// matrix read by Agre/Stam/Cour (`matrix[alleleB][alleleA]`).
 struct DinoGeneTable {
     std::array<int, 10> translation{};
     std::array<std::array<int, 10>, 10> matrix{};
@@ -76,7 +76,7 @@ struct DinoAttributes {
     int courage = 0;         // +0x74
 
     int weight_kg = 0;        // +0x18
-    int food_consumption = 0; // +0x1c
+    float food_consumption = 0.0f;  // +0x1c
     float violence_evolution = 0.0f;  // +0x28
     float walk_speed = 0.0f;          // +0x2c
     float run_speed = 0.0f;           // +0x30

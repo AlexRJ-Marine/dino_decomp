@@ -641,6 +641,7 @@ using GlyphBuildRecordFn =
     FntInsertRecord*(__thiscall*)(FntInsertRecord*, const std::uint16_t*,
                                   const FntGlyphValue*);
 using GlyphInsertFn = void*(__thiscall*)(void* map, const FntInsertRecord*);
+using McStringDestroyFn = void(__thiscall*)(McString*);
 
 void __thiscall hook_430fb0(void* self, const McString* path) {
     InterlockedIncrement(&g_calls_430fb0);
@@ -705,18 +706,21 @@ void __thiscall hook_430fb0(void* self, const McString* path) {
 
     auto* base = static_cast<char*>(self);
     *reinterpret_cast<std::uint32_t*>(base + 0x10) = font_size;
-    if (pitch_x != 0) {
-        *reinterpret_cast<std::uint32_t*>(base + 0x18) = pitch_x;
+    // Retail keeps the larger pitch X and only fills pitch Y when it is zero.
+    auto* pitch_x_field = reinterpret_cast<std::uint32_t*>(base + 0x18);
+    auto* pitch_y_field = reinterpret_cast<std::uint32_t*>(base + 0x1c);
+    if (pitch_x > *pitch_x_field) {
+        *pitch_x_field = pitch_x;
     }
-    if (pitch_y != 0) {
-        *reinterpret_cast<std::uint32_t*>(base + 0x1c) = pitch_y;
+    if (*pitch_y_field == 0) {
+        *pitch_y_field = pitch_y;
     }
     *reinterpret_cast<std::uint32_t*>(base + 0x20) = cell_height;
     const std::uint32_t tex_w = *reinterpret_cast<std::uint32_t*>(base + 0x30);
     const std::uint32_t tex_h = *reinterpret_cast<std::uint32_t*>(base + 0x34);
-    if (pitch_x != 0 && pitch_y != 0) {
+    if (*pitch_x_field != 0 && *pitch_y_field != 0) {
         *reinterpret_cast<std::uint32_t*>(base + 0x2c) =
-            (tex_h / pitch_y) * (tex_w / pitch_x);
+            (tex_h / *pitch_y_field) * (tex_w / *pitch_x_field);
     }
 
     void* map = base + 0x40;
@@ -733,6 +737,10 @@ void __thiscall hook_430fb0(void* self, const McString* path) {
         reinterpret_cast<GlyphBuildRecordFn>(exe_va(0x432d70))(
             &rec, &rec.key, &value);
         reinterpret_cast<GlyphInsertFn>(exe_va(0x432fd0))(map, &rec);
+        // The insert deep-copies the value; release the record's path copy
+        // exactly as the retail loader does.
+        reinterpret_cast<McStringDestroyFn>(exe_va(0x404440))(
+            &rec.value.path);
     }
     HeapFree(GetProcessHeap(), 0, data);
 

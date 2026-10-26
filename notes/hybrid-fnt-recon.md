@@ -81,7 +81,10 @@ Target: the 12-byte entry (`SUB ESP,0x240`; push EBX/EBP/ESI/EDI;
 `MOV ESI,ECX`); no vtable slot. `hook_430fb0` in
 `src/hook/dinput8_proxy.cpp` reads the file directly (`CreateFileA`), parses
 the header and tables, writes `+0x10/+0x18/+0x1c/+0x20`, computes `+0x2c`,
-and inserts every code/metric with `0x432d70` + `0x432fd0`.
+and inserts every code/metric with `0x432d70` + `0x432fd0`. After each insert
+it releases the insertion record's deep-copied path with `0x404440`
+(`mcString` destructor), matching retail and avoiding a per-glyph leak. It
+keeps the larger pitch X and only fills pitch Y when zero, like the loader.
 
 The hooked code table is read from file `0x20`, i.e.
 `[hash_lo, hash_hi, code[0]..code[count-3]]`, paired with `metrics[0..]`;
@@ -102,6 +105,8 @@ counters: mesh=121 skin=2221 anim=8911 skel=21 vec16=2221 vec32=1680 fnt=5
 Five font files (`Font.fnt`, `Font12`, `Font14`, `Font19`, and the menu
 reloads) each insert 247 glyphs, and the park HUD clock, budget, dino count
 and panel labels render (`notes/park-hook-fnt.png`). Installed by default.
+The duplicate-key check (`find` before insert) is not reproduced; the five
+retail fonts have no duplicate real codes, so the map only grows on reloads.
 
 ## Confidence
 

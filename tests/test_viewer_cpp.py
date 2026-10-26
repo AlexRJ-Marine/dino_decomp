@@ -1803,8 +1803,9 @@ def test_cpp_cpg04_phenotype_attributes():
     `notes/phenotype-attributes-runtime.md` records the 20 live rows. The
     base layer (parts 3 + the gene expressions) reproduces every row except
     the dummy/skin/carapace accumulator residuals: row 1 (all dummy genes
-    (1,1)) shifts beauty/agility/armor/attack/intelligence, and rows 10, 11
-    and 13 shift the attack total. See docs/formats/translator-constants.md.
+    (1,1)) shifts beauty/agility/armor/attack/intelligence, rows 11/13 shift
+    beauty/armor, and row 13's attack total is +2. See
+    docs/formats/translator-constants.md.
     """
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -1860,11 +1861,23 @@ def test_cpp_cpg04_phenotype_attributes():
         70, 25, 25, 25, 30, 30, 33, 28, 25, 27,
         27, 30, 58, 45, 45, 45, 45, 45, 30, 30,
     ]
-    # Rows 10/11/13 carry the documented accumulator attack delta.
+    # Rows 10 and 11 are exact after the tail-pair fix; row 13 keeps the
+    # documented +2 accumulator residual (live 305).
     assert [int(r["Atk"]) for r in rows] == [
-        229, 335, 335, 335, 179, 179, 332, 202, 250, 273,
-        357, 225, 287, 325, 325, 325, 325, 325, 225, 225,
+        229, 335, 335, 335, 179, 179, 332, 202, 250, 259,
+        345, 225, 303, 325, 325, 325, 325, 325, 225, 225,
     ]
+    # Per-part attacks: head / body / arm / leg / tail. The body attack uses
+    # the head pair (retail quirk) and the leg attack is zero for quadrupeds;
+    # the tail uses the tail pair.
+    parts = [(int(r["Ah"]), int(r["Ab"]), int(r["Aa"]), int(r["Al"]),
+              int(r["At"])) for r in rows]
+    assert parts[9] == (67, 37, 31, 63, 61)    # row 10: exact live 259
+    assert parts[10] == (92, 59, 50, 75, 69)   # row 11: exact live 345
+    assert parts[12] == (39, 51, 100, 60, 53)  # row 13: live 305 (+2)
+    assert sum(parts[9]) == 259
+    assert sum(parts[10]) == 345
+    assert sum(parts[12]) == 303
     # Gene expressions: Agre/Stam/Cour at (a+b)//2 (the live rows 11/13
     # differ by the dummy accumulator).
     assert [(int(r["Ag"]), int(r["St"]), int(r["Co"])) for r in rows] == [

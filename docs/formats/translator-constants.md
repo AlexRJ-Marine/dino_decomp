@@ -251,7 +251,8 @@ phenotype +0x60 = sum of the five
 ```
 
 Each part value is multiplied by `sqrt(scale[part])` and truncated
-(`0x617914..0x61797a`). `+0x44 = (aggression + +0x60) / 6`.
+(`0x617914..0x61797a`); the Body entry uses `sqrt(scale[0])` (the head
+scale). `+0x44 = (aggression + +0x60) / 6`.
 
 The array is in file order (`Head, Arm, Leg, Body, Tail`), so `+0x50` is
 Body attack; the head-type pair on the Body table is byte-confirmed at
@@ -337,7 +338,7 @@ tail divide by their own length. Part widths/heights live at `+0xac`/`+0xc0`
 +0x0c = W_body + max(W_arm, W_leg)
 +0x14 = H_head + max(H_arm, H_leg)
 +0x18 = sum trunc(Weight[i] * s[i])                        // kg
-+0x1c = trunc(+0x18 * FoodConsumptionRate * 0.01)
++0x1c = +0x18 * FoodConsumptionRate * 0.01                 // float
 S     = sum trunc(Speed[i] * s[i])
 motricity = S / pow(+0x18, MotricityPower)
 ```
@@ -345,6 +346,8 @@ motricity = S / pow(+0x18, MotricityPower)
 `+0x1ac` family = `default_family[ArmLegMerge[A1][B1] < 50 ? A1 : B1]`
 (note row `A` here, unlike the attribute tables); family 2/3
 (HeavyBiped/LightBiped) gives `+0x1b4 = 0`, everything else quadruped.
+For bipeds the family is then overridden to `(size_class < 2) + 2`
+(HeavyBiped 2 / LightBiped 3).
 The Part 6 reference widths are `[100,100,100,300,150]` and are only the
 denominators of the accumulator's width ratio.
 

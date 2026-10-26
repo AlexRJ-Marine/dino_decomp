@@ -1422,13 +1422,16 @@ Updated: 2026-10-26
     `TranslatorConstants.ini`; `FUN_00619830` dimensions/weight/speed and
     `FUN_00617250` attacks/perception/intelligence/beauty/armor/agility are
     implemented.
-  - Gene expressions use `matrix[alleleA][alleleB]` (the old averaged
+  - Gene expressions use `matrix[alleleB][alleleA]` (the old averaged
     translation rule was wrong; the matrix diagonal equals the translation).
-  - Cpg04: 16/20 live rows exact; residuals are the unported dummy/skin/
-    carapace accumulator (row 1, rows 10/11/13 attack, rows 11/13 beauty/
-    armor). `test_cpp_cpg04_phenotype_attributes` locks all 20 rows, and
-    `test_cpp_cpg04_phenotype_lengths` still passes (the tail merge now uses
-    the tail allele pair).
+  - Cpg04: 17/20 live rows exact; residuals are the unported dummy/skin/
+    carapace accumulator (row 1, rows 11/13 beauty/armor, row 13 attack +2).
+    Reviewer fixes: the tail attack now reads the tail allele pair (rows 10
+    and 11 become exact), `+0x1c` is a float, bipeds get the retail
+    `(size_class < 2) + 2` family override, and the Agre/Stam/Cour matrix is
+    indexed `[alleleB][alleleA]`. `test_cpp_cpg04_phenotype_attributes`
+    locks all 20 rows (including per-part attacks), and
+    `test_cpp_cpg04_phenotype_lengths` still passes.
   - Evidence: `notes/phenotype-attributes-runtime.md`,
     `docs/formats/translator-constants.md`, `docs/formats/gen.md`.
 - SECU danger grid solved, ported and retail-validated.

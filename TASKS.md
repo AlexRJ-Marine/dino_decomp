@@ -1007,10 +1007,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Port the base phenotype: Part 3 groups (Length/Width/Height/Weight/
   Speed/Perception/Intelligence/Beauty/Armor/Agility/Attack), Part 1
   Agre/Stam/Cour dominance matrices, Part 10 families and
-  `TranslatorConstants.ini`. `DinoAttributes` reproduces 16/20 live Cpg04
+  `TranslatorConstants.ini`. `DinoAttributes` reproduces 17/20 live Cpg04
   rows exactly (dimensions, perception, intelligence, beauty, agility,
-  armor, attack, gene expressions); `DINO_DEBUG_PHENO=1` prints all
-  fields and `test_cpp_cpg04_phenotype_attributes` locks the table.
+  armor, attack, gene expressions); the tail attack reads the tail pair,
+  the biped family override and the float food field follow retail.
+  `DINO_DEBUG_PHENO=1` prints all fields and
+  `test_cpp_cpg04_phenotype_attributes` locks the table.
 - [ ] Port the accumulator so the store/lab attribute gauges and visitor
   needs read exact values; the duplicate slots are the first suspect for the
   +2/+3 Cpg04 Intelligence residuals. The base sums + gene expressions

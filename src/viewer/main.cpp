@@ -4720,6 +4720,7 @@ int main(int argc, char** argv) {
                         "class=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
                         "Atk=%d Ag=%d St=%d Co=%d walk=%.3f run=%.3f "
                         "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
+                        "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f "
                         "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
                         i, record.genotype[0].first,
                         record.genotype[0].second,
@@ -4735,10 +4736,12 @@ int main(int argc, char** argv) {
                         attrs.run_speed, attrs.jump, attrs.weight_kg,
                         attrs.part_length[0], attrs.part_length[1],
                         attrs.part_length[2], attrs.part_length[3],
-                        attrs.part_length[4], record.genotype[15].first,
-                        record.genotype[15].second, record.genotype[16].first,
-                        record.genotype[16].second, record.genotype[17].first,
-                        record.genotype[17].second);
+                        attrs.part_length[4], attrs.attack_head,
+                        attrs.attack_body, attrs.attack_arm, attrs.attack_leg,
+                        attrs.attack_tail, static_cast<double>(attrs.food_consumption),
+                        record.genotype[15].first, record.genotype[15].second,
+                        record.genotype[16].first, record.genotype[16].second,
+                        record.genotype[17].first, record.genotype[17].second);
                 }
                 int paddock_index = -1;
                 for (std::size_t p = 0; p < paddocks.size(); ++p) {

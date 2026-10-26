@@ -124,7 +124,7 @@ void read_part_group(const std::vector<std::string>& lines,
 
 // Part 1: `// Translation of the gene <Code>`, then a count, that many
 // expressed values and a count x count dominance matrix. Agre/Stam/Cour use
-// `matrix[alleleA][alleleB]` (the averaged translation is the matrix's own
+// `matrix[alleleB][alleleA]` (the averaged translation is the matrix's own
 // content; see docs/formats/gen.md).
 DinoGeneTable read_gene_table(const std::vector<std::string>& lines,
                               const std::string& code,
@@ -470,6 +470,11 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     if (out.size_class < 0) {
         out.size_class = 3;
     }
+    // Retail overrides the family for bipeds: `(class < 2) + 2`
+    // (HeavyBiped 2 / LightBiped 3); quadruped keeps the legs family.
+    if (!out.quadruped) {
+        out.family = out.size_class < 2 ? 2 : 3;
+    }
 
     int weight_sum = 0;
     int speed_sum = 0;
@@ -481,8 +486,8 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         speed_sum += truncate(static_cast<float>(speed[table][b][a]) * scale[part]);
     }
     out.weight_kg = weight_sum;
-    out.food_consumption =
-        truncate(static_cast<float>(weight_sum) * food_consumption_rate * 0.01f);
+    out.food_consumption = static_cast<float>(weight_sum) *
+                           food_consumption_rate * 0.01f;
     const float motricity =
         out.weight_kg > 0
             ? static_cast<float>(speed_sum) /
@@ -502,8 +507,8 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         if (a < 0 || a > 9 || b < 0 || b > 9) {
             return 0;
         }
-        return table.matrix[static_cast<std::size_t>(a)]
-                           [static_cast<std::size_t>(b)];
+        return table.matrix[static_cast<std::size_t>(b)]
+                           [static_cast<std::size_t>(a)];
     };
     out.aggression = express(agre, 15);
     out.stamina = express(stam, 16);
@@ -530,9 +535,10 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
                                                static_cast<float>(out.height_cm) /
                                                100.0f);
     out.perception = std::min(out.perception, 90);  // MaxPerception
-    // Intelligence is an encephalization quotient, not the Part 3 sum.
-    const std::int32_t volume =
-        static_cast<std::int32_t>(out.length_cm) * out.width_cm * out.height_cm;
+    // Intelligence is an encephalization quotient, not the Part 3 sum. The
+    // product is int64 here; retail multiplies int32 (wrapping on overflow).
+    const std::int64_t volume =
+        static_cast<std::int64_t>(out.length_cm) * out.width_cm * out.height_cm;
     out.intelligence =
         volume > 0
             ? truncate(intelligence_multiplier *
@@ -546,21 +552,20 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.agility = agility_sum;
     out.jump = truncate(jump_percentage * static_cast<float>(out.agility) / 100.0f);
 
-    const auto attack_at = [&](int part, int voice) {
-        const int ai = voice == 0 ? 0 : 1;
+    const auto attack_value = [&](int part, int part_a, int part_b) {
         return attack[static_cast<std::size_t>(part)]
-                     [static_cast<std::size_t>(allele_b[ai])]
-                     [static_cast<std::size_t>(allele_a[ai])];
+                     [static_cast<std::size_t>(part_b)]
+                     [static_cast<std::size_t>(part_a)];
     };
     const auto scaled_attack = [&](int value, int part) {
         return truncate(static_cast<float>(value) *
                         std::sqrt(scale[part]));
     };
-    out.attack_head = scaled_attack(attack_at(0, 0), 0);
-    out.attack_body = scaled_attack(attack_at(3, 0), 0);
-    out.attack_arm = scaled_attack(attack_at(1, 1), 1);
-    out.attack_leg = scaled_attack(attack_at(2, 1), 2);
-    out.attack_tail = scaled_attack(attack_at(4, 3), 4);
+    out.attack_head = scaled_attack(attack_value(0, allele_a[0], allele_b[0]), 0);
+    out.attack_body = scaled_attack(attack_value(3, allele_a[0], allele_b[0]), 0);
+    out.attack_arm = scaled_attack(attack_value(1, allele_a[1], allele_b[1]), 1);
+    out.attack_leg = scaled_attack(attack_value(2, allele_a[1], allele_b[1]), 2);
+    out.attack_tail = scaled_attack(attack_value(4, allele_a[4], allele_b[4]), 4);
     if (out.quadruped) {
         out.attack_leg = 0;
     }

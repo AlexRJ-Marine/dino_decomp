@@ -12,7 +12,7 @@ the table below is the durable copy.
 | `+0x00` | length (cm) | head + body + tail (scaled) |
 | `+0x0c` | width | part width sum/scales |
 | `+0x14` | height | part height sum/scales |
-| `+0x18` / `+0x1c` | volume int / float (`x*0.001` scale) | length x width x height |
+| `+0x18` / `+0x1c` | weight (kg) / food consumption (float) | Part 3 Weight x scale |
 | `+0x28` | violence evolution (`aggression * ViolenceEvolutionRate * 0.01`) | `+0x6c * 0.4 * 0.01` |
 | `+0x2c` | walk speed (float) | `body length * WalkingSpeedCoef * motricity` |
 | `+0x30` | run speed (float) | `body length * RunningSpeedCoef * motricity`, 0 below the min |
@@ -63,12 +63,13 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
 
 ## What matches
 
-- **Beauty, Agility, Armor**: the base sum is exact for every row whose dummy
-  genes 4-13 are `(0,0)` (19/20 rows). Row 1 (all dummy genes `(1,1)`) gains
-  +26 beauty, -4 agility, +8 armor from the dummy part records.
-- **Attack total**: exact for the pure/default rows; hybrid head/body/tail
-  rows differ by 1-20 (`0x617250` composes the per-part attacks with the
-  expressed part pairs; the remaining delta is the part-record accumulator).
+- **Beauty, Agility, Armor**: the base sum is exact for the 17 rows whose
+  dummy/skin/carapace genes are `(0,0)`. Row 1 (all dummy genes `(1,1)`)
+  gains +26 beauty, -4 agility, +8 armor; rows 11/13 also gain +6 beauty and
+  +6 armor from the dummy part records.
+- **Attack total**: row 10 is exact (259) and row 11 exact (345) once the
+  tail attack reads the tail allele pair; row 13 is +2 (303 vs live 305).
+  Row 1 differs by -14 (229 vs live 243), from the dummy accumulator.
 - **Aggressiveness/Stamina/Courage**: equal the `Agre`/`Stam`/`Cour` gene
   expressions for the dummy-zero rows, except rows 11/13 where the part
   records add +-2..5.
@@ -78,7 +79,8 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
   walk/run speeds are `+0x2c`/`+0x30 =
   body_length * (0.1|0.4) * motricity`, `motricity = speed_sum / weight^0.85`.
   The C++ port computes them (`DinoAttributes::walk_speed/run_speed`); the
-  retail units are centimetres per second.
+  live `p2c/p30` values were logged in the same CTOR trace and match the
+  base formula. The retail unit is not yet confirmed against actor motion.
 - **Port status.** `src/formats/dino_data.*` now parses all Part 3 groups,
   the Part 1 Agre/Stam/Cour matrices, Part 10 and `TranslatorConstants.ini`,
   and computes the full attribute set (`DinoAttributes`). The Cpg04 test
