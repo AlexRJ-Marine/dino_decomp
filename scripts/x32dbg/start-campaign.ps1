@@ -244,6 +244,8 @@ if (-not $game) {
         }
 
         if ($BuyDino) {
+            Write-Host "waiting for the park before the store"
+            Wait-Rendered $hwnd 60 | Out-Null
             Resume
             Write-Host "opening the dinosaur store"
             Click-Client $hwnd 765 298
@@ -258,10 +260,10 @@ if (-not $game) {
             Start-Sleep -Seconds 2
             Save-Window $hwnd "dino-bought"
             Write-Host "placing the dinosaur in a paddock"
-            foreach ($pt in @(@(250,300), @(550,300), @(400,200), @(400,400), @(200,220), @(600,220))) {
+            foreach ($pt in @(@(200,220), @(600,220), @(250,300), @(550,300), @(400,200), @(400,400))) {
                 Resume
                 Click-Client $hwnd $pt[0] $pt[1]
-                Start-Sleep -Milliseconds 700
+                Start-Sleep -Seconds 3
             }
             Start-Sleep -Seconds 2
             Save-Window $hwnd "dino-placed"
