@@ -68,10 +68,12 @@ unknowns, with what was tried and the concrete next step.
 
 - **Solved:** schema and all 3 files (`NoName / width / height / value /
   count / features`, 32×72).
-- **Open:** the fourth value is 2 in `demo8` and 6 in the other two; it is
-  not the retail judge kind (1..4).
-- **Next:** locate the edition-show loader (not the retail `0x558340`
-  writer/`0x558230` reader) or accept it as a legacy editor field.
+- **Resolved:** the fourth value is 2 in `demo8` and 6 in the other two; it is
+  not the retail judge kind (1..4). No `Edition`/`demo.shw` string or loader
+  exists in the retail exe, so this schema belongs to the **edition/editor
+  content**, not the retail runtime. Treat the value as a legacy editor field
+  (likely an old judge/team count). No further consumer exists in
+  `DinoIsland.exe`.
 
 ## Cross-agent opens (not mine)
 

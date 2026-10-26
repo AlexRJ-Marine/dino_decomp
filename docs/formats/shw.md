@@ -153,7 +153,7 @@ combinations occur, e.g. only-small, only-medium, small+high, all-small..high.
 NoName
 32              arena width
 72              arena height
-6               a judge/type value (2 or 6; meaning open)
+6               a legacy judge/type value (2 or 6)
 20              feature count
 <20 x 4 ints>   (FeatureList index, rotation, x, y)
 ```
@@ -161,6 +161,10 @@ NoName
 There is no cost, cage-size, wall-type or team list. All three are 32x72
 with features inside the arena and indices 0..61. `read_shw` rejects them;
 `tools/formats/shw.py::read_demo_shw` parses them.
+
+The retail exe has no `Edition`/`demo.shw` string or loader, so this schema
+belongs to the edition/editor content. The 2/6 value is a legacy editor field
+(probably an old judge count), not a retail runtime judge kind.
 
 ## Save catalog relation
 

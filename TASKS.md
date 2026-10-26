@@ -539,8 +539,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ### AUDIT-1: asset coverage index
 - [x] Every one of the 2,891 files mapped to a spec or an explicit open item
   (`notes/asset-coverage.md`).
-- [ ] Remaining unknowns: `Actions.bad`, `.lnd` w/h, demo `.shw` judge value,
-  `.bfi` body ints, `.bwi` field semantics, behavior-graph nodes.
+- [x] Demo `.shw` judge value is legacy edition/editor content; the retail exe
+  has no `Edition` loader.
+- [ ] Remaining unknowns: `Actions.bad`, `.lnd` w/h, `.bfi` body ints,
+  `.bwi` field semantics, behavior-graph nodes.
 - **Evidence:** `notes/asset-coverage.md`.
 
 ### FMT-31: `Actions.bad` behaviour data
