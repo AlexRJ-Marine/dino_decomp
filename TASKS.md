@@ -783,6 +783,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `notes/hybrid-mesh-recon.md`, `notes/hyb6-counter.txt`,
   `notes/park-hook-mesh-default.png`, `docs/decomp/hybrid.md`.
 
+### HYB-7: `.fnt` loader
+- [x] Decode `0x430fb0` (`void __thiscall LoadFile(mgFontDx8*, const
+  mcString*)`, `RET 4`): version, atlas w/h (dead), size, cell height, pitch
+  pair, code count + u16 codes (starting at the hash dword, which explains
+  `metrics[i+2]`), metric count + 8-byte metrics, glyph map. Pixels are
+  lazy in `0x4316e0`.
+- [ ] Implement the 12-byte entry detour and verify on the HUD; the lazy
+  pixel path (`0x4316e0`) still needs its seek base resolved.
+- **Acceptance:** the HUD font loads with the replacement.
+- **Depends on:** UI-0.
+- **Evidence:** `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`.
+
 ### DEC-2: Simulation scheduler and AI update order
 - [x] Decompile `lpScheduler` (`0x506ec0`, `0x507050`, `0x507490`,
   `0x507530`) and the park/menu task registration (`0x51d050`, `0x596500`).

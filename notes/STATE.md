@@ -1237,6 +1237,15 @@ Updated: 2026-10-26
     loaders.
   - Evidence: `notes/hybrid-mesh-recon.md`, `docs/decomp/hybrid.md`,
     `TASKS.md` HYB-6.
+- HYB-7 ABI solved (hook queued): **`.fnt` loader `0x430fb0`.**
+  - `void __thiscall LoadFile(mgFontDx8*, const mcString*)`, `RET 4`;
+    version/atlas/size/cell/pitch, code count + u16 codes starting at the
+    **hash dword** (explains the port's `metrics[i+2]` mapping), metric
+    count + 8-byte metrics, then a glyph map.
+  - Pixels are lazy in `0x4316e0` (reopens the stored path); the exact seek
+    base is unresolved. Entry detour (12 bytes), no vtable slot.
+  - Evidence: `notes/hybrid-fnt-recon.md`, `docs/decomp/hybrid.md`,
+    `TASKS.md` HYB-7.
 - SHOW score complete: **the `.bfi` attribute lists/score steps are dead
   editor metadata.**
   - The record stores the lists at `+0xe8` (vector<vector<string>>) and the

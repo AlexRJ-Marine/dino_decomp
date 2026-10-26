@@ -186,7 +186,12 @@ hook_4809a0: calls=97000
 4. `.mesh` whole-file reader `0x477f30` is **runtime-verified**: 121 mesh
    files, park renders. The vtable slot `0x626abc` is repointed; `.skin` is
    forwarded to the original. All major asset readers are now replaced.
-5. Remaining smaller candidates: `0x4809e0` (UV reader, not exercised by the
-   park) and the `.fnt`/overlay loaders. Keep
-   `docs/decomp/function-status.md` current; mark each entry `replaced` only
-   after the running game exercises it.
+5. Remaining candidates: `0x4809e0` (UV reader, not exercised by the park)
+   and the `.fnt` loader `0x430fb0`. The `.fnt` ABI is solved: version,
+   atlas w/h (dead), size, cell height, pitch pair, code count + u16 codes
+   (starting at the **hash dword**, hence the port's `metrics[i+2]`
+   mapping), metric count + 8-byte metrics, then a glyph map; pixels are
+   fetched lazily by `0x4316e0`. Entry detour (12 bytes); the pixel path is
+   not fully resolved. See `notes/hybrid-fnt-recon.md`.
+6. Keep `docs/decomp/function-status.md` current; mark each entry `replaced`
+   only after the running game exercises it.
