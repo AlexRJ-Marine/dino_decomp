@@ -2949,13 +2949,15 @@ int main(int argc, char** argv) {
             lnd = dino::load_lnd(opt.lnd_path);
             int hm_width = 0, hm_height = 0;
             const auto heights = dino::load_raw_u8(
-                resolve_asset(opt.asset_root, lnd.heightmap), hm_width, hm_height);
+                resolve_asset(opt.asset_root, lnd.heightmap), hm_width, hm_height,
+                true);
             terrain = dino::build_terrain(heights, hm_width, hm_height,
                                           opt.terrain_size, opt.height_scale);
             try {
                 int occ_w = 0, occ_h = 0;
                 terrain.occupation = dino::load_raw_u8(
-                    resolve_asset(opt.asset_root, lnd.occupation), occ_w, occ_h);
+                    resolve_asset(opt.asset_root, lnd.occupation), occ_w, occ_h,
+                    true);
                 terrain.occupation_width = occ_w;
                 terrain.occupation_height = occ_h;
             } catch (const std::exception& e) {
@@ -5185,13 +5187,15 @@ int main(int argc, char** argv) {
         dino::Lnd new_lnd = dino::load_lnd(lnd_path);
         int hm_width = 0, hm_height = 0;
         const auto heights = dino::load_raw_u8(
-            resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height);
+            resolve_asset(opt.asset_root, new_lnd.heightmap), hm_width, hm_height,
+            true);
         dino::Terrain new_terrain = dino::build_terrain(
             heights, hm_width, hm_height, opt.terrain_size, opt.height_scale);
         try {
             int occ_w = 0, occ_h = 0;
             new_terrain.occupation = dino::load_raw_u8(
-                resolve_asset(opt.asset_root, new_lnd.occupation), occ_w, occ_h);
+                resolve_asset(opt.asset_root, new_lnd.occupation), occ_w, occ_h,
+                true);
             new_terrain.occupation_width = occ_w;
             new_terrain.occupation_height = occ_h;
         } catch (const std::exception& e) {
@@ -7311,6 +7315,57 @@ int main(int argc, char** argv) {
                     free_pos.z = std::max(free_pos.z, min_z);
                 }
             }
+        } else if (!opt.no_input && !start_screen && !park.name_edit_active()) {
+            // Ground-target camera (the default): WASD walks the look-at
+            // point over the island, drag orbits around it and the wheel
+            // zooms. This is the park-building camera; `C` switches to the
+            // free-fly first-person camera above.
+            const bool* keys = SDL_GetKeyboardState(nullptr);
+            auto held = [&](dino::KeyAction action) {
+                const SDL_Scancode scancode =
+                    SDL_GetScancodeFromKey(keymap[action], nullptr);
+                return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
+            };
+            // `yaw` points from the target to the eye; the view direction is
+            // the opposite.
+            const float view_yaw = yaw * 3.14159265f / 180.0f + 3.14159265f;
+            const dino::Vec3 forward{std::cos(view_yaw), std::sin(view_yaw), 0.0f};
+            const dino::Vec3 right{std::sin(view_yaw), -std::cos(view_yaw), 0.0f};
+            const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
+            const float step = speed * static_cast<float>(dt);
+            dino::Vec3 delta{0.0f, 0.0f, 0.0f};
+            if (held(dino::KeyAction::MoveForward)) {
+                delta.x += forward.x * step;
+                delta.y += forward.y * step;
+            }
+            if (held(dino::KeyAction::MoveBack)) {
+                delta.x -= forward.x * step;
+                delta.y -= forward.y * step;
+            }
+            if (held(dino::KeyAction::MoveRight)) {
+                delta.x += right.x * step;
+                delta.y += right.y * step;
+            }
+            if (held(dino::KeyAction::MoveLeft)) {
+                delta.x -= right.x * step;
+                delta.y -= right.y * step;
+            }
+            if (held(dino::KeyAction::MoveUp)) {
+                center.z += step;
+            }
+            if (held(dino::KeyAction::MoveDown)) {
+                center.z -= step;
+            }
+            if (delta.x != 0.0f || delta.y != 0.0f) {
+                center.x += delta.x;
+                center.y += delta.y;
+                if (terrain.world_size > 0.0f) {
+                    const float half = terrain.world_size * 0.5f;
+                    center.x = std::clamp(center.x, -half, half);
+                    center.y = std::clamp(center.y, -half, half);
+                    center.z = terrain.height_at(center.x, center.y) + 2.5f;
+                }
+            }
         }
 
         if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
@@ -7903,7 +7958,10 @@ int main(int argc, char** argv) {
                               "visitors %zu   paths %d   fences %d",
                               visitor_system.visitors.size(), build_grid.path_count,
                               build_grid.fence_count);
-                const std::string text = std::string(line1) + "\n" + line2;
+                std::string text = std::string(line1) + "\n" + line2;
+                if (opt.frames == 0 && elapsed < 12.0) {
+                    text += "\nWASD move   drag orbit   wheel zoom   C free-fly";
+                }
                 draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
                                         {235, 240, 245, 255}),
                         hud_font_texture, 0.95f, 2);
@@ -7917,7 +7975,8 @@ int main(int argc, char** argv) {
                 draw_2d(build_text_mesh(
                             hud_font,
                             "CONTROLS\n\n"
-                            "WASD move    C camera    Shift sprint\n"
+                            "WASD move target   drag orbit   wheel zoom\n"
+                            "C free-fly camera   Shift sprint\n"
                             "1 path    2 fence    0 off    U undo    click place\n"
                             "F1 HUD    Tab close    Esc quit",
                             64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),

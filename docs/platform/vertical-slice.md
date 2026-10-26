@@ -46,8 +46,10 @@ starts the walking animation. Screenshot: `notes/menu-start-dino.png`.
 
 ## Camera
 
-Orbit mode (default): **left-drag** orbits, wheel zooms, arrows orbit, `R`
-resets. When a dinosaur is placed, the orbit target is the spawn point at
+Ground-target mode (default): **left-drag** orbits, wheel zooms, arrows
+orbit, `R` resets. `W/A/S/D` walk the look-at point over the island and
+`Q/E` raise/lower it, so the camera can travel freely without entering
+free-fly. When a dinosaur is placed, the target is the spawn point at
 `z = terrain + 3`; otherwise it frames the whole island.
 
 The menu-started park uses the recovered Free Game camera: target is the

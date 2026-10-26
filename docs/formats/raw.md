@@ -30,6 +30,21 @@ or unused slot).
 a 1024-unit terrain (2 world units per sample). Values 0..255; the island
 height range differs per map.
 
+**Runtime row order is bottom-up.** `mgHeightmap::Load` (`FUN_005c06b0`)
+reads the file rows from last to first:
+
+```text
+for (i = 0; i < height; ++i)
+    Read(buffer + (height - 1 - i) * width, width, 1);
+```
+
+so runtime buffer row 0 is the file's last row. `FUN_0061ffc0` samples the
+runtime buffer with `row = trunc(cell_y * 0.5)`; it does not flip again.
+The port's `load_raw_u8(..., flip_rows=true)` mirrors this. See
+`notes/terrain-orientation-recon.md` (isl01 Entrance: file row 323 /
+shoreline, not row 188 / volcano). The occupation mask uses the same
+bottom-up order (`FUN_0061c2d0` writes `grid[height - 1 - i]`).
+
 ## Occupation mask
 
 1024 × 1024 unsigned bytes, one byte per **world unit**. Only two values

@@ -68,8 +68,13 @@ yaw = 90 deg * state
 
 - The heightfield is a 512-sample map over the 1024-unit world: sample 0 sits
   at world -512, spacing 2. `FUN_005c0b80` bilinearly samples the u16 map and
-  scales by 1/256. The port's `Terrain::height_at` and `build_terrain` now use
+  scales by 1/256. The port's `Terrain::height_at` and `build_terrain` use
   the same mapping (`src/world/terrain.cpp`).
+- **The runtime heightmap is bottom-up**: `mgHeightmap::Load` `0x5c06b0`
+  reads file rows last-to-first, so runtime row 0 is the file's last row.
+  The port flips both the heightmap and the occupation mask at load
+  (`load_raw_u8(..., flip_rows=true)`). The old top-down sampling put the
+  isl01 Entrance on the volcano. See `notes/terrain-orientation-recon.md`.
 - No scale and no axis swap: the model is `translate(X,Y,Z) · Rz(90°·state)`.
   The model origin is the placement pivot; it is not re-centred.
 - The primary model is the **first `.bbi` path**, a `.skin` whose full mesh is
@@ -116,7 +121,9 @@ it reduces exactly to the yaw transform. `--selftest` checks the flat and
 tilted cases. `LunchDoor` is the only `.bbi` that takes this branch.
 `model[1]` is a Z offset and stays 0.0.
 - Engine cross-checks: isl01 Entrance at cell `(520,376)` state 1 → centre
-  `(525.5,387.5)`, Z **69.4**; the port prints the same. Campaign Entrances
+  `(525.5,387.5)`, Z **18.0**; the port prints the same. The old 69.4 value was the
+  top-down heightmap row (file row 188, the volcano); the engine samples file
+  row 323, the shoreline. Campaign Entrances
   sit at each island's `.lnd` width/height (isl01 `520/376`, isl02 `312/504`,
   isl03 `704/448`) and the generated access roads touch the computed centre.
 

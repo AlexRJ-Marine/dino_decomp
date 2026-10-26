@@ -227,9 +227,10 @@ def test_cpp_occupation_mask_blocks_placement():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
-    # isl01 `_occupation.raw` (1024x1024): cell (130,94) centre maps to mask
-    # (522,378), inside the blocked Entrance footprint (value 255). (128,128)
-    # is the island centre and free.
+    # isl01 `_occupation.raw` (1024x1024) is stored bottom-up, like the
+    # heightmap: engine cell (x,y) reads file row (1023-y). Cell (130,94)
+    # centre maps to mask (522,378) -> file (522,645), still inside the
+    # blocked Entrance footprint (255). (128,128) is free in both rows.
     result = subprocess.run(
         [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
          "--no-vegetation", "--build", "--place-path", "130,94",
@@ -240,16 +241,17 @@ def test_cpp_occupation_mask_blocks_placement():
     assert "place-path: blocked cell 130,94" in result.stderr
     assert "1 path cells, 0 fences" in result.stdout
 
-    # East edge (edge 1) is shared with (x+1,y), not (x-1,y). Cell (107,82)
-    # has a blocked east neighbour (108,82); (106,82) is free on both sides.
+    # East edge (edge 1) is shared with (x+1,y), not (x-1,y). In engine
+    # orientation cell (158,90) has a blocked east neighbour (159,90);
+    # (157,90) is free with a free east neighbour.
     fence = subprocess.run(
         [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
-         "--no-vegetation", "--build", "--place-fence", "107,82,1",
-         "--place-fence", "106,82,1"],
+         "--no-vegetation", "--build", "--place-fence", "158,90,1",
+         "--place-fence", "157,90,1"],
         capture_output=True, text=True, timeout=120,
     )
     assert fence.returncode == 0, fence.stderr
-    assert "place-fence: blocked cell 107,82" in fence.stderr
+    assert "place-fence: blocked cell 158,90" in fence.stderr
     assert "1 fences" in fence.stdout
 
 
@@ -1435,7 +1437,9 @@ def test_cpp_building_placement_transform():
     line = [ln for ln in result.stdout.splitlines() if "building: Entrance" in ln][0]
     assert "cell=520.0,376.0" in line
     assert "centre=525.5,387.5" in line
-    assert "z=69.4" in line
+    # Engine heightmap rows are bottom-up (`0x5c06b0`): the entrance samples
+    # file row 323, i.e. the shoreline (18.0), not the volcano (69.4).
+    assert "z=18.0" in line
     assert "state=1 angle=90" in line
     assert "entrance_lod1.skin" in line
 
@@ -1490,8 +1494,10 @@ def test_cpp_port_save_roundtrip(tmp_path):
         [str(EXE), "--frames", "2", "--no-menu", "--width", "320",
          "--height", "240", "--no-vsync", "--no-save-config", "--no-hud",
          "--lnd", str(isl03), "--asset-root", str(GAME), "--no-vegetation",
-         "--place-path", "100,100", "--place-path", "100,101",
-         "--place-fence", "100,100,0", "--visitors", "3",
+         # Engine mask is bottom-up: (100,100) is blocked; (128,128)/(128,129)
+         # are free and share a free south neighbour.
+         "--place-path", "128,128", "--place-path", "128,129",
+         "--place-fence", "128,128,0", "--visitors", "3",
          "--park-time", "10:30", "--park-time-scale", "30",
          "--distance", "250", "--yaw", "40", "--pitch", "25",
          "--building", str(bbi), "--building-pos", "600,300",
@@ -1506,8 +1512,8 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "island isl03" in text
     assert "clock 0 180 30" in text
     assert "grid 4 -512 -512 256 256" in text
-    assert "path 100 100" in text and "path 100 101" in text
-    assert "fence 100 100 0" in text
+    assert "path 128 128" in text and "path 128 129" in text
+    assert "fence 128 128 0" in text
     assert "building 9 600 300 1" in text
     visitor_lines = [ln for ln in text.splitlines() if ln.startswith("visitor ")]
     assert len(visitor_lines) == 3
@@ -2272,7 +2278,9 @@ def test_cpp_budget_panel_ledger(tmp_path):
     assert "budget totals: expenses=0 income=0 net=0" in zero.stdout
 
     spent = run(["--buy-dino", "Zarbosaurus", "--construct", "RestCirc",
-                 "--construct-pos", "512,140"], spent_shot)
+                 # (512,140) is blocked after the engine mask flip; (516,288)
+                 # is a free 12x12 footprint clear of the Cpg04 buildings.
+                 "--construct-pos", "516,288"], spent_shot)
     assert ("budget ledger: dinoachat=0/0 construction=0/0 tickets=0/0"
             in spent.stdout)
     assert ("budget yesterday: dinoachat=1/4900 construction=1/2500 "

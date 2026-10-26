@@ -26,8 +26,12 @@ music
     matching the engine heightfield (`FUN_005c0b80`: `map = world * 0.5`).
   - positions `(x - 256) * 2, (y - 256) * 2, h`
   - central-difference normals
-  - UV `u = x/(W-1)`, `v = -1 + y/(H-1)` so the shader's `v_tex = 1+v`
-    maps image row 0 to world row 0.
+  - raw rows are flipped at load (`load_raw_u8(..., flip_rows=true)`):
+    runtime row 0 is the file's last row, matching `mgHeightmap::Load`
+    `0x5c06b0` and the 1024x1024 landscape grid `0x61c2d0`.
+  - UV `u = x/(W-1)`, `v = -y/(H-1)` so the shader's `v_tex = 1+v`
+    maps image row 0 to the bottom row after the flip; this keeps the
+    top-down basemap aligned with the engine-order heights.
   - 522,242 triangles.
 
 The `.lnd` `width`/`height` (520×376) are kept as metadata. The 1024-unit

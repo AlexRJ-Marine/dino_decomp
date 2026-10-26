@@ -44,7 +44,12 @@ struct TerrainBasis {
 TerrainBasis slope_basis(const Terrain& terrain, float world_x, float world_y,
                          float yaw_radians);
 
-std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& height);
+// Reads a square 8-bit raw. `flip_rows` matches the engine loaders
+// (`mgHeightmap` `0x5c06b0`, landscape grid `0x61c2d0`), which read the file
+// bottom row first: their buffer row 0 is the file's last row. Keep the file
+// order for format inspection; pass `true` for the runtime terrain/mask.
+std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& height,
+                                      bool flip_rows = false);
 Terrain build_terrain(const std::vector<std::uint8_t>& heights, int width, int height,
                       float world_size, float height_scale);
 

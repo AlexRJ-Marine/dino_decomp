@@ -33,6 +33,20 @@ vsync=1
 
 ## Key rebinding
 
+## Camera
+
+Two camera modes share the same movement keys:
+
+- **Ground-target (default).** Mouse drag orbits around the look-at point,
+  the wheel zooms, and `W/A/S/D` walk the look-at point across the island
+  (`Q/E` raise/lower it). This is the park-building camera; movement follows
+  the terrain height.
+- **Free-fly (`C`).** `W/A/S/D` move the eye along the view direction,
+  `Q/E` move down/up, Shift sprints, and mouse drag looks around. The eye is
+  clamped to the terrain surface.
+- An on-screen hint is shown for the first 12 seconds of an interactive run;
+  `Tab` opens the full controls panel.
+
 Default key map: `dino_keys.cfg` (gitignored).
 
 ```text

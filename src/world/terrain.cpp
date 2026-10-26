@@ -9,7 +9,8 @@
 
 namespace dino {
 
-std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& height) {
+std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& height,
+                                      bool flip_rows) {
     auto data = read_binary_file(path);
     if (data.empty()) {
         throw std::runtime_error("raw: empty file " + path);
@@ -20,6 +21,16 @@ std::vector<std::uint8_t> load_raw_u8(const std::string& path, int& width, int& 
     }
     width = side;
     height = side;
+    if (flip_rows) {
+        // The engine reads the raw rows from last to first (`0x5c06b0` /
+        // `0x61c2d0`), so its row 0 is the file's bottom row.
+        for (int y = 0; y < height / 2; ++y) {
+            auto top = data.begin() + static_cast<std::ptrdiff_t>(y) * width;
+            auto bottom = data.begin() +
+                          static_cast<std::ptrdiff_t>(height - 1 - y) * width;
+            std::swap_ranges(top, top + width, bottom);
+        }
+    }
     return data;
 }
 
@@ -79,8 +90,12 @@ Terrain build_terrain(const std::vector<std::uint8_t>& heights, int width, int h
             const float nz = 1.0f;
             const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
             mesh.normals.push_back({nx / len, ny / len, nz / len});
-            // Engine shader expects v_tex = 1 + v; map image row 0 to world y=0.
-            mesh.uvs.push_back({u, -1.0f + v});
+            // `heights` is in engine order (row 0 = file bottom), while the
+            // basemap TGA is top-down. Sample the basemap at the matching
+            // file row: grid row y -> image row (height - 1 - y). Terrain
+            // mesh UVs use the engine's bottom-left convention, so the
+            // vertex shader adds 1.0 (`1 - v` after that).
+            mesh.uvs.push_back({u, -v});
         }
     }
 
