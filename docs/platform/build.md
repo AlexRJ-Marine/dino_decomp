@@ -67,6 +67,8 @@ filling and the no-room rejection.
 Open: the purchase path (store charge to `DINOACHAT`, store-row removal),
 the `WARNING_NO_ROOM_IN_FENCE` panel path, and the runtime range of
 `dinosaur+0x1e0` (the cost index). The port uses index 0 until confirmed.
+Per-paddock numbers and the all-campaign scan:
+`notes/paddock-capacity-verification.md`.
 
 ## CLI (also used by tests)
 

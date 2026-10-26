@@ -1100,6 +1100,7 @@ Updated: 2026-10-26
     removal), the `WARNING_NO_ROOM_IN_FENCE` panel path and the runtime
     `dinosaur+0x1e0` cost index.
   - Evidence: `docs/platform/build.md`, `docs/decomp/construction-validation.md`,
+    `notes/paddock-capacity-verification.md`,
     `tests/test_viewer_cpp.py::test_cpp_wld_park_dinosaurs`,
     `test_cpp_selftest`.
 - P4 research complete (**port implementation pending**):
