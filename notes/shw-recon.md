@@ -53,9 +53,17 @@ rotation 1 along y=2.
 
 ## Open
 
-- Rotation direction and pivot corner.
 - `Judge Kind`, `Wall type` and the runtime catalog fields `param1`/`param2`/
   `param5` (see `docs/formats/shw.md`).
+
+## Rotation direction and pivot
+
+The feature constructor is the shared `FUN_00586b80` (also used by buildings).
+Its jump table `0x586d0c` handles the four orientations; the yaw basis from
+`FUN_0061ffc0` case 0 is state 0 `(1,0)`, 1 `(0,1)`, 2 `(-1,0)`, 3 `(0,-1)` -
+counter-clockwise 90 deg steps. The `.shw` `(x,y)` is the footprint min corner,
+but the render pivot is the footprint centre: `stonw.mesh` (1x4 beam) has local
+bounds x +/-0.488, y +/-1.99, i.e. centred.
 ## Judge Kind and cage flags
 
 `Judge Kind` 1..4 selects the judge feature:

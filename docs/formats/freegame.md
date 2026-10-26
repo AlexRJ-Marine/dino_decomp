@@ -115,7 +115,11 @@ Tests: `tests/test_freegame.py` (context, lab, profiles, 39 shows with files,
 
 ## Open
 
-- Exact meaning of the profile triplet's second value (100 everywhere).
-- Why pages 8 and 9 have no shows.
 - Whether the empty inherited lists mean "no restriction" or "nothing
   unlocked".
+
+The profile triplet's second value is passed through unchanged by
+`FUN_00561bb0` -> `FUN_005869b0` -> `FUN_00615bb0`; all 18 retail triplets use
+100, so the file gives no variation to decode. `Shows8`/`Shows9` are empty
+because only campaigns 1-7 exist (page N matches campaign N+1; Cpg07 is cut
+content), not because of a loader rule.

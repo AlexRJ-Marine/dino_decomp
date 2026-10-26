@@ -136,6 +136,13 @@ five camera configs, startup and user settings).
 
 ## Open
 
-- Which `[ConfigN]` belongs to which camera mode (the park uses Config1).
-- Whether `progress` is a saved camera field or fixed at 0.1 for a new game.
 - `TargetHardness`/`PositionHardness` semantics (reversed min/max).
+
+Only `Config1` exists as an exe string (`0x0065e350`); `FUN_005e5d10` opens
+`data\config\camera.ini` and reads that one block. `Config2..5` are never
+opened by this build (and are byte-identical anyway). A new game starts with
+`progress = 0.1`, and the saved camera also stores 0.1, so the new-game value
+and the saved value agree. `TargetHardnessMin=6` / `Max=2` and
+`PositionHardnessMin=6` / `Max=2` are stored in separate fields by
+`FUN_005e5690` (`+0x8c/+0x90` and `+0x94/+0x98`); the reversed order is
+intentional data, not a parse error.

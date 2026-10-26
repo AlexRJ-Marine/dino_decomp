@@ -621,6 +621,24 @@ Updated: 2026-10-26
   all 2,891 files mapped to specs; remaining unknowns listed (`Actions.bad`,
   `.lnd` width/height, demo `.shw` judge value, `.bfi` body ints, `.bwi`
   field semantics, behavior-graph nodes).
+- FORMAT-SEMANTICS batch complete:
+  - ENV-1 re-verified: `scripts/check-env.ps1` passes (317 tests),
+    `scripts/build.ps1` is up to date, Ghidra MCP lists the analysed
+    `DinoIsland.exe-ebea17` (`notes/env-check.md`).
+  - FMT-8: show-feature rotation is counter-clockwise 90 deg steps about the
+    footprint centre (`FUN_00586b80` / `0x586d0c`, `FUN_0061ffc0`);
+    `.shw` `(x,y)` remains the min-corner anchor. Wall type has only the
+    retail value 1.
+  - FMT-28: missing `DinoStore1` is an authoring gap; difficulty selects only
+    budget/sellback/profiles, so it does not modify store prices.
+  - FMT-29: profile triplet's second value is retail-constant 100; `Shows8/9`
+    are empty because only campaigns 1-7 exist.
+  - FMT-30: only `Config1` is opened by `FUN_005e5d10`; a new game and the
+    saved camera both use progress 0.1; hardness min/max are separate fields
+    and the 6/2 order is intentional.
+  - Evidence: `docs/formats/shw.md`, `docs/formats/market.md`,
+    `docs/formats/freegame.md`, `docs/formats/config.md`,
+    `notes/env-check.md`.
 - DEC-2b research: **dinosaur behavior graph located.**
   - `apDinosaurBehavior` (`0x521b30`) owns the actor and two sub-behaviors;
     the node graph is serialized by `0x56ce80` (41 node types) /

@@ -74,7 +74,11 @@ exist, the three unsold design files).
 
 ## Open
 
-- Why store page 1 is missing (probably reserved for the tutorial).
-- Whether the price is modified by difficulty (`FreeGame.ini`
-  `SellBackFactor`) at runtime.
 - The store page order used by the in-game shop UI.
+
+Page 1 is simply absent from `Market.ini` (`DinoStore0`, `DinoStore2`..`6`);
+the loader walks the keys that exist, so this is an authoring gap, not a
+format feature. Prices are **not** modified by difficulty: `FUN_00561bb0`
+selects only `Budget`, `SellBackFactor` and `VisProfiles` from the difficulty
+branch, and the saved 20-entry free-game store keeps the `Market.ini` prices
+(see `docs/formats/campaign.md` and `docs/formats/sav.md`).

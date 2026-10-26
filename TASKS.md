@@ -470,7 +470,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dimensions, judge kind ? 39/39 exact.
 - [x] Footprint tiling: `.bfi` w/h as the rotated footprint with (x,y) as
   min corner gives 0 overlaps over 29,500 cells; 3 judges overhang by 1.
-- [ ] Rotation direction/pivot; Wall type variants (only 1 is used).
+- [x] Rotation/pivot solved: counter-clockwise 90 deg steps about the
+  footprint centre (`FUN_00586b80` / `0x586d0c`, `FUN_0061ffc0`). Wall type
+  has only the retail value 1.
 - **Evidence:** `tools/formats/shw.py`, `docs/formats/shw.md`,
   `tests/test_shw.py`, `notes/shw-recon.md`.
 
@@ -479,7 +481,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `(display name, price, .gen)`; all 54 genotypes exist.
 - [x] Prices 3,200-42,000; the three unsold design .gen files are anky2,
   peleca3, proto2.
-- [ ] Missing store page 1 and difficulty price modification.
+- [x] Missing store page 1 is an authoring gap (no `DinoStore1` key); prices
+  are not difficulty-modified (only budget/sellback/profiles are).
 - **Evidence:** `tools/formats/market.py`, `docs/formats/market.md`,
   `tests/test_market.py`, `notes/market-recon.md`.
 
@@ -491,7 +494,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] `[DINOSTORE]` 20 entries, subset of `Market.ini` with matching prices.
 - [x] `[LABORATORY]` starts at level 3; `[INTERFACE]` all 7 enabled;
   `[SELLING] Dinosaur=1`.
-- [ ] Second profile value meaning; empty show pages 8/9.
+- [x] Second profile value is retail-constant 100 (passed through unchanged);
+  pages 8/9 are empty because only campaigns 1-7 exist.
 - **Evidence:** `tools/formats/freegame.py`, `docs/formats/freegame.md`,
   `tests/test_freegame.py`, `notes/freegame-recon.md`.
 
@@ -502,7 +506,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   rotation pi/2, elevation 3..500, distance 10..300, hardness 6..2).
 - [x] `KeyMapper.ini` 17 bindings (camera, pad rotate, escape, rasters,
   pause); `key/KeyFrancais.ini` 144 DIK/MIK rows, AZERTY.
-- [ ] Initial park camera framing; ConfigN -> camera mode; hardness min>max.
+- [x] Initial framing solved (Config1, progress 0.1 -> 39/52.7). Only
+  `Config1` is referenced by the exe; Config2..5 are never opened. Hardness
+  min/max are separate fields and the 6/2 order is intentional.
 - **Evidence:** `tools/formats/config.py`, `docs/formats/config.md`,
   `tests/test_config.py`, `notes/config-recon.md`.
 

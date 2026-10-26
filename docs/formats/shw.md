@@ -106,8 +106,17 @@ Tiling every retail show with these footprints produces **zero overlaps**:
 43/43 shows, 1,679 features, **29,500 occupied cells**, no shared cell. That
 pins the anchor, the rotation rule and the `.bfi` footprint meaning at once.
 
-The only exceptions are 3 **judge** features that overhang the arena edge by
-one cell (they are 4x4 and placed at the last row):
+The anchor is the **min corner**; the render transform rotates the local model
+about the **footprint centre**. The feature constructor is the shared
+`FUN_00586b80` (the same one used by buildings), whose jump table
+`0x586d0c` handles the four orientations and whose yaw basis
+(`FUN_0061ffc0` case 0) is state 0 `(1,0)`, 1 `(0,1)`, 2 `(-1,0)`,
+3 `(0,-1)` - counter-clockwise 90 deg steps. The `.mesh` local bounds are
+centred (e.g. `stonw.mesh` x +/-0.488, y +/-1.99 for a 1x4 beam), confirming
+that the pivot is the cell-rectangle centre rather than the min corner.
+
+The only exceptions to the tiling are 3 **judge** features that overhang the
+arena edge by one cell (they are 4x4 and placed at the last row):
 
 | Show | Judge | Position | Arena |
 | --- | --- | --- | --- |
@@ -194,8 +203,11 @@ Tests: `tests/test_shw.py` (sample + all 43 files + save correlation).
 
 ## Open
 
-- `Wall type` behaviour (only 1 is used).
-- Whether the rotation is applied clockwise or counter-clockwise and around
-  which cell corner.
+- Wall style variants beyond the single `Wall type = 1` used by all 43
+  retail shows (no second value exists in the data to decode).
 - Runtime catalog fields `param1`/`param2`/`param5`.
 - Whether the arena grid is row-major and how 19×39 maps to world units.
+
+The rotation direction and pivot are solved: counter-clockwise 90 deg steps
+around the footprint centre, via `FUN_00586b80` / jump table `0x586d0c` and
+`FUN_0061ffc0`.
