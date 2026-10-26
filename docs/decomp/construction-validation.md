@@ -111,8 +111,8 @@ species constant. The table supports 0..3 (8/16/32/64). The value is the
 **phenotype length category** (`saDinosaur+0x1e0` <- phenotype `+0x190`):
 
 ```text
-length = Part3Length[Head][a0][b0] + Part3Length[Body][a2][b2]
-       + Part3Length[Tail][a3][b3]
+length = Part3Length[Head][b0][a0] + Part3Length[Body][b2][a2]
+       + Part3Length[Tail][b3][a3]     # [alleleB][alleleA]
 class  = 0 if length <= 200, 1 if <= 620, 2 if <= 900, else 3
 ```
 
