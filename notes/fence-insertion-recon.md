@@ -213,7 +213,7 @@ Otherwise the fence path runs: `FUN_0057e8a0` (AddActor), `FUN_0057f250`
 (placement/occupancy side effects), `FUN_0051f950`, `FUN_0058f210`, then
 `this+0x48 = 1` and clears `[[this+0x4c]+0x30]+0x10`.
 
-## First branch and the unexplained `this+0x48` branch
+## First branch and `this+0x48`: the placement settle timer (solved)
 
 `0x535beb..0x535c94` (`tool+0x3d`) walks a **4-byte-element** vector at
 `[[tool+0x10]+0x14]+0x9c`, calls `0x57ead0` (the same 4-byte membership scan)
@@ -222,26 +222,58 @@ over `record+0xa8..+0xac`. If the find returns the end it sets state 5 and
 leaves. This is a **list/duplicate selection check**; there is no position or
 footprint data in it.
 
-`0x535c97..0x535cf4` (`this+0x48`) walks `[this+0x58]`, a vector of **64-byte
-records** (`SAR EAX,6`), matching `record+0x2c` against the selected record's
-`+0x34`. On a match it computes:
+`0x535c97..0x535cf4` (`this+0x48`) is **not a validator and does not affect
+paddock capacity**. It is the second half of a successful placement: the
+preceding code (the `0x535f4f` branch) has already run `stFence::AddActor`,
+`FUN_0057f250` and `FUN_0058f210`, stored `1` in `this+0x48`, and cleared
+`[[this+0x4c]+0x30]+0x10`. From the next frame on, this branch walks the
+park's **64-byte placement-record vector** (`SAR EAX,6`) at `[this+0x58]`,
+matches `record+0x2c` against the placed dinosaur's `saDinosaur`
+(`[[this+0x4c]+0x34]`), and tests:
 
 ```asm
-FLD  float [record+0x24]
-FMUL float [0x62544c]      ; 0.5f
-FCOMP float [record+0x20]
-; if 0.5*record+0x24 < record+0x20 -> failure
-MOV  [[selected+0x30]+0x10], 1
-MOV  [this+0x18], 5
-CALL [vtable+8]            ; leave
+FLD  float [record+0x24]     ; duration (3.0 s for a type-3 record)
+FMUL float [0x62544c]        ; 0.5f
+FCOMP float [record+0x20]    ; elapsed time
+; 0.5*duration < elapsed  ->  reveal + leave
+MOV  EAX, [[this+0x4c]+0x30] ; gpkParkScene node of the drsDinosaur
+MOV  byte [EAX+0x10], 1      ; node enabled/visible
+MOV  [this+0x18], 5          ; leave FENCE_INSERTION
+CALL [vtable+8]
 ```
 
-`this+0x58` is initialised in the state enter slot to the vector at
-`[[[tool+0x10]+0x14]+0xbc]` (vtable/begin/end at +0xbc). The 64-byte record
-type is not identified: `+0x20`/`+0x24` are floats, `+0x2c` is the key, and
-`+0x30` is a pointer whose byte `+0x10` is set on failure. It may be the
-simulation manager's placed-object/dinosaur record; a runtime dump of
-`[EBP+4]` at `0x535cb6` is the next step. It is **not** decoded by this pass.
+The record container is created by `spPark`'s ctor `0x5874a0`:
+`park+0xbc = FUN_0058ddc0(park+0x3c, park+0x9c)`. `0x58ddc0` builds an object
+with three vectors of 0x40-byte records at +0x04, +0x1c and +0x2c. The record
+producers are:
+
+| builder | type `+0x3c` | `+0x24` | fields |
+| --- | ---: | ---: | --- |
+| `FUN_0058f210` | 3 | 3.0 | `+0x2c` = `saDinosaur`; `+0x00..+0x0c` = footprint w/h and centre; `+0x14..+0x1c` = centre |
+| `FUN_0058f430` | 4 | 4.0 | `+0x2c` = `saDinosaur`, `+0x30` = source `stFence`, `+0x34` = target `stFence`, `+0x10..+0x1c` = two points |
+| `FUN_0058f670` | 5 | 0.5 | `+0x2c` = `saDinosaur`, `+0x10/+0x14` = one point |
+
+The consumer (the function around `0x58e9e9`) accumulates the frame delta into
+`record+0x20`; when the accumulated time crosses half of `record+0x24` it runs
+the type action, and when it crosses the full `+0x24` it sets `record+0x28 = 1`
+and copies the record into the history vector at container +0x30. Type 3 does
+nothing (it is a pure 3-second timer); type 4 performs the deferred fence
+transfer (`0x57e980` source removal, `0x57e8a0` AddActor, `0x57f250` placement)
+at 2 s; type 5 repositions/re-footprints the dinosaur via `0x570e70` at 0.25 s.
+
+`[this+0x4c]+0x30` is the dinosaur's **gpkParkScene node**, created by
+`0x53cd50` -> `0x5f4220` -> `0x507990`; the base ctor `0x508740` initialises
+byte +0x10 to 1, and the scene-graph traversal (`0x5f54cf..0x5f54e5`,
+`0x5fc225..0x5fc23c`) skips nodes whose `+0x10` is 0. So the placement path
+**hides the new dinosaur for the first half of its 3-second placement record
+(1.5 s), then reveals it and leaves the state**. The leave handler `0x535bb0`
+forces the flag back to 1 if a placement is still pending, so the model can
+never stay hidden after the state exits.
+
+Port consequence: capacity/charging do not depend on this branch. If the port
+wants retail timing parity it can hide the new model for 1.5 s (or simply show
+it immediately, since the port has no click-to-spawn latency). No 64-byte
+record needs to be modelled for correctness.
 
 
 ## Port recipe (P4)
@@ -269,8 +301,11 @@ simulation manager's placed-object/dinosaur record; a runtime dump of
   **confirmed both by retail geometry and at runtime:** all 14 `.wld` fences
   have inclusive spans divisible by 4, and the live `stFence` ctors logged
   `cell=00000004`.
-- Identify the `0x535c97` 64-byte-record type and its `+0x20`/`+0x24` floats:
-  runtime-dump the record vector at `0x535cb6` (`[EBP+4]`).
+- ~~Identify the `0x535c97` 64-byte-record type and its `+0x20`/`+0x24` floats~~
+  **resolved:** the records are the park's placement/move queue
+  (`spPark+0xbc`, container `0x58ddc0`); `+0x20` is elapsed time, `+0x24` the
+  record lifetime (3/4/0.5 s), and the branch is the 1.5 s settle/reveal
+  timer, not a validator.
 - Whether path tiles charge the CONSTRUCTION budget (only the wall path and
   the dinosaur store price are proven budget setters).
 
@@ -280,7 +315,13 @@ simulation manager's placed-object/dinosaur record; a runtime dump of
   leave, `0x535be0` validate; `0x57dc60` stFence ctor; `0x57e8a0`
   AddActor; `0x57ead0` membership; `0x57eb50` CanAddActor; `0x57ec00`
   PlaceActor; `0x57f220` cell test; `0x585cc0` budget setter;
-  `0x594270` store removal; `0x5e3d70` warning panel.
+  `0x594270` store removal; `0x5e3d70` warning panel; `0x5874a0` spPark ctor
+  (`+0xbc` record container); `0x58ddc0` container ctor (three 0x40-stride
+  vectors); `0x58f210`/`0x58f430`/`0x58f670` record builders; the consumer
+  around `0x58e9e9` (time accumulation, half-life action, full-life retire);
+  `0x58ef40`/`0x58f090` record save/load; `0x53cd50` -> `0x5f4220` ->
+  `0x507990` node creation; `0x508740` node base ctor (`+0x10 = 1`);
+  `0x5f54cf`/`0x5fc225` scene-graph visibility tests.
 - Strings: `FENCE_INSERTION` `0x6647bc`,
   `&WARNING_NO_ROOM_IN_FENCE` `0x6647cc`, `Last Chance for placement`
   (`stFence.cpp` assert), `stPerimeter.cpp` `0x665f30` (caller),

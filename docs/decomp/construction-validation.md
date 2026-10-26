@@ -162,8 +162,12 @@ original construction flow:
 4. On success update `used`/`fill`, charge the store price to `DINOACHAT`,
    remove the store row, and place the dinosaur at the player's picked point
    inside the rectangle.
-5. The 64-byte-record spatial test at `0x535c97` is still undecoded; do not
-   claim full parity for paddock placement until it is resolved.
+5. `0x535c97` is **not** a placement rule: it is the post-placement settle
+   timer. After a successful insertion the game queues a 3-second type-3
+   record in `spPark+0xbc` and hides the new scene node; after 1.5 s it
+   reveals the node and leaves `FENCE_INSERTION`. Capacity and charging are
+   already finished before this branch. See
+   `notes/fence-insertion-recon.md` ("the placement settle timer").
 
 ### Port status (2026-10-26)
 
@@ -191,8 +195,11 @@ original construction flow:
   live Cpg04 values `1,2,2,2,0,0,1,0,1,1,2,0,1,1,1,1,1,1,0,0`.
 - ~~Runtime-dump `*(uint*)(landscape+0xc)`~~ **resolved:** `cell = 4` at
   runtime (all nine Cpg04 stFence ctors logged `cell=00000004`).
-- Decode the `0x535c97` 64-byte-record branch (`record+0x24 * 0.5 <
-  record+0x20`).
+- ~~Decode the `0x535c97` 64-byte-record branch (`record+0x24 * 0.5 <
+  record+0x20`)~~ **resolved:** it is the 1.5 s node-reveal settle timer for a
+  successful placement, not a validator. Records are `spPark+0xbc` placement
+  queue entries (types 3/4/5; `+0x20` elapsed, `+0x24` lifetime). The port can
+  reveal immediately or mimic the 1.5 s delay; nothing else depends on it.
 - Whether path tiles charge `CONSTRUCTION` (only the wall path and the
   dinosaur store price are proven budget setters).
 
