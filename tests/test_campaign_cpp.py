@@ -98,28 +98,70 @@ def test_cpp_campaign_mission_panel():
     assert "mission Cpg04_Mission1: success" not in result.stdout
 
 
-def test_cpp_menu_campaign_select():
+def _unlock_file(tmp_path: Path, mask: int = 0x0F) -> Path:
+    path = tmp_path / "dino.dat"
+    path.write_bytes(mask.to_bytes(4, "little"))
+    return path
+
+
+def test_cpp_campaign_unlock_mask(tmp_path):
+    missing = tmp_path / "missing.dat"
+    result = _run(
+        "--validate", "--asset-root", str(GAME), "--dino-dat", str(missing)
+    )
+    assert result.returncode == 0, result.stderr
+    assert "menu campaigns: 7 unlocked=0x1" in result.stdout
+
+    unlock = _unlock_file(tmp_path)
+    result = _run(
+        "--validate", "--asset-root", str(GAME), "--dino-dat", str(unlock)
+    )
+    assert result.returncode == 0, result.stderr
+    assert "menu campaigns: 7 unlocked=0xF" in result.stdout
+
+
+def test_cpp_menu_campaign_select(tmp_path):
+    unlock = _unlock_file(tmp_path)
     result = _run(
         "--validate", "--asset-root", str(GAME),
+        "--dino-dat", str(unlock),
         "--menu-page", "2",
         "--menu-click", "404,285",   # CAMPAIGN_LIST row 3 (Cpg04)
         "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
     )
     assert result.returncode == 0, result.stderr
-    assert "menu campaigns: 7" in result.stdout
+    assert "menu campaigns: 7 unlocked=0xF" in result.stdout
     assert "menu page=3 active=1" in result.stdout
 
 
-def test_cpp_menu_campaign_mission_start():
+def test_cpp_menu_campaign_locked(tmp_path):
+    # A fresh profile (mask 1) only unlocks Cpg01. Selecting row 3 (Cpg04)
+    # must not advance to the briefing page.
+    unlock = _unlock_file(tmp_path, 0x01)
+    result = _run(
+        "--validate", "--asset-root", str(GAME),
+        "--dino-dat", str(unlock),
+        "--menu-page", "2",
+        "--menu-click", "404,285",
+        "--menu-click", "364,530",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "menu campaigns: 7 unlocked=0x1" in result.stdout
+    assert "menu page=2 active=1" in result.stdout
+
+
+def test_cpp_menu_campaign_mission_start(tmp_path):
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
     if not isl04.exists() or not wld.exists():
         pytest.skip("retail Cpg04 data missing")
+    unlock = _unlock_file(tmp_path)
     # Full retail flow: campaign row -> campaign briefing -> Start. The
     # loading page then loads Isl04, imports Cpg04_Save.wld and opens the
     # MISSION_PANEL with the first mission.
     result = _run(
         "--frames", "3", "--menu-page", "2",
+        "--dino-dat", str(unlock),
         "--menu-click", "404,285",   # CAMPAIGN_LIST row 3 (Cpg04)
         "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
         "--menu-click", "521,449",   # CAMPAIGN_INFO_START_BUTTON

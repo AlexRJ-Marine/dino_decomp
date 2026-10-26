@@ -128,6 +128,7 @@ struct Options {
     std::string food_info_dir;
     std::string campaign_info_dir;
     std::string campaign_mission_path;
+    std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
     std::string start_mission_path;
     std::string place_food;
     std::string food_pos;
@@ -384,6 +385,8 @@ Options parse_args(int argc, char** argv) {
             opt.campaign_info_dir = next("--campaign-info");
         } else if (arg == "--campaign-mission") {
             opt.campaign_mission_path = next("--campaign-mission");
+        } else if (arg == "--dino-dat") {
+            opt.dino_dat_path = next("--dino-dat");
         } else if (arg == "--start-mission") {
             opt.start_mission_path = next("--start-mission");
         } else if (arg == "--place-food") {
@@ -655,6 +658,7 @@ Options parse_args(int argc, char** argv) {
                 "  --campaign-info DIR  scan Data/Design/Scenario campaigns/missions and exit\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
+                "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
                 "  --hire-nutritionist N hire N nutritionists (500 each)\n"
@@ -3286,12 +3290,23 @@ int main(int argc, char** argv) {
         if (!menu_loaded) {
             std::fprintf(stderr, "menu: %s (falling back to placeholder)\n",
                          menu.error.c_str());
-        } else if (menu.load_campaigns(resolve_asset(
-                       opt.asset_root, "Data/Design/Scenario"))) {
-            std::printf("menu campaigns: %zu\n", menu.campaigns.size());
         } else {
-            std::fprintf(stderr, "menu campaigns: %s\n",
-                         menu.campaign_error.c_str());
+            const std::string dino_dat = opt.dino_dat_path.empty()
+                                             ? "run/save/dino.dat"
+                                             : opt.dino_dat_path;
+            const std::uint32_t unlock =
+                dino::read_campaign_unlock(dino_dat);
+            if (menu.load_campaigns(
+                    resolve_asset(opt.asset_root, "Data/Design/Scenario"),
+                    unlock)) {
+                std::printf(
+                    "menu campaigns: %zu unlocked=0x%X (%s)\n",
+                    menu.campaigns.size(),
+                    static_cast<unsigned>(unlock), dino_dat.c_str());
+            } else {
+                std::fprintf(stderr, "menu campaigns: %s\n",
+                             menu.campaign_error.c_str());
+            }
         }
     }
 
@@ -4318,10 +4333,13 @@ int main(int argc, char** argv) {
                     for (int row = 0; row < row_count; ++row) {
                         const float row_y = py(widget.abs_y) +
                                             static_cast<float>(row) * line_h * dpi;
+                        const bool locked =
+                            campaign_list && !menu.campaign_unlocked(row);
                         if (row_texture != nullptr && row_graphic != nullptr) {
                             const int frame =
-                                row == selected_row ? selected_frame
-                                                    : normal_frame;
+                                locked ? 0
+                                       : (row == selected_row ? selected_frame
+                                                              : normal_frame);
                             const UiSourceRect source =
                                 ui_frame_rect(*row_texture, *row_graphic, frame);
                             if (source.valid) {
@@ -4366,9 +4384,12 @@ int main(int argc, char** argv) {
                                                                  menu.loc);
                             }
                             if (!name.empty()) {
+                                const dino::Color text_color =
+                                    locked ? dino::Color{120, 120, 120, 255}
+                                           : widget.text_color;
                                 const dino::Mesh block = build_text_block(
                                     *list_font, name, px(widget.abs_x), row_y,
-                                    list_scale * dpi, widget.text_color,
+                                    list_scale * dpi, text_color,
                                     list_justify,
                                     static_cast<float>(row_w) * dpi,
                                     static_cast<float>(line_h) * dpi);
@@ -8317,7 +8338,8 @@ int main(int argc, char** argv) {
                     campaign_start ? menu.selected_campaign() : nullptr;
                 const dino::CampaignMission* mission =
                     campaign_start ? menu.selected_mission() : nullptr;
-                if (campaign != nullptr && mission != nullptr) {
+                if (campaign != nullptr && mission != nullptr &&
+                    menu.campaign_unlocked(menu.campaign)) {
                     try {
                         std::string island_name = campaign->island;
                         std::transform(
@@ -8351,7 +8373,7 @@ int main(int argc, char** argv) {
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "campaign start: %s\n", e.what());
                     }
-                } else if (!island_names.empty()) {
+                } else if (!campaign_start && !island_names.empty()) {
                     const int island_index =
                         std::clamp(menu.island, 0,
                                    static_cast<int>(island_names.size()) - 1);

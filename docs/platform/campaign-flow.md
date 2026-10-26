@@ -1,10 +1,10 @@
 # Campaign flow — data, briefing and port status
 
 Status: **menu campaign flow and the campaign runtime are ported.** The port
-renders the campaign select/briefing pages from `CampaignList.ini`, starts the
-selected campaign's first mission from the menu, imports `CpgNN_Save.wld`, and
-evaluates objectives. Campaign unlock persistence, mission progression and
-briefing pagination are still open.
+renders the campaign select/briefing pages from `CampaignList.ini`, reads the
+`run/save/dino.dat` unlock mask, starts the selected unlocked campaign's first
+mission from the menu, imports `CpgNN_Save.wld`, and evaluates objectives.
+Mission progression and briefing pagination are still open.
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -109,11 +109,16 @@ CpgNN/CpgNN_Save.wld    initial park
   9 fences, 20 dinosaurs), budget 20,000, Cpg04_Mission1. Evidence:
   `notes/campaign-menu-start.png`, `tests/test_campaign_cpp.py`
   (`test_cpp_menu_campaign_mission_start`).
-- The retail campaign list is gated by `run/save/dino.dat`; the port shows all
-  7 listed campaigns and does not read the unlock dword yet. The campaign
-  always starts at the first mission (progression is not persisted), and the
-  retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
-  `MISSION_PANEL` description.
+- The retail campaign list is gated by `run/save/dino.dat`; the port reads the
+  4-byte mask (`1` = Cpg01 only, `0x0F` = Cpg01–Cpg04; missing/short defaults
+  to 1) and renders locked rows disabled (frame 0 + grey text). Start refuses
+  a locked row; `--dino-dat FILE` overrides the file for tests. The exact
+  retail locked-row art is still unproven. Evidence:
+  `notes/campaign-menu-unlock.png` (mask `0x0F`, row 3 selected; rows 5–7
+  locked).
+- The campaign always starts at the first mission (progression is not
+  persisted), and the retail 4-page briefing (`1/4` + idea bulb) is collapsed
+  into the current `MISSION_PANEL` description.
 - Mission state is not stored in the port save; mission progression, the
   exact actor trait fields, ending videos and the remaining
   show/building/isolation/hungry verbs are open.
@@ -134,16 +139,17 @@ exit. Trace switches: `-NoTrace`, `-GenotypeTrace`, `-SecuTrace`. Logs go to
 `notes/x32dbg-campaign.out.log` by default; screenshots to
 `notes/harness/`.
 
-Viewer pages:
+Viewer pages (mask 0F unlocks Cpg01–Cpg04):
 
 ```powershell
+[IO.File]::WriteAllBytes("$env:TEMP\dino-0f.dat", [byte[]](0x0F,0,0,0))
 .\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
-  --menu-click 404,285 `
+  --dino-dat "$env:TEMP\dino-0f.dat" --menu-click 404,285 `
   --screenshot notes\harness\campaign-select.bmp
 .\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
-  --menu-click 404,285 --menu-click 364,530 `
+  --dino-dat "$env:TEMP\dino-0f.dat" --menu-click 404,285 --menu-click 364,530 `
   --screenshot notes\harness\campaign-info.bmp
 ```
 
@@ -152,13 +158,16 @@ Starting Cpg04_Mission1 through the menu (no `--lnd`/`--wld-park` needed):
 ```powershell
 .\build\port\dino_viewer.exe --frames 4 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
+  --dino-dat "$env:TEMP\dino-0f.dat" `
   --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
   --menu-loading-time 0 --screenshot notes\harness\campaign-start.bmp
 ```
 
-Expect `menu campaigns: 7`, `wld: placed 57/57 buildings`, `dinos: 20/20
-spawned`, `start: campaign=Cpg04 mission=Cpg04_Mission1 island=Isl04
-budget=20000`, and the three Cpg04_Mission1 objective lines.
+Expect `menu campaigns: 7 unlocked=0xF`, `wld: placed 57/57 buildings`,
+`dinos: 20/20 spawned`, `start: campaign=Cpg04 mission=Cpg04_Mission1
+island=Isl04 budget=20000`, and the three Cpg04_Mission1 objective lines.
+With a fresh mask (`01`) the same row click stays on page 2 because Cpg04 is
+locked.
 
 Sandbox park:
 
@@ -209,8 +218,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Read `run/save/dino.dat` and gate/disable locked campaign rows; persist the
-  mission index and advance missions after `CPGEND_PANEL`.
+- Persist the mission index and advance missions after `CPGEND_PANEL`; write
+  the next campaign's unlock bit to `dino.dat`.
 - Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
   idea-bulb buttons) instead of reusing the mission description box.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
@@ -235,8 +244,10 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `--campaign-mission`.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`,
   `test_cpp_wld_park_import`, `tests/test_campaign.py`,
-  `tests/test_campaign_cpp.py` (`test_cpp_menu_campaign_select`,
-  `test_cpp_menu_campaign_mission_start`, `test_cpp_campaign_live_employees`).
+  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
+  `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
+  `test_cpp_menu_campaign_mission_start`,
+  `test_cpp_campaign_live_employees`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

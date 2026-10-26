@@ -74,6 +74,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-26 - CAMPAIGN-3 dino.dat unlock gating: locked campaign rows disabled, Cpg04 needs mask 0F
 - 2026-10-26 - Port the GetCourage/ObstAttackSize1 cache writers into DinoNeeds, import/buy and DINOPSAV
 - 2026-10-26 - CAMPAIGN-3 live employees: Cpg01_Mission6 employees objective succeeds with two hires
 - 2026-10-26 - CAMPAIGN-3 menu campaign flow: select/briefing/start imports Cpg04 park and runs Mission1
@@ -81,7 +82,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - CAMPAIGN-3 live phenotype traits: cleverdinos objective succeeds on Cpg04
 - 2026-10-26 - SIM-5 employees: .bei profiles, hire/wages, hourly feeding queue, visible nutritionist
 - 2026-10-26 - CAMPAIGN-3 mission runtime: --start-mission, MISSION_PANEL tri-state/lights, CPGEND on result
-- 2026-10-26 - CAMPAIGN-2 evaluator core (tri-state; simple + trait verbs; 30 selftest verdicts)
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

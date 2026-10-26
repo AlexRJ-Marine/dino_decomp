@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -70,5 +71,17 @@ int objective_verb_count();
 
 // Canonical verb name for an id, or "" when out of range.
 const char* objective_verb_name(int objective_id);
+
+// `run/save/dino.dat`: the 4-byte little-endian campaign unlock mask read by
+// `FUN_005612d0` into `campaign_db+0x1c` (bit 0 = Cpg01). A missing or short
+// file defaults to 1, matching retail.
+std::uint32_t read_campaign_unlock(const std::string& path);
+
+// `Cpg04` -> 4; 0 when the name has no numeric suffix.
+unsigned campaign_number(const std::string& name);
+
+// Bit `number-1` of the mask. Unknown names stay unlocked so a data change
+// cannot silently hide them.
+bool campaign_unlocked(const Campaign& campaign, std::uint32_t mask);
 
 }  // namespace dino

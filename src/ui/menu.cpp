@@ -38,9 +38,11 @@ bool Menu::load(const std::string& asset_root) {
     return true;
 }
 
-bool Menu::load_campaigns(const std::string& scenario_root) {
+bool Menu::load_campaigns(const std::string& scenario_root,
+                          std::uint32_t unlock_mask) {
     campaigns.clear();
     campaign_error.clear();
+    this->unlock_mask = unlock_mask;
     try {
         campaigns = dino::load_campaigns(scenario_root);
     } catch (const std::exception& e) {
@@ -52,6 +54,14 @@ bool Menu::load_campaigns(const std::string& scenario_root) {
                               ? 0
                               : static_cast<int>(campaigns.size()) - 1);
     return true;
+}
+
+bool Menu::campaign_unlocked(int index) const {
+    if (index < 0 || index >= static_cast<int>(campaigns.size())) {
+        return false;
+    }
+    return dino::campaign_unlocked(campaigns[static_cast<std::size_t>(index)],
+                                   unlock_mask);
 }
 
 const dino::Campaign* Menu::selected_campaign() const {
@@ -149,11 +159,11 @@ void Menu::click(int x, int y) {
                        : std::clamp(selected, 0,
                                     static_cast<int>(campaigns.size()) - 1);
     } else if (name == "CAMPAIGN_START_BUTTON") {
-        if (selected_campaign() != nullptr) {
+        if (selected_campaign() != nullptr && campaign_unlocked(campaign)) {
             page = 3;
         }
     } else if (name == "CAMPAIGN_INFO_START_BUTTON") {
-        if (selected_mission() != nullptr) {
+        if (selected_mission() != nullptr && campaign_unlocked(campaign)) {
             page = 8;
             loading = true;
             start_campaign = true;

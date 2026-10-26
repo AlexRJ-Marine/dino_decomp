@@ -310,6 +310,8 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 
 - [x] `CampaignList.ini` rows in `CAMPAIGN_LIST` (7 campaigns, `title_id` from
       each `CpgNN.ini`); declared 34-px list rows.
+- [x] `run/save/dino.dat` unlock mask (missing = 1): locked rows use frame 0 +
+      grey text and cannot advance; `--dino-dat FILE` overrides for tests.
 - [x] `CAMPAIGN_START_BUTTON` -> page 3 with the campaign title, wrapped
       `description_id` briefing (16 lines, literal `\n` paragraphs) and the
       matching `CAMPAIGN_INFO_ISLAND_PIC_islNN`.
@@ -320,10 +322,12 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       usable and log `menu campaigns: ...`.
 - Evidence: `notes/campaign-menu-select.png`,
   `notes/campaign-menu-briefing.png`, `notes/campaign-menu-start.png`,
-  `tests/test_campaign_cpp.py` (`test_cpp_menu_campaign_select`,
+  `notes/campaign-menu-unlock.png`,
+  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
+  `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`).
-- Open: `run/save/dino.dat` unlock gating, mission progression, the retail
-  4-page briefing counter/idea bulb, and Cpg07's cut row.
+- Open: mission progression/save, the retail 4-page briefing counter/idea
+  bulb, and Cpg07's cut row.
 
 ### Phase C — park HUD (done at 800×600)
 

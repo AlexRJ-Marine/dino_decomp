@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -28,9 +29,12 @@ struct Menu {
     std::string error;
     std::string campaign_error;
     std::vector<dino::Campaign> campaigns;
+    // `run/save/dino.dat` unlock mask (bit 0 = Cpg01). Missing file = 1.
+    std::uint32_t unlock_mask = 1;
 
     bool load(const std::string& asset_root);
-    bool load_campaigns(const std::string& scenario_root);
+    bool load_campaigns(const std::string& scenario_root,
+                        std::uint32_t unlock_mask = 1);
     int hit_test(int x, int y) const;
     void move(int x, int y);
     void click(int x, int y);
@@ -38,6 +42,7 @@ struct Menu {
 
     const dino::Campaign* selected_campaign() const;
     const dino::CampaignMission* selected_mission() const;
+    bool campaign_unlocked(int index) const;
 
     std::string text_for(const Widget& widget) const;
     const char* background() const;

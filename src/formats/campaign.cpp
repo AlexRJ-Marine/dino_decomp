@@ -251,4 +251,42 @@ std::vector<Campaign> load_campaigns(const std::string& scenario_root) {
     return campaigns;
 }
 
+std::uint32_t read_campaign_unlock(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        return 1;
+    }
+    unsigned char bytes[4]{};
+    in.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+    if (in.gcount() < static_cast<std::streamsize>(sizeof(bytes))) {
+        return 1;
+    }
+    return static_cast<std::uint32_t>(bytes[0]) |
+           (static_cast<std::uint32_t>(bytes[1]) << 8) |
+           (static_cast<std::uint32_t>(bytes[2]) << 16) |
+           (static_cast<std::uint32_t>(bytes[3]) << 24);
+}
+
+unsigned campaign_number(const std::string& name) {
+    unsigned number = 0;
+    bool digits = false;
+    for (const char c : name) {
+        if (c >= '0' && c <= '9') {
+            number = number * 10 + static_cast<unsigned>(c - '0');
+            digits = true;
+        } else if (digits) {
+            break;
+        }
+    }
+    return digits ? number : 0;
+}
+
+bool campaign_unlocked(const Campaign& campaign, std::uint32_t mask) {
+    const unsigned number = campaign_number(campaign.name);
+    if (number == 0 || number > 32) {
+        return true;
+    }
+    return (mask & (1u << (number - 1))) != 0;
+}
+
 }  // namespace dino
