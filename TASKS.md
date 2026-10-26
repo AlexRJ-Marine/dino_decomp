@@ -18,11 +18,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 ## Phase 0 — environment
 
 ### ENV-1: Verify the agent environment
-- [ ] `scripts/check-env.ps1` passes.
-- [ ] `scripts/start-ghidra.ps1` starts the Ghidra MCP server.
-- [ ] `ghidra` MCP tools list `DinoIsland.exe`.
-- [ ] `scripts/build.ps1` builds the C++ skeleton.
-- **Evidence:** `notes/env-check.md` with command output.
+- [x] `scripts/check-env.ps1` passes.
+- [x] `scripts/start-ghidra.ps1` starts the Ghidra MCP server.
+- [x] `ghidra` MCP tools list `DinoIsland.exe`.
+- [x] `scripts/build.ps1` builds the C++ skeleton.
+- **Evidence:** `notes/env-check.md` with command output (317 tests pass,
+  build up to date, `DinoIsland.exe-ebea17` analysed).
 
 ## Phase 0.5 — runtime
 
