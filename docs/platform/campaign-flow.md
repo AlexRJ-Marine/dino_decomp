@@ -5,8 +5,8 @@ renders the campaign select/briefing pages from `CampaignList.ini`, reads the
 `run/save/dino.dat` unlock mask, starts the selected unlocked campaign's
 stored mission from the menu, imports `CpgNN_Save.wld`, and evaluates
 objectives. Completing a campaign's last mission shows its ending text and
-writes the next unlock bit. Briefing pagination and ending-video playback
-remain open.
+writes the next unlock bit. The `MISSION_PANEL_TITLE` shows the campaign
+mission index/count (`1/4`). Ending-video playback remains open.
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -136,8 +136,9 @@ CpgNN/CpgNN_Save.wld    initial park
   this path with 100 visitors and `--visitor-satisfaction 99`; the `.wld` park
   now spawns `--visitors` after its roads are imported. The completed
   campaign's progress entry is removed. Ending-video playback is still open.
-- The retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
-  `MISSION_PANEL` description.
+- `MISSION_PANEL_TITLE` shows the campaign mission index/count (`1/4` for
+  Cpg04_Mission1), matching the retail panel; the title is set when the
+  mission starts. Evidence: `notes/mission-panel-index.png`.
 - `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
   recomputed by the first runtime tick, not stored. Campaign-completion
@@ -283,8 +284,6 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 ## Gaps / next work
 
 - Play the campaign ending videos (the ending text and unlock bit are done).
-- Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
-  idea-bulb buttons) instead of reusing the mission description box.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
   for the started mission; campaign-tier row gating remains).
 - Decide the difficulty source (`mission+0x50`) and the cut `Cpg07` policy.

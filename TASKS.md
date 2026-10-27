@@ -1378,7 +1378,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Persist the mission index in `run/save/campaign-progress.txt`; the menu
   resumes it (`--campaign-progress FILE` override); completion removes it.
 - [ ] Play the ending videos.
-- [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
+- [x] Show the campaign mission index/count in `MISSION_PANEL_TITLE`
+  (`1/4`; `notes/mission-panel-index.png`).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots
   (cuteness/beauty, aggression, size, speed, stamina, agility, intelligence,
   food). Cpg01_Mission9 (`cleverdinos 1 80`) succeeds on the Cpg04 park.

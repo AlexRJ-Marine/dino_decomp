@@ -3286,6 +3286,7 @@ int main(int argc, char** argv) {
             : opt.campaign_progress_path;
     std::map<std::string, std::string> campaign_progress =
         dino::load_campaign_progress(campaign_progress_path);
+    std::string mission_panel_title;
 
     std::unordered_map<std::string, std::string> menu_sound_files;
     std::vector<std::string> menu_sound_names;
@@ -3416,6 +3417,23 @@ int main(int argc, char** argv) {
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "campaign progress: %s\n", e.what());
             }
+        }
+        mission_panel_title.clear();
+        const std::optional<dino::Campaign> parent =
+            dino::load_parent_campaign(mission);
+        if (parent) {
+            for (std::size_t i = 0; i < parent->missions.size(); ++i) {
+                if (parent->missions[i].name == mission.name) {
+                    mission_panel_title =
+                        std::to_string(i + 1) + "/" +
+                        std::to_string(parent->missions.size());
+                    break;
+                }
+            }
+        }
+        if (!mission_panel_title.empty()) {
+            std::printf("mission title: %s\n",
+                        mission_panel_title.c_str());
         }
     };
 
@@ -7766,6 +7784,10 @@ int main(int argc, char** argv) {
         });
 
         auto runtime_text = [&](const std::string& name) -> std::string {
+            if (name == "MISSION_PANEL_TITLE" &&
+                !mission_panel_title.empty()) {
+                return mission_panel_title;
+            }
             if (campaign_runtime) {
                 const dino::CampaignMission& mission =
                     campaign_runtime->mission();

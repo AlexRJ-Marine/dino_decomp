@@ -326,8 +326,8 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`).
-- Open: mission progression/save, the retail 4-page briefing counter/idea
-  bulb, and Cpg07's cut row.
+- Open: ending-video playback and Cpg07's cut row. Mission index/count is
+  shown in `MISSION_PANEL_TITLE` (`1/4`).
 
 ### Phase C — park HUD (done at 800×600)
 

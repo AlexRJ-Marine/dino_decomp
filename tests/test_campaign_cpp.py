@@ -110,6 +110,7 @@ def test_cpp_campaign_mission_panel():
     )
     assert result.returncode == 0, result.stderr
     assert "mission: Cpg04_Mission1 objectives=3" in result.stdout
+    assert "mission title: 1/4" in result.stdout
     assert (
         "mission objective 0 isolateddinos: Isolate the aggressive dinos "
         "(aggressiveness > 70)" in result.stdout
