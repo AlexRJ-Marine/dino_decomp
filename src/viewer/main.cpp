@@ -6506,11 +6506,16 @@ int main(int argc, char** argv) {
             // boat sits at the water end. Other buildings fall back to the
             // animated `.skin`.
             auto is_static_lod1 = [&](const std::string& path) {
+                // Retail abbreviates the construction variants (`construc`)
+                // as well as spelling them out. Missing the abbreviation
+                // selected `stand_construc_lod1.mesh`, which has no material
+                // and rendered as a white model.
                 return ends_with_ci(path, ".mesh") &&
                        path.find("_lod1") != std::string::npos &&
                        path.find("crash") == std::string::npos &&
+                       path.find("crach") == std::string::npos &&
                        path.find("destroy") == std::string::npos &&
-                       path.find("construction") == std::string::npos;
+                       path.find("construc") == std::string::npos;
             };
             std::string mesh_rel;
             if (!def.meshes.empty()) {

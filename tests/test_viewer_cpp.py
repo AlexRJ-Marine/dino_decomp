@@ -1561,6 +1561,10 @@ def test_cpp_wld_places_all_buildings():
     # The 12 skinned buildings (farm/souvenir/blackbox/park family) load from
     # their primary .skin; the rest are static meshes.
     assert sum(1 for ln in placed if ".skin" in ln) >= 12
+    # Construction meshes have no material and must never be chosen as the
+    # normal preview; retail abbreviates them as `construc`.
+    assert not any("construc" in ln.lower() or "construction" in ln.lower()
+                   for ln in placed), placed
     assert any("MediumSeats" in ln for ln in placed)
     assert any("Entrance" in ln and "centre=445.5,211.5" in ln
                for ln in placed)
