@@ -1106,6 +1106,22 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   clipped to the widget rect. Per-genotype GPU meshes are cached; the scene
   camera/lighting path is reused. Allosaurus renders correctly; evidence
   `notes/store-preview.png`, `test_cpp_store_3d_preview`.
+- [x] Failed purchases use the retail `MESSAGE_PANEL` toast, not a modal
+  warning. `FUN_0052bed0` and the fence-insertion message at `0x00536017`
+  feed the state's embedded message object via `FUN_005e3d70`, leaving the
+  store state active. `ParkHud::show_message` fills `LINE1..LINE4_MESSAGE`
+  and expires after 4 s (retail lifetime constant still open). Modal
+  `WARNING_PANEL`/`REQUEST_PANEL`/`CPGEND_PANEL` are overlays and no longer
+  hide the active panel. Evidence: `notes/store-message.png`,
+  `test_cpp_store_message_keeps_panel`.
+- [x] Mode-specific store catalog: `Market.ini` (54) for the plain park,
+  `FreeGame.ini [DINOSTORE]` (20) for free game, the mission `[DINOSTORE]`
+  block for campaigns (`Cpg04_Mission2` 4 entries, `Cpg04_Mission4` empty).
+  `market_from_values(CampaignMission::values)` handles the flattened
+  `DINOSTORE.DINOSTORE<N>` keys; each switch logs
+  `store catalog: <source> entries=N`. Evidence:
+  `notes/store-mission-catalog.png`, `test_cpp_store_catalog_mission`,
+  `test_cpp_store_catalog_freegame`.
 - [x] Fill the eleven store attribute gauges from the selected Market entry.
   `Overlay` parses `PB_MAX_PROGRESS`/`PB_CURRENT_PROGRESS`, `ParkHud` maps
   `DINO_ACHAT_ATTRIBUTES_*_{GAUGE,INDICS}` to `StoreRow::attributes`, and the
@@ -1381,7 +1397,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   unlock bit (`Cpg02_Mission5` -> `dino.dat` `0x02 | 0x04 = 0x06`).
 - [x] Persist the mission index in `run/save/campaign-progress.txt`; the menu
   resumes it (`--campaign-progress FILE` override); completion removes it.
-- [ ] Play the ending videos.
+- [x] MPEG-1 decode + frame export (`--video-info`/`--video-frame`,
+  `docs/platform/video.md`; PL_MPEG).
+- [ ] Real-time ending-video playback/audio and the `CPGEND` handoff.
 - [x] Show the campaign mission index/count in `MISSION_PANEL_TITLE`
   (`1/4`; `notes/mission-panel-index.png`).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots

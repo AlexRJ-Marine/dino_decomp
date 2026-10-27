@@ -1,0 +1,31 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace dino {
+
+// MPEG-1 probe result for a retail `.mpg` ending video.
+struct MpgInfo {
+    int width = 0;
+    int height = 0;
+    double duration = 0.0;    // seconds
+    double frame_rate = 0.0;  // frames per second
+};
+
+struct MpgFrame {
+    int width = 0;
+    int height = 0;
+    int index = 0;      // decoded frame index (0-based)
+    double time = 0.0;  // presentation time in seconds
+    std::vector<std::uint8_t> rgb;  // width*height*3, top-down
+};
+
+// Reads the MPEG-PS header (PL_MPEG); throws std::runtime_error on failure.
+MpgInfo probe_mpg(const std::string& path);
+
+// Decodes forward to `frame_index` and returns it as RGB. Audio is disabled.
+MpgFrame decode_mpg_frame(const std::string& path, int frame_index = 0);
+
+}  // namespace dino

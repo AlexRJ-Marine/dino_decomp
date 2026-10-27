@@ -26,6 +26,7 @@
 #include "../formats/bsi.h"
 #include "../formats/bei.h"
 #include "../formats/shw.h"
+#include "../formats/mpg.h"
 #include "../formats/bfi.h"
 #include "camera_config.h"
 #include "../world/terrain.h"
@@ -128,6 +129,10 @@ struct Options {
     std::string food_info_dir;
     std::string campaign_info_dir;
     std::string campaign_coverage_dir;
+    std::string video_info_path;
+    std::string video_frame_path;
+    int video_frame_index = 0;
+    std::string video_out_path;
     std::string campaign_mission_path;
     std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
     std::string campaign_progress_path;  // current mission per campaign
@@ -389,6 +394,14 @@ Options parse_args(int argc, char** argv) {
             opt.campaign_info_dir = next("--campaign-info");
         } else if (arg == "--campaign-coverage") {
             opt.campaign_coverage_dir = next("--campaign-coverage");
+        } else if (arg == "--video-info") {
+            opt.video_info_path = next("--video-info");
+        } else if (arg == "--video-frame") {
+            opt.video_frame_path = next("--video-frame");
+        } else if (arg == "--video-frame-index") {
+            opt.video_frame_index = std::atoi(next("--video-frame-index"));
+        } else if (arg == "--video-out") {
+            opt.video_out_path = next("--video-out");
         } else if (arg == "--campaign-mission") {
             opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--dino-dat") {
@@ -670,6 +683,8 @@ Options parse_args(int argc, char** argv) {
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"
                 "  --campaign-info DIR  scan Data/Design/Scenario campaigns/missions and exit\n"
                 "  --campaign-coverage DIR  report implemented/pending objective verbs\n"
+                "  --video-info FILE    probe one MPEG ending video and exit\n"
+                "  --video-frame FILE   decode a video frame (with --video-frame-index/--video-out)\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
@@ -2853,6 +2868,53 @@ int main(int argc, char** argv) {
 
     if (opt.selftest) {
         return run_selftest();
+    }
+    if (!opt.video_info_path.empty()) {
+        try {
+            const dino::MpgInfo info = dino::probe_mpg(opt.video_info_path);
+            std::printf(
+                "video: %s width=%d height=%d duration=%.3f fps=%.3f\n",
+                opt.video_info_path.c_str(), info.width, info.height,
+                info.duration, info.frame_rate);
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "video info: %s\n", e.what());
+            return 1;
+        }
+    }
+    if (!opt.video_frame_path.empty()) {
+        try {
+            const dino::MpgFrame frame = dino::decode_mpg_frame(
+                opt.video_frame_path, opt.video_frame_index);
+            if (opt.video_out_path.empty()) {
+                std::fprintf(stderr, "video frame: --video-out is required\n");
+                return 2;
+            }
+            std::vector<std::uint8_t> rgba(
+                static_cast<std::size_t>(frame.width) * frame.height * 4, 255);
+            for (int y = 0; y < frame.height; ++y) {
+                const std::uint8_t* src =
+                    frame.rgb.data() +
+                    static_cast<std::size_t>(frame.height - 1 - y) *
+                        frame.width * 3;
+                std::uint8_t* dst =
+                    rgba.data() +
+                    static_cast<std::size_t>(y) * frame.width * 4;
+                for (int x = 0; x < frame.width; ++x) {
+                    dst[x * 4 + 0] = src[x * 3 + 0];
+                    dst[x * 4 + 1] = src[x * 3 + 1];
+                    dst[x * 4 + 2] = src[x * 3 + 2];
+                }
+            }
+            write_bmp(opt.video_out_path, frame.width, frame.height, rgba);
+            std::printf("video frame: %s index=%d time=%.3f %dx%d\n",
+                        opt.video_frame_path.c_str(), frame.index, frame.time,
+                        frame.width, frame.height);
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "video frame: %s\n", e.what());
+            return 1;
+        }
     }
     if (!opt.campaign_coverage_dir.empty()) {
         return run_campaign_coverage(opt.campaign_coverage_dir);

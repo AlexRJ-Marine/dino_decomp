@@ -22,6 +22,8 @@ add a row when a claim becomes something later work depends on.
 | GetCourage/ObstAttackSize1 cache writers + DINOPSAV tail | `docs/decomp/dinosaur-actions.md`, `docs/platform/danger-grid.md`, `notes/dino-cache-writers-recon.md` | `test_cpp_dino_action_chooser`, `test_cpp_port_save_danger_cache` |
 | Store attribute gauges (11 PROGRESS/INDICS, `+0x194` originality) | `notes/store-panel-recon.md`, `notes/phenotype-attributes-runtime.md`, `notes/store-gauges.png`, `notes/store-gauges-originality.png` | `test_cpp_store_attribute_gauges` |
 | Store 3D preview (`DINO_ACHAT_SAVE_RENDER_VIEW`) | `notes/store-panel-recon.md`, `notes/store-preview.png` | `test_cpp_store_3d_preview` |
+| Failed purchase toast (`MESSAGE_PANEL`, state stays active) | `notes/store-panel-recon.md`, `notes/store-message.png` | `test_cpp_store_message_keeps_panel` |
+| Mode-specific store catalog (`Market.ini`/`FreeGame.ini`/mission block) | `notes/store-panel-recon.md`, `docs/formats/market.md`, `notes/store-mission-catalog.png` | `test_cpp_store_catalog_mission`, `test_cpp_store_catalog_freegame` |
 | Daily economy settlement + per-visitor ticket | `docs/decomp/economy.md` | `tools/formats/economy.py`, `tests/test_economy.py` |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
@@ -57,4 +59,5 @@ add a row when a claim becomes something later work depends on.
 | `hybriddinos` from phenotype originality | `src/viewer/main.cpp` (trait fill), `docs/formats/campaign.md` (`0x568840`, inferred `+0x1e4` source) | `test_cpp_campaign_objective_selftest`, `tests/test_campaign_cpp.py::test_cpp_campaign_hybrid_dinos` |
 | Campaign objective coverage report | `src/formats/campaign.{h,cpp}` (`objective_verb_implemented`), `src/viewer/main.cpp` (`--campaign-coverage`), `docs/formats/campaign.md` | `tests/test_campaign_cpp.py::test_cpp_campaign_coverage` |
 | `franckstrangedinos` (carnivore/biped/size/intelligence) | `src/world/campaign_objectives.cpp` (case 15), `src/viewer/main.cpp` (trait fill), `docs/formats/campaign.md` (`0x569110`) | `test_cpp_campaign_objective_selftest`, `tests/test_campaign_cpp.py::test_cpp_campaign_franck_strange` |
+| MPEG-1 ending-video decode + frame export | `third_party/pl_mpeg.h`, `src/formats/mpg.{h,cpp}`, `docs/platform/video.md` | `tests/test_video.py` |
 | Decoded feature port contracts (shows/employees/animals/lab/objectives) | `docs/platform/decoded-features.md` | `tests/test_feature_matrix.py` |

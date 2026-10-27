@@ -54,8 +54,8 @@ See `notes/lanes.md`. Default split:
   remains.
 - P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
   `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
-- P3 rest: element bone/event overlay source, GetCourage/ObstAttackSize1 cache
-  writers, visitor/obstacle perception reaction.
+- P3 rest: element bone/event overlay source and the visitor/obstacle
+  perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
   water/partition polish.
 - WORLD-3/2 polish: second `Modulate2x` water stage, skybox seam, frustum
@@ -66,22 +66,24 @@ See `notes/lanes.md`. Default split:
 1. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. Store panel tail: the 11 gauges and 3D preview are live; restore the
-   panel after a dismissed warning and pick the mission/free-game catalog.
+2. TOOL-4: finish the background activation shim (or get one
+   `-PhysicalInput` run approved), then run
+   `start-campaign.ps1 -ProviderTrace -UnlockCampaigns` to resolve the
+   policy vtable `+0x14` target provider.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
 4. SIM-4: runtime-verify the budget panel rows against a populated save.
 5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-27 - Store tail: MESSAGE_PANEL toast keeps the panel open; mission/free-game store catalogs
+- 2026-10-27 - VIDEO-1: PL_MPEG decoder, --video-info/--video-frame, tennis 640x480@24fps
 - 2026-10-27 - Campaign phase wrap-up: full suite 426 passed; roadmap/coverage updated
 - 2026-10-27 - CAMPAIGN-3 franckstrangedinos: carnivore/biped/size/intelligence predicate; Cpg06_Mission4 completes
 - 2026-10-27 - Store 3D preview: selected Market dino rendered in DINO_ACHAT_SAVE_RENDER_VIEW
 - 2026-10-27 - CAMPAIGN-3 coverage: 77/89 objectives implemented, 12 pending (franck + shows)
 - 2026-10-27 - CAMPAIGN-3 hybriddinos: phenotype originality fills +0x1e4 (Cpg04 originality 80)
 - 2026-10-27 - CAMPAIGN-3 ornateddinos: 23-slot Part-6 dummy map exposed as ornament_count
-- 2026-10-27 - CAMPAIGN-3 mission title: MISSION_PANEL_TITLE shows the campaign mission index (1/4)
-- 2026-10-27 - CAMPAIGN-3 cross-restart progress: campaign-progress.txt resumes the stored mission from the menu
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers
