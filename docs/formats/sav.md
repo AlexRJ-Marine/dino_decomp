@@ -458,34 +458,27 @@ settled save (patched copy of `run/save/slot001.sav`) renders
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - The AI entry field split (17-byte records); the camera split is solved.
-- Campaign autosaves populate the three simulation lists after the roads
-  (a ~53 KB `auto.sav` after a campaign park has list0 = 20 objects). The
-  free-game writer covers only the empty form; `sav_graph.py` and the C++
-  reader report the populated variant. Decoding and writing those lists is
-  open. The 20 `list0` records match the world block's 20 dinosaurs. The
-  **packed prefix is 0x19 bytes**:
+- Campaign autosaves populate the three simulation lists after the roads.
+  `list0` holds `saDinosaur` records (save `0x570c90`, load `0x5706c0`,
+  vtable `0x643124`; the list wrapper writes the object id and calls vtable
+  `+0x14`). The packed prefix is 0x19 bytes:
 
   ```text
-  +0x00 u32 object id        (first: 63823)
-  +0x04 u32 x                (517)
-  +0x08 u32 y                (450)
-  +0x0c u8  need_state[4]    (03 03 01 02)
-  +0x10 u16 need values[2]   (a9 01, c8 00)
-  +0x14 u8  flag             (0)
-  +0x15 u32 name byte length (0x18, includes the NUL)
-  +0x19 UTF-16LE name        ("Ankylosaur1\0")
+  +0x00 u32 object id        +0x04 u32 x          +0x08 u32 y
+  +0x0c u8  state bytes[4]   +0x10 u16[2]         +0x14 u8 flag
+  +0x15 u32 name byte length (unaligned)
+  +0x19 UTF-16LE name
   ```
 
-  A variable tail follows the name. Its first 0x34 bytes are fixed: a u32
-  (0) followed by four `[80,60,30]` int triples (the need thresholds), then
-  five values (100 in the first dino, 0 in the next two). After that the tail
-  is variable state (likely action/needs arrays); tail lengths are
-  0x302..0x370 across the 20 records. `tools/formats/sav_campaign_scan.py`
-  walks the list (ids 63823..63932, names `Ankylosaur1`..`Coelophysi2`) and
-  prints the prefix plus the tail length. The four bytes at `+0x0c` range
-  0..4 in the campaign records, so their exact "need state" encoding is still
-  open. Decoding the variable tail is the remaining step.
-
+  The tail is schema-driven, not opaque:
+  `tail = 0x2D1 + (flag==0 ? 0x30 : 0) + tex_bytes + 0x16*N`, where `N` is
+  the u32 path-node count at `path+0x1c6` (tail `+0x2c7` in the retail form).
+  There is **no** length prefix. `tools/formats/sav_campaign_scan.py` walks
+  all 20 records exactly (`list0_end=0x6942`, `list1_count=2`) and prints
+  tail/N/end. Full field map: `notes/campaign-list0-tail-recon.md`.
+  Remaining: model `SavCampaignDino`, write `list0`, and decode `list1`/
+  `list2`. The four `+0x0c` bytes range 0..4; their exact state encoding is
+  still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed

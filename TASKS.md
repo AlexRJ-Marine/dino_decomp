@@ -1788,17 +1788,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `economy+0x08` = park `+0x30`; retail's loader skips the restore for
   version > 0x17 when `BL` is set (`notes/hud-budget-source-recon.md`). The
   port restores it (policy divergence); confirm `BL` for exact parity.
-- [ ] Campaign autosave class: a live Cpg04 autosave (~53 KB,
-  `run-test/save/auto/auto.sav`) populates the three simulation lists after
-  the roads. `list0` has 20 records (the world has 20 dinosaurs). The packed
-  0x19-byte prefix is `u32 id, u32 x, u32 y, u8 need_state[4], u16 need[2],
-  u8 flag, u32 name_len, UTF-16LE name`; the variable tail starts with a u32
-  (0) and four `[80,60,30]` triples, then five values (100/0); tails
-  0x302..0x370 across the 20 records. Scanner:
-  `tools/formats/sav_campaign_scan.py` (`tests/test_sav_campaign_scan.py`).
-  The four `+0x0c` bytes range 0..4; their encoding is open. Decode the
-  variable tail and extend `sav_graph.py`/the C++ reader/writer;
-  `test_cpp_sav_park_roundtrip` currently skips this class.
+- [x] Campaign `list0` tail solved: `saDinosaur` save `0x570c90` / load
+  `0x5706c0`; `tail = 0x2D1 + (flag==0?0x30:0) + tex_bytes + 0x16*N`, with
+  `N` at `path+0x1c6`; no length prefix. The scanner walks all 20 records
+  (`list0_end=0x6942`, `list1_count=2`), and the full field map is in
+  `notes/campaign-list0-tail-recon.md`.
+- [ ] Campaign writer: model `SavCampaignDino`, write `list0`, decode
+  `list1`/`list2` (list1 count=2), then round-trip a campaign autosave;
+  `test_cpp_sav_park_roundtrip` currently skips the class.
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`

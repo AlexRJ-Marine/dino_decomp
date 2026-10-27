@@ -21,5 +21,6 @@ def test_campaign_autosave_list0_scan():
     assert result.returncode == 0, result.stderr
     assert "world_dinos=20 roads=14 list0=20" in result.stdout
     assert ("0 id=63823 x=517 y=450 states=(3, 3, 1, 2) "
-            "name='Ankylosaur1' tail=0x344") in result.stdout
+            "name='Ankylosaur1' tail=0x344 n=3 end=0x29ab") in result.stdout
     assert "19 id=63932" in result.stdout
+    assert "list0_end=0x6942 list1_count=2" in result.stdout

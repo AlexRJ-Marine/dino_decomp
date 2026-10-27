@@ -1,13 +1,13 @@
-"""Dump the populated simulation lists of a campaign autosave.
+"""Dump the populated simulation ``list0`` of a campaign autosave.
 
-The free-game save form leaves the three simulation lists after the roads
-empty. A live campaign autosave populates ``list0`` with one record per
-dinosaur; this tool walks that list using the packed 0x19-byte prefix
-documented in ``docs/formats/sav.md`` and prints the id/position/needs/name
-plus the variable tail length.
+``list0`` holds ``saDinosaur`` records. The packed prefix is 0x19 bytes; the
+tail is schema-driven and its length is
+``0x2D1 + threshold_block + texture_bytes + 0x16*node_count``, where
+``threshold_block`` is 0x30 when the flag at ``+0x14`` is zero. The path-node
+count is the u32 at ``path_start + 0x1C6`` (tail ``+0x2C7`` in the retail
+form). See ``notes/campaign-list0-tail-recon.md`` and ``docs/formats/sav.md``.
 
-The record tail itself is not decoded yet; the next record start is found by
-scanning for the next plausible packed name and validating the x/y prefix.
+The free-game save form leaves the lists empty.
 """
 
 from __future__ import annotations
@@ -22,45 +22,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sav import read_sav  # noqa: E402
 from wld import read_sav_world  # noqa: E402
 
-PREFIX = 0x19
-
 
 def u32(data: bytes, offset: int) -> int:
     return struct.unpack_from("<I", data, offset)[0]
 
 
-def plausible_name(data: bytes, start: int) -> str | None:
-    if start < 4:
-        return None
-    length = u32(data, start - 4)
-    if length < 4 or length > 80 or length % 2:
-        return None
-    if start + length > len(data):
-        return None
-    try:
-        text = data[start:start + length].decode("utf-16-le")
-    except UnicodeDecodeError:
-        return None
-    text = text.rstrip("\x00")
-    if len(text) < 3:
-        return None
-    if not all(ch.isalnum() or ch in " _" for ch in text):
-        return None
-    return text
-
-
-def find_next_record(data: bytes, record_start: int, name_end: int) -> int | None:
-    for name_start in range(name_end, len(data) - 4):
-        if plausible_name(data, name_start) is None:
-            continue
-        candidate = name_start - PREFIX
-        if candidate <= record_start:
-            continue
-        x = u32(data, candidate + 4)
-        y = u32(data, candidate + 8)
-        if x < 4096 and y < 4096:
-            return candidate
-    return None
+def parse_record(data: bytes, start: int) -> tuple[int, int, int, bytes, str, int, int, int]:
+    object_id = u32(data, start)
+    x = u32(data, start + 4)
+    y = u32(data, start + 8)
+    states = tuple(data[start + 0x0C:start + 0x10])
+    flag = data[start + 0x14]
+    name_len = u32(data, start + 0x15)
+    name = data[start + 0x19:start + 0x19 + name_len].decode(
+        "utf-16-le").rstrip("\x00")
+    name_end = start + 0x19 + name_len
+    cursor = name_end + 4  # +0x38, always 0
+    if flag == 0:
+        cursor += 0x30  # four [80,60,30] threshold triples
+    cursor += 0xB0  # +0x214 gauge/action block
+    cursor += 0x0C  # +0x208 state dwords
+    cursor += 3     # +0x514..+0x516 flags
+    texture_bytes = u32(data, cursor)
+    cursor += 4 + texture_bytes
+    cursor += 4 + 1 + 4  # f524, f517, f1d0
+    path_start = cursor
+    nodes = u32(data, path_start + 0x1C6)
+    tail = (path_start - name_end) + 0x201 + 0x16 * nodes
+    return object_id, x, y, states, name, tail, nodes, name_end + tail
 
 
 def scan(path: Path) -> int:
@@ -80,23 +69,12 @@ def scan(path: Path) -> int:
 
     start = offset
     for index in range(count):
-        object_id = u32(data, start)
-        x = u32(data, start + 4)
-        y = u32(data, start + 8)
-        states = tuple(data[start + 0x0C:start + 0x10])
-        name_len = u32(data, start + 0x15)
-        name = data[start + 0x19:start + 0x19 + name_len].decode(
-            "utf-16-le").rstrip("\x00")
-        name_end = start + 0x19 + name_len
-        next_start = (find_next_record(data, start, name_end)
-                      if index + 1 < count else None)
-        tail = None if next_start is None else next_start - name_end
+        (object_id, x, y, states, name, tail, nodes,
+         end) = parse_record(data, start)
         print(f"{index:2d} id={object_id} x={x} y={y} states={states} "
-              f"name={name!r} "
-              f"tail={'?' if tail is None else hex(tail)}")
-        if next_start is None:
-            break
-        start = next_start
+              f"name={name!r} tail={tail:#x} n={nodes} end={end:#x}")
+        start = end
+    print(f"list0_end={start:#x} list1_count={u32(data, start)}")
     return 0
 
 

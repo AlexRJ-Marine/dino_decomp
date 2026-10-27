@@ -36,6 +36,7 @@ add a row when a claim becomes something later work depends on.
 | HUD `BUDGET_AMOUNT` = `spPark->economy+0x08`, the same field as park block `+0x30`; retail load skips the restore for version > 0x17 (`0x58b1b0` guard) | `notes/hud-budget-source-recon.md`, `docs/formats/sav.md` | static decompilation (`FUN_00526010`/`0x526041`, park loader `0x58b1b0`) |
 | Campaign autosave simulation lists (populated class, list0 = 20 dino state records) | `docs/formats/sav.md` Open, `notes/save-writer-handoff.md` | live Cpg04 `run-test/save/auto/auto.sav` (~53 KB); `test_cpp_sav_park_roundtrip` skips the known `non-empty simulation list` error |
 | Campaign list0 packed 0x19-byte prefix walker (20 records, tail 0x302..0x370) | `tools/formats/sav_campaign_scan.py`, `docs/formats/sav.md` | `tests/test_sav_campaign_scan.py` |
+| Campaign `list0` tail schema (`saDinosaur` save/load, `tail=0x2D1+threshold+tex+0x16*N`, path nodes, no length prefix) | `notes/campaign-list0-tail-recon.md`, `docs/formats/sav.md` | scanner walks all 20 records, `list0_end=0x6942`, `list1_count=2` |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |
