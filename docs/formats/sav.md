@@ -489,7 +489,7 @@ round-trips byte-identically. `test_cpp_sav_park_roundtrip` covers both paths.
 **Retail acceptance (2026-10-27):** a C++-written save (`--sav-name cppwrite
 --sav-slot 1`) installed as `run-test/save/slot001.sav` appears in the retail
 LOAD GAME list as `cppwrite`; selecting it starts the park (Reset `hr=0`) and
-renders it (`notes/harness/load-cppwrite.png`). The park clock matches the
+renders it (`notes/sav-retail-accept.png`). The park clock matches the
 save's `schedule_elapsed` (23.2 s -> 09:2x). The HUD cash (26000) does not
 track the park block's `+0x30` budget (12345 in the test save), so that field
 is not the live-money display; this is an open semantic question, not a writer

@@ -39,7 +39,7 @@ retail LOAD GAME path now reaches a park. A C++-written save with
 
 - the retail LOAD GAME list shows `cppwrite`;
 - selecting it starts the park (D3D8 Reset `hr=0`) and renders it:
-  `notes/harness/load-cppwrite.png`;
+  `notes/sav-retail-accept.png`;
 - the park clock (09:28) matches the save's `schedule_elapsed` (23.2 s), so
   the world/camera/clock came from the save.
 
