@@ -2581,6 +2581,7 @@ int run_selftest() {
     hungry.food = 50;
     hungry.aggression = 0;
     hungry.ornament_count = 0;
+    hungry.hybrid = 0;
     objective_state.dinos = {trait, hungry};
     check(dino::evaluate_objective(objective("aggressivedinos 1 80"),
                                    objective_state) ==
@@ -2598,6 +2599,10 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective hybrid dinos");
+    check(dino::evaluate_objective(objective("hybriddinos 2 90"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective hybrid count");
     check(dino::evaluate_objective(objective("speeddinos 1 25"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -8819,6 +8824,10 @@ int main(int argc, char** argv) {
                 trait.stamina = dinosaur.attributes.stamina;
                 trait.intelligence = dinosaur.attributes.intelligence;
                 trait.beauty = dinosaur.attributes.beauty;
+                // `+0x1e4` is hybrid/strangeness. The store's ORIGINALITY /
+                // Strangeness gauge is `100 - conventional_appeal`; use that
+                // phenotype value until the actor writer is traced.
+                trait.hybrid = dinosaur.attributes.originality;
                 // Isolation: the dino is inside a paddock rectangle and no
                 // other imported dino shares that rectangle.
                 for (const dino::Paddock& paddock : paddocks) {

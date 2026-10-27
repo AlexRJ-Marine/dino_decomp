@@ -1390,7 +1390,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   Evidence: `0x569040`/`0x567cb0`; `sizedagilitydinos` on the Cpg04 park.
 - [x] Fill `ornateddinos` from the 23-slot Part-6 dummy map
   (`DinoAttributes::ornament_count`); Cpg04 has two ornamented dinos.
-- [ ] Fill hybrid (`+0x1e4`) and scarcity (`+0x1e8`) when their sources land.
+- [x] Fill `hybriddinos` from the phenotype originality
+  (`100 - conventional_appeal`; inferred from the store gauge; Cpg04 has a
+  dino at 80).
+- [ ] Fill scarcity (`+0x1e8`); the retail objectives do not use it.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
   (verdicts are derived again by the first tick).
 - [x] `hungrydinos -1 60` from the live food need; Cpg01_Mission7 completes

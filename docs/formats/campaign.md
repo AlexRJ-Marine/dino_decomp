@@ -151,7 +151,7 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 3 | `aggressivedinos` | `0x00568680` | count, percent | pattern[1] `+0xbc` aggression |
 | 4 | `genotypedinos` | `0x00568750` | species, count | 10-field genotype match |
 | 5 | `cutedinos` | `0x00568770` | count, percent | pattern[0] `+0x90` cuteness |
-| 6 | `hybriddinos` | `0x00568840` | count, percent | pattern[2] `+0x1e4` hybrid |
+| 6 | `hybriddinos` | `0x00568840` | count, percent | pattern[2] `+0x1e4` hybrid; port fills it from `DinoAttributes::originality` (`100 - conventional_appeal`), inferred from the shared ORIGINALITY/Strangeness gauge |
 | 7 | `notconnectedbuildings` | `0x00567170` | type, count | helper mode 0: counts every active building of the category (`+0x34` ignored) |
 | 8 | `connectedbuildings` | `0x00567150` | type, count | helper mode 1: requires `+0x34` (connected to a path) |
 | 9 | `visitors` | `0x00566590` | profile, count | `all` or a profile name |

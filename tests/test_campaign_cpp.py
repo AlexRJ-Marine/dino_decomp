@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (84 checks)" in result.stdout
+    assert "selftest: PASS (85 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -466,6 +466,36 @@ def test_cpp_campaign_ornamented_dinos(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "mission objective 0 ornateddinos -> success" in result.stdout
     assert "mission OrnamentTest: success" in result.stdout
+
+
+def test_cpp_campaign_hybrid_dinos(tmp_path):
+    # `+0x1e4` is filled from the phenotype originality (the store's
+    # ORIGINALITY/Strangeness gauge). Cpg04 has one dino with originality 80.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    base = SCENARIO / "MissionBase.ini"
+    if not isl04.exists() or not wld.exists() or not base.exists():
+        pytest.skip("retail Cpg04 data missing")
+    mission = tmp_path / "HybridTest.ini"
+    mission.write_text(
+        "[#INCLUDE]\n"
+        f'FILE0="{base.as_posix()}"\n'
+        "\n[OBJECTIVES]\n"
+        'Objective1="hybriddinos 1 80"\n'
+        'Objective1_Desc="Hybrid dinos"\n',
+        encoding="utf-8",
+    )
+    progress = tmp_path / "campaign-progress.txt"
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--campaign-progress", str(progress),
+        "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 hybriddinos -> success" in result.stdout
+    assert "mission HybridTest: success" in result.stdout
 
 
 def test_cpp_campaign_mission_success():
