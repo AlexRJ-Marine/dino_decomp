@@ -50,8 +50,10 @@ See `notes/lanes.md`. Default split:
 - SAVE-2: **complete and accepted by retail.** The C++ writer re-serializes
   the whole `.sav` byte-identically; a `--sav-write` output (`cppwrite`) is
   listed by the retail LOAD GAME panel, selects and loads a park
-  (`notes/harness/load-cppwrite.png`). `--sav-name/--sav-slot/--sav-budget`
-  mutate header/park fields for testing.
+  (`notes/sav-retail-accept.png`). `--sav-name/--sav-slot/--sav-budget`
+  mutate header/park fields for testing. The saved camera tail is applied by
+  `--sav-park` as a port convenience; retail **manual LOAD** ignores it
+  (`notes/sav-camera-load-ignored.png`).
 - SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
   hourly `ShowRuntime` with iterations/state and objective snapshots are
   ported (`src/world/show_runtime.*`); remaining: interactive construction

@@ -385,6 +385,13 @@ is given). The manual save reproduces the start view; the auto save starts
 far out at eye `(128,128,250)`. Guarded by `test_cpp_sav_park_import` and
 `test_cpp_sav_park_auto_camera`.
 
+**Retail manual LOAD does not apply the tail.** A manual save with the auto
+camera patched into the last 40 bytes (eye 128,128,250 / target 512,512,50)
+loads at the normal entrance view while its visitors/clock are restored
+(`notes/sav-camera-load-ignored.png`). The tail is the camSwitcher/resume
+state, not the manual-load camera; `--sav-park` applying it is a port
+convenience, not retail parity.
+
 The AI manager uses `0x0051f290` (load) / `0x0051f400` (save). The camera
 block is the `camSwitcher` serializer (`0x005e5b80` / `0x005e5ba0`).
 
