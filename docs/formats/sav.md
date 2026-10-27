@@ -459,11 +459,13 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   +0x19 UTF-16LE name        ("Ankylosaur1\0")
   ```
 
-  A variable tail follows the name; it starts with a u32 (0 in the sampled
-  records) then repeated `[80,60,30]` int triples. Tail lengths differ:
-  0x344 / 0x318 / 0x302 for the first three records, so the tail contains
-  variable state (likely action/needs arrays). Decoding the tail is the
-  remaining step; the prefix is enough to walk ids/positions/names.
+  A variable tail follows the name. Its first 0x34 bytes are fixed: a u32
+  (0) followed by four `[80,60,30]` int triples (the need thresholds), then
+  five values (100 in the first dino, 0 in the next two). After that the tail
+  is variable state (likely action/needs arrays); tail lengths are
+  0x344 / 0x318 / 0x302 for the first three records. Decoding the variable
+  part is the remaining step; the prefix is enough to walk
+  ids/positions/names.
 
 ## Writer round-trip (SAVE-0, Python)
 
