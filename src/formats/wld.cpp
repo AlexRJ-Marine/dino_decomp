@@ -1058,7 +1058,7 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s,
 
 std::vector<std::uint8_t> rebuild_sav(const std::string& path,
                                       const std::string* new_name,
-                                      int new_slot) {
+                                      int new_slot, int new_budget) {
     const WldWorld world = read_sav_world(path);
     SavSimulation simulation = read_sav_simulation(path);
     if (new_name != nullptr) {
@@ -1080,6 +1080,9 @@ std::vector<std::uint8_t> rebuild_sav(const std::string& path,
     }
     if (new_slot >= 0) {
         simulation.slot = static_cast<std::uint32_t>(new_slot);
+    }
+    if (new_budget >= 0) {
+        simulation.budget = new_budget;
     }
     return write_sav_whole(simulation, world);
 }

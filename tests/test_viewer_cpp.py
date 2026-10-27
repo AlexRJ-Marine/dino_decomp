@@ -3237,6 +3237,31 @@ def test_cpp_sav_write_rename(tmp_path):
     assert "whole file identical" in check.stdout, check.stdout
 
 
+def test_cpp_sav_write_budget(tmp_path):
+    """--sav-budget changes the park block field and still round-trips."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    sys.path.insert(0, str(ROOT / "tools" / "formats"))
+    from sav_graph import read_sav_graph
+
+    out_path = tmp_path / "budget.sav"
+    result = subprocess.run(
+        [str(EXE), "--sav-write", str(save), str(out_path),
+         "--sav-budget", "12345", "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    graph = read_sav_graph(out_path)
+    assert graph.park.budget == 12345
+    check = subprocess.run(
+        [str(EXE), "--sav-roundtrip", str(out_path), "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert check.returncode == 0, check.stderr
+    assert "whole file identical" in check.stdout, check.stdout
+
+
 def test_cpp_sav_manual_copy_in_auto_dir(tmp_path):
     """The AI-entry split follows the park header, not the directory name."""
     if not EXE.exists():

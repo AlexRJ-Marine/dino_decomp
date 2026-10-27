@@ -273,10 +273,12 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation,
                                           const WldWorld& world);
 
 // Rebuild a .sav in memory (header + world + catalog + simulation).
-// `new_name` (ASCII) and `new_slot` are optional mutations for re-saving.
+// `new_name` (ASCII), `new_slot` and `new_budget` are optional mutations for
+// re-saving; negative values keep the original.
 std::vector<std::uint8_t> rebuild_sav(const std::string& path,
                                       const std::string* new_name = nullptr,
-                                      int new_slot = -1);
+                                      int new_slot = -1,
+                                      int new_budget = -1);
 
 // Read a .sav, rebuild header + world + catalog + simulation and compare the
 // result with the file bytes.

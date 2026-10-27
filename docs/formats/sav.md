@@ -473,6 +473,7 @@ CLI:
 dino_viewer --sav-roundtrip run/save/slot001.sav   # whole file identical
 dino_viewer --sav-write IN.sav OUT.sav             # rebuild and emit
 dino_viewer --sav-write IN.sav OUT.sav --sav-name renamed --sav-slot 3
+dino_viewer --sav-write IN.sav OUT.sav --sav-budget 12345
 ```
 
 The header (version, slot, UTF-16 name, 12 reserved bytes) is retained and
@@ -480,8 +481,15 @@ re-serialized too, so no section of the file is copied. `--sav-name` (ASCII)
 and `--sav-slot` change only the header; the world/catalog/simulation body is
 unchanged, and the emitted file round-trips through the same reader.
 
-`--sav-roundtrip` reports `sav roundtrip: whole file identical` on
-`slot001.sav`, `slot002.sav` and `auto/slot001.sav`; `--sav-write` emits a
-file that the Python reference parses and round-trips byte-identically.
-`test_cpp_sav_park_roundtrip` covers both paths. Retail acceptance is still
-open (the harness park load stalls before the world files are opened).
+`--sav-roundtrip` reports `sav roundtrip: whole file identical` on every
+retail save; `--sav-write` emits a file that the Python reference parses and
+round-trips byte-identically. `test_cpp_sav_park_roundtrip` covers both paths.
+
+**Retail acceptance (2026-10-27):** a C++-written save (`--sav-name cppwrite
+--sav-slot 1`) installed as `run-test/save/slot001.sav` appears in the retail
+LOAD GAME list as `cppwrite`; selecting it starts the park (Reset `hr=0`) and
+renders it (`notes/harness/load-cppwrite.png`). The park clock matches the
+save's `schedule_elapsed` (23.2 s -> 09:2x). The HUD cash (26000) does not
+track the park block's `+0x30` budget (12345 in the test save), so that field
+is not the live-money display; this is an open semantic question, not a writer
+failure.

@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 21:42. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 22:10. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-33 open items.
+32 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -91,6 +91,3 @@ Generated from `TASKS.md` on 2026-10-27 21:42. Do not edit; regenerate with `scr
 
 ## MEDIA-1: Audio and video
 - [ ] Port music streaming/looping and SFX playback into the SDL3 viewer;
-
-## SAVE-1: Save/load
-- [ ] Retail acceptance: load a `--sav-write` output in the retail game and

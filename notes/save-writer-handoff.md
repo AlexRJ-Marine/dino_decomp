@@ -27,7 +27,23 @@ What landed (the previous plan, for the record):
    `tools/formats/sav_write.py` (Python parses it and round-trips it
    byte-identically).
 
-Remaining save item: **retail acceptance**. The harness park load still stalls
-in `FUN_0051d1d0` before the world files are opened (see
-`notes/background-input-recon.md` and the TOOL-4 notes). Until that loop is
-fixed, the writer cannot be confirmed by loading in retail.
+`--sav-budget N` sets the park block `+0x30` field for field tests (the HUD
+cash is a different value; see below).
+
+## Retail acceptance (2026-10-27) - PASSED
+
+The TOOL-4 park load was fixed (`notes/background-input-recon.md` §4b); the
+retail LOAD GAME path now reaches a park. A C++-written save with
+`--sav-name cppwrite --sav-slot 1` was installed as
+`run-test/save/slot001.sav`:
+
+- the retail LOAD GAME list shows `cppwrite`;
+- selecting it starts the park (D3D8 Reset `hr=0`) and renders it:
+  `notes/harness/load-cppwrite.png`;
+- the park clock (09:28) matches the save's `schedule_elapsed` (23.2 s), so
+  the world/camera/clock came from the save.
+
+Open semantic item: the HUD cash (26000) is not the park block `+0x30`
+`budget` (12345 in that test save; `26000` occurs only as show 27's first
+parameter). Identify the live-money field before using `--sav-budget` for
+gameplay assertions.

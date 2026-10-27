@@ -1768,9 +1768,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `write_sav_park_block`/`write_sav_simulation`/`write_sav_whole`) rebuilds
   every byte from typed models; `--sav-roundtrip` reports `whole file
   identical` and `--sav-write IN OUT` emits the file.
-- [ ] Retail acceptance: load a `--sav-write` output in the retail game and
-  compare state. Blocked on the harness park-load stall (`FUN_0051d1d0`)
-  documented under TOOL-4.
+- [x] Retail acceptance: a `--sav-write` output (`cppwrite`) is listed in the
+  retail LOAD GAME panel, selects and loads a park (`notes/harness/load-cppwrite.png`);
+  the park clock matches the save's `schedule_elapsed`. The TOOL-4 park-load
+  fix is in `notes/background-input-recon.md` §4b. Open: the HUD cash is not
+  park `+0x30` (live-money field still unidentified).
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 

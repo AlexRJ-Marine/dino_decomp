@@ -47,10 +47,11 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- SAVE-2: code complete — the C++ writer re-serializes the whole `.sav`
-  (header, world records, catalog, simulation) byte-identically on all three
-  retail saves; `--sav-write IN OUT` emits a file. Only retail acceptance is
-  left, gated on the park-load stall below.
+- SAVE-2: **complete and accepted by retail.** The C++ writer re-serializes
+  the whole `.sav` byte-identically; a `--sav-write` output (`cppwrite`) is
+  listed by the retail LOAD GAME panel, selects and loads a park
+  (`notes/harness/load-cppwrite.png`). `--sav-name/--sav-slot/--sav-budget`
+  mutate header/park fields for testing.
 - P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
@@ -73,15 +74,14 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. SAVE-2 acceptance: get the park load past `FUN_0051d1d0` (TOOL-4), then
-   load a `--sav-write` output in retail and compare the park state.
-2. P3 chooser target term: resolve the policy vtable `+0x14` target
-   provider (GetTarget x/y/radius) and feed `threat_score`; this also
-   unblocks the visitor/obstacle reaction.
-3. SAVE-2 acceptance: write a renamed save with `--sav-write` into
-   `run-test/save/`, load it through the retail LOAD GAME path, and compare
-   the park HUD/state. Then run the P3 target-provider trace in the loaded
-   park (the `+0x14` ABI is decoded in `notes/dino-target-vtable-recon.md`).
+1. P3 chooser target term: implement the decoded `+0x14` contract
+   (`notes/dino-target-vtable-recon.md`) as `ActionTarget` + a threat
+   provider in `DinoActionLoop`, and feed `score_action`'s `threat_score`.
+   Then run the provider trace in a loaded retail park.
+2. P3 perception: wire the visitor/obstacle reaction once the target
+   factory (`action+0x08`) is located; the reaction starters are decoded.
+3. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
+   not park `+0x30`; `26000` occurs only as show 27's first parameter).
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
