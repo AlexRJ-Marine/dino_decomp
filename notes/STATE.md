@@ -464,20 +464,35 @@ Updated: 2026-10-26
     and the repeated rect, animals, employees, buildings with links, visitors,
     dinosaurs, flags), the park header/economy/schedule, visitors, dino store,
     catalog, labs, AI lists, camera and tail. `write_sav_header`/`_world`/
-    `_catalog`/`_park_block`/`_simulation`/`_whole` re-serialize every byte;
-    no raw slice of the file is copied.
+    `_catalog`/`_park_block`/`_simulation`/`_whole` re-serialize every byte.
+    Exception: campaign autosaves populate simulation `list0`; the C++ reader
+    length-validates each `saDinosaur` record and keeps `campaign_list0` +
+    the still-undecoded `list1`/tail raw. Python `tools/formats/sav_campaign.py`
+    models all `list0` fields and re-encodes them byte-identically.
   - CLI: `--sav-info FILE`, `--sav-roundtrip FILE` (`whole file identical`),
     `--sav-write IN OUT [--sav-name NAME --sav-slot N --sav-budget N]`.
+    Campaign autosaves round-trip whole-file identically too; `--sav-info`
+    reports zeros for the visitor/park/store part because the parse stops
+    after `list0`.
   - Autosave detection uses the park header (0 manual / 3 auto), not the path.
   - Retail acceptance passed: a `cppwrite` save is listed by the LOAD GAME
     panel, starts the park and renders it (`notes/sav-retail-accept.png`);
     the park clock matches the save's `schedule_elapsed`.
+  - Campaign `list0` schema: `saDinosaur` save `0x570c90` / load `0x5706c0`,
+    tail `0x2D1 + (flag==0?0x30:0) + tex_bytes + 0x16*N`, no length prefix;
+    `tools/formats/sav_campaign.py` (`tests/test_sav_campaign.py`) and
+    `notes/campaign-list0-tail-recon.md`.
   - Evidence: `docs/formats/sav.md` ("C++ writer"), `notes/save-writer-handoff.md`,
     `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip`,
     `test_cpp_sav_write_rename`, `test_cpp_sav_write_cross_checked_by_python`,
-    `test_cpp_sav_info`, `test_cpp_sav_write_budget`.
-  - Open: the HUD cash field is not park `+0x30`; the Options panel still
-    writes `.psav`.
+    `test_cpp_sav_info`, `test_cpp_sav_write_budget`,
+    `test_sav_campaign.py`.
+  - HUD cash resolved: `spPark->economy+0x08`, the same field as park block
+    `+0x30`; retail's loader skips the restore for version > 0x17 when `BL`
+    is set (`0x58b1b0`). The port restores it (policy divergence).
+  - Open: campaign `list1`/`list2` decode, typed C++ `SavCampaignDino`, and
+    campaign visitor/park info (`--sav-park`); the Options panel still writes
+    `.psav`.
 - P3 target policy complete: **`node+0x3c` `GetTarget` / chooser threat term.**
   - `ActionTarget` + `chooser_threat_score` (`FUN_00572dd0` actor-radius box,
     danger grid), optional `ActionThreatProvider` on `choose_action` /
