@@ -64,11 +64,13 @@ See `notes/lanes.md`. Default split:
   re-encodes all 20 records byte-identically; the C++ writer validates each
   record length and keeps list0 + list1/tail raw, so `--sav-roundtrip`/
   `--sav-write` are byte-identical on the 53 KB sample (no test skip).
-  Remaining: typed C++ list0, list1/list2, campaign park/visitor info.
-- SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
-  hourly `ShowRuntime` with iterations/state and objective snapshots are
-  ported (`src/world/show_runtime.*`); remaining: interactive construction
-  panel and live judge/schedule display.
+  list1/list2 decoded (2 food sources, 6 employees); remaining: 57-record
+  attraction list, campaign park block, typed C++ list0.
+- SHOW-4: mission `[SHOWS]` catalog, `--place-show`, the 10-slot hourly
+  `ShowRuntime`, the interactive construction panel (`PREDEFINED_SHOW_LIST`
+  selection/scroll + VALIDATE placement) and the ten attraction rows
+  (lock/iteration/permutation/selection) are ported; remaining: live `.bfi`
+  arena/judge actors and per-show weight authoring.
 - P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
@@ -100,25 +102,27 @@ See `notes/lanes.md`. Default split:
 1. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
    in the show/attraction controller (Cpg04 is the test park; Free Game has 0
    dinos). Do not invent a list producer; the lists stay empty.
-2. SHOW-4 rest: interactive show construction panel (catalog list, place,
-   hour slot/iterations, judge/schedule display); `--place-show` and the live
-   runtime/scheduler are in.
-3. SAVE-2 follow-up: HUD cash is `economy+0x08` = park `+0x30`; retail's
-   load skips the restore for version > 0x17 when the `BL` flag is set
-   (`0x58b1b0`). The port restores it (policy divergence); confirm `BL` at
-   runtime for exact parity (`notes/hud-budget-source-recon.md`).
+2. CAMPAIGN population: `WldWorld.records` now retains campaign shows/
+   animals/employees; wire them into `load_campaign_park` and assert
+   shows=1/animals=2/employees=6 on Cpg04 (`notes/playtest-2026-10-27.md`).
+3. SHOW-4 rest: live `.bfi` arena/judge actors and per-show weight
+   authoring; the construction panel and attraction-list actions are in.
+4. SAVE-2 HUD: cash is `economy+0x08` = park `+0x30`. Manual/autosave `.sav`
+   LOAD has `BL=0` and restores it; the `0x58b1b0` skip is only the campaign
+   `.wld` path (`BL=1`, no park block). The port matches; the 26000 mystery
+   needs a runtime watch (`notes/hud-budget-restore-flag-recon.md` §8).
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
+- 2026-10-27 - SAVE-2: campaign list1/list2 typed + campaign .wld shows/animals/employees retained; HUD BL guard corrected
+- 2026-10-27 - SHOW-4: interactive show construction panel + attraction list actions
 - 2026-10-27 - SAVE-2: campaign list0 typed + byte-identical Python/C++ round-trip (list1/2 open)
 - 2026-10-27 - SHOW-4: show catalog + placement + 10-slot hourly scheduler + live runtime (fast 334)
 - 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
 - 2026-10-27 - SHOW-3: all four show verbs ported (happyshow/scientificshow/happydinoshow/dinoexclusiveshow) with the FUN_00618020 five-need + .bvi weight pipeline and a --show test hook; coverage 89/89 objectives
 - 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
-- 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
-- 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
 
 ## Blockers
 

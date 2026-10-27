@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 23:52. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 23:53. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-34 open items.
+35 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -93,5 +93,6 @@ Generated from `TASKS.md` on 2026-10-27 23:52. Do not edit; regenerate with `scr
 - [ ] Port music streaming/looping and SFX playback into the SDL3 viewer;
 
 ## SAVE-1: Save/load
-- [ ] Campaign parity rest: typed C++ `SavCampaignDino`, decode `list1`/
+- [ ] Campaign parity rest: walk the 57-record attraction list and locate the
+- [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while

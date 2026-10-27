@@ -1796,9 +1796,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   retail LOAD GAME panel, selects and loads a park (`notes/sav-retail-accept.png`);
   the park clock matches the save's `schedule_elapsed`. The TOOL-4 park-load
   fix is in `notes/background-input-recon.md` §4b. HUD cash confirmed as
-  `economy+0x08` = park `+0x30`; retail's loader skips the restore for
-  version > 0x17 when `BL` is set (`notes/hud-budget-source-recon.md`). The
-  port restores it (policy divergence); confirm `BL` for exact parity.
+  `economy+0x08` = park `+0x30`. `BL` is the park reader's call-site flag:
+  manual/autosave `.sav` LOAD has `BL=0` and restores it; only the campaign
+  `.wld` path (`BL=1`, no park block) skips. The port matches
+  (`notes/hud-budget-restore-flag-recon.md`); the 26000 mystery needs a
+  runtime watch (§8).
 - [x] Campaign `list0` tail solved: `saDinosaur` save `0x570c90` / load
   `0x5706c0`; `tail = 0x2D1 + (flag==0?0x30:0) + tex_bytes + 0x16*N`, with
   `N` at `path+0x1c6`; no length prefix. The scanner walks all 20 records
@@ -1814,9 +1816,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   keeps list0 + list1/tail raw; `--sav-roundtrip` and `--sav-write` are
   byte-identical, and `test_cpp_sav_park_roundtrip` includes the campaign
   sample instead of skipping it.
-- [ ] Campaign parity rest: typed C++ `SavCampaignDino`, decode `list1`/
-  `list2` (list1 count=2), and expose the campaign visitor/park/store state
-  (`--sav-info` currently reports zeros for that part).
+- [x] Campaign `list1`/`list2`: 2 `saFoodSource` (0x2C) and 6 employee
+  (0x2B) records decoded and byte-identical in Python; C++ validates both and
+  retains the counts (`notes/campaign-list1-2-recon.md`).
+- [x] Campaign `.wld` object records: `read_world_block` now retains shows,
+  animals and employees in `WldWorld.records` (previously discarded); Cpg04
+  reports shows=1 animals=2 employees=6.
+- [ ] Campaign parity rest: walk the 57-record attraction list and locate the
+  campaign park block/economy, typed C++ `SavCampaignDino`, and expose the
+  campaign visitor/park/store state (`--sav-info` currently reports zeros).
+- [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
+  into `load_campaign_park` and assert the Cpg04 counts
+  (`notes/playtest-2026-10-27.md`).
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`
