@@ -445,7 +445,9 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   (a ~53 KB `auto.sav` after a campaign park has list0 = 20 objects). The
   free-game writer covers only the empty form; `sav_graph.py` and the C++
   reader report the populated variant. Decoding and writing those lists is
-  open.
+  open. `list0` starts `u32,u32,u32` (first record `63823, 517, 450`) then
+  packed bytes and a UTF-16 species name around `+0x18` (`Ankylosaurus...`);
+  the 20 records match the world block's 20 dinosaurs.
 
 ## Writer round-trip (SAVE-0, Python)
 

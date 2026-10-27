@@ -1781,10 +1781,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   every byte from typed models; `--sav-roundtrip` reports `whole file
   identical` and `--sav-write IN OUT` emits the file.
 - [x] Retail acceptance: a `--sav-write` output (`cppwrite`) is listed in the
-  retail LOAD GAME panel, selects and loads a park (`notes/harness/load-cppwrite.png`);
+  retail LOAD GAME panel, selects and loads a park (`notes/sav-retail-accept.png`);
   the park clock matches the save's `schedule_elapsed`. The TOOL-4 park-load
   fix is in `notes/background-input-recon.md` §4b. Open: the HUD cash is not
   park `+0x30` (live-money field still unidentified).
+- [ ] Campaign autosave class: a live Cpg04 autosave (~53 KB,
+  `run-test/save/auto/auto.sav`) populates the three simulation lists after
+  the roads. `list0` has 20 records (the world has 20 dinosaurs); each starts
+  with three u32 then packed bytes and a UTF-16 species name around `+0x18`.
+  Decode the record layout and extend `sav_graph.py`/the C++ reader/writer;
+  `test_cpp_sav_park_roundtrip` currently skips this known class.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
