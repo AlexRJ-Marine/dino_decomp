@@ -92,6 +92,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
 - 2026-10-27 - SHOW-3: all four show verbs ported (happyshow/scientificshow/happydinoshow/dinoexclusiveshow) with the FUN_00618020 five-need + .bvi weight pipeline and a --show test hook; coverage 89/89 objectives
 - 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
@@ -100,8 +101,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
 - 2026-10-27 - SIM-4: budget panel imports the save's yesterday block
   (`SavEconomy`, `notes/budget-sav-rows.png`)
-- 2026-10-27 - WORLD-3: water layers animate from FUN_00602fd0 (opposite 0.03/0.01 UV/s)
-- 2026-10-27 - WORLD-3: second Modulate2x water stage (water2 + coordinate set 1)
 
 ## Blockers
 
