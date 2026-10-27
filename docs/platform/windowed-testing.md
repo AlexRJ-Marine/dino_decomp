@@ -211,20 +211,25 @@ The click sequence was exercised with the default `play-freegame.ps1`:
 - lab, options and save panels opened
 - the physical cursor was not moved
 
-**Background input delivery is verified; the background click flow is not.**
-With `DINO_FORCE_INPUT_ACTIVE=1` the proxy keeps DirectInput polling and
-delivers every scripted click while the window is behind other windows
-(`state_calls` ~64/s, down/up per click). The retail menu still ignores them
-because its deactivated main loop skips the UI/message update; loader traces
-stay cold even after waiting out `generic.mpg`. The foreground path remains
-the reference (`state calls=42`+, park reached). See
-`notes/background-input-recon.md`.
+**Background input and the park load are verified.** With
+`DINO_FORCE_INPUT_ACTIVE=1` the proxy keeps DirectInput polling, delivers
+every scripted click while the window is behind other windows
+(`state_calls` ~64/s, down/up per click), and patches the app-loop scheduler
+gate (`0x4024db`). For the level-start Reset it also forces 16-bit back
+buffers to X8R8G8B8 and activates the game window on the Reset thread.
+Without the last two, dgVoodoo returns `D3DERR_DEVICELOST` and mcLib opens a
+modal "Unable to restore previous video mode" dialog that looks exactly like
+a frozen load. The free-game park now loads and renders from the background
+harness (`notes/park-retail-windowed.png`). `DINO_LOG_ERRORS=1` logs every
+`MessageBoxA`; `DINO_AUTO_DISMISS_ERRORS=1` dismisses it (`IDIGNORE`). See
+`notes/background-input-recon.md` section 4b.
 
 Evidence:
 
 - `notes/windowed-main-menu.png` - retail menu in a window
 - `notes/windowed-freegame-virtual.png` - Free Game page after a virtual click
 - `notes/windowed-park.png` - park reached through the virtual-input path
+- `notes/park-retail-windowed.png` - free-game park after the windowed Reset fix
 - `notes/x32dbg-windowed-freegame.out.log` - loader trace from the run
 
 Limitations:
@@ -232,7 +237,6 @@ Limitations:
 - only the left mouse button is scripted;
 - keyboard injection is not implemented yet;
 - `dino_input.txt` is polled from the game's working directory;
-- with `DINO_FORCE_INPUT_ACTIVE=1` DirectInput polling and click delivery work
-  in the background; the retail UI gate (main-loop message/UI update) is still
-  unsolved, so the foreground path remains the reference;
+- the Reset fix briefly activates the game window on the Reset thread (the
+  harness restores the previous foreground afterwards);
 - the dgVoodoo2 watermark remains visible in windowed screenshots.
