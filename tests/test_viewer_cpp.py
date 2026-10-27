@@ -3182,11 +3182,10 @@ def test_cpp_sav_park_roundtrip(tmp_path):
     """The C++ writer reproduces retail saves byte-for-byte."""
     if not EXE.exists():
         pytest.skip("viewer not built")
-    saves = [ROOT / "run" / "save" / "slot001.sav",
-             ROOT / "run" / "save" / "slot002.sav",
-             ROOT / "run" / "save" / "auto" / "slot001.sav"]
+    saves = sorted((ROOT / "run" / "save").rglob("*.sav"))
+    saves += sorted((ROOT / "run-test" / "save").rglob("*.sav"))
     checked = 0
-    for save in saves:
+    for index, save in enumerate(saves):
         if not save.exists():
             continue
         result = subprocess.run(
@@ -3196,7 +3195,7 @@ def test_cpp_sav_park_roundtrip(tmp_path):
         assert "sav roundtrip: whole file identical" in result.stdout, result.stdout
         assert "world copied" not in result.stdout, result.stdout
 
-        out_path = tmp_path / f"{save.parent.name}-{save.name}"
+        out_path = tmp_path / f"{index}-{save.name}"
         written = subprocess.run(
             [str(EXE), "--sav-write", str(save), str(out_path),
              "--no-save-config"],
