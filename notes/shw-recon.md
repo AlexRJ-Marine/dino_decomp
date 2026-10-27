@@ -133,3 +133,67 @@ proves the anchor, rotation and footprint semantics.
 Only 3 judge features overhang the arena edge by one cell (4x4 at the last
 row): Cpg2_Obst_1 (9,36 in 23x39), Cpg2_Obst_Mission4 (9,84 in 23x87),
 Cpg4_Derby_1 (33,32 in 71x35).
+
+## Show rectangle units and construction panel (2026-10-27)
+
+### `Dimensions` are world units, not grid cells
+
+`FUN_0052d1e0` is the `PREDEFINED_SHOW_VALIDATE` step. It reads the save
+catalog entry (stride `0x1c`; `params[3]`/`params[4]` are the `.shw`
+`Dimensions`), adds the border `2*[show+0x6c] + 1` to each axis, and calls
+`FUN_005f86d0(show, catalog_index, &rect)`. `FUN_005f86d0` stores the pair in
+`+0x68`/`+0x6c`, the same building rectangle used by `gpkBuilding`
+(`0x5fecf0`), whose `.bbi` footprints are world units
+(`docs/platform/buildings.md`). The placement validator reached through
+`FUN_005fc4d0` -> `FUN_0061e9b0` then maps the rectangle to the terrain grid
+with the cell size.
+
+Park scale confirms it. The Cpg04 fences span `376..631 x 312..551`
+(255 x 239 world units) and the park's saved show record is
+`(420,416)-(499,451)` (about 80 x 36 world units). A 71x35 show read as grid
+cells would be 284 x 140 world units and could not fit either.
+
+Consequence: the feature tuple `(x, y)` and the `.bfi` footprint share the
+same unit space as `Dimensions` (the zero-overlap tiling check stays valid;
+the earlier "cell" wording above means a 1-unit coordinate square, while a
+4x4 `.bfi` footprint is one 4-unit build cell), but the arena is 71 x 35
+world units = about 18 x 9 build cells, not 71 x 35 cells. The port uses this in `place_show_at`: record coordinates 0..1024,
+`cell = floor(record / cell_size)`, and a buildable check over every covered
+cell. The port omits the `2*[show+0x6c]+1` border (retail adds it before the
+rectangle is written).
+
+### Panel widgets
+
+`FUN_00514ad0` (panel ctor) resolves the ten row widgets
+(`ATTRACTION_LIST_SELECTION_LIGHT1..10`, `PERMUTATION1..10`, `NAME1..10`,
+`LOCK1..10`, `UNLOCK1..10`, `ITERATION_UP/DOWN1..10`,
+`ITERATION_INDIC1..10`, `PROFIL1..10`) into ten `0x28`-byte row records at
+`panel+0xd0`. `FUN_00516850` is the open/refresh entry: `mode == 0` hides the
+rows, otherwise it calls `FUN_00516dd0`, which for every row:
+
+- occupied: sets `NAME` from `show+4` and appends `"%u"` of `show+0x8c`
+  (format string at `0x64d894`), and toggles the lock/unlock icon from
+  `show+0xd3`;
+- empty: copies `DAT_006743c8` (the zero-filled scratch string) into the row
+  text, i.e. clears it.
+
+`ListInterface.Ini` fills all ten `NAME` rows with `TEXT = "10:00 AM"`; the
+port renders the hour label (`10:00 AM` .. `07:00 PM`) for empty slots as a
+readable reconstruction. The exact retail empty-row text is unverified (the
+template says `10:00 AM`, `FUN_00516dd0` clears it).
+
+### Port wiring
+
+`src/ui/park.cpp` maps the same controls: `PREDEFINED_SHOW_LIST` and its
+right scroll strip -> `show select <index>` / `show scroll up|down`,
+`PREDEFINED_SHOW_LIST_VS_BTN_UP/DOWN` -> scroll, `PREDEFINED_SHOW_VALIDATE`
+-> `show place <index>`; `ATTRACTION_LIST_LOCK/UNLOCK/ITERATION_UP/
+ITERATION_DOWN/PERMUTATION/SELECTION_LIGHT<n>` -> `attraction <verb> <slot>`.
+`src/viewer/main.cpp` arms `build_tool = 5` with `pending_show_index`,
+converts the next ground click to record coordinates, and calls
+`ShowRuntime::place`; `show+0x8c` iterations clamp to 1..10, `show+0xd3` is
+the lock, `show+0x100` the hour slot (1..10).
+
+Tests: `tests/test_campaign_cpp.py::test_cpp_campaign_show_panel_ui`,
+`test_cpp_campaign_show_list_scroll`,
+`test_cpp_campaign_attraction_list_actions`.

@@ -78,6 +78,65 @@ window = (int(time * +0x20) + 1) * +0x24 - time * +0x14
 active = (+0x0c <= window <= +0x08)
 ```
 
+`0x0058c8f0(manager, show)` fills the show's participant list (`+0xf4`) from
+its cage/team assignment vector (`+0xb0`), skipping any dino that already
+appears in another show's list - that is the `dinoexclusiveshow` rule.
+`0x0057b110` pre-arms a show (`+0x14 = 1`, `+0xd4 = 1`, state `+0xe4 = 1`)
+and `0x0057b130(show, budget)` activates it (`+0xd5 = 1`, `+0x94 = budget`).
+
+### Show runtime state machine (`0x0057b220`)
+
+`0x0057b220(show, dt)` runs every frame for a placed attraction. The state is
+the dword at `show+0xe4` (0..7); the live fields are:
+
+| Offset | Meaning |
+| ---: | --- |
+| `+0x88` | performances done today |
+| `+0x8c` | performances per day (the `ITERATION` buttons) |
+| `+0x90` | current performance elapsed time |
+| `+0x94` | current performance budget (time limit) |
+| `+0x98` | repeat/cooldown timer |
+| `+0xb0`/`+0xb4` | cage/team assignment vector |
+| `+0xf4`/`+0xf8` | participant list built by `0x0058c8f0` |
+| `+0x14` | dirty flag (forces a redraw) |
+| `+0xd1` | cancel request |
+| `+0xd2` | running flag |
+| `+0xd3` | open to the public (lock/unlock) |
+| `+0xd4` | scheduled this hour |
+| `+0xd5` | activated by `0x0057b130` |
+| `+0xd6` | started |
+| `+0xd7` | repeat requested |
+| `+0xda` | finished |
+| `+0xdb` | capture requested |
+| `+0xe0` | validation state (2 = valid) |
+| `+0x100` | hour slot 1..10 |
+
+| State | Behaviour |
+| ---: | --- |
+| 0 | idle. `+0xd1` clears the actor list and calls `0x0057b150`. `+0xd5` starts a performance: `+0x90 = +0x88 = 0`, `+0xd6 = 1`, `+0xd2 = 0`, camera `0x00484d30(+0x7c,+0x80)`, each assignment `0x00571190`, `0x0057ba50`, `0x00576b80(0)`, `0x0057fe40(+0x94)`. |
+| 1 | pre-armed by `0x0057b110`; same start branch as 0 when `+0xd5` is set. |
+| 2 | intro: `+0x90 += dt`, `vtable+0x18`, `0x0057ff60`; when every byte flag at `+0x7c` is set, notify the `+0xa0` actor list (`vtable+0x18`) and go to 3. |
+| 3 | running: wait until every actor in `+0xa0` has `+0x44 == 2`; then `+0x36 = 1`, state 4, and per element/participant `0x005838c0` / `0x00583b60`. |
+| 4 | performance: `+0x90 += dt`; captured dinos (`+0x16 < 1`, `+0x4b4 == 3`) and the `+0x138` list are appended to the participant list (`0x0058ba00`); when `+0x94 <= +0x90` -> `+0xda = 1`, state 6, `0x00580010`; else if the judge object `+0xcc` `vtable+0x20` returns true -> `+0x88 += 1`, reset elements (`0x005838b0`), `+0xd7 = 1`, state 5, `+0x98 = 0`. |
+| 5 | repeat: `+0x90 += dt`, `+0x98 += dt`; when `+0x98 > *(float *)(DAT_00675770 + 8)`: if `+0x8c <= +0x88` -> state 6 + `0x00580010`; otherwise reset the actor list (`vtable+4`), `0x0057ba50`, `+0xd7 = 1`, and stay in 5 for another performance. |
+| 6 | drain: when the participant list `+0xf4` is empty -> state 7. |
+| 7 | teardown: clear the actor list, `0x00576b80(0)`, state 0. |
+
+The port's `ShowRuntime` (`src/world/show_runtime.h`) keeps the same state
+numbers and field meanings, with the `.bfi` arena animation replaced by a
+performance length (`duration_minutes_`, 30 park minutes by default):
+
+- state 2 counts `elapsed` in park minutes;
+- a completed performance calls the judge callback once and increments
+  `done`;
+- `done >= iterations` returns the show to state 0, otherwise it stays in
+  state 2 and starts the next performance immediately. States 5..7
+  (cooldown/drain/teardown) are collapsed into that direct return, and the
+  `+0xa0` actor list is not simulated.
+
+`start_hour` mirrors the schedule manager's slot scan (`0x0057b110` pre-arm,
+`0x0057b130` activate) and `reset_day` mirrors `0x0058c2d0`.
+
 ## Serialization
 
 The time manager writes `+0x04`, `+0x08`, `+0x0c`

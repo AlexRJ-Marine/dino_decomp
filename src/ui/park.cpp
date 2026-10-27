@@ -402,6 +402,20 @@ void ParkHud::open_panel(const std::string& name) {
                 std::max(0, count - store_visible_rows()));
         }
     }
+    if (name == "PREDEFINED_SHOW_PANEL") {
+        const int count = static_cast<int>(show_rows_.size());
+        if (count == 0) {
+            show_selected_ = -1;
+            show_scroll_ = 0;
+        } else {
+            if (show_selected_ < 0 || show_selected_ >= count) {
+                show_selected_ = 0;
+            }
+            show_scroll_ = std::clamp(
+                show_scroll_, 0,
+                std::max(0, count - show_visible_rows()));
+        }
+    }
 }
 
 void ParkHud::close_panel(const std::string& name) {
@@ -531,6 +545,65 @@ int ParkHud::store_row_at(int x, int y) const {
     }
     const int index = store_scroll_ + slot;
     if (index < 0 || index >= static_cast<int>(store_rows_.size())) {
+        return -1;
+    }
+    return index;
+}
+
+void ParkHud::set_show_rows(std::vector<ShowRow> rows) {
+    show_rows_ = std::move(rows);
+    show_scroll_ = 0;
+    show_selected_ = show_rows_.empty() ? -1 : 0;
+}
+
+void ParkHud::show_select(int index) {
+    if (index < 0 || index >= static_cast<int>(show_rows_.size())) {
+        show_selected_ = -1;
+        return;
+    }
+    show_selected_ = index;
+    if (index < show_scroll_) {
+        show_scroll_ = index;
+    } else if (index >= show_scroll_ + show_visible_rows()) {
+        show_scroll_ = index - show_visible_rows() + 1;
+    }
+}
+
+void ParkHud::show_scroll_by(int delta) {
+    const int max_scroll = std::max(
+        0, static_cast<int>(show_rows_.size()) - show_visible_rows());
+    show_scroll_ = std::clamp(show_scroll_ + delta, 0, max_scroll);
+}
+
+const ShowRow* ParkHud::show_visible_row(int slot) const {
+    if (slot < 0 || slot >= show_visible_rows()) {
+        return nullptr;
+    }
+    const int index = show_scroll_ + slot;
+    if (index < 0 || index >= static_cast<int>(show_rows_.size())) {
+        return nullptr;
+    }
+    return &show_rows_[static_cast<std::size_t>(index)];
+}
+
+int ParkHud::show_row_at(int x, int y) const {
+    const int list_index = overlay.find("PREDEFINED_SHOW_LIST");
+    if (list_index < 0 || !overlay.visible_in_tree(list_index)) {
+        return -1;
+    }
+    const Widget& list = overlay.widgets[static_cast<std::size_t>(list_index)];
+    if (x < list.abs_x || x >= list.abs_x + list.width || y < list.abs_y ||
+        y >= list.abs_y + list.height) {
+        return -1;
+    }
+    const int pitch =
+        list.list_line_height > 0 ? list.list_line_height : 30;
+    const int slot = (y - list.abs_y) / pitch;
+    if (slot < 0 || slot >= show_visible_rows()) {
+        return -1;
+    }
+    const int index = show_scroll_ + slot;
+    if (index < 0 || index >= static_cast<int>(show_rows_.size())) {
         return -1;
     }
     return index;
@@ -668,6 +741,73 @@ bool ParkHud::click(int x, int y, std::string& action) {
         store_scroll_by(1);
         action = "store scroll down";
         return true;
+    }
+    // Show construction: `PREDEFINED_SHOW_LIST` is the mission catalog;
+    // VALIDATE (`0x0052d1e0`) hands the selected row to the placement tool.
+    if (name == "PREDEFINED_SHOW_LIST") {
+        const Widget& list = overlay.widgets[static_cast<std::size_t>(hit)];
+        const int strip =
+            list.list_scroll_width > 0 ? list.list_scroll_width : 15;
+        if (x >= list.abs_x + list.width - strip) {
+            const bool up = y < list.abs_y + list.height / 2;
+            show_scroll_by(up ? -1 : 1);
+            action = up ? "show scroll up" : "show scroll down";
+            return true;
+        }
+        const int index = show_row_at(x, y);
+        if (index >= 0) {
+            show_select(index);
+            action = "show select " + std::to_string(index);
+        }
+        return true;
+    }
+    if (name == "PREDEFINED_SHOW_LIST_VS_BTN_UP") {
+        show_scroll_by(-1);
+        action = "show scroll up";
+        return true;
+    }
+    if (name == "PREDEFINED_SHOW_LIST_VS_BTN_DOWN") {
+        show_scroll_by(1);
+        action = "show scroll down";
+        return true;
+    }
+    if (name == "PREDEFINED_SHOW_VALIDATE") {
+        action = show_selected_ >= 0
+                     ? "show place " + std::to_string(show_selected_)
+                     : "show no selection";
+        return true;
+    }
+    // Attraction list (`ATTRACTION_LIST_PANEL`): ten rows, one per hour
+    // slot. The viewer owns the placed shows, so the panel reports the row
+    // and the viewer applies lock/iteration/permutation changes.
+    {
+        auto attraction_slot = [&](const char* prefix) -> int {
+            const std::size_t length = std::strlen(prefix);
+            if (name.rfind(prefix, 0) != 0) {
+                return -1;
+            }
+            const int row = std::atoi(name.c_str() + length) - 1;
+            return row >= 0 && row < 10 ? row + 1 : -1;
+        };
+        const char* const kAttractionActions[] = {
+            "ATTRACTION_LIST_LOCK", "ATTRACTION_LIST_UNLOCK",
+            "ATTRACTION_LIST_ITERATION_UP",
+            "ATTRACTION_LIST_ITERATION_DOWN",
+            "ATTRACTION_LIST_PERMUTATION",
+            "ATTRACTION_LIST_SELECTION_LIGHT"};
+        for (const char* prefix : kAttractionActions) {
+            const int slot = attraction_slot(prefix);
+            if (slot >= 0) {
+                std::string verb = prefix;
+                verb.erase(0, std::strlen("ATTRACTION_LIST_"));
+                std::transform(verb.begin(), verb.end(), verb.begin(),
+                               [](unsigned char c) {
+                                   return static_cast<char>(std::tolower(c));
+                               });
+                action = "attraction " + verb + " " + std::to_string(slot);
+                return true;
+            }
+        }
     }
     if (name == "DINO_ACHAT_SAVE_OUTCOME_SAVE") {
         // The budget gate stays in the panel on failure (0x00535600), so the

@@ -62,7 +62,16 @@ struct Widget {
     int text_height = 0;
     int list_line_height = 0;
     int list_scroll_width = 0;
+    // `LB_NB_COLUMNS` plus `LB_COLUMN<n>_WIDTH`. Retail uses seven columns
+    // for `PREDEFINED_SHOW_LIST` (name/judge/price/cage1..4).
+    int list_columns = 0;
     int list_column0_width = 0;
+    int list_column1_width = 0;
+    int list_column2_width = 0;
+    int list_column3_width = 0;
+    int list_column4_width = 0;
+    int list_column5_width = 0;
+    int list_column6_width = 0;
     // PROGRESS widgets (`PB_CURRENT_PROGRESS` / `PB_MAX_PROGRESS`).
     int progress_max = 100;
     int progress_current = 0;

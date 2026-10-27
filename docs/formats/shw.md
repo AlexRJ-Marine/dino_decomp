@@ -63,7 +63,7 @@ All 43 files share the same sections in this order:
 | `Cost` | u32 | Build/entry cost (1,800 for the first race) |
 | `Judge Kind` | u32 | Judge/referee variant (1 or 2) |
 | `Available cage size` | 4 × u32 | Cage-size flags, e.g. `1 0 0 0` or `0 1 0 0` |
-| `Dimensions` | 2 × u32 | Arena width × height in grid cells (19×39, 55×55, …) |
+| `Dimensions` | 2 × u32 | Arena width × height in world units (19×39, 55×55, …) |
 | `Wall type` | u32 | Wall style (1 in all 43 files) |
 | `Number of features` | u32 | N |
 | `Features` | N × 4 × u32 | Arena props; likely `(type, rotation/team, x, y)` |
@@ -81,7 +81,7 @@ Each tuple is `(feature_index, rotation, x, y)`:
   TileQuad/TileSleep.
 - `rotation` is 0..3 (quarter turns). It is **not** the team: the team comes
   from the separate cage?team assignment list.
-- `x`/`y` are grid cells, always `< Dimensions`.
+- `x`/`y` use the same unit space as `Dimensions` and are always inside it.
 
 The feature files themselves (`.bfi`) give the footprint, meshes and
 textures for each index; the `.shw` only places them.
@@ -96,15 +96,17 @@ Cross-checks over all 43 shows:
 
 ### Footprints, rotation and anchoring
 
-The `.bfi` `width`/`height` are the feature's **grid footprint** and the
-`.shw` `(x, y)` is its **min-corner anchor**:
+The `.bfi` `width`/`height` are the feature's **footprint** in the same unit
+space as the `.shw` coordinates, and the `.shw` `(x, y)` is its **min-corner
+anchor**:
 
 - rotation 0/2 keeps `(width, height)`;
 - rotation 1/3 swaps to `(height, width)`.
 
 Tiling every retail show with these footprints produces **zero overlaps**:
-43/43 shows, 1,679 features, **29,500 occupied cells**, no shared cell. That
-pins the anchor, the rotation rule and the `.bfi` footprint meaning at once.
+43/43 shows, 1,679 features, **29,500 occupied unit squares**, no shared
+square. That pins the anchor, the rotation rule and the `.bfi` footprint
+meaning at once.
 
 The anchor is the **min corner**; the render transform rotates the local model
 about the **footprint centre**. The feature constructor is the shared
@@ -113,10 +115,10 @@ about the **footprint centre**. The feature constructor is the shared
 (`FUN_0061ffc0` case 0) is state 0 `(1,0)`, 1 `(0,1)`, 2 `(-1,0)`,
 3 `(0,-1)` - counter-clockwise 90 deg steps. The `.mesh` local bounds are
 centred (e.g. `stonw.mesh` x +/-0.488, y +/-1.99 for a 1x4 beam), confirming
-that the pivot is the cell-rectangle centre rather than the min corner.
+that the pivot is the footprint-rectangle centre rather than the min corner.
 
 The only exceptions to the tiling are 3 **judge** features that overhang the
-arena edge by one cell (they are 4x4 and placed at the last row):
+arena edge by one unit (they are 4x4 and placed at the last row):
 
 | Show | Judge | Position | Arena |
 | --- | --- | --- | --- |
@@ -125,6 +127,30 @@ arena edge by one cell (they are 4x4 and placed at the last row):
 | `Cpg4_Derby_1` | 6 JudgeDestruction | (33, 32) | 71x35 |
 
 Every non-judge feature fits inside the declared dimensions.
+
+### Units (2026-10-27)
+
+`Dimensions`, the feature `x`/`y` and the `.bfi` footprints share one unit
+space, and that unit is a **world unit**, not a 4-unit grid cell:
+
+- `FUN_0052d1e0` (`PREDEFINED_SHOW_VALIDATE`) reads the save catalog
+  `params[3]`/`params[4]` (the `.shw` `Dimensions`), adds the border
+  `2*[show+0x6c] + 1`, and calls `FUN_005f86d0`, which stores the pair in
+  `+0x68`/`+0x6c` - the same building rectangle used by `gpkBuilding`
+  (`0x5fecf0`), whose `.bbi` footprints are world units
+  (`docs/platform/buildings.md`). `FUN_005fc4d0` -> `FUN_0061e9b0` then
+  converts the rectangle to terrain-grid samples with the cell size.
+- Park scale: the Cpg04 fences span `376..631 x 312..551` (255 x 239 world
+  units) and the park's saved show record is `(420,416)-(499,451)` (about
+  80 x 36 world units). A 71x35 show read as grid cells would be
+  284 x 140 world units and could not fit either.
+- The zero-overlap tiling check above stays valid because it only compares
+  coordinates; a 4x4 `.bfi` footprint is one 4-unit build cell, not four.
+
+The port's `place_show_at` therefore takes record coordinates 0..1024,
+computes `cell = floor(record / cell_size)`, checks every covered cell, and
+stores the record-space min corner. It omits the `2*[show+0x6c]+1` border
+that retail adds before writing the rectangle.
 
 ### Judge Kind and cage flags
 
@@ -211,11 +237,13 @@ Tests: `tests/test_shw.py` (sample + all 43 files + save correlation).
 - Wall style variants beyond the single `Wall type = 1` used by all 43
   retail shows (no second value exists in the data to decode).
 - Runtime catalog fields `param1`/`param2`/`param5`.
-- Whether the arena grid is row-major and how 19×39 maps to world units.
+- The exact `2*[show+0x6c]+1` border term (the field is read before
+  `FUN_005f86d0` overwrites `+0x6c`; `[show+0x6c] == 1` matches the `.shw`
+  `Wall type` in every retail file).
 
 The rotation direction and pivot are solved: counter-clockwise 90 deg steps
 around the footprint centre, via `FUN_00586b80` / jump table `0x586d0c` and
-`FUN_0061ffc0`.
+`FUN_0061ffc0`. The unit space is solved: world units, see "Units" above.
 
 ## C++ reader (port)
 
@@ -224,3 +252,17 @@ around the footprint centre, via `FUN_00586b80` / jump table `0x586d0c` and
 file also lists every feature tuple with its `FeatureList.ini` name and the
 cage/team pairs. `tests/test_viewer_cpp.py::test_cpp_show_info` checks
 `Cpg1_Race_1` and the 43-show scan.
+
+## Construction (port)
+
+`src/world/show_runtime.{h,cpp}` resolves the active mission's `[SHOWS]`
+`Shows0..9` values as `.shw` stems and exposes the catalog. The in-park
+`PREDEFINED_SHOW_PANEL` fills `PREDEFINED_SHOW_LIST` with seven columns
+(name, judge, price, cage 1..4; `LB_NB_COLUMNS` / `LB_COLUMN0..6_WIDTH`).
+`PREDEFINED_SHOW_VALIDATE` (`0x0052d1e0`) arms the placement tool, and the
+next ground click places the arena at record coordinates 0..1024. The
+`ATTRACTION_LIST_PANEL` rows show the scheduled show, its iteration count
+(`show+0x8c`) and lock state (`show+0xd3`). Tests:
+`tests/test_campaign_cpp.py::test_cpp_campaign_show_panel_ui`,
+`test_cpp_campaign_show_list_scroll`,
+`test_cpp_campaign_attraction_list_actions`.

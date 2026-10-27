@@ -22,6 +22,18 @@ struct StoreRow {
     std::string genotype;  // Market.ini `.gen` file for the 3D preview
 };
 
+// One row of `PREDEFINED_SHOW_LIST` (mission `[SHOWS]` catalog). Retail
+// renders seven columns from `DUMMY_PREDEFINED_SHOW_LIST`: name, judge icon,
+// price and the four cage-size icons. The port draws the same values as text
+// because it has no icon atlas for the judge/cage textures.
+struct ShowRow {
+    std::string title;  // resolved `.shw` Name
+    std::string stem;   // `.shw` file stem, the viewer's action key
+    int judge_kind = 0;
+    int price = 0;
+    std::array<int, 4> cage_size{};
+};
+
 // In-park HUD controller: owns the ParkInterface.Ini tree and implements the
 // panel switching bound by the original FUN_00527d30. Rendering stays in the
 // viewer because it needs the GL texture cache.
@@ -101,6 +113,21 @@ public:
     void set_mission_verdicts(const std::vector<int>& verdicts);
     void clear_mission();
 
+    // Show construction (`PREDEFINED_SHOW_PANEL`): the mission `[SHOWS]`
+    // catalog fills `PREDEFINED_SHOW_LIST`; VALIDATE arms the viewer's show
+    // placement tool with the selected row (`FUN_0052d1e0` computes the
+    // footprint and switches the controller state). The list is 365 px tall
+    // with 30 px rows (`LB_LINE_HEIGHT`), so twelve rows are visible.
+    void set_show_rows(std::vector<ShowRow> rows);
+    const std::vector<ShowRow>& show_rows() const { return show_rows_; }
+    void show_select(int index);
+    int show_selected() const { return show_selected_; }
+    int show_scroll() const { return show_scroll_; }
+    void show_scroll_by(int delta);
+    const ShowRow* show_visible_row(int slot) const;
+    static constexpr int show_visible_rows() { return 12; }
+    int show_row_at(int x, int y) const;
+
     Overlay overlay;
     Loc loc;
 
@@ -126,6 +153,9 @@ private:
     std::vector<StoreRow> store_rows_;
     int store_selected_ = -1;
     int store_scroll_ = 0;
+    std::vector<ShowRow> show_rows_;
+    int show_selected_ = -1;
+    int show_scroll_ = 0;
 };
 
 }  // namespace dino::ui

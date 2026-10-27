@@ -238,6 +238,133 @@ def test_cpp_campaign_place_show_hour_and_iterations(tmp_path):
     assert "show: Cpg4_Derby_1 finished round 2/2 at 12:00" in result.stdout
 
 
+def test_cpp_campaign_show_panel_ui(tmp_path):
+    # SHOW-4 interactive panel: open the construction kit, select a row of
+    # PREDEFINED_SHOW_LIST, click VALIDATE (FUN_0052d1e0), then place the
+    # armed footprint. `--show-place-pos` is the scripted ground click; the
+    # footprint must cover buildable terrain (record 618,372 on isl01 is a
+    # free 31x35 window). `--show-status` prints the ATTRACTION_LIST rows.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not isl01.exists():
+        pytest.skip("retail isl01 data missing")
+    mission = _show_mission(
+        tmp_path, "ShowPanelProbe", ["happydinoshow 200 2"],
+        shows=["Cpg4_Derby_1", "Cpg4_Derby_2"],
+    )
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--park-budget", "25000", "--park-time", "10:00",
+        "--show-duration", "0", "--start-mission", str(mission),
+        "--park-click", "750,120",   # construction panel
+        "--park-click", "678,145",   # PREDEFINED_SHOW_PANEL
+        "--park-click", "250,114",   # second catalog row
+        "--park-click", "354,474",   # PREDEFINED_SHOW_VALIDATE
+        "--show-place-pos", "618,372",
+        "--show-status",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "show catalog: Cpg4_Derby_2 title=Total Destruction judge=4" in result.stdout
+    assert "park click 678,145 -> open PREDEFINED_SHOW_PANEL" in result.stdout
+    assert "park click 250,114 -> show select 1" in result.stdout
+    assert "park click 354,474 -> show place 1" in result.stdout
+    assert (
+        "show: Cpg4_Derby_2 selected, cost=18000 size=31x35 "
+        "(click the ground)" in result.stdout
+    )
+    assert (
+        "show: placed Cpg4_Derby_2 at 618,372 slot=1 (10:00 AM) "
+        "size=31x35" in result.stdout
+    )
+    assert (
+        "attraction list: slot=1 name=Total Destruction iterations=1 "
+        "locked=0" in result.stdout
+    )
+    # An empty slot keeps the hour label (`ATTRACTION_LIST_NAME` default).
+    assert (
+        "attraction list: slot=2 name=11:00 AM iterations=0 locked=0"
+        in result.stdout
+    )
+
+
+def test_cpp_campaign_show_list_scroll(tmp_path):
+    # PREDEFINED_SHOW_LIST is 365 px tall with 30 px rows -> 12 visible rows.
+    # The right 15 px strip scrolls; 13 catalog entries clamp the scroll to 1,
+    # so row 11 is catalog index 12.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not isl01.exists():
+        pytest.skip("retail isl01 data missing")
+    shows = [
+        "Cpg1_Race_1", "Cpg1_Race_2", "Cpg1_Race_3", "Cpg2_Obst_1",
+        "Cpg2_Obst_2", "Cpg2_Obst_3", "Cpg2_Obst_4", "Cpg2_Race_1",
+        "Cpg2_Race_2", "Cpg2_Race_3", "Cpg2_Race_4", "cpg3_obst_1",
+        "cpg3_race_1",
+    ]
+    mission = _show_mission(
+        tmp_path, "ShowScrollProbe", ["happydinoshow 200 2"], shows=shows,
+    )
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--park-budget", "25000", "--park-time", "10:00",
+        "--start-mission", str(mission),
+        "--park-click", "750,120",
+        "--park-click", "678,145",
+        "--park-click", "545,300",   # list scroll strip, lower half
+        "--park-click", "250,414",   # visible row 11 = catalog index 12
+        "--park-click", "354,474",   # VALIDATE
+    )
+    assert result.returncode == 0, result.stderr
+    assert "show catalog: 13 entries" in result.stdout
+    assert "park click 545,300 -> show scroll down" in result.stdout
+    assert "park click 250,414 -> show select 12" in result.stdout
+    assert "show: cpg3_race_1 selected" in result.stdout
+
+
+def test_cpp_campaign_attraction_list_actions(tmp_path):
+    # ATTRACTION_LIST_PANEL controls: iteration up edits `show+0x8c`, LOCK
+    # sets `show+0xd3`, SELECTION_LIGHT selects the row. Scripted clicks are
+    # replayed after the pre-loop placement so the runtime has the show.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    if not isl01.exists():
+        pytest.skip("retail isl01 data missing")
+    mission = _show_mission(
+        tmp_path, "AttractionProbe", ["happydinoshow 200 2"],
+        shows=["Cpg4_Derby_1", "Cpg4_Derby_2"],
+    )
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--park-budget", "25000", "--park-time", "10:00",
+        "--show-duration", "0", "--start-mission", str(mission),
+        "--park-click", "750,120",
+        "--park-click", "678,145",
+        "--park-click", "250,114",
+        "--park-click", "354,474",
+        "--park-click", "397,584",   # OPEN_SHOW_LIST_PANEL
+        "--park-click", "412,267",   # ITERATION_UP1
+        "--park-click", "354,274",   # LOCK1
+        "--park-click", "99,274",    # SELECTION_LIGHT1
+        "--show-place-pos", "618,372",
+        "--show-status",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "park click 397,584 -> open ATTRACTION_LIST_PANEL" in result.stdout
+    assert "park click 412,267 -> attraction iteration_up 1" in result.stdout
+    assert "park click 354,274 -> attraction lock 1" in result.stdout
+    assert "park click 99,274 -> attraction selection_light 1" in result.stdout
+    assert "show: Cpg4_Derby_2 iterations=2" in result.stdout
+    assert "show: Cpg4_Derby_2 slot=1 closed to the public" in result.stdout
+    assert "show: selected Cpg4_Derby_2 slot=1" in result.stdout
+    assert (
+        "attraction list: slot=1 name=Total Destruction iterations=2 "
+        "locked=1" in result.stdout
+    )
+
+
 def test_cpp_campaign_show_objectives(tmp_path):
     # The retail Cpg04 park (20 dinosaurs, one Derby arena) plus `--show`
     # exercises the full judge pipeline: FUN_00618020 five needs, visitor

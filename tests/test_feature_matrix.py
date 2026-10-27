@@ -174,9 +174,12 @@ def test_park_panel_dossier_controls_and_tests():
     for screen in ui_map["screens"]:
         for control in screen["controls"]:
             controls.setdefault(control["name"], []).append(control)
-    viewer_tests = (
-        ROOT / "tests" / "test_viewer_cpp.py"
-    ).read_text(encoding="utf-8")
+    # Panel tests live in both viewer suites: the campaign suite drives the
+    # park panels that need a mission catalog (the show construction list).
+    viewer_tests = "\n".join(
+        (ROOT / "tests" / name).read_text(encoding="utf-8")
+        for name in ("test_viewer_cpp.py", "test_campaign_cpp.py")
+    )
 
     rows = 0
     for line in PARK_DOC.read_text(encoding="utf-8").splitlines():

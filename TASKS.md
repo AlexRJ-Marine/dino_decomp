@@ -1487,8 +1487,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Show verbs: `happyshow`, `scientificshow`, `happydinoshow` and
   `dinoexclusiveshow` run on the retail judge pipeline (`FUN_00618020` five
   needs + `.bvi` weights); `--show NAME[:I,J]` places a `.shw` arena with
-  imported dinosaurs for tests. The show-construction UI and live judge loop
-  are still open.
+  imported dinosaurs for tests.
+- [x] Show construction panel: the mission `[SHOWS]` catalog fills
+  `PREDEFINED_SHOW_LIST` (seven columns, selection/scroll);
+  `PREDEFINED_SHOW_VALIDATE` arms the placement tool and the next ground
+  click places the arena at record coordinates. `--show-place-pos X,Y` and
+  `--show-status` for scripted checks.
+- [x] Attraction list: ten hour rows (`ATTRACTION_LIST_NAME<n>`), iteration
+  count (`show+0x8c`), lock state (`show+0xd3`); lock/unlock, iteration
+  up/down, permutation and selection act on the placed show.
+- [x] Hourly show runtime: `ShowRuntime` binds each show to a slot
+  (`show+0x100`), starts it on the hour, plays `show+0x8c` performances and
+  calls the judge pipeline once per completed performance.
+- [ ] Live `.bfi` arena/judge actors, per-show weight authoring and exact empty-row attraction text.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

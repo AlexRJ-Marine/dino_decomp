@@ -159,11 +159,13 @@ struct Options {
     std::string show_info_path;
     std::vector<std::string> show_specs;  // --show NAME[:IDX,IDX]
     std::vector<std::string> place_show_specs;  // --place-show NAME[:X,Y]
+    std::vector<std::string> show_place_positions;  // --show-place-pos X,Y
     std::vector<std::string> show_participant_specs;  // NAME:I,J
     std::vector<std::string> show_hour_specs;         // NAME:SLOT
     std::vector<std::string> show_iteration_specs;    // NAME:N
     float show_duration_minutes = 30.0f;              // --show-duration
     bool show_locked = false;                         // --show-locked
+    bool show_status = false;                         // --show-status
     std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
@@ -480,6 +482,8 @@ Options parse_args(int argc, char** argv) {
             opt.show_specs.push_back(next("--show"));
         } else if (arg == "--place-show") {
             opt.place_show_specs.push_back(next("--place-show"));
+        } else if (arg == "--show-place-pos") {
+            opt.show_place_positions.push_back(next("--show-place-pos"));
         } else if (arg == "--show-participants") {
             opt.show_participant_specs.push_back(
                 next("--show-participants"));
@@ -492,6 +496,8 @@ Options parse_args(int argc, char** argv) {
                 std::atof(next("--show-duration")));
         } else if (arg == "--show-locked") {
             opt.show_locked = true;
+        } else if (arg == "--show-status") {
+            opt.show_status = true;
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
@@ -743,6 +749,8 @@ Options parse_args(int argc, char** argv) {
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
+                "  --show-place-pos X,Y place the armed show immediately (repeatable;\n"
+                "                       arm it with PREDEFINED_SHOW_VALIDATE or --place-show)\n"
                 "  --inject-click F,X,Y[,right]  push a real mouse click (window pixels)\n"
                 "                       into the event queue at frame F (repeatable)\n"
                 "  --road-click X,Y     road-tool ground click at a build cell (repeatable;\n"
@@ -797,6 +805,7 @@ Options parse_args(int argc, char** argv) {
                 "  --show-iterations NAME:N performances per day for a placed show\n"
                 "  --show-duration MIN  performance length in park minutes (default 30)\n"
                 "  --show-locked        place shows closed to the public\n"
+                "  --show-status        print the attraction list rows after the first tick\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
@@ -4220,6 +4229,8 @@ int main(int argc, char** argv) {
     std::vector<dino::ShowCatalogEntry> show_catalog;
     bool show_placements_applied = false;
     int pending_show_index = -1;
+    int attraction_selected_slot = -1;
+    bool show_status_printed = false;
     const std::string campaign_dino_dat =
         opt.dino_dat_path.empty() ? "run/save/dino.dat" : opt.dino_dat_path;
     std::uint32_t campaign_unlock =
@@ -4345,6 +4356,23 @@ int main(int argc, char** argv) {
         if (!show_catalog.empty()) {
             std::printf("show catalog: %zu entries\n", show_catalog.size());
         }
+        std::vector<dino::ui::ShowRow> show_rows;
+        show_rows.reserve(show_catalog.size());
+        for (const dino::ShowCatalogEntry& entry : show_catalog) {
+            dino::ui::ShowRow row;
+            row.title = entry.title;
+            row.stem = entry.stem;
+            row.judge_kind = entry.judge_kind;
+            row.price = entry.cost;
+            row.cage_size = entry.cage_size;
+            show_rows.push_back(std::move(row));
+            std::printf(
+                "show catalog: %s title=%s judge=%d cost=%d cage=%d%d%d%d\n",
+                entry.stem.c_str(), entry.title.c_str(), entry.judge_kind,
+                entry.cost, entry.cage_size[0], entry.cage_size[1],
+                entry.cage_size[2], entry.cage_size[3]);
+        }
+        park.set_show_rows(std::move(show_rows));
         last_mission_verdicts.assign(mission.objectives.size(),
                                      dino::ObjectiveVerdict::Pending);
         park.set_mission_verdicts(
@@ -4403,6 +4431,8 @@ int main(int argc, char** argv) {
     bool pending_port_load = false;
     std::string pending_construct_widget;
     std::string pending_store_action;
+    std::string pending_show_action;
+    std::vector<std::string> pending_attraction_actions;
 
     if (opt.park_hud) {
         std::string park_error;
@@ -4471,6 +4501,12 @@ int main(int argc, char** argv) {
                     pending_construct_widget = action.substr(10);
                 } else if (action.rfind("store buy ", 0) == 0) {
                     pending_store_action = action;
+                } else if (action.rfind("show place ", 0) == 0) {
+                    pending_show_action = action;
+                } else if (action.rfind("attraction ", 0) == 0) {
+                    // Attraction rows need the placed show, which exists only
+                    // after the pre-loop VALIDATE/`--show-place-pos` pass.
+                    pending_attraction_actions.push_back(action);
                 }
                 std::printf("%s %d,%d -> %s\n", label, x, y,
                             action.empty() ? "consumed" : action.c_str());
@@ -5806,6 +5842,27 @@ int main(int argc, char** argv) {
             }
         }
     };
+    // Personality ids of the active visitor table, used to zero-fill a
+    // placed show's objective score vector (`FUN_00580f00` -> `FUN_00576860`).
+    auto show_profile_ids = [&]() {
+        if (all_visitor_profiles.empty()) {
+            try {
+                all_visitor_profiles =
+                    load_all_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
+            }
+        }
+        const std::vector<dino::VisitorProfile>& profiles =
+            all_visitor_profiles.empty() ? visitor_profiles
+                                         : all_visitor_profiles;
+        std::vector<int> ids;
+        ids.reserve(profiles.size());
+        for (const dino::VisitorProfile& profile : profiles) {
+            ids.push_back(profile.personality_id);
+        }
+        return ids;
+    };
     // Applies the `--place-show` / `--show-participants` / `--show-hour` /
     // `--show-iterations` hooks once, after the mission catalog is loaded and
     // the imported dinosaurs exist. Interactive placement uses the same
@@ -5819,22 +5876,7 @@ int main(int argc, char** argv) {
             std::printf("show: mission catalog is empty\n");
             return;
         }
-        if (all_visitor_profiles.empty()) {
-            try {
-                all_visitor_profiles =
-                    load_all_visitor_profiles(opt.asset_root);
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
-            }
-        }
-        const std::vector<dino::VisitorProfile>& profiles =
-            all_visitor_profiles.empty() ? visitor_profiles
-                                         : all_visitor_profiles;
-        std::vector<int> profile_ids;
-        profile_ids.reserve(profiles.size());
-        for (const dino::VisitorProfile& profile : profiles) {
-            profile_ids.push_back(profile.personality_id);
-        }
+        const std::vector<int> profile_ids = show_profile_ids();
         for (const std::string& raw : opt.place_show_specs) {
             const PortNameSpec spec = parse_name_spec(raw);
             const int catalog_index =
@@ -5928,6 +5970,63 @@ int main(int argc, char** argv) {
                 show->entry.stem.c_str(), show->slot,
                 show_slot_text(show->slot).c_str(), show->iterations,
                 show->participants.size(), show->locked ? 1 : 0);
+        }
+    };
+    // Retail assigns show participants through the cage list. The port has no
+    // cage-list panel, so a freshly placed arena fills its cages with the
+    // first unassigned imported dinosaurs of each size class
+    // (`DinoPhenotypeTable::size_category_max`, `saDinosaur+0x1e0`).
+    auto auto_assign_show_participants = [&](int show_index) {
+        dino::ParkShow* show = show_runtime.at(show_index);
+        if (show == nullptr) {
+            return;
+        }
+        std::array<int, 4> remaining = show->entry.cage_size;
+        std::vector<int> participants;
+        for (int i = 0; i < static_cast<int>(imported_dinos.size()); ++i) {
+            const int length = imported_dinos[static_cast<std::size_t>(i)]
+                                   .needs.size_cm;
+            int size_class = 3;
+            for (int category = 0; category < 4; ++category) {
+                if (length <=
+                    phenotype_table.size_category_max[static_cast<std::size_t>(
+                        category)]) {
+                    size_class = category;
+                    break;
+                }
+            }
+            if (remaining[static_cast<std::size_t>(size_class)] <= 0) {
+                continue;
+            }
+            --remaining[static_cast<std::size_t>(size_class)];
+            participants.push_back(i);
+        }
+        if (participants.empty()) {
+            return;
+        }
+        show_runtime.set_participants(show_index, participants);
+        sync_show_identity(show->record, participants);
+        std::printf("show: %s participants=%zu (auto-assigned by cage size)\n",
+                    show->entry.stem.c_str(), show->participants.size());
+    };
+    // One row of the retail attraction list (`ATTRACTION_LIST_PANEL`).
+    // `FUN_00516dd0` writes the show name into `ATTRACTION_LIST_NAME<n>`;
+    // an empty slot keeps the INI hour label. `iterations` is `show+0x8c`,
+    // `locked` is `show+0xd3`.
+    auto attraction_row_text = [&](int slot, std::string& name, int& iterations,
+                                   int& locked) {
+        name = show_slot_text(slot);
+        iterations = 0;
+        locked = 0;
+        for (const dino::ParkShow& show : show_runtime.shows()) {
+            if (show.slot != slot) {
+                continue;
+            }
+            name = show.entry.title.empty() ? show.entry.stem
+                                            : show.entry.title;
+            iterations = show.iterations;
+            locked = show.locked ? 1 : 0;
+            break;
         }
     };
     // Retail danger grid (`FUN_00589CD0`): cleared/stamped/recomputed once
@@ -8878,6 +8977,191 @@ int main(int argc, char** argv) {
         }
     };
 
+    // Show construction VALIDATE (`0x0052d1e0`): the selected catalog row
+    // arms the placement tool; the next ground click places the arena.
+    auto handle_show_place = [&](int catalog_index) {
+        if (catalog_index < 0 ||
+            catalog_index >= static_cast<int>(show_catalog.size())) {
+            std::printf("show: no show selected\n");
+            return;
+        }
+        const dino::ShowCatalogEntry& entry =
+            show_catalog[static_cast<std::size_t>(catalog_index)];
+        if (park_budget < entry.cost) {
+            std::printf(
+                "show: %s needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
+                entry.stem.c_str(), entry.cost, park_budget);
+            park.show_message(dino::ui::resolve_loc_text(
+                "&WARNING_NOT_ENOUGH_MONEY", park.loc));
+            return;
+        }
+        ensure_build_ready();
+        pending_show_index = catalog_index;
+        build_tool = 5;
+        park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+        std::printf(
+            "show: %s selected, cost=%d size=%dx%d (click the ground)\n",
+            entry.stem.c_str(), entry.cost, entry.width, entry.height);
+    };
+    if (pending_show_action.rfind("show place ", 0) == 0) {
+        handle_show_place(std::atoi(pending_show_action.c_str() + 11));
+        pending_show_action.clear();
+    }
+
+    // Ground placement for the armed show, shared by the world click and the
+    // scripted `--show-place-pos` hook. `x`/`y` are the show rectangle's
+    // min-corner record coordinates (0..1024, the same space as `--place-show`
+    // and building records). The `.shw` dimensions are world units: the
+    // 71x35 derby is 71x35 units, not 284x140, or it could not fit in the
+    // Cpg04 park (its fences span only 255x239 world units). `FUN_0052d1e0`
+    // adds a `2*[show+0x6c]+1` border; the port checks the arena rectangle
+    // itself and charges the budget on success only.
+    auto place_show_at = [&](int rx, int ry) {
+        if (pending_show_index < 0 ||
+            pending_show_index >= static_cast<int>(show_catalog.size())) {
+            return;
+        }
+        const dino::ShowCatalogEntry& entry =
+            show_catalog[static_cast<std::size_t>(pending_show_index)];
+        const int w = std::max(1, entry.width);
+        const int h = std::max(1, entry.height);
+        const float cs = build_grid.cell_size;
+        // Record coordinate -> build cell: `cell = floor(record / cell_size)`
+        // (docs/platform/world-import.md; the grid origin is -world_size/2).
+        const int gx0 =
+            static_cast<int>(std::floor(static_cast<float>(rx) / cs));
+        const int gy0 =
+            static_cast<int>(std::floor(static_cast<float>(ry) / cs));
+        const int gx1 = static_cast<int>(
+            std::floor(static_cast<float>(rx + w - 1) / cs));
+        const int gy1 = static_cast<int>(
+            std::floor(static_cast<float>(ry + h - 1) / cs));
+        auto cell_buildable = [&](int x, int y) {
+            return terrain.buildable(
+                build_grid.origin_x + (static_cast<float>(x) + 0.5f) * cs,
+                build_grid.origin_y + (static_cast<float>(y) + 0.5f) * cs);
+        };
+        bool blocked = false;
+        for (int y = gy0; y <= gy1 && !blocked; ++y) {
+            for (int x = gx0; x <= gx1 && !blocked; ++x) {
+                if (x < 0 || y < 0 || x >= build_grid.width ||
+                    y >= build_grid.height || !cell_buildable(x, y)) {
+                    blocked = true;
+                }
+            }
+        }
+        if (blocked) {
+            std::printf("show: %s footprint blocked\n", entry.stem.c_str());
+            return;
+        }
+        if (park_budget < entry.cost) {
+            std::printf(
+                "show: %s needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
+                entry.stem.c_str(), entry.cost, park_budget);
+            return;
+        }
+        const std::vector<int> profile_ids = show_profile_ids();
+        const int index = show_runtime.place(entry, rx, ry, profile_ids);
+        if (index < 0) {
+            std::printf("show: no free hour slot for %s\n",
+                        entry.stem.c_str());
+            return;
+        }
+        park_budget -= entry.cost;
+        budget_ledger.spend_construction(entry.cost);
+        auto_assign_show_participants(index);
+        const dino::ParkShow* show = show_runtime.at(index);
+        std::printf(
+            "show: placed %s at %d,%d slot=%d (%s) size=%dx%d budget=%d\n",
+            show->entry.stem.c_str(), show->cell_x, show->cell_y, show->slot,
+            show_slot_text(show->slot).c_str(), show->entry.width,
+            show->entry.height, park_budget);
+        build_tool = 0;
+        pending_show_index = -1;
+    };
+    if (pending_show_index >= 0 && !opt.show_place_positions.empty()) {
+        for (const std::string& position : opt.show_place_positions) {
+            int x = 0;
+            int y = 0;
+            if (std::sscanf(position.c_str(), "%d,%d", &x, &y) == 2) {
+                place_show_at(x, y);
+            }
+        }
+    }
+
+    // Attraction list actions. Rows are hour slots 1..10; the port's
+    // ShowRuntime owns the placed shows. `LOCK`/`UNLOCK` drive the retail
+    // "closed to the public" flag `show+0xd3` (FUN_0057b0f0); the iteration
+    // buttons edit `show+0x8c` (no recovered writer, so clamp 1..10);
+    // PERMUTATION swaps two hour slots.
+    auto find_show_by_slot = [&](int slot) -> int {
+        for (int i = 0; i < show_runtime.count(); ++i) {
+            const dino::ParkShow* show = show_runtime.at(i);
+            if (show != nullptr && show->slot == slot) {
+                return i;
+            }
+        }
+        return -1;
+    };
+    auto handle_attraction_action = [&](const std::string& action) {
+        const std::size_t last_space = action.find_last_of(' ');
+        if (last_space == std::string::npos) {
+            return;
+        }
+        const int slot = std::atoi(action.c_str() + last_space + 1);
+        const std::string verb =
+            action.substr(std::strlen("attraction "),
+                          last_space - std::strlen("attraction "));
+        const int index = find_show_by_slot(slot);
+        if (verb == "select" || verb == "selection_light") {
+            if (index >= 0) {
+                const dino::ParkShow* show = show_runtime.at(index);
+                attraction_selected_slot = slot;
+                std::printf("show: selected %s slot=%d\n",
+                            show->entry.stem.c_str(), slot);
+            }
+            return;
+        }
+        if (index < 0) {
+            std::printf("show: no show in slot %d\n", slot);
+            return;
+        }
+        dino::ParkShow* show = show_runtime.at(index);
+        if (verb == "lock") {
+            show_runtime.set_locked(index, true);
+            show_runtime.set_enabled(index, false);
+            std::printf("show: %s slot=%d closed to the public\n",
+                        show->entry.stem.c_str(), slot);
+        } else if (verb == "unlock") {
+            show_runtime.set_locked(index, false);
+            show_runtime.set_enabled(index, true);
+            std::printf("show: %s slot=%d open to the public\n",
+                        show->entry.stem.c_str(), slot);
+        } else if (verb == "iteration_up" || verb == "iteration_down") {
+            const int delta = verb == "iteration_up" ? 1 : -1;
+            const int value = std::clamp(show->iterations + delta, 1, 10);
+            if (value != show->iterations) {
+                show_runtime.set_iterations(index, value);
+                std::printf("show: %s iterations=%d\n",
+                            show->entry.stem.c_str(), value);
+            }
+        } else if (verb == "permutation") {
+            const int other_slot = slot % 10 + 1;
+            const int other = find_show_by_slot(other_slot);
+            show_runtime.set_slot(index, other_slot);
+            if (other >= 0) {
+                show_runtime.set_slot(other, slot);
+            }
+            std::printf("show: %s slot=%d (%s) permuted with slot %d\n",
+                        show->entry.stem.c_str(), other_slot,
+                        show_slot_text(other_slot).c_str(), slot);
+        }
+    };
+    for (const std::string& action : pending_attraction_actions) {
+        handle_attraction_action(action);
+    }
+    pending_attraction_actions.clear();
+
     // Menu campaign start: the retail flow loads the campaign's island and
     // `CpgNN_Save.wld`, then opens the mission briefing. Reuse the same
     // building/road/dinosaur import path as `--wld-park`.
@@ -9529,6 +9813,27 @@ int main(int argc, char** argv) {
                 }
                 return "";
             }
+            // Attraction list: one row per hour slot. The retail NAME field
+            // defaults to the hour label and holds the show name once a show
+            // is scheduled (`FUN_00516dd0`); ITERATION_INDIC is the
+            // performances-per-day count `show+0x8c` (`%u`).
+            if (name.rfind("ATTRACTION_LIST_NAME", 0) == 0) {
+                const int slot = slot_index(name, "ATTRACTION_LIST_NAME") + 1;
+                std::string text;
+                int iterations = 0;
+                int locked = 0;
+                attraction_row_text(slot, text, iterations, locked);
+                return text;
+            }
+            if (name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
+                const int slot =
+                    slot_index(name, "ATTRACTION_LIST_ITERATION_INDIC") + 1;
+                std::string text;
+                int iterations = 0;
+                int locked = 0;
+                attraction_row_text(slot, text, iterations, locked);
+                return iterations > 0 ? std::to_string(iterations) : "";
+            }
             if (name == "PARK_CURRENT_TIME") {
                 return park_clock.time_text(false);
             }
@@ -9948,6 +10253,88 @@ int main(int argc, char** argv) {
                 }
             }
 
+            if (widget.name == "PREDEFINED_SHOW_LIST" &&
+                !park.show_rows().empty()) {
+                const int pitch = std::max(
+                    1, widget.height /
+                           dino::ui::ParkHud::show_visible_rows());
+                const int column_widths[7] = {
+                    widget.list_column0_width > 0
+                        ? widget.list_column0_width
+                        : 150,
+                    widget.list_column1_width > 0
+                        ? widget.list_column1_width
+                        : 28,
+                    widget.list_column2_width > 0
+                        ? widget.list_column2_width
+                        : 60,
+                    widget.list_column3_width > 0
+                        ? widget.list_column3_width
+                        : 28,
+                    widget.list_column4_width > 0
+                        ? widget.list_column4_width
+                        : 28,
+                    widget.list_column5_width > 0
+                        ? widget.list_column5_width
+                        : 28,
+                    widget.list_column6_width > 0
+                        ? widget.list_column6_width
+                        : 28,
+                };
+                float list_scale = 1.0f;
+                GLuint list_atlas = 0;
+                const dino::Fnt* list_font =
+                    ui_font(widget.font, widget.text_height, list_scale,
+                            list_atlas);
+                if (list_font != nullptr) {
+                    for (int slot = 0;
+                         slot < dino::ui::ParkHud::show_visible_rows();
+                         ++slot) {
+                        const dino::ui::ShowRow* row =
+                            park.show_visible_row(slot);
+                        if (row == nullptr) {
+                            break;
+                        }
+                        const bool selected =
+                            park.show_scroll() + slot ==
+                            park.show_selected();
+                        const int row_y = widget.abs_y + slot * pitch;
+                        int column_x = widget.abs_x;
+                        auto draw_cell = [&](int column,
+                                             const std::string& value,
+                                             dino::Color color,
+                                             const char* justify) {
+                            const dino::Mesh block = build_text_block(
+                                *list_font, value, px(column_x), py(row_y),
+                                list_scale * dpi, color, justify,
+                                static_cast<float>(column_widths[column]) *
+                                    dpi,
+                                static_cast<float>(pitch) * dpi);
+                            draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f,
+                                         2, view_w, view_h);
+                            column_x += column_widths[column];
+                        };
+                        draw_cell(0, row->title,
+                                  selected ? dino::Color{255, 255, 0, 255}
+                                           : widget.text_color,
+                                  "LEFT");
+                        draw_cell(1, std::to_string(row->judge_kind),
+                                  dino::Color{220, 220, 220, 255}, "CENTER");
+                        draw_cell(2, std::to_string(row->price),
+                                  dino::Color{220, 200, 120, 255}, "RIGHT");
+                        for (int cage = 0; cage < 4; ++cage) {
+                            draw_cell(
+                                3 + cage,
+                                row->cage_size[static_cast<std::size_t>(cage)] >
+                                        0
+                                    ? std::to_string(cage + 1)
+                                    : std::string(),
+                                dino::Color{180, 220, 180, 255}, "CENTER");
+                        }
+                    }
+                }
+            }
+
             std::string text = runtime_text(widget.name);
             if (text.empty()) {
                 text = dino::ui::resolve_loc_text(widget.text, park.loc);
@@ -10334,6 +10721,13 @@ int main(int argc, char** argv) {
                                     std::atoi(action.c_str() + 10));
                             } else if (action == "store no selection") {
                                 std::printf("store: no dinosaur selected\n");
+                            } else if (action.rfind("show place ", 0) == 0) {
+                                handle_show_place(
+                                    std::atoi(action.c_str() + 11));
+                            } else if (action == "show no selection") {
+                                std::printf("show: no show selected\n");
+                            } else if (action.rfind("attraction ", 0) == 0) {
+                                handle_attraction_action(action);
                             }
                         }
                         continue;
@@ -10533,6 +10927,19 @@ int main(int argc, char** argv) {
                             show.iterations, park_clock.hour(),
                             park_clock.minute());
                     });
+            }
+            if (opt.show_status && !show_status_printed) {
+                show_status_printed = true;
+                for (int slot = 1; slot <= 10; ++slot) {
+                    std::string text;
+                    int iterations = 0;
+                    int locked = 0;
+                    attraction_row_text(slot, text, iterations, locked);
+                    std::printf(
+                        "attraction list: slot=%d name=%s iterations=%d "
+                        "locked=%d\n",
+                        slot, text.c_str(), iterations, locked);
+                }
             }
             if (park_clock.new_hour && !employee_system.employees.empty()) {
                 const int assigned = employee_system.start_hour(
@@ -11412,6 +11819,11 @@ int main(int argc, char** argv) {
                                 pending_construct_kind,
                                 static_cast<int>(std::floor(hit.x + half)),
                                 static_cast<int>(std::floor(hit.y + half)), 0);
+                        } else if (build_tool == 5 && pending_show_index >= 0) {
+                            // Grid cell -> show record coordinate (0..1024).
+                            place_show_at(
+                                static_cast<int>(std::lround(cx * cs)),
+                                static_cast<int>(std::lround(cy * cs)));
                         } else {
                             const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
                             const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;

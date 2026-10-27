@@ -58,13 +58,13 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 | `park-visitors` | `OPEN_VISITOR_PANEL` (207,584) | `VISITEURS_STATS_OUTCOME_OK` (195,400) | static art; no visitor-stat fields | partial | `test_cpp_park_panels` |
 | `park-dino-list` | `OPEN_DINO_LIST_PANEL` (302,584) | same opener | five name slots, `DINO_AMOUNT` | partial | `test_cpp_park_fence_and_dino_lists` |
 | `park-paddock-list` | `OPEN_PADDOCK_LIST_PANEL` (492,584) | same opener | five name/count/percent slots, `PADDOCK_AMOUNT` | partial | `test_cpp_park_fence_and_dino_lists` |
-| `park-show-list` | `OPEN_SHOW_LIST_PANEL` (397,584) | `ATTRACTION_LIST_OUTCOME_CANCEL` (543,381) | static art; `SHOW_AMOUNT` is 0 | partial | `test_cpp_park_panels` |
+| `park-show-list` | `OPEN_SHOW_LIST_PANEL` (397,584) | `ATTRACTION_LIST_OUTCOME_CANCEL` (543,381) | ten hour rows: show name, iteration count, lock icon, permutation/selection; lock/unlock, iteration up/down and selection act on the placed show | ported partial | `test_cpp_campaign_show_panel_ui`, `test_cpp_campaign_attraction_list_actions` |
 | `park-dino-purchase` | `OPEN_PURCHASE` (765,298) | `DINO_ACHAT_SAVE_OUTCOME_CANCEL` (502,521) | six-row store viewport, selection, scroll, charge and paddock placement | ported partial | `test_cpp_store_panel_purchase`, `test_cpp_store_panel_no_money`, `test_cpp_store_panel_scroll` |
 | `park-options` | `OPEN_OPTIONS` (765,348) | `OPTIONS_OPTIONS_VALIDATE_BUTTON` (355,432) / `OPTIONS_UNVALIDATE_BUTTON` (364,436) | save/load tabs, real save names, name entry | ported partial | `test_cpp_options_save_panel`, `test_cpp_options_save_and_load_buttons`, `test_cpp_options_name_entry` |
 | `park-construction` | `OPEN_CONSTRUCTION` (764,135) | `OPEN_CONSTRUCTION` again | three sub-buttons | ported | `test_cpp_park_panels` |
 | `park-construction-kit` | `OPEN_CONSTRUCTION_KIT` (648,145) | `OPEN_CONSTRUCTION` (back to the bar) | six category groups, list/stats icons, 73 controls | partial | `test_cpp_park_panels` |
 | `park-construction-fence` | `OPEN_CONSTRUCTION_FENCE` (618,145) | `OPEN_CONSTRUCTION` | switch buttons only; fence tool via key/CLI | partial | - |
-| `park-construction-show` | `OPEN_CONSTRUCTION_ATTRACTION_PREDEF` (678,145) | `PREDEFINED_SHOW_CANCEL` (384,474) | static show list | partial | `test_cpp_park_panels` |
+| `park-construction-show` | `OPEN_CONSTRUCTION_ATTRACTION_PREDEF` (678,145) | `PREDEFINED_SHOW_CANCEL` (384,474) | mission `[SHOWS]` catalog in a seven-column list, selection + scroll, VALIDATE arms the placement tool | ported partial | `test_cpp_campaign_show_panel_ui`, `test_cpp_campaign_show_list_scroll` |
 | `park-construction-road` | `OPEN_TRANSPORT` (765,248) | `PUTBACK_PANEL_BUTTON` (679,278) | static art | partial | - |
 | `park-construction-buildings` | `OPEN_BUILDING` (765,195) | `CONSTRUCTION_BUILDINGS_PUTBACK_BUTTON` (632,397) | six category tabs; `.bbi` buttons feed `construct <widget>`; placement checks | ported partial | `test_cpp_construction_placement` |
 | `park-lab-main` | `OPEN_LABORATORY` (757,46) | `CANCEL_LAB_MENU` (532,513) | backdrop/controls only | partial | `test_cpp_park_panels`, `test_cpp_park_lab_shot` |
@@ -83,8 +83,8 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 ## What the port fills
 
 - **HUD:** `PARK_CURRENT_TIME`, `PARK_CURRENT_DAY`, `BUDGET_AMOUNT`,
-  `VISITOR_AMOUNT`, `DINO_AMOUNT`, `PADDOCK_AMOUNT`, `SHOW_AMOUNT` (always
-  `0`), plus the minimap FBO and camera marker.
+  `VISITOR_AMOUNT`, `DINO_AMOUNT`, `PADDOCK_AMOUNT`, `SHOW_AMOUNT` (placed
+  show arenas), plus the minimap FBO and camera marker.
 - **Budget:** `BUDGET_<CATEGORY>_QUANTITY_NUMBER` and
   `..._COST_NUMBER` for the fourteen rows, `BUDGET_TOTAL_LEFT_COST_NUMBER`
   (expenses), `BUDGET_TOTAL_RIGHT_COST_NUMBER` (income),
@@ -107,6 +107,16 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 - **Construction:** the three sub-buttons replace the bar; the buildings
   panel switches six `CONSTRUC_*_GROUP`s and every `.bbi` button emits
   `construct <widget>`; the kit's stats/list icons open the info panels.
+- **Show construction:** `OPEN_CONSTRUCTION_ATTRACTION_PREDEF` fills
+  `PREDEFINED_SHOW_LIST` from the active mission's `[SHOWS]` catalog (seven
+  columns: name, judge, price, cage 1..4). Selecting a row and pressing
+  `PREDEFINED_SHOW_VALIDATE` arms the show placement tool; the next ground
+  click places the arena. `--show-status` prints the ten attraction rows.
+- **Attraction list:** `ATTRACTION_LIST_NAME<n>` shows the scheduled show
+  (or the hour label), `ATTRACTION_LIST_ITERATION_INDIC<n>` its
+  performances-per-day, and `LOCK`/`UNLOCK`, `ITERATION_UP/DOWN`,
+  `PERMUTATION` and `SELECTION_LIGHT` act on the placed show (`show+0x8c`,
+  `show+0xd3`, hour slot `show+0x100`).
 - **Mission panel:** with `--start-mission FILE` the briefing description,
   tips, five objective descriptions and the ON/OFF lights are populated;
   verdicts update every second and `CPGEND_PANEL` appears on success/failure.
