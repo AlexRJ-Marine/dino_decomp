@@ -22,7 +22,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from sav import read_sav
-from sav_campaign import read_campaign_list0, write_campaign_list0
+from sav_campaign import (
+    read_campaign_list0,
+    read_campaign_list1,
+    read_campaign_list2,
+    write_campaign_list0,
+    write_campaign_list1,
+    write_campaign_list2,
+)
 from sav_graph import ParkState, read_sav_graph
 from wld import read_sav_world
 
@@ -285,9 +292,17 @@ def rewrite_sav_campaign(path: Path) -> tuple[bytes, bytes, int]:
         raise ValueError("campaign save has no list0 count")
     count = struct.unpack_from("<I", original, list0_at)[0]
     records, list0_end = read_campaign_list0(original, list0_at + 4, count)
+    list1_count = struct.unpack_from("<I", original, list0_end)[0]
+    food, list1_end = read_campaign_list1(original, list0_end + 4,
+                                          list1_count)
+    list2_count = struct.unpack_from("<I", original, list1_end)[0]
+    employees, list2_end = read_campaign_list2(original, list1_end + 4,
+                                               list2_count)
     rebuilt = (write_header(save) + write_world(world, save.version) +
                write_catalog(save) + original[state_offset:list0_at] +
-               write_campaign_list0(records) + original[list0_end:])
+               write_campaign_list0(records) +
+               write_campaign_list1(food) +
+               write_campaign_list2(employees) + original[list2_end:])
     return original, rebuilt, list0_at
 
 

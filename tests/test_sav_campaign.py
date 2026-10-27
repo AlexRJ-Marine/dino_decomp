@@ -13,8 +13,14 @@ sys.path.insert(0, str(ROOT / "tools" / "formats"))
 from sav import read_sav  # noqa: E402
 from sav_campaign import (  # noqa: E402
     read_campaign_list0,
+    read_campaign_list1,
+    read_campaign_list2,
     write_campaign_dino,
+    write_campaign_food_source,
+    write_campaign_employee,
     write_campaign_list0,
+    write_campaign_list1,
+    write_campaign_list2,
 )
 from wld import read_sav_world  # noqa: E402
 
@@ -82,6 +88,45 @@ def test_campaign_list0_typed_roundtrip():
     assert last.size == 0x19 + len(last.name_bytes) + 0x302
 
 
+def test_campaign_list1_list2_roundtrip():
+    """list1 is 2 saFoodSource records (0x2C), list2 is 6 employees (0x2B)."""
+    campaign = _sample()
+    if campaign is None:
+        pytest.skip("campaign autosave not present")
+    import struct
+
+    data, list0_at, count = _list0_offset(campaign)
+    records, end = read_campaign_list0(data, list0_at + 4, count)
+    assert len(records) == 20 and end == 0x6942
+
+    list1_at = end
+    assert struct.unpack_from("<I", data, list1_at)[0] == 2
+    food, list1_end = read_campaign_list1(data, list1_at + 4, 2)
+    assert list1_end == 0x699E
+    assert [(r.object_id, r.cell_x, r.cell_y) for r in food] == [
+        (264, 461, 461), (267, 461, 461)]
+    assert food[0].position == (461.5, 421.5)
+    assert food[1].position == (461.5, 445.5)
+    assert write_campaign_list1(food) == data[list1_at:list1_end]
+    for record in food:
+        assert write_campaign_food_source(record) == data[
+            record.offset:record.offset + 0x2C]
+
+    list2_at = list1_end
+    assert struct.unpack_from("<I", data, list2_at)[0] == 6
+    employees, list2_end = read_campaign_list2(data, list2_at + 4, 6)
+    assert list2_end == 0x6AA4
+    assert [r.object_id for r in employees] == [13, 15, 337, 375, 411, 63785]
+    assert all(r.state == 2 for r in employees)
+    assert write_campaign_list2(employees) == data[list2_at:list2_end]
+    for record in employees:
+        assert write_campaign_employee(record) == data[
+            record.offset:record.offset + 0x2B]
+
+    assert struct.unpack_from("<I", data, list2_end)[0] == 0  # visitors
+    assert struct.unpack_from("<I", data, list2_end + 4)[0] == 57  # next list
+
+
 def test_campaign_whole_file_roundtrip():
     """Header/world/catalog/roads/list0 rebuild; list1+ tail stays verbatim."""
     campaign = _sample()
@@ -111,5 +156,7 @@ def test_campaign_tool_check():
          str(campaign), "--check", "--limit", "2"],
         capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
-    assert "list0=20 start=0x2632 end=0x6942 next_count=2" in result.stdout
+    assert ("list0=20 start=0x2632 end=0x6942 list1=2 end=0x699e "
+            "list2=6 end=0x6aa4 visitors=0 next=57") in result.stdout
     assert "list0 round-trip: 20 records identical (17168 bytes)" in result.stdout
+    assert "list1/list2 round-trip: 2 + 6 records identical (354 bytes)" in result.stdout

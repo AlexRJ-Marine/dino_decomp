@@ -267,6 +267,72 @@ class CampaignDino:
         }
 
 
+@dataclass
+class CampaignFoodSource:
+    """One list1 ``saFoodSource`` record (fixed 0x2C)."""
+
+    object_id: int
+    cell_x: int
+    cell_y: int
+    state_bytes: tuple[int, int, int, int]
+    field_10: int
+    field_12: int
+    position: tuple[float, float]
+    direction: tuple[float, float]
+    field_4c: int
+    field_44: int
+    offset: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "offset": self.offset,
+            "object_id": self.object_id,
+            "cell": [self.cell_x, self.cell_y],
+            "state_bytes": list(self.state_bytes),
+            "field_10": self.field_10,
+            "field_12": self.field_12,
+            "position": list(self.position),
+            "direction": list(self.direction),
+            "field_4c": self.field_4c,
+            "field_44": self.field_44,
+        }
+
+
+@dataclass
+class CampaignEmployee:
+    """One list2 employee record (fixed 0x2B)."""
+
+    object_id: int
+    cell_x: int
+    cell_y: int
+    state_bytes: tuple[int, int, int, int]
+    field_10: int
+    field_12: int
+    state: int
+    position: tuple[float, float]
+    direction: tuple[float, float]
+    field_44: int
+    field_45: int
+    field_4c: int
+    offset: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "offset": self.offset,
+            "object_id": self.object_id,
+            "cell": [self.cell_x, self.cell_y],
+            "state_bytes": list(self.state_bytes),
+            "field_10": self.field_10,
+            "field_12": self.field_12,
+            "state": self.state,
+            "position": list(self.position),
+            "direction": list(self.direction),
+            "field_44": self.field_44,
+            "field_45": self.field_45,
+            "field_4c": self.field_4c,
+        }
+
+
 def _read_path(data: bytes, off: int) -> tuple[CampaignPath, int]:
     start = off
     position = struct.unpack_from("<2f", data, off)
@@ -465,6 +531,76 @@ def read_campaign_list0(
     return records, cursor
 
 
+def read_campaign_food_source(
+    data: bytes, off: int
+) -> tuple[CampaignFoodSource, int]:
+    _need(data, off, 0x2C, "campaign food source")
+    record = CampaignFoodSource(
+        object_id=_u32(data, off, "food source id"),
+        cell_x=_u32(data, off + 0x04, "food source cell x"),
+        cell_y=_u32(data, off + 0x08, "food source cell y"),
+        state_bytes=tuple(data[off + 0x0c:off + 0x10]),
+        field_10=_u16(data, off + 0x10, "food source +0x10"),
+        field_12=_u16(data, off + 0x12, "food source +0x12"),
+        position=struct.unpack_from("<2f", data, off + 0x14),
+        direction=struct.unpack_from("<2f", data, off + 0x1c),
+        field_4c=_u32(data, off + 0x24, "food source +0x4c"),
+        field_44=_u32(data, off + 0x28, "food source +0x44"),
+        offset=off,
+    )
+    return record, off + 0x2C
+
+
+def read_campaign_list1(
+    data: bytes, off: int, count: int
+) -> tuple[list[CampaignFoodSource], int]:
+    """Read the ``saFoodSource`` list (fixed 0x2C records)."""
+    if count > 10000:
+        raise SavCampaignError(f"campaign list1 count {count} is implausible")
+    records: list[CampaignFoodSource] = []
+    cursor = off
+    for _ in range(count):
+        record, cursor = read_campaign_food_source(data, cursor)
+        records.append(record)
+    return records, cursor
+
+
+def read_campaign_employee(
+    data: bytes, off: int
+) -> tuple[CampaignEmployee, int]:
+    _need(data, off, 0x2B, "campaign employee")
+    record = CampaignEmployee(
+        object_id=_u32(data, off, "employee id"),
+        cell_x=_u32(data, off + 0x04, "employee cell x"),
+        cell_y=_u32(data, off + 0x08, "employee cell y"),
+        state_bytes=tuple(data[off + 0x0c:off + 0x10]),
+        field_10=_u16(data, off + 0x10, "employee +0x10"),
+        field_12=_u16(data, off + 0x12, "employee +0x12"),
+        state=_u32(data, off + 0x14, "employee state"),
+        position=struct.unpack_from("<2f", data, off + 0x18),
+        direction=struct.unpack_from("<2f", data, off + 0x20),
+        field_44=_u8(data, off + 0x28, "employee +0x44"),
+        field_45=_u8(data, off + 0x29, "employee +0x45"),
+        field_4c=_u8(data, off + 0x2a, "employee +0x4c"),
+        offset=off,
+    )
+    return record, off + 0x2B
+
+
+def read_campaign_list2(
+    data: bytes, off: int, count: int
+) -> tuple[list[CampaignEmployee], int]:
+    """Read the employee list (fixed 0x2B records)."""
+    if count > 10000:
+        raise SavCampaignError(f"campaign list2 count {count} is implausible")
+    records: list[CampaignEmployee] = []
+    cursor = off
+    for _ in range(count):
+        record, cursor = read_campaign_employee(data, cursor)
+        records.append(record)
+    return records, cursor
+
+
 def write_path(path: CampaignPath) -> bytes:
     out = bytearray()
     out += struct.pack("<2f", *path.position)
@@ -535,6 +671,44 @@ def write_campaign_list0(records: list[CampaignDino]) -> bytes:
     return bytes(out)
 
 
+def write_campaign_food_source(record: CampaignFoodSource) -> bytes:
+    out = bytearray()
+    out += struct.pack("<III", record.object_id, record.cell_x, record.cell_y)
+    out += bytes(record.state_bytes)
+    out += struct.pack("<HH", record.field_10, record.field_12)
+    out += struct.pack("<2f", *record.position)
+    out += struct.pack("<2f", *record.direction)
+    out += struct.pack("<I", record.field_4c)
+    out += struct.pack("<I", record.field_44)
+    return bytes(out)
+
+
+def write_campaign_list1(records: list[CampaignFoodSource]) -> bytes:
+    out = bytearray(struct.pack("<I", len(records)))
+    for record in records:
+        out += write_campaign_food_source(record)
+    return bytes(out)
+
+
+def write_campaign_employee(record: CampaignEmployee) -> bytes:
+    out = bytearray()
+    out += struct.pack("<III", record.object_id, record.cell_x, record.cell_y)
+    out += bytes(record.state_bytes)
+    out += struct.pack("<HH", record.field_10, record.field_12)
+    out += struct.pack("<I", record.state)
+    out += struct.pack("<2f", *record.position)
+    out += struct.pack("<2f", *record.direction)
+    out += bytes([record.field_44, record.field_45, record.field_4c])
+    return bytes(out)
+
+
+def write_campaign_list2(records: list[CampaignEmployee]) -> bytes:
+    out = bytearray(struct.pack("<I", len(records)))
+    for record in records:
+        out += write_campaign_employee(record)
+    return bytes(out)
+
+
 def _find_list0_offset(path: Path) -> tuple[bytes, int, int]:
     save = read_sav(path)
     data = path.read_bytes()
@@ -554,10 +728,26 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         data, list0_at, count = _find_list0_offset(args.sav)
-        records, end = read_campaign_list0(data, list0_at + 4, count)
+        records, list0_end = read_campaign_list0(data, list0_at + 4, count)
+        list1_at = list0_end
+        list1_count = _u32(data, list1_at, "list1 count")
+        food_sources, list1_end = read_campaign_list1(
+            data, list1_at + 4, list1_count)
+        list2_at = list1_end
+        list2_count = _u32(data, list2_at, "list2 count")
+        employees, list2_end = read_campaign_list2(
+            data, list2_at + 4, list2_count)
+        visitor_count = _u32(data, list2_end, "visitor count")
+        if visitor_count > 10000:
+            raise SavCampaignError(
+                f"campaign visitor count {visitor_count} is implausible")
+        visitor_end = list2_end + 4 + visitor_count * 0x50
+        next_count = _u32(data, visitor_end, "next list count")
         print(f"sav campaign: version={read_sav(args.sav).version} "
-              f"list0={count} start={list0_at:#x} end={end:#x} "
-              f"next_count={_u32(data, end, 'next list count')}")
+              f"list0={count} start={list0_at:#x} end={list0_end:#x} "
+              f"list1={list1_count} end={list1_end:#x} "
+              f"list2={list2_count} end={list2_end:#x} "
+              f"visitors={visitor_count} next={next_count}")
         shown = records[:args.limit] if args.limit > 0 else records
         for index, record in enumerate(shown):
             print(f"{index:2d} id={record.object_id} name={record.name!r} "
@@ -565,19 +755,39 @@ def main(argv: list[str] | None = None) -> int:
                   f"tail={record.size - 0x19 - len(record.name_bytes):#x} "
                   f"food={record.food} need_states={record.need_states} "
                   f"action={record.action_id}")
+        for index, record in enumerate(food_sources):
+            print(f"L1 {index:2d} id={record.object_id} "
+                  f"cell=({record.cell_x},{record.cell_y}) "
+                  f"pos=({record.position[0]:.1f},"
+                  f"{record.position[1]:.1f})")
+        for index, record in enumerate(employees):
+            print(f"L2 {index:2d} id={record.object_id} "
+                  f"cell=({record.cell_x},{record.cell_y}) "
+                  f"state={record.state}")
         if args.json:
             import json
-            print(json.dumps([record.to_dict() for record in shown], indent=2))
+            print(json.dumps({
+                "list0": [record.to_dict() for record in shown],
+                "list1": [record.to_dict() for record in food_sources],
+                "list2": [record.to_dict() for record in employees],
+            }, indent=2))
         if args.check:
             for index, record in enumerate(records):
                 raw = data[record.offset:record.offset + record.size]
                 if write_campaign_dino(record) != raw:
                     raise SavCampaignError(
                         f"record {index} ({record.name}) does not re-encode")
-            if write_campaign_list0(records) != data[list0_at:end]:
+            if write_campaign_list0(records) != data[list0_at:list0_end]:
                 raise SavCampaignError("list0 re-encode differs from the file")
+            if write_campaign_list1(food_sources) != data[list1_at:list1_end]:
+                raise SavCampaignError("list1 re-encode differs from the file")
+            if write_campaign_list2(employees) != data[list2_at:list2_end]:
+                raise SavCampaignError("list2 re-encode differs from the file")
             print(f"list0 round-trip: {len(records)} records identical "
-                  f"({end - list0_at} bytes)")
+                  f"({list0_end - list0_at} bytes)")
+            print(f"list1/list2 round-trip: {len(food_sources)} + "
+                  f"{len(employees)} records identical "
+                  f"({list2_end - list1_at} bytes)")
     except Exception as exc:  # noqa: BLE001 - one clean CLI error
         print(f"sav campaign failed: {exc}", file=sys.stderr)
         return 2

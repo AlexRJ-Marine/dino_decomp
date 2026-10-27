@@ -1483,6 +1483,7 @@ def test_cpp_wld_reader_matches_retail():
          "--asset-root", str(GAME)],
         capture_output=True, text=True, timeout=60,
     ).stdout
+    assert "shows=1 animals=2 employees=6" in text.splitlines()[0]
     assert ("building: kind=9 name=Entrance x=440 y=200 state=1 "
             "obj=1 linked=2 link=0 class=24") in text
     assert "road: " in text

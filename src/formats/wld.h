@@ -131,6 +131,9 @@ struct SavSimulation {
     // stay verbatim until they are decoded.
     bool campaign = false;
     std::uint32_t campaign_dino_count = 0;
+    std::uint32_t campaign_food_count = 0;     // list1, fixed 0x2C records
+    std::uint32_t campaign_employee_count = 0; // list2, fixed 0x2B records
+    std::uint32_t campaign_visitor_count = 0;
     std::vector<std::uint8_t> campaign_list0;  // count + records
     std::vector<std::uint8_t> campaign_tail;   // list1 count .. EOF
     std::vector<SavVisitor> visitors;

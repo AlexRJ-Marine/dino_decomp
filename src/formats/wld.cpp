@@ -196,6 +196,8 @@ void read_unlock_array(Reader& r, const char* what) {
     r.skip(n, what);
 }
 
+SavWorldPlaced read_record_placed(Reader& r);
+
 void read_world_block(Reader& r, bool campaign, WldWorld& out) {
     if (!campaign) {
         out.campaign_id = r.u32("campaign id");
@@ -213,21 +215,65 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
     }
 
     out.show_count = r.count("show count", 10000);
+    if (campaign) {
+        out.records.shows.reserve(out.show_count);
+    }
     for (std::uint32_t i = 0; i < out.show_count; ++i) {
-        read_show(r);
+        if (campaign) {
+            SavWorldPlaced show = read_record_placed(r);
+            show.class_tag = r.u32("show class tag");
+            if (r.version() >= 2) {
+                show.field_44 = r.u32("show field 44");
+            }
+            if (r.version() >= 0x25) {
+                show.field_48 = r.u32("show field 48");
+            }
+            if (r.version() < 2) {
+                const std::uint32_t legacy =
+                    r.count("legacy show count", 10000);
+                r.skip(static_cast<std::size_t>(legacy) * 0x18,
+                       "legacy show records");
+            }
+            out.records.shows.push_back(std::move(show));
+        } else {
+            read_show(r);
+        }
     }
 
     if (r.version() > 1) {
         out.animal_count = r.count("animal count", 10000);
+        if (campaign) {
+            out.records.animals.reserve(out.animal_count);
+        }
         for (std::uint32_t i = 0; i < out.animal_count; ++i) {
-            read_animal(r);
+            if (campaign) {
+                SavWorldAnimal animal;
+                animal.object_id = r.u32("animal object id");
+                animal.field_1c = r.u32("animal field 1c");
+                if (r.version() > 0x32) {
+                    animal.field_20 = r.u32("animal field 20");
+                }
+                out.records.animals.push_back(animal);
+            } else {
+                read_animal(r);
+            }
         }
     }
 
     if (r.version() > 2) {
         out.employee_count = r.count("employee count", 10000);
+        if (campaign) {
+            out.records.employees.reserve(out.employee_count);
+        }
         for (std::uint32_t i = 0; i < out.employee_count; ++i) {
-            read_employee(r);
+            if (campaign) {
+                SavWorldEmployee employee;
+                employee.object_id = r.u32("employee object id");
+                employee.field_1c = r.u32("employee field 1c");
+                out.records.employees.push_back(employee);
+            } else {
+                read_employee(r);
+            }
         }
     }
 
@@ -262,6 +308,12 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
     }
 
     out.world_end = r.offset();
+    if (campaign &&
+        (out.records.shows.size() != out.show_count ||
+         out.records.animals.size() != out.animal_count ||
+         out.records.employees.size() != out.employee_count)) {
+        throw std::runtime_error("wld: campaign object counts disagree");
+    }
 }
 
 // Writer-oriented parse of the save's world block. Mirrors
@@ -634,11 +686,52 @@ SavSimulation read_sav_simulation(const std::string& path) {
         for (std::uint32_t i = 0; i < list0_count; ++i) {
             pos = campaign_dino_end(data, pos, path);
         }
+        const std::size_t list1_start = pos;
+        auto need_at = [&](std::size_t at, std::size_t size,
+                           const char* what) {
+            if (at + size > data.size()) {
+                throw std::runtime_error(std::string("wld: ") + what +
+                                         " past simulation end in " + path);
+            }
+        };
+        // list1: saFoodSource, fixed 0x2C; list2: employees, fixed 0x2B.
+        need_at(pos, 4, "campaign list1 count");
+        const std::uint32_t food_count =
+            read_u32(data, pos, "campaign list1 count");
+        if (food_count > 10000) {
+            throw std::runtime_error("wld: bad campaign list1 count in " +
+                                     path);
+        }
+        need_at(pos + 4, static_cast<std::size_t>(food_count) * 0x2C,
+                "campaign list1 records");
+        pos += 4 + static_cast<std::size_t>(food_count) * 0x2C;
+
+        need_at(pos, 4, "campaign list2 count");
+        const std::uint32_t employee_count =
+            read_u32(data, pos, "campaign list2 count");
+        if (employee_count > 10000) {
+            throw std::runtime_error("wld: bad campaign list2 count in " +
+                                     path);
+        }
+        need_at(pos + 4, static_cast<std::size_t>(employee_count) * 0x2B,
+                "campaign list2 records");
+        pos += 4 + static_cast<std::size_t>(employee_count) * 0x2B;
+
+        need_at(pos, 4, "campaign visitor count");
+        const std::uint32_t visitor_count =
+            read_u32(data, pos, "campaign visitor count");
+        if (visitor_count > 10000) {
+            throw std::runtime_error("wld: bad campaign visitor count in " +
+                                     path);
+        }
         out.campaign = true;
         out.campaign_dino_count = list0_count;
+        out.campaign_food_count = food_count;
+        out.campaign_employee_count = employee_count;
+        out.campaign_visitor_count = visitor_count;
         out.campaign_list0.assign(data.begin() + list0_start,
-                                  data.begin() + pos);
-        out.campaign_tail.assign(data.begin() + pos, data.end());
+                                  data.begin() + list1_start);
+        out.campaign_tail.assign(data.begin() + list1_start, data.end());
         return out;
     }
     for (int i = 1; i < 3; ++i) {

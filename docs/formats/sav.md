@@ -487,13 +487,21 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   block, show catalog, roads and all typed list0 records, then keeps
   `list1`/`list2` and everything after them verbatim; the result is
   byte-identical on `build/campaign-autosave.sav` (53,338 bytes).
-  The C++ reader (`src/formats/wld.cpp`) validates every list0 record length
-  with the same rule and keeps `campaign_list0` + `campaign_tail` raw, so
-  `--sav-roundtrip`/`--sav-write` are byte-identical for campaign autosaves.
-  Its parse stops after list0: `--sav-info` reports zeros for the visitor/
-  park/store/lab part until list1/list2 are decoded. Remaining: typed C++
-  list0 and `list1`/`list2`. The four `+0x0c` bytes range 0..4; their exact
-  state encoding is still open.
+  `list1` is the `saFoodSource` list (`spPark+0xcc`, save `0x576fd0`, fixed
+  0x2C records) and `list2` is the employee list (`spPark+0xe4`, save
+  `0x5766b0`, fixed 0x2B records). The sample has 2 food sources at
+  `0x6946..0x699E` and 6 employees at `0x69A2..0x6AA4`; the visitor count at
+  `0x6AA4` is 0 and the next list (attraction family, `spPark+0x90`) has 57
+  records at `0x6AA8`. Both lists are self-delimiting and are modeled by
+  `sav_campaign.py` (`read_campaign_list1/2`, `write_campaign_list1/2`;
+  `--check` reports `list1/list2 round-trip: 2 + 6 records identical`).
+  The C++ reader (`src/formats/wld.cpp`) validates both fixed record sizes and
+  retains the counts; it keeps list1+ as raw `campaign_tail`, so
+  `--sav-roundtrip`/`--sav-write` stay byte-identical. Remaining: walk the
+  57-record attraction list and locate the campaign park block; `--sav-info`
+  reports zeros for the visitor/park/store/lab part until then.
+  Full recon: `notes/campaign-list1-2-recon.md`. The four `+0x0c` list0 bytes
+  range 0..4; their exact state encoding is still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed
@@ -551,9 +559,11 @@ renders it (`notes/sav-retail-accept.png`). The park clock matches the
 save's `schedule_elapsed` (23.2 s -> 09:2x). The HUD cash **is** the same
 field as the park block `+0x30`: `spPark->economy+0x08`, read by the HUD
 refresh `FUN_00526010` at `0x526041` (`notes/hud-budget-source-recon.md`).
-It stayed 26000 on load because the retail economy restore is conditional:
-`0x58b1b0 TEST BL,BL; JZ read; CMP EDI,0x17; JA skip` - for a version > 0x17
-save (retail 46/53) a non-zero loader flag skips the read and the live value
-survives. The port restoring `sav_simulation.budget` into `park_budget` is a
-policy divergence, not a wrong field; the `BL` flag needs a runtime check for
-exact parity.
+The `0x58b1b0` guard is not a save-vs-autosave switch: `BL` is the park
+reader's third argument, `0` for every `.sav` LOAD (manual and autosave) and
+`1` for the campaign `.wld` loader, whose stream has no park block. A `.sav`
+LOAD restores the budget; `FUN_00585240` also self-gates on the same flag.
+The port restoring `sav_simulation.budget` into `park_budget` matches the
+retail `.sav` path. The 26000 seen after the earlier load is therefore not
+explained by this guard; the candidates are a later scenario/economy writer
+or a campaign `.wld` start (`notes/hud-budget-restore-flag-recon.md` §8).
