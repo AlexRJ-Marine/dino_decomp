@@ -845,6 +845,123 @@ bool force_input_active_enabled() {
     return cached == 1;
 }
 
+bool env_flag(const char* name) {
+    char value[8] = {};
+    return GetEnvironmentVariableA(name, value, sizeof(value)) > 0 &&
+           value[0] != '0';
+}
+
+bool auto_dismiss_errors_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = env_flag("DINO_AUTO_DISMISS_ERRORS") ? 1 : 0;
+    }
+    return cached == 1;
+}
+
+// Retail's mcLib error reporter shows a modal MessageBoxA when the Windowed
+// flag is set; the retail ErrorLog.txt writer is a stub, so a hidden dialog is
+// the only trace. Log the caption/text and optionally dismiss it.
+using MessageBoxAFn = int(WINAPI*)(HWND, LPCSTR, LPCSTR, UINT);
+MessageBoxAFn g_real_messagebox_a = nullptr;
+bool g_messagebox_patched = false;
+
+void copy_log_text(char* out, std::size_t size, const char* text) {
+    std::snprintf(out, size, "%s", text != nullptr ? text : "");
+    for (char* p = out; *p != '\0'; ++p) {
+        if (*p == '\r' || *p == '\n' || *p == '\t') {
+            *p = ' ';
+        }
+    }
+}
+
+int WINAPI hook_messagebox_a(HWND hwnd, LPCSTR text, LPCSTR caption,
+                             UINT type) {
+    char caption_copy[160] = {};
+    char text_copy[900] = {};
+    copy_log_text(caption_copy, sizeof(caption_copy), caption);
+    copy_log_text(text_copy, sizeof(text_copy), text);
+    char line[1200];
+    std::snprintf(line, sizeof(line),
+                  "force-active: MessageBoxA caption='%s' text='%s' type=0x%x",
+                  caption_copy, text_copy, type);
+    log_line(line);
+    if (auto_dismiss_errors_enabled()) {
+        log_line("force-active: MessageBoxA dismissed (IDIGNORE)");
+        return IDIGNORE;
+    }
+    if (g_real_messagebox_a != nullptr) {
+        return g_real_messagebox_a(hwnd, text, caption, type);
+    }
+    return IDIGNORE;
+}
+
+// Patch the game's MessageBoxA import so the modal reporter is observable.
+bool patch_message_box() {
+    if (g_messagebox_patched) {
+        return true;
+    }
+    auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleA(nullptr));
+    if (base == nullptr) {
+        return false;
+    }
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) {
+        return false;
+    }
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE) {
+        return false;
+    }
+    const IMAGE_DATA_DIRECTORY& dir =
+        nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (dir.VirtualAddress == 0 || dir.Size == 0) {
+        return false;
+    }
+    auto* desc = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(
+        base + dir.VirtualAddress);
+    for (; desc->Name != 0; ++desc) {
+        const char* dll = reinterpret_cast<const char*>(base + desc->Name);
+        if (_stricmp(dll, "user32.dll") != 0) {
+            continue;
+        }
+        auto* lookup = reinterpret_cast<IMAGE_THUNK_DATA*>(
+            base + (desc->OriginalFirstThunk != 0 ? desc->OriginalFirstThunk
+                                                  : desc->FirstThunk));
+        auto* iat = reinterpret_cast<IMAGE_THUNK_DATA*>(base + desc->FirstThunk);
+        for (; lookup->u1.Function != 0; ++lookup, ++iat) {
+            if (IMAGE_SNAP_BY_ORDINAL(lookup->u1.Ordinal)) {
+                continue;
+            }
+            auto* by_name = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(
+                base + lookup->u1.AddressOfData);
+            if (std::strcmp(reinterpret_cast<const char*>(by_name->Name),
+                            "MessageBoxA") != 0) {
+                continue;
+            }
+            auto* slot = reinterpret_cast<void**>(&iat->u1.Function);
+            DWORD old_protect = 0;
+            if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE,
+                                &old_protect)) {
+                return false;
+            }
+            g_real_messagebox_a =
+                reinterpret_cast<MessageBoxAFn>(*slot);
+            *slot = reinterpret_cast<void*>(&hook_messagebox_a);
+            VirtualProtect(slot, sizeof(void*), old_protect, &old_protect);
+            g_messagebox_patched = true;
+            char message[160];
+            std::snprintf(message, sizeof(message),
+                          "force-active: MessageBoxA patched (auto-dismiss=%d)",
+                          auto_dismiss_errors_enabled() ? 1 : 0);
+            log_line(message);
+            return true;
+        }
+    }
+    log_line("force-active: MessageBoxA import not found");
+    return false;
+}
+
 // Game window, captured from IDirectInputDevice8::SetCooperativeLevel.
 HWND g_game_hwnd = nullptr;
 
@@ -884,10 +1001,41 @@ HRESULT __stdcall hook_reset(void* self, void* params) {
             if (copy[7] == 0) {
                 copy[7] = 1;   // Windowed
                 copy[11] = 0;  // FullScreen_RefreshRateInHz must be 0
+                // dgVoodoo's windowed swap chain rejects the park's 16-bit
+                // R5G6B5 candidate. Without this the first Reset fails, the
+                // engine cannot restore the exclusive mode and shows the
+                // modal "Unable to restore previous video mode" dialog.
+                if (copy[2] == 23 || copy[2] == 24 || copy[2] == 25) {
+                    copy[2] = 22;  // X8R8G8B8
+                    log_line("force-active: D3D8 Reset back buffer forced to "
+                             "X8R8G8B8");
+                }
                 log_line("force-active: D3D8 Reset forced to windowed");
             }
             InterlockedExchange(&g_reset_seen, 1);
-            return g_real_reset != nullptr ? g_real_reset(self, copy) : E_FAIL;
+            // dgVoodoo returns D3DERR_DEVICELOST for a Reset while the game
+            // window is inactive. Retail calls SetForegroundWindow itself on
+            // Start; the virtual-input harness does not, so activate the
+            // window on the (game UI) Reset thread before resetting.
+            if (g_game_hwnd != nullptr &&
+                GetForegroundWindow() != g_game_hwnd) {
+                SetActiveWindow(g_game_hwnd);
+                SetFocus(g_game_hwnd);
+                char active[128];
+                std::snprintf(active, sizeof(active),
+                              "force-active: D3D8 Reset activated game window "
+                              "(fg=%p)",
+                              reinterpret_cast<void*>(GetForegroundWindow()));
+                log_line(active);
+            }
+            const HRESULT hr =
+                g_real_reset != nullptr ? g_real_reset(self, copy) : E_FAIL;
+            char result[96];
+            std::snprintf(result, sizeof(result),
+                          "force-active: D3D8 Reset hr=0x%lx",
+                          static_cast<unsigned long>(hr));
+            log_line(result);
+            return hr;
         }
         InterlockedExchange(&g_reset_seen, 1);
         return g_real_reset != nullptr ? g_real_reset(self, params) : E_FAIL;
@@ -2007,6 +2155,9 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
         log_line(g_real_create != nullptr ? "DINPUT8 real DLL loaded"
                                           : "DINPUT8 real DLL load FAILED");
         install_hooks();
+        if (force_input_active_enabled() || env_flag("DINO_LOG_ERRORS")) {
+            patch_message_box();
+        }
     } else if (reason == DLL_PROCESS_DETACH) {
         char line[320];
         std::snprintf(

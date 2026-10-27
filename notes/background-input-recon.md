@@ -122,6 +122,31 @@ at the Start click (no `Present` after the resets). So the loader stalls
 `0x0051d29e`/`0x0051d34d` to see whether the TGA load or the display setup
 before the present is the last reached step.
 
+### 4b. Resolution (2026-10-27): windowed Reset needs X8R8G8B8 + activation
+
+The stall was the mcLib modal reporter, not Present. `FUN_00507c60` ->
+`FUN_00412320` calls the device Reset; with the Reset forced to windowed,
+dgVoodoo returned `D3DERR_DEVICELOST` (`0x88760868`) for the park's 800x600
+R5G6B5 request and then for the restore request, so `FUN_00412320` opened
+`MessageBoxA` "Unable to restore previous video mode" at `0x414091`. The
+background window hid the dialog; the main thread waited in the modal pump.
+
+The proxy now, under `DINO_FORCE_INPUT_ACTIVE`:
+
+- forces 16-bit back buffers (D3DFMT 23/24/25) to X8R8G8B8 (22) when it forces
+  windowed;
+- activates the game window on the Reset thread (`SetActiveWindow`/`SetFocus`)
+  when it is not foreground;
+- logs the Reset HRESULT and every `MessageBoxA` (the new IAT hook can
+  auto-dismiss with `DINO_AUTO_DISMISS_ERRORS=1`).
+
+Evidence: `notes/harness/park-load-probe-x32-run4.log` reaches
+`AFTER_VIDEO_VALIDATE al=1`, `TGA_LOAD`, `PRESENT_AFTER`, `WORLD_IO` and
+`WORLDMGR_ENTER`; the direct probe renders the park
+(`notes/harness/direct-t5-28s.png`: terrain, trees, HUD, budget 26000, minimap,
+clock 09:09). The x32dbg quiet sample at `0x5AD73F` is an SSE matrix routine
+(the load continues), not a wait.
+
 ### Job 1 (2026-10-27): the LOAD GAME path stalls too
 
 `notes/harness/load-probe.ps1` drives menu-main `LOAD_GAME_BUTTON` (395,279)

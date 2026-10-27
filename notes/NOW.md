@@ -63,14 +63,13 @@ See `notes/lanes.md`. Default split:
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
   water/partition polish.
 - WORLD-3/2 polish: skybox bottom/side seam, frustum culling/LOD2.
-- TOOL-4: background menu interaction is solved (app-loop gate `0x4024db`
-  -> `EB 0A`; cursor ring + frame offset). Level start resets to exclusive
-  fullscreen; forcing `Windowed=1` removes the `Present` hang. Remaining: the
-  loading loop still never opens the world files and retail still takes the
-  foreground. New static map (`notes/park-load-static.md`): `Windowed=1` also
-  (a) skips the loading page, so `ParkSoundDB.ini` can be the last open, and
-  (b) enables the mcLib modal `MessageBoxA` reporter. A hidden error dialog is
-  now the prime suspect; probe `0x414091`/`0x423412`/`0x596e23`.
+- TOOL-4: **park load solved.** The background stall was a hidden mcLib
+  "Unable to restore previous video mode" dialog: dgVoodoo returned
+  `D3DERR_DEVICELOST` for the park's 800x600 R5G6B5 Reset. The proxy now
+  forces 16-bit park Resets to X8R8G8B8 and activates the game window on the
+  Reset thread; the free-game park loads and renders
+  (`notes/harness/direct-t5-28s.png`). `notes/park-load-static.md` has the
+  call map; `notes/background-input-recon.md` §4b the resolution.
 
 ## Next actions
 
@@ -79,11 +78,10 @@ See `notes/lanes.md`. Default split:
 2. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-3. TOOL-4: break on the three mcLib `MessageBoxA` sites
-   (`0x414091`/`0x423412`/`0x596e23`). If one hits, log the caption/text and
-   fix the underlying error; if none hits, bisect at `0x51cdc6` (audio ctor
-   returned), `0x403b1b` (park ctor returned), `0x51d42c` (world manager) and
-   `0x53da6e` (`walllist.ini`). See `notes/park-load-static.md`.
+3. SAVE-2 acceptance: write a renamed save with `--sav-write` into
+   `run-test/save/`, load it through the retail LOAD GAME path, and compare
+   the park HUD/state. Then run the P3 target-provider trace in the loaded
+   park (the `+0x14` ABI is decoded in `notes/dino-target-vtable-recon.md`).
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
