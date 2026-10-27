@@ -924,7 +924,7 @@ void patch_d3d8_present() {
                            reinterpret_cast<void*>(&hook_present),
                            reinterpret_cast<void**>(&g_real_present))) {
         g_present_patched = true;
-        log_line("force-active: D3D8 Present patched (skip while background)");
+        log_line("force-active: D3D8 Present patched");
     }
 }
 

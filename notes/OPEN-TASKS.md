@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 03:38. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 05:02. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 32 open items.
 
@@ -62,8 +62,8 @@ Generated from `TASKS.md` on 2026-10-27 03:38. Do not edit; regenerate with `scr
 - [ ] Keep it current as functions are replaced.
 
 ## TOOL-4: Background-safe virtual input (focus/cooperative-level shim)
-- [ ] The retail UI still ignores background clicks: the deactivation path
-- [ ] Next: patch/avoid the deactivation branch or call the view-manager
+- [ ] Park load still blocks: after the loading screen and `ParkSoundDB.ini`
+- [ ] Starting a park brings the retail window to the foreground (dgVoodoo/D3D
 
 ## DEC-2: Simulation scheduler and AI update order
 - [ ] Runtime-confirm the task order, the `0x1f` idle sentinel, and name the

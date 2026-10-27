@@ -77,9 +77,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
-- 2026-10-27 - TOOL-4: decoded the app-loop scheduler gate (`0x4024db`, `app+0x1a`
-  = D3D8 state) and patched it; virtual cursor ring + WndProc frame offset fixed;
-  the free-game menu now completes and starts loading the park
+- 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
 - 2026-10-27 - SIM-4: budget panel imports the save's yesterday block
   (`SavEconomy`, `notes/budget-sav-rows.png`)
 - 2026-10-27 - WORLD-3: water layers animate from FUN_00602fd0 (opposite 0.03/0.01 UV/s)
@@ -87,10 +85,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - TOOL-4: proxy-driven FUN_00524610 keeps background DirectInput polling and delivers every click; retail UI gate remains
 - 2026-10-27 - VIDEO-2: windowed MPEG playback + CPGEND ending-video handoff (tennis.mpg)
 - 2026-10-27 - Store tail: MESSAGE_PANEL toast keeps the panel open; mission/free-game store catalogs
-- 2026-10-27 - VIDEO-1: PL_MPEG decoder, --video-info/--video-frame, tennis 640x480@24fps
-- 2026-10-27 - Campaign phase wrap-up: full suite 426 passed; roadmap/coverage updated
-- 2026-10-27 - CAMPAIGN-3 franckstrangedinos: carnivore/biped/size/intelligence predicate; Cpg06_Mission4 completes
-  (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers
 
