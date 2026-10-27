@@ -204,6 +204,7 @@ struct Options {
     bool water = true;
     float water_level = -1.0f;
     int visitors = 0;
+    int visitor_satisfaction = -1;  // test/debug initial need0 override
     bool visitor_stats = false;
     std::string visitor_pose1;
     std::string visitor_pose2;
@@ -559,6 +560,9 @@ Options parse_args(int argc, char** argv) {
             opt.skybox_dir = next("--skybox");
         } else if (arg == "--visitors") {
             opt.visitors = std::atoi(next("--visitors"));
+        } else if (arg == "--visitor-satisfaction") {
+            opt.visitor_satisfaction =
+                std::atoi(next("--visitor-satisfaction"));
         } else if (arg == "--visitor-stats") {
             opt.visitor_stats = true;
         } else if (arg == "--visitor-pose1") {
@@ -719,6 +723,7 @@ Options parse_args(int argc, char** argv) {
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --visitors N         spawn N visitors on the placed path network\n"
+                "  --visitor-satisfaction N  initial visitor need0 (test/debug)\n"
                 "  --visitor-stats      print visitor state/need summary at exit\n"
                 "  --visitor-pose1 FILE walk pose A (default woman_walk1)\n"
                 "  --visitor-pose2 FILE walk pose B (default woman_walk2)\n"
@@ -3346,28 +3351,26 @@ int main(int argc, char** argv) {
     dino::ui::Menu menu;
     bool menu_loaded = false;
     dino::ui::ParkHud park;
+    const std::string campaign_dino_dat =
+        opt.dino_dat_path.empty() ? "run/save/dino.dat" : opt.dino_dat_path;
+    std::uint32_t campaign_unlock =
+        dino::read_campaign_unlock(campaign_dino_dat);
     if (opt.use_menu) {
         menu_loaded = menu.load(opt.asset_root);
         if (!menu_loaded) {
             std::fprintf(stderr, "menu: %s (falling back to placeholder)\n",
                          menu.error.c_str());
+        } else if (menu.load_campaigns(
+                       resolve_asset(opt.asset_root, "Data/Design/Scenario"),
+                       campaign_unlock)) {
+            std::printf(
+                "menu campaigns: %zu unlocked=0x%X (%s)\n",
+                menu.campaigns.size(),
+                static_cast<unsigned>(campaign_unlock),
+                campaign_dino_dat.c_str());
         } else {
-            const std::string dino_dat = opt.dino_dat_path.empty()
-                                             ? "run/save/dino.dat"
-                                             : opt.dino_dat_path;
-            const std::uint32_t unlock =
-                dino::read_campaign_unlock(dino_dat);
-            if (menu.load_campaigns(
-                    resolve_asset(opt.asset_root, "Data/Design/Scenario"),
-                    unlock)) {
-                std::printf(
-                    "menu campaigns: %zu unlocked=0x%X (%s)\n",
-                    menu.campaigns.size(),
-                    static_cast<unsigned>(unlock), dino_dat.c_str());
-            } else {
-                std::fprintf(stderr, "menu campaigns: %s\n",
-                             menu.campaign_error.c_str());
-            }
+            std::fprintf(stderr, "menu campaigns: %s\n",
+                         menu.campaign_error.c_str());
         }
     }
 
@@ -3741,14 +3744,27 @@ int main(int argc, char** argv) {
                     visitor_pose1 = dino::load_mesh(pose1);
                     visitor_pose2 = dino::load_mesh(pose2);
                     visitor_image = dino::load_image(texture);
-                    const int spawned = visitor_profiles.empty()
-                                            ? visitor_system.spawn(
-                                                  build_grid, opt.visitors)
-                                            : visitor_system.spawn(
-                                                  build_grid, opt.visitors,
-                                                  visitor_profiles, -1, -1);
-                    std::printf("visitors: %d spawned on %d path cells\n", spawned,
-                                build_grid.path_count);
+                    const bool defer_visitors =
+                        opt.wld_park || !opt.sav_park_path.empty();
+                    if (!defer_visitors) {
+                        const int spawned =
+                            visitor_profiles.empty()
+                                ? visitor_system.spawn(build_grid,
+                                                       opt.visitors)
+                                : visitor_system.spawn(
+                                      build_grid, opt.visitors,
+                                      visitor_profiles, -1, -1);
+                        std::printf(
+                            "visitors: %d spawned on %d path cells\n",
+                            spawned, build_grid.path_count);
+                        if (opt.visitor_satisfaction >= 0) {
+                            for (dino::Visitor& visitor :
+                                 visitor_system.visitors) {
+                                visitor.need0 = std::clamp(
+                                    opt.visitor_satisfaction, 0, 99);
+                            }
+                        }
+                    }
                 }
             }
             const std::string sky_dir =
@@ -5412,6 +5428,35 @@ int main(int argc, char** argv) {
     if (opt.wld_park || sav_ready) {
         import_park_layout();
     }
+    // `--visitors` is handled before the `.wld` roads are imported, so a
+    // campaign park would spawn on zero path cells. Spawn once more after
+    // the roads exist.
+    if (opt.visitors > 0 && visitor_system.visitors.empty() &&
+        build_grid.path_count > 0) {
+        const int spawned =
+            visitor_profiles.empty()
+                ? visitor_system.spawn(build_grid, opt.visitors)
+                : visitor_system.spawn(build_grid, opt.visitors,
+                                       visitor_profiles, entrance_cell_x,
+                                       entrance_cell_y);
+        std::printf("visitors: %d spawned on %d path cells\n", spawned,
+                    build_grid.path_count);
+        if (opt.visitor_satisfaction >= 0) {
+            for (dino::Visitor& visitor : visitor_system.visitors) {
+                visitor.need0 =
+                    std::clamp(opt.visitor_satisfaction, 0, 99);
+            }
+        }
+        if (!visitor_system.visitors.empty()) {
+            if (visitor_texture_id == 0 && visitor_image.width > 0) {
+                visitor_texture_id = upload_texture(visitor_image);
+            }
+            visitor_gpu = upload_mesh(
+                visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+                                          visitor_pose2),
+                glfns);
+        }
+    }
 
     std::vector<dino::EmployeeProfile> employee_profiles;
     try {
@@ -5555,7 +5600,7 @@ int main(int argc, char** argv) {
                         stderr,
                         "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
                         "class=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
-                        "Atk=%d Ag=%d St=%d Co=%d walk=%.3f run=%.3f "
+                        "Atk=%d Ag=%d O=%d CA=%d St=%d Co=%d walk=%.3f run=%.3f "
                         "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
                         "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f "
                         "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
@@ -5569,6 +5614,7 @@ int main(int argc, char** argv) {
                         attrs.width_cm, attrs.height_cm, attrs.perception,
                         attrs.intelligence, attrs.beauty, attrs.agility,
                         attrs.armor, attrs.attack_total, attrs.aggression,
+                        attrs.originality, attrs.conventional_appeal,
                         attrs.stamina, attrs.courage, attrs.walk_speed,
                         attrs.run_speed, attrs.jump, attrs.weight_kg,
                         attrs.part_length[0], attrs.part_length[1],
@@ -6262,6 +6308,12 @@ int main(int argc, char** argv) {
                                               entrance_cell_x, entrance_cell_y);
                 std::printf("visitors: %d spawned on %d path cells\n", spawned,
                             build_grid.path_count);
+                if (opt.visitor_satisfaction >= 0) {
+                    for (dino::Visitor& visitor : visitor_system.visitors) {
+                        visitor.need0 =
+                            std::clamp(opt.visitor_satisfaction, 0, 99);
+                    }
+                }
             }
             if (!visitor_system.visitors.empty()) {
                 visitor_texture_id = upload_texture(visitor_image);
@@ -8773,13 +8825,54 @@ int main(int argc, char** argv) {
                     campaign_runtime->mission();
                 std::printf("mission %s: %s\n", finished.name.c_str(),
                             success ? "success" : "failure");
+                std::string end_text =
+                    success ? "Mission complete." : "Mission failed.";
                 pending_next_mission.reset();
                 if (success) {
                     pending_next_mission =
                         dino::next_campaign_mission(finished);
+                    if (!pending_next_mission) {
+                        const std::optional<dino::Campaign> campaign =
+                            dino::load_parent_campaign(finished);
+                        if (campaign) {
+                            const std::string ending =
+                                dino::ui::resolve_loc_text(
+                                    campaign->ending_text_id, park.loc);
+                            if (!ending.empty()) {
+                                end_text = ending;
+                            }
+                            std::printf(
+                                "campaign complete: %s ending=%s video=%s\n",
+                                campaign->name.c_str(), ending.c_str(),
+                                campaign->ending_video.c_str());
+                            const unsigned number =
+                                dino::campaign_number(campaign->name);
+                            std::uint32_t next_mask = campaign_unlock;
+                            if (number > 0 && number <= 32) {
+                                next_mask |= 1u << (number - 1);
+                                if (number < 32) {
+                                    next_mask |= 1u << number;
+                                }
+                            }
+                            if (next_mask != campaign_unlock) {
+                                campaign_unlock = next_mask;
+                                try {
+                                    dino::write_campaign_unlock(
+                                        campaign_dino_dat, campaign_unlock);
+                                    std::printf(
+                                        "campaign unlock: mask=0x%X\n",
+                                        static_cast<unsigned>(
+                                            campaign_unlock));
+                                } catch (const std::exception& e) {
+                                    std::fprintf(stderr,
+                                                 "campaign unlock: %s\n",
+                                                 e.what());
+                                }
+                            }
+                        }
+                    }
                 }
-                park.show_campaign_end(success ? "Mission complete."
-                                               : "Mission failed.");
+                park.show_campaign_end(end_text);
                 campaign_runtime->stop();
                 if (opt.auto_continue) {
                     park.close_dialog();

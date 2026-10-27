@@ -4,7 +4,8 @@ Status: **menu campaign flow and the campaign runtime are ported.** The port
 renders the campaign select/briefing pages from `CampaignList.ini`, reads the
 `run/save/dino.dat` unlock mask, starts the selected unlocked campaign's first
 mission from the menu, imports `CpgNN_Save.wld`, and evaluates objectives.
-Mission progression and briefing pagination are still open.
+Completing a campaign's last mission shows its ending text and writes the next
+unlock bit. Cross-restart progression and briefing pagination are still open.
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -126,8 +127,13 @@ CpgNN/CpgNN_Save.wld    initial park
   `CPGEND` starts the next mission in the same campaign (`MissionN+1`), applies
   its `CONTEXT.Budget` delta and reopens `MISSION_PANEL`; `--auto-continue` is
   the headless test hook. Progression is not persisted across restarts (only
-  the active mission id is in `DINOPSAV`), and the last mission's campaign-end
-  text/video/unlock write are still open.
+  the active mission id is in `DINOPSAV`).
+- Completing a campaign's **last** mission resolves its `ending_text_id` into
+  `CPGEND`, logs the ending video name and writes the next campaign's unlock
+  bit to `dino.dat` (Cpg02 -> `0x02 | 0x04 = 0x06`). Cpg02_Mission5 reaches
+  this path with 100 visitors and `--visitor-satisfaction 99`; the `.wld` park
+  now spawns `--visitors` after its roads are imported. Ending-video playback
+  is still open.
 - The retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
   `MISSION_PANEL` description.
 - `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
@@ -235,6 +241,22 @@ Mission advance: the Cpg01_Mission11 run above with `--auto-continue` prints
 Cpg01_Mission12 budget=75000` and `mission: Cpg01_Mission12 objectives=2`.
 Without the flag, click `CPGEND_OUTCOME_ICON` (401,447) to advance.
 
+Campaign completion (Cpg02's last mission, mask `0x02` in a temp file):
+
+```powershell
+[IO.File]::WriteAllBytes("$env:TEMP\dino-02.dat", [byte[]](0x02,0,0,0))
+.\build\port\dino_viewer.exe --frames 2 --no-menu --width 320 --height 240 `
+  --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
+  --lnd "...\isl04.lnd" --no-vegetation --no-water `
+  --wld-park "...\Cpg04_Save.wld" --visitors 100 --visitor-satisfaction 99 `
+  --dino-dat "$env:TEMP\dino-02.dat" `
+  --start-mission "...\Cpg02\Cpg02_Mission5.ini"
+```
+
+Expect `mission Cpg02_Mission5: success`, `campaign complete: Cpg02
+ending=... video=tennis.mpg`, `campaign unlock: mask=0x6`, and
+`dino-02.dat` becomes `06 00 00 00`.
+
 A mission that completes: `Cpg01_Mission11` (`visitors all 30`) on isl01 with
 a 24-cell path loop and `--visitors 30` prints `mission objective 0 visitors
 -> success` and `mission Cpg01_Mission11: success`, then opens
@@ -243,9 +265,9 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Persist the mission index across restarts and write the next campaign's
-  unlock bit when a campaign's final mission completes; show the campaign
-  ending text/video.
+- Persist the mission index across restarts (the campaign start always uses
+  mission 1) and play the campaign ending videos; the ending text and next
+  unlock bit are written.
 - Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
   idea-bulb buttons) instead of reusing the mission description box.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
@@ -279,7 +301,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_sized_agility`,
   `test_cpp_campaign_hungry_objective`,
   `test_cpp_campaign_connected_buildings`,
-  `test_cpp_campaign_isolated_success`).
+  `test_cpp_campaign_isolated_success`,
+  `test_cpp_campaign_completion_unlock`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

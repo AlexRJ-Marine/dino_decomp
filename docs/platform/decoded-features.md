@@ -172,7 +172,8 @@ objective from their `.bei` role names; placed buildings fill
 `connectedbuildings`/`notconnectedbuildings`. Hybrid/scarcity/ornaments
 are still empty. `DINOPSAV` stores the active mission id and `--load-port`
 resumes it; a successful mission advances to the next one in the campaign,
-while campaign completion/ending videos remain open;
+the last mission shows the campaign ending text and writes the next unlock
+bit, while ending-video playback remains open;
 show verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators

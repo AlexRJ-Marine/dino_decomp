@@ -1373,8 +1373,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (missing = 1; `--dino-dat FILE` for tests). Cpg04 needs mask `0x0F`.
 - [x] Advance to the next mission when `CPGEND` closes; apply the next
   mission's `Budget` delta. Cpg01_Mission11 -> Mission12 (`--auto-continue`).
-- [ ] Persist the mission index across restarts; write the next campaign's
-  unlock bit on the final mission and show the campaign ending text/video.
+- [x] On a campaign's final mission show its ending text and write the next
+  unlock bit (`Cpg02_Mission5` -> `dino.dat` `0x02 | 0x04 = 0x06`).
+- [ ] Persist the mission index across restarts; play the ending videos.
 - [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots
   (cuteness/beauty, aggression, size, speed, stamina, agility, intelligence,
@@ -1387,8 +1388,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
   systems land.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
-  (verdicts are derived again by the first tick). Ending videos remain.
-- [ ] Show the ending videos.
+  (verdicts are derived again by the first tick).
 - [x] `hungrydinos -1 60` from the live food need; Cpg01_Mission7 completes
   when every imported dino starts with food >= 60 (`--dino-needs 80,...`).
 - [x] `connectedbuildings`/`notconnectedbuildings` from placed `.bbi`

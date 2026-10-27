@@ -205,28 +205,53 @@ CampaignMission load_campaign_mission(const std::string& mission_ini) {
     return mission;
 }
 
-std::optional<CampaignMission> next_campaign_mission(
-    const CampaignMission& current) {
-    if (current.path.empty()) {
+std::optional<Campaign> load_parent_campaign(
+    const CampaignMission& mission) {
+    if (mission.path.empty()) {
         return std::nullopt;
     }
     const std::filesystem::path dir =
-        std::filesystem::path(current.path).parent_path();
+        std::filesystem::path(mission.path).parent_path();
     const std::string campaign_name = dir.filename().string();
     if (campaign_name.empty()) {
         return std::nullopt;
     }
     try {
-        const Campaign campaign =
-            load_campaign((dir / (campaign_name + ".ini")).string());
-        for (std::size_t i = 0; i + 1 < campaign.missions.size(); ++i) {
-            if (campaign.missions[i].name == current.name) {
-                return campaign.missions[i + 1];
-            }
-        }
+        return load_campaign((dir / (campaign_name + ".ini")).string());
     } catch (const std::exception&) {
     }
     return std::nullopt;
+}
+
+std::optional<CampaignMission> next_campaign_mission(
+    const CampaignMission& current) {
+    const std::optional<Campaign> campaign = load_parent_campaign(current);
+    if (!campaign) {
+        return std::nullopt;
+    }
+    for (std::size_t i = 0; i + 1 < campaign->missions.size(); ++i) {
+        if (campaign->missions[i].name == current.name) {
+            return campaign->missions[i + 1];
+        }
+    }
+    return std::nullopt;
+}
+
+void write_campaign_unlock(const std::string& path, std::uint32_t mask) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        throw std::runtime_error("cannot write campaign unlock " + path);
+    }
+    const unsigned char bytes[4] = {
+        static_cast<unsigned char>(mask & 0xFF),
+        static_cast<unsigned char>((mask >> 8) & 0xFF),
+        static_cast<unsigned char>((mask >> 16) & 0xFF),
+        static_cast<unsigned char>((mask >> 24) & 0xFF),
+    };
+    out.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+    if (!out) {
+        throw std::runtime_error("short write to campaign unlock " + path);
+    }
 }
 
 Campaign load_campaign(const std::string& campaign_ini) {
