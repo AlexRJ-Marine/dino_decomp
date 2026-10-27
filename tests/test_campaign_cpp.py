@@ -66,7 +66,7 @@ def test_cpp_campaign_coverage():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (126 checks)" in result.stdout
+    assert "selftest: PASS (170 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -141,16 +141,101 @@ def test_cpp_campaign_mission_panel():
     assert "mission Cpg04_Mission1: success" not in result.stdout
 
 
-def _show_mission(tmp_path: Path, name: str, objectives: list[str]) -> Path:
-    """A minimal mission that includes the retail MissionBase.ini."""
+def _show_mission(
+    tmp_path: Path, name: str, objectives: list[str],
+    shows: list[str] | None = None,
+) -> Path:
+    """A minimal mission that includes the retail MissionBase.ini.
+
+    `shows` lands in `[SHOWS] Shows4`, the retail Cpg04 show group, so the
+    placed-show runtime has a mission catalog.
+    """
     base = (SCENARIO / "MissionBase.ini").as_posix()
     lines = ["[#INCLUDE]", f'FILE0="{base}"', "", "[BRIEFING]",
              'Title="&Cpg4_Mission3_Title"', "", "[OBJECTIVES]"]
     for i, objective in enumerate(objectives, start=1):
         lines.append(f'Objective{i}="{objective}"')
+    if shows:
+        joined = " ".join(shows)
+        lines += ["", "[SHOWS]", f'Shows4="{joined}"']
     path = tmp_path / f"{name}.ini"
     path.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
     return path
+
+
+def test_cpp_campaign_place_show_scheduled(tmp_path):
+    # SHOW-4: `--place-show` uses the mission `[SHOWS]` catalog and the
+    # retail hour-slot scheduler (show+0x100, spScheduleManager cursor).
+    # `--park-time 10:00` puts the clock on slot 1, `--show-duration 0`
+    # completes the performance on the first tick, and the judge fills the
+    # objective scores before the campaign tick reads them.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04 park data missing")
+    mission = _show_mission(
+        tmp_path,
+        "PlaceShowProbe",
+        ["happyshow holligan 40", "scientificshow 40 100",
+         "happydinoshow 1 2"],
+        shows=["Cpg4_Derby_1", "Cpg4_Derby_2"],
+    )
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--park-time", "10:00", "--show-duration", "0",
+        "--start-mission", str(mission),
+        "--place-show", "Cpg4_Derby_1:64,64",
+        "--show-participants", "Cpg4_Derby_1:0,1,2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "show catalog: 2 entries" in result.stdout
+    assert (
+        "show: placed Cpg4_Derby_1 at 64,64 slot=1 (10:00 AM) size=71x35"
+        in result.stdout
+    )
+    assert "show: Cpg4_Derby_1 participants=3" in result.stdout
+    assert (
+        "show schedule: Cpg4_Derby_1 slot=1 (10:00 AM) iterations=1 "
+        "participants=3 locked=0" in result.stdout
+    )
+    assert "show: Cpg4_Derby_1 finished round 1/1 at 10:00" in result.stdout
+    assert "mission objective 0 happyshow -> success" in result.stdout
+    assert "mission objective 1 scientificshow -> success" in result.stdout
+    assert "mission objective 2 happydinoshow -> success" in result.stdout
+    assert "mission PlaceShowProbe: success" in result.stdout
+
+
+def test_cpp_campaign_place_show_hour_and_iterations(tmp_path):
+    # `--show-hour` moves the slot (3 -> 12:00) and `--show-iterations 2`
+    # keeps the state machine repeating; each frame completes one round.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04 park data missing")
+    mission = _show_mission(
+        tmp_path, "PlaceShowHour", ["happydinoshow 200 2"],
+        shows=["Cpg4_Derby_1"],
+    )
+    result = _run(
+        "--frames", "4", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--park-time", "12:00", "--show-duration", "0",
+        "--start-mission", str(mission),
+        "--place-show", "Cpg4_Derby_1:64,64",
+        "--show-participants", "Cpg4_Derby_1:0,1,2",
+        "--show-hour", "Cpg4_Derby_1:3",
+        "--show-iterations", "Cpg4_Derby_1:2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "show: Cpg4_Derby_1 slot=3 (12:00 PM)" in result.stdout
+    assert "show: Cpg4_Derby_1 iterations=2" in result.stdout
+    assert "show: Cpg4_Derby_1 finished round 1/2 at 12:00" in result.stdout
+    assert "show: Cpg4_Derby_1 finished round 2/2 at 12:00" in result.stdout
 
 
 def test_cpp_campaign_show_objectives(tmp_path):

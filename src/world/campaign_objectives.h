@@ -70,6 +70,12 @@ struct CampaignShowState {
     std::vector<int> participant_hybrid;  // +0x1E4 per participant
 
     void add_score(int personality, float score);
+    // Replaces the vector with one zero entry per personality, matching the
+    // retail zero-filled `[show+0xEC]+0x6C` vector at placement
+    // (`FUN_00580f00` -> `FUN_00576860`).
+    void zero_scores(const std::vector<int>& personalities);
+    // Replaces an existing personality's score or appends a new entry.
+    void set_score(int personality, float score);
     bool score(int personality, float& out) const;
     float best_score() const;   // max over the vector (-1e9 when empty)
     float worst_score() const;  // min over the vector (+1e9 when empty)

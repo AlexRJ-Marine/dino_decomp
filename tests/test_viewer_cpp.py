@@ -684,7 +684,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (126 checks)" in result.stdout
+    assert "selftest: PASS (170 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():

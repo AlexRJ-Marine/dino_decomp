@@ -171,6 +171,24 @@ void CampaignShowState::add_score(int personality, float score) {
     profile_scores.push_back({personality, score});
 }
 
+void CampaignShowState::zero_scores(const std::vector<int>& personalities) {
+    profile_scores.clear();
+    profile_scores.reserve(personalities.size());
+    for (int personality : personalities) {
+        profile_scores.push_back({personality, 0.0f});
+    }
+}
+
+void CampaignShowState::set_score(int personality, float score) {
+    for (CampaignShowProfileScore& entry : profile_scores) {
+        if (entry.personality == personality) {
+            entry.score = score;
+            return;
+        }
+    }
+    profile_scores.push_back({personality, score});
+}
+
 bool CampaignShowState::score(int personality, float& out) const {
     for (const CampaignShowProfileScore& entry : profile_scores) {
         if (entry.personality == personality) {

@@ -72,6 +72,7 @@ add_executable(dino_viewer
     src/world/danger_grid.cpp
     src/world/campaign_objectives.cpp
     src/world/campaign_runtime.cpp
+    src/world/show_runtime.cpp
     src/world/port_save.cpp
     src/world/economy.cpp
 )

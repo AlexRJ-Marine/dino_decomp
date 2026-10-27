@@ -40,6 +40,7 @@
 #include "../world/danger_grid.h"
 #include "../world/campaign_objectives.h"
 #include "../world/campaign_runtime.h"
+#include "../world/show_runtime.h"
 #include "../world/port_save.h"
 #include "../world/economy.h"
 #include "../ui/menu.h"
@@ -157,6 +158,12 @@ struct Options {
     bool employee_info = false;
     std::string show_info_path;
     std::vector<std::string> show_specs;  // --show NAME[:IDX,IDX]
+    std::vector<std::string> place_show_specs;  // --place-show NAME[:X,Y]
+    std::vector<std::string> show_participant_specs;  // NAME:I,J
+    std::vector<std::string> show_hour_specs;         // NAME:SLOT
+    std::vector<std::string> show_iteration_specs;    // NAME:N
+    float show_duration_minutes = 30.0f;              // --show-duration
+    bool show_locked = false;                         // --show-locked
     std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
@@ -471,6 +478,20 @@ Options parse_args(int argc, char** argv) {
             opt.show_info_path = next("--show-info");
         } else if (arg == "--show") {
             opt.show_specs.push_back(next("--show"));
+        } else if (arg == "--place-show") {
+            opt.place_show_specs.push_back(next("--place-show"));
+        } else if (arg == "--show-participants") {
+            opt.show_participant_specs.push_back(
+                next("--show-participants"));
+        } else if (arg == "--show-hour") {
+            opt.show_hour_specs.push_back(next("--show-hour"));
+        } else if (arg == "--show-iterations") {
+            opt.show_iteration_specs.push_back(next("--show-iterations"));
+        } else if (arg == "--show-duration") {
+            opt.show_duration_minutes = static_cast<float>(
+                std::atof(next("--show-duration")));
+        } else if (arg == "--show-locked") {
+            opt.show_locked = true;
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
@@ -770,6 +791,12 @@ Options parse_args(int argc, char** argv) {
                 "  --employee-info      print the .bei employee profiles and exit\n"
                 "  --show-info PATH     print .shw show summaries and exit\n"
                 "  --show NAME[:I,J]    place a show arena with dino participants\n"
+                "  --place-show NAME[:X,Y] place a scheduled show (mission [SHOWS] catalog)\n"
+                "  --show-participants NAME:I,J assign imported dinos to a placed show\n"
+                "  --show-hour NAME:SLOT schedule a show at hour slot 1..10 (10:00..19:00)\n"
+                "  --show-iterations NAME:N performances per day for a placed show\n"
+                "  --show-duration MIN  performance length in park minutes (default 30)\n"
+                "  --show-locked        place shows closed to the public\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
@@ -2273,8 +2300,7 @@ struct PortShowSpec {
 };
 
 std::vector<PortShowSpec> parse_show_specs(
-    const std::vector<std::string>& specs, const std::string& asset_root) {
-    std::vector<PortShowSpec> shows;
+    const std::vector<std::string>& specs, const std::string& asset_root) {    std::vector<PortShowSpec> shows;
     for (const std::string& spec : specs) {
         const std::size_t colon = spec.find(':');
         PortShowSpec show;
@@ -2306,6 +2332,52 @@ std::vector<PortShowSpec> parse_show_specs(
         shows.push_back(std::move(show));
     }
     return shows;
+}
+
+// `NAME:V1,V2` test-hook argument used by --place-show / --show-participants
+// / --show-hour / --show-iterations.
+struct PortNameSpec {
+    std::string name;
+    std::vector<int> values;
+};
+
+PortNameSpec parse_name_spec(const std::string& spec) {
+    PortNameSpec out;
+    const std::size_t colon = spec.find(':');
+    out.name = spec.substr(0, colon);
+    if (colon == std::string::npos) {
+        return out;
+    }
+    const char* cursor = spec.c_str() + colon + 1;
+    while (*cursor != '\0') {
+        char* next = nullptr;
+        const long value = std::strtol(cursor, &next, 10);
+        if (next == cursor) {
+            ++cursor;
+            continue;
+        }
+        out.values.push_back(static_cast<int>(value));
+        cursor = next;
+    }
+    return out;
+}
+
+// Calendar label for a show hour slot: 1 -> 10:00 AM, 10 -> 07:00 PM.
+// The retail day starts at 9:00 (spScheduleManager ctor), and slot 0 is the
+// 9:00 hour, which has no show (the show window starts one hour later).
+std::string show_slot_text(int slot) {
+    if (slot < 1 || slot > 10) {
+        return "--:--";
+    }
+    const int hour = 9 + slot;
+    int display = hour % 12;
+    if (display == 0) {
+        display = 12;
+    }
+    char text[16];
+    std::snprintf(text, sizeof(text), "%02d:00 %s", display,
+                  hour < 12 ? "AM" : "PM");
+    return text;
 }
 
 // Free-game easy profile table (`FreeGame.ini` `[PROFILES]`):
@@ -3107,6 +3179,108 @@ int run_selftest() {
                                        exclusive_empty) ==
                   dino::ObjectiveVerdict::Success,
               "objective exclusive empty");
+    }
+
+    // Show runtime (`spScheduleManager` hour slots + show state machine).
+    {
+        dino::ShowCatalogEntry entry;
+        entry.stem = "Cpg4_Derby_1";
+        entry.name_id = "&cpg4_derby_1";
+        entry.judge_kind = 4;
+        entry.width = 71;
+        entry.height = 35;
+
+        std::vector<dino::ShowCatalogEntry> catalog = {entry};
+        check(dino::find_show_catalog_index(catalog, "Cpg4_Derby_1") == 0,
+              "show catalog stem");
+        check(dino::find_show_catalog_index(catalog, "cpg4_derby_1") == 0,
+              "show catalog name id bare");
+        check(dino::find_show_catalog_index(catalog, "&CPG4_DERBY_1") == 0,
+              "show catalog name id");
+        check(dino::find_show_catalog_index(catalog, "missing") == -1,
+              "show catalog miss");
+        check(dino::show_catalog_entry_matches(entry, "&cpg4_derby_1"),
+              "show catalog matches");
+
+        dino::ShowRuntime runtime;
+        const std::vector<int> profile_ids = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        const int first = runtime.place(entry, 10, 20, profile_ids);
+        check(first == 0, "show place index");
+        check(runtime.count() == 1, "show count");
+        const dino::ParkShow* placed = runtime.at(first);
+        check(placed != nullptr && placed->slot == 1, "show first free slot");
+        check(placed != nullptr && placed->cell_x == 10 &&
+                  placed->cell_y == 20,
+              "show placement cell");
+        check(placed != nullptr && placed->record.profile_scores.size() == 10,
+              "show zero-filled score vector");
+        check(placed != nullptr && placed->record.profile_scores[0].score ==
+                                       0.0f,
+              "show zero-filled score value");
+        check(placed != nullptr && placed->record.type == 4,
+              "show record type");
+
+        const int second = runtime.place(entry, 40, 20, profile_ids);
+        check(second == 1 && runtime.at(second)->slot == 2,
+              "show second slot");
+
+        check(runtime.set_slot(0, 5), "show set slot");
+        check(runtime.at(0)->slot == 5, "show slot value");
+        check(!runtime.set_slot(0, 11), "show slot range");
+        check(!runtime.set_iterations(0, 0), "show iteration range");
+        check(runtime.set_iterations(0, 2), "show set iterations");
+        check(runtime.set_participants(0, {3, 4}),
+              "show set participants");
+        check(runtime.at(0)->record.participants == 2,
+              "show participant count");
+
+        int judged = 0;
+        int completed = 0;
+        auto judge = [&](dino::ParkShow&) { ++judged; };
+        runtime.set_duration_minutes(5.0f);
+        // Hour 0 (9:00) has no show; hour 5 is the first scheduled one.
+        completed = runtime.tick(0, 0, false, 0.0, 60.0, judge);
+        check(completed == 0 && runtime.at(0)->state == 0,
+              "show not started before slot");
+        completed = runtime.tick(5, 0, false, 0.0, 60.0, judge);
+        check(completed == 0 && runtime.at(0)->state == 2,
+              "show started on slot hour");
+        check(judged == 0, "show judge waits for performance");
+        check(runtime.at(1)->state == 0, "show other slot idle");
+        // 2.5 park minutes at time_scale 60 -> half the 5-minute performance.
+        completed = runtime.tick(5, 0, false, 2.5, 60.0, judge);
+        check(completed == 0 && judged == 0, "show performance in progress");
+        completed = runtime.tick(5, 0, false, 2.5, 60.0, judge);
+        check(completed == 1 && judged == 1, "show performance judged");
+        check(runtime.at(0)->done == 1 && runtime.at(0)->state == 2,
+              "show first of two rounds");
+        completed = runtime.tick(5, 0, false, 5.0, 60.0, judge);
+        check(completed == 1 && runtime.at(0)->done == 2 &&
+                  runtime.at(0)->state == 0,
+              "show iterations complete");
+        // Next day: the schedule restarts from zero.
+        runtime.tick(5, 0, true, 0.0, 60.0, judge);
+        check(runtime.at(0)->done == 0 && runtime.at(0)->state == 0,
+              "show day reset");
+        completed = runtime.tick(5, 1, false, 0.0, 60.0, judge);
+        check(completed == 0 && runtime.at(0)->state == 2,
+              "show next day start");
+
+        dino::ShowRuntime full;
+        for (int i = 0; i < 10; ++i) {
+            check(full.place(entry, i, 0, profile_ids) == i,
+                  "show fill ten slots");
+        }
+        check(full.place(entry, 0, 0, profile_ids) == -1,
+              "show slots exhausted");
+        full.clear();
+        check(full.count() == 0, "show clear");
+
+        runtime.set_iterations(0, 1);
+        const std::vector<dino::CampaignShowState> states =
+            runtime.campaign_states();
+        check(states.size() == 2, "show campaign states");
+        check(states[0].participants == 2, "show campaign participants");
     }
 
     check(dino::aggregate_verdict({dino::ObjectiveVerdict::Success,
@@ -4042,6 +4216,10 @@ int main(int argc, char** argv) {
     dino::ui::Menu menu;
     bool menu_loaded = false;
     dino::ui::ParkHud park;
+    dino::ShowRuntime show_runtime;
+    std::vector<dino::ShowCatalogEntry> show_catalog;
+    bool show_placements_applied = false;
+    int pending_show_index = -1;
     const std::string campaign_dino_dat =
         opt.dino_dat_path.empty() ? "run/save/dino.dat" : opt.dino_dat_path;
     std::uint32_t campaign_unlock =
@@ -4153,6 +4331,20 @@ int main(int argc, char** argv) {
     auto start_campaign_mission = [&](const dino::CampaignMission& mission) {
         campaign_runtime.emplace();
         campaign_runtime->start(mission, park_clock.minutes());
+        show_runtime.clear();
+        show_runtime.set_duration_minutes(opt.show_duration_minutes);
+        show_catalog.clear();
+        show_placements_applied = false;
+        pending_show_index = -1;
+        try {
+            show_catalog = dino::load_show_catalog(opt.asset_root, mission,
+                                                   park.loc);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "show catalog: %s\n", e.what());
+        }
+        if (!show_catalog.empty()) {
+            std::printf("show catalog: %zu entries\n", show_catalog.size());
+        }
         last_mission_verdicts.assign(mission.objectives.size(),
                                      dino::ObjectiveVerdict::Pending);
         park.set_mission_verdicts(
@@ -5560,6 +5752,184 @@ int main(int argc, char** argv) {
     };
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
     std::vector<ImportedDino> imported_dinos;
+    // Judge pipeline shared by `--show` and the placed-show scheduler:
+    // FUN_00618020 five needs, dot with the active `.bvi` profile weights,
+    // clamp [-100,+100] per participant, max over participants, then
+    // [-130,+130] per profile.
+    auto sync_show_identity = [&](dino::CampaignShowState& show,
+                                  const std::vector<int>& participants) {
+        show.participant_ids.clear();
+        show.participant_hybrid.clear();
+        for (int index : participants) {
+            if (index < 0 ||
+                index >= static_cast<int>(imported_dinos.size())) {
+                continue;
+            }
+            show.participant_ids.push_back(index);
+            show.participant_hybrid.push_back(
+                imported_dinos[static_cast<std::size_t>(index)]
+                    .attributes.originality);
+        }
+        show.participants =
+            static_cast<int>(show.participant_ids.size());
+    };
+    auto fill_show_scores = [&](dino::CampaignShowState& show,
+                                const std::vector<int>& participants) {
+        sync_show_identity(show, participants);
+        if (all_visitor_profiles.empty()) {
+            try {
+                all_visitor_profiles =
+                    load_all_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
+            }
+        }
+        const std::vector<dino::VisitorProfile>& show_profiles =
+            all_visitor_profiles.empty() ? visitor_profiles
+                                         : all_visitor_profiles;
+        for (const dino::VisitorProfile& profile : show_profiles) {
+            float best = -1.0e9f;
+            for (int index : show.participant_ids) {
+                const auto needs = dino::dino_show_needs(
+                    imported_dinos[static_cast<std::size_t>(index)]
+                        .attributes,
+                    phenotype_table);
+                float dot = 0.0f;
+                for (std::size_t i = 0; i < needs.size(); ++i) {
+                    dot += needs[i] * profile.weights[i];
+                }
+                best = std::max(best, std::clamp(dot, -100.0f, 100.0f));
+            }
+            if (best > -1.0e8f) {
+                show.set_score(profile.personality_id,
+                               std::clamp(best, -130.0f, 130.0f));
+            }
+        }
+    };
+    // Applies the `--place-show` / `--show-participants` / `--show-hour` /
+    // `--show-iterations` hooks once, after the mission catalog is loaded and
+    // the imported dinosaurs exist. Interactive placement uses the same
+    // ShowRuntime entry points.
+    auto apply_show_specs = [&]() {
+        if (show_placements_applied) {
+            return;
+        }
+        show_placements_applied = true;
+        if (show_catalog.empty() && !opt.place_show_specs.empty()) {
+            std::printf("show: mission catalog is empty\n");
+            return;
+        }
+        if (all_visitor_profiles.empty()) {
+            try {
+                all_visitor_profiles =
+                    load_all_visitor_profiles(opt.asset_root);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
+            }
+        }
+        const std::vector<dino::VisitorProfile>& profiles =
+            all_visitor_profiles.empty() ? visitor_profiles
+                                         : all_visitor_profiles;
+        std::vector<int> profile_ids;
+        profile_ids.reserve(profiles.size());
+        for (const dino::VisitorProfile& profile : profiles) {
+            profile_ids.push_back(profile.personality_id);
+        }
+        for (const std::string& raw : opt.place_show_specs) {
+            const PortNameSpec spec = parse_name_spec(raw);
+            const int catalog_index =
+                dino::find_show_catalog_index(show_catalog, spec.name);
+            if (catalog_index < 0) {
+                std::printf("show: %s not in the mission catalog\n",
+                            spec.name.c_str());
+                continue;
+            }
+            int x = 64 + 8 * show_runtime.count();
+            int y = 64;
+            if (spec.values.size() >= 2) {
+                x = spec.values[0];
+                y = spec.values[1];
+            }
+            const int index = show_runtime.place(
+                show_catalog[static_cast<std::size_t>(catalog_index)], x, y,
+                profile_ids);
+            if (index < 0) {
+                std::printf("show: no free hour slot for %s\n",
+                            spec.name.c_str());
+                continue;
+            }
+            if (opt.show_locked) {
+                show_runtime.set_locked(index, true);
+            }
+            const dino::ParkShow* show = show_runtime.at(index);
+            std::printf(
+                "show: placed %s at %d,%d slot=%d (%s) size=%dx%d\n",
+                show->entry.stem.c_str(), show->cell_x, show->cell_y,
+                show->slot, show_slot_text(show->slot).c_str(),
+                show->entry.width, show->entry.height);
+        }
+        for (const std::string& raw : opt.show_participant_specs) {
+            const PortNameSpec spec = parse_name_spec(raw);
+            bool matched = false;
+            for (int i = 0; i < show_runtime.count(); ++i) {
+                dino::ParkShow* show = show_runtime.at(i);
+                if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
+                    continue;
+                }
+                matched = true;
+                show_runtime.set_participants(i, spec.values);
+                sync_show_identity(show->record, spec.values);
+                std::printf("show: %s participants=%zu\n",
+                            show->entry.stem.c_str(),
+                            show->participants.size());
+            }
+            if (!matched) {
+                std::printf("show: %s is not placed\n", spec.name.c_str());
+            }
+        }
+        for (const std::string& raw : opt.show_hour_specs) {
+            const PortNameSpec spec = parse_name_spec(raw);
+            if (spec.values.empty()) {
+                continue;
+            }
+            for (int i = 0; i < show_runtime.count(); ++i) {
+                dino::ParkShow* show = show_runtime.at(i);
+                if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
+                    continue;
+                }
+                if (show_runtime.set_slot(i, spec.values[0])) {
+                    std::printf("show: %s slot=%d (%s)\n",
+                                show->entry.stem.c_str(), show->slot,
+                                show_slot_text(show->slot).c_str());
+                }
+            }
+        }
+        for (const std::string& raw : opt.show_iteration_specs) {
+            const PortNameSpec spec = parse_name_spec(raw);
+            if (spec.values.empty()) {
+                continue;
+            }
+            for (int i = 0; i < show_runtime.count(); ++i) {
+                dino::ParkShow* show = show_runtime.at(i);
+                if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
+                    continue;
+                }
+                if (show_runtime.set_iterations(i, spec.values[0])) {
+                    std::printf("show: %s iterations=%d\n",
+                                show->entry.stem.c_str(), show->iterations);
+                }
+            }
+        }
+        for (int i = 0; i < show_runtime.count(); ++i) {
+            const dino::ParkShow* show = show_runtime.at(i);
+            std::printf(
+                "show schedule: %s slot=%d (%s) iterations=%d "
+                "participants=%zu locked=%d\n",
+                show->entry.stem.c_str(), show->slot,
+                show_slot_text(show->slot).c_str(), show->iterations,
+                show->participants.size(), show->locked ? 1 : 0);
+        }
+    };
     // Retail danger grid (`FUN_00589CD0`): cleared/stamped/recomputed once
     // per second from the live dinosaurs. The SECU need of every dinosaur
     // comes from the cell under its position (`FUN_00571440`).
@@ -9112,7 +9482,7 @@ int main(int argc, char** argv) {
                 return std::to_string(count);
             }
             if (name == "SHOW_AMOUNT") {
-                return "0";
+                return std::to_string(show_runtime.count());
             }
             if (name == "PADDOCK_AMOUNT") {
                 return std::to_string(park_paddocks.size());
@@ -10144,9 +10514,26 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (campaign_runtime && campaign_runtime->active()) {
+            apply_show_specs();
+        }
         if (park.loaded() && !start_screen) {
             park.update(dt);
             park_clock.advance(dt);
+            if (campaign_runtime && campaign_runtime->active()) {
+                const int hour_index = static_cast<int>(
+                    park_clock.elapsed * park_clock.hours_per_second());
+                show_runtime.tick(
+                    hour_index, park_clock.day, park_clock.end_of_day, dt,
+                    park_clock.time_scale, [&](dino::ParkShow& show) {
+                        fill_show_scores(show.record, show.participants);
+                        std::printf(
+                            "show: %s finished round %d/%d at %02d:%02d\n",
+                            show.entry.stem.c_str(), show.done,
+                            show.iterations, park_clock.hour(),
+                            park_clock.minute());
+                    });
+            }
             if (park_clock.new_hour && !employee_system.employees.empty()) {
                 const int assigned = employee_system.start_hour(
                     employee_profiles, food_sources, food_defs);
@@ -10261,61 +10648,14 @@ int main(int argc, char** argv) {
                     {static_cast<int>(def.category), connected});
             }
             mission_state.fence_count = static_cast<int>(paddocks.size());
-            // Show arenas: the port has no show-construction UI yet, so
-            // `--show NAME[:I,J]` places a retail `.shw` arena and assigns
-            // imported dinosaurs by index. The per-personality scores use the
-            // retail judge pipeline: `FUN_00618020` five needs, dot with the
-            // active visitor profile weights, clamped to [-100,+100], max over
-            // participants, then [-130,+130].
+            // Show arenas: `--show NAME[:I,J]` is the immediate-score test
+            // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
+            // per-performance scores arrive on the hour. Both use the retail
+            // judge pipeline in `fill_show_scores`.
             for (const PortShowSpec& spec : port_shows) {
                 dino::CampaignShowState show;
                 show.type = spec.type;
-                for (const int index : spec.participants) {
-                    if (index < 0 ||
-                        index >= static_cast<int>(imported_dinos.size())) {
-                        continue;
-                    }
-                    show.participant_ids.push_back(index);
-                    show.participant_hybrid.push_back(
-                        imported_dinos[static_cast<std::size_t>(index)]
-                            .attributes.originality);
-                }
-                show.participants =
-                    static_cast<int>(show.participant_ids.size());
-                // The retail score vector is per visitor-profile type; the
-                // global VisitorList.ini table has all ten. Load it lazily so
-                // a campaign park with no visitors still scores its shows.
-                if (all_visitor_profiles.empty()) {
-                    try {
-                        all_visitor_profiles =
-                            load_all_visitor_profiles(opt.asset_root);
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "all visitor profiles: %s\n",
-                                     e.what());
-                    }
-                }
-                const std::vector<dino::VisitorProfile>& show_profiles =
-                    all_visitor_profiles.empty() ? visitor_profiles
-                                                 : all_visitor_profiles;
-                for (const dino::VisitorProfile& profile : show_profiles) {
-                    float best = -1.0e9f;
-                    for (const int index : show.participant_ids) {
-                        const auto needs = dino::dino_show_needs(
-                            imported_dinos[static_cast<std::size_t>(index)]
-                                .attributes,
-                            phenotype_table);
-                        float dot = 0.0f;
-                        for (std::size_t i = 0; i < needs.size(); ++i) {
-                            dot += needs[i] * profile.weights[i];
-                        }
-                        best = std::max(best,
-                                        std::clamp(dot, -100.0f, 100.0f));
-                    }
-                    if (best > -1.0e8f) {
-                        show.add_score(profile.personality_id,
-                                       std::clamp(best, -130.0f, 130.0f));
-                    }
-                }
+                fill_show_scores(show, spec.participants);
                 if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
                     std::fprintf(stderr,
                                  "show %s type=%d participants=%d profiles=%zu\n",
@@ -10328,6 +10668,10 @@ int main(int argc, char** argv) {
                     }
                 }
                 mission_state.shows.push_back(std::move(show));
+            }
+            for (const dino::CampaignShowState& show :
+                 show_runtime.campaign_states()) {
+                mission_state.shows.push_back(show);
             }
             // Live trait snapshot. The objective slots are actor fields
             // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
