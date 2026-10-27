@@ -184,6 +184,24 @@ instead of guessing:
 The original menu cross-check is in `notes/ui-recon.md`; `tests/test_ui_map.py`
 pins the menu, HUD, save and campaign points used by the harness.
 
+## x64dbg version notes (2026.05.27)
+
+`scripts/setup-tools.ps1` installs x64dbg 2026.05.27. Two behaviours differ
+from the build the harness was written against:
+
+- It stops at TLS callbacks by default (`dinput8.dll` has two), so the
+  harness's fixed number of `run` commands left the game paused before its
+  window opened ("no main window handle"). `setup-tools.ps1` sets
+  `TlsCallbacks=0` in `headless\headless.ini`.
+- `log` drops the spaces from its text (`log PARKREADY fence={p:ecx}` prints
+  `PARKREADYfence=...`). Match marker words without trailing spaces; parsers
+  of older logs must accept both forms.
+
+Windows PowerShell 5.1 also prefixes the first stdin line sent to the
+debugger with a UTF-8 BOM; `start-campaign.ps1` sends a blank line first.
+`-FileTrace` on `start-campaign.ps1` logs every `CreateFileA` path (`CF_...`)
+during the park load.
+
 ## Verification
 
 The click sequence was exercised with the default `play-freegame.ps1`:

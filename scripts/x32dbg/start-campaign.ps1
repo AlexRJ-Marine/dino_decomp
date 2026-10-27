@@ -8,6 +8,7 @@ param(
     [switch]$UnlockCampaigns,
     [switch]$BuyDino,
     [switch]$SecuTrace,
+    [switch]$FileTrace,
     [switch]$PhysicalInput,
     [switch]$VirtualMouse,
     [int]$ParkTimeoutSec = 120,
@@ -134,6 +135,9 @@ function Send([string]$line) {
     $p.StandardInput.Flush()
 }
 
+# Windows PowerShell 5.1 prefixes the first stdin write with a UTF-8 BOM,
+# which x64dbg rejects as part of the command; let a blank line absorb it.
+Send ''
 Send 'bc'
 
 # Trace breakpoints are installed after the campaign/mission selection page,
@@ -470,6 +474,14 @@ if (-not $game) {
             Send 'bp 0x57dc60'
             Send 'SetBreakpointCommand 0x57dc60, "log PARKREADY fence={p:ecx}; bc 0x57dc60; run"'
         }
+        if ($FileTrace) {
+            # Every file the park load opens (CF_ = CreateFileA path), e.g.
+            # to find which textures draw roads (notes/road-construction-recon.md).
+            Send 'pause'
+            Start-Sleep -Milliseconds 400
+            Send 'bp CreateFileA'
+            Send 'SetBreakpointCommand CreateFileA, "log CF_{s:[esp+4]}; run"'
+        }
         Resume
 
         Write-Host "clicking Start"
@@ -477,8 +489,10 @@ if (-not $game) {
         Start-Sleep -Seconds 4
         Save-Window "campaign-loading"
         Write-Host "waiting for the park to load"
-        $parkPatterns = @('PARKREADY ')
-        if (-not $NoTrace) { $parkPatterns = @('FENCE ', 'DINORESET ') }
+        # x64dbg 2026.x drops the spaces from `log` text ("PARKREADYfence="),
+        # so match the marker words alone.
+        $parkPatterns = @('PARKREADY')
+        if (-not $NoTrace) { $parkPatterns = @('FENCE', 'DINORESET') }
         if (Wait-TraceMatch $parkPatterns $ParkTimeoutSec 'park') {
             # The world import finishes before the briefing panel opens.
             Start-Sleep -Seconds 4

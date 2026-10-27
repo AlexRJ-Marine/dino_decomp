@@ -11,6 +11,10 @@ $root = Split-Path $PSScriptRoot -Parent
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Push-Location $root
+# git writes informational warnings (e.g. core.autocrlf "LF will be replaced
+# by CRLF") to stderr; under "Stop" Windows PowerShell 5.1 turns those into
+# terminating errors. The exit codes below are the real checks.
+$ErrorActionPreference = "Continue"
 try {
     $dirtyReadOnly = & git status --porcelain -- original game
     if ($LASTEXITCODE -ne 0) { throw "git status failed" }
@@ -22,6 +26,7 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
     Pop-Location
+    $ErrorActionPreference = "Stop"
 }
 
 if (-not $SkipBuild) {

@@ -101,6 +101,26 @@ Step "x64dbg" { Test-Path (Get-X32dbgHeadless) } { Get-X32dbgHeadless } {
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $dest)
 }
 
+# The harness scripts resume the debuggee a fixed number of times (system and
+# entry breakpoints). Newer x64dbg also stops at TLS callbacks by default
+# (dinput8.dll has two), which leaves the game paused before its window opens.
+if ($Only -contains "x64dbg" -and (Test-Path (Get-X32dbgHeadless))) {
+    $ini = Join-Path (Split-Path (Get-X32dbgHeadless)) "headless\headless.ini"
+    New-Item -ItemType Directory -Force (Split-Path $ini) | Out-Null
+    $lines = if (Test-Path $ini) { @(Get-Content $ini) } else { @("[Events]") }
+    if ($lines -match '^TlsCallbacks=') {
+        $lines = $lines -replace '^TlsCallbacks=.*$', 'TlsCallbacks=0'
+    } elseif ($lines -contains "[Events]") {
+        $i = [array]::IndexOf($lines, "[Events]")
+        $tail = if ($i -lt $lines.Count - 1) { $lines[($i + 1)..($lines.Count - 1)] } else { @() }
+        $lines = $lines[0..$i] + "TlsCallbacks=0" + $tail
+    } else {
+        $lines += @("[Events]", "TlsCallbacks=0")
+    }
+    Set-Content $ini $lines -Encoding ASCII
+    Write-Host "[ OK ] x64dbg     headless TLS-callback breaks off ($ini)"
+}
+
 Write-Host ""
 Write-Host "Done. Next: .\scripts\build.ps1 -BuildDir build\<lane>, then .\scripts\check-env.ps1"
 if ($env:DINO_TOOLS) {
