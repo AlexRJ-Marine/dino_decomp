@@ -41,8 +41,8 @@ model/texture/sound viewer (met); community post published (pending).
 - Retail menu, park HUD, panels, store, save/load, dialogs, minimap, clock:
   working (`UI-0/1/2` partial, `SAVE-1`).
 - Audio: WAV, menu/park clicks and streamed island music (`AUDIO-1/2/3`).
-- Ending-video MPEG-1 decode and frame export (`VIDEO-1`); real-time playback
-  and audio remain.
+- Ending-video MPEG-1 decode, frame export and windowed playback (`VIDEO-1`);
+  MP2 audio and the intro movie remain.
 - Windowed/background test harness and the retail UI click map: done
   (`TOOL-1/2/3`); background input activation shim still open (`TOOL-4`).
 

@@ -48,3 +48,17 @@ def test_cpp_video_frame(tmp_path):
     assert image.size == (640, 480)
     # Frame 300 (12.5 s) is a real rendered scene, not a blank/black frame.
     assert len(image.getcolors(maxcolors=1_000_000)) > 1000
+
+
+def test_cpp_video_play(tmp_path):
+    out = tmp_path / "play.bmp"
+    result = _run(
+        "--play-video", str(VIDEO), "--video-play-start", "300",
+        "--video-play-frames", "1", "--width", "320", "--height", "240",
+        "--no-vsync", "--screenshot", str(out),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "video played: 1 frames" in result.stdout
+    image = Image.open(out).convert("RGB")
+    assert image.size == (640, 480)
+    assert len(image.getcolors(maxcolors=1_000_000)) > 1000

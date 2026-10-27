@@ -76,6 +76,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - VIDEO-2: windowed MPEG playback + CPGEND ending-video handoff (tennis.mpg)
 - 2026-10-27 - Store tail: MESSAGE_PANEL toast keeps the panel open; mission/free-game store catalogs
 - 2026-10-27 - VIDEO-1: PL_MPEG decoder, --video-info/--video-frame, tennis 640x480@24fps
 - 2026-10-27 - Campaign phase wrap-up: full suite 426 passed; roadmap/coverage updated
@@ -83,7 +84,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - Store 3D preview: selected Market dino rendered in DINO_ACHAT_SAVE_RENDER_VIEW
 - 2026-10-27 - CAMPAIGN-3 coverage: 77/89 objectives implemented, 12 pending (franck + shows)
 - 2026-10-27 - CAMPAIGN-3 hybriddinos: phenotype originality fills +0x1e4 (Cpg04 originality 80)
-- 2026-10-27 - CAMPAIGN-3 ornateddinos: 23-slot Part-6 dummy map exposed as ornament_count
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

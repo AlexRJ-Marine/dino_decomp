@@ -178,8 +178,8 @@ from the store gauge); scarcity is still empty. `--campaign-coverage` reports
 resumes it; the menu also resumes the campaign's stored mission from
 `run/save/campaign-progress.txt`. A successful mission advances to the next
 one in the campaign, the last mission shows the campaign ending text and
-writes the next unlock bit; the MPEG decoder/frame export is ported, while
-real-time ending-video playback remains open; show verbs stay pending.
+writes the next unlock bit; the MPEG decoder/playback is ported and `CPGEND`
+plays the ending video, while MP2 audio remains open; show verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them

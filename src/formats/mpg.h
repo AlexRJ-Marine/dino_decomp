@@ -28,4 +28,26 @@ MpgInfo probe_mpg(const std::string& path);
 // Decodes forward to `frame_index` and returns it as RGB. Audio is disabled.
 MpgFrame decode_mpg_frame(const std::string& path, int frame_index = 0);
 
+// Streaming decoder for real-time playback. One `next()` per video frame.
+class MpgStream {
+public:
+    MpgStream();
+    ~MpgStream();
+    MpgStream(const MpgStream&) = delete;
+    MpgStream& operator=(const MpgStream&) = delete;
+
+    bool open(const std::string& path, std::string& error);
+    void close();
+    int width() const;
+    int height() const;
+    double frame_rate() const;
+    double duration() const;
+    bool next(MpgFrame& frame);
+
+    struct Impl;
+
+private:
+    Impl* impl_ = nullptr;
+};
+
 }  // namespace dino

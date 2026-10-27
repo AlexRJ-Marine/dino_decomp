@@ -536,6 +536,34 @@ def test_cpp_campaign_franck_strange():
     assert "mission Cpg06_Mission4: success" in result.stdout
 
 
+def test_cpp_campaign_completion_video(tmp_path):
+    # Closing CPGEND on the final mission hands off to the ending video.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg02" / "Cpg02_Mission5.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg02/Cpg04 data missing")
+    unlock = tmp_path / "dino.dat"
+    unlock.write_bytes((0x02).to_bytes(4, "little"))
+    progress = tmp_path / "campaign-progress.txt"
+    result = _run(
+        "--frames", "3", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--visitors", "100",
+        "--visitor-satisfaction", "99", "--dino-dat", str(unlock),
+        "--campaign-progress", str(progress),
+        "--start-mission", str(mission),
+        "--auto-continue", "--video-play-frames", "1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "campaign complete: Cpg02 ending=" in result.stdout
+    assert "campaign video:" in result.stdout
+    assert "tennis.mpg" in result.stdout
+    assert "video played: 1 frames" in result.stdout
+    assert unlock.read_bytes() == b"\x06\x00\x00\x00"
+
+
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"

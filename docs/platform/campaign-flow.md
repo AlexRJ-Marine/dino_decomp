@@ -299,8 +299,9 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Ending-video playback: the MPEG-1 decoder and frame export are ported
-  (`video.md`); real-time playback/audio and the `CPGEND` handoff remain.
+- Ending-video playback: the MPEG-1 decoder, frame export and windowed
+  playback are ported (`video.md`); the final mission's `CPGEND` close plays
+  its `EndingVideo`. MP2 audio is still open.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
   for the started mission; campaign-tier row gating remains).
 - Decide the difficulty source (`mission+0x50`) and the cut `Cpg07` policy.

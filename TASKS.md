@@ -1399,7 +1399,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   resumes it (`--campaign-progress FILE` override); completion removes it.
 - [x] MPEG-1 decode + frame export (`--video-info`/`--video-frame`,
   `docs/platform/video.md`; PL_MPEG).
-- [ ] Real-time ending-video playback/audio and the `CPGEND` handoff.
+- [x] Windowed playback (`--play-video`) and the campaign `CPGEND`
+  ending-video handoff (Cpg02 -> `tennis.mpg`).
+- [ ] MP2 audio and the intro movie.
 - [x] Show the campaign mission index/count in `MISSION_PANEL_TITLE`
   (`1/4`; `notes/mission-panel-index.png`).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots

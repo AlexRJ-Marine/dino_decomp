@@ -133,6 +133,9 @@ struct Options {
     std::string video_frame_path;
     int video_frame_index = 0;
     std::string video_out_path;
+    std::string video_play_path;
+    int video_play_frames = 0;
+    int video_play_start = 0;
     std::string campaign_mission_path;
     std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
     std::string campaign_progress_path;  // current mission per campaign
@@ -402,6 +405,14 @@ Options parse_args(int argc, char** argv) {
             opt.video_frame_index = std::atoi(next("--video-frame-index"));
         } else if (arg == "--video-out") {
             opt.video_out_path = next("--video-out");
+        } else if (arg == "--play-video") {
+            opt.video_play_path = next("--play-video");
+        } else if (arg == "--video-play-frames") {
+            opt.video_play_frames =
+                std::atoi(next("--video-play-frames"));
+        } else if (arg == "--video-play-start") {
+            opt.video_play_start =
+                std::atoi(next("--video-play-start"));
         } else if (arg == "--campaign-mission") {
             opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--dino-dat") {
@@ -685,6 +696,9 @@ Options parse_args(int argc, char** argv) {
                 "  --campaign-coverage DIR  report implemented/pending objective verbs\n"
                 "  --video-info FILE    probe one MPEG ending video and exit\n"
                 "  --video-frame FILE   decode a video frame (with --video-frame-index/--video-out)\n"
+                "  --play-video FILE    play an MPEG ending video in the window\n"
+                "  --video-play-frames N  stop after N frames (test hook)\n"
+                "  --video-play-start N  skip N frames before playback\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
@@ -3425,6 +3439,7 @@ int main(int argc, char** argv) {
     std::map<std::string, std::string> campaign_progress =
         dino::load_campaign_progress(campaign_progress_path);
     std::string mission_panel_title;
+    std::string pending_ending_video;
 
     std::unordered_map<std::string, std::string> menu_sound_files;
     std::vector<std::string> menu_sound_names;
@@ -4473,6 +4488,129 @@ int main(int argc, char** argv) {
         glEnable(GL_DEPTH_TEST);
         glfns.UseProgram(0);
     };
+
+    auto play_video = [&](const std::string& path, int start_frame,
+                          int max_frames) -> bool {
+        dino::MpgStream video;
+        std::string video_error;
+        if (!video.open(path, video_error)) {
+            std::fprintf(stderr, "play video: %s\n", video_error.c_str());
+            return false;
+        }
+        std::printf("video play: %s %dx%d %.3f fps\n", path.c_str(),
+                    video.width(), video.height(), video.frame_rate());
+        for (int i = 0; i < start_frame; ++i) {
+            dino::MpgFrame skipped;
+            if (!video.next(skipped)) {
+                break;
+            }
+        }
+        bool video_running = true;
+        int played = 0;
+        dino::MpgFrame last_frame;
+        dino::Mesh video_quad_mesh;
+        GpuMesh video_quad;
+        GLuint video_texture = 0;
+        while (video_running) {
+            dino::MpgFrame frame;
+            if (!video.next(frame)) {
+                break;
+            }
+            last_frame = frame;
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_EVENT_QUIT ||
+                    (event.type == SDL_EVENT_KEY_DOWN &&
+                     event.key.key == SDLK_ESCAPE)) {
+                    video_running = false;
+                }
+            }
+            if (!video_running) {
+                break;
+            }
+            int view_w = 0;
+            int view_h = 0;
+            SDL_GetWindowSizeInPixels(window, &view_w, &view_h);
+            if (view_w <= 0 || view_h <= 0) {
+                break;
+            }
+            dino::Image image;
+            image.width = frame.width;
+            image.height = frame.height;
+            image.rgba.resize(
+                static_cast<std::size_t>(frame.width) * frame.height * 4);
+            for (std::size_t i = 0;
+                 i < static_cast<std::size_t>(frame.width) * frame.height;
+                 ++i) {
+                image.rgba[i * 4 + 0] = frame.rgb[i * 3 + 0];
+                image.rgba[i * 4 + 1] = frame.rgb[i * 3 + 1];
+                image.rgba[i * 4 + 2] = frame.rgb[i * 3 + 2];
+                image.rgba[i * 4 + 3] = 255;
+            }
+            const GLuint texture = upload_texture(image);
+            if (video_texture != 0) {
+                glDeleteTextures(1, &video_texture);
+            }
+            video_texture = texture;
+            const float scale = std::min(
+                static_cast<float>(view_w) / frame.width,
+                static_cast<float>(view_h) / frame.height);
+            const float quad_w = frame.width * scale;
+            const float quad_h = frame.height * scale;
+            video_quad_mesh = build_ui_quad(
+                (view_w - quad_w) * 0.5f, (view_h - quad_h) * 0.5f, quad_w,
+                quad_h, 0.0f, 0.0f, 1.0f, 1.0f, {255, 255, 255, 255});
+            glViewport(0, 0, view_w, view_h);
+            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            draw_ui_mesh(video_quad, video_quad_mesh, video_texture, 1.0f, 1,
+                         view_w, view_h);
+            SDL_GL_SwapWindow(window);
+            ++played;
+            if (max_frames > 0 && played >= max_frames) {
+                break;
+            }
+            const double rate =
+                video.frame_rate() > 0.0 ? video.frame_rate() : 24.0;
+            SDL_Delay(static_cast<Uint32>(std::max(1.0, 1000.0 / rate)));
+        }
+        if (!opt.screenshot.empty() && last_frame.width > 0) {
+            std::vector<std::uint8_t> rgba(
+                static_cast<std::size_t>(last_frame.width) *
+                    last_frame.height * 4,
+                255);
+            for (int y = 0; y < last_frame.height; ++y) {
+                const std::uint8_t* src =
+                    last_frame.rgb.data() +
+                    static_cast<std::size_t>(last_frame.height - 1 - y) *
+                        last_frame.width * 3;
+                std::uint8_t* dst =
+                    rgba.data() +
+                    static_cast<std::size_t>(y) * last_frame.width * 4;
+                for (int x = 0; x < last_frame.width; ++x) {
+                    dst[x * 4 + 0] = src[x * 3 + 0];
+                    dst[x * 4 + 1] = src[x * 3 + 1];
+                    dst[x * 4 + 2] = src[x * 3 + 2];
+                }
+            }
+            write_bmp(opt.screenshot, last_frame.width, last_frame.height,
+                      rgba);
+        }
+        std::printf("video played: %d frames\n", played);
+        video_quad.destroy(glfns);
+        if (video_texture != 0) {
+            glDeleteTextures(1, &video_texture);
+        }
+        return true;
+    };
+
+    if (!opt.video_play_path.empty()) {
+        if (!play_video(opt.video_play_path, opt.video_play_start,
+                        opt.video_play_frames)) {
+            return 1;
+        }
+        return 0;
+    }
 
     auto draw_menu = [&](int view_w, int view_h, int logical_w, int logical_h) {
         (void)logical_h;
@@ -6734,6 +6872,12 @@ int main(int argc, char** argv) {
     int park_budget = free_game_budgets[0];
     auto advance_campaign = [&]() {
         if (!pending_next_mission) {
+            if (!pending_ending_video.empty()) {
+                const std::string video = pending_ending_video;
+                pending_ending_video.clear();
+                std::printf("campaign video: %s\n", video.c_str());
+                play_video(video, 0, opt.video_play_frames);
+            }
             return;
         }
         const dino::CampaignMission next = *pending_next_mission;
@@ -9257,6 +9401,11 @@ int main(int argc, char** argv) {
                                 "campaign complete: %s ending=%s video=%s\n",
                                 campaign->name.c_str(), ending.c_str(),
                                 campaign->ending_video.c_str());
+                            if (!campaign->ending_video.empty()) {
+                                pending_ending_video = resolve_asset(
+                                    opt.asset_root,
+                                    "Data/Video/" + campaign->ending_video);
+                            }
                             const unsigned number =
                                 dino::campaign_number(campaign->name);
                             std::uint32_t next_mask = campaign_unlock;
