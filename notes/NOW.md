@@ -66,8 +66,11 @@ See `notes/lanes.md`. Default split:
 - TOOL-4: background menu interaction is solved (app-loop gate `0x4024db`
   -> `EB 0A`; cursor ring + frame offset). Level start resets to exclusive
   fullscreen; forcing `Windowed=1` removes the `Present` hang. Remaining: the
-  loading loop still never opens the world files (`FUN_00402460` never
-  returns from the park-start state) and retail still takes the foreground.
+  loading loop still never opens the world files and retail still takes the
+  foreground. New static map (`notes/park-load-static.md`): `Windowed=1` also
+  (a) skips the loading page, so `ParkSoundDB.ini` can be the last open, and
+  (b) enables the mcLib modal `MessageBoxA` reporter. A hidden error dialog is
+  now the prime suspect; probe `0x414091`/`0x423412`/`0x596e23`.
 
 ## Next actions
 
@@ -76,11 +79,11 @@ See `notes/lanes.md`. Default split:
 2. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-3. TOOL-4: the background menu path works end to end and level-start
-   fullscreen resets are forced windowed; decode the park-start state that
-   never returns from the loading screen loop (`app_data+0x20`, `0x29a` =
-   movie state). Until then, a `-PhysicalInput` approval is still the way to
-   run the P3 provider trace.
+3. TOOL-4: break on the three mcLib `MessageBoxA` sites
+   (`0x414091`/`0x423412`/`0x596e23`). If one hits, log the caption/text and
+   fix the underlying error; if none hits, bisect at `0x51cdc6` (audio ctor
+   returned), `0x403b1b` (park ctor returned), `0x51d42c` (world manager) and
+   `0x53da6e` (`walllist.ini`). See `notes/park-load-static.md`.
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent

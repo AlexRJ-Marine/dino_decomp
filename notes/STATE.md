@@ -457,6 +457,24 @@ Updated: 2026-10-26
     `tests/test_viewer_cpp.py::test_cpp_options_save_panel`,
     `test_cpp_port_save_roundtrip`,
     `test_cpp_options_save_and_load_buttons`.
+- SAVE-0/SAVE-2 complete: **retail `.sav` whole-file writer (Python + C++).**
+  - `tools/formats/sav_write.py` rebuilds header + world + catalog + simulation
+    byte-identically on every retail save; `tests/test_sav_write.py`.
+  - `src/formats/wld.*` retains `SavWorldRecords` (fences/shows with waypoints
+    and the repeated rect, animals, employees, buildings with links, visitors,
+    dinosaurs, flags), the park header/economy/schedule, visitors, dino store,
+    catalog, labs, AI lists, camera and tail. `write_sav_header`/`_world`/
+    `_catalog`/`_park_block`/`_simulation`/`_whole` re-serialize every byte;
+    no raw slice of the file is copied.
+  - CLI: `--sav-roundtrip FILE` prints `sav roundtrip: whole file identical`;
+    `--sav-write IN OUT [--sav-name NAME --sav-slot N]` emits a save (ASCII
+    rename, header-only change).
+  - Autosave detection uses the park header (0 manual / 3 auto), not the path.
+  - Evidence: `docs/formats/sav.md` ("C++ writer"), `notes/save-writer-handoff.md`,
+    `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip`,
+    `test_cpp_sav_write_rename`, `test_cpp_sav_write_cross_checked_by_python`.
+  - Open: retail acceptance (park-load stall, TOOL-4); the Options panel still
+    writes `.psav`.
 - UI-2 Phase D dialogs complete: **warning, request and campaign-end panels.**
   - `DIALOG_BACKGROUND` + one of `WARNING_PANEL`/`REQUEST_PANEL`/
     `CPGEND_PANEL`; `--warning`, `--request`, `--campaign-end`.

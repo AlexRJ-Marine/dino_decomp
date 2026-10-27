@@ -124,6 +124,7 @@ struct Options {
     std::string sav_write_path;
     std::string sav_name;
     int sav_slot = -1;
+    bool sav_force = false;
     bool wld_info = false;
     bool wld_park = false;
     bool import_dinos = true;
@@ -399,6 +400,8 @@ Options parse_args(int argc, char** argv) {
             opt.sav_name = next("--sav-name");
         } else if (arg == "--sav-slot") {
             opt.sav_slot = std::atoi(next("--sav-slot"));
+        } else if (arg == "--sav-force") {
+            opt.sav_force = true;
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--no-import-dinos") {
@@ -728,6 +731,7 @@ Options parse_args(int argc, char** argv) {
                 "  --sav-write IN OUT   rebuild a .sav and write it to OUT\n"
                 "  --sav-name NAME      save name for --sav-write (ASCII)\n"
                 "  --sav-slot N         save slot for --sav-write\n"
+                "  --sav-force          write even if the rebuild differs\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
@@ -3127,12 +3131,23 @@ int main(int argc, char** argv) {
 
     if (!opt.sav_roundtrip_path.empty()) {
         std::string error;
-        const bool ok = dino::sav_park_roundtrip(opt.sav_roundtrip_path,
-                                                 &error);
+        bool ok = false;
+        try {
+            ok = dino::sav_park_roundtrip(opt.sav_roundtrip_path, &error);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "sav read failed: %s\n", e.what());
+            return 2;
+        }
         std::printf("sav roundtrip: %s%s\n",
                     ok ? "whole file identical" : "sav MISMATCH",
                     error.c_str());
         if (!opt.sav_write_path.empty()) {
+            if (!ok && !opt.sav_force) {
+                std::fprintf(stderr,
+                             "sav write refused: rebuild differs (--sav-force "
+                             "to write anyway)\n");
+                return 1;
+            }
             try {
                 const std::string* new_name =
                     opt.sav_name.empty() ? nullptr : &opt.sav_name;
