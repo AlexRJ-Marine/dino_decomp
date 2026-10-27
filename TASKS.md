@@ -1376,20 +1376,22 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   writer checks (`threat=54`, `radius=7`); the port save round-trip is
   `test_cpp_port_save_danger_cache`. The normal-play grid becomes live once
   one of those actions completes (retail starts at 0).
-- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this still
-  needs the behavior-manager perception path. The chooser's per-action target
-  term is ported (`ActionTarget`/`ActionThreatProvider`,
-  `notes/dino-target-vtable-recon.md`); the `action+0x08` factory is
-  `FUN_00569640`/`FUN_0056a9a0` (one target per list, owner skip), while the
-  `behavior+0xf4`/`+0xb8`/`+0xc8` id-list producers remain. The action→clip premise is
-  resolved (`notes/action-clip-lead.md`: locomotion slot + element envmap
-  texture, no action table).
+- [ ] Visitor/obstacle reaction: **inert in this build.** The
+  `behavior+0xf4`/`+0xb8`/`+0xc8`/`+0x108` target id lists have no writer
+  (whole-image store census, `notes/perception-id-lists-recon.md`), so the
+  list-driven starters never fire. `0x521d10`/`0x521d80` and their direct
+  entry points remain the live path for the show/attraction controller. The
+  chooser target term is ported (`ActionTarget`/`ActionThreatProvider`,
+  `notes/dino-target-vtable-recon.md`); the factory is
+  `FUN_00569640`/`FUN_0056a9a0` (one target per list, owner skip). The
+  action→clip premise is resolved (`notes/action-clip-lead.md`: locomotion
+  slot + element envmap texture, no action table).
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
   `docs/platform/danger-grid.md`, `notes/dino-action-chooser-recon.md`,
-  `notes/dino-target-vtable-recon.md`, `notes/dinosaur-actions-recon.md`,
-  `docs/decomp/function-status.md`,
+  `notes/dino-target-vtable-recon.md`, `notes/perception-id-lists-recon.md`,
+  `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`,
   `notes/p3-dino-eat.png`, `notes/secu-grid-validation.txt`,
   `tools/recon/secu_grid_check.py`,
   `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,

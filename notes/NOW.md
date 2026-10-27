@@ -56,12 +56,14 @@ See `notes/lanes.md`. Default split:
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
   sources. The chooser's per-action target provider (`+0x14`) is ported
-  (`ActionTarget` + `ActionThreatProvider`); the factory that fills
-  `action+0x08` remains.
-- P3-PERCEPTION: visitor/obstacle reaction. Target policy `+0x14` ported,
-  factory `FUN_00569640`/`FUN_0056a9a0` resolved (one target per action list;
-  owner skip at vtable +0x0c; one-fill lag). Remaining: the `behavior+0xf4`/
-  `+0xb8`/`+0xc8` id-list producers and the reaction port.
+  (`ActionTarget` + `ActionThreatProvider`); `FUN_00569640`/`FUN_0056a9a0`
+  attach one target per action list (owner skip at `+0x0c`; one-fill lag).
+- P3-PERCEPTION: the visitor/obstacle reaction lists (`beh+0xf4`/`+0xb8`/
+  `+0xc8`) have **no writer in this build** (whole-image store census), so the
+  list-driven starters are inert. Target policy `+0x14` is ported; the live
+  entry points are the direct `start_visitor`/`start_dino(slot, block,
+  instance)` calls used by the show/attraction controller. See
+  `notes/perception-id-lists-recon.md`.
 - P3 rest: element bone/event overlay source and the visitor/obstacle
   perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -77,9 +79,9 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 perception: locate the `behavior+0xf4` / `+0xb8` / `+0xc8` id-list
-   producers (the `action+0x08` factory is `FUN_00569640`/`FUN_0056a9a0`),
-   then wire the decoded reaction starters (`0x521d10`/`0x521d80`).
+1. P3 perception: confirm the empty lists at `0x51fb2f` (one breakpoint in a
+   loaded park) or port the direct `start_visitor`/`start_dino` entry points
+   for the show/attraction controller; do not invent a list producer.
 2. SHOW-4: show construction UI and live judge/schedule loop (the score
    pipeline and objective verbs are done).
 3. SAVE-2 follow-up: the HUD `BUDGET_AMOUNT` cash is not park `+0x30` and is

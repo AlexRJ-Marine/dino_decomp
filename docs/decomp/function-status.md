@@ -161,10 +161,10 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00589cd0` | park-wide simulation step (1 s ticks, visitors, economy, shows) | decompiled (partial) | same |
 | `0x0051fab0` | `apBehaviorManager::Update` — perception, reactions, AI order | decompiled | same |
 | `0x00521b30` | `apDinosaurBehavior` constructor / state fields | decompiled | same |
-| `0x00521d80` / `0x00521d10` / `0x00521d60` | dinosaur reaction state transitions (1/2/idle) | decompiled | same |
+| `0x00521d80` / `0x00521d10` / `0x00521d60` | dinosaur reaction state transitions (1/2/idle); list-driven starters inert, direct entry points live | decompiled | `notes/perception-id-lists-recon.md` |
 | `0x005213f0` | behavior event callback; state 1 → 2 on target match | decompiled | same |
 | `0x00521760` / `0x00521790` | stop action / write target cell and insert path record | decompiled | same |
-| `0x0051fa10` / `0x0051f8d0` | dinosaur notify/attack and forced target reactions | decompiled | same |
+| `0x0051fa10` / `0x0051f8d0` | dinosaur notify/attack and forced-target passes; **inert** (no target-list writers) | decompiled | `notes/perception-id-lists-recon.md` |
 | `0x005f6fb0` | linear integer-vector `find` (begin, end, &value) | decompiled | same; not a visibility test |
 | `0x00522820` | `apVisitorBehavior::Update` — action dispatcher | decompiled | `docs/decomp/visitor-ai.md` |
 | `0x00522940` | visitor state transitions (choose/travel/use/leave) | decompiled | same |

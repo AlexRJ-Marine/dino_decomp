@@ -1,8 +1,12 @@
 # Visitor/obstacle perception reaction (`apBehaviorManager`)
 
-Status: **partial** — the notification/target-selection helpers and the two
-reaction starters are decoded; the target/policy `GetTarget` vtable slot and
-the list producers remain.
+Status: **superseded for the list path — the target id lists have no writer in
+this build** (`notes/perception-id-lists-recon.md`): `beh+0xb8`/`+0xc8`/
+`+0xf4`/`+0x108` are always empty, so the notification/selection bodies never
+run. The starters themselves (`0x521d10`/`0x521d80`) and their direct entry
+points remain usable by the show/attraction controller; the target policy
+`+0x14` is ported (`notes/dino-target-vtable-recon.md`). The older partial
+notes below are kept for the ABI.
 
 ## `FUN_0051fa10(behavior, actor, dt)` — dinosaur notification pass
 
