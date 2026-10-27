@@ -445,13 +445,25 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   (a ~53 KB `auto.sav` after a campaign park has list0 = 20 objects). The
   free-game writer covers only the empty form; `sav_graph.py` and the C++
   reader report the populated variant. Decoding and writing those lists is
-  open. `list0` starts `u32,u32,u32` (first record `63823, 517, 450`) then
-  four need-state bytes (`03 03 01 02` at `+0x0c`). The record is **packed**:
-  a u32 name byte-length sits unaligned at `+0x15` (`0x18` = 24 bytes) and the
-  UTF-16LE name starts at `+0x19` (`Ankylosaur1`). The bytes after the name
-  include repeated `[80,60,30]` int triples (the need thresholds). The 20
-  records match the world block's 20 dinosaurs; record length varies with the
-  name/state content.
+  open. The 20 `list0` records match the world block's 20 dinosaurs. The
+  **packed prefix is 0x19 bytes**:
+
+  ```text
+  +0x00 u32 object id        (first: 63823)
+  +0x04 u32 x                (517)
+  +0x08 u32 y                (450)
+  +0x0c u8  need_state[4]    (03 03 01 02)
+  +0x10 u16 need values[2]   (a9 01, c8 00)
+  +0x14 u8  flag             (0)
+  +0x15 u32 name byte length (0x18, includes the NUL)
+  +0x19 UTF-16LE name        ("Ankylosaur1\0")
+  ```
+
+  A variable tail follows the name; it starts with a u32 (0 in the sampled
+  records) then repeated `[80,60,30]` int triples. Tail lengths differ:
+  0x344 / 0x318 / 0x302 for the first three records, so the tail contains
+  variable state (likely action/needs arrays). Decoding the tail is the
+  remaining step; the prefix is enough to walk ids/positions/names.
 
 ## Writer round-trip (SAVE-0, Python)
 
