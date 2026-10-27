@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (81 checks)" in result.stdout
+    assert "selftest: PASS (83 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -70,6 +70,29 @@ def test_cpp_campaign_mission_objectives():
         "objective id=2 verb=dyingdinos args=5 "
         "desc=&Cpg4_Mission1_Objective3_Description"
     ) in result.stdout
+
+
+def test_cpp_campaign_isolated_success():
+    # Cpg01_Save.wld starts with no dinosaurs, so `isolateddinos 71` has no
+    # aggressive dino to reject (required count 0) and the mission completes
+    # with the treasury override. Cpg04's populated park keeps it pending.
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    wld = SCENARIO / "Cpg01" / "Cpg01_Save.wld"
+    mission = SCENARIO / "Cpg04" / "Cpg04_Mission1.ini"
+    if not isl01.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg01/Cpg04 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl01),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 isolateddinos -> success" in result.stdout
+    assert "mission objective 1 treasury -> success" in result.stdout
+    assert "mission objective 2 dyingdinos -> success" in result.stdout
+    assert "mission Cpg04_Mission1: success" in result.stdout
 
 
 def test_cpp_campaign_mission_panel():

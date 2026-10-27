@@ -1394,8 +1394,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] `connectedbuildings`/`notconnectedbuildings` from placed `.bbi`
   categories and path-touching footprints; Cpg01_Mission5 and Mission6
   complete on the Cpg04 park.
-- [ ] Port the remaining show/isolation verbs once shows and isolation tags
-  exist.
+- [x] `isolateddinos`: every aggressive dino alone in its paddock; Cpg04's
+  populated park stays pending, the empty Cpg01 park completes Mission1.
+- [ ] Port the remaining show verbs once the show runtime exists.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

@@ -2567,6 +2567,7 @@ int run_selftest() {
     trait.beauty = 80;
     trait.strangeness = 10;
     trait.ornament_count = 1;
+    trait.isolated = true;
     dino::DinoTraitState hungry = trait;
     hungry.food = 50;
     hungry.aggression = 0;
@@ -2637,6 +2638,15 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective connected fence");
+    check(dino::evaluate_objective(objective("isolateddinos 71"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective isolated dinos");
+    dino::CampaignState crowded = objective_state;
+    crowded.dinos[0].isolated = false;
+    check(dino::evaluate_objective(objective("isolateddinos 71"), crowded) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective isolated crowded");
     check(dino::evaluate_objective(objective("sizedagilitydinos 1 40"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -8702,6 +8712,35 @@ int main(int argc, char** argv) {
                 trait.stamina = dinosaur.attributes.stamina;
                 trait.intelligence = dinosaur.attributes.intelligence;
                 trait.beauty = dinosaur.attributes.beauty;
+                // Isolation: the dino is inside a paddock rectangle and no
+                // other imported dino shares that rectangle.
+                for (const dino::Paddock& paddock : paddocks) {
+                    const float x0 =
+                        static_cast<float>(std::min(paddock.rect.x0,
+                                                    paddock.rect.x1));
+                    const float x1 =
+                        static_cast<float>(std::max(paddock.rect.x0,
+                                                    paddock.rect.x1));
+                    const float y0 =
+                        static_cast<float>(std::min(paddock.rect.y0,
+                                                    paddock.rect.y1));
+                    const float y1 =
+                        static_cast<float>(std::max(paddock.rect.y0,
+                                                    paddock.rect.y1));
+                    if (dinosaur.x < x0 || dinosaur.x > x1 ||
+                        dinosaur.y < y0 || dinosaur.y > y1) {
+                        continue;
+                    }
+                    int occupants = 0;
+                    for (const ImportedDino& other : imported_dinos) {
+                        if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
+                            other.y <= y1) {
+                            ++occupants;
+                        }
+                    }
+                    trait.isolated = occupants <= 1;
+                    break;
+                }
                 mission_state.dinos.push_back(trait);
             }
             campaign_runtime->tick(dt, mission_state);

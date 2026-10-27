@@ -173,7 +173,7 @@ objective from their `.bei` role names; placed buildings fill
 are still empty. `DINOPSAV` stores the active mission id and `--load-port`
 resumes it; a successful mission advances to the next one in the campaign,
 while campaign completion/ending videos remain open;
-show/isolation verbs stay pending.
+show verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them

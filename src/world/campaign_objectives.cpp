@@ -251,6 +251,18 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
             return fed >= need ? ObjectiveVerdict::Success
                                : ObjectiveVerdict::Pending;
         }
+        case 18: {  // isolateddinos aggression_threshold (all aggressive alone)
+            // `0x568d20`: pattern[1] = +0xbc aggression, requiredCount -2
+            // selects every matching dino, then each is checked for an
+            // isolation tag. The port models that as "alone in its paddock".
+            const int threshold = arg_int(objective, 0, 99);
+            for (const DinoTraitState& dino : state.dinos) {
+                if (dino.aggression >= threshold && !dino.isolated) {
+                    return ObjectiveVerdict::Pending;
+                }
+            }
+            return ObjectiveVerdict::Success;
+        }
         case 19: {  // happyvisitors profile percent
             const int required = arg_int(objective, 1);
             bool any = false;

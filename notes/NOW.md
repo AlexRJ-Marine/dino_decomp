@@ -75,6 +75,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - CAMPAIGN-3 isolateddinos: aggressive dinos alone in their paddock; Cpg04 pending, empty Cpg01 completes Mission1
 - 2026-10-27 - CAMPAIGN-3 connectedbuildings: category map + path-touching footprints; Mission5/6 complete
 - 2026-10-26 - CAMPAIGN-3 hungrydinos: live food >= threshold; Cpg01_Mission7 completes with fed dinos
 - 2026-10-26 - CAMPAIGN-3 trait fields: +0x98 agility/+0x1e0 size class/+0x194 strangeness; sizedagilitydinos on Cpg04
@@ -82,7 +83,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - CAMPAIGN-3 mission advance: CPGEND success starts the next mission (Mission11 -> Mission12)
 - 2026-10-26 - CAMPAIGN-3 mission id in DINOPSAV: --load-port resumes the active mission
 - 2026-10-26 - Wire the store attribute gauges to DinoAttributes (10/11; ORIGINALITY awaits +0x194)
-- 2026-10-26 - CAMPAIGN-3 dino.dat unlock gating: locked campaign rows disabled, Cpg04 needs mask 0F
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

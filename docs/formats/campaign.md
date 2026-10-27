@@ -163,7 +163,7 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 15 | `franckstrangedinos` | `0x00569110` | age, score | `+0x1b0==1`, `+0x1b4==0`, `+0x190>=2`, `+0x6c<age`, `+0x3c>score` |
 | 16 | `employees` | `0x005665f0` | profile, count | never fails |
 | 17 | `hungrydinos` | `0x005689e0` | count, food | pattern[4] `+0x244` food; count -1 = every dino; mode 2 means food `>=` |
-| 18 | `isolateddinos` | `0x00568d20` | max | pattern[1] `+0xbc`, fail-list count (-2) |
+| 18 | `isolateddinos` | `0x00568d20` | min aggression | pattern[1] `+0xbc`; every aggressive dino must be isolated (alone in its enclosure) |
 | 19 | `happyvisitors` | `0x005665b0` | profile, percent | every visitor >= percent |
 | 20 | `keephappyvisitors` | `0x005665d0` | profile, percent | unused |
 | 21 | `carnivordinos` | `0x00568de0` | threshold | `+0x1b0==1`, `+0x70 < threshold` (unused) |

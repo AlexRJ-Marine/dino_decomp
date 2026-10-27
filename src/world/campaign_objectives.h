@@ -31,6 +31,8 @@ struct DinoTraitState {
     int beauty = 0;        // +0x40
     int strangeness = 0;   // +0x194
     int ornament_count = 0;  // non-empty slots in the 23-slot +0xE8 array
+    // `isolateddinos`: the aggressive dino is alone in its enclosure.
+    bool isolated = false;
 };
 
 struct CampaignVisitorState {
@@ -65,7 +67,7 @@ struct CampaignState {
 };
 
 // Evaluates one parsed objective. Verbs that need unported systems (shows,
-// isolation tags, the show/hybrid fields not yet in the port) return Pending.
+// the show/hybrid fields not yet in the port) return Pending.
 ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                                     const CampaignState& state);
 

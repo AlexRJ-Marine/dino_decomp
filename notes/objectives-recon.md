@@ -121,6 +121,11 @@ species only; `genotypedinos hypsilo 2` filters by species.
 the *rejected* list (dinos that do not match), which is then checked for
 isolation tags — hence "isolated" rather than "aggressive".
 
+Correction (2026-10-27, `0x568d20`): arg0 is written to pattern[1] and `-2`
+resolves to the **matched** count, so every dino with aggression >= arg0 goes
+through the isolation second phase; the port models isolation as "alone in its
+paddock".
+
 ### `FUN_00567190` — shows (ids 24/25/27)
 
 Signature `(objective, showType, profile, threshold, requiredCount,

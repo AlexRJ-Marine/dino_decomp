@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 00:11. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 00:15. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 36 open items.
 
@@ -82,7 +82,7 @@ Generated from `TASKS.md` on 2026-10-27 00:11. Do not edit; regenerate with `scr
 - [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
 - [ ] Show the ending videos.
-- [ ] Port the remaining show/isolation verbs once shows and isolation tags
+- [ ] Port the remaining show verbs once the show runtime exists.
 
 ## SIM-4: Economy and attractions
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once

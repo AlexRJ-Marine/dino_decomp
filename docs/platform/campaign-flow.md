@@ -88,10 +88,11 @@ CpgNN/CpgNN_Save.wld    initial park
   `happyvisitors` check and the 10-field trait verbs (`aggressivedinos`,
   `genotypedinos` species filter, `cutedinos`, `hybriddinos`, `speeddinos`,
   `staminadinos`, `cleverdinos`, `sizedagilitydinos`, `ornateddinos`,
-  `prettystrangedino`) plus `hungrydinos` (`-1 60` = every dino food >= 60)
-  and `connectedbuildings`/`notconnectedbuildings` (type -> `.bbi` category;
-  a path touching the footprint means connected). Show/isolation verbs stay
-  pending. The selftest covers the evaluator (81 checks).
+  `prettystrangedino`) plus `hungrydinos` (`-1 60` = every dino food >= 60),
+  `connectedbuildings`/`notconnectedbuildings` (type -> `.bbi` category;
+  a path touching the footprint means connected) and `isolateddinos`
+  (every aggressive dino alone in its paddock). Show verbs stay pending.
+  The selftest covers the evaluator (83 checks).
 - `src/world/campaign_runtime.{h,cpp}` drives a started mission: objective
   evaluation once per second, tri-state aggregate, stop on success/failure.
 - `--start-mission FILE` starts a mission in the loaded park, opens
@@ -133,7 +134,7 @@ CpgNN/CpgNN_Save.wld    initial park
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
   recomputed by the first runtime tick, not stored. Campaign-completion
   progression, the exact actor trait fields, ending videos and the remaining
-  show/isolation verbs are open.
+  show verbs are open.
 
 ## Verification recipes
 
@@ -277,7 +278,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_live_employees`,
   `test_cpp_campaign_sized_agility`,
   `test_cpp_campaign_hungry_objective`,
-  `test_cpp_campaign_connected_buildings`).
+  `test_cpp_campaign_connected_buildings`,
+  `test_cpp_campaign_isolated_success`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,
