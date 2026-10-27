@@ -111,6 +111,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - SAVE-2: campaign list0 typed + byte-identical Python/C++ round-trip (list1/2 open)
 - 2026-10-27 - SHOW-4: show catalog + placement + 10-slot hourly scheduler + live runtime (fast 334)
 - 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
@@ -118,8 +119,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
 - 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
 - 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
-- 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
-  (`SavEconomy`, `notes/budget-sav-rows.png`)
 
 ## Blockers
 
