@@ -1386,7 +1386,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FUN_00569640`/`FUN_0056a9a0` (one target per list, owner skip). The
   action→clip premise is resolved (`notes/action-clip-lead.md`: locomotion
   slot + element envmap texture, no action table).
-- **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
+- **Acceptance:** one dinosaur eats and sleeps. The visitor/obstacle
+  reaction is inert in retail (no list producers); the live reaction path is
+  the show/attraction controller's direct `start_visitor`/`start_dino`.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
   `docs/platform/danger-grid.md`, `notes/dino-action-chooser-recon.md`,
