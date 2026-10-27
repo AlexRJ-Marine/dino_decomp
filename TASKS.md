@@ -1792,9 +1792,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   0x19-byte prefix is `u32 id, u32 x, u32 y, u8 need_state[4], u16 need[2],
   u8 flag, u32 name_len, UTF-16LE name`; the variable tail starts with a u32
   (0) and four `[80,60,30]` triples, then five values (100/0); tails
-  0x344/0x318/0x302 for the first three records. Decode the variable tail and extend
-  `sav_graph.py`/the C++ reader/writer; `test_cpp_sav_park_roundtrip`
-  currently skips this class.
+  0x302..0x370 across the 20 records. Scanner:
+  `tools/formats/sav_campaign_scan.py` (`tests/test_sav_campaign_scan.py`).
+  The four `+0x0c` bytes range 0..4; their encoding is open. Decode the
+  variable tail and extend `sav_graph.py`/the C++ reader/writer;
+  `test_cpp_sav_park_roundtrip` currently skips this class.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 

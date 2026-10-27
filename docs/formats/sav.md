@@ -463,9 +463,11 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   (0) followed by four `[80,60,30]` int triples (the need thresholds), then
   five values (100 in the first dino, 0 in the next two). After that the tail
   is variable state (likely action/needs arrays); tail lengths are
-  0x344 / 0x318 / 0x302 for the first three records. Decoding the variable
-  part is the remaining step; the prefix is enough to walk
-  ids/positions/names.
+  0x302..0x370 across the 20 records. `tools/formats/sav_campaign_scan.py`
+  walks the list (ids 63823..63932, names `Ankylosaur1`..`Coelophysi2`) and
+  prints the prefix plus the tail length. The four bytes at `+0x0c` range
+  0..4 in the campaign records, so their exact "need state" encoding is still
+  open. Decoding the variable tail is the remaining step.
 
 ## Writer round-trip (SAVE-0, Python)
 
