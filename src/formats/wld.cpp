@@ -331,6 +331,11 @@ SavSimulation read_sav_simulation(const std::string& path) {
     const WldWorld world = read_sav_world(path);
     Reader r(data, world.world_end, data.size(), world.version, path);
     SavSimulation out;
+    const std::uint32_t name_len = read_u32(data, 8, "save name length");
+    const std::size_t world_start = 24 + name_len;
+    out.header_raw.assign(data.begin(), data.begin() + world_start);
+    out.world_raw.assign(data.begin() + world_start,
+                         data.begin() + world.world_end);
 
     auto skip_prefixed = [&](const char* what) {
         const std::uint32_t n = r.count(what, 1 << 20);
@@ -340,9 +345,19 @@ SavSimulation read_sav_simulation(const std::string& path) {
     // Show catalog: ASCII path, UTF-16 name, six parameters.
     const std::uint32_t shows = r.count("show catalog count", 10000);
     for (std::uint32_t i = 0; i < shows; ++i) {
-        skip_prefixed("show path");
-        skip_prefixed("show name");
-        r.skip(24, "show parameters");
+        SavShowEntry entry;
+        std::uint32_t n = r.count("show path", 1 << 20);
+        std::size_t at = r.offset();
+        entry.path.assign(data.begin() + at, data.begin() + at + n);
+        r.skip(n, "show path");
+        n = r.count("show name", 1 << 20);
+        at = r.offset();
+        entry.name.assign(data.begin() + at, data.begin() + at + n);
+        r.skip(n, "show name");
+        for (std::uint32_t& param : entry.params) {
+            param = r.count("show parameter", 0xFFFFFFFFu);
+        }
+        out.catalog.push_back(std::move(entry));
     }
 
     out.state_offset = r.offset();
@@ -686,6 +701,30 @@ std::vector<std::uint8_t> write_sav_simulation(
     return out;
 }
 
+std::vector<std::uint8_t> write_sav_catalog(
+    const SavSimulation& s) {
+    std::vector<std::uint8_t> out;
+    put_u32(out, static_cast<std::uint32_t>(s.catalog.size()));
+    for (const SavShowEntry& entry : s.catalog) {
+        put_u32(out, static_cast<std::uint32_t>(entry.path.size()));
+        out.insert(out.end(), entry.path.begin(), entry.path.end());
+        put_u32(out, static_cast<std::uint32_t>(entry.name.size()));
+        out.insert(out.end(), entry.name.begin(), entry.name.end());
+        for (std::uint32_t param : entry.params) put_u32(out, param);
+    }
+    return out;
+}
+
+std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s) {
+    std::vector<std::uint8_t> out = s.header_raw;
+    out.insert(out.end(), s.world_raw.begin(), s.world_raw.end());
+    const std::vector<std::uint8_t> catalog = write_sav_catalog(s);
+    out.insert(out.end(), catalog.begin(), catalog.end());
+    const std::vector<std::uint8_t> simulation = write_sav_simulation(s);
+    out.insert(out.end(), simulation.begin(), simulation.end());
+    return out;
+}
+
 bool sav_park_roundtrip(const std::string& path, std::string* error) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     const SavSimulation simulation = read_sav_simulation(path);
@@ -711,18 +750,16 @@ bool sav_park_roundtrip(const std::string& path, std::string* error) {
             return false;
         }
     }
-    const std::vector<std::uint8_t> simulation_bytes =
-        write_sav_simulation(simulation);
-    if (simulation.state_offset + simulation_bytes.size() != data.size()) {
-        *error = ": simulation length mismatch";
+    const std::vector<std::uint8_t> whole = write_sav_whole(simulation);
+    if (whole.size() != data.size()) {
+        *error = ": whole-file length mismatch";
         return false;
     }
-    for (std::size_t i = 0; i < simulation_bytes.size(); ++i) {
-        if (data[simulation.state_offset + i] != simulation_bytes[i]) {
+    for (std::size_t i = 0; i < whole.size(); ++i) {
+        if (data[i] != whole[i]) {
             char message[64];
             std::snprintf(message, sizeof(message),
-                          ": simulation first diff at 0x%zX",
-                          simulation.state_offset + i);
+                          ": whole-file first diff at 0x%zX", i);
             *error = message;
             return false;
         }

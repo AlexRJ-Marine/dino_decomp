@@ -109,6 +109,12 @@ struct SavDinoStoreEntry {
     std::vector<std::uint8_t> description;
 };
 
+struct SavShowEntry {
+    std::vector<std::uint8_t> path;   // ASCII, terminator included
+    std::vector<std::uint8_t> name;   // UTF-16LE, terminator included
+    std::array<std::uint32_t, 6> params{};
+};
+
 struct SavLabRecord {
     std::uint8_t flag = 0;
     std::array<std::pair<std::uint32_t, std::uint32_t>, 18> genes{};
@@ -142,6 +148,9 @@ struct SavSimulation {
     std::array<std::uint8_t, 12> schedule_trailer{};
     std::uint8_t schedule_final = 0;
     std::size_t state_offset = 0;
+    std::vector<std::uint8_t> header_raw;   // 0 .. world block
+    std::vector<std::uint8_t> world_raw;    // world block bytes
+    std::vector<SavShowEntry> catalog;
     std::vector<SavDinoStoreEntry> dino_store;
     std::array<int, 5> visitor_model{};
     std::vector<SavLabRecord> labs;
@@ -204,6 +213,8 @@ std::vector<std::uint8_t> write_sav_park_block(
     const SavSimulation& simulation);
 std::vector<std::uint8_t> write_sav_simulation(
     const SavSimulation& simulation);
+std::vector<std::uint8_t> write_sav_catalog(const SavSimulation& simulation);
+std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation);
 
 // Read a .sav, rebuild its park block and compare it with the file bytes.
 bool sav_park_roundtrip(const std::string& path, std::string* error);

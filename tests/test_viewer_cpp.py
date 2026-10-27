@@ -3193,7 +3193,7 @@ def test_cpp_sav_park_roundtrip():
             [str(EXE), "--sav-roundtrip", str(save), "--no-save-config"],
             capture_output=True, text=True, timeout=120)
         assert result.returncode == 0, result.stderr
-        assert "sav roundtrip: park+simulation identical" in result.stdout, result.stdout
+        assert "sav roundtrip: whole file identical" in result.stdout, result.stdout
         checked += 1
     if checked == 0:
         pytest.skip("retail saves not present")
