@@ -122,6 +122,16 @@ at the Start click (no `Present` after the resets). So the loader stalls
 `0x0051d29e`/`0x0051d34d` to see whether the TGA load or the display setup
 before the present is the last reached step.
 
+### Job 1 (2026-10-27): the LOAD GAME path stalls too
+
+`notes/harness/load-probe.ps1` drives menu-main `LOAD_GAME_BUTTON` (395,279)
+-> first slot row (409,280) -> `LOAD_LOAD_BUTTON` (354,525) with virtual input.
+All clicks land (`ui=5/5`), the device resets once to 800x600 R5G6B5 (forced
+windowed), then the sample counters freeze at `state_calls` ~4.2k. The
+save-load path therefore hits the same loading-screen stall as a new game
+(one reset instead of two), so loading `slot001.sav` is not a shortcut around
+`FUN_0051d1d0`.
+
 Evidence: `notes/harness/stack-probe.py` (module/EBP walk),
 `build/present-x32-1.out.log`, `build/probe-present-1.out.log`,
 `build/probe-present-2.out.log`, `build/probe-nullrect-1.out.log`,
