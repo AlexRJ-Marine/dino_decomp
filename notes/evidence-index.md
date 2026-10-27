@@ -38,6 +38,7 @@ add a row when a claim becomes something later work depends on.
 | Campaign list0 packed 0x19-byte prefix walker (20 records, tail 0x302..0x370) | `tools/formats/sav_campaign_scan.py`, `docs/formats/sav.md` | `tests/test_sav_campaign_scan.py` |
 | Campaign `list0` tail schema (`saDinosaur` save/load, `tail=0x2D1+threshold+tex+0x16*N`, path nodes, no length prefix) | `notes/campaign-list0-tail-recon.md`, `docs/formats/sav.md` | scanner walks all 20 records, `list0_end=0x6942`, `list1_count=2` |
 | Campaign `list0` typed model/writer round-trips all 20 records byte-identically | `tools/formats/sav_campaign.py`, `docs/formats/sav.md` | `tests/test_sav_campaign.py`; `--check` reports 17,168 bytes identical |
+| Campaign autosave rebuilds byte-identically through typed `list0`; `list1`+ tail kept verbatim | `tools/formats/sav_write.py --campaign`, `docs/formats/sav.md` | `tests/test_sav_campaign.py` (53,338-byte whole-file round-trip); world/catalog/roads also match on a campaign save |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |

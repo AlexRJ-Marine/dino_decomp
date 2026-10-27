@@ -16,6 +16,7 @@ from sav_campaign import (  # noqa: E402
     write_campaign_dino,
     write_campaign_list0,
 )
+from wld import read_sav_world  # noqa: E402
 
 
 def _sample() -> Path | None:
@@ -49,6 +50,12 @@ def test_campaign_list0_typed_roundtrip():
         raw = data[record.offset:record.offset + record.size]
         assert write_campaign_dino(record) == raw, f"record {index} differs"
 
+    # The simulation id is the world record's second dword (`+0x04`, exposed
+    # as field_1c), not the world record's primary object_id.
+    world = read_sav_world(campaign)
+    assert [d.field_1c for d in world.dinosaurs] == [
+        record.object_id for record in records]
+
     first = records[0]
     assert first.object_id == 63823
     assert first.name == "Ankylosaur1"
@@ -73,6 +80,26 @@ def test_campaign_list0_typed_roundtrip():
     assert (last.x, last.y) == (530, 379)
     assert last.node_count == 0
     assert last.size == 0x19 + len(last.name_bytes) + 0x302
+
+
+def test_campaign_whole_file_roundtrip():
+    """Header/world/catalog/roads/list0 rebuild; list1+ tail stays verbatim."""
+    campaign = _sample()
+    if campaign is None:
+        pytest.skip("campaign autosave not present")
+    from sav_write import rewrite_sav_campaign
+
+    original, rebuilt, list0_at = rewrite_sav_campaign(campaign)
+    assert list0_at == 0x2632
+    assert len(rebuilt) == len(original)
+    assert rebuilt == original
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "formats" / "sav_write.py"),
+         str(campaign), "--campaign"],
+        capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert ("byte-identical whole file (campaign list0) at 0x2632 "
+            "(53338 bytes)") in result.stdout
 
 
 def test_campaign_tool_check():

@@ -480,9 +480,16 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   `tools/formats/sav_campaign_scan.py` is the compact table view
   (`list0_end=0x6942`, `list1_count=2`). Full field map:
   `notes/campaign-list0-tail-recon.md`; tests: `tests/test_sav_campaign.py`.
-  Remaining: decode `list1`/`list2` and splice the typed `list0` into the C++
-  reader/writer. The four `+0x0c` bytes range 0..4; their exact state encoding
-  is still open.
+  The simulation object id is the world dinosaur record's **second dword**
+  (`WorldDinosaur::field_1c`; world `63822` -> list0 `63823`), not the world
+  record's primary `object_id`; the 20 ids pair one-to-one.
+  `python sav_write.py campaign.sav --campaign` rebuilds the header, world
+  block, show catalog, roads and all typed list0 records, then keeps
+  `list1`/`list2` and everything after them verbatim; the result is
+  byte-identical on `build/campaign-autosave.sav` (53,338 bytes). Remaining:
+  decode `list1`/`list2` and splice `SavCampaignDino` into the C++ reader/
+  writer. The four `+0x0c` bytes range 0..4; their exact state encoding is
+  still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed

@@ -1796,6 +1796,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Campaign `list0` model/writer: `tools/formats/sav_campaign.py` parses
   every field and re-encodes all 20 records byte-identically
   (`tests/test_sav_campaign.py`).
+- [x] Campaign whole-file Python round-trip through typed `list0`:
+  `sav_write.py --campaign` rebuilds header/world/catalog/roads/list0 and
+  keeps `list1`+ tail verbatim; byte-identical on the 53,338-byte sample.
 - [ ] Campaign writer: splice `SavCampaignDino`/`list0` into the C++ reader
   and writer, decode `list1`/`list2` (list1 count=2), then round-trip a
   campaign autosave; `test_cpp_sav_park_roundtrip` currently skips the class.

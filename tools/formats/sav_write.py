@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from sav import read_sav
+from sav_campaign import read_campaign_list0, write_campaign_list0
 from sav_graph import ParkState, read_sav_graph
 from wld import read_sav_world
 
@@ -263,6 +264,33 @@ def rewrite_sav_whole(path: Path) -> tuple[bytes, bytes, int]:
     return original, rebuilt, 0
 
 
+def rewrite_sav_campaign(path: Path) -> tuple[bytes, bytes, int]:
+    """Rebuild a campaign autosave through the typed ``list0``.
+
+    Header, world block, show catalog, roads and every ``saDinosaur`` record
+    are rebuilt from their models. The still-undecoded ``list1``/``list2``
+    and everything after them (visitors, park, store, lab, camera) are kept
+    verbatim, so a byte-identical result proves the typed writer's offsets and
+    lengths without pretending the remaining lists are decoded.
+    """
+    original = path.read_bytes()
+    save = read_sav(path)
+    world = read_sav_world(path)
+    state_offset = save.state_offset
+    if state_offset + 4 > len(original):
+        raise ValueError("campaign save has no simulation section")
+    road_count = struct.unpack_from("<I", original, state_offset)[0]
+    list0_at = state_offset + 4 + road_count * 16
+    if list0_at + 4 > len(original):
+        raise ValueError("campaign save has no list0 count")
+    count = struct.unpack_from("<I", original, list0_at)[0]
+    records, list0_end = read_campaign_list0(original, list0_at + 4, count)
+    rebuilt = (write_header(save) + write_world(world, save.version) +
+               write_catalog(save) + original[state_offset:list0_at] +
+               write_campaign_list0(records) + original[list0_end:])
+    return original, rebuilt, list0_at
+
+
 def rewrite_sav(path: Path) -> tuple[bytes, bytes, int]:
     """Rebuild the park block in `path`; return (original, rebuilt, offset)."""
     original = path.read_bytes()
@@ -290,9 +318,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="rebuild the whole simulation section")
     parser.add_argument("--whole", action="store_true",
                         help="rebuild header + world + catalog + simulation")
+    parser.add_argument("--campaign", action="store_true",
+                        help="rebuild a campaign autosave through typed list0")
     args = parser.parse_args(argv)
 
-    if args.whole:
+    if args.campaign:
+        rewrite = rewrite_sav_campaign
+    elif args.whole:
         rewrite = rewrite_sav_whole
     elif args.full:
         rewrite = rewrite_sav_full
@@ -304,7 +336,8 @@ def main(argv: list[str] | None = None) -> int:
     length_ok = len(original) == len(rebuilt)
     diff = first_diff(original, rebuilt)
     if length_ok and diff == len(original):
-        what = ("whole file" if args.whole
+        what = ("whole file (campaign list0)" if args.campaign
+                else "whole file" if args.whole
                 else "simulation" if args.full else "park block")
         print(f"{args.sav}: byte-identical {what} at 0x{offset:x} "
               f"({len(rebuilt)} bytes)")
