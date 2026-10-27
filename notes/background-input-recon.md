@@ -1,12 +1,13 @@
 # Background virtual input / activation trace
 
-Status: **menu interaction solved in the background; the world load blocks in
-`IDirect3DDevice8::Present`.** The scheduler tick was gated on the D3D8 device
-state, the mouse cursor readback used the wrong ring slot, and the WndProc
-shifted client coordinates by the window frame. All three are fixed: Free Game
--> IGUANO -> Easy -> Start now runs through the menu (click sounds,
-`menu_outcome.tga`, `loading_800x600.tga`, `ParkSoundDB.ini`). The park load
-then blocks inside `Present`, so the harness still cannot reach the park.
+Status: **menu interaction solved in the background; the park load still does
+not complete.** The scheduler tick was gated on the D3D8 device state, the
+mouse cursor readback used the wrong ring slot, and the WndProc shifted client
+coordinates by the window frame. All three are fixed: Free Game -> IGUANO ->
+Easy -> Start now runs through the menu (click sounds, `menu_outcome.tga`,
+`loading_800x600.tga`, `ParkSoundDB.ini`). Level start resets the device to
+exclusive fullscreen; forcing `Windowed=1` removes the Present hang, but the
+loading loop still never reaches the world files.
 
 ## 2026-10-27: menu works, world load blocks in Present
 
@@ -74,27 +75,35 @@ virtual mouse: ui mouse_down ... ui=(395,234)
 
 Evidence: `build/hook-probe-cursor-4.log`; `notes/harness/stack-probe.py`.
 
-### 4. Remaining blocker: first Present after the loading screen
+### 4. Level start resets to exclusive fullscreen; the load loop still stalls
 
-After `loading_800x600.tga` + `ParkSoundDB.ini` the main thread stops. Four
-stack samples 3 s apart (same ESP/EBP) show:
+After `loading_800x600.tga` + `ParkSoundDB.ini` the main thread stops making
+progress. Stack samples show it either inside `IDirect3DDevice8::Present`
+(`0x0040eb6a`, after `CALL [device_vtbl+0x3c]` in `FUN_0040eab0`) or cycling
+through the loading-screen draw/present code without opening another file.
+
+The Reset probe (`slot 14`, logged) shows why: at level start retail resets the
+device to **exclusive fullscreen**, twice:
 
 ```text
-EIP ntdll syscall stub <- user32 <- dgVoodoo/D3D9 frames <- 0x0040eb6a
-0x0040eb6a = instruction after CALL [device_vtbl+0x3c]  ; Present
-             in FUN_0040eab0 (loading-screen clear/draw/present)
+Reset 800x600 fmt=23 (R5G6B5)   count=1 ms=0 swap=1(DISCARD)
+      windowed=0 depth=1 flags=0x1(LOCKABLE) rate=75 interval=DEFAULT
+Reset 800x600 fmt=22 (X8R8G8B8) ... same ...
 ```
 
-The load is synchronous inside `FUN_00402460`, so while it is blocked the whole
-loop stops (input counters, `present_skipped` and file opens freeze).
-`DINO_SKIP_PRESENT=1` returns `S_OK` instead: the block then moves to a draw
-call (`0x00436420`, after `CALL [vtbl+0x11c]`), i.e. dgVoodoo's queue fills
-when nothing is presented. `PresentationModel = discard` (run-probe copy) and
-`DINO_PRESENT_NULL_RECTS=1` do not change it.
+Forcing `Windowed = 1` (and `rate = 0`) in the Reset hook under
+`DINO_FORCE_INPUT_ACTIVE` removes the hard Present block: the thread keeps
+cycling through Clear/Draw/Present and loader code instead of sitting in
+Present. `DINO_SKIP_PRESENT=1` is not a substitute (dgVoodoo's queue fills and
+a draw call blocks); `PresentationModel = discard` and null present rectangles
+do not help either.
 
-Next: find why this Present blocks while the menu's ~50k presents returned -
-device Reset/swap-chain parameters at level start, or the loading screen's
-presentation path - and either satisfy that condition or bypass it.
+The load itself is still not progressing: x32dbg `CreateFileA` breakpoints stay
+cold after `ParkSoundDB.ini` (no `.seq`, `.lnd`, `.mesh`, `.skin` opens) and the
+input counters stay frozen, i.e. `FUN_00402460` never returns from the
+park-start state. The app-update state machine (`app_data+0x20`; `0x29a` is the
+in-house MPEG/movie state) or the loading-screen progress field is the next
+thing to decode.
 
 Evidence: `notes/harness/stack-probe.py` (module/EBP walk),
 `build/present-x32-1.out.log`, `build/probe-present-1.out.log`,

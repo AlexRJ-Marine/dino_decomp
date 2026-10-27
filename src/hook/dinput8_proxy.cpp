@@ -852,6 +852,52 @@ HWND g_game_hwnd = nullptr;
 bool patch_vtable_entry(void** vtable, int index, void* replacement,
                         void** original);
 
+// Diagnostic: log every device Reset and the first Present after it. The park
+// load presents once and then blocks inside dgVoodoo; the Reset parameters
+// show whether the level-start path reconfigures the swap chain.
+using ResetFn = HRESULT(__stdcall*)(void*, void*);
+ResetFn g_real_reset = nullptr;
+bool g_reset_patched = false;
+volatile LONG g_reset_count = 0;
+volatile LONG g_reset_seen = 0;
+
+HRESULT __stdcall hook_reset(void* self, void* params) {
+    std::uint32_t copy[13] = {};
+    if (params != nullptr && !IsBadReadPtr(params, sizeof(copy))) {
+        std::memcpy(copy, params, sizeof(copy));
+        char line[256];
+        std::snprintf(line, sizeof(line),
+                      "force-active: D3D8 Reset %ux%u fmt=%u count=%u "
+                      "ms=%u swap=%u hwnd=%p windowed=%u depth=%u flags=0x%lx "
+                      "rate=%u interval=0x%lx",
+                      copy[0], copy[1], copy[2], copy[3], copy[4], copy[5],
+                      reinterpret_cast<void*>(copy[6]), copy[7], copy[8],
+                      static_cast<unsigned long>(copy[10]), copy[11],
+                      static_cast<unsigned long>(copy[12]));
+        log_line(line);
+        InterlockedIncrement(&g_reset_count);
+        if (force_input_active_enabled()) {
+            // Retail switches to exclusive fullscreen when a park starts
+            // (windowed=0). That is what activates the window and blocks the
+            // first Present in the background. Present the same back buffer
+            // as a windowed swap chain instead.
+            if (copy[7] == 0) {
+                copy[7] = 1;   // Windowed
+                copy[11] = 0;  // FullScreen_RefreshRateInHz must be 0
+                log_line("force-active: D3D8 Reset forced to windowed");
+            }
+            InterlockedExchange(&g_reset_seen, 1);
+            return g_real_reset != nullptr ? g_real_reset(self, copy) : E_FAIL;
+        }
+        InterlockedExchange(&g_reset_seen, 1);
+        return g_real_reset != nullptr ? g_real_reset(self, params) : E_FAIL;
+    }
+    log_line("force-active: D3D8 Reset params=0");
+    InterlockedIncrement(&g_reset_count);
+    InterlockedExchange(&g_reset_seen, 1);
+    return g_real_reset != nullptr ? g_real_reset(self, params) : E_FAIL;
+}
+
 // dgVoodoo's D3D8 Present blocks inside user32 when the game window is not
 // active (observed on the loading screen: EBP chain ends in the exe at
 // 0x0040eb6a, right after IDirect3DDevice8::Present slot +0x3c). That freezes
@@ -899,6 +945,16 @@ HRESULT __stdcall hook_present(void* self, const RECT* source, const RECT* dest,
         }
         return g_real_present(self, nullptr, nullptr, override_window, nullptr);
     }
+    if (InterlockedExchange(&g_reset_seen, 0) == 1) {
+        char line[192];
+        std::snprintf(line, sizeof(line),
+                      "force-active: first Present after Reset src=%p dst=%p "
+                      "dirty=%p window=%p",
+                      static_cast<const void*>(source),
+                      static_cast<const void*>(dest), dirty,
+                      static_cast<void*>(override_window));
+        log_line(line);
+    }
     return g_real_present != nullptr
                ? g_real_present(self, source, dest, override_window, dirty)
                : S_OK;
@@ -925,6 +981,12 @@ void patch_d3d8_present() {
                            reinterpret_cast<void**>(&g_real_present))) {
         g_present_patched = true;
         log_line("force-active: D3D8 Present patched");
+    }
+    if (!g_reset_patched &&
+        patch_vtable_entry(vtable, 14, reinterpret_cast<void*>(&hook_reset),
+                           reinterpret_cast<void**>(&g_real_reset))) {
+        g_reset_patched = true;
+        log_line("force-active: D3D8 Reset probe patched");
     }
 }
 

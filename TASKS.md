@@ -922,14 +922,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `state[1-slot]`. The UI cursor (`ViewManager+0x18/+0x1c`) is fed by
   `FUN_005bb4d0` after the WndProc adds the window frame offset; the shim
   subtracts it so the scripted client coordinate lands exactly.
-- [ ] Park load still blocks: after the loading screen and `ParkSoundDB.ini`
-  the main thread sits in `IDirect3DDevice8::Present`
-  (`0x0040eb6a`, `FUN_0040eab0`) inside dgVoodoo/user32/ntdll; the whole loop
-  (and the synchronous load in `FUN_00402460`) stops. Skipping Present moves
-  the block to a draw call (dgVoodoo queue), `PresentationModel=discard` and
-  null present rectangles do not help. Next: find why this Present blocks
-  while the menu's ~50k presents returned (device Reset / swap-chain
-  parameters at level start), or bypass the loading-screen present.
+- [x] Level-start fullscreen decoded: both park-start `Reset`s request
+  exclusive fullscreen (`800x600`, R5G6B5 then X8R8G8B8, `DISCARD`, count 1,
+  75 Hz, `LOCKABLE_BACKBUFFER`, `windowed=0`). Forcing `Windowed=1` and
+  `rate=0` in a Reset hook under `DINO_FORCE_INPUT_ACTIVE` removes the hard
+  `Present` block (the thread keeps drawing/presenting instead of sitting in
+  `Present`). Skipping Present is not a substitute (dgVoodoo's queue fills and
+  a draw call blocks).
+- [ ] The load loop still never finishes: after `ParkSoundDB.ini` x32dbg sees
+  no further file opens (no `.seq`/`.lnd`/`.mesh`/`.skin`) and `FUN_00402460`
+  never returns from the park-start state, so the input counters stay frozen.
+  Next: decode the app-update state machine (`app_data+0x20`; `0x29a` is the
+  in-house MPEG/movie state) or the loading-screen progress field that ends
+  the loop.
 - [ ] Starting a park brings the retail window to the foreground (dgVoodoo/D3D
   activation; `ShowWindow`/`SetWindowPos` IAT shims and `WS_EX_NOACTIVATE` did
   not stop it). Restore the previous foreground after such runs.
@@ -939,7 +944,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/background-input-recon.md`,
   `docs/platform/windowed-testing.md`, `notes/harness/stack-probe.py`,
   `build/scheduler-gate-3.out.log`, `build/present-x32-1.out.log`,
-  `build/probe-present-1.out.log`, `build/probe-nullrect-1.out.log`.
+  `build/probe-present-1.out.log`, `build/probe-reset-2.out.log`,
+  `build/windowed-x32-1.out.log`.
 
 ### TOOL-3: Retail UI click map for test planning
 - [x] Generate every interactive control from `MenuInterface.Ini`,
