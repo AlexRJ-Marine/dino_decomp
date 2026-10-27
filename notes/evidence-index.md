@@ -29,6 +29,7 @@ add a row when a claim becomes something later work depends on.
 | Mode-specific store catalog (`Market.ini`/`FreeGame.ini`/mission block) | `notes/store-panel-recon.md`, `docs/formats/market.md`, `notes/store-mission-catalog.png` | `test_cpp_store_catalog_mission`, `test_cpp_store_catalog_freegame` |
 | Daily economy settlement + per-visitor ticket | `docs/decomp/economy.md` | `tools/formats/economy.py`, `tests/test_economy.py` |
 | Retail `.sav` whole-file writer order (header, world, catalog, simulation) | `tools/formats/sav_write.py`, `src/formats/wld.*` (`write_sav_world`/`write_sav_whole`), `docs/formats/sav.md`, `notes/sav-retail-accept.png` | `tests/test_sav_write.py`, `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip` (byte-identical on every `run/`/`run-test/` save; `--sav-write` output re-parsed by the Python reference and loaded by retail), `test_cpp_sav_info` |
+| Saved camera tail applied on `--sav-park` (eye/target → orbit camera) | `docs/formats/sav.md` camera tail, `src/viewer/main.cpp` | `tests/test_viewer_cpp.py::test_cpp_sav_park_import`, `test_cpp_sav_park_auto_camera` |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |

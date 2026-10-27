@@ -7592,6 +7592,35 @@ int main(int argc, char** argv) {
         park_budget = sav_simulation.budget;
         park_clock.day = sav_simulation.day;
         park_clock.elapsed = sav_simulation.elapsed;
+        // Camera tail: eye[0..2], target[3..5], progress[6], reserved[7..9].
+        // The port's save reader retained it; apply it unless the CLI asked
+        // for an explicit camera.
+        if (opt.camera_target.empty() && opt.distance <= 0.0f) {
+            const auto& cam = sav_simulation.camera;
+            const float dx = cam[0] - cam[3];
+            const float dy = cam[1] - cam[4];
+            const float dz = cam[2] - cam[5];
+            const float horizontal = std::sqrt(dx * dx + dy * dy);
+            const float length =
+                std::sqrt(dx * dx + dy * dy + dz * dz);
+            if (length > 1e-4f) {
+                center = {cam[3], cam[4], cam[5]};
+                distance = length;
+                if (horizontal > 1e-4f) {
+                    yaw = std::atan2(dy, dx) * 180.0f / 3.14159265f;
+                }
+                pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
+                        180.0f / 3.14159265f;
+                if (free_camera) {
+                    enter_free_camera();
+                }
+                std::printf(
+                    "sav camera: eye=%.2f,%.2f,%.2f target=%.2f,%.2f,%.2f "
+                    "dist=%.2f yaw=%.2f pitch=%.2f\n",
+                    cam[0], cam[1], cam[2], cam[3], cam[4], cam[5],
+                    distance, yaw, pitch);
+            }
+        }
         // The budget panel reads the yesterday block (0x510430). Import it
         // from the save so a settled save shows its recorded rows; the
         // 0xBAADF00D fill from an un-settled save maps to 0.

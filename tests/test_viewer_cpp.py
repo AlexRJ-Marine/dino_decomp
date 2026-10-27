@@ -2408,8 +2408,31 @@ def test_cpp_sav_park_import(tmp_path):
     assert ("sav import: budget=75125 day=0 elapsed=23.214 visitors=2 "
             "paths=16 fences=0 buildings=1") in result.stdout
     assert "wld: placed 1/1 buildings" in result.stdout
+    # Camera tail: eye[0..2], target[3..5], progress[6].
+    assert ("sav camera: eye=551.00,512.00,84.70 target=512.00,512.00,32.00"
+            in result.stdout)
     image = Image.open(shot).convert("RGB")
     assert len(image.getcolors(maxcolors=1_000_000)) > 300
+
+
+def test_cpp_sav_park_auto_camera(tmp_path):
+    """The saved camera tail is applied for a non-default view."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
+    save = ROOT / "run" / "save" / "auto" / "slot001.sav"
+    if not isl01.exists() or not save.exists():
+        pytest.skip("retail isl01/auto save missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "1", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--sav-park", str(save),
+         "--no-import-dinos"],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    assert ("sav camera: eye=128.00,128.00,250.00 target=512.00,512.00,"
+            "50.00") in result.stdout
 
 
 def test_cpp_sav_ticket_value():
