@@ -3,7 +3,8 @@
 Status: **working** for the port's own park state. This is not the retail
 `.sav` layout (that parser is documented in `docs/formats/sav.md`); the port
 writes a small text file so the Options Save/Load panel can round-trip the
-scene between sessions.
+scene between sessions. A retail `.sav` writer exists as a tool
+(`dino_viewer --sav-write IN OUT`), but the Options panel still uses `.psav`.
 
 ## What is stored
 
@@ -133,8 +134,9 @@ action seconds.
 
 ## Open
 
-- The port save is not a retail `.sav` writer; retail parks are imported at
-  startup with `--sav-park`.
+- The port Options panel writes `.psav`, not retail `.sav`; retail parks are
+  imported at startup with `--sav-park`, and `--sav-write` can re-serialize a
+  retail save (see `docs/formats/sav.md`).
 - Visitor travel state/route and the dinosaur clip playback phase are stored
   (2026-10-26). A restored attraction index is still range-checked by the
   visitor update; a save whose building order changed falls back to
