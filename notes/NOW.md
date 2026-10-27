@@ -75,6 +75,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - CAMPAIGN-3 ornateddinos: 23-slot Part-6 dummy map exposed as ornament_count
 - 2026-10-27 - CAMPAIGN-3 mission title: MISSION_PANEL_TITLE shows the campaign mission index (1/4)
 - 2026-10-27 - CAMPAIGN-3 cross-restart progress: campaign-progress.txt resumes the stored mission from the menu
 - 2026-10-27 - CAMPAIGN-3 completion: last mission shows ending text and writes the next dino.dat unlock bit
@@ -82,7 +83,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - CAMPAIGN-3 connectedbuildings: category map + path-touching footprints; Mission5/6 complete
 - 2026-10-26 - CAMPAIGN-3 hungrydinos: live food >= threshold; Cpg01_Mission7 completes with fed dinos
 - 2026-10-26 - CAMPAIGN-3 trait fields: +0x98 agility/+0x1e0 size class/+0x194 strangeness; sizedagilitydinos on Cpg04
-- 2026-10-26 - Port +0x194 conventional appeal; all 11 store gauges now live (Allosaurus 0, Leoparus originality 67)
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

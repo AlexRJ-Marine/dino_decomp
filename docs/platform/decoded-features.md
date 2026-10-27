@@ -169,8 +169,8 @@ stamina, agility, intelligence, food); food also drives `hungrydinos`; the
 mapping is now the decoded one; strangeness is the phenotype conventional
 appeal (`+0x194`). Hired staff fill the `employees`
 objective from their `.bei` role names; placed buildings fill
-`connectedbuildings`/`notconnectedbuildings`. Hybrid/scarcity/ornaments
-are still empty. `DINOPSAV` stores the active mission id and `--load-port`
+`connectedbuildings`/`notconnectedbuildings`, and `ornateddinos` counts the
+23-slot Part-6 dummy map. Hybrid/scarcity are still empty. `DINOPSAV` stores the active mission id and `--load-port`
 resumes it; the menu also resumes the campaign's stored mission from
 `run/save/campaign-progress.txt`. A successful mission advances to the next
 one in the campaign, the last mission shows the campaign ending text and

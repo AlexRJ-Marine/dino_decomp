@@ -106,9 +106,10 @@ CpgNN/CpgNN_Save.wld    initial park
   size class, speed, stamina, agility, intelligence, food). Hired staff fill
   the `employees` objective from their `.bei` role names
   (`Nutritionist`/`Guard`); strangeness comes from the phenotype's
-  conventional appeal (`+0x194`); hybrid, scarcity and ornaments are still 0
-  and deaths are 0. Live buildings fill the connected-buildings objectives
-  (path touching the footprint).
+  conventional appeal (`+0x194`); hybrid and scarcity are still 0 and deaths
+  are 0. Live buildings fill the connected-buildings objectives
+  (path touching the footprint); `ornament_count` comes from the 23-slot
+  Part-6 dummy map (`ornateddinos`).
 - `CAMPAIGN_INFO_START_BUTTON` loads the campaign's `[LANDSCAPE] Island` and
   `[CONTEXT] WorldFile` through the same building/road/fence/dinosaur import
   as `--wld-park`, sets the starting budget from the campaign plus the
@@ -317,7 +318,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_connected_buildings`,
   `test_cpp_campaign_isolated_success`,
   `test_cpp_campaign_completion_unlock`,
-  `test_cpp_campaign_progress_resume`).
+  `test_cpp_campaign_progress_resume`,
+  `test_cpp_campaign_ornamented_dinos`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

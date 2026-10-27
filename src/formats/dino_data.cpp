@@ -832,6 +832,15 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         slot_row[22] = slot_row[17];
     }
 
+    // `ornateddinos`: the actor's 23-slot +0xE8 map is non-empty when any
+    // Part-6 dummy row is selected. The five duplicate slots count too.
+    out.ornament_count = 0;
+    for (const int row : slot_row) {
+        if (row > 0) {
+            ++out.ornament_count;
+        }
+    }
+
     std::array<float, 18> acc{};
     std::array<int, 18> pct{};
     pct.fill(100);

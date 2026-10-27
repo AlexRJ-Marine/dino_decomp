@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (83 checks)" in result.stdout
+    assert "selftest: PASS (84 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -435,6 +435,37 @@ def test_cpp_campaign_completion_unlock(tmp_path):
     assert unlock.read_bytes() == b"\x06\x00\x00\x00"
     # The finished campaign is removed from the progress file.
     assert "Cpg02" not in progress.read_text(encoding="utf-8")
+
+
+def test_cpp_campaign_ornamented_dinos(tmp_path):
+    # The 23-slot Part-6 dummy map is exposed as DinoAttributes::
+    # ornament_count. Cpg04 has two ornamented dinosaurs; a temp mission
+    # carrier checks the live field without needing Cpg05's bred park.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    base = SCENARIO / "MissionBase.ini"
+    if not isl04.exists() or not wld.exists() or not base.exists():
+        pytest.skip("retail Cpg04 data missing")
+    mission = tmp_path / "OrnamentTest.ini"
+    mission.write_text(
+        "[#INCLUDE]\n"
+        f'FILE0="{base.as_posix()}"\n'
+        "\n[OBJECTIVES]\n"
+        'Objective1="ornateddinos 2"\n'
+        'Objective1_Desc="Ornamented dinos"\n',
+        encoding="utf-8",
+    )
+    progress = tmp_path / "campaign-progress.txt"
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--campaign-progress", str(progress),
+        "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 ornateddinos -> success" in result.stdout
+    assert "mission OrnamentTest: success" in result.stdout
 
 
 def test_cpp_campaign_mission_success():

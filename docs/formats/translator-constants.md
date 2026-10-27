@@ -122,7 +122,8 @@ the 23 slots; `0x617250` adds them directly with the body-length ratio
 
 **Ported:** `src/formats/dino_data.cpp` reads Parts 4-9 and the Part 1
 dummy/skin/carapace allele tables, applies both passes plus the skin/carapace
-additions, and clamps with Part 9. All 20 Cpg04 ctor rows match exactly
+additions, and clamps with Part 9. The 23-slot Part-6 row map is also exposed
+as `DinoAttributes::ornament_count` (campaign `ornateddinos`). All 20 Cpg04 ctor rows match exactly
 (`test_cpp_cpg04_phenotype_attributes`). Negative Part 6-8 values are stored
 as their uint32 decimal form (e.g. `4294967293` = -3) and must wrap through
 `uint32_t`; a plain `strtol` saturates to `INT_MAX`.

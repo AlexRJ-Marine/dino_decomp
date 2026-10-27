@@ -1388,8 +1388,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Map the actor trait fields correctly: `+0x98` is agility, `+0x1e0`
   is the size class, and `+0x194` conventional appeal feeds strangeness.
   Evidence: `0x569040`/`0x567cb0`; `sizedagilitydinos` on the Cpg04 park.
-- [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
-  systems land.
+- [x] Fill `ornateddinos` from the 23-slot Part-6 dummy map
+  (`DinoAttributes::ornament_count`); Cpg04 has two ornamented dinos.
+- [ ] Fill hybrid (`+0x1e4`) and scarcity (`+0x1e8`) when their sources land.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
   (verdicts are derived again by the first tick).
 - [x] `hungrydinos -1 60` from the live food need; Cpg01_Mission7 completes

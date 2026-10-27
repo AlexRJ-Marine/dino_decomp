@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 00:38. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 00:44. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 34 open items.
 
@@ -79,7 +79,7 @@ Generated from `TASKS.md` on 2026-10-27 00:38. Do not edit; regenerate with `scr
 
 ## CAMPAIGN-3: Campaign menu start + live traits
 - [ ] Play the ending videos.
-- [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
+- [ ] Fill hybrid (`+0x1e4`) and scarcity (`+0x1e8`) when their sources land.
 - [ ] Port the remaining show verbs once the show runtime exists.
 
 ## SIM-4: Economy and attractions

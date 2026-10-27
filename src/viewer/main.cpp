@@ -2580,6 +2580,7 @@ int run_selftest() {
     dino::DinoTraitState hungry = trait;
     hungry.food = 50;
     hungry.aggression = 0;
+    hungry.ornament_count = 0;
     objective_state.dinos = {trait, hungry};
     check(dino::evaluate_objective(objective("aggressivedinos 1 80"),
                                    objective_state) ==
@@ -2668,6 +2669,10 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective ornated dinos");
+    check(dino::evaluate_objective(objective("ornateddinos 2"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective ornated count");
     check(dino::evaluate_objective(objective("prettystrangedino 70 20"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -5643,7 +5648,7 @@ int main(int argc, char** argv) {
                         stderr,
                         "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
                         "class=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
-                        "Atk=%d Ag=%d O=%d CA=%d St=%d Co=%d walk=%.3f run=%.3f "
+                        "Atk=%d Ag=%d O=%d CA=%d Orn=%d St=%d Co=%d walk=%.3f run=%.3f "
                         "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
                         "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f "
                         "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
@@ -5658,7 +5663,8 @@ int main(int argc, char** argv) {
                         attrs.intelligence, attrs.beauty, attrs.agility,
                         attrs.armor, attrs.attack_total, attrs.aggression,
                         attrs.originality, attrs.conventional_appeal,
-                        attrs.stamina, attrs.courage, attrs.walk_speed,
+                        attrs.ornament_count, attrs.stamina, attrs.courage,
+                        attrs.walk_speed,
                         attrs.run_speed, attrs.jump, attrs.weight_kg,
                         attrs.part_length[0], attrs.part_length[1],
                         attrs.part_length[2], attrs.part_length[3],
@@ -8806,6 +8812,8 @@ int main(int argc, char** argv) {
                 trait.size_class = dinosaur.attributes.size_class;
                 trait.strangeness =
                     dinosaur.attributes.conventional_appeal;
+                trait.ornament_count =
+                    dinosaur.attributes.ornament_count;
                 trait.speed = static_cast<int>(
                     dinosaur.attributes.walk_speed * 100.0f);
                 trait.stamina = dinosaur.attributes.stamina;

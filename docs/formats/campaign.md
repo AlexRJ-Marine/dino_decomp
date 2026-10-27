@@ -167,7 +167,7 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 19 | `happyvisitors` | `0x005665b0` | profile, percent | every visitor >= percent |
 | 20 | `keephappyvisitors` | `0x005665d0` | profile, percent | unused |
 | 21 | `carnivordinos` | `0x00568de0` | threshold | `+0x1b0==1`, `+0x70 < threshold` (unused) |
-| 22 | `ornateddinos` | `0x00568ef0` | count | dinos with a non-empty 23-slot `+0xE8` array |
+| 22 | `ornateddinos` | `0x00568ef0` | count | dinos with a non-empty 23-slot `+0xE8` dummy map; the port exposes `DinoAttributes::ornament_count` |
 | 23 | `cameraaltitude` | `0x00569230` | height | camera altitude >= height |
 | 24 | `happyshow` | `0x00567710` | profile, score | any show, profile score >= score |
 | 25 | `fightshow` | `0x005677b0` | score | fight show, hooligan score (unused) |

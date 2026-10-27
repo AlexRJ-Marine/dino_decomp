@@ -101,6 +101,7 @@ struct DinoAttributes {
     int obstacle_radius = 0;          // +0x80 (danger-grid stamp radius)
     int conventional_appeal = 0;      // +0x194 (conventional need input)
     int originality = 0;              // store ORIGINALITY/Strangeness gauge
+    int ornament_count = 0;           // non-empty slots in the 23-slot +0xE8 map
     int size_class = -1;              // +0x190
     int family = -1;                  // +0x1ac
     bool quadruped = true;            // +0x1b4
