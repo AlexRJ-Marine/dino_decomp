@@ -446,4 +446,9 @@ park header, the economy stream (writer `0x00585780`), the schedule tail
 (`0x00594cb0`), roads, the three empty lists, the 0x50-byte visitor
 records, the dino store (including the UTF-16/ASCII NUL terminators), the
 visitor model, lab records, AI lists, camera and tail. The header and
-world block are still copied raw and are the next slice.
+world block are still copied raw and are the next slice. The world
+writer needs two parser changes first: `wld.py` drops bytes a writer must
+reproduce (the 16-byte repeated placement rectangle in `_read_fence`,
+legacy show sub-records, and fields it synthesizes for version < 3 /
+< 0x25), so the model must retain those raw slices before `sav_write.py`
+can round-trip the prefix.
