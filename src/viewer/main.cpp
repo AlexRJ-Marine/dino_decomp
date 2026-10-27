@@ -120,6 +120,7 @@ struct Options {
     std::string building_path;
     std::string wld_path;
     std::string sav_park_path;
+    std::string sav_roundtrip_path;
     bool wld_info = false;
     bool wld_park = false;
     bool import_dinos = true;
@@ -386,6 +387,8 @@ Options parse_args(int argc, char** argv) {
             opt.sav_park_path = next("--sav-park");
             opt.wld_path = opt.sav_park_path;
             opt.build_mode = true;
+        } else if (arg == "--sav-roundtrip") {
+            opt.sav_roundtrip_path = next("--sav-roundtrip");
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--no-import-dinos") {
@@ -711,6 +714,7 @@ Options parse_args(int argc, char** argv) {
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
+                "  --sav-roundtrip FILE rebuild a .sav park block and compare bytes\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
@@ -3108,6 +3112,15 @@ int main(int argc, char** argv) {
         return run_campaign_mission_info(opt.campaign_mission_path);
     }
 
+    if (!opt.sav_roundtrip_path.empty()) {
+        std::string error;
+        const bool ok = dino::sav_park_roundtrip(opt.sav_roundtrip_path,
+                                                 &error);
+        std::printf("sav roundtrip: %s%s\n",
+                    ok ? "park identical" : "park MISMATCH",
+                    error.c_str());
+        return ok ? 0 : 1;
+    }
     if (opt.wld_info) {
         if (opt.wld_path.empty()) {
             std::fprintf(stderr, "--wld-info requires --wld FILE\n");

@@ -437,7 +437,141 @@ SavSimulation read_sav_simulation(const std::string& path) {
         out.economy.yesterday_sales[i] = eu(0xfe + i * 4);
         out.economy.yesterday_totals[i] = eu(0x132 + i * 4);
     }
+    out.park_offset = block;
+    out.park_class = read_u32(data, block + 0x00, "park class");
+    out.park_header_a = read_u32(data, block + 0x04, "park header a");
+    out.park_header_b = read_u32(data, block + 0x08, "park header b");
+    out.park_header_c = read_f32(data, block + 0x0c, "park header c");
+    for (std::size_t i = 0; i < out.park_reserved.size(); ++i) {
+        out.park_reserved[i] = data[block + 0x10 + i];
+    }
+    out.bankruptcy_flags[0] = data[e + 0x20];
+    out.bankruptcy_flags[1] = data[e + 0x21];
+    for (std::size_t i = 0; i < 2; ++i) {
+        out.cumulative_staff[i] = eu(0x166 + i * 4);
+        out.cumulative_food[i] = eu(0x16e + i * 4);
+        out.cumulative_secu[i] = eu(0x176 + i * 4);
+    }
+    for (int i = 0; i < 13; ++i) {
+        out.cumulative_revenue[i] = eu(0x17e + i * 4);
+        out.cumulative_sales[i] = eu(0x1b2 + i * 4);
+        out.cumulative_totals[i] = eu(0x1e6 + i * 4);
+    }
+    out.schedule_current = read_f32(data, block + 0x252, "schedule current");
+    out.schedule_field = read_u32(data, block + 0x256, "schedule field");
+    for (std::size_t i = 0; i < out.schedule_tasks.size(); ++i) {
+        out.schedule_tasks[i] =
+            read_u32(data, block + 0x25a + i * 4, "schedule task");
+    }
+    for (std::size_t i = 0; i < out.schedule_trailer.size(); ++i) {
+        out.schedule_trailer[i] = data[block + 0x286 + i];
+    }
+    out.schedule_final = data[block + 0x292];
     return out;
+}
+
+namespace {
+
+void put_u32(std::vector<std::uint8_t>& out, std::uint32_t value) {
+    for (int shift = 0; shift < 32; shift += 8) {
+        out.push_back(static_cast<std::uint8_t>(value >> shift));
+    }
+}
+
+void put_i32(std::vector<std::uint8_t>& out, int value) {
+    put_u32(out, static_cast<std::uint32_t>(value));
+}
+
+void put_f32(std::vector<std::uint8_t>& out, float value) {
+    union {
+        float f;
+        std::uint32_t u;
+    } conv;
+    conv.f = value;
+    put_u32(out, conv.u);
+}
+
+}  // namespace
+
+std::vector<std::uint8_t> write_sav_park_block(
+    const SavSimulation& s) {
+    std::vector<std::uint8_t> out;
+    out.reserve(0x293);
+    put_u32(out, s.park_class);
+    put_u32(out, s.park_header_a);
+    put_u32(out, s.park_header_b);
+    put_f32(out, s.park_header_c);
+    out.insert(out.end(), s.park_reserved.begin(), s.park_reserved.end());
+    put_u32(out, static_cast<std::uint32_t>(s.budget));
+    put_f32(out, s.economy.sellback);
+    put_i32(out, s.economy.food_total);
+    put_i32(out, s.economy.food_count);
+    put_i32(out, s.economy.secu_total);
+    put_i32(out, s.economy.secu_count);
+    put_i32(out, s.economy.ticket_total);
+    put_i32(out, s.economy.ticket_count);
+    out.push_back(s.bankruptcy_flags[0]);
+    out.push_back(s.bankruptcy_flags[1]);
+    put_i32(out, s.economy.staff_buckets[0]);
+    put_i32(out, s.economy.staff_buckets[1]);
+    for (int value : s.economy.shop_revenue) put_i32(out, value);
+    for (int value : s.economy.shop_sales) put_i32(out, value);
+    put_i32(out, s.economy.dinoachat_count);
+    put_i32(out, s.economy.dinoachat_total);
+    put_i32(out, s.economy.construction_count);
+    put_i32(out, s.economy.construction_total);
+    put_i32(out, s.economy.laboaction_count);
+    put_i32(out, s.economy.laboaction_total);
+    put_i32(out, s.economy.ventes_count);
+    put_i32(out, s.economy.ventes_total);
+    for (int value : s.economy.yesterday_staff) put_i32(out, value);
+    for (int value : s.economy.yesterday_food) put_i32(out, value);
+    for (int value : s.economy.yesterday_secu) put_i32(out, value);
+    for (int value : s.economy.yesterday_revenue) put_i32(out, value);
+    for (int value : s.economy.yesterday_sales) put_i32(out, value);
+    for (int value : s.economy.yesterday_totals) put_i32(out, value);
+    for (int value : s.cumulative_staff) put_i32(out, value);
+    for (int value : s.cumulative_food) put_i32(out, value);
+    for (int value : s.cumulative_secu) put_i32(out, value);
+    for (int value : s.cumulative_revenue) put_i32(out, value);
+    for (int value : s.cumulative_sales) put_i32(out, value);
+    for (int value : s.cumulative_totals) put_i32(out, value);
+    put_u32(out, static_cast<std::uint32_t>(s.day));
+    put_f32(out, s.elapsed);
+    put_f32(out, s.schedule_current);
+    put_u32(out, s.schedule_field);
+    for (std::uint32_t task : s.schedule_tasks) put_u32(out, task);
+    out.insert(out.end(), s.schedule_trailer.begin(), s.schedule_trailer.end());
+    out.push_back(s.schedule_final);
+    return out;
+}
+
+bool sav_park_roundtrip(const std::string& path, std::string* error) {
+    const std::vector<std::uint8_t> data = read_binary_file(path);
+    const SavSimulation simulation = read_sav_simulation(path);
+    if (!simulation.has_park) {
+        *error = ": no park block";
+        return false;
+    }
+    const std::vector<std::uint8_t> rebuilt = write_sav_park_block(simulation);
+    if (rebuilt.size() != 0x293) {
+        *error = ": rebuilt park block has the wrong size";
+        return false;
+    }
+    if (simulation.park_offset + rebuilt.size() > data.size()) {
+        *error = ": park block past EOF";
+        return false;
+    }
+    for (std::size_t i = 0; i < rebuilt.size(); ++i) {
+        if (data[simulation.park_offset + i] != rebuilt[i]) {
+            char message[64];
+            std::snprintf(message, sizeof(message), ": first diff at 0x%zX",
+                          simulation.park_offset + i);
+            *error = message;
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace dino

@@ -3177,3 +3177,23 @@ def test_cpp_port_save_paddocks_food(tmp_path):
     # The diet gene is saved too: the anky in paddock 0 stays herbivorous.
     assert "dino food: anky paddock=0 diet=herbivore source=none" in load.stdout
     assert "Eat score=9009 needs=20/90/50/90" in load.stdout
+
+def test_cpp_sav_park_roundtrip():
+    """The C++ park writer reproduces retail park blocks byte-for-byte."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    saves = [ROOT / "run" / "save" / "slot001.sav",
+             ROOT / "run" / "save" / "slot002.sav",
+             ROOT / "run" / "save" / "auto" / "slot001.sav"]
+    checked = 0
+    for save in saves:
+        if not save.exists():
+            continue
+        result = subprocess.run(
+            [str(EXE), "--sav-roundtrip", str(save), "--no-save-config"],
+            capture_output=True, text=True, timeout=120)
+        assert result.returncode == 0, result.stderr
+        assert "sav roundtrip: park identical" in result.stdout, result.stdout
+        checked += 1
+    if checked == 0:
+        pytest.skip("retail saves not present")

@@ -98,6 +98,27 @@ struct SavSimulation {
     std::vector<RoadRect> roads;
     std::vector<SavVisitor> visitors;
     SavEconomy economy;
+    // Park record header + schedule tail (writer order in
+    // tools/formats/sav_write.py). `park_offset` is the absolute file
+    // offset of the 0x293-byte block.
+    std::size_t park_offset = 0;
+    std::uint32_t park_class = 0;
+    std::uint32_t park_header_a = 0;
+    std::uint32_t park_header_b = 0;
+    float park_header_c = 0.0f;
+    std::array<std::uint8_t, 32> park_reserved{};
+    std::array<std::uint8_t, 2> bankruptcy_flags{};
+    std::array<int, 2> cumulative_staff{};
+    std::array<int, 2> cumulative_food{};
+    std::array<int, 2> cumulative_secu{};
+    std::array<int, 13> cumulative_revenue{};
+    std::array<int, 13> cumulative_sales{};
+    std::array<int, 13> cumulative_totals{};
+    float schedule_current = 0.0f;
+    std::uint32_t schedule_field = 0;
+    std::array<std::uint32_t, 11> schedule_tasks{};
+    std::array<std::uint8_t, 12> schedule_trailer{};
+    std::uint8_t schedule_final = 0;
     int budget = 0;
     int day = 0;
     float elapsed = 0.0f;
@@ -146,5 +167,13 @@ WldWorld read_sav_world(const std::string& path);
 // road rectangles, the three empty lists, the 0x50-byte visitor records and
 // the park block's budget/day/elapsed. Fences are in the world block.
 SavSimulation read_sav_simulation(const std::string& path);
+
+// Rebuild the 0x293-byte park record in retail writer order (see
+// tools/formats/sav_write.py).
+std::vector<std::uint8_t> write_sav_park_block(
+    const SavSimulation& simulation);
+
+// Read a .sav, rebuild its park block and compare it with the file bytes.
+bool sav_park_roundtrip(const std::string& path, std::string* error);
 
 }  // namespace dino
