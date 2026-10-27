@@ -56,9 +56,16 @@ struct SavVisitor {
     std::uint32_t object_id = 0;
     std::int32_t x = 0;
     std::int32_t y = 0;
+    std::uint32_t flags = 0;
+    std::uint32_t unknown_10 = 0;
     std::uint32_t state = 0;
+    float fx = 0.0f;
+    float fy = 0.0f;
     float dx = 0.0f;
     float dy = 0.0f;
+    std::uint32_t unknown_28 = 0;
+    std::uint32_t zero_2c = 0;
+    std::uint32_t visitor_id = 0;
     std::array<std::uint32_t, 7> needs{};
 };
 

@@ -374,9 +374,16 @@ SavSimulation read_sav_simulation(const std::string& path) {
         visitor.object_id = read_u32(data, rec, "visitor object id");
         visitor.x = read_i32(data, rec + 0x04, "visitor x");
         visitor.y = read_i32(data, rec + 0x08, "visitor y");
+        visitor.flags = read_u32(data, rec + 0x0c, "visitor flags");
+        visitor.unknown_10 = read_u32(data, rec + 0x10, "visitor +0x10");
         visitor.state = read_u32(data, rec + 0x14, "visitor state");
+        visitor.fx = read_f32(data, rec + 0x18, "visitor fx");
+        visitor.fy = read_f32(data, rec + 0x1c, "visitor fy");
         visitor.dx = read_f32(data, rec + 0x20, "visitor dx");
         visitor.dy = read_f32(data, rec + 0x24, "visitor dy");
+        visitor.unknown_28 = read_u32(data, rec + 0x28, "visitor +0x28");
+        visitor.zero_2c = read_u32(data, rec + 0x2c, "visitor +0x2c");
+        visitor.visitor_id = read_u32(data, rec + 0x30, "visitor id");
         for (std::size_t n = 0; n < visitor.needs.size(); ++n) {
             visitor.needs[n] =
                 read_u32(data, rec + 0x34 + n * 4, "visitor need");
