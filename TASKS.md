@@ -1375,16 +1375,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   writer checks (`threat=54`, `radius=7`); the port save round-trip is
   `test_cpp_port_save_danger_cache`. The normal-play grid becomes live once
   one of those actions completes (retail starts at 0).
-- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
-  still needs the behavior-manager perception path and the chooser's
-  per-action target term (policy vtable `+0x14`). The action→clip premise
-  is resolved (`notes/action-clip-lead.md`: locomotion slot + element
-  envmap texture, no action table).
+- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this still
+  needs the behavior-manager perception path. The chooser's per-action target
+  term is ported (`ActionTarget`/`ActionThreatProvider`,
+  `notes/dino-target-vtable-recon.md`); the factory that fills `action+0x08`
+  and the reaction target-list producers remain. The action→clip premise is
+  resolved (`notes/action-clip-lead.md`: locomotion slot + element envmap
+  texture, no action table).
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.
 - **Depends on:** SIM-2.
 - **Evidence:** `docs/decomp/dinosaur-actions.md`,
   `docs/platform/danger-grid.md`, `notes/dino-action-chooser-recon.md`,
-  `notes/dinosaur-actions-recon.md`, `docs/decomp/function-status.md`,
+  `notes/dino-target-vtable-recon.md`, `notes/dinosaur-actions-recon.md`,
+  `docs/decomp/function-status.md`,
   `notes/p3-dino-eat.png`, `notes/secu-grid-validation.txt`,
   `tools/recon/secu_grid_check.py`,
   `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,

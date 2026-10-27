@@ -291,3 +291,21 @@ contract it only needs the `(x, y)` pair per action target plus the actor's
    called with `p3 = 0`), so the linked/obstacle branch of the gate never fires
    for it - worth confirming at runtime with a trace of `0x0056da4e`.
 
+## 8. Port status
+
+Implemented in `src/world/dino_actions.*`:
+
+- `ActionTarget` (none/actor/box, `x`/`y` = -1 sentinel, radius, item index,
+  amount) and `chooser_threat_score(...)`, which uses the `FUN_00572dd0`
+  actor-threat-radius box (`|tx-x| <= r`, `|ty-y| <= r`) and the danger grid.
+- `ActionThreatProvider` on `choose_action` / `DinoActionLoopConfig`; the loop
+  calls it for every candidate before `score_action`.
+- Viewer: imported dinosaurs map `Eat`/`EatForSmallies` to the nearest stocked
+  food source (an inferred park target); other actions return 0. The factory
+  that fills `action+0x08` and the visitor/obstacle reaction nodes remain open.
+
+Tests: `--dino-actions` selftest prints `dino target box: -500`,
+`dino target actor: -40`, `dino target none: 0`, `dino choose threatbox: Eat
+8259` and `dino loop threat: Exploration`; `test_cpp_dino_action_chooser`
+guards them.
+

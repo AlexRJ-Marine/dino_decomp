@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 22:10. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 22:23. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 32 open items.
 
@@ -73,7 +73,7 @@ Generated from `TASKS.md` on 2026-10-27 22:10. Do not edit; regenerate with `scr
 
 ## SIM-3: Dinosaurs
 - [ ] Employee feeding (nutritionist schedule) and the exact `.bsi`
-- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
+- [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this still
 
 ## CAMPAIGN-3: Campaign menu start + live traits
 - [ ] MP2 audio and the intro movie.

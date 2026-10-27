@@ -256,19 +256,29 @@ on Cpg04: **862/862 SECU values over 45 rebuilds** match the grid formula,
 including damaged dinosaurs (`notes/x32dbg-secu6.out.log`,
 `tools/recon/secu_grid_check.py`).
 
-The chooser's separate threat term reads the action node's target position
-(policy vtable `+0x14`) and computes
-`threat = -cell(target) + cell(actor) - actor+0x2a0`, added as
-`need_term(SECU, threat/10)`. `FUN_00572DD0` is the target-inside-radius
-box test (`|tx-x| <= r && |ty-y| <= r`), not a world bounds test.
+The chooser's threat term is ported. `DinoActionLoop` accepts an optional
+`ActionThreatProvider`; `chooser_threat_score` implements the retail
+`node+0x3c` policy (`GetTarget` at vtable +0x14, `-1` = no target):
+
+```text
+threat = -cell(target)
+if (|tx - actor.x| <= actor+0x27c && |ty - actor.y| <= actor+0x27c)
+    threat += cell(actor) - actor+0x2a0
+score += need_term(SECU, threat / 10)
+```
+
+`FUN_00572DD0` is the actor-threat-radius box test (`|tx-x| <= r`), not a
+world bounds test. The vtable ABI and the three concrete classes (actor,
+box centre, no-target) are in `notes/dino-target-vtable-recon.md`. The viewer
+maps Eat/EatForSmallies to the nearest stocked food source (an inferred park
+target; the factory that fills `action+0x08` is still open). Selftest:
+`dino target box/actor/none` and `dino choose threatbox`.
 
 The completion writers are ported: `DinoActionLoop::finish_action` copies
 `DinoNeeds::combined_attack` (phenotype `+0x44`) into `threat` (`+0x2a0`) on
 GetCourage and `obstacle_radius` (phenotype `+0x80`) into `threat_radius`
 (`+0x27c`) on ObstAttackSize1. Imported/bought dinosaurs fill both sources
-from `DinoAttributes`; `DINOPSAV` persists the caches and sources. The
-chooser still passes `threat_score = 0` until the per-action target provider
-(policy vtable `+0x14`) is modelled. Details:
+from `DinoAttributes`; `DINOPSAV` persists the caches and sources. Details:
 `notes/dino-action-chooser-recon.md` ("Danger-grid population").
 
 ## Evidence

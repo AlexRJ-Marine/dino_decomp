@@ -55,10 +55,11 @@ See `notes/lanes.md`. Default split:
 - P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
-  sources. The chooser's per-action target provider (policy vtable `+0x14`)
-  remains.
+  sources. The chooser's per-action target provider (`+0x14`) is ported
+  (`ActionTarget` + `ActionThreatProvider`); the factory that fills
+  `action+0x08` remains.
 - P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
-  `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` open)
+  `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` ported)
 - P3 rest: element bone/event overlay source and the visitor/obstacle
   perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -74,18 +75,16 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 chooser target term: implement the decoded `+0x14` contract
-   (`notes/dino-target-vtable-recon.md`) as `ActionTarget` + a threat
-   provider in `DinoActionLoop`, and feed `score_action`'s `threat_score`.
-   Then run the provider trace in a loaded retail park.
-2. P3 perception: wire the visitor/obstacle reaction once the target
-   factory (`action+0x08`) is located; the reaction starters are decoded.
-3. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
+1. P3 perception: locate the factory that fills `action+0x08` and the
+   `behavior+0xf4` / actor known-target producers, then wire the decoded
+   visitor/obstacle reaction starters (`0x521d10`/`0x521d80`).
+2. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
    not park `+0x30`; `26000` occurs only as show 27's first parameter).
-4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+3. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
+- 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
 - 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
 - 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
 - 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
@@ -94,7 +93,6 @@ See `notes/lanes.md`. Default split:
   (`SavEconomy`, `notes/budget-sav-rows.png`)
 - 2026-10-27 - WORLD-3: water layers animate from FUN_00602fd0 (opposite 0.03/0.01 UV/s)
 - 2026-10-27 - WORLD-3: second Modulate2x water stage (water2 + coordinate set 1)
-- 2026-10-27 - TOOL-4: proxy-driven FUN_00524610 keeps background DirectInput polling and delivers every click; retail UI gate remains
 
 ## Blockers
 

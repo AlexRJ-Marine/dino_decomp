@@ -19,6 +19,7 @@ add a row when a claim becomes something later work depends on.
 | Visitor attraction score + needs decay | `docs/decomp/visitor-ai.md` | `tests/test_viewer_cpp.py::test_cpp_sim2b_visitor_state_machine` |
 | Employee tasks are the hourly feeding queue | `docs/decomp/employee-ai.md` | `notes/employee-ai-recon.md` |
 | Dinosaur chooser / `.bai` scoring | `docs/decomp/dinosaur-actions.md`, `notes/dino-action-chooser-recon.md` | `tests/test_viewer_cpp.py::test_cpp_dino_action_loop` |
+| Action-target policy (`node+0x3c` vtable +0x14: actor/box/no-target, threat box/radius) | `notes/dino-target-vtable-recon.md`, `docs/decomp/dinosaur-actions.md` | `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser` (`dino target box/actor/none`, `dino choose threatbox`) |
 | SECU danger grid (8-unit cells, once per second) | `docs/platform/danger-grid.md` | `tests/test_viewer_cpp.py::test_cpp_danger_grid_secu` |
 | GetCourage/ObstAttackSize1 cache writers + DINOPSAV tail | `docs/decomp/dinosaur-actions.md`, `docs/platform/danger-grid.md`, `notes/dino-cache-writers-recon.md` | `test_cpp_dino_action_chooser`, `test_cpp_port_save_danger_cache` |
 | Store attribute gauges (11 PROGRESS/INDICS, `+0x194` originality) | `notes/store-panel-recon.md`, `notes/phenotype-attributes-runtime.md`, `notes/store-gauges.png`, `notes/store-gauges-originality.png` | `test_cpp_store_attribute_gauges` |
