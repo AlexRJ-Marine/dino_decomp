@@ -3234,3 +3234,32 @@ def test_cpp_sav_write_rename(tmp_path):
         capture_output=True, text=True, timeout=120)
     assert check.returncode == 0, check.stderr
     assert "whole file identical" in check.stdout, check.stdout
+
+
+def test_cpp_sav_write_cross_checked_by_python(tmp_path):
+    """The C++-written save is accepted by the independent Python reference."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    sys.path.insert(0, str(ROOT / "tools" / "formats"))
+    from sav import read_sav
+    from sav_write import rewrite_sav_whole
+    from wld import read_sav_world
+
+    out_path = tmp_path / "cpp-renamed.sav"
+    result = subprocess.run(
+        [str(EXE), "--sav-write", str(save), str(out_path),
+         "--sav-name", "renamed", "--sav-slot", "3", "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+
+    parsed = read_sav(out_path)
+    assert parsed.version == 53
+    assert parsed.slot == 3
+    assert parsed.name == "renamed"
+    world = read_sav_world(out_path)
+    assert world.end == parsed.count_offset
+    original, rebuilt, _ = rewrite_sav_whole(out_path)
+    assert original == rebuilt
