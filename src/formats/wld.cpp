@@ -345,6 +345,7 @@ SavSimulation read_sav_simulation(const std::string& path) {
         r.skip(24, "show parameters");
     }
 
+    out.state_offset = r.offset();
     const std::uint32_t road_count = r.count("simulation road count", 10000);
     out.roads.reserve(road_count);
     for (std::uint32_t i = 0; i < road_count; ++i) {
@@ -474,6 +475,75 @@ SavSimulation read_sav_simulation(const std::string& path) {
         out.schedule_trailer[i] = data[block + 0x286 + i];
     }
     out.schedule_final = data[block + 0x292];
+
+    // Simulation tail after the park block: dino store, visitor model, lab
+    // slots, AI counts/entries, camera and the trailing bytes.
+    std::size_t o = block + 0x293;
+    auto tu32 = [&](const char* what) {
+        const std::uint32_t value = read_u32(data, o, what);
+        o += 4;
+        return value;
+    };
+    auto tf32 = [&](const char* what) {
+        const float value = read_f32(data, o, what);
+        o += 4;
+        return value;
+    };
+    auto tbytes = [&](std::uint32_t count, const char* what) {
+        if (o + count > data.size()) {
+            throw std::runtime_error(std::string("wld: truncated ") + what);
+        }
+        std::vector<std::uint8_t> bytes(data.begin() + o,
+                                        data.begin() + o + count);
+        o += count;
+        return bytes;
+    };
+    const std::uint32_t dino_count = tu32("dino store count");
+    for (std::uint32_t i = 0; i < dino_count; ++i) {
+        SavDinoStoreEntry entry;
+        entry.name = tbytes(tu32("dino name length"), "dino name");
+        entry.price = tu32("dino price");
+        entry.path = tbytes(tu32("dino path length"), "dino path");
+        entry.description =
+            tbytes(tu32("dino description length"), "dino description");
+        out.dino_store.push_back(std::move(entry));
+    }
+    for (int i = 0; i < 5; ++i) {
+        out.visitor_model[i] = static_cast<int>(tu32("visitor model"));
+    }
+    const std::uint32_t lab_count = tu32("lab count");
+    for (std::uint32_t i = 0; i < lab_count; ++i) {
+        SavLabRecord record;
+        record.flag = data[o++];
+        if (record.flag == 0) {
+            for (auto& gene : record.genes) {
+                gene.first = tu32("lab gene a");
+                gene.second = tu32("lab gene b");
+            }
+            record.name = tbytes(tu32("lab name length"), "lab name");
+        }
+        out.labs.push_back(std::move(record));
+    }
+    for (int i = 0; i < 5; ++i) {
+        out.ai_counts[i] = tu32("AI count");
+    }
+    std::string lower = path;
+    for (char& c : lower) c = static_cast<char>(std::tolower(c));
+    const bool auto_save = lower.find("auto") != std::string::npos;
+    if (!auto_save) {
+        for (std::uint32_t i = 0; i < out.ai_counts[4]; ++i) {
+            std::array<std::uint8_t, 17> entry{};
+            for (std::size_t b = 0; b < entry.size(); ++b) {
+                entry[b] = data[o + b];
+            }
+            o += entry.size();
+            out.ai_entries.push_back(entry);
+        }
+    }
+    for (int i = 0; i < 10; ++i) {
+        out.camera[i] = tf32("camera");
+    }
+    out.tail_extra.assign(data.begin() + o, data.end());
     return out;
 }
 
@@ -553,6 +623,69 @@ std::vector<std::uint8_t> write_sav_park_block(
     return out;
 }
 
+std::vector<std::uint8_t> write_sav_simulation(
+    const SavSimulation& s) {
+    std::vector<std::uint8_t> out;
+    put_u32(out, static_cast<std::uint32_t>(s.roads.size()));
+    for (const RoadRect& road : s.roads) {
+        put_i32(out, road.x0);
+        put_i32(out, road.y0);
+        put_i32(out, road.x1);
+        put_i32(out, road.y1);
+    }
+    for (int i = 0; i < 3; ++i) put_u32(out, 0);
+    put_u32(out, static_cast<std::uint32_t>(s.visitors.size()));
+    for (const SavVisitor& v : s.visitors) {
+        put_u32(out, v.object_id);
+        put_i32(out, v.x);
+        put_i32(out, v.y);
+        put_u32(out, v.flags);
+        put_u32(out, v.unknown_10);
+        put_u32(out, v.state);
+        put_f32(out, v.fx);
+        put_f32(out, v.fy);
+        put_f32(out, v.dx);
+        put_f32(out, v.dy);
+        put_u32(out, v.unknown_28);
+        put_u32(out, v.zero_2c);
+        put_u32(out, v.visitor_id);
+        for (std::uint32_t need : v.needs) put_u32(out, need);
+    }
+    put_u32(out, 1);
+    const std::vector<std::uint8_t> park = write_sav_park_block(s);
+    out.insert(out.end(), park.begin(), park.end());
+    put_u32(out, static_cast<std::uint32_t>(s.dino_store.size()));
+    for (const SavDinoStoreEntry& entry : s.dino_store) {
+        put_u32(out, static_cast<std::uint32_t>(entry.name.size()));
+        out.insert(out.end(), entry.name.begin(), entry.name.end());
+        put_u32(out, entry.price);
+        put_u32(out, static_cast<std::uint32_t>(entry.path.size()));
+        out.insert(out.end(), entry.path.begin(), entry.path.end());
+        put_u32(out, static_cast<std::uint32_t>(entry.description.size()));
+        out.insert(out.end(), entry.description.begin(), entry.description.end());
+    }
+    for (int value : s.visitor_model) put_i32(out, value);
+    put_u32(out, static_cast<std::uint32_t>(s.labs.size()));
+    for (const SavLabRecord& record : s.labs) {
+        out.push_back(record.flag);
+        if (record.flag == 0) {
+            for (const auto& gene : record.genes) {
+                put_u32(out, gene.first);
+                put_u32(out, gene.second);
+            }
+            put_u32(out, static_cast<std::uint32_t>(record.name.size()));
+            out.insert(out.end(), record.name.begin(), record.name.end());
+        }
+    }
+    for (std::uint32_t count : s.ai_counts) put_u32(out, count);
+    for (const auto& entry : s.ai_entries) {
+        out.insert(out.end(), entry.begin(), entry.end());
+    }
+    for (float value : s.camera) put_f32(out, value);
+    out.insert(out.end(), s.tail_extra.begin(), s.tail_extra.end());
+    return out;
+}
+
 bool sav_park_roundtrip(const std::string& path, std::string* error) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     const SavSimulation simulation = read_sav_simulation(path);
@@ -572,8 +705,24 @@ bool sav_park_roundtrip(const std::string& path, std::string* error) {
     for (std::size_t i = 0; i < rebuilt.size(); ++i) {
         if (data[simulation.park_offset + i] != rebuilt[i]) {
             char message[64];
-            std::snprintf(message, sizeof(message), ": first diff at 0x%zX",
+            std::snprintf(message, sizeof(message), ": park first diff at 0x%zX",
                           simulation.park_offset + i);
+            *error = message;
+            return false;
+        }
+    }
+    const std::vector<std::uint8_t> simulation_bytes =
+        write_sav_simulation(simulation);
+    if (simulation.state_offset + simulation_bytes.size() != data.size()) {
+        *error = ": simulation length mismatch";
+        return false;
+    }
+    for (std::size_t i = 0; i < simulation_bytes.size(); ++i) {
+        if (data[simulation.state_offset + i] != simulation_bytes[i]) {
+            char message[64];
+            std::snprintf(message, sizeof(message),
+                          ": simulation first diff at 0x%zX",
+                          simulation.state_offset + i);
             *error = message;
             return false;
         }

@@ -100,6 +100,21 @@ struct SavEconomy {
     std::array<int, 13> yesterday_totals{};
 };
 
+// Dino-store entry, lab slot and simulation tail, kept as raw bytes so a
+// writer can emit them exactly (see tools/formats/sav_write.py).
+struct SavDinoStoreEntry {
+    std::vector<std::uint8_t> name;      // UTF-16LE, terminator included
+    std::uint32_t price = 0;
+    std::vector<std::uint8_t> path;      // ASCII, terminator included
+    std::vector<std::uint8_t> description;
+};
+
+struct SavLabRecord {
+    std::uint8_t flag = 0;
+    std::array<std::pair<std::uint32_t, std::uint32_t>, 18> genes{};
+    std::vector<std::uint8_t> name;      // ASCII, terminator included
+};
+
 // spSimuManager prefix after the world block + show catalog.
 struct SavSimulation {
     std::vector<RoadRect> roads;
@@ -126,6 +141,14 @@ struct SavSimulation {
     std::array<std::uint32_t, 11> schedule_tasks{};
     std::array<std::uint8_t, 12> schedule_trailer{};
     std::uint8_t schedule_final = 0;
+    std::size_t state_offset = 0;
+    std::vector<SavDinoStoreEntry> dino_store;
+    std::array<int, 5> visitor_model{};
+    std::vector<SavLabRecord> labs;
+    std::array<std::uint32_t, 5> ai_counts{};
+    std::vector<std::array<std::uint8_t, 17>> ai_entries;
+    std::array<float, 10> camera{};
+    std::vector<std::uint8_t> tail_extra;
     int budget = 0;
     int day = 0;
     float elapsed = 0.0f;
@@ -178,6 +201,8 @@ SavSimulation read_sav_simulation(const std::string& path);
 // Rebuild the 0x293-byte park record in retail writer order (see
 // tools/formats/sav_write.py).
 std::vector<std::uint8_t> write_sav_park_block(
+    const SavSimulation& simulation);
+std::vector<std::uint8_t> write_sav_simulation(
     const SavSimulation& simulation);
 
 // Read a .sav, rebuild its park block and compare it with the file bytes.
