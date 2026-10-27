@@ -52,6 +52,10 @@ See `notes/lanes.md`. Default split:
   listed by the retail LOAD GAME panel, selects and loads a park
   (`notes/harness/load-cppwrite.png`). `--sav-name/--sav-slot/--sav-budget`
   mutate header/park fields for testing.
+- SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
+  hourly `ShowRuntime` with iterations/state and objective snapshots are
+  ported (`src/world/show_runtime.*`); remaining: interactive construction
+  panel and live judge/schedule display.
 - P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
@@ -83,8 +87,9 @@ See `notes/lanes.md`. Default split:
 1. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
    in the show/attraction controller (Cpg04 is the test park; Free Game has 0
    dinos). Do not invent a list producer; the lists stay empty.
-2. SHOW-4: show construction UI and live judge/schedule loop (the score
-   pipeline and objective verbs are done).
+2. SHOW-4 rest: interactive show construction panel (catalog list, place,
+   hour slot/iterations, judge/schedule display); `--place-show` and the live
+   runtime/scheduler are in.
 3. SAVE-2 follow-up: the HUD `BUDGET_AMOUNT` cash is not park `+0x30` and is
    absent from the save (scenario/FreeGame config). The port currently
    overrides `park_budget` from the save; verify before changing the HUD or
@@ -93,6 +98,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - SHOW-4: show catalog + placement + 10-slot hourly scheduler + live runtime (fast 334)
 - 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
 - 2026-10-27 - SHOW-3: all four show verbs ported (happyshow/scientificshow/happydinoshow/dinoexclusiveshow) with the FUN_00618020 five-need + .bvi weight pipeline and a --show test hook; coverage 89/89 objectives
@@ -100,7 +106,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
 - 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
 - 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
-- 2026-10-27 - SIM-4: budget panel imports the save's yesterday block
   (`SavEconomy`, `notes/budget-sav-rows.png`)
 
 ## Blockers
