@@ -3524,63 +3524,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    auto start_campaign_mission = [&](const dino::CampaignMission& mission) {
-        campaign_runtime.emplace();
-        campaign_runtime->start(mission, park_clock.minutes());
-        last_mission_verdicts.assign(mission.objectives.size(),
-                                     dino::ObjectiveVerdict::Pending);
-        park.set_mission_verdicts(
-            std::vector<int>(mission.objectives.size(), 0));
-        park.show_mission_panel();
-        std::printf("mission: %s objectives=%zu\n", mission.name.c_str(),
-                    mission.objectives.size());
-        for (std::size_t i = 0; i < mission.objectives.size(); ++i) {
-            const dino::CampaignObjective& objective = mission.objectives[i];
-            std::printf("mission objective %zu %s: %s\n", i,
-                        objective.verb.c_str(),
-                        dino::ui::resolve_loc_text(objective.description_id,
-                                                   park.loc)
-                            .c_str());
-        }
-        const std::string campaign_name =
-            std::filesystem::path(mission.path)
-                .parent_path()
-                .filename()
-                .string();
-        if (!campaign_name.empty()) {
-            campaign_progress[campaign_name] = mission.name;
-            try {
-                dino::save_campaign_progress(campaign_progress,
-                                             campaign_progress_path);
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "campaign progress: %s\n", e.what());
-            }
-        }
-        mission_panel_title.clear();
-        const std::optional<dino::Campaign> parent =
-            dino::load_parent_campaign(mission);
-        if (parent) {
-            for (std::size_t i = 0; i < parent->missions.size(); ++i) {
-                if (parent->missions[i].name == mission.name) {
-                    mission_panel_title =
-                        std::to_string(i + 1) + "/" +
-                        std::to_string(parent->missions.size());
-                    break;
-                }
-            }
-        }
-        if (!mission_panel_title.empty()) {
-            std::printf("mission title: %s\n",
-                        mission_panel_title.c_str());
-        }
-    };
-
-    int pending_minimap_zoom = 0;
-    bool pending_port_save = false;
-    bool pending_port_load = false;
-    std::string pending_construct_widget;
-    std::string pending_store_action;
-
     // Phenotype table, needed by the store attribute gauges as well as the
     // imported/bought dinosaurs. Loading it here keeps `refresh_store_rows`
     // able to fill every row's attribute panel.
@@ -3597,9 +3540,11 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "dino phenotype table: %s\n", e.what());
     }
 
-    // Dinosaur store panel: the retail state lists the store vector in
-    // six-row pages (0x00535460). The port uses the Market.ini catalog, the
-    // same source as --buy-dino; FreeGame.ini's subset is a later option.
+    // Dinosaur store panel: the retail state lists one store vector in
+    // six-row pages (0x00535460). The vector source depends on the mode:
+    // Market.ini for the plain/debug park, FreeGame.ini `[DINOSTORE]` for
+    // free game, and the mission `[DINOSTORE]` block for campaigns. The
+    // selected mode replaces the catalog; row order is the file order.
     std::vector<dino::MarketEntry> store_catalog;
     int pending_store_index = -1;
     int pending_store_price = 0;
@@ -3649,6 +3594,77 @@ int main(int argc, char** argv) {
         }
         park.set_store_rows(std::move(rows));
     };
+    auto apply_store_catalog = [&](dino::Market market,
+                                   const std::string& source) {
+        store_catalog = std::move(market.entries);
+        // The retail vector is rebuilt when the state activates; the port
+        // refreshes the six-row viewport in place.
+        refresh_store_rows();
+        std::printf("store catalog: %s entries=%zu\n", source.c_str(),
+                    store_catalog.size());
+    };
+
+    auto start_campaign_mission = [&](const dino::CampaignMission& mission) {
+        campaign_runtime.emplace();
+        campaign_runtime->start(mission, park_clock.minutes());
+        last_mission_verdicts.assign(mission.objectives.size(),
+                                     dino::ObjectiveVerdict::Pending);
+        park.set_mission_verdicts(
+            std::vector<int>(mission.objectives.size(), 0));
+        park.show_mission_panel();
+        std::printf("mission: %s objectives=%zu\n", mission.name.c_str(),
+                    mission.objectives.size());
+        for (std::size_t i = 0; i < mission.objectives.size(); ++i) {
+            const dino::CampaignObjective& objective = mission.objectives[i];
+            std::printf("mission objective %zu %s: %s\n", i,
+                        objective.verb.c_str(),
+                        dino::ui::resolve_loc_text(objective.description_id,
+                                                   park.loc)
+                            .c_str());
+        }
+        const std::string campaign_name =
+            std::filesystem::path(mission.path)
+                .parent_path()
+                .filename()
+                .string();
+        if (!campaign_name.empty()) {
+            campaign_progress[campaign_name] = mission.name;
+            try {
+                dino::save_campaign_progress(campaign_progress,
+                                             campaign_progress_path);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "campaign progress: %s\n", e.what());
+            }
+        }
+        mission_panel_title.clear();
+        const std::optional<dino::Campaign> parent =
+            dino::load_parent_campaign(mission);
+        if (parent) {
+            for (std::size_t i = 0; i < parent->missions.size(); ++i) {
+                if (parent->missions[i].name == mission.name) {
+                    mission_panel_title =
+                        std::to_string(i + 1) + "/" +
+                        std::to_string(parent->missions.size());
+                    break;
+                }
+            }
+        }
+        if (!mission_panel_title.empty()) {
+            std::printf("mission title: %s\n",
+                        mission_panel_title.c_str());
+        }
+        // Campaign store: the mission's own [DINOSTORE] block. Empty blocks
+        // (Cpg04_Mission4) produce an empty catalog, matching the retail
+        // per-mission store vector.
+        apply_store_catalog(dino::market_from_values(mission.values),
+                            mission.name);
+    };
+
+    int pending_minimap_zoom = 0;
+    bool pending_port_save = false;
+    bool pending_port_load = false;
+    std::string pending_construct_widget;
+    std::string pending_store_action;
 
     if (opt.park_hud) {
         std::string park_error;
@@ -3667,13 +3683,14 @@ int main(int argc, char** argv) {
                 opt.save_name = park.save_name();
             }
             try {
-                store_catalog = dino::load_market(resolve_asset(
-                    opt.asset_root,
-                    "Data/Design/Scenario/Market.ini")).entries;
+                apply_store_catalog(
+                    dino::load_market(resolve_asset(
+                        opt.asset_root,
+                        "Data/Design/Scenario/Market.ini")),
+                    "Market.ini");
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "store catalog: %s\n", e.what());
             }
-            refresh_store_rows();
             if (!opt.start_mission_path.empty()) {
                 try {
                     start_campaign_mission(
@@ -6048,7 +6065,7 @@ int main(int argc, char** argv) {
                             "(WARNING_NO_ROOM_IN_FENCE) budget=%d\n",
                             entry->name.c_str(), buy_budget);
                         if (opt.park_hud && park.loaded()) {
-                            park.show_warning(dino::ui::resolve_loc_text(
+                            park.show_message(dino::ui::resolve_loc_text(
                                 "&WARNING_NO_ROOM_IN_FENCE", park.loc));
                         }
                     } else if (buy_budget < entry->price) {
@@ -6057,7 +6074,7 @@ int main(int argc, char** argv) {
                             "(WARNING_NOT_ENOUGH_MONEY)\n",
                             entry->name.c_str(), entry->price, buy_budget);
                         if (opt.park_hud && park.loaded()) {
-                            park.show_warning(dino::ui::resolve_loc_text(
+                            park.show_message(dino::ui::resolve_loc_text(
                                 "&WARNING_NOT_ENOUGH_MONEY", park.loc));
                         }
                     } else {
@@ -7091,7 +7108,7 @@ int main(int argc, char** argv) {
                 "store: %s price=%d budget=%d "
                 "(WARNING_NOT_ENOUGH_MONEY)\n",
                 entry.name.c_str(), entry.price, park_budget);
-            park.show_warning(dino::ui::resolve_loc_text(
+            park.show_message(dino::ui::resolve_loc_text(
                 "&WARNING_NOT_ENOUGH_MONEY", park.loc));
             return;
         }
@@ -8987,6 +9004,18 @@ int main(int argc, char** argv) {
                         std::fprintf(stderr, "island load: %s\n", e.what());
                     }
                     park_budget = free_game_budgets[difficulty];
+                    // Free game lists its own [DINOSTORE] subset (20 entries)
+                    // in FreeGame.ini; campaign missions override this with
+                    // their mission block in start_campaign_mission.
+                    try {
+                        apply_store_catalog(
+                            dino::load_market(resolve_asset(
+                                opt.asset_root,
+                                "Data/Design/Scenario/FreeGame.ini")),
+                            "FreeGame.ini");
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "store catalog: %s\n", e.what());
+                    }
                     std::printf(
                         "start: island=%s difficulty=%d budget=%d\n",
                         island_names[static_cast<std::size_t>(island_index)].c_str(),
@@ -8996,6 +9025,7 @@ int main(int argc, char** argv) {
         }
 
         if (park.loaded() && !start_screen) {
+            park.update(dt);
             park_clock.advance(dt);
             if (park_clock.new_hour && !employee_system.employees.empty()) {
                 const int assigned = employee_system.start_hour(
@@ -9754,7 +9784,7 @@ int main(int argc, char** argv) {
                                     "store: no room in paddock %d "
                                     "(WARNING_NO_ROOM_IN_FENCE)\n",
                                     paddock_index);
-                                park.show_warning(
+                                park.show_message(
                                     dino::ui::resolve_loc_text(
                                         "&WARNING_NO_ROOM_IN_FENCE",
                                         park.loc));

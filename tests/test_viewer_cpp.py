@@ -2525,6 +2525,109 @@ def test_cpp_store_panel_no_money():
     assert "store: bought" not in result.stdout
 
 
+def test_cpp_store_message_keeps_panel(tmp_path):
+    """A failed purchase uses the retail MESSAGE_PANEL toast, not a modal
+    warning: the text appears in the top-left yellow message panel and the
+    store panel stays open (state 0x13 does not change)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    common = [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width",
+              "800", "--height", "600", "--no-vsync", "--no-save-config",
+              "--lnd", str(isl04), "--asset-root", str(GAME),
+              "--no-vegetation", "--no-water", "--wld-park", str(wld),
+              "--park-budget", "100", "--park-click", "765,298",
+              "--park-click", "160,88"]
+    env = dict(os.environ, DINO_DEBUG_MESSAGE="1")
+    opened = tmp_path / "opened.bmp"
+    refused = tmp_path / "refused.bmp"
+    first = subprocess.run(common + ["--screenshot", str(opened)], env=env,
+                           capture_output=True, text=True, timeout=300)
+    assert first.returncode == 0, first.stderr
+    assert "park message:" not in first.stderr + first.stdout
+    second = subprocess.run(
+        common + ["--park-click", "470,520", "--screenshot", str(refused)],
+        env=env, capture_output=True, text=True, timeout=300)
+    assert second.returncode == 0, second.stderr
+    assert "park click 470,520 -> store buy 0" in second.stdout
+    assert "store: Allosaurus price=9000 budget=100 " \
+           "(WARNING_NOT_ENOUGH_MONEY)" in second.stdout
+    assert "park message: Not enough money!" in second.stderr + second.stdout
+    assert "park warning:" not in second.stdout
+    # No modal backdrop: the scene pixel and the lower store panel (outside
+    # the toast area) are unchanged between "opened" and "refused".
+    a = Image.open(opened).convert("RGB")
+    b = Image.open(refused).convert("RGB")
+    assert a.getpixel((600, 400)) == b.getpixel((600, 400))
+    panel = (320, 120, 520, 520)
+    diff = ImageChops.difference(a.crop(panel), b.crop(panel))
+    assert diff.getbbox() is None, diff.getbbox()
+    # The yellow MESSAGE_PANEL line lives at 100,20..302,102.
+    area = b.crop((100, 20, 302, 42)).tobytes()
+    yellow = sum(1 for i in range(0, len(area), 3)
+                 if area[i] > 180 and area[i + 1] > 180 and area[i + 2] < 120)
+    assert yellow > 40, yellow
+
+
+def test_cpp_store_catalog_mission():
+    """Campaign missions list their own [DINOSTORE] block, not Market.ini."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    mission = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Mission2.ini"
+    empty = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Mission4.ini"
+    if not (isl04.exists() and wld.exists() and mission.exists() and
+            empty.exists()):
+        pytest.skip("retail Cpg04/isl04/missions missing")
+    base = [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width",
+            "800", "--height", "600", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--wld-park", str(wld)]
+    env = dict(os.environ, DINO_DEBUG_STORE_GAUGES="1")
+    result = subprocess.run(
+        base + ["--start-mission", str(mission),
+                "--park-click", "765,298", "--park-click", "160,88"],
+        env=env, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "store catalog: Cpg04_Mission2 entries=4" in log
+    assert "store gauges: Kentrosaurus" in log
+    assert "store gauges: Allosaurus" not in log.split(
+        "store catalog: Cpg04_Mission2")[-1]
+    # A mission with an all-empty [DINOSTORE] block has no catalog rows.
+    result = subprocess.run(
+        base + ["--start-mission", str(empty),
+                "--park-click", "765,298", "--park-click", "160,88"],
+        env=env, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "store catalog: Cpg04_Mission4 entries=0" in log
+    assert "store gauges:" not in log.split(
+        "store catalog: Cpg04_Mission4")[-1]
+
+
+def test_cpp_store_catalog_freegame(tmp_path):
+    """Free game uses FreeGame.ini's 20-entry [DINOSTORE] subset."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    shot = tmp_path / "freegame-store.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "4", "--screenshot", str(shot),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--no-hud", "--asset-root", str(GAME),
+         "--menu-page", "1", "--menu-click", "200,180",
+         "--menu-click", "494,451", "--menu-click", "526,531",
+         "--menu-loading-time", "0"],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    assert "store catalog: FreeGame.ini entries=20" in result.stdout
+    assert "start: island=isl01 difficulty=0 budget=75000" in result.stdout
+
+
 def test_cpp_store_panel_scroll():
     """Scrollbar strip scrolls the six-row viewport before selecting."""
     if not EXE.exists():

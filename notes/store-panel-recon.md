@@ -173,9 +173,30 @@ lighting with a side/three-quarter camera, clipped by scissor to the widget
 rect. Allosaurus: `notes/store-preview.png`,
 `test_cpp_store_3d_preview`.
 
-Remaining: restoring the panel after a dismissed warning and the
-mission/free-game catalog selection (the port currently uses `Market.ini`
-for all modes).
+Failed purchases: `FUN_0052bed0` (budget gate) and the fence-insertion message
+at `0x00536017` both call `FUN_005e3d70` on the state's embedded message
+object. That is the transient `MESSAGE_PANEL` toast (`LINE1..LINE4_MESSAGE`,
+yellow, fading lines), **not** the modal `WARNING_PANEL`. The state is not
+changed, so the store panel stays open. `ParkHud::show_message` fills the four
+line widgets (word-wrapped to 26 characters; the retail lifetime constant is
+not extracted yet, the port uses 4 s) and `ParkHud::update(dt)` expires it.
+The port's `--warning` / `--request` / `--campaign-end` dialogs are
+interface-level overlays, so they no longer call `hide_panels()`: retail keeps
+the active state visible behind the dim `DIALOG_BACKGROUND`
+(`notes/ui-recon.md`). Evidence: `notes/store-message.png`,
+`test_cpp_store_message_keeps_panel`.
+
+Catalog selection follows the mode, like the retail store vector:
+
+- free game: `FreeGame.ini` `[DINOSTORE]` (20 entries; a subset of Market.ini);
+- campaign mission: the mission's own `[DINOSTORE]` block
+  (`DinoStore0..N`, e.g. Cpg04_Mission2 = 4 entries, Cpg04_Mission4 = empty);
+- plain/debug park: `Market.ini` (54 entries).
+
+`src/formats/market.cpp` now exposes `market_from_values(CampaignMission
+::values)` for the flattened `DINOSTORE.DINOSTORE<N>` keys. `main.cpp` prints
+`store catalog: <source> entries=N`; evidence `notes/store-mission-catalog.png`
+and `test_cpp_store_catalog_mission` / `test_cpp_store_catalog_freegame`.
 
 ### Draw-order fix
 

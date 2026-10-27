@@ -54,6 +54,14 @@ public:
     const std::string& dialog_text() const { return dialog_text_; }
     const std::string& warning_text() const { return dialog_text_; }
 
+    // Transient MESSAGE_PANEL toast (`moMessage`: FUN_0052bed0 and the fence
+    // insertion message at 0x00536017 call FUN_005e3d70). Retail uses it for
+    // purchase/build failures and keeps the active panel (state 0x13 stays
+    // open). Text wraps onto LINE1..LINE4_MESSAGE and expires; `dt` is seconds.
+    void show_message(const std::string& text);
+    void update(double dt);
+    const std::string& message_text() const { return message_text_; }
+
     // Handles a click at design-space (x, y). `action` receives a short
     // description such as "open BUDGET_PANEL"; returns true when the click
     // belongs to the HUD and must not reach the camera/build tools.
@@ -102,11 +110,15 @@ private:
     void hide_panels();
     void show_hud(bool visible);
     void update_store_gauges();
+    void update_message_lines();
+    void clear_message();
 
     bool loaded_ = false;
     bool hud_hidden_ = false;
     DialogKind dialog_kind_ = DialogKind::none;
     std::string dialog_text_;
+    std::string message_text_;
+    double message_remaining_ = 0.0;
     std::string options_tab_ = "save";
     int save_selected_ = -1;
     std::string save_name_ = "quicksave";

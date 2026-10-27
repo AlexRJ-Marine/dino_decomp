@@ -73,6 +73,14 @@ store order (`DinoStore0,2..6`) and validates the triplets, integer prices and
 `.gen` suffix. The includes are ignored because all `[DINOSTORE]` keys live in
 `Market.ini` itself.
 
+`market_from_values(CampaignMission::values)` parses the same triplet format
+from a campaign mission's flattened `[DINOSTORE]` block (keys
+`DINOSTORE.DINOSTORE<N>`); all-empty blocks yield an empty catalog rather than
+an error. The viewer selects the source per mode: `Market.ini` for the plain
+park, `FreeGame.ini` for free game (20 entries), and the mission block for a
+campaign (`Cpg04_Mission2` = 4 entries). Each switch prints
+`store catalog: <source> entries=N`.
+
 ```text
 dino_viewer.exe --market-info --asset-root game/%MAINDIR%
 market: entries=54 stores=6 prices=3200..42000

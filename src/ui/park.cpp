@@ -238,7 +238,10 @@ void ParkHud::clear_mission() {
 }
 
 void ParkHud::show_warning(const std::string& text) {
-    hide_panels();
+    // The dialog family is an interface-level overlay
+    // (DIALOG_BACKGROUND is a ROOT child with ZPRIORITY 0.01, in front of the
+    // panel roots). Retail does not deactivate the active panel, so the port
+    // keeps it visible behind the dim backdrop.
     dialog_kind_ = DialogKind::warning;
     dialog_text_ = text;
     overlay.set_visible("REQUEST_PANEL", false);
@@ -248,7 +251,6 @@ void ParkHud::show_warning(const std::string& text) {
 }
 
 void ParkHud::show_request(const std::string& text) {
-    hide_panels();
     dialog_kind_ = DialogKind::request;
     dialog_text_ = text;
     overlay.set_visible("WARNING_PANEL", false);
@@ -258,7 +260,6 @@ void ParkHud::show_request(const std::string& text) {
 }
 
 void ParkHud::show_campaign_end(const std::string& text) {
-    hide_panels();
     dialog_kind_ = DialogKind::campaign_end;
     dialog_text_ = text;
     overlay.set_visible("WARNING_PANEL", false);
@@ -274,6 +275,87 @@ void ParkHud::close_dialog() {
     overlay.set_visible("REQUEST_PANEL", false);
     overlay.set_visible("CPGEND_PANEL", false);
     overlay.set_visible("DIALOG_BACKGROUND", false);
+}
+
+void ParkHud::show_message(const std::string& text) {
+    message_text_ = text;
+    // `moMessage` keeps the toast on screen while the state runs; the exact
+    // retail lifetime is a `moMessage` constant we have not extracted, so use
+    // a fixed 4 s. The texts are short loc strings.
+    message_remaining_ = text.empty() ? 0.0 : 4.0;
+    update_message_lines();
+    if (std::getenv("DINO_DEBUG_MESSAGE") != nullptr) {
+        std::fprintf(stderr, "park message: %s\n", text.c_str());
+    }
+}
+
+void ParkHud::update(double dt) {
+    if (message_remaining_ <= 0.0) {
+        return;
+    }
+    message_remaining_ -= dt;
+    if (message_remaining_ <= 0.0) {
+        clear_message();
+    }
+}
+
+void ParkHud::clear_message() {
+    message_text_.clear();
+    message_remaining_ = 0.0;
+    for (int line = 1; line <= 4; ++line) {
+        if (Widget* widget =
+                overlay.get("LINE" + std::to_string(line) + "_MESSAGE")) {
+            widget->text.clear();
+        }
+    }
+}
+
+void ParkHud::update_message_lines() {
+    // MESSAGE_PANEL is a 200x20 line per widget with FONT19, so wrap at ~26
+    // characters. The retail class wraps by glyph width; the exact width is
+    // not recovered yet, and all current warning strings fit on one line.
+    std::vector<std::string> lines;
+    std::string current;
+    std::string word;
+    auto flush_line = [&]() {
+        lines.push_back(current);
+        current.clear();
+    };
+    auto flush_word = [&]() {
+        if (word.empty()) {
+            return;
+        }
+        const std::string candidate =
+            current.empty() ? word : current + " " + word;
+        if (!current.empty() && candidate.size() > 26) {
+            flush_line();
+            current = word;
+        } else {
+            current = candidate;
+        }
+        word.clear();
+    };
+    for (const char ch : message_text_) {
+        if (ch == '\n') {
+            flush_word();
+            flush_line();
+        } else if (ch == ' ') {
+            flush_word();
+        } else {
+            word.push_back(ch);
+        }
+    }
+    flush_word();
+    if (!current.empty()) {
+        flush_line();
+    }
+    for (int line = 1; line <= 4; ++line) {
+        if (Widget* widget =
+                overlay.get("LINE" + std::to_string(line) + "_MESSAGE")) {
+            const std::size_t index = static_cast<std::size_t>(line - 1);
+            widget->text = index < lines.size() ? lines[index] : std::string();
+        }
+    }
 }
 
 void ParkHud::open_panel(const std::string& name) {
