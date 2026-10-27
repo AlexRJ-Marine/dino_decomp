@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-ROOT="/mnt/c/Users/Alex/Documents/Dino decomp"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 /tmp/REWise/build/rewise -l -e "original/SETUP.EXE" > "notes/wise-file-list.txt" 2>&1 || true
 wc -l "notes/wise-file-list.txt"

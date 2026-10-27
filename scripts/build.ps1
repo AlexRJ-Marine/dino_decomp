@@ -10,43 +10,46 @@ $cmake = Join-Path $root ".venv\Scripts\cmake.exe"
 $ninja = Join-Path $root ".venv\Scripts\ninja.exe"
 if (-not (Test-Path $cmake)) { throw "cmake not installed in .venv" }
 
-$gxx = Get-ChildItem "C:\Tools\w64devkit" -Recurse -Filter "g++.exe" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-$gcc = Get-ChildItem "C:\Tools\w64devkit" -Recurse -Filter "gcc.exe" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if (-not $gxx -or -not $gcc) {
-    throw "w64devkit not found. Download and extract it to C:\Tools\w64devkit."
+. (Join-Path $PSScriptRoot "tools.ps1")
+$w64 = Find-W64Devkit
+if (-not $w64) {
+    throw "w64devkit not found under $DinoTools\w64devkit. Run scripts/setup-tools.ps1 (or set DINO_TOOLS)."
 }
 
-$sdl3 = $env:SDL3_ROOT
+$sdl3 = Find-Sdl3
 if (-not $sdl3) {
-    $candidates = Get-ChildItem "C:\Tools\SDL3" -Directory -Filter "SDL3-*" -ErrorAction SilentlyContinue |
-        Sort-Object Name -Descending
-    foreach ($candidate in $candidates) {
-        $prefix = Join-Path $candidate.FullName "x86_64-w64-mingw32"
-        if (Test-Path (Join-Path $prefix "include\SDL3\SDL.h")) {
-            $sdl3 = $prefix
-            break
-        }
-    }
-}
-if (-not $sdl3 -or -not (Test-Path (Join-Path $sdl3 "include\SDL3\SDL.h"))) {
-    throw "SDL3 not found. Run scripts/setup-sdl3.ps1, or set SDL3_ROOT to the x86_64-w64-mingw32 prefix."
+    throw "SDL3 not found under $DinoTools\SDL3. Run scripts/setup-tools.ps1, or set SDL3_ROOT to the x86_64-w64-mingw32 prefix."
 }
 $sdl3Cmake = $sdl3 -replace '\\', '/'
 
-$env:PATH = (Join-Path $root ".venv\Scripts") + ";" + (Split-Path $gxx.FullName) + ";" + $env:PATH
+$env:PATH = (Join-Path $root ".venv\Scripts") + ";" + $w64.Bin + ";" + $env:PATH
 
 $build = if ([System.IO.Path]::IsPathRooted($BuildDir)) {
     $BuildDir
 } else {
     Join-Path $root $BuildDir
 }
-if (-not $NoConfigure -or -not (Test-Path (Join-Path $build "CMakeCache.txt"))) {
+
+# A build dir copied from another checkout (e.g. the other PC) keeps that
+# machine's absolute path in its cache and CMake refuses it. Drop the cache
+# so it reconfigures here; objects are rebuilt, sources are untouched.
+$cache = Join-Path $build "CMakeCache.txt"
+if (Test-Path $cache) {
+    $line = Select-String -Path $cache -Pattern '^CMAKE_CACHEFILE_DIR:INTERNAL=(.*)$' | Select-Object -First 1
+    $cached = if ($line) { $line.Matches[0].Groups[1].Value } else { "" }
+    $norm = { param($p) ($p -replace '\\', '/').TrimEnd('/').ToLowerInvariant() }
+    $here = (Resolve-Path $build).Path
+    if ($cached -and ((& $norm $cached) -ne (& $norm $here))) {
+        Write-Host "CMake cache was created in $cached; reconfiguring for $here"
+        Remove-Item $cache -Force
+        Remove-Item (Join-Path $build "CMakeFiles") -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+if (-not $NoConfigure -or -not (Test-Path $cache)) {
     & $cmake -S $root -B $build -G Ninja `
         -DCMAKE_BUILD_TYPE=Debug `
-        -DCMAKE_C_COMPILER="$($gcc.FullName)" `
-        -DCMAKE_CXX_COMPILER="$($gxx.FullName)" `
+        -DCMAKE_CXX_COMPILER="$($w64.Gxx)" `
         -DSDL3_ROOT="$sdl3Cmake"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

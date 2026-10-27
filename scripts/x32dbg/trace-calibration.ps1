@@ -15,7 +15,8 @@ param(
 # The game is started through the retail menu with the selected island row.
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
-$h = "C:\Tools\x64dbg\release\x32\headless.exe"
+. (Join-Path $root "scripts\tools.ps1")
+$h = Get-X32dbgHeadless
 if (-not $GameDir) {
     $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
 }

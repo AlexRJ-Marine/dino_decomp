@@ -13,18 +13,19 @@ param(
 # No game files are modified.
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
-$h = "C:\Tools\x64dbg\release\x32\headless.exe"
+. (Join-Path $root "scripts\tools.ps1")
+$h = Get-X32dbgHeadless
 $wd = Join-Path $root $GameDir
 $exe = Join-Path $wd "DinoIsland.exe"
 $logPath = Join-Path $root $Log
-$dumpDir = "C:\Tools\dino_dumps"
+$dumpDir = Get-DinoDumpDir
 $wptrFile = Join-Path $dumpDir "wptr.bin"
 
 New-Item -ItemType Directory -Force $dumpDir | Out-Null
 Remove-Item $wptrFile -ErrorAction SilentlyContinue
 # Start from a clean breakpoint database; the headless debugger otherwise
 # reloads breakpoints left by earlier sessions.
-Remove-Item "C:\Tools\x64dbg\release\x32\headless\db\DinoIsland.exe.dd32" -ErrorAction SilentlyContinue
+Remove-Item (Join-Path (Split-Path $h) "headless\db\DinoIsland.exe.dd32") -ErrorAction SilentlyContinue
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h
@@ -48,7 +49,7 @@ function Send([string]$line) {
 Send 'bp 0x544110'
 Send 'SetBreakpointCommand 0x544110, "log BVI_REC={p:[esp+4]}_0={x:[[esp+4]+0xd0]}_1={x:[[esp+4]+0xd4]}_2={x:[[esp+4]+0xd8]}_3={x:[[esp+4]+0xdc]}_4={x:[[esp+4]+0xe0]}_5={x:[[esp+4]+0xe4]}_6={x:[[esp+4]+0xe8]}; run"'
 Send 'bp 0x51f560'
-Send 'SetBreakpointCommand 0x51f560, "log GLOBAL_W_PTR={p:[esp+4]}_W0={x:[[esp+4]]}_W1={x:[[esp+4]+4]}_W2={x:[[esp+4]+8]}_W3={x:[[esp+4]+0xc]}_W4={x:[[esp+4]+0x10]}_W5={x:[[esp+4]+0x14]}_P0={x:[[esp+4]-0xac]}_P1={x:[[esp+4]-0xa8]}_P2={x:[[esp+4]-0xa4]}_P3={x:[[esp+4]-0xa0]}_P4={x:[[esp+4]-0x9c]}; savedata C:\Tools\dino_dumps\wptr.bin, esp+4, 4; run"'
+Send ('SetBreakpointCommand 0x51f560, "log GLOBAL_W_PTR={p:[esp+4]}_W0={x:[[esp+4]]}_W1={x:[[esp+4]+4]}_W2={x:[[esp+4]+8]}_W3={x:[[esp+4]+0xc]}_W4={x:[[esp+4]+0x10]}_W5={x:[[esp+4]+0x14]}_P0={x:[[esp+4]-0xac]}_P1={x:[[esp+4]-0xa8]}_P2={x:[[esp+4]-0xa4]}_P3={x:[[esp+4]-0xa0]}_P4={x:[[esp+4]-0x9c]}; savedata DUMPDIR\wptr.bin, esp+4, 4; run"'.Replace('DUMPDIR', $dumpDir))
 for ($i = 0; $i -lt 8; $i++) {
     Send 'run'
     Start-Sleep -Milliseconds 800

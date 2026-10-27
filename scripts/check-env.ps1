@@ -28,25 +28,34 @@ foreach ($exe in @("pyghidra-mcp.exe", "mcp-proxy.exe", "pytest.exe", "cmake.exe
     Check $exe (Test-Path $p) $p
 }
 
-$ghidra = Get-ChildItem "C:\Tools" -Directory -Filter "ghidra_*_PUBLIC" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-Check "ghidra" ($null -ne $ghidra) ($(if ($ghidra) { $ghidra.FullName } else { "not found under C:\Tools" }))
+. (Join-Path $PSScriptRoot "tools.ps1")
+Write-Host ("[INFO] {0,-22} {1}" -f "tools root", "$DinoTools$(if (-not $env:DINO_TOOLS) { ' (default; set DINO_TOOLS to change)' })")
 
-$gxx = Get-ChildItem "C:\Tools\w64devkit" -Recurse -Filter "g++.exe" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-Check "g++ (w64devkit)" ($null -ne $gxx) ($(if ($gxx) { $gxx.FullName } else { "not found under C:\Tools\w64devkit" }))
+$ghidra = Find-Ghidra
+Check "ghidra" ($null -ne $ghidra) ($(if ($ghidra) { $ghidra } else { "not found under $DinoTools (run scripts/setup-tools.ps1)" }))
 
-$sdl3 = Get-ChildItem "C:\Tools\SDL3" -Directory -Filter "SDL3-*" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-$sdl3Prefix = if ($sdl3) { Join-Path $sdl3.FullName "x86_64-w64-mingw32" } else { "" }
-$sdl3Ok = $sdl3Prefix -and (Test-Path (Join-Path $sdl3Prefix "include\SDL3\SDL.h"))
-Check "SDL3 (MinGW)" $sdl3Ok ($(if ($sdl3Ok) { $sdl3Prefix } else { "not found (run scripts/setup-sdl3.ps1)" }))
+$w64 = Find-W64Devkit
+Check "g++ (w64devkit)" ($null -ne $w64) ($(if ($w64) { $w64.Gxx } else { "not found under $DinoTools\w64devkit (run scripts/setup-tools.ps1)" }))
 
-$jdk = Get-ChildItem "C:\Tools\jdk25" -Directory -Filter "jdk-*" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-$javaExe = if ($jdk) { Join-Path $jdk.FullName "bin\java.exe" } else { (Get-Command java -ErrorAction SilentlyContinue).Source }
-$javaVer = if ($javaExe) { (& $javaExe -version 2>&1 | Select-Object -First 1) } else { "" }
-Check "java 25 (JDK)" ($jdk -and $javaVer -match '"25\.') ($(if ($jdk) { "$javaVer  $($jdk.FullName)" } else { "JDK 25 not found under C:\Tools\jdk25" }))
+$sdl3Prefix = Find-Sdl3
+Check "SDL3 (MinGW)" ($null -ne $sdl3Prefix) ($(if ($sdl3Prefix) { $sdl3Prefix } else { "not found under $DinoTools\SDL3 (run scripts/setup-tools.ps1)" }))
+
+$jdk = Find-Jdk25
+$javaVer = if ($jdk) { (& (Join-Path $jdk "bin\java.exe") -version 2>&1 | Select-Object -First 1) } else { "" }
+Check "java 25 (JDK)" ($null -ne $jdk) ($(if ($jdk) { "$javaVer  $jdk" } else { "JDK 25 not found under $DinoTools\jdk25 or JAVA_HOME" }))
+
+# Commits should carry each contributor's own identity (global git config).
+# A repo-local user.name usually came along with a copied checkout.
+$gitWho = "$(git -C $root config user.name) <$(git -C $root config user.email)>"
+$localName = git -C $root config --local user.name
+if ($localName) {
+    Write-Host ("[WARN] {0,-22} {1}" -f "git identity", "$gitWho is set in this repo's .git/config; if that is not you, run: git config --local --unset user.name; git config --local --unset user.email") -ForegroundColor Yellow
+} else {
+    Write-Host ("[INFO] {0,-22} {1}" -f "git identity", "$gitWho (from your global git config)")
+}
+
+$x32 = Get-X32dbgHeadless
+Check "x32dbg headless" (Test-Path $x32) ($(if (Test-Path $x32) { $x32 } else { "not found at $x32 (harness only; run scripts/setup-tools.ps1)" }))
 
 $game = Join-Path $root "game\%MAINDIR%\DinoIsland.exe"
 Check "game exe" (Test-Path $game) $game

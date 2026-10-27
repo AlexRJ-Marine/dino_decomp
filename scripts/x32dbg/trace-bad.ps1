@@ -7,7 +7,8 @@ param(
 )
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
-$h = "C:\Tools\x64dbg\release\x32\headless.exe"
+. (Join-Path $root "scripts\tools.ps1")
+$h = Get-X32dbgHeadless
 if (-not $GameDir) {
     $GameDir = if ($PhysicalInput) { "run" } else { "run-test" }
 }
@@ -55,7 +56,7 @@ Send 'bp 0x475e30'
 Send 'SetBreakpointCommand 0x475e30, "log SKEL_LOADER_ecx={p:ecx}; run"'
 Send 'bp 0x48b800'
 Send 'SetBreakpointCommand 0x48b800, "log MESH_LOADER_ecx={p:ecx}_a={p:[esp+4]}_b={p:[esp+8]}; run"'
-New-Item -ItemType Directory -Force C:\Tools\dino_dumps | Out-Null
+$null = Get-DinoDumpDir
 Send 'bp 0x402bc0'
 Send 'SetBreakpointCommand 0x402bc0, "log SAVE_CALLED_ecx={p:ecx}; run"'
 Send 'run'

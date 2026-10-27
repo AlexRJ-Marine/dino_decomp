@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-ROOT="/mnt/c/Users/Alex/Documents/Dino decomp"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 mkdir -p game
 /tmp/REWise/build/rewise -x "game" "original/SETUP.EXE" > "notes/wise-extract.log" 2>&1 || true

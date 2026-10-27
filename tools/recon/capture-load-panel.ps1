@@ -5,11 +5,12 @@ param(
 # Read-only UI capture: open the LOAD GAME panel and screenshot it.
 
 $root = Split-Path $PSScriptRoot -Parent | Split-Path -Parent
-$h = "C:\Tools\x64dbg\release\x32\headless.exe"
+. (Join-Path $root "scripts\tools.ps1")
+$h = Get-X32dbgHeadless
 $wd = Join-Path $root "run"
 $exe = Join-Path $wd "DinoIsland.exe"
 
-Remove-Item "C:\Tools\x64dbg\release\x32\headless\db\DinoIsland.exe.dd32" -ErrorAction SilentlyContinue
+Remove-Item (Join-Path (Split-Path $h) "headless\db\DinoIsland.exe.dd32") -ErrorAction SilentlyContinue
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $h

@@ -1,11 +1,12 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 
-$gxx = Get-ChildItem "C:\Tools\w64devkit" -Recurse -Filter "g++.exe" -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if (-not $gxx) {
-    throw "w64devkit g++ not found under C:\Tools\w64devkit"
+. (Join-Path $PSScriptRoot "tools.ps1")
+$w64 = Find-W64Devkit
+if (-not $w64) {
+    throw "w64devkit g++ not found under $DinoTools\w64devkit. Run scripts/setup-tools.ps1 (or set DINO_TOOLS)."
 }
+$gxx = Get-Item $w64.Gxx
 
 $source = Join-Path $root "src\hook\dinput8_proxy.cpp"
 $outDir = Join-Path $root "run"

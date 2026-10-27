@@ -1,9 +1,11 @@
 param(
     [string]$Version = "3.4.18",
-    [string]$Destination = "C:\Tools\SDL3"
+    [string]$Destination = ""
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "tools.ps1")
+if (-not $Destination) { $Destination = Join-Path $DinoTools "SDL3" }
 $ProgressPreference = "SilentlyContinue"
 
 $zip = Join-Path $env:TEMP "SDL3-devel-$Version-mingw.zip"

@@ -50,3 +50,33 @@ Executable:    game/%MAINDIR%/DinoIsland.exe
 - The MCP server was already running on `http://127.0.0.1:8000/mcp`;
   `scripts/start-ghidra.ps1` is the script used to start it.
 - The C++ build is up to date (no work to do).
+
+## 2026-10-27 — Ghidra fails when launched from a packaged (MSIX) app
+
+Symptom: `start-ghidra.ps1` (and plain `analyzeHeadless ... -postScript
+HelloWorldScript.java`) fail with
+`ERROR: Bundle org.apache.felix.framework [0] The data file must be inside the data dir.`
+followed by `NullPointerException ... "dataFile" is null` in
+`Felix.handleJavaVersionChange`. pyghidra-mcp hits it at index time
+(chromadb's `import google.colab` -> pyghidra import hook -> OSGi bundle host).
+
+Cause: the process was started from the Claude desktop app, an MSIX package.
+Windows redirects new files under `%APPDATA%` into
+`%LOCALAPPDATA%\Packages\<package>\LocalCache\Roaming`. After Felix creates
+`osgi\felixcache\bundle0\data`, Java canonicalises that dir to the redirected
+path but the data file to the real one, so Felix's containment check fails.
+jshell evidence (same process tree):
+
+```text
+dir  C:\Users\<user>\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\ghidra\...\bundle0\data
+file C:\Users\<user>\AppData\Roaming\ghidra\...\bundle0\data\last.java.version
+inside=false
+```
+
+Ruled out: JDK 25.0.4.1 vs 25.0.5, jpype1 1.5.2 vs 1.7.1, the copied
+project's owner, stale processes.
+
+Fix: `start-ghidra.ps1` sets `APPDATA=analysis\ghidra-settings` for the server
+process only, so Ghidra's settings and Felix cache live in the (gitignored)
+checkout. With that, `HelloWorldScript.java` runs headless and the MCP server
+starts; `FUN_004663a0` decompiles to `read(param_1, 4, 0x10) == 0x10`.

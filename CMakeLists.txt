@@ -22,8 +22,8 @@ endif()
 set(SDL3_ROOT "" CACHE PATH "SDL3 MinGW prefix (contains include/SDL3 and lib)")
 if(NOT SDL3_ROOT)
     message(FATAL_ERROR
-        "SDL3_ROOT is not set. Run scripts/setup-sdl3.ps1, then configure with "
-        "-DSDL3_ROOT=C:/Tools/SDL3/SDL3-3.4.18/x86_64-w64-mingw32")
+        "SDL3_ROOT is not set. Use scripts/build.ps1 (it finds SDL3 under DINO_TOOLS), "
+        "or configure with -DSDL3_ROOT=<tools>/SDL3/SDL3-3.4.18/x86_64-w64-mingw32")
 endif()
 
 find_package(SDL3 CONFIG REQUIRED PATHS "${SDL3_ROOT}" NO_DEFAULT_PATH)

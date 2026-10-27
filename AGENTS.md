@@ -58,13 +58,20 @@ of the original architecture.
 
 ## Environment
 
+Many contributors on different machines work in this repo. Tracked files must
+not contain a user name, home directory or fixed tool path.
+
+- New machine: `scripts/setup-tools.ps1` installs the pinned toolchain under
+  `$env:DINO_TOOLS` (default `C:\Tools`). Scripts find tools only through
+  `scripts/tools.ps1` (`Find-W64Devkit`, `Find-Sdl3`, `Find-Jdk25`,
+  `Find-Ghidra`, `Get-X32dbgHeadless`); use it in any new script.
 - Python venv: `.venv/` (pyghidra-mcp, pefile, capstone, construct, pytest,
   pillow, cmake, ninja).
-- Ghidra: `C:\Tools\ghidra_12.2_PUBLIC`; MCP at `http://127.0.0.1:8000/mcp`.
-  Ghidra 12.2 requires JDK 25: `C:\Tools\jdk25\jdk-25.0.4.1+1`.
+- Ghidra 12.2 + JDK 25 under the tools root; MCP at `http://127.0.0.1:8000/mcp`.
   OpenCode reaches it through `mcp-proxy` (stdio → HTTP); `opencode mcp list`
-  should say `✓ ghidra connected`.
-- C++: portable w64devkit in `C:\Tools\w64devkit`; CMake + Ninja from the venv.
+  should say `✓ ghidra connected`. A project copied from another user needs
+  `scripts/start-ghidra.ps1 -TakeOwnership`.
+- C++: w64devkit under the tools root; CMake + Ninja from the venv.
 - Verify: `scripts/check-env.ps1`; build: `scripts/build.ps1`;
   tests: `scripts/run-tests.ps1`; Ghidra: `scripts/start-ghidra.ps1`.
 

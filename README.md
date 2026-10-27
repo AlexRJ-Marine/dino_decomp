@@ -172,25 +172,58 @@ copy of the retail executable used as an oracle; it is never built here.
 
 ### Prerequisites
 
-| Requirement | Notes |
-|---|---|
-| Windows 10/11 | The scripts are PowerShell. |
-| Python 3.11+ | A local `.venv` holds the Python tools. |
-| w64devkit | Extract to `C:\Tools\w64devkit`. MinGW-w64 toolchain for the viewer and the 32-bit hook DLL. |
-| SDL3 3.4.18 | `scripts/setup-sdl3.ps1` installs it under `C:\Tools\SDL3`. |
-| CMake + Ninja | Installed into `.venv` by `requirements.txt`. |
-| Ghidra 12.2 + JDK 25 | Only needed for reverse engineering, not for the viewer build. |
+You need Windows 10/11 (the scripts are PowerShell) and Python 3.11+ on
+`PATH` (python.org installer, "Add to PATH"). Everything else is installed by
+one script, at versions pinned in `scripts/setup-tools.ps1`:
 
-### One-time setup
+| Tool | Pinned | Needed for |
+|---|---|---|
+| `.venv` (CMake, Ninja, pytest, pyghidra-mcp, …) | `requirements.txt` | everything |
+| w64devkit (MinGW-w64 GCC) | 2.10.1 | viewer + 32-bit hook DLL |
+| SDL3 MinGW | 3.4.18 | viewer |
+| Temurin JDK | 25.0.5+8 | Ghidra only |
+| Ghidra | 12.2 | reverse engineering only |
+| x64dbg | 2026.05.27 | x32dbg harness only |
+
+### New machine / new contributor
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+git clone https://github.com/AlexRJ-Marine/dino_decomp "Dino decomp"
+cd "Dino decomp"
 
-.\scripts\setup-sdl3.ps1
-.\scripts\build.ps1
+# all tools (or: -Only venv,w64devkit,sdl3 for just the port build)
+.\scripts\setup-tools.ps1
+.\scripts\build.ps1 -BuildDir build\port
 ```
+
+- **Tool location.** Tools go under `$env:DINO_TOOLS`, default `C:\Tools`.
+  To use another drive or folder, set it once, persistently:
+  `[Environment]::SetEnvironmentVariable('DINO_TOOLS','D:\dev\tools','User')`,
+  then open a new shell. All scripts resolve tools through
+  `scripts/tools.ps1`; never hard-code a tool path in a tracked file.
+- **Your own game copy.** `game/`, `original/` and `run*/` are gitignored and
+  never shared. Put your own retail tree in `game/%MAINDIR%/` (extract it from
+  your ISO's `SETUP.EXE`; see `tools/run_extract.sh`). Data-dependent tests
+  skip when it is absent. For retail runs, make `run/` a copy of that tree,
+  apply `scripts/patch_nocd.ps1 -Target run\DinoIsland.exe`, run
+  `scripts/build-hook.ps1`, then `scripts/setup-test-runtime.ps1`.
+- **Copied checkouts.** If you copy someone's folder instead of cloning:
+  `build.ps1` reconfigures build dirs whose CMake cache was made elsewhere,
+  and `start-ghidra.ps1 -TakeOwnership` adopts their Ghidra project
+  (otherwise Ghidra refuses it with "Project is owned by …"). A copy turns the
+  `Data` junction in `run-test/` and `run-window/` into a full copy of the
+  game data; that still works, it just uses more disk.
+- **Ghidra settings.** `start-ghidra.ps1` keeps Ghidra's user settings in
+  `analysis\ghidra-settings` (per checkout, gitignored) instead of
+  `%APPDATA%`. Packaged apps such as the Claude desktop app redirect
+  `%APPDATA%` writes, which breaks Ghidra's script system; see
+  `notes/env-check.md`.
+- **Git identity.** Each person sets their identity once, globally
+  (`git config --global user.name "…"` / `user.email "…"`), and nobody sets it
+  inside the repo. Commits are then credited to whoever makes them on their
+  own PC. A copied checkout can carry the previous owner's repo-local
+  identity; `check-env.ps1` warns about it, and
+  `git config --local --unset user.name` / `--unset user.email` removes it.
 
 `check-env.ps1` validates the full reverse-engineering environment. It expects
 the retail executable and a running Ghidra MCP server, so start Ghidra first,

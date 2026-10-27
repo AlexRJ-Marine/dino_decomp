@@ -1,6 +1,7 @@
 param(
     [int]$Port = 8000,
-    [switch]$NoWait
+    [switch]$NoWait,
+    [switch]$TakeOwnership
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,23 +13,21 @@ if ($listening) {
     exit 0
 }
 
-$ghidra = Get-ChildItem "C:\Tools" -Directory -Filter "ghidra_*_PUBLIC" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
+. (Join-Path $PSScriptRoot "tools.ps1")
+$ghidra = Find-Ghidra
 if (-not $ghidra) {
-    throw "Ghidra not found under C:\Tools. Download Ghidra 12.x and extract it there."
+    throw "Ghidra not found under $DinoTools. Run scripts/setup-tools.ps1 (or set GHIDRA_INSTALL_DIR)."
 }
-$env:GHIDRA_INSTALL_DIR = $ghidra.FullName
+$env:GHIDRA_INSTALL_DIR = $ghidra
 
-# Ghidra 12.2 requires JDK 25. Use the portable JDK under C:\Tools if present.
-$jdk = Get-ChildItem "C:\Tools\jdk25" -Directory -Filter "jdk-*" -ErrorAction SilentlyContinue |
-    Sort-Object Name -Descending | Select-Object -First 1
-if ($jdk) {
-    $env:JAVA_HOME = $jdk.FullName
-    $env:PATH = (Join-Path $jdk.FullName "bin") + ";" + $env:PATH
-    Write-Host "Using JAVA_HOME=$($jdk.FullName)"
-} elseif ((java -version 2>&1 | Select-String -Pattern '"25\.').Count -eq 0) {
-    throw "Ghidra 12.2 requires JDK 25. Install a JDK 25 under C:\Tools\jdk25 or set JAVA_HOME."
+# Ghidra 12.2 requires JDK 25.
+$jdk = Find-Jdk25
+if (-not $jdk) {
+    throw "Ghidra 12.2 requires JDK 25. Run scripts/setup-tools.ps1, or set JAVA_HOME to a JDK 25."
 }
+$env:JAVA_HOME = $jdk
+$env:PATH = (Join-Path $jdk "bin") + ";" + $env:PATH
+Write-Host "Using JAVA_HOME=$jdk"
 
 $mcp = Join-Path $root ".venv\Scripts\pyghidra-mcp.exe"
 if (-not (Test-Path $mcp)) { throw "pyghidra-mcp not installed in .venv" }
@@ -39,6 +38,26 @@ if (-not (Test-Path $exe)) { throw "DinoIsland.exe not found at $exe" }
 $project = Join-Path $root "analysis\ghidra"
 $logs = Join-Path $root "analysis\logs"
 New-Item -ItemType Directory -Force $project, $logs | Out-Null
+
+# A non-shared Ghidra project only opens for the OS user who created it. A
+# checkout copied from another contributor keeps their name in project.prp,
+# and Ghidra fails with "NotOwnerException: Project is owned by <name>".
+$prp = Join-Path $project "dino.rep\project.prp"
+if (Test-Path $prp) {
+    $owner = ([regex]::Match((Get-Content $prp -Raw), 'NAME="OWNER"[^>]*VALUE="([^"]*)"')).Groups[1].Value
+    if ($owner -and $owner -ne $env:USERNAME) {
+        if (-not $TakeOwnership) {
+            throw ("analysis\ghidra is owned by '$owner', not '$env:USERNAME' (copied from another machine). " +
+                "Re-run with -TakeOwnership to keep its analysis (project.prp is backed up first), " +
+                "or delete analysis\ghidra to re-import from scratch.")
+        }
+        Copy-Item $prp "$prp.$owner.bak" -Force
+        $text = (Get-Content $prp -Raw) -replace '(NAME="OWNER"[^>]*VALUE=")[^"]*(")', "`${1}$env:USERNAME`${2}"
+        # No BOM: Set-Content -Encoding UTF8 in Windows PowerShell 5.1 adds one.
+        [System.IO.File]::WriteAllText($prp, $text, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "Took ownership of analysis\ghidra ($owner -> $env:USERNAME); backup: $prp.$owner.bak"
+    }
+}
 
 $args = @(
     "--transport", "streamable-http",
@@ -52,12 +71,29 @@ $args += "`"$exe`""
 
 $outLog = Join-Path $logs "ghidra-mcp.out.log"
 $errLog = Join-Path $logs "ghidra-mcp.err.log"
-$proc = Start-Process -FilePath $mcp -ArgumentList $args -WorkingDirectory $root `
-    -RedirectStandardOutput $outLog -RedirectStandardError $errLog `
-    -WindowStyle Hidden -PassThru
+
+# Ghidra keeps its user settings (and the OSGi/Felix script cache) under
+# %APPDATA%\ghidra. When this script is launched from a packaged (MSIX) app
+# such as the Claude desktop app, Windows silently redirects new files there
+# into the app's private LocalCache; Felix then sees a canonical path outside
+# its cache dir and every script/bundle fails ("The data file must be inside
+# the data dir"). A per-checkout settings dir avoids the redirect and keeps
+# contributors' clones independent. Only the server process sees the change.
+$settings = Join-Path $root "analysis\ghidra-settings"
+New-Item -ItemType Directory -Force $settings | Out-Null
+$savedAppData = $env:APPDATA
+$env:APPDATA = $settings
+try {
+    $proc = Start-Process -FilePath $mcp -ArgumentList $args -WorkingDirectory $root `
+        -RedirectStandardOutput $outLog -RedirectStandardError $errLog `
+        -WindowStyle Hidden -PassThru
+} finally {
+    $env:APPDATA = $savedAppData
+}
 
 Write-Host "Started pyghidra-mcp (PID $($proc.Id))."
-Write-Host "  project: $project"
+Write-Host "  project:  $project"
+Write-Host "  settings: $settings"
 Write-Host "  log:     $outLog"
 Write-Host "Waiting for http://127.0.0.1:$Port/mcp ..."
 
