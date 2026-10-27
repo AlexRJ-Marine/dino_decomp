@@ -212,6 +212,7 @@ struct Options {
     std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::string skybox_dir;
     bool water = true;
+    bool water2 = true;  // WaterSurface stage 1 Modulate2x
     float water_level = -1.0f;
     int visitors = 0;
     int visitor_satisfaction = -1;  // test/debug initial need0 override
@@ -584,6 +585,8 @@ Options parse_args(int argc, char** argv) {
             opt.ground_click = next("--ground-click");
         } else if (arg == "--no-water") {
             opt.water = false;
+        } else if (arg == "--no-water2") {
+            opt.water2 = false;
         } else if (arg == "--water-level") {
             opt.water_level = static_cast<float>(std::atof(next("--water-level")));
         } else if (arg == "--skybox") {
@@ -757,6 +760,7 @@ Options parse_args(int argc, char** argv) {
                 "  --park-hover X,Y     set the park HUD hovered point\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
+                "  --no-water2          skip the WaterSurface Modulate2x stage 1\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --visitors N         spawn N visitors on the placed path network\n"
@@ -1153,6 +1157,7 @@ struct GlFns {
     PFNGLGETUNIFORMLOCATIONPROC GetUniformLocation = nullptr;
     PFNGLUNIFORMMATRIX4FVPROC UniformMatrix4fv = nullptr;
     PFNGLUNIFORM3FVPROC Uniform3fv = nullptr;
+    PFNGLUNIFORM4FPROC Uniform4f = nullptr;
     PFNGLUNIFORM1FPROC Uniform1f = nullptr;
     PFNGLUNIFORM1IPROC Uniform1i = nullptr;
     PFNGLACTIVETEXTUREPROC ActiveTexture = nullptr;
@@ -1199,6 +1204,7 @@ struct GlFns {
         LOAD(GetUniformLocation, "glGetUniformLocation")
         LOAD(UniformMatrix4fv, "glUniformMatrix4fv")
         LOAD(Uniform3fv, "glUniform3fv")
+        LOAD(Uniform4f, "glUniform4f")
         LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
@@ -1242,14 +1248,19 @@ layout(location = 1) in vec3 a_normal;
 layout(location = 2) in vec2 a_uv;
 layout(location = 3) in vec4 a_color;
 uniform mat4 u_mvp;
+uniform vec4 u_uv2_transform;
 out vec3 v_normal;
 out vec2 v_uv;
+out vec2 v_uv2;
 out vec4 v_color;
 out vec3 v_world;
 void main() {
     gl_Position = u_mvp * vec4(a_pos, 1.0);
     v_normal = a_normal;
     v_uv = a_uv;
+    // WaterSurface stage 1 uses texture coordinate set 1: the same water
+    // texture with a slightly different tiling and a small offset.
+    v_uv2 = a_uv * u_uv2_transform.xy + u_uv2_transform.zw;
     v_color = a_color;
     v_world = a_pos;
 }
@@ -1258,10 +1269,14 @@ void main() {
 #version 330 core
 in vec3 v_normal;
 in vec2 v_uv;
+in vec2 v_uv2;
 in vec4 v_color;
 in vec3 v_world;
 uniform sampler2D u_texture;
+uniform sampler2D u_texture2;
 uniform int u_use_texture;
+uniform int u_use_texture2;
+uniform int u_modulate2x;
 uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
@@ -1283,6 +1298,16 @@ void main() {
     if (u_use_texture != 0) {
         texel = texture(u_texture, v_uv);
         base *= texel.rgb;
+    }
+    // WaterSurface.ini: stage 1 Modulate2x (Texture x Current, doubled),
+    // alpha SelectArg1(Texture), texture coordinate set 1.
+    if (u_use_texture2 != 0) {
+        vec4 texel2 = texture(u_texture2, v_uv2);
+        if (u_modulate2x != 0) {
+            texel2.rgb = clamp(texel2.rgb * 2.0, 0.0, 1.0);
+        }
+        base *= texel2.rgb;
+        texel.a *= texel2.a;
     }
     if (u_unlit == 2) {
         frag_color = vec4(v_color.rgb, texel.r * u_alpha * v_color.a);
@@ -1821,6 +1846,11 @@ struct DrawItem {
     bool additive = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
     int fog = 0;
+    // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
+    GLuint texture2 = 0;
+    bool modulate2x = false;
+    float uv2_scale[2] = {1.0f, 1.0f};
+    float uv2_offset[2] = {0.0f, 0.0f};
 };
 
 dino::Mat4 ortho(float left, float right, float bottom, float top,
@@ -1921,6 +1951,11 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform3fv(gl.GetUniformLocation(program, "u_ambient"), 1, ambient);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"), texture != 0 ? 1 : 0);
     gl.Uniform1i(gl.GetUniformLocation(program, "u_texture"), 0);
+    gl.Uniform1i(gl.GetUniformLocation(program, "u_texture2"), 1);
+    gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture2"), 0);
+    gl.Uniform1i(gl.GetUniformLocation(program, "u_modulate2x"), 0);
+    gl.Uniform4f(gl.GetUniformLocation(program, "u_uv2_transform"), 1.0f, 1.0f,
+                 0.0f, 0.0f);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
 
     // Data/States/FogParam.txt: linear 1500..2000, colour (255,220,165).
@@ -1968,12 +2003,21 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
 
     const GLint use_texture_loc = gl.GetUniformLocation(program, "u_use_texture");
     const GLint alpha_loc = gl.GetUniformLocation(program, "u_alpha");
+    const GLint use_texture2_loc =
+        gl.GetUniformLocation(program, "u_use_texture2");
+    const GLint modulate2x_loc =
+        gl.GetUniformLocation(program, "u_modulate2x");
+    const GLint uv2_loc = gl.GetUniformLocation(program, "u_uv2_transform");
     for (const DrawItem& item : extras) {
         if (item.mesh == nullptr || item.mesh->vao == 0) {
             continue;
         }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
+        gl.Uniform1i(use_texture2_loc, item.texture2 != 0 ? 1 : 0);
+        gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
+        gl.Uniform4f(uv2_loc, item.uv2_scale[0], item.uv2_scale[1],
+                     item.uv2_offset[0], item.uv2_offset[1]);
         if (item.fog == 1) {
             // Data/States/FogParam_WaterSurface.txt: 100..700, black.
             const float water_fog[3] = {0.0f, 0.0f, 0.0f};
@@ -1998,6 +2042,11 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         if (item.texture != 0) {
             glBindTexture(GL_TEXTURE_2D, item.texture);
         }
+        if (item.texture2 != 0) {
+            gl.ActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, item.texture2);
+            gl.ActiveTexture(GL_TEXTURE0);
+        }
         gl.BindVertexArray(item.mesh->vao);
         glDrawElements(GL_TRIANGLES, item.mesh->index_count, GL_UNSIGNED_INT, nullptr);
         if (blend) {
@@ -2006,6 +2055,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         }
     }
     gl.BindVertexArray(0);
+    gl.Uniform1i(use_texture2_loc, 0);
+    gl.Uniform1i(modulate2x_loc, 0);
     gl.UseProgram(0);
 }
 
@@ -3824,6 +3875,7 @@ int main(int argc, char** argv) {
     dino::Image fence_image;
     std::array<dino::Image, 6> sky_images;
     dino::Image water_image;
+    dino::Image water2_image;
     float water_z = 0.0f;
     dino::VisitorSystem visitor_system;
     std::vector<dino::VisitorProfile> visitor_profiles;
@@ -4007,6 +4059,14 @@ int main(int argc, char** argv) {
                     water_image = dino::load_image(resolve_asset(opt.asset_root, lnd.water));
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "water texture: %s\n", e.what());
+                }
+            }
+            if (opt.water && opt.water2 && !lnd.water2.empty()) {
+                try {
+                    water2_image = dino::load_image(
+                        resolve_asset(opt.asset_root, lnd.water2));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "water2 texture: %s\n", e.what());
                 }
             }
         }
@@ -4198,6 +4258,10 @@ int main(int argc, char** argv) {
                         sky_faces, water_image.width > 0 ? "yes" : "no", water_z);
             if (water_image.width > 0) {
                 std::printf(" (%dx%d)", water_image.width, water_image.height);
+            }
+            if (water2_image.width > 0) {
+                std::printf(" water2 %dx%d", water2_image.width,
+                            water2_image.height);
             }
             std::printf("\n");
             std::printf("terrain: %dx%d heights %u..%u, %zu vertices, %zu triangles\n",
@@ -4477,6 +4541,10 @@ int main(int argc, char** argv) {
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), unlit);
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
                         texture_id != 0 ? 1 : 0);
+        glfns.Uniform1i(
+            glfns.GetUniformLocation(program, "u_use_texture2"), 0);
+        glfns.Uniform1i(
+            glfns.GetUniformLocation(program, "u_modulate2x"), 0);
         glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), alpha);
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
@@ -5316,9 +5384,14 @@ int main(int argc, char** argv) {
     skybox.ready = sky_faces == 6;
 
     GLuint water_texture = 0;
+    GLuint water_texture2 = 0;
     GpuMesh water_gpu;
     if (water_image.width > 0 && terrain.world_size > 0.0f) {
         water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
+        if (water2_image.width > 0) {
+            water_texture2 =
+                upload_texture_wrapped(water2_image, GL_REPEAT);
+        }
         water_gpu = upload_mesh(
             make_water_plane(terrain.world_size * 4.75f, water_z, 38.0f), glfns);
     }
@@ -5761,6 +5834,10 @@ int main(int argc, char** argv) {
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), 1);
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_use_texture"),
                         texture != 0 ? 1 : 0);
+        glfns.Uniform1i(
+            glfns.GetUniformLocation(program, "u_use_texture2"), 0);
+        glfns.Uniform1i(
+            glfns.GetUniformLocation(program, "u_modulate2x"), 0);
         glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha"), 1.0f);
         if (texture != 0) {
             glfns.ActiveTexture(GL_TEXTURE0);
@@ -5819,9 +5896,24 @@ int main(int argc, char** argv) {
             }
         }
         // Transparent pass: water last so it blends over all opaque actors.
-        // WaterSurface.ini is additive (src One, dest One, add).
+        // WaterSurface.ini is additive (src One, dest One, add) and uses a
+        // second texture stage: Modulate2x on coordinate set 1 (same TGA,
+        // 28/30 tiling + 0.25 offset, opposite scroll in retail).
         if (water_gpu.vao != 0) {
-            extra_items.push_back({&water_gpu, water_texture, 1.0f, true, 1});
+            DrawItem water;
+            water.mesh = &water_gpu;
+            water.texture = water_texture;
+            water.alpha = 1.0f;
+            water.additive = true;
+            water.fog = 1;
+            if (opt.water2 && water_texture2 != 0) {
+                water.texture2 = water_texture2;
+                water.modulate2x = true;
+                water.uv2_scale[0] = 28.0f / 30.0f;
+                water.uv2_scale[1] = 28.0f / 30.0f;
+                water.uv2_offset[0] = 0.25f / 30.0f;
+            }
+            extra_items.push_back(water);
         }
     };
     rebuild_extra_items();
@@ -6577,6 +6669,7 @@ int main(int argc, char** argv) {
             }
         }
         dino::Image new_water;
+        dino::Image new_water2;
         const float new_water_z =
             opt.water_level >= 0.0f ? opt.water_level : new_lnd.unknown_float;
         if (opt.water && !new_lnd.water.empty()) {
@@ -6585,6 +6678,14 @@ int main(int argc, char** argv) {
                     resolve_asset(opt.asset_root, new_lnd.water));
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "water texture: %s\n", e.what());
+            }
+        }
+        if (opt.water && opt.water2 && !new_lnd.water2.empty()) {
+            try {
+                new_water2 = dino::load_image(
+                    resolve_asset(opt.asset_root, new_lnd.water2));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "water2 texture: %s\n", e.what());
             }
         }
 
@@ -6613,6 +6714,10 @@ int main(int argc, char** argv) {
             glDeleteTextures(1, &water_texture);
             water_texture = 0;
         }
+        if (water_texture2 != 0) {
+            glDeleteTextures(1, &water_texture2);
+            water_texture2 = 0;
+        }
         visitor_gpu.destroy(glfns);
         if (visitor_texture_id != 0) {
             glDeleteTextures(1, &visitor_texture_id);
@@ -6634,6 +6739,7 @@ int main(int argc, char** argv) {
         vegetation = std::move(new_vegetation);
         sky_images = std::move(new_sky);
         water_image = std::move(new_water);
+        water2_image = std::move(new_water2);
         water_z = new_water_z;
 
         if (opt.texture_path.empty() && image.width > 0) {
@@ -6674,6 +6780,10 @@ int main(int argc, char** argv) {
 
         if (water_image.width > 0 && terrain.world_size > 0.0f) {
             water_texture = upload_texture_wrapped(water_image, GL_REPEAT);
+            if (water2_image.width > 0) {
+                water_texture2 =
+                    upload_texture_wrapped(water2_image, GL_REPEAT);
+            }
             water_gpu = upload_mesh(
                 make_water_plane(terrain.world_size * 4.75f, water_z, 38.0f),
                 glfns);
@@ -8468,6 +8578,14 @@ int main(int argc, char** argv) {
                             glfns.GetUniformLocation(program,
                                                      "u_use_texture"),
                             preview->texture != 0 ? 1 : 0);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program,
+                                                     "u_use_texture2"),
+                            0);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program,
+                                                     "u_modulate2x"),
+                            0);
                         glfns.Uniform1i(
                             glfns.GetUniformLocation(program, "u_texture"), 0);
                         glfns.Uniform1f(
@@ -10374,6 +10492,9 @@ int main(int argc, char** argv) {
     }
     if (water_texture != 0) {
         glDeleteTextures(1, &water_texture);
+    }
+    if (water_texture2 != 0) {
+        glDeleteTextures(1, &water_texture2);
     }
     if (path_texture != 0) {
         glDeleteTextures(1, &path_texture);

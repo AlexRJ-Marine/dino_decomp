@@ -525,6 +525,39 @@ def test_cpp_skybox_and_water():
     assert result.returncode == 0, result.stderr
     assert "environment: skybox 6/6 faces" in result.stdout
     assert "water yes at z=16.0 (256x256)" in result.stdout
+    assert "water2 256x256" in result.stdout
+
+
+def test_cpp_water_modulate2x(tmp_path):
+    """WaterSurface stage 1 Modulate2x (coordinate set 1, second TGA)."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "320", "--height", "240",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--distance",
+              "900"]
+    on = tmp_path / "water2-on.bmp"
+    off = tmp_path / "water2-off.bmp"
+    a = subprocess.run(common + ["--screenshot", str(on)],
+                       capture_output=True, text=True, timeout=180)
+    b = subprocess.run(common + ["--no-water2", "--screenshot", str(off)],
+                       capture_output=True, text=True, timeout=180)
+    assert a.returncode == 0, a.stderr
+    assert b.returncode == 0, b.stderr
+    image_on = Image.open(on).convert("RGB")
+    image_off = Image.open(off).convert("RGB")
+    # Sky/background is untouched by the water stage.
+    assert ImageChops.difference(
+        image_on.crop((0, 0, 320, 60)),
+        image_off.crop((0, 0, 320, 60))).getbbox() is None
+    # The sea region changes measurably (the second layer modulates it).
+    water_on = list(image_on.crop((40, 150, 120, 220)).getdata())
+    water_off = list(image_off.crop((40, 150, 120, 220)).getdata())
+    mean_diff = sum(
+        abs(p[0] - q[0]) + abs(p[1] - q[1]) + abs(p[2] - q[2])
+        for p, q in zip(water_on, water_off)) / (3.0 * len(water_on))
+    assert mean_diff > 2.0, mean_diff
 
 def _path_loop_args():
     args = []

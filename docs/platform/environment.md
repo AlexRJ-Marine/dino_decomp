@@ -40,9 +40,13 @@ is `notes/p5-sky.png`.
   100..700 with a black colour, so the ocean fades to the sky before the plane
   edge. Scene fog (`FogParam.txt`, 1500..2000, colour 255,220,165) is applied
   to the other lit materials. Both are linear.
-- Retail also binds the same water texture to a second texture stage with
-  `Modulate2x` (coordinate set 1, likely a scrolling layer); that is not
-  implemented yet. Current capture: `notes/p5-water-fog3.png`.
+- Retail also binds the same water TGA to a second texture stage with
+  `Modulate2x` (coordinate set 1, 28/30 tiling, 0.25 offset; the retail
+  builder scrolls the two layers in opposite directions). The port implements
+  the stage with a second UV set in the shader, clamped `2*texture*current`,
+  and `--no-water2` disables it for A/B captures:
+  `notes/water-modulate2x.png`. Water *animation* (the opposite scroll) is
+  still open.
 
 ## Side-by-side (WORLD-3)
 
@@ -74,13 +78,16 @@ Known differences in that frame:
 - `notes/p5-water-additive.png` — additive blend without fog.
 - `notes/p5-water-fog3.png` — additive water + per-material fog (current).
 - `tests/test_viewer_cpp.py::test_cpp_skybox_and_water` asserts
-  `environment: skybox 6/6 faces, water yes at z=16.0 (256x256)`.
+  `environment: skybox 6/6 faces, water yes at z=16.0 (256x256) water2
+  256x256`; `test_cpp_water_modulate2x` compares the sea with and without
+  `--no-water2` (`notes/water-modulate2x.png`).
 
 ## Open questions
 
 - The skybox face order/UVs are solved from the retail builder; a side-by-side
   screenshot against the original remains for final visual confirmation.
-- Water animation/two-stage `Modulate2x` texture (coordinate set 1) is not
-  implemented; the additive blend, scene fog and water fog are now retail-
-  matched. The skybox bottom/side seam is still visible at some angles.
+- Water animation (the retail opposite scroll of the two `Modulate2x` layers)
+  is not implemented; the stage itself, additive blend, scene fog and water fog
+  are now retail-matched. The skybox bottom/side seam is still visible at some
+  angles.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.

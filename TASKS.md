@@ -1208,8 +1208,16 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   The previous mapping was rotated ~90 degrees.
 - [x] Side-by-side at isl01 09:42, same camera (`notes/p5-side-by-side.png`):
   terrain, basemap, vegetation, HUD and warm fog match. Remaining polish:
-  second `Modulate2x` water stage, water animation, minimap rotation/detail
-  and slightly smoother retail terrain shading.
+  water animation, minimap rotation/detail and slightly smoother retail
+  terrain shading.
+- [x] Second `Modulate2x` water stage: `lnd.water2` is loaded (same
+  `Water/water.tga` on all ten islands), the shader adds texture coordinate
+  set 1 at 28/30 tiling + 0.25 offset, clamps `2*texture*current`, and
+  `--no-water2` gives an A/B capture. Evidence:
+  `notes/water-modulate2x.png`, `test_cpp_water_modulate2x`.
+- [ ] Water animation: the retail water builder scrolls the two layers in
+  opposite directions from `+0x10/+0x14` (`FUN_00602cf0`); the port stage is
+  static.
 - **Acceptance:** side-by-side screenshot against the original.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/environment.md`,
