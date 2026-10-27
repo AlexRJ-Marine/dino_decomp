@@ -1799,7 +1799,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_sav_park_roundtrip` currently skips this class.
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
-  (`notes/sav-autosave-manualized.png`).
+  (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`
+  (`tests/test_sav_manual.py`) does the patch and the output round-trips.
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
   `src/viewer/main.cpp` is owned by the SHOW-4 UI work.
 - **Acceptance:** save, restart, load, state matches.

@@ -55,8 +55,9 @@ See `notes/lanes.md`. Default split:
   `--sav-park` as a port convenience; retail **manual LOAD** ignores it
   (`notes/sav-camera-load-ignored.png`). Autosave flag confirmed: patching
   park `header_a` 3→0 and `header_c` 0→10 makes an autosave manually
-  loadable (`notes/sav-autosave-manualized.png`); `--sav-manual` is a
-  follow-up once `main.cpp` is free.
+  loadable (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`
+  does the patch, and `--sav-manual` is the C++ follow-up once `main.cpp`
+  is free.
 - SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
   hourly `ShowRuntime` with iterations/state and objective snapshots are
   ported (`src/world/show_runtime.*`); remaining: interactive construction
