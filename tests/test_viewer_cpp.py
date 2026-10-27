@@ -3244,6 +3244,31 @@ def test_cpp_sav_park_roundtrip(tmp_path):
         pytest.skip("retail saves not present")
 
 
+def test_cpp_campaign_corrupt_list0(tmp_path):
+    """A corrupt list0 name length fails cleanly instead of desynchronizing."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    campaign = ROOT / "build" / "campaign-autosave.sav"
+    if not campaign.exists() or campaign.stat().st_size < 20000:
+        pytest.skip("campaign autosave not present")
+    sys.path.insert(0, str(ROOT / "tools" / "formats"))
+    from sav import read_sav
+
+    save = read_sav(campaign)
+    data = bytearray(campaign.read_bytes())
+    roads = struct.unpack_from("<I", data, save.state_offset)[0]
+    list0_at = save.state_offset + 4 + roads * 16
+    assert struct.unpack_from("<I", data, list0_at)[0] == 20
+    struct.pack_into("<I", data, list0_at + 4 + 0x15, 0xFFFFFFF0)
+    bad = tmp_path / "bad-campaign.sav"
+    bad.write_bytes(data)
+    result = subprocess.run(
+        [str(EXE), "--sav-roundtrip", str(bad), "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 2, result.stdout
+    assert "bad campaign dino name length" in result.stderr, result.stderr
+
+
 def test_cpp_sav_write_rename(tmp_path):
     """--sav-name/--sav-slot change only the header; the body is untouched."""
     if not EXE.exists():
