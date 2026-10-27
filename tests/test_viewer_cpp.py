@@ -1487,6 +1487,10 @@ def test_cpp_wld_reader_matches_retail():
     assert ("building: kind=9 name=Entrance x=440 y=200 state=1 "
             "obj=1 linked=2 link=0 class=24") in text
     assert "road: " in text
+    assert ("show: obj=194 start=420,416 end=499,451 class=22 "
+            "field44=195 field48=63526") in text
+    assert "animal: obj=263 field1c=264 field20=0" in text
+    assert "employee: obj=12 field1c=13" in text
 
 
 def test_cpp_wld_reads_save_world():

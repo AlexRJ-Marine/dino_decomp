@@ -3650,6 +3650,23 @@ int main(int argc, char** argv) {
                 std::printf("road: %d,%d - %d,%d\n", road.x0, road.y0, road.x1,
                             road.y1);
             }
+            for (const dino::SavWorldPlaced& show : world.records.shows) {
+                std::printf(
+                    "show: obj=%u start=%u,%u end=%u,%u class=%u field44=%u "
+                    "field48=%u waypoints=%zu\n",
+                    show.object_id, show.start_x, show.start_y, show.end_x,
+                    show.end_y, show.class_tag, show.field_44, show.field_48,
+                    show.waypoints.size());
+            }
+            for (const dino::SavWorldAnimal& animal : world.records.animals) {
+                std::printf("animal: obj=%u field1c=%u field20=%u\n",
+                            animal.object_id, animal.field_1c, animal.field_20);
+            }
+            for (const dino::SavWorldEmployee& employee :
+                 world.records.employees) {
+                std::printf("employee: obj=%u field1c=%u\n", employee.object_id,
+                            employee.field_1c);
+            }
             if (world.has_camera) {
                 std::printf("camera:");
                 for (const float value : world.camera) {
