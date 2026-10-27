@@ -280,10 +280,10 @@ contract it only needs the `(x, y)` pair per action target plus the actor's
 
 ## 7. Open
 
-1. The **factory that fills `action+0x08`** (who picks the target class per
-   `.bai` action) is not located. It is not reached from `FUN_0053d4d0`
-   (the .bai reader) directly; the action list handed to `FUN_0056e190` is
-   `perceived_object+0x24`, so the visitor/obstacle behavior module owns it.
+1. ~~The factory that fills `action+0x08`~~ - resolved in section 8
+   (`FUN_00569640`, called only by `FUN_0056a9a0`); the class is chosen by the
+   producer. The id-list producers (`behavior+0xf4`, `+0xb8`, `+0xc8`) remain
+   open.
 2. Waypoint / `ReachWaypoint` targets: no concrete vtable found. `0x00642ffc`
    (box) and `0x006430e4` (actor) are the only `GetTarget` implementations in
    the 0x0056c000-0x0056f000 cluster.
@@ -291,7 +291,57 @@ contract it only needs the `(x, y)` pair per action target plus the actor's
    called with `p3 = 0`), so the linked/obstacle branch of the gate never fires
    for it - worth confirming at runtime with a trace of `0x0056da4e`.
 
-## 8. Port status
+## 8. Target factory (`action+0x08`) - resolved
+
+`FUN_00569640` is the **only** writer of `action+0x08`:
+
+```c
+void __thiscall FUN_00569640(void *a, void *record, void *target) {
+    *(u8 *)a       = 1;       // +0x00 enabled
+    *(void **)(a+4) = record; // +0x04 .bai/asItemBehavior record
+    *(void **)(a+8) = target; // +0x08 target policy
+}
+```
+
+Its only caller is `FUN_0056a9a0` (call at `0x0056aa0e`), which attaches **one**
+target to a whole action list at owner `P+0x24` (begin `P+0x28`, end `P+0x2c`):
+for each definition it allocates a 0xc-byte action, calls `FUN_00569640`, pushes
+it, then calls `FUN_0056e300` for the per-target node helper. The concrete
+target class is selected by the **producer**, not by the `.bai` record:
+
+| producer | target ctor | vtable |
+| --- | --- | --- |
+| `FUN_0056a730` <- `FUN_0053acd0` (show element types 0x16/0x17) | `FUN_0056bfd0` | `0x00642ffc` box/bait |
+| `FUN_00569e00` <- `FUN_0056bc40` / `FUN_0056bf50` | `FUN_0056edc0` | `0x006430ac` no target |
+| `FUN_0056ac80` <- `FUN_00521d10` / `FUN_00521d80` | `FUN_0056f620` | `0x006430e4` actor |
+
+Correction: `FUN_0056e300` is not show-only; `FUN_0056a9a0` is its sole caller,
+so the reaction path reaches it too.
+
+### Reaction ordering
+
+`FUN_00521d10`/`FUN_00521d80` pass the action-owner block `P` (not a target) to
+`FUN_0056e190`; `P+0x24` already holds the previous `FUN_0056ac80` fill, which
+carries a `0x006430e4` policy. `FUN_0056e190` reads `action+0x08` and calls its
+vtable **+0x0c `GetOwner`** (not +0x14) to skip actions whose owner equals the
+chooser owner. `FUN_0056ac80`/`FUN_0056a9a0` then refill the list (push only,
+no clear), so the first nodes bound by a starter can use the previous fill's
+target - a one-fill lag worth a runtime check.
+
+### Port implication
+
+- One `ActionTarget` per attach operation/list, shared by every action in it;
+  the class comes from the producer. The port's per-action provider is an
+  approximation for the mixed `{Eat, Sleep, ...}` subset.
+- `ActionTarget` should expose `GetOwner()` (slot +0x0c, the `+0x38` owner
+  context); `FUN_0056e190` skips an action whose target owner equals the
+  chooser owner.
+- The id-list producers (`behavior+0xf4`, `+0xb8`, `+0xc8`) are still open;
+  the only writer in the 0x51f-0x521 cluster is `FUN_0055ad00` (perception
+  memory at `P+0xa4`, vector `+0x1b4`, records `+0x34`), fed with
+  `[controller+0x28]` from `FUN_0056ac80` at `0x0056afde`.
+
+## 9. Port status
 
 Implemented in `src/world/dino_actions.*`:
 
