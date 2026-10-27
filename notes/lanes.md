@@ -6,6 +6,24 @@ Two or more agents can work in this tree at once. Claim a lane before editing
 and use its build directory. Do not run a shared executable while another lane
 is building it; build into your own directory instead.
 
+## Contributors
+
+| Contributor | Agent lane | Branch | Build dir |
+| --- | --- | --- | --- |
+| AlexRJ-Marine | hybrid/TOOL-4 + P3 runtime (`src/hook`, harness probes) | `main` | `build/port` |
+| marcusrj | port/viewer UI, world and formats (`src/viewer`, `src/ui`, `src/world`, `tools/formats`) | `portable-setup` -> `main` | `build/marcus` |
+
+The queued jobs for marcusrj are in `notes/jobs-marcusrj.md`. Do not start a
+row there without claiming it here, and do not touch another lane's files.
+
+### Branch and merge flow
+
+1. Work on your own branch (`portable-setup`, or `<name>/<topic>`), commit small.
+2. Before hand-off: `git fetch origin` and rebase your branch on `main`.
+3. The `main` owner fast-forwards (`git merge --ff-only origin/<branch>`) only
+   after `scripts/verify.ps1 -Fast` passes, then pushes `main`.
+4. Never force-push `main` and never rewrite another contributor's commits.
+
 ## Lanes
 
 | Lane | Owner | Owns | Build dir | Runtime |
