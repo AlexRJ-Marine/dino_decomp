@@ -47,3 +47,19 @@ Open semantic item: the HUD cash (26000) is not the park block `+0x30`
 `budget` (12345 in that test save; `26000` occurs only as show 27's first
 parameter). Identify the live-money field before using `--sav-budget` for
 gameplay assertions.
+
+Reproduction (the exact test save is 7,374 bytes, sha256
+`0e5559a0cbd36120731396c51205192074a5f7016dcf1150b8e5119f6d8da738`):
+
+```powershell
+.\build\port\dino_viewer.exe --sav-write run\save\slot001.sav `
+  build\savwrite\cppwrite-slot001.sav --sav-name cppwrite --sav-slot 1 `
+  --sav-budget 12345
+# install as run-test/save/slot001.sav, then
+# notes\harness\load-acceptance.ps1 -WatchSeconds 40
+```
+
+The LOAD GAME panel listed `cppwrite`; selecting that row and LOAD started
+the park (Reset `hr=0`) and the 40 s screenshot shows the park with clock
+09:28 (the save's `schedule_elapsed` is 23.2 s). The acceptance run restores
+the original `slot001.sav` in its `finally` block.
