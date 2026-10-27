@@ -40,6 +40,14 @@ public:
         off_ += size;
     }
 
+    std::vector<std::uint8_t> bytes(std::size_t size, const char* what) {
+        need(size, what);
+        std::vector<std::uint8_t> out(data_.begin() + off_,
+                                       data_.begin() + off_ + size);
+        off_ += size;
+        return out;
+    }
+
     std::uint32_t count(const char* what, std::uint32_t limit = 200000) {
         const std::uint32_t value = u32(what);
         if (value > limit) {
@@ -256,6 +264,188 @@ void read_world_block(Reader& r, bool campaign, WldWorld& out) {
     out.world_end = r.offset();
 }
 
+// Writer-oriented parse of the save's world block. Mirrors
+// tools/formats/wld.py::read_world_block so every byte the writer needs is
+// retained (the display-side readers above keep the subset the port uses).
+SavWorldWaypoint read_record_waypoint(Reader& r) {
+    SavWorldWaypoint point;
+    if (r.version() >= 3) {
+        point.flags = r.u32("waypoint flags");
+    }
+    point.key = r.u32("waypoint key");
+    if (r.version() < 0x25) {
+        point.key += 0x1E61;
+    }
+    point.x = r.u32("waypoint x");
+    point.y = r.u32("waypoint y");
+    point.z = r.u32("waypoint z");
+    point.extra = r.u32("waypoint extra");
+    return point;
+}
+
+SavWorldPlaced read_record_placed(Reader& r) {
+    SavWorldPlaced placed;
+    placed.object_id = r.u32("placed object id");
+    placed.field_14_first = r.u32("placed field 14 first");
+    placed.start_x = r.u32("placed start x");
+    placed.start_y = r.u32("placed start y");
+    placed.end_x = r.u32("placed end x");
+    placed.end_y = r.u32("placed end y");
+    if (r.version() > 1) {
+        const std::uint32_t n = r.count("waypoint count", 10000);
+        placed.waypoints.reserve(n);
+        for (std::uint32_t i = 0; i < n; ++i) {
+            placed.waypoints.push_back(read_record_waypoint(r));
+        }
+    }
+    return placed;
+}
+
+void read_sav_records(Reader& r, WldWorld& out) {
+    SavWorldRecords& w = out.records;
+    w.campaign_id = r.u32("campaign id");
+    w.mission_id = r.u32("mission id");
+    if (r.version() > 9) {
+        const std::uint32_t objectives = r.count("objective count", 10000);
+        w.objectives.reserve(objectives);
+        for (std::uint32_t i = 0; i < objectives; ++i) {
+            std::array<std::uint32_t, 3> objective{};
+            objective[0] = r.u32("objective a");
+            objective[1] = r.u32("objective b");
+            objective[2] = r.u32("objective c");
+            w.objectives.push_back(objective);
+        }
+    }
+
+    const std::uint32_t fences = r.count("fence count", 10000);
+    w.fences.reserve(fences);
+    for (std::uint32_t i = 0; i < fences; ++i) {
+        SavWorldPlaced fence = read_record_placed(r);
+        fence.class_tag = r.u32("fence class tag");
+        fence.field_14 = r.u32("fence field 14");
+        const std::vector<std::uint8_t> rect =
+            r.bytes(fence.extra16.size(), "fence repeated rect");
+        for (std::size_t b = 0; b < rect.size(); ++b) {
+            fence.extra16[b] = rect[b];
+        }
+        if (r.version() >= 2) {
+            fence.field_44 = r.u32("fence field 44");
+        }
+        if (r.version() >= 0x25) {
+            fence.field_48 = r.u32("fence field 48");
+        }
+        w.fences.push_back(std::move(fence));
+    }
+
+    const std::uint32_t shows = r.count("show count", 10000);
+    w.shows.reserve(shows);
+    for (std::uint32_t i = 0; i < shows; ++i) {
+        SavWorldPlaced show = read_record_placed(r);
+        show.class_tag = r.u32("show class tag");
+        if (r.version() >= 2) {
+            show.field_44 = r.u32("show field 44");
+        }
+        if (r.version() >= 0x25) {
+            show.field_48 = r.u32("show field 48");
+        }
+        if (r.version() < 2) {
+            const std::uint32_t legacy = r.count("legacy show count", 10000);
+            r.skip(static_cast<std::size_t>(legacy) * 0x18,
+                   "legacy show records");
+        }
+        w.shows.push_back(std::move(show));
+    }
+
+    if (r.version() > 1) {
+        const std::uint32_t animals = r.count("animal count", 10000);
+        w.animals.reserve(animals);
+        for (std::uint32_t i = 0; i < animals; ++i) {
+            SavWorldAnimal animal;
+            animal.object_id = r.u32("animal object id");
+            animal.field_1c = r.u32("animal field 1c");
+            if (r.version() > 0x32) {
+                animal.field_20 = r.u32("animal field 20");
+            }
+            w.animals.push_back(animal);
+        }
+    }
+
+    if (r.version() > 2) {
+        const std::uint32_t employees = r.count("employee count", 10000);
+        w.employees.reserve(employees);
+        for (std::uint32_t i = 0; i < employees; ++i) {
+            SavWorldEmployee employee;
+            employee.object_id = r.u32("employee object id");
+            employee.field_1c = r.u32("employee field 1c");
+            w.employees.push_back(employee);
+        }
+    }
+
+    const std::uint32_t buildings = r.count("building count", 10000);
+    w.buildings.reserve(buildings);
+    for (std::uint32_t i = 0; i < buildings; ++i) {
+        SavWorldBuilding building;
+        building.object_id = r.u32("building object id");
+        building.linked_id = r.u32("building linked id");
+        building.class_tag = r.u32("building class tag");
+        building.kind = r.u32("building kind");
+        building.cell_x = r.u32("building cell x");
+        building.cell_y = r.u32("building cell y");
+        building.state = r.u32("building state");
+        building.link = r.u32("building link");
+        w.buildings.push_back(building);
+    }
+
+    // Save games carry the visitor list except in the legacy range.
+    if (!(r.version() >= 6 && r.version() <= 0x10)) {
+        const std::uint32_t visitors = r.count("visitor count", 100000);
+        w.visitors.reserve(visitors);
+        for (std::uint32_t i = 0; i < visitors; ++i) {
+            SavWorldVisitor visitor;
+            visitor.object_id = r.u32("visitor object id");
+            visitor.field_1c = r.u32("visitor field 1c");
+            visitor.class_tag = r.u32("visitor class tag");
+            visitor.field_20 = r.u32("visitor field 20");
+            visitor.field_24 = r.u32("visitor field 24");
+            if (r.version() >= 5) {
+                visitor.field_28 = r.u32("visitor field 28");
+            }
+            w.visitors.push_back(visitor);
+        }
+    }
+
+    if (r.version() > 1) {
+        const std::uint32_t dinosaurs = r.count("dinosaur count", 100000);
+        w.dinosaurs.reserve(dinosaurs);
+        for (std::uint32_t i = 0; i < dinosaurs; ++i) {
+            SavWorldDinosaur dinosaur;
+            dinosaur.object_id = r.u32("dinosaur object id");
+            dinosaur.field_1c = r.u32("dinosaur field 1c");
+            if (r.version() >= 0x25) {
+                dinosaur.field_24 = r.u32("dinosaur field 24");
+                dinosaur.field_28 = r.u32("dinosaur field 28");
+                dinosaur.field_2c = r.u32("dinosaur field 2c");
+            }
+            dinosaur.class_tag = r.u32("dinosaur class tag");
+            dinosaur.pairs = r.version() > 0x15 ? 18 : 16;
+            for (int g = 0; g < dinosaur.pairs; ++g) {
+                const std::uint32_t first = r.u32("dinosaur allele a");
+                const std::uint32_t second = r.u32("dinosaur allele b");
+                dinosaur.genotype[static_cast<std::size_t>(g)] = {first,
+                                                                  second};
+            }
+            w.dinosaurs.push_back(dinosaur);
+        }
+    }
+
+    w.feature_flags = r.bytes(r.count("feature flag count", 10000),
+                              "feature flags");
+    w.building_flags = r.bytes(r.count("building flag count", 10000),
+                               "building flags");
+    w.food_flags = r.bytes(r.count("food flag count", 10000), "food flags");
+    w.misc_flags = r.bytes(r.count("misc flag count", 10000), "misc flags");
+}
+
 void check_version(std::uint32_t version, const std::string& path) {
     if (version < kMinVersion || version > kMaxVersion) {
         throw std::runtime_error("wld: unsupported version " +
@@ -323,6 +513,15 @@ WldWorld read_sav_world(const std::string& path) {
     }
     Reader r(data, offset, data.size(), out.version, path);
     read_world_block(r, false, out);
+
+    // Parse the same bytes again into the writer model and require it to end
+    // exactly where the display readers stopped.
+    Reader records(data, offset, out.world_end, out.version, path);
+    read_sav_records(records, out);
+    if (records.offset() != out.world_end) {
+        throw std::runtime_error("wld: world records disagree with the block "
+                                 "size in " + path);
+    }
     return out;
 }
 
@@ -334,13 +533,6 @@ SavSimulation read_sav_simulation(const std::string& path) {
     const std::uint32_t name_len = read_u32(data, 8, "save name length");
     const std::size_t world_start = 24 + name_len;
     out.header_raw.assign(data.begin(), data.begin() + world_start);
-    out.world_raw.assign(data.begin() + world_start,
-                         data.begin() + world.world_end);
-
-    auto skip_prefixed = [&](const char* what) {
-        const std::uint32_t n = r.count(what, 1 << 20);
-        r.skip(n, what);
-    };
 
     // Show catalog: ASCII path, UTF-16 name, six parameters.
     const std::uint32_t shows = r.count("show catalog count", 10000);
@@ -583,6 +775,24 @@ void put_f32(std::vector<std::uint8_t>& out, float value) {
     put_u32(out, conv.u);
 }
 
+void put_placed(std::vector<std::uint8_t>& out, const SavWorldPlaced& placed) {
+    put_u32(out, placed.object_id);
+    put_u32(out, placed.field_14_first);
+    put_u32(out, placed.start_x);
+    put_u32(out, placed.start_y);
+    put_u32(out, placed.end_x);
+    put_u32(out, placed.end_y);
+    put_u32(out, static_cast<std::uint32_t>(placed.waypoints.size()));
+    for (const SavWorldWaypoint& point : placed.waypoints) {
+        put_u32(out, point.flags);
+        put_u32(out, point.key);
+        put_u32(out, point.x);
+        put_u32(out, point.y);
+        put_u32(out, point.z);
+        put_u32(out, point.extra);
+    }
+}
+
 }  // namespace
 
 std::vector<std::uint8_t> write_sav_park_block(
@@ -701,6 +911,107 @@ std::vector<std::uint8_t> write_sav_simulation(
     return out;
 }
 
+std::vector<std::uint8_t> write_sav_world(const WldWorld& world) {
+    const SavWorldRecords& w = world.records;
+    const std::uint32_t version = world.version;
+    std::vector<std::uint8_t> out;
+    put_u32(out, w.campaign_id);
+    put_u32(out, w.mission_id);
+    if (version > 9) {
+        put_u32(out, static_cast<std::uint32_t>(w.objectives.size()));
+        for (const std::array<std::uint32_t, 3>& objective : w.objectives) {
+            put_u32(out, objective[0]);
+            put_u32(out, objective[1]);
+            put_u32(out, objective[2]);
+        }
+    }
+    put_u32(out, static_cast<std::uint32_t>(w.fences.size()));
+    for (const SavWorldPlaced& fence : w.fences) {
+        put_placed(out, fence);
+        put_u32(out, fence.class_tag);
+        put_u32(out, fence.field_14);
+        out.insert(out.end(), fence.extra16.begin(), fence.extra16.end());
+        put_u32(out, fence.field_44);
+        put_u32(out, fence.field_48);
+    }
+    put_u32(out, static_cast<std::uint32_t>(w.shows.size()));
+    for (const SavWorldPlaced& show : w.shows) {
+        put_placed(out, show);
+        put_u32(out, show.class_tag);
+        put_u32(out, show.field_44);
+        put_u32(out, show.field_48);
+    }
+    if (version > 1) {
+        put_u32(out, static_cast<std::uint32_t>(w.animals.size()));
+        for (const SavWorldAnimal& animal : w.animals) {
+            put_u32(out, animal.object_id);
+            put_u32(out, animal.field_1c);
+            if (version > 0x32) {
+                put_u32(out, animal.field_20);
+            }
+        }
+    }
+    if (version > 2) {
+        put_u32(out, static_cast<std::uint32_t>(w.employees.size()));
+        for (const SavWorldEmployee& employee : w.employees) {
+            put_u32(out, employee.object_id);
+            put_u32(out, employee.field_1c);
+        }
+    }
+    put_u32(out, static_cast<std::uint32_t>(w.buildings.size()));
+    for (const SavWorldBuilding& building : w.buildings) {
+        put_u32(out, building.object_id);
+        put_u32(out, building.linked_id);
+        put_u32(out, building.class_tag);
+        put_u32(out, building.kind);
+        put_u32(out, building.cell_x);
+        put_u32(out, building.cell_y);
+        put_u32(out, building.state);
+        put_u32(out, building.link);
+    }
+    if (!(version >= 6 && version <= 0x10)) {
+        put_u32(out, static_cast<std::uint32_t>(w.visitors.size()));
+        for (const SavWorldVisitor& visitor : w.visitors) {
+            put_u32(out, visitor.object_id);
+            put_u32(out, visitor.field_1c);
+            put_u32(out, visitor.class_tag);
+            put_u32(out, visitor.field_20);
+            put_u32(out, visitor.field_24);
+            if (version >= 5) {
+                put_u32(out, visitor.field_28);
+            }
+        }
+    }
+    if (version > 1) {
+        put_u32(out, static_cast<std::uint32_t>(w.dinosaurs.size()));
+        for (const SavWorldDinosaur& dinosaur : w.dinosaurs) {
+            put_u32(out, dinosaur.object_id);
+            put_u32(out, dinosaur.field_1c);
+            if (version >= 0x25) {
+                put_u32(out, dinosaur.field_24);
+                put_u32(out, dinosaur.field_28);
+                put_u32(out, dinosaur.field_2c);
+            }
+            put_u32(out, dinosaur.class_tag);
+            for (int g = 0; g < dinosaur.pairs; ++g) {
+                put_u32(out, dinosaur.genotype[static_cast<std::size_t>(g)]
+                                 .first);
+                put_u32(out, dinosaur.genotype[static_cast<std::size_t>(g)]
+                                 .second);
+            }
+        }
+    }
+    put_u32(out, static_cast<std::uint32_t>(w.feature_flags.size()));
+    out.insert(out.end(), w.feature_flags.begin(), w.feature_flags.end());
+    put_u32(out, static_cast<std::uint32_t>(w.building_flags.size()));
+    out.insert(out.end(), w.building_flags.begin(), w.building_flags.end());
+    put_u32(out, static_cast<std::uint32_t>(w.food_flags.size()));
+    out.insert(out.end(), w.food_flags.begin(), w.food_flags.end());
+    put_u32(out, static_cast<std::uint32_t>(w.misc_flags.size()));
+    out.insert(out.end(), w.misc_flags.begin(), w.misc_flags.end());
+    return out;
+}
+
 std::vector<std::uint8_t> write_sav_catalog(
     const SavSimulation& s) {
     std::vector<std::uint8_t> out;
@@ -715,9 +1026,11 @@ std::vector<std::uint8_t> write_sav_catalog(
     return out;
 }
 
-std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s) {
+std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s,
+                                          const WldWorld& world) {
     std::vector<std::uint8_t> out = s.header_raw;
-    out.insert(out.end(), s.world_raw.begin(), s.world_raw.end());
+    const std::vector<std::uint8_t> world_bytes = write_sav_world(world);
+    out.insert(out.end(), world_bytes.begin(), world_bytes.end());
     const std::vector<std::uint8_t> catalog = write_sav_catalog(s);
     out.insert(out.end(), catalog.begin(), catalog.end());
     const std::vector<std::uint8_t> simulation = write_sav_simulation(s);
@@ -727,6 +1040,7 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s) {
 
 bool sav_park_roundtrip(const std::string& path, std::string* error) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
+    const WldWorld world = read_sav_world(path);
     const SavSimulation simulation = read_sav_simulation(path);
     if (!simulation.has_park) {
         *error = ": no park block";
@@ -750,7 +1064,7 @@ bool sav_park_roundtrip(const std::string& path, std::string* error) {
             return false;
         }
     }
-    const std::vector<std::uint8_t> whole = write_sav_whole(simulation);
+    const std::vector<std::uint8_t> whole = write_sav_whole(simulation, world);
     if (whole.size() != data.size()) {
         *error = ": whole-file length mismatch";
         return false;

@@ -3117,7 +3117,7 @@ int main(int argc, char** argv) {
         const bool ok = dino::sav_park_roundtrip(opt.sav_roundtrip_path,
                                                  &error);
         std::printf("sav roundtrip: %s%s\n",
-                    ok ? "whole file identical (world copied)" : "sav MISMATCH",
+                    ok ? "whole file identical" : "sav MISMATCH",
                     error.c_str());
         return ok ? 0 : 1;
     }

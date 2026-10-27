@@ -149,7 +149,6 @@ struct SavSimulation {
     std::uint8_t schedule_final = 0;
     std::size_t state_offset = 0;
     std::vector<std::uint8_t> header_raw;   // 0 .. world block
-    std::vector<std::uint8_t> world_raw;    // world block bytes
     std::vector<SavShowEntry> catalog;
     std::vector<SavDinoStoreEntry> dino_store;
     std::array<int, 5> visitor_model{};
@@ -172,6 +171,51 @@ struct WorldDinosaur {
 
 // The subset of a `.wld`/`.sav` world block the port needs.
 // See docs/formats/wld.md; the readers mirror tools/formats/wld.py.
+// World-block records retained for the retail .sav writer. Shapes mirror
+// tools/formats/wld.py and tools/formats/sav_write.py.
+struct SavWorldWaypoint {
+    std::uint32_t flags = 0, key = 0, x = 0, y = 0, z = 0, extra = 0;
+};
+
+struct SavWorldPlaced {
+    std::uint32_t object_id = 0, field_14_first = 0;
+    std::uint32_t start_x = 0, start_y = 0, end_x = 0, end_y = 0;
+    std::vector<SavWorldWaypoint> waypoints;
+    std::uint32_t class_tag = 0, field_14 = 0, field_44 = 0, field_48 = 0;
+    std::array<std::uint8_t, 16> extra16{};
+};
+
+struct SavWorldAnimal { std::uint32_t object_id = 0, field_1c = 0, field_20 = 0; };
+struct SavWorldEmployee { std::uint32_t object_id = 0, field_1c = 0; };
+struct SavWorldBuilding {
+    std::uint32_t object_id = 0, linked_id = 0, kind = 0;
+    std::uint32_t cell_x = 0, cell_y = 0, state = 0, link = 0;
+    std::uint32_t class_tag = 0;
+};
+struct SavWorldVisitor {
+    std::uint32_t object_id = 0, field_1c = 0, class_tag = 0;
+    std::uint32_t field_20 = 0, field_24 = 0, field_28 = 0;
+};
+struct SavWorldDinosaur {
+    std::uint32_t object_id = 0, field_1c = 0, field_24 = 0;
+    std::uint32_t field_28 = 0, field_2c = 0, class_tag = 0;
+    int pairs = 18;
+    std::array<std::pair<std::uint32_t, std::uint32_t>, 18> genotype{};
+};
+
+struct SavWorldRecords {
+    std::uint32_t campaign_id = 0, mission_id = 0;
+    std::vector<std::array<std::uint32_t, 3>> objectives;
+    std::vector<SavWorldPlaced> fences, shows;
+    std::vector<SavWorldAnimal> animals;
+    std::vector<SavWorldEmployee> employees;
+    std::vector<SavWorldBuilding> buildings;
+    std::vector<SavWorldVisitor> visitors;
+    std::vector<SavWorldDinosaur> dinosaurs;
+    std::vector<std::uint8_t> feature_flags, building_flags, food_flags,
+        misc_flags;
+};
+
 struct WldWorld {
     std::uint32_t version = 0;
     std::uint32_t mode = 0;
@@ -191,6 +235,7 @@ struct WldWorld {
     std::array<float, 10> camera{};
     bool has_camera = false;
     std::size_t world_end = 0;  // first byte after the parsed world block
+    SavWorldRecords records;    // writer view (saves only)
 };
 
 // Campaign `.wld` (version 50..53): header (version, mode), world block,
@@ -214,9 +259,14 @@ std::vector<std::uint8_t> write_sav_park_block(
 std::vector<std::uint8_t> write_sav_simulation(
     const SavSimulation& simulation);
 std::vector<std::uint8_t> write_sav_catalog(const SavSimulation& simulation);
-std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation);
+// Rebuild a save's world block from the retained records (mirrors
+// tools/formats/sav_write.py::write_world).
+std::vector<std::uint8_t> write_sav_world(const WldWorld& world);
+std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation,
+                                          const WldWorld& world);
 
-// Read a .sav, rebuild its park block and compare it with the file bytes.
+// Read a .sav, rebuild header + world + catalog + simulation and compare the
+// result with the file bytes.
 bool sav_park_roundtrip(const std::string& path, std::string* error);
 
 }  // namespace dino
