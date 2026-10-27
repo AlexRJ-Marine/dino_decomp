@@ -143,7 +143,7 @@ The proxy now, under `DINO_FORCE_INPUT_ACTIVE`:
 Evidence: `notes/harness/park-load-probe-x32-run4.log` reaches
 `AFTER_VIDEO_VALIDATE al=1`, `TGA_LOAD`, `PRESENT_AFTER`, `WORLD_IO` and
 `WORLDMGR_ENTER`; the direct probe renders the park
-(`notes/harness/direct-t5-28s.png`: terrain, trees, HUD, budget 26000, minimap,
+(`notes/park-retail-windowed.png`: terrain, trees, HUD, budget 26000, minimap,
 clock 09:09). The x32dbg quiet sample at `0x5AD73F` is an SSE matrix routine
 (the load continues), not a wait.
 

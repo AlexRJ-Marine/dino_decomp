@@ -72,7 +72,7 @@ See `notes/lanes.md`. Default split:
   `D3DERR_DEVICELOST` for the park's 800x600 R5G6B5 Reset. The proxy now
   forces 16-bit park Resets to X8R8G8B8 and activates the game window on the
   Reset thread; the free-game park loads and renders
-  (`notes/harness/direct-t5-28s.png`). `notes/park-load-static.md` has the
+  (`notes/park-retail-windowed.png`). `notes/park-load-static.md` has the
   call map; `notes/background-input-recon.md` §4b the resolution.
 
 ## Next actions
