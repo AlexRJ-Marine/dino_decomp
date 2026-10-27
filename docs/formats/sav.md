@@ -435,3 +435,12 @@ settled save (patched copy of `run/save/slot001.sav`) renders
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - The AI entry field split (17-byte records); the camera split is solved.
+### Writer round-trip (SAVE-0)
+
+`tools/formats/sav_write.py` rebuilds the 0x293-byte park record from
+the parsed model in retail writer order and splices it back into the
+original file. It is byte-identical on `run/save/slot001.sav`,
+`slot002.sav` and `auto/slot001.sav`; `tests/test_sav_write.py` guards
+it. That proves the park header, the economy stream (writer
+`0x00585780`), the schedule tail (`0x00594cb0`), the 12-byte trailer
+and the trailing byte before the C++ writer is ported.
