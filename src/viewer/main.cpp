@@ -3612,6 +3612,10 @@ int main(int argc, char** argv) {
     auto apply_store_catalog = [&](dino::Market market,
                                    const std::string& source) {
         store_catalog = std::move(market.entries);
+        // An armed insertion belongs to the previous catalog. Never resolve
+        // its row against the replacement vector (mission change or load).
+        pending_store_index = -1;
+        pending_store_price = 0;
         // The retail vector is rebuilt when the state activates; the port
         // refreshes the six-row viewport in place.
         refresh_store_rows();
@@ -5078,8 +5082,8 @@ int main(int argc, char** argv) {
         return assets;
     };
 
-    // Store `DINO_ACHAT_SAVE_RENDER_VIEW`: one static LOD1 mesh per
-    // Market.ini genotype, fitted into the preview well at draw time.
+    // Store `DINO_ACHAT_SAVE_RENDER_VIEW`: one static LOD1 mesh per selected
+    // store genotype, fitted into the preview well at draw time.
     struct StorePreview {
         GpuMesh gpu;
         GLuint texture = 0;
@@ -6878,6 +6882,9 @@ int main(int argc, char** argv) {
                 std::printf("campaign video: %s\n", video.c_str());
                 play_video(video, 0, opt.video_play_frames);
             }
+            // The campaign is over: the mission panel would otherwise stay
+            // open with stale objective text behind the dismissed CPGEND.
+            park.clear_mission();
             return;
         }
         const dino::CampaignMission next = *pending_next_mission;
@@ -8405,7 +8412,7 @@ int main(int argc, char** argv) {
                              0, 1.0f, 1, view_w, view_h);
             }
 
-            // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected Market.ini
+            // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected store entry's
             // dinosaur's standing LOD1 mesh directly into the well. The
             // retail widget is a 3D preview; the port fits the mesh to the
             // widget rect with a pixel-space MVP and scissor clipping.

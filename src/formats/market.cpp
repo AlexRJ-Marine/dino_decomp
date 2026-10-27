@@ -57,9 +57,11 @@ void parse_pages(const std::map<int, std::string>& stores,
             parts.push_back(token);
         }
         if (parts.size() % 3 != 0) {
-            throw std::runtime_error("market: " + source + " DinoStore" +
-                                     std::to_string(store) +
-                                     " is not a triplet list");
+            throw std::runtime_error(
+                "market: " + (source.empty() ? std::string()
+                                             : source + " ") +
+                "DinoStore" + std::to_string(store) +
+                " is not a triplet list");
         }
         for (std::size_t i = 0; i < parts.size(); i += 3) {
             MarketEntry entry;
@@ -128,7 +130,7 @@ Market load_market(const std::string& path) {
     }
 
     Market market;
-    parse_pages(stores, "market", market);
+    parse_pages(stores, "", market);
     if (market.entries.empty()) {
         throw std::runtime_error("market: no [DINOSTORE] entries in " + path);
     }
@@ -139,7 +141,7 @@ Market market_from_values(const std::map<std::string, std::string>& values) {
     // `flatten` uppercases both the section and the key:
     //   [DINOSTORE] DinoStore0="..." -> "DINOSTORE.DINOSTORE0"
     constexpr const char* kPrefix = "DINOSTORE.DINOSTORE";
-    constexpr std::size_t kPrefixLen = 19;
+    constexpr std::size_t kPrefixLen = sizeof("DINOSTORE.DINOSTORE") - 1;
     std::map<int, std::string> stores;
     for (const auto& [key, value] : values) {
         if (key.rfind(kPrefix, 0) != 0 || key.size() <= kPrefixLen) {

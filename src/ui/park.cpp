@@ -303,8 +303,11 @@ void ParkHud::clear_message() {
     message_text_.clear();
     message_remaining_ = 0.0;
     for (int line = 1; line <= 4; ++line) {
-        if (Widget* widget =
-                overlay.get("LINE" + std::to_string(line) + "_MESSAGE")) {
+        const std::string suffix = std::to_string(line);
+        if (Widget* widget = overlay.get("LINE" + suffix + "_MESSAGE")) {
+            widget->text.clear();
+        }
+        if (Widget* widget = overlay.get("LINE" + suffix + "_BACKGROUND")) {
             widget->text.clear();
         }
     }
@@ -350,10 +353,19 @@ void ParkHud::update_message_lines() {
         flush_line();
     }
     for (int line = 1; line <= 4; ++line) {
+        const std::string suffix = std::to_string(line);
+        const std::size_t index = static_cast<std::size_t>(line - 1);
+        const std::string value =
+            index < lines.size() ? lines[index] : std::string();
+        // FUN_005e4720 binds LINE<N>_MESSAGE and LINE<N>_BACKGROUND; the
+        // background pair is at +2,+2 with black text and provides the drop
+        // shadow.
+        if (Widget* widget = overlay.get("LINE" + suffix + "_MESSAGE")) {
+            widget->text = value;
+        }
         if (Widget* widget =
-                overlay.get("LINE" + std::to_string(line) + "_MESSAGE")) {
-            const std::size_t index = static_cast<std::size_t>(line - 1);
-            widget->text = index < lines.size() ? lines[index] : std::string();
+                overlay.get("LINE" + suffix + "_BACKGROUND")) {
+            widget->text = value;
         }
     }
 }

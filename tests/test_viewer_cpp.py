@@ -2572,21 +2572,25 @@ def test_cpp_store_message_keeps_panel(tmp_path):
     assert yellow > 40, yellow
 
 
-def test_cpp_store_catalog_mission():
-    """Campaign missions list their own [DINOSTORE] block, not Market.ini."""
+def test_cpp_store_catalog_mission(tmp_path):
+    """Campaign missions use their effective [DINOSTORE] block (own or
+    inherited from MissionBase.ini), not Market.ini."""
     if not EXE.exists():
         pytest.skip("viewer not built")
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
     mission = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Mission2.ini"
     empty = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Mission4.ini"
+    inherited = GAME / "Data" / "Design" / "Scenario" / "Cpg01" / "Cpg01_Mission1.ini"
     if not (isl04.exists() and wld.exists() and mission.exists() and
-            empty.exists()):
+            empty.exists() and inherited.exists()):
         pytest.skip("retail Cpg04/isl04/missions missing")
+    progress = tmp_path / "campaign-progress.txt"
     base = [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width",
             "800", "--height", "600", "--no-vsync", "--no-save-config",
             "--lnd", str(isl04), "--asset-root", str(GAME),
-            "--no-vegetation", "--no-water", "--wld-park", str(wld)]
+            "--no-vegetation", "--no-water", "--wld-park", str(wld),
+            "--campaign-progress", str(progress)]
     env = dict(os.environ, DINO_DEBUG_STORE_GAUGES="1")
     result = subprocess.run(
         base + ["--start-mission", str(mission),
@@ -2608,6 +2612,18 @@ def test_cpp_store_catalog_mission():
     assert "store catalog: Cpg04_Mission4 entries=0" in log
     assert "store gauges:" not in log.split(
         "store catalog: Cpg04_Mission4")[-1]
+    # Cpg01 has no own block: the inherited MissionBase pages are all empty.
+    result = subprocess.run(
+        base + ["--start-mission", str(inherited),
+                "--park-click", "765,298", "--park-click", "160,88"],
+        env=env, capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "store catalog: Cpg01_Mission1 entries=0" in log
+    assert "store gauges:" not in log.split(
+        "store catalog: Cpg01_Mission1")[-1]
+    # The test must not leak the active mission into run/save/.
+    assert progress.exists()
 
 
 def test_cpp_store_catalog_freegame(tmp_path):

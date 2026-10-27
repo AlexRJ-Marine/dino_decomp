@@ -74,11 +74,13 @@ store order (`DinoStore0,2..6`) and validates the triplets, integer prices and
 `Market.ini` itself.
 
 `market_from_values(CampaignMission::values)` parses the same triplet format
-from a campaign mission's flattened `[DINOSTORE]` block (keys
-`DINOSTORE.DINOSTORE<N>`); all-empty blocks yield an empty catalog rather than
-an error. The viewer selects the source per mode: `Market.ini` for the plain
-park, `FreeGame.ini` for free game (20 entries), and the mission block for a
-campaign (`Cpg04_Mission2` = 4 entries). Each switch prints
+from a campaign mission's effective `[DINOSTORE]` block (keys
+`DINOSTORE.DINOSTORE<N>`): the mission's own block, or the all-empty pages
+inherited from `MissionBase.ini` when it has none. Empty blocks yield an empty
+catalog rather than an error. The viewer selects the source per mode:
+`Market.ini` for the plain park, `FreeGame.ini` for free game (20 entries), and
+the mission block for a campaign (`Cpg04_Mission2` = 4 entries; Cpg01/Cpg02 and
+several later missions = 0). Each switch prints
 `store catalog: <source> entries=N`.
 
 ```text

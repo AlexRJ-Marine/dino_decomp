@@ -1,9 +1,9 @@
 # Dinosaur store panel (`DINO_ACHAT_SAVE_*`)
 
-Status: **research complete; port wiring pending.** This closes the "interactive
-store panel" part of CONS-1. The capacity/budget rules and the headless
-purchase already exist; this note covers the retail UI flow and the record
-fields the UI reads.
+Status: **research complete; panel, gauges, preview, toast and mode catalogs
+implemented.** This closes the "interactive store panel" part of CONS-1. The
+capacity/budget rules and the headless purchase already exist; this note
+covers the retail UI flow and the record fields the UI reads.
 
 ## State machine
 
@@ -165,7 +165,7 @@ The Leoparus breed has distinct dummy alleles and shows ORIGINALITY 67.
 Evidence: `notes/store-gauges.png`, `notes/store-gauges-originality.png`,
 `test_cpp_store_attribute_gauges`.
 
-3D preview: `DINO_ACHAT_SAVE_RENDER_VIEW` now draws the selected Market.ini
+3D preview: `DINO_ACHAT_SAVE_RENDER_VIEW` now draws the selected store
 dinosaur's skinned LOD1 pose. `StoreRow.genotype` resolves the head
 species/family; a per-genotype `StorePreview` caches the GPU mesh, texture
 and model bounds. The draw reuses the scene `look_at`/`perspective` and
@@ -189,8 +189,9 @@ the active state visible behind the dim `DIALOG_BACKGROUND`
 Catalog selection follows the mode, like the retail store vector:
 
 - free game: `FreeGame.ini` `[DINOSTORE]` (20 entries; a subset of Market.ini);
-- campaign mission: the mission's own `[DINOSTORE]` block
-  (`DinoStore0..N`, e.g. Cpg04_Mission2 = 4 entries, Cpg04_Mission4 = empty);
+- campaign mission: the mission's effective `[DINOSTORE]` block
+  (its own, or the all-empty `MissionBase.ini` pages when it has none; e.g.
+  Cpg04_Mission2 = 4 entries, Cpg04_Mission4/Cpg01 = empty);
 - plain/debug park: `Market.ini` (54 entries).
 
 `src/formats/market.cpp` now exposes `market_from_values(CampaignMission

@@ -24,10 +24,11 @@ struct Market {
 Market load_market(const std::string& path);
 
 // Builds the catalog from flattened campaign-mission values as produced by
-// `CampaignMission::values` (`DINOSTORE.DINOSTORE<N>`, uppercase). Campaign
-// missions carry their own `[DINOSTORE]` block, so each mission lists only the
-// dinosaurs available in that mission. Empty store values (Cpg04_Mission4) are
-// kept as empty pages and yield an empty catalog instead of an error.
+// `CampaignMission::values` (`DINOSTORE.DINOSTORE<N>`, uppercase). The block
+// is the mission's own `[DINOSTORE]` or the one inherited from
+// `MissionBase.ini`; many missions (Cpg01/Cpg02 and several later ones)
+// intentionally have all-empty pages. Empty values are kept as empty pages and
+// yield an empty catalog instead of an error.
 Market market_from_values(const std::map<std::string, std::string>& values);
 
 }  // namespace dino
