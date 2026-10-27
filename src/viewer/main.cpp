@@ -2581,6 +2581,9 @@ int run_selftest() {
     trait.strangeness = 10;
     trait.ornament_count = 1;
     trait.isolated = true;
+    trait.carnivore = true;
+    trait.biped = true;
+    trait.age = 10;
     dino::DinoTraitState hungry = trait;
     hungry.food = 50;
     hungry.aggression = 0;
@@ -2674,6 +2677,14 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Pending,
           "objective size class threshold");
+    check(dino::evaluate_objective(objective("franckstrangedinos 20 30"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective franck strange");
+    check(dino::evaluate_objective(objective("franckstrangedinos 5 30"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective franck age");
     check(dino::evaluate_objective(objective("ornateddinos 1"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -9061,6 +9072,9 @@ int main(int argc, char** argv) {
                     dinosaur.attributes.conventional_appeal;
                 trait.ornament_count =
                     dinosaur.attributes.ornament_count;
+                trait.carnivore = dinosaur.carnivore;
+                trait.biped = !dinosaur.attributes.quadruped;
+                trait.age = 0;  // imported dinos are spawned at park start
                 trait.speed = static_cast<int>(
                     dinosaur.attributes.walk_speed * 100.0f);
                 trait.stamina = dinosaur.attributes.stamina;

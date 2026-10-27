@@ -160,7 +160,7 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 12 | `staminadinos` | `0x00568b80` | count, percent | pattern[7] `+0xc0` stamina |
 | 13 | `cleverdinos` | `0x00568c50` | count, percent | pattern[9] `+0x8c` intelligence |
 | 14 | `sizedagilitydinos` | `0x00569040` | min size class, min agility | pattern[8] `+0x1e0` size class, pattern[5] `+0x98` agility; all thresholds `>=` |
-| 15 | `franckstrangedinos` | `0x00569110` | age, score | `+0x1b0==1`, `+0x1b4==0`, `+0x190>=2`, `+0x6c<age`, `+0x3c>score` |
+| 15 | `franckstrangedinos` | `0x00569110` | max age, min intelligence | `+0x1b0==1` carnivore, `+0x1b4==0` biped, `+0x190>=2` size class, `+0x6c<age` (port age 0), `+0x3c>score` intelligence; any dino |
 | 16 | `employees` | `0x005665f0` | profile, count | never fails |
 | 17 | `hungrydinos` | `0x005689e0` | count, food | pattern[4] `+0x244` food; count -1 = every dino; mode 2 means food `>=` |
 | 18 | `isolateddinos` | `0x00568d20` | min aggression | pattern[1] `+0xbc`; every aggressive dino must be isolated (alone in its enclosure) |
@@ -203,11 +203,11 @@ happyvisitors  every visitor satisfaction >= percent
 
 ### Port coverage
 
-`--campaign-coverage DIR` reports **89 objectives: 77 implemented, 12 pending,
-0 unknown**. The pending lines are `franckstrangedinos` (4, Cpg06_Mission4) and
-the show verbs `happyshow` (2), `scientificshow` (2), `happydinoshow` (2),
-`dinoexclusiveshow` (2). `scaritydinos`, `keephappyvisitors`,
-`carnivordinos` and `fightshow` are unused by the retail objectives.
+`--campaign-coverage DIR` reports **89 objectives: 81 implemented, 8 pending,
+0 unknown**. The pending lines are the show verbs `happyshow` (2),
+`scientificshow` (2), `happydinoshow` (2) and `dinoexclusiveshow` (2).
+`scaritydinos`, `keephappyvisitors`, `carnivordinos` and `fightshow` are
+unused by the retail objectives.
 
 ### Trait pattern (10 fields)
 

@@ -48,11 +48,11 @@ def test_cpp_campaign_coverage():
     result = _run("--campaign-coverage", str(SCENARIO))
     assert result.returncode == 0, result.stderr
     assert (
-        "campaign coverage: 89 objectives, 77 implemented, 12 pending, "
+        "campaign coverage: 89 objectives, 81 implemented, 8 pending, "
         "0 unknown" in result.stdout
     )
     for line in (
-        "verb id=15 franckstrangedinos objectives=4 pending",
+        "verb id=15 franckstrangedinos objectives=4 implemented",
         "verb id=24 happyshow objectives=2 pending",
         "verb id=26 scientificshow objectives=2 pending",
         "verb id=27 happydinoshow objectives=2 pending",
@@ -66,7 +66,7 @@ def test_cpp_campaign_coverage():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (85 checks)" in result.stdout
+    assert "selftest: PASS (87 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -515,6 +515,25 @@ def test_cpp_campaign_hybrid_dinos(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "mission objective 0 hybriddinos -> success" in result.stdout
     assert "mission HybridTest: success" in result.stdout
+
+
+def test_cpp_campaign_franck_strange():
+    # Cpg06_Mission4's four `franckstrangedinos 20 30` lines all use the same
+    # predicate: any carnivore, biped, size class >=2, age<20, intelligence>30.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg06" / "Cpg06_Mission4.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04/Cpg06 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--start-mission", str(mission),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 franckstrangedinos -> success" in result.stdout
+    assert "mission Cpg06_Mission4: success" in result.stdout
 
 
 def test_cpp_campaign_mission_success():

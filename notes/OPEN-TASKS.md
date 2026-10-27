@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 00:58. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 01:03. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 34 open items.
 
@@ -80,7 +80,7 @@ Generated from `TASKS.md` on 2026-10-27 00:58. Do not edit; regenerate with `scr
 ## CAMPAIGN-3: Campaign menu start + live traits
 - [ ] Play the ending videos.
 - [ ] Fill scarcity (`+0x1e8`); the retail objectives do not use it.
-- [ ] `franckstrangedinos` (age/score) and the show verbs once their runtime
+- [ ] The show verbs once their runtime/judging sources exist.
 
 ## SIM-4: Economy and attractions
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once

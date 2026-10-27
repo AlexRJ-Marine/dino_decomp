@@ -227,6 +227,22 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                 }
             }
             return ObjectiveVerdict::Pending;
+        case 15: {  // franckstrangedinos max_age min_intelligence
+            // `0x569110`: any dino with +0x1b0==1 (carnivore), +0x1b4==0
+            // (biped), +0x190>=2 (size class), +0x6c<age argument and
+            // +0x3c>intelligence argument. The port starts imported dinos at
+            // age 0.
+            const int max_age = arg_int(objective, 0);
+            const int min_intelligence = arg_int(objective, 1);
+            for (const DinoTraitState& dino : state.dinos) {
+                if (dino.carnivore && dino.biped &&
+                    dino.size_class >= 2 && dino.age < max_age &&
+                    dino.intelligence > min_intelligence) {
+                    return ObjectiveVerdict::Success;
+                }
+            }
+            return ObjectiveVerdict::Pending;
+        }
         case 16: {  // employees profile count
             const int required = arg_int(objective, 1);
             return state.employee_count(arg_str(objective, 0)) >= required

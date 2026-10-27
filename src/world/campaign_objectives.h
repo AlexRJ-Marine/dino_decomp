@@ -31,6 +31,10 @@ struct DinoTraitState {
     int beauty = 0;        // +0x40
     int strangeness = 0;   // +0x194
     int ornament_count = 0;  // non-empty slots in the 23-slot +0xE8 array
+    // `franckstrangedinos`: actor +0x1b0/+0x1b4/+0x6c.
+    bool carnivore = false;
+    bool biped = false;
+    int age = 0;
     // `isolateddinos`: the aggressive dino is alone in its enclosure.
     bool isolated = false;
 };

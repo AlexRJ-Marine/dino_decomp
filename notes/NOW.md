@@ -74,6 +74,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - CAMPAIGN-3 franckstrangedinos: carnivore/biped/size/intelligence predicate; Cpg06_Mission4 completes
 - 2026-10-27 - Store 3D preview: selected Market dino rendered in DINO_ACHAT_SAVE_RENDER_VIEW
 - 2026-10-27 - CAMPAIGN-3 coverage: 77/89 objectives implemented, 12 pending (franck + shows)
 - 2026-10-27 - CAMPAIGN-3 hybriddinos: phenotype originality fills +0x1e4 (Cpg04 originality 80)
@@ -81,7 +82,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - CAMPAIGN-3 mission title: MISSION_PANEL_TITLE shows the campaign mission index (1/4)
 - 2026-10-27 - CAMPAIGN-3 cross-restart progress: campaign-progress.txt resumes the stored mission from the menu
 - 2026-10-27 - CAMPAIGN-3 completion: last mission shows ending text and writes the next dino.dat unlock bit
-- 2026-10-27 - CAMPAIGN-3 isolateddinos: aggressive dinos alone in their paddock; Cpg04 pending, empty Cpg01 completes Mission1
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

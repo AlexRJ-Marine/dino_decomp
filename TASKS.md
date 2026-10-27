@@ -1397,6 +1397,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Fill `hybriddinos` from the phenotype originality
   (`100 - conventional_appeal`; inferred from the store gauge; Cpg04 has a
   dino at 80).
+- [x] `franckstrangedinos`: carnivore + biped + size class >=2 + intelligence,
+  imported age 0; Cpg06_Mission4 completes on the Cpg04 park.
 - [ ] Fill scarcity (`+0x1e8`); the retail objectives do not use it.
 - [x] Store the active mission id in `DINOPSAV`; `--load-port` resumes it
   (verdicts are derived again by the first tick).
@@ -1407,10 +1409,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   complete on the Cpg04 park.
 - [x] `isolateddinos`: every aggressive dino alone in its paddock; Cpg04's
   populated park stays pending, the empty Cpg01 park completes Mission1.
-- [x] `--campaign-coverage` reports 77/89 implemented, 12 pending
-  (`franckstrangedinos` 4 + the show verbs 8), 0 unknown.
-- [ ] `franckstrangedinos` (age/score) and the show verbs once their runtime
-  sources exist.
+- [x] `--campaign-coverage` reports 81/89 implemented, 8 pending (the show
+  verbs), 0 unknown.
+- [ ] The show verbs once their runtime/judging sources exist.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

@@ -180,6 +180,7 @@ bool objective_verb_implemented(int objective_id) {
         case 12:  // staminadinos
         case 13:  // cleverdinos
         case 14:  // sizedagilitydinos
+        case 15:  // franckstrangedinos
         case 16:  // employees
         case 17:  // hungrydinos
         case 18:  // isolateddinos
