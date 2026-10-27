@@ -1,6 +1,6 @@
 # Lanes — ownership and build isolation
 
-Updated: 2026-10-26
+Updated: 2026-10-27
 
 Two or more agents can work in this tree at once. Claim a lane before editing
 and use its build directory. Do not run a shared executable while another lane
