@@ -171,7 +171,10 @@ appeal (`+0x194`). Hired staff fill the `employees`
 objective from their `.bei` role names; placed buildings fill
 `connectedbuildings`/`notconnectedbuildings`, and `ornateddinos` counts the
 23-slot Part-6 dummy map. Hybrid uses the phenotype originality (inferred
-from the store gauge); scarcity is still empty. `DINOPSAV` stores the active mission id and `--load-port`
+from the store gauge); scarcity is still empty. `--campaign-coverage` reports
+77/89 objectives implemented; the 12 pending lines are `franckstrangedinos`
+(4) and the show verbs (8). `DINOPSAV` stores the active mission id and
+`--load-port`
 resumes it; the menu also resumes the campaign's stored mission from
 `run/save/campaign-progress.txt`. A successful mission advances to the next
 one in the campaign, the last mission shows the campaign ending text and

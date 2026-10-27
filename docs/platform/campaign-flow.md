@@ -94,7 +94,11 @@ CpgNN/CpgNN_Save.wld    initial park
   `connectedbuildings`/`notconnectedbuildings` (type -> `.bbi` category;
   a path touching the footprint means connected) and `isolateddinos`
   (every aggressive dino alone in its paddock). Show verbs stay pending.
-  The selftest covers the evaluator (83 checks).
+  The selftest covers the evaluator (85 checks).
+- `--campaign-coverage DIR` reports **89 objectives: 77 implemented,
+  12 pending, 0 unknown**; the pending lines are `franckstrangedinos` (4) and
+  the show verbs (8). `scaritydinos`, `keephappyvisitors`, `carnivordinos` and
+  `fightshow` are unused by retail.
 - `src/world/campaign_runtime.{h,cpp}` drives a started mission: objective
   evaluation once per second, tri-state aggregate, stop on success/failure.
 - `--start-mission FILE` starts a mission in the loaded park, opens
@@ -143,9 +147,9 @@ CpgNN/CpgNN_Save.wld    initial park
   mission starts. Evidence: `notes/mission-panel-index.png`.
 - `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
-  recomputed by the first runtime tick, not stored. Campaign-completion
-  progression, the exact actor trait fields, ending videos and the remaining
-  show verbs are open.
+  recomputed by the first runtime tick, not stored. Mission progression,
+  completion text and the trait fields (except scarcity) are wired;
+  `franckstrangedinos`, the show verbs and ending videos are open.
 
 ## Verification recipes
 
@@ -234,6 +238,17 @@ Cpg04 line (`island=Isl04 budget=20000 missions=4`), and the three
 Cpg04_Mission1 objectives (`isolateddinos 71` id 18, `treasury 25000 1` id 0,
 `dyingdinos 5` id 2).
 
+Coverage:
+
+```powershell
+.\build\port\dino_viewer.exe --campaign-coverage "...\Data\Design\Scenario"
+```
+
+Expect `campaign coverage: 89 objectives, 77 implemented, 12 pending, 0
+unknown` and `franckstrangedinos` 4 + the four show verbs 2 each marked
+pending; `scaritydinos`/`keephappyvisitors`/`carnivordinos`/`fightshow` are
+unused.
+
 Mission run (Cpg04/isl04, treasury satisfied, isolation pending):
 
 ```powershell
@@ -321,7 +336,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_completion_unlock`,
   `test_cpp_campaign_progress_resume`,
   `test_cpp_campaign_ornamented_dinos`,
-  `test_cpp_campaign_hybrid_dinos`).
+  `test_cpp_campaign_hybrid_dinos`,
+  `test_cpp_campaign_coverage`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

@@ -127,6 +127,7 @@ struct Options {
     std::string store_ini_path;
     std::string food_info_dir;
     std::string campaign_info_dir;
+    std::string campaign_coverage_dir;
     std::string campaign_mission_path;
     std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
     std::string campaign_progress_path;  // current mission per campaign
@@ -386,6 +387,8 @@ Options parse_args(int argc, char** argv) {
             opt.food_info_dir = next("--food-info");
         } else if (arg == "--campaign-info") {
             opt.campaign_info_dir = next("--campaign-info");
+        } else if (arg == "--campaign-coverage") {
+            opt.campaign_coverage_dir = next("--campaign-coverage");
         } else if (arg == "--campaign-mission") {
             opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--dino-dat") {
@@ -666,6 +669,7 @@ Options parse_args(int argc, char** argv) {
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"
                 "  --campaign-info DIR  scan Data/Design/Scenario campaigns/missions and exit\n"
+                "  --campaign-coverage DIR  report implemented/pending objective verbs\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
@@ -2763,6 +2767,54 @@ int run_campaign_info(const std::string& scenario_root) {
     }
 }
 
+int run_campaign_coverage(const std::string& scenario_root) {
+    try {
+        const std::vector<dino::Campaign> campaigns =
+            dino::load_campaigns(scenario_root);
+        std::map<int, int> used;
+        int total = 0;
+        int implemented = 0;
+        int pending = 0;
+        int unknown = 0;
+        for (const dino::Campaign& campaign : campaigns) {
+            for (const dino::CampaignMission& mission : campaign.missions) {
+                for (const dino::CampaignObjective& objective :
+                     mission.objectives) {
+                    ++total;
+                    if (objective.objective_id < 0) {
+                        ++unknown;
+                        continue;
+                    }
+                    ++used[objective.objective_id];
+                    if (dino::objective_verb_implemented(
+                            objective.objective_id)) {
+                        ++implemented;
+                    } else {
+                        ++pending;
+                    }
+                }
+            }
+        }
+        std::printf(
+            "campaign coverage: %d objectives, %d implemented, %d pending, "
+            "%d unknown\n",
+            total, implemented, pending, unknown);
+        for (int id = 0; id < dino::objective_verb_count(); ++id) {
+            const auto it = used.find(id);
+            const int count = it == used.end() ? 0 : it->second;
+            const bool impl = dino::objective_verb_implemented(id);
+            const char* status =
+                impl ? "implemented" : (count > 0 ? "pending" : "unused");
+            std::printf("verb id=%d %s objectives=%d %s\n", id,
+                        dino::objective_verb_name(id), count, status);
+        }
+        return unknown == 0 ? 0 : 1;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "campaign coverage: %s\n", e.what());
+        return 1;
+    }
+}
+
 int run_campaign_mission_info(const std::string& mission_path) {
     try {
         const dino::CampaignMission mission =
@@ -2790,6 +2842,9 @@ int main(int argc, char** argv) {
 
     if (opt.selftest) {
         return run_selftest();
+    }
+    if (!opt.campaign_coverage_dir.empty()) {
+        return run_campaign_coverage(opt.campaign_coverage_dir);
     }
     if (!opt.campaign_info_dir.empty()) {
         return run_campaign_info(opt.campaign_info_dir);

@@ -93,6 +93,11 @@ int objective_verb_count();
 // Canonical verb name for an id, or "" when out of range.
 const char* objective_verb_name(int objective_id);
 
+// True when the campaign evaluator has a case for the verb id. Some
+// implemented verbs still rely on partial live sources; show/franck verbs and
+// the unused verbs return false.
+bool objective_verb_implemented(int objective_id);
+
 // `run/save/dino.dat`: the 4-byte little-endian campaign unlock mask read by
 // `FUN_005612d0` into `campaign_db+0x1c` (bit 0 = Cpg01). A missing or short
 // file defaults to 1, matching retail.

@@ -1403,7 +1403,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   complete on the Cpg04 park.
 - [x] `isolateddinos`: every aggressive dino alone in its paddock; Cpg04's
   populated park stays pending, the empty Cpg01 park completes Mission1.
-- [ ] Port the remaining show verbs once the show runtime exists.
+- [x] `--campaign-coverage` reports 77/89 implemented, 12 pending
+  (`franckstrangedinos` 4 + the show verbs 8), 0 unknown.
+- [ ] `franckstrangedinos` (age/score) and the show verbs once their runtime
+  sources exist.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

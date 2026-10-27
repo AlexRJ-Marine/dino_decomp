@@ -44,6 +44,25 @@ def test_cpp_campaign_reader_counts():
             assert "id=-1" not in line, line
 
 
+def test_cpp_campaign_coverage():
+    result = _run("--campaign-coverage", str(SCENARIO))
+    assert result.returncode == 0, result.stderr
+    assert (
+        "campaign coverage: 89 objectives, 77 implemented, 12 pending, "
+        "0 unknown" in result.stdout
+    )
+    for line in (
+        "verb id=15 franckstrangedinos objectives=4 pending",
+        "verb id=24 happyshow objectives=2 pending",
+        "verb id=26 scientificshow objectives=2 pending",
+        "verb id=27 happydinoshow objectives=2 pending",
+        "verb id=30 dinoexclusiveshow objectives=2 pending",
+        "verb id=10 scaritydinos objectives=0 unused",
+        "verb id=25 fightshow objectives=0 unused",
+    ):
+        assert line in result.stdout
+
+
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr

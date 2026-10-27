@@ -164,6 +164,38 @@ const char* objective_verb_name(int objective_id) {
     return kObjectiveVerbs[objective_id];
 }
 
+bool objective_verb_implemented(int objective_id) {
+    switch (objective_id) {
+        case 0:   // treasury
+        case 1:   // marchandizing
+        case 2:   // dyingdinos
+        case 3:   // aggressivedinos
+        case 4:   // genotypedinos
+        case 5:   // cutedinos
+        case 6:   // hybriddinos
+        case 7:   // notconnectedbuildings
+        case 8:   // connectedbuildings
+        case 9:   // visitors
+        case 11:  // speeddinos
+        case 12:  // staminadinos
+        case 13:  // cleverdinos
+        case 14:  // sizedagilitydinos
+        case 16:  // employees
+        case 17:  // hungrydinos
+        case 18:  // isolateddinos
+        case 19:  // happyvisitors
+        case 22:  // ornateddinos
+        case 23:  // cameraaltitude
+        case 28:  // delaylimit
+        case 29:  // buyalldinos
+        case 31:  // prettystrangedino
+        case 32:  // bankrupt
+            return true;
+        default:
+            return false;
+    }
+}
+
 CampaignObjective parse_objective_command(const std::string& command,
                                           const std::string& description_id) {
     CampaignObjective objective;

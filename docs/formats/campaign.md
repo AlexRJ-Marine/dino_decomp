@@ -201,6 +201,14 @@ visitors       visitor count >= count (profile 'all' = total)
 happyvisitors  every visitor satisfaction >= percent
 ```
 
+### Port coverage
+
+`--campaign-coverage DIR` reports **89 objectives: 77 implemented, 12 pending,
+0 unknown**. The pending lines are `franckstrangedinos` (4, Cpg06_Mission4) and
+the show verbs `happyshow` (2), `scientificshow` (2), `happydinoshow` (2),
+`dinoexclusiveshow` (2). `scaritydinos`, `keephappyvisitors`,
+`carnivordinos` and `fightshow` are unused by the retail objectives.
+
 ### Trait pattern (10 fields)
 
 Most dinosaur-trait verbs build a 10-int pattern and call `FUN_00567cb0`
