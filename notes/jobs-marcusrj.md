@@ -36,6 +36,11 @@ file is the single place to claim work.
 | R-8 | ROAD-2 | `src/world/build.*`, `src/viewer/main.cpp` | Road selling (`REQUEST_SELL_ROAD`), Farm/Metro buttons, road slope/pen validation; tests kept green |
 | R-9 | FMT-26 numerics | `src/formats/general_params.*`, `docs/formats/general-params.md` | Time/rate/distance/ramp meanings named (started in `a92bc41`) |
 | R-10 | Laboratory gameplay (stretch) | `src/world/`, `src/ui/park.cpp` | Breeding/cloning/fridge actions run on real `.laboratory`/`simu_trans` data with tests |
+| R-11 | Path preview + rules | `src/viewer/main.cpp` path tool, `src/world/build.*` | Retail preview is a solid darker blue, unsegmented; invalid cells turn red; placement rules match retail (evidence shots/trace) |
+| R-12 | Camera parity | `src/viewer/main.cpp` camera | Mouse orbit/pivot/zoom/limits match a retail side-by-side trace |
+| R-13 | Building preview texture | `src/viewer/main.cpp` placement render | Placed/preview building uses its real texture, not a white model |
+| R-14 | Enclosure placement | `src/ui/park.cpp`, `src/viewer/main.cpp` | Enclosures can be placed; blue/red validity circles match retail rules |
+| R-15 | Campaign world population | `src/viewer/main.cpp` campaign start | Import shows/animals/employees from `CpgNN_Save.wld`; campaign start test asserts them |
 
 ## Coordination
 
