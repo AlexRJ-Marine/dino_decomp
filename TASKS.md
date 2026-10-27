@@ -1391,8 +1391,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Show the ending videos.
 - [x] `hungrydinos -1 60` from the live food need; Cpg01_Mission7 completes
   when every imported dino starts with food >= 60 (`--dino-needs 80,...`).
-- [ ] Port the remaining show/building/isolation verbs once shows, connected
-  buildings and isolation tags exist.
+- [x] `connectedbuildings`/`notconnectedbuildings` from placed `.bbi`
+  categories and path-touching footprints; Cpg01_Mission5 and Mission6
+  complete on the Cpg04 park.
+- [ ] Port the remaining show/isolation verbs once shows and isolation tags
+  exist.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

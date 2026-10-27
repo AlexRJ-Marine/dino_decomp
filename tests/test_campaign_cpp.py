@@ -47,7 +47,7 @@ def test_cpp_campaign_reader_counts():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (74 checks)" in result.stdout
+    assert "selftest: PASS (81 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -206,6 +206,38 @@ def test_cpp_campaign_live_employees():
     assert "mission objective 1 employees -> success" in result.stdout
     # connectedbuildings has no port yet, so the mission itself stays pending.
     assert "mission Cpg01_Mission6: success" not in result.stdout
+
+
+def test_cpp_campaign_connected_buildings():
+    # `0x566620`: mode 0 counts every active building of the type, mode 1
+    # requires the +0x34 connected flag. The port derives it from a path
+    # touching the footprint perimeter. Cpg04's park has connected LunchDoors
+    # and farms.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission5 = SCENARIO / "Cpg01" / "Cpg01_Mission5.ini"
+    mission6 = SCENARIO / "Cpg01" / "Cpg01_Mission6.ini"
+    if not all(p.exists() for p in (isl04, wld, mission5, mission6)):
+        pytest.skip("retail Cpg04/Cpg01 data missing")
+    common = [
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld),
+    ]
+    lunch = _run(*common, "--start-mission", str(mission5))
+    assert lunch.returncode == 0, lunch.stderr
+    assert "mission objective 0 notconnectedbuildings -> success" in lunch.stdout
+    assert "mission objective 1 connectedbuildings -> success" in lunch.stdout
+    assert "mission Cpg01_Mission5: success" in lunch.stdout
+
+    farm = _run(
+        *common, "--hire-nutritionist", "2", "--start-mission", str(mission6)
+    )
+    assert farm.returncode == 0, farm.stderr
+    assert "mission objective 0 connectedbuildings -> success" in farm.stdout
+    assert "mission objective 1 employees -> success" in farm.stdout
+    assert "mission Cpg01_Mission6: success" in farm.stdout
 
 
 def test_cpp_campaign_mission_port_save(tmp_path):

@@ -152,8 +152,8 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 4 | `genotypedinos` | `0x00568750` | species, count | 10-field genotype match |
 | 5 | `cutedinos` | `0x00568770` | count, percent | pattern[0] `+0x90` cuteness |
 | 6 | `hybriddinos` | `0x00568840` | count, percent | pattern[2] `+0x1e4` hybrid |
-| 7 | `notconnectedbuildings` | `0x00567170` | type, count | helper mode 0 |
-| 8 | `connectedbuildings` | `0x00567150` | type, count | helper mode 1 |
+| 7 | `notconnectedbuildings` | `0x00567170` | type, count | helper mode 0: counts every active building of the category (`+0x34` ignored) |
+| 8 | `connectedbuildings` | `0x00567150` | type, count | helper mode 1: requires `+0x34` (connected to a path) |
 | 9 | `visitors` | `0x00566590` | profile, count | `all` or a profile name |
 | 10 | `scaritydinos` | `0x00568910` | count, percent | pattern[3] `+0x1e8` (unused) |
 | 11 | `speeddinos` | `0x00568ab0` | count, speed | pattern[6] `int(+0x7c)` |
@@ -240,6 +240,28 @@ franckstrangedinos age score
 prettystrangedino beauty strange
     dino+0x40 > beauty, dino+0x194 < strange
 ```
+
+### Connected buildings (`0x566620`)
+
+`connectedbuildings` (mode 1) and `notconnectedbuildings` (mode 0) map the
+type string to a `.bbi` category:
+
+| Type | Category | Type | Category |
+| --- | ---: | --- | ---: |
+| `park` | 0 | `security` | 7 |
+| `restaurant` | 1 | `farm` | 8 |
+| `self` | 2 | `station` | 9 |
+| `shop` | 3 | `entrance` | 10 |
+| `blackbox` | 4 | `lunchdoor` | 11 |
+| `pointofview` | 5 | `decoration` | 12 |
+| `show`/`seats` | 6 | `all` | any |
+
+The helper counts **active** buildings (object `+0x6c == 0`); mode 1 also
+requires the `+0x34` connection flag, while mode 0 accepts any building of the
+category. `buildings` covers categories 0..4 and 7..12 (viewpoint/seats have
+their own blocks), and `fence` counts fence objects. The port derives
+`+0x34` from a path cell touching the footprint perimeter and uses the paddock
+count for `fence`.
 
 ### Show objectives
 

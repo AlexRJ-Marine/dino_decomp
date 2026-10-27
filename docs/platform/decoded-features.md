@@ -168,11 +168,12 @@ stamina, agility, intelligence, food); food also drives `hungrydinos`; the
 `+0x98`/`+0x1e0` size/agility
 mapping is now the decoded one; strangeness is the phenotype conventional
 appeal (`+0x194`). Hired staff fill the `employees`
-objective from their `.bei` role names. Hybrid/scarcity/ornaments
+objective from their `.bei` role names; placed buildings fill
+`connectedbuildings`/`notconnectedbuildings`. Hybrid/scarcity/ornaments
 are still empty. `DINOPSAV` stores the active mission id and `--load-port`
 resumes it; a successful mission advances to the next one in the campaign,
 while campaign completion/ending videos remain open;
-show/building/isolation verbs stay pending.
+show/isolation verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators
 against the port's park state (budget, visitors, dinos, buildings), run them

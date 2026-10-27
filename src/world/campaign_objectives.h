@@ -38,6 +38,13 @@ struct CampaignVisitorState {
     int satisfaction = 99;
 };
 
+// One active placed building for `connectedbuildings` /
+// `notconnectedbuildings`. `category` is the `.bbi` category (0..12).
+struct CampaignBuildingState {
+    int category = -1;
+    bool connected = false;  // a path cell touches the footprint
+};
+
 struct CampaignState {
     int treasury = 0;
     int merchandise_income = 0;
@@ -50,14 +57,15 @@ struct CampaignState {
     std::vector<DinoTraitState> dinos;
     std::vector<CampaignVisitorState> visitors;
     std::vector<std::string> employee_roles;
+    std::vector<CampaignBuildingState> buildings;
+    int fence_count = 0;  // fence rectangles / paddocks (`fence` type)
 
     int visitor_count(const std::string& profile) const;
     int employee_count(const std::string& profile) const;
 };
 
 // Evaluates one parsed objective. Verbs that need unported systems (shows,
-// connected buildings, isolation tags, the show/hybrid fields not yet in the
-// port) return Pending.
+// isolation tags, the show/hybrid fields not yet in the port) return Pending.
 ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                                     const CampaignState& state);
 

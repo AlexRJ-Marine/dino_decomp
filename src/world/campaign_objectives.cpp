@@ -19,6 +19,53 @@ bool profile_matches(const std::string& wanted, const std::string& value) {
     return target.empty() || target == "all" || target == lower(value);
 }
 
+// `0x566620` type strings map to the `.bbi` category ids. `buildings` skips
+// viewpoint/seats (5/6), which the helper handles in their own blocks.
+bool building_type_matches(const std::string& wanted, int category) {
+    const std::string type = lower(wanted);
+    if (type.empty() || type == "all") {
+        return true;
+    }
+    if (type == "buildings") {
+        return category >= 0 && category <= 12 && category != 5 &&
+               category != 6;
+    }
+    if (type == "park") return category == 0;
+    if (type == "restaurant") return category == 1;
+    if (type == "self") return category == 2;
+    if (type == "shop") return category == 3;
+    if (type == "blackbox") return category == 4;
+    if (type == "pointofview") return category == 5;
+    if (type == "show" || type == "seats") return category == 6;
+    if (type == "security") return category == 7;
+    if (type == "farm") return category == 8;
+    if (type == "station") return category == 9;
+    if (type == "entrance") return category == 10;
+    if (type == "lunchdoor") return category == 11;
+    if (type == "decoration") return category == 12;
+    return false;
+}
+
+int count_buildings(const CampaignState& state, const std::string& type,
+                    bool require_connected) {
+    if (lower(type) == "fence") {
+        // The retail `fence` block counts fence objects, not building
+        // categories; the port tracks one rectangle per paddock.
+        return state.fence_count;
+    }
+    int count = 0;
+    for (const CampaignBuildingState& building : state.buildings) {
+        if (!building_type_matches(type, building.category)) {
+            continue;
+        }
+        if (require_connected && !building.connected) {
+            continue;
+        }
+        ++count;
+    }
+    return count;
+}
+
 int arg_int(const CampaignObjective& objective, std::size_t index,
             int fallback = 0) {
     if (index >= objective.args.size()) {
@@ -138,6 +185,16 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
                                [&](const DinoTraitState& dino) {
                                    return dino.hybrid >= arg_int(objective, 1);
                                });
+        case 7:  // notconnectedbuildings type count (mode 0 accepts all)
+            return count_buildings(state, arg_str(objective, 0), false) >=
+                           arg_int(objective, 1)
+                       ? ObjectiveVerdict::Success
+                       : ObjectiveVerdict::Pending;
+        case 8:  // connectedbuildings type count (mode 1 requires +0x34)
+            return count_buildings(state, arg_str(objective, 0), true) >=
+                           arg_int(objective, 1)
+                       ? ObjectiveVerdict::Success
+                       : ObjectiveVerdict::Pending;
         case 9: {  // visitors profile count
             const int required = arg_int(objective, 1);
             return state.visitor_count(arg_str(objective, 0)) >= required

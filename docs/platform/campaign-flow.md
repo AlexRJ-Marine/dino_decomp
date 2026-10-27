@@ -88,9 +88,10 @@ CpgNN/CpgNN_Save.wld    initial park
   `happyvisitors` check and the 10-field trait verbs (`aggressivedinos`,
   `genotypedinos` species filter, `cutedinos`, `hybriddinos`, `speeddinos`,
   `staminadinos`, `cleverdinos`, `sizedagilitydinos`, `ornateddinos`,
-  `prettystrangedino`) plus `hungrydinos` (`-1 60` = every dino food >= 60).
-  Show/building/isolation verbs stay pending. The selftest covers the
-  evaluator (74 checks).
+  `prettystrangedino`) plus `hungrydinos` (`-1 60` = every dino food >= 60)
+  and `connectedbuildings`/`notconnectedbuildings` (type -> `.bbi` category;
+  a path touching the footprint means connected). Show/isolation verbs stay
+  pending. The selftest covers the evaluator (81 checks).
 - `src/world/campaign_runtime.{h,cpp}` drives a started mission: objective
   evaluation once per second, tri-state aggregate, stop on success/failure.
 - `--start-mission FILE` starts a mission in the loaded park, opens
@@ -103,7 +104,8 @@ CpgNN/CpgNN_Save.wld    initial park
   the `employees` objective from their `.bei` role names
   (`Nutritionist`/`Guard`); strangeness comes from the phenotype's
   conventional appeal (`+0x194`); hybrid, scarcity and ornaments are still 0
-  and deaths are 0.
+  and deaths are 0. Live buildings fill the connected-buildings objectives
+  (path touching the footprint).
 - `CAMPAIGN_INFO_START_BUTTON` loads the campaign's `[LANDSCAPE] Island` and
   `[CONTEXT] WorldFile` through the same building/road/fence/dinosaur import
   as `--wld-park`, sets the starting budget from the campaign plus the
@@ -131,7 +133,7 @@ CpgNN/CpgNN_Save.wld    initial park
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
   recomputed by the first runtime tick, not stored. Campaign-completion
   progression, the exact actor trait fields, ending videos and the remaining
-  show/building/isolation verbs are open.
+  show/isolation verbs are open.
 
 ## Verification recipes
 
@@ -190,6 +192,8 @@ Sandbox park:
 ```
 
 Expect `wld park: ... buildings=57 ... dinos=20` and the park HUD counts.
+`DINO_DEBUG_BUILDINGS=1` prints every placed building's category, grid
+rectangle and connected flag each mission tick.
 
 Reader:
 
@@ -272,7 +276,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_auto_advance`,
   `test_cpp_campaign_live_employees`,
   `test_cpp_campaign_sized_agility`,
-  `test_cpp_campaign_hungry_objective`).
+  `test_cpp_campaign_hungry_objective`,
+  `test_cpp_campaign_connected_buildings`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

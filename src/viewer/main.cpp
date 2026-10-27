@@ -2607,6 +2607,36 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Pending,
           "objective hungry all");
+    objective_state.buildings = {{8, true}, {11, false}, {6, true}};
+    objective_state.fence_count = 2;
+    check(dino::evaluate_objective(objective("connectedbuildings farm 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective connected farm");
+    check(dino::evaluate_objective(
+              objective("connectedbuildings lunchdoor 1"), objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective connected lunchdoor");
+    check(dino::evaluate_objective(
+              objective("notconnectedbuildings lunchdoor 1"),
+              objective_state) == dino::ObjectiveVerdict::Success,
+          "objective notconnected lunchdoor");
+    check(dino::evaluate_objective(objective("connectedbuildings buildings 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective connected buildings");
+    check(dino::evaluate_objective(objective("connectedbuildings buildings 2"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Pending,
+          "objective connected buildings count");
+    check(dino::evaluate_objective(objective("connectedbuildings show 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective connected show");
+    check(dino::evaluate_objective(objective("connectedbuildings fence 1"),
+                                   objective_state) ==
+              dino::ObjectiveVerdict::Success,
+          "objective connected fence");
     check(dino::evaluate_objective(objective("sizedagilitydinos 1 40"),
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
@@ -4859,6 +4889,9 @@ int main(int argc, char** argv) {
     };
     std::vector<BuildingDraw> building_draws;
     std::vector<dino::PortBuildingState> building_instances;
+    // kind -> .bbi definition, filled on placement for the campaign
+    // connected-buildings objective (category/footprint).
+    std::map<int, dino::BuildingDef> building_defs;
     std::vector<dino::WorldRect> wld_roads;
     std::vector<dino::WorldRect> wld_fences;
     std::vector<dino::WorldDinosaur> wld_dinosaurs;
@@ -5045,6 +5078,7 @@ int main(int argc, char** argv) {
             }
             building_draws.push_back({upload_mesh(placed, glfns), texture});
             if (kind >= 0) {
+                building_defs[kind] = def;
                 building_instances.push_back(
                     {kind, static_cast<int>(cell_x), static_cast<int>(cell_y),
                      orientation});
@@ -8591,6 +8625,57 @@ int main(int argc, char** argv) {
                             .name);
                 }
             }
+            // Connected-buildings objective: a building is connected when a
+            // path cell touches its footprint perimeter. `+0x34` is the retail
+            // flag; the port derives it from the live build grid.
+            for (const dino::PortBuildingState& building :
+                 building_instances) {
+                const auto def_it = building_defs.find(building.kind);
+                if (def_it == building_defs.end()) {
+                    continue;
+                }
+                const dino::BuildingDef& def = def_it->second;
+                const bool rotated = building.state % 2 != 0;
+                const int width = static_cast<int>(
+                    rotated ? def.footprint_h : def.footprint_w);
+                const int height = static_cast<int>(
+                    rotated ? def.footprint_w : def.footprint_h);
+                // `.wld` roads/fences and building cells are uncentered world
+                // units; `import_roads` maps them with world/cell_size, so the
+                // connectivity test uses the same convention.
+                const float cell = build_grid.cell_size > 0.0f
+                                       ? build_grid.cell_size
+                                       : 4.0f;
+                const int gx0 = static_cast<int>(
+                    std::floor(static_cast<float>(building.cell_x) / cell));
+                const int gy0 = static_cast<int>(
+                    std::floor(static_cast<float>(building.cell_y) / cell));
+                const int gx1 = static_cast<int>(std::floor(
+                    static_cast<float>(building.cell_x + width - 1) / cell));
+                const int gy1 = static_cast<int>(std::floor(
+                    static_cast<float>(building.cell_y + height - 1) / cell));
+                bool connected = false;
+                for (int y = gy0; y <= gy1 && !connected; ++y) {
+                    connected = build_grid.path_at(gx0 - 1, y) ||
+                                build_grid.path_at(gx1 + 1, y);
+                }
+                for (int x = gx0; x <= gx1 && !connected; ++x) {
+                    connected = build_grid.path_at(x, gy0 - 1) ||
+                                build_grid.path_at(x, gy1 + 1);
+                }
+                if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
+                    std::fprintf(
+                        stderr,
+                        "building kind=%d cat=%d cell=%d,%d wh=%dx%d "
+                        "grid=%d,%d..%d,%d connected=%d\n",
+                        building.kind, static_cast<int>(def.category),
+                        building.cell_x, building.cell_y, width, height, gx0,
+                        gy0, gx1, gy1, connected ? 1 : 0);
+                }
+                mission_state.buildings.push_back(
+                    {static_cast<int>(def.category), connected});
+            }
+            mission_state.fence_count = static_cast<int>(paddocks.size());
             // Live trait snapshot. The objective slots are actor fields
             // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
             // +0x1e0/+0x8c); the port's phenotype exposes the related
