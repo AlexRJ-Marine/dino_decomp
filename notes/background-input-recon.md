@@ -113,7 +113,14 @@ returns 0 there and the one-shot start request (`0x0040256a` clears it) is
 never retried. A first attempt to read `[app+0x48]+0x10`, `[app+0x60]+0x34`
 and `[app+0x5c]+0x40` from the proxy sampled null/invalid pointers (the
 notation needs a runtime read at `0x0051d375`, e.g. dump `[param_2+0x34]`),
-so that field mapping is unverified.
+so that field mapping is unverified. A second runtime test bypassed the LOD
+check itself (`0x51d382` `0f 87 ...` -> NOPs, temporary): the load still did
+not progress, and a counter of all `Present` calls on the main device freezes
+at the Start click (no `Present` after the resets). So the loader stalls
+**before** `0x51d34d`, not inside the loading-screen present: the thread draws
+(Clear/DrawPrimitive) in a loop but never presents. Next probe: breakpoint at
+`0x0051d29e`/`0x0051d34d` to see whether the TGA load or the display setup
+before the present is the last reached step.
 
 Evidence: `notes/harness/stack-probe.py` (module/EBP walk),
 `build/present-x32-1.out.log`, `build/probe-present-1.out.log`,
