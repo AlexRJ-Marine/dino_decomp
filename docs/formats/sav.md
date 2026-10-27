@@ -446,8 +446,12 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   free-game writer covers only the empty form; `sav_graph.py` and the C++
   reader report the populated variant. Decoding and writing those lists is
   open. `list0` starts `u32,u32,u32` (first record `63823, 517, 450`) then
-  packed bytes and a UTF-16 species name around `+0x18` (`Ankylosaurus...`);
-  the 20 records match the world block's 20 dinosaurs.
+  four need-state bytes (`03 03 01 02` at `+0x0c`). The record is **packed**:
+  a u32 name byte-length sits unaligned at `+0x15` (`0x18` = 24 bytes) and the
+  UTF-16LE name starts at `+0x19` (`Ankylosaur1`). The bytes after the name
+  include repeated `[80,60,30]` int triples (the need thresholds). The 20
+  records match the world block's 20 dinosaurs; record length varies with the
+  name/state content.
 
 ## Writer round-trip (SAVE-0, Python)
 
