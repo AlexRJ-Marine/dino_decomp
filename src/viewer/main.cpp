@@ -214,6 +214,7 @@ struct Options {
     std::vector<std::string> park_window_clicks;
     std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::vector<std::string> inject_clicks;  // "frame,x,y[,right]"
+    std::string road_cursor;  // fixed road preview cursor "x,y" (tests)
     std::string skybox_dir;
     bool water = true;
     bool water2 = true;  // WaterSurface stage 1 Modulate2x
@@ -591,6 +592,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_clicks.push_back(next("--park-click"));
         } else if (arg == "--park-window-click") {
             opt.park_window_clicks.push_back(next("--park-window-click"));
+        } else if (arg == "--road-cursor") {
+            opt.road_cursor = next("--road-cursor");
         } else if (arg == "--inject-click") {
             opt.inject_clicks.push_back(next("--inject-click"));
         } else if (arg == "--ground-click") {
@@ -699,6 +702,7 @@ Options parse_args(int argc, char** argv) {
                 "  --road-click X,Y     road-tool ground click at a build cell (repeatable;\n"
                 "                       arm it with --construct CONSTRUC_ROAD_BUTTON or the\n"
                 "                       panel's Road button)\n"
+                "  --road-cursor X,Y    pin the road preview cursor (window pixels; tests)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --buy-dino NAME      buy a Market.ini dinosaur into a paddock\n"
                 "  --buy-paddock N      paddock index for --buy-dino (default first with room)\n"
@@ -10638,6 +10642,9 @@ int main(int argc, char** argv) {
             float mxf = 0.0f;
             float myf = 0.0f;
             SDL_GetMouseState(&mxf, &myf);
+            if (!opt.road_cursor.empty()) {
+                std::sscanf(opt.road_cursor.c_str(), "%f,%f", &mxf, &myf);
+            }
             dino::Vec3 hit;
             int cx = 0;
             int cy = 0;

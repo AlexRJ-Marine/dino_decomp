@@ -2322,6 +2322,45 @@ def test_cpp_road_tool_menu_started_park():
     assert "road: built " in out
 
 
+def test_cpp_road_preview_tint(tmp_path):
+    """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
+    (0x600550): blue when buildable, red when not (here: unaffordable).
+    --road-cursor pins the preview end under window pixel 400,300 (cell
+    116,121 with this camera), so the run 108..116 is deterministic."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = [str(EXE), "--frames", "3", "--no-menu", "--no-hud",
+            "--width", "800", "--height", "600", "--no-vsync",
+            "--no-save-config", "--lnd", str(ISL01),
+            "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+            "--no-entrance", "--camera-target", "-40,-23", "--distance", "120",
+            "--park-click", "765,248", "--park-click", "645,86",
+            "--road-click", "108,121"]
+    box = (380, 260, 470, 315)
+
+    def shot(name, extra):
+        path = tmp_path / f"{name}.bmp"
+        result = subprocess.run(base + extra + ["--screenshot", str(path)],
+                                capture_output=True, text=True, timeout=120)
+        assert result.returncode == 0, result.stderr
+        assert "road: start 108,121" in result.stdout
+        raw = Image.open(path).convert("RGB").crop(box).tobytes()
+        return [tuple(raw[i:i + 3]) for i in range(0, len(raw), 3)]
+
+    plain = shot("plain", [])
+    for name, budget, want_blue in (("ok", "75000", True), ("poor", "10", False)):
+        tinted = shot(name, ["--park-budget", budget, "--road-cursor", "400,300"])
+        changed = [p for p, q in zip(tinted, plain)
+                   if sum(abs(a - b) for a, b in zip(p, q)) > 120]
+        assert len(changed) > 200, name
+        blue = sum(1 for r, g, b in changed if b > r)
+        red = sum(1 for r, g, b in changed if r > b + 40)
+        if want_blue:
+            assert blue > 200 and red == 0, (name, blue, red)
+        else:
+            assert red > 200 and blue == 0, (name, blue, red)
+
+
 def test_cpp_road_panel_buttons_visible(tmp_path):
     """CONSTRUC_ROAD_BUTTON has no PRIORITY/ZPRIORITY; it must inherit the
     panel's and draw over the P=10 weave panels declared before it."""
