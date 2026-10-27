@@ -741,9 +741,9 @@ SavSimulation read_sav_simulation(const std::string& path) {
     for (int i = 0; i < 5; ++i) {
         out.ai_counts[i] = tu32("AI count");
     }
-    std::string lower = path;
-    for (char& c : lower) c = static_cast<char>(std::tolower(c));
-    const bool auto_save = lower.find("auto") != std::string::npos;
+    // The park header marks an autosave (0 manual / 3 auto); the path is not
+    // reliable (a manual save can live under any directory).
+    const bool auto_save = out.park_header_a == 3;
     if (!auto_save) {
         for (std::uint32_t i = 0; i < out.ai_counts[4]; ++i) {
             std::array<std::uint8_t, 17> entry{};

@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -3234,6 +3235,24 @@ def test_cpp_sav_write_rename(tmp_path):
         capture_output=True, text=True, timeout=120)
     assert check.returncode == 0, check.stderr
     assert "whole file identical" in check.stdout, check.stdout
+
+
+def test_cpp_sav_manual_copy_in_auto_dir(tmp_path):
+    """The AI-entry split follows the park header, not the directory name."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    auto_dir = tmp_path / "auto"
+    auto_dir.mkdir()
+    copy = auto_dir / "slot001.sav"
+    shutil.copyfile(save, copy)
+    result = subprocess.run(
+        [str(EXE), "--sav-roundtrip", str(copy), "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "whole file identical" in result.stdout, result.stdout
 
 
 def test_cpp_sav_write_cross_checked_by_python(tmp_path):

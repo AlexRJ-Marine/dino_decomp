@@ -269,6 +269,20 @@ def test_populated_lab_record(tmp_path):
     assert graph.tail_extra == b"\xaa\xbb\xcc"
 
 
+def test_auto_detection_uses_park_header(tmp_path):
+    """A manual save copied under auto/ still carries its AI entries."""
+    if not SLOT.exists():
+        pytest.skip("retail save not present")
+    auto_dir = tmp_path / "auto"
+    auto_dir.mkdir()
+    copy = auto_dir / "slot001.sav"
+    copy.write_bytes(SLOT.read_bytes())
+    graph = read_sav_graph(copy)
+    assert graph.park.header_a == 0
+    assert len(graph.ai_entries) == 2
+    assert graph.camera == read_sav_graph(SLOT).camera
+
+
 def test_rejects_implausible_lab_name_length(tmp_path):
     path = tmp_path / "bad-lab.sav"
     lab_store = struct.pack("<I", 1) + b"\x00" + b"\x00" * (18 * 8)

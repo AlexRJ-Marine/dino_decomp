@@ -641,7 +641,9 @@ def read_sav_graph(path: Path) -> SavGraph:
     # The fifth AI list has a count; only non-auto saves carry its 17-byte
     # entries.  Auto saves go straight to the 40-byte camera state.
     ai_entries: list[bytes] = []
-    auto_save = path.name.lower() == "auto.sav" or path.parent.name.lower() == "auto"
+    # The park header marks an autosave (0 manual / 3 auto); do not depend on
+    # the file's directory name.
+    auto_save = park.header_a == 3
     if not auto_save:
         count = ai_counts[4]
         if count > 10000:
