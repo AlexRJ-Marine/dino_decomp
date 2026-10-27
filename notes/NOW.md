@@ -58,8 +58,10 @@ See `notes/lanes.md`. Default split:
   sources. The chooser's per-action target provider (`+0x14`) is ported
   (`ActionTarget` + `ActionThreatProvider`); the factory that fills
   `action+0x08` remains.
-- P3-PERCEPTION: visitor/obstacle reaction (recon lane; `0x51fa10`/
-  `0x51f8d0`/`0x521d10`/`0x521d80` decoded, target policy `+0x14` ported)
+- P3-PERCEPTION: visitor/obstacle reaction. Target policy `+0x14` ported,
+  factory `FUN_00569640`/`FUN_0056a9a0` resolved (one target per action list;
+  owner skip at vtable +0x0c; one-fill lag). Remaining: the `behavior+0xf4`/
+  `+0xb8`/`+0xc8` id-list producers and the reaction port.
 - P3 rest: element bone/event overlay source and the visitor/obstacle
   perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap

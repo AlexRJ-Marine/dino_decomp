@@ -1378,8 +1378,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this still
   needs the behavior-manager perception path. The chooser's per-action target
   term is ported (`ActionTarget`/`ActionThreatProvider`,
-  `notes/dino-target-vtable-recon.md`); the factory that fills `action+0x08`
-  and the reaction target-list producers remain. The action→clip premise is
+  `notes/dino-target-vtable-recon.md`); the `action+0x08` factory is
+  `FUN_00569640`/`FUN_0056a9a0` (one target per list, owner skip), while the
+  `behavior+0xf4`/`+0xb8`/`+0xc8` id-list producers remain. The action→clip premise is
   resolved (`notes/action-clip-lead.md`: locomotion slot + element envmap
   texture, no action table).
 - **Acceptance:** one dinosaur eats, sleeps, and reacts to a visitor.

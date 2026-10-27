@@ -269,10 +269,14 @@ score += need_term(SECU, threat / 10)
 
 `FUN_00572DD0` is the actor-threat-radius box test (`|tx-x| <= r`), not a
 world bounds test. The vtable ABI and the three concrete classes (actor,
-box centre, no-target) are in `notes/dino-target-vtable-recon.md`. The viewer
-maps Eat/EatForSmallies to the nearest stocked food source (an inferred park
-target; the factory that fills `action+0x08` is still open). Selftest:
-`dino target box/actor/none` and `dino choose threatbox`.
+box centre, no-target) are in `notes/dino-target-vtable-recon.md`. The factory
+is `FUN_00569640`, called only by `FUN_0056a9a0`: one target object is attached
+per action list and the class is selected by the producer (show element ->
+box, asItem -> no-target, reaction -> actor). `FUN_0056e190` skips an action
+whose target owner (`vtable +0x0c`) equals the chooser owner. The viewer maps
+Eat/EatForSmallies to the nearest stocked food source (an inferred park
+target); the `behavior+0xf4`/`+0xb8`/`+0xc8` producers are still open.
+Selftest: `dino target box/actor/none` and `dino choose threatbox`.
 
 The completion writers are ported: `DinoActionLoop::finish_action` copies
 `DinoNeeds::combined_attack` (phenotype `+0x44`) into `threat` (`+0x2a0`) on
