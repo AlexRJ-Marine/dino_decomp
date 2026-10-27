@@ -75,8 +75,10 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
   One/One additive): `focus/road.tga` times the pulsing `gscMaterialBank`
   colour (`0x600550`, x = trunc((sin 6t + 1) * 0.5 * 127)): material 2
   RGB(64,64,255-x) when valid and affordable, material 3 RGB(255-x,64,64)
-  when not. The toast shows `Cost of road: N`. The preview shape is still the
-  port's flat strip, not `helper_road.mesh`.
+  when not. The shape is retail's too (`road_helper_mesh`): one
+  `focus/helper_road.mesh` bottomless box per cell, scaled 4x4x4 and centred
+  at (cell + 1.5, cell + 1.5, ground height) (`0x5fa708..0x5fa891`). The
+  toast shows `Cost of road: N`.
 - **CLI:** `--construct CONSTRUC_ROAD_BUTTON` (or the two panel clicks) plus
   `--road-click X,Y` (build cells, repeatable) drive the same code path.
 

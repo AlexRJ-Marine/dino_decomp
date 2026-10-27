@@ -177,3 +177,19 @@ else:
 Opaque colour fills (`FUN_004402d0`); the detail map then modulates the
 terrain as everywhere else. So a 4-unit retail road is a sandy strip with a
 1-texel brown border in the 1024 basemap; no road geometry is drawn.
+
+## Placement preview look (2026-10-27)
+
+- Shape (`0x5fa708..0x5fa891`): the preview walks the run in 4-unit steps;
+  per step it samples the heightmap bilinearly (`u16 * 0.00390625`) and
+  draws `helper_road.mesh` (20 verts: a bottomless unit box, -0.5..0.5,
+  side UVs span the full texture) scaled `+0x14 = 4.0` on all axes, centred
+  at `(x + 1.5, y + 1.5, h)`, via `0x5f9730`.
+- Colour: the helper picks material 2 (valid) or 3 (invalid) from
+  `gscMaterialBank` (`[0x676ecc]`, created in `0x600440`); `0x600550`
+  animates them every frame: `x = trunc((sin(6t) + 1) * 0.5 * 127)`,
+  material 2 = RGB(64,64,255-x), material 3 = RGB(255-x,64,64).
+- Render state `Helper.ini`: texture `focus/road.tga` (32x32 white-grey
+  gradient) modulated by the material, alpha blend One/One (additive).
+- Port: `road_helper_mesh` + the same tint and additive blend
+  (`src/world/build.cpp`, `src/viewer/main.cpp`).

@@ -128,6 +128,12 @@ RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
 // Marks the run as path cells; returns how many cells were new.
 int place_road(BuildGrid& grid, const RoadSegment& road);
 
+// Retail placement preview (0x5fa5b0..0x5fa891): one helper_road.mesh (a
+// bottomless unit box) per 4-unit cell of the run, scaled 4x4x4 and centred at
+// (cell x + 1.5, cell y + 1.5, ground height), so it sits half in the ground.
+Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
+                      const BuildGrid& grid, const Terrain& terrain);
+
 // Retail draws no road geometry: gpkLandscapeTextureManager's road layer
 // (0x602380) paints the roads into the island texture. On a 1024x1024 map
 // each road is a RGB(253,198,137) fill with a 1-texel RGB(170,130,90) border;

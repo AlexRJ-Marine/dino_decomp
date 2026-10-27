@@ -5494,6 +5494,7 @@ int main(int argc, char** argv) {
     bool road_preview_ok = true;
     GLuint road_preview_texture = 0;  // focus/road.tga x material colour
     dino::Image road_helper_image;
+    dino::Mesh road_helper_box;       // focus/helper_road.mesh
     GLuint path_texture = 0;
     GLuint fence_texture = 0;
     if (build_ready) {
@@ -10602,13 +10603,18 @@ int main(int argc, char** argv) {
                 const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};
                 if (key != road_preview_key) {
                     road_preview_key = key;
-                    dino::BuildGrid preview;
-                    preview.init(build_grid.cell_size, terrain.world_size);
-                    dino::place_road(preview, road);
-                    const dino::BuildMeshes meshes =
-                        dino::build_placement_meshes(preview, terrain, fence_source);
+                    if (road_helper_box.positions.empty()) {
+                        try {
+                            road_helper_box = dino::load_mesh(resolve_asset(
+                                opt.asset_root, "Data/Graphics/focus/helper_road.mesh"));
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr, "road helper mesh: %s\n", e.what());
+                        }
+                    }
                     road_preview_gpu.destroy(glfns);
-                    road_preview_gpu = upload_mesh(meshes.paths, glfns);
+                    road_preview_gpu = upload_mesh(
+                        dino::road_helper_mesh(road_helper_box, road, build_grid, terrain),
+                        glfns);
                     const int cost = dino::road_cost(road, ensure_road_price());
                     road_preview_ok =
                         dino::check_road(build_grid, road, road_perimeters(),

@@ -456,6 +456,27 @@ int place_road(BuildGrid& grid, const RoadSegment& road) {
     return added;
 }
 
+Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
+                      const BuildGrid& grid, const Terrain& terrain) {
+    Mesh out;
+    out.name = "road_helper";
+    const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
+    const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
+    // Retail centres each box 1.5 units into the 4-unit cell ((step - 1) / 2).
+    const float inset = (grid.cell_size - 1.0f) * 0.5f;
+    int x = road.x0;
+    int y = road.y0;
+    for (int i = 0; i < road.cells(); ++i) {
+        const float wx = grid.origin_x + static_cast<float>(x) * grid.cell_size + inset;
+        const float wy = grid.origin_y + static_cast<float>(y) * grid.cell_size + inset;
+        append_mesh(out, helper_box, {wx, wy, terrain.height_at(wx, wy)}, 0.0f,
+                    grid.cell_size);
+        x += sx;
+        y += sy;
+    }
+    return out;
+}
+
 void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
     if (image.width <= 0 || image.height <= 0 || world_size <= 0.0f ||
         image.rgba.size() < static_cast<std::size_t>(image.width) * image.height * 4) {
