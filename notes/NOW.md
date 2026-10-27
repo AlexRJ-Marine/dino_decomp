@@ -79,6 +79,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
 - 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
 - 2026-10-27 - SIM-4: budget panel imports the save's yesterday block
   (`SavEconomy`, `notes/budget-sav-rows.png`)
