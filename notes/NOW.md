@@ -82,8 +82,10 @@ See `notes/lanes.md`. Default split:
    then wire the decoded reaction starters (`0x521d10`/`0x521d80`).
 2. SHOW-4: show construction UI and live judge/schedule loop (the score
    pipeline and objective verbs are done).
-3. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
-   not park `+0x30`; `26000` occurs only as show 27's first parameter).
+3. SAVE-2 follow-up: the HUD `BUDGET_AMOUNT` cash is not park `+0x30` and is
+   absent from the save (scenario/FreeGame config). The port currently
+   overrides `park_budget` from the save; verify before changing the HUD or
+   `buy_budget` import.
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
