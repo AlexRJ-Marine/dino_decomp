@@ -473,12 +473,16 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   The tail is schema-driven, not opaque:
   `tail = 0x2D1 + (flag==0 ? 0x30 : 0) + tex_bytes + 0x16*N`, where `N` is
   the u32 path-node count at `path+0x1c6` (tail `+0x2c7` in the retail form).
-  There is **no** length prefix. `tools/formats/sav_campaign_scan.py` walks
-  all 20 records exactly (`list0_end=0x6942`, `list1_count=2`) and prints
-  tail/N/end. Full field map: `notes/campaign-list0-tail-recon.md`.
-  Remaining: model `SavCampaignDino`, write `list0`, and decode `list1`/
-  `list2`. The four `+0x0c` bytes range 0..4; their exact state encoding is
-  still open.
+  There is **no** length prefix. `tools/formats/sav_campaign.py` models every
+  field (`CampaignDino`, `CampaignPath`, `CampaignPathNode`); its writer
+  re-encodes all 20 records byte-identically (`--check`:
+  `list0 round-trip: 20 records identical (17168 bytes)`).
+  `tools/formats/sav_campaign_scan.py` is the compact table view
+  (`list0_end=0x6942`, `list1_count=2`). Full field map:
+  `notes/campaign-list0-tail-recon.md`; tests: `tests/test_sav_campaign.py`.
+  Remaining: decode `list1`/`list2` and splice the typed `list0` into the C++
+  reader/writer. The four `+0x0c` bytes range 0..4; their exact state encoding
+  is still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed

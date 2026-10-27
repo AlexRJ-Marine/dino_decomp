@@ -1793,9 +1793,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `N` at `path+0x1c6`; no length prefix. The scanner walks all 20 records
   (`list0_end=0x6942`, `list1_count=2`), and the full field map is in
   `notes/campaign-list0-tail-recon.md`.
-- [ ] Campaign writer: model `SavCampaignDino`, write `list0`, decode
-  `list1`/`list2` (list1 count=2), then round-trip a campaign autosave;
-  `test_cpp_sav_park_roundtrip` currently skips the class.
+- [x] Campaign `list0` model/writer: `tools/formats/sav_campaign.py` parses
+  every field and re-encodes all 20 records byte-identically
+  (`tests/test_sav_campaign.py`).
+- [ ] Campaign writer: splice `SavCampaignDino`/`list0` into the C++ reader
+  and writer, decode `list1`/`list2` (list1 count=2), then round-trip a
+  campaign autosave; `test_cpp_sav_park_roundtrip` currently skips the class.
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`

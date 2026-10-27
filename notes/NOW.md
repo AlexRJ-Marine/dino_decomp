@@ -60,8 +60,10 @@ See `notes/lanes.md`. Default split:
   is free.
 - SAVE-2 campaign class: `list0` is `saDinosaur` (`0x570c90`/`0x5706c0`);
   tail `0x2D1 + threshold + tex_bytes + 0x16*N` (N at `path+0x1c6`), no
-  length prefix. Scanner walks all 20 records (`list0_end=0x6942`,
-  `list1_count=2`); remaining: `SavCampaignDino` writer + list1/list2.
+  length prefix. `tools/formats/sav_campaign.py` models every field and
+  re-encodes all 20 records byte-identically; scanner walks them
+  (`list0_end=0x6942`, `list1_count=2`); remaining: C++ splice +
+  list1/list2.
 - SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
   hourly `ShowRuntime` with iterations/state and objective snapshots are
   ported (`src/world/show_runtime.*`); remaining: interactive construction
