@@ -12,7 +12,7 @@ add a row when a claim becomes something later work depends on.
 | `.anim` tracks/keys | `docs/formats/anim.md` | `tests/test_anim.py`, `notes/allo-anim.gif` |
 | `.fnt` hash-shifted code table (`codes[i] -> metrics[i+2]`) | `docs/formats/fnt.md`, `notes/hybrid-fnt-recon.md` | `tests/test_fnt.py`, `tests/test_viewer_cpp.py::test_cpp_hud` |
 | `.lnd` carries water Z + Entrance cell/orientation | `docs/formats/lnd.md`, `notes/lnd-carry-recon.md` | `tests/test_lnd.py` |
-| WaterSurface two-stage blend (`SelectArg1`/`Modulate2x`, coordinate set 1) | `docs/platform/environment.md`, `docs/formats/render-states.md`, `notes/water-modulate2x.png` | `test_cpp_skybox_and_water`, `test_cpp_water_modulate2x` |
+| WaterSurface two-stage blend + opposite scroll (`SelectArg1`/`Modulate2x`, coordinate set 1) | `docs/platform/environment.md`, `docs/formats/render-states.md`, `notes/water-modulate2x.png`, `notes/water-animation.png` | `test_cpp_skybox_and_water`, `test_cpp_water_modulate2x`, `test_cpp_water_animation` |
 | `.bbi` construction cost is file offset 21 | `docs/formats/bbi.md`, `notes/building-def-record-recon.md` | `tests/test_bbi.py::test_construction_cost_is_file_offset_21` |
 | `.bfi` weight lists / score steps are dead editor data | `docs/decomp/show-score.md` | `notes/show-score-recon.md` |
 | Show judge score = 5-float weighted sum | `docs/decomp/show-score.md` | `tests/test_viewer_cpp.py` (show tests) |

@@ -41,12 +41,16 @@ is `notes/p5-sky.png`.
   edge. Scene fog (`FogParam.txt`, 1500..2000, colour 255,220,165) is applied
   to the other lit materials. Both are linear.
 - Retail also binds the same water TGA to a second texture stage with
-  `Modulate2x` (coordinate set 1, 28/30 tiling, 0.25 offset; the retail
-  builder scrolls the two layers in opposite directions). The port implements
-  the stage with a second UV set in the shader, clamped `2*texture*current`,
-  and `--no-water2` disables it for A/B captures:
-  `notes/water-modulate2x.png`. Water *animation* (the opposite scroll) is
-  still open.
+  `Modulate2x` (coordinate set 1, 28/30 tiling, 0.25 offset). The port
+  implements the stage with a second UV set in the shader, clamped
+  `2*texture*current`, and `--no-water2` disables it for A/B captures:
+  `notes/water-modulate2x.png`.
+- **Water animation:** `FUN_00602fd0` advances the builder offsets
+  (`+0x10 += dt*0.03`, `+0x14 += dt*0.01` per second). Stage 0 uses
+  `(-0x14, -0x10)` and stage 1 `(+0x10, +0x14)`, so the two layers drift in
+  opposite directions. The port advances both UV sets from `water_scroll`
+  and `--water-time SEC` freezes an initial time for A/B captures:
+  `notes/water-animation.png`, `test_cpp_water_animation`.
 
 ## Side-by-side (WORLD-3)
 
@@ -80,14 +84,14 @@ Known differences in that frame:
 - `tests/test_viewer_cpp.py::test_cpp_skybox_and_water` asserts
   `environment: skybox 6/6 faces, water yes at z=16.0 (256x256) water2
   256x256`; `test_cpp_water_modulate2x` compares the sea with and without
-  `--no-water2` (`notes/water-modulate2x.png`).
+  `--no-water2` (`notes/water-modulate2x.png`); `test_cpp_water_animation`
+  compares `--water-time 0` with 8 s (`notes/water-animation.png`).
 
 ## Open questions
 
 - The skybox face order/UVs are solved from the retail builder; a side-by-side
   screenshot against the original remains for final visual confirmation.
 - Water animation (the retail opposite scroll of the two `Modulate2x` layers)
-  is not implemented; the stage itself, additive blend, scene fog and water fog
-  are now retail-matched. The skybox bottom/side seam is still visible at some
-  angles.
+  is implemented from `FUN_00602fd0` (0.03/0.01 UV/s); the skybox bottom/side
+  seam is still visible at some angles.
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.

@@ -1614,8 +1614,10 @@ Updated: 2026-10-26
   `Modulate2x` stage is ported: `lnd.water2` (same water TGA) is sampled on a
   second UV set at 28/30 tiling + 0.25 offset, clamped `2*texture*current`;
   `--no-water2` gives the A/B capture (`notes/water-modulate2x.png`). The
-  isl01 09:42 side-by-side matches (`notes/p5-side-by-side.png`). Remaining:
-  water animation (the retail opposite scroll of the two layers), the skybox
+  animation is ported from `FUN_00602fd0` (`+0x10 += dt*0.03`,
+  `+0x14 += dt*0.01`; the two UV sets scroll oppositely; `--water-time`
+  gives the A/B capture `notes/water-animation.png`). The isl01 09:42
+  side-by-side matches (`notes/p5-side-by-side.png`). Remaining: the skybox
   bottom/side seam, minimap detail and slightly smoother retail shading.
 - WORLD-2 remains: frustum culling and LOD2. The `model[0] = 1` slope basis
   is ported (`dino::slope_basis`, three-radius terrain normal; selftest
@@ -1672,8 +1674,10 @@ Updated: 2026-10-26
    (`0x00600f80`/`0x00600df0`), and scene/water fog plus the additive blend
    are applied. The `.lnd` carry path is solved (`notes/lnd-carry-recon.md`)
    and the isl01 09:42 side-by-side matches (`notes/p5-side-by-side.png`).
-   Remaining: water animation (retail opposite scroll), the skybox bottom
-   seam, minimap detail and slightly smoother retail shading.
+   The `Modulate2x` stage and its opposite-scroll animation are ported
+   (`FUN_00602fd0`; `notes/water-modulate2x.png`,
+   `notes/water-animation.png`). Remaining: the skybox bottom seam, minimap
+   detail and slightly smoother retail shading.
 14. CONS-1 store panel done: rows/selection/SAVE/ground click charge and row
    removal work on Cpg04 (`notes/store-panel-recon.md`,
    `notes/store-panel.png`). Remaining polish: the 3D preview actor, the

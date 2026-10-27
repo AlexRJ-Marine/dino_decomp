@@ -528,6 +528,36 @@ def test_cpp_skybox_and_water():
     assert "water2 256x256" in result.stdout
 
 
+def test_cpp_water_animation(tmp_path):
+    """The two water layers scroll at the retail 0.03/0.01 UV/s rates."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "320", "--height", "240",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--distance",
+              "900"]
+    t0 = tmp_path / "water-t0.bmp"
+    t8 = tmp_path / "water-t8.bmp"
+    a = subprocess.run(common + ["--water-time", "0", "--screenshot", str(t0)],
+                       capture_output=True, text=True, timeout=180)
+    b = subprocess.run(common + ["--water-time", "8", "--screenshot", str(t8)],
+                       capture_output=True, text=True, timeout=180)
+    assert a.returncode == 0, a.stderr
+    assert b.returncode == 0, b.stderr
+    image0 = Image.open(t0).convert("RGB")
+    image8 = Image.open(t8).convert("RGB")
+    assert ImageChops.difference(
+        image0.crop((0, 0, 320, 60)),
+        image8.crop((0, 0, 320, 60))).getbbox() is None
+    zero = list(image0.crop((40, 150, 120, 220)).getdata())
+    later = list(image8.crop((40, 150, 120, 220)).getdata())
+    mean_diff = sum(
+        abs(p[0] - q[0]) + abs(p[1] - q[1]) + abs(p[2] - q[2])
+        for p, q in zip(zero, later)) / (3.0 * len(zero))
+    assert mean_diff > 1.0, mean_diff
+
+
 def test_cpp_water_modulate2x(tmp_path):
     """WaterSurface stage 1 Modulate2x (coordinate set 1, second TGA)."""
     if not EXE.exists() or not ISL01.exists():

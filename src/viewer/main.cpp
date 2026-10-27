@@ -214,6 +214,7 @@ struct Options {
     bool water = true;
     bool water2 = true;  // WaterSurface stage 1 Modulate2x
     float water_level = -1.0f;
+    float water_time = -1.0f;  // initial scroll time (debug/A-B)
     int visitors = 0;
     int visitor_satisfaction = -1;  // test/debug initial need0 override
     bool visitor_stats = false;
@@ -587,6 +588,8 @@ Options parse_args(int argc, char** argv) {
             opt.water = false;
         } else if (arg == "--no-water2") {
             opt.water2 = false;
+        } else if (arg == "--water-time") {
+            opt.water_time = static_cast<float>(std::atof(next("--water-time")));
         } else if (arg == "--water-level") {
             opt.water_level = static_cast<float>(std::atof(next("--water-level")));
         } else if (arg == "--skybox") {
@@ -761,6 +764,7 @@ Options parse_args(int argc, char** argv) {
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
                 "  --no-water2          skip the WaterSurface Modulate2x stage 1\n"
+                "  --water-time SEC     initial water scroll time (debug/A-B)\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --visitors N         spawn N visitors on the placed path network\n"
@@ -1158,6 +1162,7 @@ struct GlFns {
     PFNGLUNIFORMMATRIX4FVPROC UniformMatrix4fv = nullptr;
     PFNGLUNIFORM3FVPROC Uniform3fv = nullptr;
     PFNGLUNIFORM4FPROC Uniform4f = nullptr;
+    PFNGLUNIFORM2FPROC Uniform2f = nullptr;
     PFNGLUNIFORM1FPROC Uniform1f = nullptr;
     PFNGLUNIFORM1IPROC Uniform1i = nullptr;
     PFNGLACTIVETEXTUREPROC ActiveTexture = nullptr;
@@ -1205,6 +1210,7 @@ struct GlFns {
         LOAD(UniformMatrix4fv, "glUniformMatrix4fv")
         LOAD(Uniform3fv, "glUniform3fv")
         LOAD(Uniform4f, "glUniform4f")
+        LOAD(Uniform2f, "glUniform2f")
         LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
@@ -1249,6 +1255,7 @@ layout(location = 2) in vec2 a_uv;
 layout(location = 3) in vec4 a_color;
 uniform mat4 u_mvp;
 uniform vec4 u_uv2_transform;
+uniform vec2 u_uv_offset;
 out vec3 v_normal;
 out vec2 v_uv;
 out vec2 v_uv2;
@@ -1257,7 +1264,9 @@ out vec3 v_world;
 void main() {
     gl_Position = u_mvp * vec4(a_pos, 1.0);
     v_normal = a_normal;
-    v_uv = a_uv;
+    // WaterSurface stage 0: the retail builder scrolls this layer with
+    // -offset (u from +0x14, v from +0x10). Other materials pass 0.
+    v_uv = a_uv + u_uv_offset;
     // WaterSurface stage 1 uses texture coordinate set 1: the same water
     // texture with a slightly different tiling and a small offset.
     v_uv2 = a_uv * u_uv2_transform.xy + u_uv2_transform.zw;
@@ -1849,6 +1858,7 @@ struct DrawItem {
     // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
     GLuint texture2 = 0;
     bool modulate2x = false;
+    float uv_offset[2] = {0.0f, 0.0f};
     float uv2_scale[2] = {1.0f, 1.0f};
     float uv2_offset[2] = {0.0f, 0.0f};
 };
@@ -1956,6 +1966,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform1i(gl.GetUniformLocation(program, "u_modulate2x"), 0);
     gl.Uniform4f(gl.GetUniformLocation(program, "u_uv2_transform"), 1.0f, 1.0f,
                  0.0f, 0.0f);
+    gl.Uniform2f(gl.GetUniformLocation(program, "u_uv_offset"), 0.0f, 0.0f);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
 
     // Data/States/FogParam.txt: linear 1500..2000, colour (255,220,165).
@@ -2008,6 +2019,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     const GLint modulate2x_loc =
         gl.GetUniformLocation(program, "u_modulate2x");
     const GLint uv2_loc = gl.GetUniformLocation(program, "u_uv2_transform");
+    const GLint uv_offset_loc = gl.GetUniformLocation(program, "u_uv_offset");
     for (const DrawItem& item : extras) {
         if (item.mesh == nullptr || item.mesh->vao == 0) {
             continue;
@@ -2018,6 +2030,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
         gl.Uniform4f(uv2_loc, item.uv2_scale[0], item.uv2_scale[1],
                      item.uv2_offset[0], item.uv2_offset[1]);
+        gl.Uniform2f(uv_offset_loc, item.uv_offset[0], item.uv_offset[1]);
         if (item.fog == 1) {
             // Data/States/FogParam_WaterSurface.txt: 100..700, black.
             const float water_fog[3] = {0.0f, 0.0f, 0.0f};
@@ -2057,6 +2070,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.BindVertexArray(0);
     gl.Uniform1i(use_texture2_loc, 0);
     gl.Uniform1i(modulate2x_loc, 0);
+    gl.Uniform2f(uv_offset_loc, 0.0f, 0.0f);
     gl.UseProgram(0);
 }
 
@@ -3877,6 +3891,8 @@ int main(int argc, char** argv) {
     dino::Image water_image;
     dino::Image water2_image;
     float water_z = 0.0f;
+    // WaterSurface scroll time (FUN_00602fd0: +0x10 0.03/s, +0x14 0.01/s).
+    float water_scroll = opt.water_time > 0.0f ? opt.water_time : 0.0f;
     dino::VisitorSystem visitor_system;
     std::vector<dino::VisitorProfile> visitor_profiles;
     std::vector<dino::VisitorProfile> all_visitor_profiles;
@@ -10228,6 +10244,19 @@ int main(int argc, char** argv) {
                 minimap_focus = view_center;
                 minimap_heading = heading;
                 minimap_rendered_scale = minimap_scale;
+            }
+        }
+        // WaterSurface animation (FUN_00602fd0): +0x10 += dt*0.03,
+        // +0x14 += dt*0.01. Stage 0 uses (-u14,-u10), stage 1 (+u10,+u14),
+        // so the two layers drift in opposite directions.
+        water_scroll += std::min(static_cast<float>(dt), 0.1f);
+        for (DrawItem& item : extra_items) {
+            if (item.modulate2x && item.texture2 != 0) {
+                item.uv_offset[0] = -0.01f * water_scroll;
+                item.uv_offset[1] = -0.03f * water_scroll;
+                item.uv2_offset[0] =
+                    0.25f / 30.0f + 0.03f * water_scroll;
+                item.uv2_offset[1] = 0.01f * water_scroll;
             }
         }
         draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
