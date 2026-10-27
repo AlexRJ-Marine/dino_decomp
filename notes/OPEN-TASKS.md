@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 23:12. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 23:25. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-32 open items.
+33 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -93,3 +93,4 @@ Generated from `TASKS.md` on 2026-10-27 23:12. Do not edit; regenerate with `scr
 
 ## SAVE-1: Save/load
 - [ ] Campaign autosave class: a live Cpg04 autosave (~53 KB,
+- [ ] `--sav-manual` writer option (autosave -> manual); blocked while

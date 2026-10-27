@@ -392,6 +392,14 @@ loads at the normal entrance view while its visitors/clock are restored
 state, not the manual-load camera; `--sav-park` applying it is a port
 convenience, not retail parity.
 
+**Autosave flag is `header_a`/`header_c`.** Patching the free-game autosave's
+park block from `header_a=3, header_c=0.0` to `header_a=0, header_c=10.0`
+makes it loadable through the retail LOAD GAME panel; the park loads and
+simulates from its saved state (clock starts at 0, visitors appear over time),
+confirmed in `notes/sav-autosave-manualized.png`. A `--sav-manual` writer
+option (autosave -> manual) is a follow-up while `main.cpp` is owned by the
+SHOW-4 UI work.
+
 The AI manager uses `0x0051f290` (load) / `0x0051f400` (save). The camera
 block is the `camSwitcher` serializer (`0x005e5b80` / `0x005e5ba0`).
 

@@ -53,7 +53,10 @@ See `notes/lanes.md`. Default split:
   (`notes/sav-retail-accept.png`). `--sav-name/--sav-slot/--sav-budget`
   mutate header/park fields for testing. The saved camera tail is applied by
   `--sav-park` as a port convenience; retail **manual LOAD** ignores it
-  (`notes/sav-camera-load-ignored.png`).
+  (`notes/sav-camera-load-ignored.png`). Autosave flag confirmed: patching
+  park `header_a` 3→0 and `header_c` 0→10 makes an autosave manually
+  loadable (`notes/sav-autosave-manualized.png`); `--sav-manual` is a
+  follow-up once `main.cpp` is free.
 - SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
   hourly `ShowRuntime` with iterations/state and objective snapshots are
   ported (`src/world/show_runtime.*`); remaining: interactive construction

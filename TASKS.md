@@ -1797,6 +1797,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   The four `+0x0c` bytes range 0..4; their encoding is open. Decode the
   variable tail and extend `sav_graph.py`/the C++ reader/writer;
   `test_cpp_sav_park_roundtrip` currently skips this class.
+- [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
+  0->10 makes the free-game autosave loadable via the retail LOAD panel
+  (`notes/sav-autosave-manualized.png`).
+- [ ] `--sav-manual` writer option (autosave -> manual); blocked while
+  `src/viewer/main.cpp` is owned by the SHOW-4 UI work.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
