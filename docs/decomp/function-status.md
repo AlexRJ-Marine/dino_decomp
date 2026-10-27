@@ -218,8 +218,13 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x00571350` | recompute all four need states | decompiled | same |
 | `0x00589cd0` | park step: per-second danger-grid clear/stamp/SECU (`0x5774f0`/`0x571b50`/`0x571440`) | decompiled + ported | `docs/platform/danger-grid.md` |
 | `0x00571440` | SECU from the grid cell and the `+0x16`/`+0x1d4` health pair | decompiled + ported | same |
-| `0x00572dd0` | chooser target-inside-radius box test (`\|tx-x\| <= r`) | decompiled | `notes/dino-action-chooser-recon.md` |
-| `0x0056e410` | `apDinosaurBehavior` node score pass: `.bai` need deltas × need-state weights, rest cost, threat term, percent | decompiled | `notes/dino-action-chooser-recon.md` |
+| `0x00572dd0` | chooser target-inside-radius box test (`\|tx-x\| <= r`) | decompiled + ported | `notes/dino-action-chooser-recon.md` |
+| `0x00569640` | action target factory: writes action `+0x00 enabled` / `+0x04` record / `+0x08` policy | decompiled | `notes/dino-target-vtable-recon.md` |
+| `0x0056a9a0` | attach one target policy to an action list (`P+0x24`), `FUN_0056e300` per target | decompiled | same |
+| `0x0056e190` | node template filler from `action+0x08`; skips `GetOwner`-equal actions | decompiled | same |
+| `0x0056e300` | per-target node helper (template `+0x34` = target) | decompiled | same |
+| `0x0055ad00` | perception memory push (`P+0xa4`, vector `+0x1b4`, records `+0x34`) | decompiled | same |
+| `0x0056e410` | `apDinosaurBehavior` node score pass: `.bai` need deltas × need-state weights, rest cost, threat term, percent | decompiled + threat term ported | `notes/dino-action-chooser-recon.md`, `notes/dino-target-vtable-recon.md` |
 | `0x0056e5d0` | `need_term(need, delta, actor+0x214)`: upper clamp, state weight table `0x643054/64/74/84` | decompiled | same |
 | `0x0056e670` | action selection: max node score ≥ 1, can-do check, switch/stop current | decompiled | same |
 | `0x0056d980` | node availability: distance² vs target radius, class filtering | decompiled | same |
