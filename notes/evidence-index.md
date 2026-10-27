@@ -27,7 +27,7 @@ add a row when a claim becomes something later work depends on.
 | Failed purchase toast (`MESSAGE_PANEL`, state stays active) | `notes/store-panel-recon.md`, `notes/store-message.png` | `test_cpp_store_message_keeps_panel` |
 | Mode-specific store catalog (`Market.ini`/`FreeGame.ini`/mission block) | `notes/store-panel-recon.md`, `docs/formats/market.md`, `notes/store-mission-catalog.png` | `test_cpp_store_catalog_mission`, `test_cpp_store_catalog_freegame` |
 | Daily economy settlement + per-visitor ticket | `docs/decomp/economy.md` | `tools/formats/economy.py`, `tests/test_economy.py` |
-| Retail `.sav` whole-file writer order (header, world, catalog, simulation) | `tools/formats/sav_write.py`, `src/formats/wld.*` (`write_sav_world`/`write_sav_whole`), `docs/formats/sav.md` | `tests/test_sav_write.py`, `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip` (byte-identical on every `run/`/`run-test/` save; `--sav-write` output re-parsed by the Python reference) |
+| Retail `.sav` whole-file writer order (header, world, catalog, simulation) | `tools/formats/sav_write.py`, `src/formats/wld.*` (`write_sav_world`/`write_sav_whole`), `docs/formats/sav.md`, `notes/sav-retail-accept.png` | `tests/test_sav_write.py`, `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip` (byte-identical on every `run/`/`run-test/` save; `--sav-write` output re-parsed by the Python reference and loaded by retail), `test_cpp_sav_info` |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |
@@ -37,6 +37,7 @@ add a row when a claim becomes something later work depends on.
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
 | Background DirectInput polling/clicks (`DINO_FORCE_INPUT_ACTIVE`) | `notes/background-input-recon.md`, `docs/platform/windowed-testing.md` | `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`, `run-test/dino_hook.log` |
+| Windowed park load after the level-start Reset (`X8R8G8B8` + Reset-thread activation) | `notes/background-input-recon.md` section 4b, `notes/park-load-static.md` | `notes/park-retail-windowed.png`, `notes/harness/park-load-probe-x32-run4.log` |
 | App-loop scheduler gate `0x004024db` on `app+0x1a` (D3D8 state) | `notes/background-input-recon.md` section 1 | `build/scheduler-gate-3.out.log`, `build/scheduler-gate-5.out.log`, `gate=1` hook samples |
 | Virtual cursor ring (`state[1-slot]`, x `+0x0c`, y `+0x10`) + frame offset | `notes/background-input-recon.md` sections 2-3 | `build/hook-probe-cursor-4.log`, `ui mouse_down ... ui=(395,234)` |
 | Background park load blocks in `IDirect3DDevice8::Present` (`0x0040eb6a`) | `notes/background-input-recon.md` section 4 | `notes/harness/stack-probe.py`, `build/present-x32-1.out.log`, `build/probe-nullrect-1.out.log` |
