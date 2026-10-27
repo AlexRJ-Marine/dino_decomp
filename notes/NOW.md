@@ -62,8 +62,9 @@ See `notes/lanes.md`. Default split:
   `+0xc8`) have **no writer in this build** (whole-image store census), so the
   list-driven starters are inert. Target policy `+0x14` is ported; the live
   entry points are the direct `start_visitor`/`start_dino(slot, block,
-  instance)` calls used by the show/attraction controller. See
-  `notes/perception-id-lists-recon.md`.
+  instance)` calls used by the show/attraction controller. A Cpg04 trace
+  (`notes/target-vtable-runtime.md`) saw `0x521d80` fire 20 times with actor
+  targets, `0x521d10` 0, and box only gated for `Eat`; Free Game has 0 dinos.
 - P3 rest: element bone/event overlay source and the visitor/obstacle
   perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
@@ -79,9 +80,9 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 perception: confirm the empty lists at `0x51fb2f` (one breakpoint in a
-   loaded park) or port the direct `start_visitor`/`start_dino` entry points
-   for the show/attraction controller; do not invent a list producer.
+1. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
+   in the show/attraction controller (Cpg04 is the test park; Free Game has 0
+   dinos). Do not invent a list producer; the lists stay empty.
 2. SHOW-4: show construction UI and live judge/schedule loop (the score
    pipeline and objective verbs are done).
 3. SAVE-2 follow-up: the HUD `BUDGET_AMOUNT` cash is not park `+0x30` and is

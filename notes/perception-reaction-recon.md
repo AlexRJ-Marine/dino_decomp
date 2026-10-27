@@ -5,7 +5,9 @@ this build** (`notes/perception-id-lists-recon.md`): `beh+0xb8`/`+0xc8`/
 `+0xf4`/`+0x108` are always empty, so the notification/selection bodies never
 run. The starters themselves (`0x521d10`/`0x521d80`) and their direct entry
 points remain usable by the show/attraction controller; the target policy
-`+0x14` is ported (`notes/dino-target-vtable-recon.md`). The older partial
+`+0x14` is ported (`notes/dino-target-vtable-recon.md`). A Cpg04 runtime trace
+saw `0x521d80` fire 20 times with actor targets and `0x521d10` 0 times, so the
+direct path is live (`notes/target-vtable-runtime.md`). The older partial
 notes below are kept for the ABI.
 
 ## `FUN_0051fa10(behavior, actor, dt)` — dinosaur notification pass

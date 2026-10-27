@@ -359,3 +359,24 @@ Tests: `--dino-actions` selftest prints `dino target box: -500`,
 8259` and `dino loop threat: Exploration`; `test_cpp_dino_action_chooser`
 guards them.
 
+## 10. Runtime confirmation (Cpg04, 20 dinosaurs)
+
+`notes/target-vtable-runtime.md` (x32dbg trace, 32.4 s of live behaviour):
+
+| class | vtable | scorer (`0x56e455`) | gate (`0x56d9db`) |
+| --- | --- | --- | --- |
+| no-target | `0x006430AC` | 414 hits (Exploration/RunAway/Sleep), `tx/ty=-1` | 139 |
+| actor | `0x006430E4` | 159 hits, `DinoAttackForCarniv`, real `tx/ty` | 571, `DinoAttackForHerbiv` |
+| box | `0x00642FFC` | 0 in the window | 446, `Eat` |
+
+- `0x521d80` (dino reaction) fired **20 times**, every target
+  `vt=0x006430E4`; `0x521d10` (visitor) fired 0. The direct reaction path is
+  live even though the `+0xb8` list has no writer.
+- `target+0x28` is 0 for no-target/actor; for box it is the show-element
+  pointer. `target+0x38` is the owner context; `[[target+0x38]+0x28]` is the
+  perceived actor that the actor class `+0x14` reads.
+- At template-fill time `[action+0x08]` is a **heap wrapper**, not the class
+  vtable; read the class at `node+0x3c` in the scorer/gate.
+- Free Game IGUANO and the loaded `cppwrite` save have **0 dinos**, so the
+  chooser never runs there; Cpg04 is the test park.
+
