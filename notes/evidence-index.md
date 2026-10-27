@@ -26,6 +26,7 @@ add a row when a claim becomes something later work depends on.
 | Failed purchase toast (`MESSAGE_PANEL`, state stays active) | `notes/store-panel-recon.md`, `notes/store-message.png` | `test_cpp_store_message_keeps_panel` |
 | Mode-specific store catalog (`Market.ini`/`FreeGame.ini`/mission block) | `notes/store-panel-recon.md`, `docs/formats/market.md`, `notes/store-mission-catalog.png` | `test_cpp_store_catalog_mission`, `test_cpp_store_catalog_freegame` |
 | Daily economy settlement + per-visitor ticket | `docs/decomp/economy.md` | `tools/formats/economy.py`, `tests/test_economy.py` |
+| Retail `.sav` simulation writer order (roads, visitors, park, store, lab, AI, camera) | `tools/formats/sav_write.py`, `docs/formats/sav.md` | `tests/test_sav_write.py` (byte-identical on 3 retail saves) |
 | Save world graph + park stream | `docs/formats/sav.md` | `tools/formats/sav_graph.py`, `tests/test_sav_graph.py` |
 | `.wld` park import (roads/fences/buildings/dinos) | `docs/platform/world-import.md` | `tests/test_viewer_cpp.py::test_cpp_wld_park_import*` |
 | Terrain raw files are bottom-up | `docs/platform/terrain.md`, `notes/terrain-orientation-recon.md` | `tests/test_raw.py`, viewer entrance screenshot |
