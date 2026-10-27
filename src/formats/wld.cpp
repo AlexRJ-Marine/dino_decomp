@@ -1038,6 +1038,12 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s,
     return out;
 }
 
+std::vector<std::uint8_t> rebuild_sav(const std::string& path) {
+    const WldWorld world = read_sav_world(path);
+    const SavSimulation simulation = read_sav_simulation(path);
+    return write_sav_whole(simulation, world);
+}
+
 bool sav_park_roundtrip(const std::string& path, std::string* error) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     const WldWorld world = read_sav_world(path);

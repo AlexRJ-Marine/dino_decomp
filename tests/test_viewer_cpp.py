@@ -3178,8 +3178,8 @@ def test_cpp_port_save_paddocks_food(tmp_path):
     assert "dino food: anky paddock=0 diet=herbivore source=none" in load.stdout
     assert "Eat score=9009 needs=20/90/50/90" in load.stdout
 
-def test_cpp_sav_park_roundtrip():
-    """The C++ park writer reproduces retail park blocks byte-for-byte."""
+def test_cpp_sav_park_roundtrip(tmp_path):
+    """The C++ writer reproduces retail saves byte-for-byte."""
     if not EXE.exists():
         pytest.skip("viewer not built")
     saves = [ROOT / "run" / "save" / "slot001.sav",
@@ -3195,6 +3195,15 @@ def test_cpp_sav_park_roundtrip():
         assert result.returncode == 0, result.stderr
         assert "sav roundtrip: whole file identical" in result.stdout, result.stdout
         assert "world copied" not in result.stdout, result.stdout
+
+        out_path = tmp_path / f"{save.parent.name}-{save.name}"
+        written = subprocess.run(
+            [str(EXE), "--sav-write", str(save), str(out_path),
+             "--no-save-config"],
+            capture_output=True, text=True, timeout=120)
+        assert written.returncode == 0, written.stderr
+        assert "sav written:" in written.stdout, written.stdout
+        assert out_path.read_bytes() == save.read_bytes(), save
         checked += 1
     if checked == 0:
         pytest.skip("retail saves not present")

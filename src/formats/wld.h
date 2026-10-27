@@ -265,6 +265,9 @@ std::vector<std::uint8_t> write_sav_world(const WldWorld& world);
 std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation,
                                           const WldWorld& world);
 
+// Rebuild a .sav in memory (header + world + catalog + simulation).
+std::vector<std::uint8_t> rebuild_sav(const std::string& path);
+
 // Read a .sav, rebuild header + world + catalog + simulation and compare the
 // result with the file bytes.
 bool sav_park_roundtrip(const std::string& path, std::string* error);

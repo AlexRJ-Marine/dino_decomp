@@ -121,6 +121,7 @@ struct Options {
     std::string wld_path;
     std::string sav_park_path;
     std::string sav_roundtrip_path;
+    std::string sav_write_path;
     bool wld_info = false;
     bool wld_park = false;
     bool import_dinos = true;
@@ -389,6 +390,9 @@ Options parse_args(int argc, char** argv) {
             opt.build_mode = true;
         } else if (arg == "--sav-roundtrip") {
             opt.sav_roundtrip_path = next("--sav-roundtrip");
+        } else if (arg == "--sav-write") {
+            opt.sav_roundtrip_path = next("--sav-write");
+            opt.sav_write_path = next("--sav-write output");
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--no-import-dinos") {
@@ -714,7 +718,8 @@ Options parse_args(int argc, char** argv) {
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
-                "  --sav-roundtrip FILE rebuild a .sav park block and compare bytes\n"
+                "  --sav-roundtrip FILE rebuild a .sav and compare the whole file\n"
+                "  --sav-write IN OUT   rebuild a .sav and write it to OUT\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
@@ -3119,6 +3124,30 @@ int main(int argc, char** argv) {
         std::printf("sav roundtrip: %s%s\n",
                     ok ? "whole file identical" : "sav MISMATCH",
                     error.c_str());
+        if (!opt.sav_write_path.empty()) {
+            try {
+                const std::vector<std::uint8_t> rebuilt =
+                    dino::rebuild_sav(opt.sav_roundtrip_path);
+                std::ofstream out(opt.sav_write_path, std::ios::binary);
+                if (!out) {
+                    std::fprintf(stderr, "cannot open %s\n",
+                                 opt.sav_write_path.c_str());
+                    return 2;
+                }
+                out.write(reinterpret_cast<const char*>(rebuilt.data()),
+                          static_cast<std::streamsize>(rebuilt.size()));
+                if (!out) {
+                    std::fprintf(stderr, "cannot write %s\n",
+                                 opt.sav_write_path.c_str());
+                    return 2;
+                }
+                std::printf("sav written: %zu bytes -> %s\n", rebuilt.size(),
+                            opt.sav_write_path.c_str());
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "sav write failed: %s\n", e.what());
+                return 2;
+            }
+        }
         return ok ? 0 : 1;
     }
     if (opt.wld_info) {
