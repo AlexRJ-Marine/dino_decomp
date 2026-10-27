@@ -441,6 +441,11 @@ settled save (patched copy of `run/save/slot001.sav`) renders
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - The AI entry field split (17-byte records); the camera split is solved.
+- Campaign autosaves populate the three simulation lists after the roads
+  (a ~53 KB `auto.sav` after a campaign park has list0 = 20 objects). The
+  free-game writer covers only the empty form; `sav_graph.py` and the C++
+  reader report the populated variant. Decoding and writing those lists is
+  open.
 
 ## Writer round-trip (SAVE-0, Python)
 

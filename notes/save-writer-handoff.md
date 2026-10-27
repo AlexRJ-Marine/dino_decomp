@@ -43,6 +43,12 @@ retail LOAD GAME path now reaches a park. A C++-written save with
 - the park clock (09:28) matches the save's `schedule_elapsed` (23.2 s), so
   the world/camera/clock came from the save.
 
+Open save class: campaign autosaves (~53 KB, after a campaign park) populate
+the three simulation lists after the roads; the free-game writer covers only
+the empty form. `--sav-roundtrip` reports `non-empty simulation list` for them
+and `test_cpp_sav_park_roundtrip` skips that known class. Decode/write the
+lists before claiming campaign save parity.
+
 Open semantic item: the HUD cash (26000) is not the park block `+0x30`
 `budget` (12345 in that test save). `26000` does not occur in the save at all
 except as show 27's first parameter, so the HUD `BUDGET_AMOUNT` widget is
