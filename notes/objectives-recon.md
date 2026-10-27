@@ -129,27 +129,56 @@ paddock".
 ### `FUN_00567190` — shows (ids 24/25/27)
 
 Signature `(objective, showType, profile, threshold, requiredCount,
-minParticipants)`. The show-type strings map to ids 1..7:
+minParticipants)` (`0x5676fe RET 0x14`). The show-type strings map to ids
+1..7:
 
 ```text
 race 1   obstacle 2   fight 3   destruction 4
-team 5   capture 6    fence 7   all = any
+team 5   capture 6    fence 7   all = wildcard
 ```
 
-It iterates shows of that type, gets the show's per-profile score array
-(`show+0xEC -> +0x6C`), counts entries `>= threshold`, and requires at least
-`requiredCount` matches while each show has at least `minParticipants`
-dinosaurs (`show+0xB4 - show+0xB0 >> 2`).
+`show+0xCC ? *(*(show+0xCC)+0x28)+0x40 : 0` is the type. The score vector is
+`[show+0xEC]+0x6C` (`vector<float>`, begin/end/cap at `+0x6C/+0x70/+0x74`).
+The participant minimum is `(show+0xB4 - show+0xB0) >> 2`. `matched` is
+incremented once per qualifying **show** (never per score element) and
+success requires `matched >= requiredCount`.
 
-- `happyshow <profile> <score>`: type `all`, count 1.
-- `happydinoshow <score> <participants>`: type `all`, profile `all`, count 1,
-  min participants = arg2.
-- `fightshow <score>`: type `fight`, profile `hooligan`, count 1 (unused).
+Profile branches (`0x5674ac`/`0x567514`/`0x567540`):
 
-`scientificshow` (0x5678b0) requires a show whose per-type score is
-`> arg1` and a dinosaur in the show's `show+0xAC` list with `+0x1E4 > arg2`.
-`dinoexclusiveshow` (0x5692a0) walks every show's `show+0xAC` dinosaur vector
-and succeeds when a dinosaur appears in exactly one show.
+| Argument | Rule | Empty vector |
+| --- | --- | --- |
+| `all` | every score `>= threshold` (`FCOMP`/`TEST AH,0x41`/`JZ`) | passes |
+| `one` | any score `>= threshold` (`FCOMP`/`TEST AH,0x1`/`JNZ`) | fails |
+| name | `0x565e60(name)` -> id, find that profile's key in the active vector, `score >= threshold` | index `-1`, OOB read |
+
+`0x565e60` is a case-insensitive compare chain over the literals at
+`0x665aec..0x665b58`: `surfer` 0, `hooligan` **and** `holligan` 1, `parent`
+2, `blase` 3, `retraite` 4, `riche` 5, `scientific` 6, `amoureux` 7, `spd` 8,
+`enfant` 9. Anything else (including `one`/`all`) returns 0; the evaluator
+intercepts `one`/`all` before the call, so an unknown personality silently
+becomes `surfer`.
+
+Wrapper arguments:
+
+- `happyshow <profile> <score>` (`0x567710`): type `all`, profile arg0,
+  threshold arg1, required 1, minPart 0.
+- `happydinoshow <score> <participants>` (`0x567b10`): type `all`, profile
+  `all`, threshold arg0, required 1, minPart arg1.
+- `fightshow <score>` (`0x5677b0`): type `fight`, profile `hooligan`,
+  threshold arg0, required 1, minPart 0 (unused by retail missions).
+
+`scientificshow <score> <cap>` (`0x5678b0`) reads the hard-coded
+`scientific` entry (`tableBase+0x64`, i.e. id 6) and requires its score to be
+**strictly** `> score` (`FCOMP`/`TEST AH,0x1`/`JZ` skips equality). The
+participant vector must be non-empty, and every participant
+`[dino+0x1E4] <= cap`; any value above the cap rejects the show
+(`0x5679e3 JG 0x5679fb`). The old note had this direction inverted.
+
+`dinoexclusiveshow` (`0x5692a0`) walks shows `i < j` only and fails when a
+dinosaur pointer appears in both `show_i+0xAC` and `show_j+0xAC`
+(`FUN_005f6fb0` pointer equality). Duplicates within one show are ignored;
+an empty show list returns 1.
+
 
 ## Simple evaluator evidence
 

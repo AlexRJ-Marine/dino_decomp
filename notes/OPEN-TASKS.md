@@ -2,7 +2,7 @@
 
 Generated from `TASKS.md` on 2026-10-27 22:33. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-32 open items.
+31 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -78,7 +78,6 @@ Generated from `TASKS.md` on 2026-10-27 22:33. Do not edit; regenerate with `scr
 ## CAMPAIGN-3: Campaign menu start + live traits
 - [ ] MP2 audio and the intro movie.
 - [ ] Fill scarcity (`+0x1e8`); the retail objectives do not use it.
-- [ ] The show verbs once their runtime/judging sources exist.
 
 ## SIM-4: Economy and attractions
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once

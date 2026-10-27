@@ -19,6 +19,42 @@ bool profile_matches(const std::string& wanted, const std::string& value) {
     return target.empty() || target == "all" || target == lower(value);
 }
 
+// `FUN_00565e60` returns 0 (surfer) for an unknown name.
+int personality_index(const std::string& name) {
+    static const char* const kNames[10] = {
+        "surfer",  "holligan", "parent",   "blase",  "retraite",
+        "riche",   "scientific", "amoureux", "spd",  "enfant"};
+    const std::string wanted = lower(name);
+    if (wanted == "hooligan") {
+        return 1;
+    }
+    for (int i = 0; i < 10; ++i) {
+        if (wanted == kNames[i]) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+// `0x567190`: `all` requires every score >= threshold (an empty vector
+// passes), `one` requires any score >= threshold (an empty vector fails),
+// a name reads that personality's score.
+bool show_score_matches(const CampaignShowState& show,
+                        const std::string& profile, int threshold) {
+    const std::string key = lower(profile);
+    if (key == "all") {
+        return show.profile_scores.empty() ||
+               show.worst_score() >= static_cast<float>(threshold);
+    }
+    if (key == "one") {
+        return !show.profile_scores.empty() &&
+               show.best_score() >= static_cast<float>(threshold);
+    }
+    float value = 0.0f;
+    return show.score(personality_index(key), value) &&
+           value >= static_cast<float>(threshold);
+}
+
 // `0x566620` type strings map to the `.bbi` category ids. `buildings` skips
 // viewpoint/seats (5/6), which the helper handles in their own blocks.
 bool building_type_matches(const std::string& wanted, int category) {
@@ -129,6 +165,36 @@ int CampaignState::employee_count(const std::string& profile) const {
         }
     }
     return count;
+}
+
+void CampaignShowState::add_score(int personality, float score) {
+    profile_scores.push_back({personality, score});
+}
+
+bool CampaignShowState::score(int personality, float& out) const {
+    for (const CampaignShowProfileScore& entry : profile_scores) {
+        if (entry.personality == personality) {
+            out = entry.score;
+            return true;
+        }
+    }
+    return false;
+}
+
+float CampaignShowState::best_score() const {
+    float best = -1.0e9f;
+    for (const CampaignShowProfileScore& entry : profile_scores) {
+        best = std::max(best, entry.score);
+    }
+    return best;
+}
+
+float CampaignShowState::worst_score() const {
+    float worst = 1.0e9f;
+    for (const CampaignShowProfileScore& entry : profile_scores) {
+        worst = std::min(worst, entry.score);
+    }
+    return worst;
 }
 
 const char* verdict_name(ObjectiveVerdict verdict) {
@@ -302,6 +368,65 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
             return state.camera_altitude >= arg_int(objective, 0)
                        ? ObjectiveVerdict::Success
                        : ObjectiveVerdict::Pending;
+        case 24: {  // happyshow profile score
+            const std::string profile = arg_str(objective, 0);
+            const int threshold = arg_int(objective, 1);
+            for (const CampaignShowState& show : state.shows) {
+                if (show.participants > 0 &&
+                    show_score_matches(show, profile, threshold)) {
+                    return ObjectiveVerdict::Success;
+                }
+            }
+            return ObjectiveVerdict::Pending;
+        }
+        case 25: {  // fightshow score (unused by retail)
+            const int threshold = arg_int(objective, 0);
+            for (const CampaignShowState& show : state.shows) {
+                if (show.type == 3 && show.participants > 0 &&
+                    show_score_matches(show, "holligan", threshold)) {
+                    return ObjectiveVerdict::Success;
+                }
+            }
+            return ObjectiveVerdict::Pending;
+        }
+        case 26: {  // scientificshow score strangeness
+            const int threshold = arg_int(objective, 0);
+            const int cap = arg_int(objective, 1);
+            for (const CampaignShowState& show : state.shows) {
+                float value = 0.0f;
+                // The scientific profile entry is hard-coded (`0x5678cd`).
+                if (!show.score(6, value) ||
+                    !(value > static_cast<float>(threshold))) {
+                    continue;
+                }
+                if (show.participant_hybrid.empty()) {
+                    continue;
+                }
+                // `0x5679e3`: any participant with +0x1E4 > cap rejects it.
+                bool all_within_cap = true;
+                for (const int hybrid : show.participant_hybrid) {
+                    if (hybrid > cap) {
+                        all_within_cap = false;
+                        break;
+                    }
+                }
+                if (all_within_cap) {
+                    return ObjectiveVerdict::Success;
+                }
+            }
+            return ObjectiveVerdict::Pending;
+        }
+        case 27: {  // happydinoshow score participants
+            const int threshold = arg_int(objective, 0);
+            const int participants = arg_int(objective, 1);
+            for (const CampaignShowState& show : state.shows) {
+                if (show.participants >= participants &&
+                    show_score_matches(show, "all", threshold)) {
+                    return ObjectiveVerdict::Success;
+                }
+            }
+            return ObjectiveVerdict::Pending;
+        }
         case 28:  // delaylimit limit (frac: pending while clock <= load + limit)
             return state.clock_minutes > state.load_minutes + arg_int(objective, 0)
                        ? ObjectiveVerdict::Failure
@@ -318,13 +443,29 @@ ObjectiveVerdict evaluate_objective(const CampaignObjective& objective,
             }
             return ObjectiveVerdict::Pending;
         }
+        case 30: {  // dinoexclusiveshow
+            // `0x5692a0`: a dino present in two different shows fails; an
+            // empty show list succeeds and duplicates inside one show are
+            // ignored (only later shows are checked).
+            for (std::size_t i = 0; i < state.shows.size(); ++i) {
+                for (std::size_t j = i + 1; j < state.shows.size(); ++j) {
+                    for (const int id : state.shows[i].participant_ids) {
+                        for (const int other : state.shows[j].participant_ids) {
+                            if (id == other) {
+                                return ObjectiveVerdict::Pending;
+                            }
+                        }
+                    }
+                }
+            }
+            return ObjectiveVerdict::Success;
+        }
         case 32:  // bankrupt
             return state.bankrupt ? ObjectiveVerdict::Failure
                                   : ObjectiveVerdict::Pending;
         default:
-            // Shows, connected buildings, isolation tags, hungry/carnivore
-            // variants and the unused verbs need systems the port does not
-            // model yet; keep them pending instead of guessing.
+            // Verbs that need systems the port does not model yet stay
+            // pending instead of guessing.
             return ObjectiveVerdict::Pending;
     }
 }

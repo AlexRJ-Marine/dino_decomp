@@ -187,8 +187,13 @@ bool objective_verb_implemented(int objective_id) {
         case 19:  // happyvisitors
         case 22:  // ornateddinos
         case 23:  // cameraaltitude
+        case 24:  // happyshow
+        case 25:  // fightshow
+        case 26:  // scientificshow
+        case 27:  // happydinoshow
         case 28:  // delaylimit
         case 29:  // buyalldinos
+        case 30:  // dinoexclusiveshow
         case 31:  // prettystrangedino
         case 32:  // bankrupt
             return true;

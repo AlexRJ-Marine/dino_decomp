@@ -171,11 +171,11 @@ All 33 implemented verbs (id, evaluator, arguments):
 | 23 | `cameraaltitude` | `0x00569230` | height | camera altitude >= height |
 | 24 | `happyshow` | `0x00567710` | profile, score | any show, profile score >= score |
 | 25 | `fightshow` | `0x005677b0` | score | fight show, hooligan score (unused) |
-| 26 | `scientificshow` | `0x005678b0` | score, strangeness | show score > score and a dino with `+0x1e4` > strangeness |
+| 26 | `scientificshow` | `0x005678b0` | score, cap | scientific score > score, every dino `+0x1e4` <= cap |
 | 27 | `happydinoshow` | `0x00567b10` | score, participants | any show, score and dino count |
 | 28 | `delaylimit` | `0x00567bb0` | limit | clock <= load-time + limit |
 | 29 | `buyalldinos` | `0x00569280` | — | dino store empty |
-| 30 | `dinoexclusiveshow` | `0x005692a0` | — | a show has a dino that no other show has |
+| 30 | `dinoexclusiveshow` | `0x005692a0` | — | no dino is assigned to two different shows |
 | 31 | `prettystrangedino` | `0x005694c0` | beauty, strange | `+0x40 > beauty`, `+0x194 < strange` |
 | 32 | `bankrupt` | `0x00567c80` | — | fails when the flag is set |
 
@@ -203,11 +203,9 @@ happyvisitors  every visitor satisfaction >= percent
 
 ### Port coverage
 
-`--campaign-coverage DIR` reports **89 objectives: 81 implemented, 8 pending,
-0 unknown**. The pending lines are the show verbs `happyshow` (2),
-`scientificshow` (2), `happydinoshow` (2) and `dinoexclusiveshow` (2).
-`scaritydinos`, `keephappyvisitors`, `carnivordinos` and `fightshow` are
-unused by the retail objectives.
+`--campaign-coverage DIR` reports **89 objectives: 89 implemented, 0 pending,
+0 unknown**. `scaritydinos`, `keephappyvisitors`, `carnivordinos` and
+`fightshow` are implemented but unused by the retail objectives.
 
 ### Trait pattern (10 fields)
 
@@ -284,25 +282,53 @@ count for `fence`.
 | `team` | 5 |
 | `capture` | 6 |
 | `fence` | 7 |
-| `all` | any |
+| `all` | any (wildcard) |
 
-It iterates shows of that type, filters by a visitor profile (`all` or a
-name), reads the show's per-profile score array (`show+0xEC -> +0x6c`), and
-counts shows whose score is >= the threshold. It also enforces a minimum
-number of participating dinosaurs (`show+0xB4 - show+0xB0 >> 2`).
+The `.shw` "Judge Kind" is this same 1..4 id for race/obstacle/fight/
+destruction. `FUN_00567190` iterates shows of that type, applies the
+participant minimum (`show+0xB4 - show+0xB0 >> 2`), then evaluates the
+per-profile score vector `[show+0xEC]+0x6C` (a dynamic `vector<float>` in the
+active visitor-profile order):
+
+| Profile argument | Rule per show |
+| --- | --- |
+| `all` | every score `>= threshold`; an empty vector passes |
+| `one` | any score `>= threshold`; an empty vector fails |
+| a personality name | that profile's score `>= threshold` |
+
+`0x565e60` maps names case-insensitively to `VisitorList.ini` ids
+(`surfer` 0, `hooligan`/`holligan` 1, `parent` 2, `blase` 3, `retraite` 4,
+`riche` 5, `scientific` 6, `amoureux` 7, `spd` 8, `enfant` 9); an unknown
+name returns 0, i.e. `surfer`. `one` and `all` are intercepted before the
+lookup. The matched counter increments once per qualifying show and success
+requires `matched >= requiredShows`.
 
 ```text
-happyshow <profile> <score>       any show type, profile score >= score
-happydinoshow <score> <count>     any show, score >= score and >= count dinos
-fightshow <score>                 "fight" show, "hooligan" profile (unused)
+happyshow <profile> <score>       type all, required 1, minPart 0
+happydinoshow <score> <count>     type all, profile all, required 1, minPart arg1
+fightshow <score>                 type fight, profile hooligan, required 1 (unused)
 ```
 
-`scientificshow` and `dinoexclusiveshow` have their own show loops.
-`dinoexclusiveshow` succeeds when a dinosaur appears in exactly one show's
-`show+0xAC` vector. `scientificshow <score> <strangeness>` requires a show
-whose per-type score is `> score` and a dinosaur in its `show+0xAC` list with
-`+0x1E4 > strangeness` (the same hybrid/strangeness field as
-`hybriddinos`).
+`scientificshow <score> <cap>` (`0x5678b0`) reads the hard-coded `scientific`
+profile (id 6) score and requires it to be **strictly greater** than `score`.
+The show must have at least one participant, and **every** participant
+`+0x1E4` must be `<= cap`; any participant above the cap rejects the show.
+`+0x1E4` is the same hybrid/strangeness field as `hybriddinos`.
+
+`dinoexclusiveshow` (`0x5692a0`) walks every pair of shows `i < j` and fails
+when a dinosaur pointer appears in both participant vectors. Duplicates
+inside one show are ignored (only later shows are checked), and an empty show
+list succeeds.
+
+The per-profile score itself is the retail judge pipeline: `FUN_00618020`
+turns the phenotype into five needs (beauty, danger, spectacle, conventional
+appeal, tamability), dot-multiplied with the `.bvi` preference weights,
+clamped to `[-100, 100]`, maxed over the participants, then clamped to
+`[-130, 130]`. See `docs/decomp/show-score.md`.
+
+The port exposes a test hook, `--show NAME[:I,J]`, which loads a retail
+`.shw` arena, assigns imported dinosaurs by index, and feeds the score vector
+into the objective evaluator. The show-construction UI is not ported yet.
 
 All 206 mission/briefing/objective loc IDs resolve in `MenuEng.loc` /
 `ParkEng.loc`.

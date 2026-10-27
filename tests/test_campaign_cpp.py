@@ -48,17 +48,17 @@ def test_cpp_campaign_coverage():
     result = _run("--campaign-coverage", str(SCENARIO))
     assert result.returncode == 0, result.stderr
     assert (
-        "campaign coverage: 89 objectives, 81 implemented, 8 pending, "
+        "campaign coverage: 89 objectives, 89 implemented, 0 pending, "
         "0 unknown" in result.stdout
     )
     for line in (
         "verb id=15 franckstrangedinos objectives=4 implemented",
-        "verb id=24 happyshow objectives=2 pending",
-        "verb id=26 scientificshow objectives=2 pending",
-        "verb id=27 happydinoshow objectives=2 pending",
-        "verb id=30 dinoexclusiveshow objectives=2 pending",
+        "verb id=24 happyshow objectives=2 implemented",
+        "verb id=26 scientificshow objectives=2 implemented",
+        "verb id=27 happydinoshow objectives=2 implemented",
+        "verb id=30 dinoexclusiveshow objectives=2 implemented",
         "verb id=10 scaritydinos objectives=0 unused",
-        "verb id=25 fightshow objectives=0 unused",
+        "verb id=25 fightshow objectives=0 implemented",
     ):
         assert line in result.stdout
 
@@ -66,7 +66,7 @@ def test_cpp_campaign_coverage():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (102 checks)" in result.stdout
+    assert "selftest: PASS (126 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():
@@ -139,6 +139,116 @@ def test_cpp_campaign_mission_panel():
     assert "mission objective 1 treasury -> success" in result.stdout
     assert "mission objective 2 dyingdinos -> success" in result.stdout
     assert "mission Cpg04_Mission1: success" not in result.stdout
+
+
+def _show_mission(tmp_path: Path, name: str, objectives: list[str]) -> Path:
+    """A minimal mission that includes the retail MissionBase.ini."""
+    base = (SCENARIO / "MissionBase.ini").as_posix()
+    lines = ["[#INCLUDE]", f'FILE0="{base}"', "", "[BRIEFING]",
+             'Title="&Cpg4_Mission3_Title"', "", "[OBJECTIVES]"]
+    for i, objective in enumerate(objectives, start=1):
+        lines.append(f'Objective{i}="{objective}"')
+    path = tmp_path / f"{name}.ini"
+    path.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
+    return path
+
+
+def test_cpp_campaign_show_objectives(tmp_path):
+    # The retail Cpg04 park (20 dinosaurs, one Derby arena) plus `--show`
+    # exercises the full judge pipeline: FUN_00618020 five needs, visitor
+    # profile dot product, and the three shared show verbs.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04 park data missing")
+    mission = _show_mission(
+        tmp_path,
+        "ShowProbe",
+        ["happyshow holligan 40", "scientificshow 40 100",
+         "happydinoshow 1 2"],
+    )
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+        "--show", "Cpg4_Derby_1:0,1,2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 happyshow -> success" in result.stdout
+    assert "mission objective 1 scientificshow -> success" in result.stdout
+    assert "mission objective 2 happydinoshow -> success" in result.stdout
+    assert "mission ShowProbe: success" in result.stdout
+
+
+def test_cpp_campaign_scientificshow_cap(tmp_path):
+    # `0x5678b0` rejects a show when any participant +0x1E4 is above the cap.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04 park data missing")
+    mission = _show_mission(tmp_path, "ShowCap", ["scientificshow 40 0"])
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+        "--show", "Cpg4_Derby_1:0,1,2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 scientificshow -> success" not in result.stdout
+
+
+def test_cpp_campaign_dinoexclusiveshow():
+    # `0x5692a0`: a dinosaur assigned to two shows keeps the objective
+    # pending; disjoint assignments pass. The retail Cpg08 mission supplies
+    # the objective, the Cpg04 park supplies real dinosaurs.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg08" / "Cpg08_Mission2.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04/Cpg08 data missing")
+    common = [
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+    ]
+    shared = _run(
+        *common, "--show", "Cpg4_Derby_1:0,1",
+        "--show", "Cpg4_Derby_2:1,2",
+    )
+    assert shared.returncode == 0, shared.stderr
+    assert "mission objective 1 dinoexclusiveshow -> success" not in shared.stdout
+    disjoint = _run(
+        *common, "--show", "Cpg4_Derby_1:0,1",
+        "--show", "Cpg4_Derby_2:2,3",
+    )
+    assert disjoint.returncode == 0, disjoint.stderr
+    assert "mission objective 1 dinoexclusiveshow -> success" in disjoint.stdout
+
+
+def test_cpp_campaign_happyshow_retail_threshold():
+    # Cpg04_Mission3 asks for a hooligan score >= 60; the Cpg04 park's best
+    # hooligan score is 48.70, so the real mission stays pending.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
+    mission = SCENARIO / "Cpg04" / "Cpg04_Mission3.ini"
+    if not isl04.exists() or not wld.exists() or not mission.exists():
+        pytest.skip("retail Cpg04 mission data missing")
+    result = _run(
+        "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
+        "--no-vsync", "--no-save-config", "--lnd", str(isl04),
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-budget", "25000",
+        "--start-mission", str(mission),
+        "--show", "Cpg4_Derby_1:0,1,2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "mission objective 0 happyshow -> success" not in result.stdout
 
 
 def _unlock_file(tmp_path: Path, mask: int = 0x0F) -> Path:

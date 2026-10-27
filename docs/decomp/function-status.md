@@ -185,7 +185,10 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005658d0` | objective verb → id lookup (33 verbs) | decompiled | same |
 | `0x00566080` | objective visitor counter (`visitors`/`happyvisitors`) | decompiled | same |
 | `0x00566620` | objective building counter (`connectedbuildings`) | decompiled | same |
-| `0x00567190` | objective show query (`happyshow`/`fightshow`/`happydinoshow`) | decompiled | same |
+| `0x00567190` | objective show query (`happyshow`/`fightshow`/`happydinoshow`) | decompiled | `notes/objectives-recon.md` |
+| `0x005678b0` | objective `scientificshow` (scientific score `>`, every participant `+0x1E4 <= cap`) | decompiled | same |
+| `0x005692a0` | objective `dinoexclusiveshow` (pairwise show membership) | decompiled | same |
+| `0x00565e60` | objective visitor-profile name -> id (unknown -> 0 surfer) | decompiled | same |
 | `0x00567cb0` | objective genotype/trait matcher (10 dino fields) | decompiled | same |
 | `0x005220e0` | `apEmployeeBehavior::Update` — job dispatcher | decompiled | `docs/decomp/employee-ai.md` |
 | `0x005224c0` | employee job-queue pop / target selection | decompiled | same |

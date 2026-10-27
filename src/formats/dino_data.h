@@ -186,6 +186,16 @@ struct DinoPhenotypeTable {
     int max_perception = 90;
     int conventional_limb_disparity_factor = 40;
     int conventional_limb_homogeneity_factor = 12;
+    // `FUN_00618020` five show needs (TranslatorConstants.ini keys).
+    float cute_need_beauty_factor = 0.6f;
+    float danger_jaw_factor = 0.15f;
+    float danger_aggressivity_factor = 0.15f;
+    float danger_combined_attack_factor = 0.075f;
+    float spectacular_need_size_factor = 60.0f;
+    float max_dinosaur_size = 1346.0f;
+    float conventional_need_factor = 0.5f;
+    float taming_need_intelligence_factor = 0.45f;
+    float taming_need_aggressivity_factor = 0.15f;
 
     bool valid = false;
 
@@ -196,6 +206,12 @@ struct DinoPhenotypeTable {
     // Full attribute set (`FUN_00619830` + `FUN_00617250`).
     DinoAttributes attributes(const DinoGenotype& genotype) const;
 };
+
+// `FUN_00618020`: the five floats a show judge feeds into the visitor
+// preference dot product, in order: beauty, danger, spectacle, conventional
+// appeal, tamability.
+std::array<float, 5> dino_show_needs(const DinoAttributes& attributes,
+                                     const DinoPhenotypeTable& table);
 
 // `constants_path` may be empty; the documented retail values are then used.
 DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,

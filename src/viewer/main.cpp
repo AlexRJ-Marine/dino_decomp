@@ -156,6 +156,7 @@ struct Options {
     bool feed_now = false;
     bool employee_info = false;
     std::string show_info_path;
+    std::vector<std::string> show_specs;  // --show NAME[:IDX,IDX]
     std::string camera_target;
     bool budget_info = false;
     bool dino_actions_info = false;
@@ -468,6 +469,8 @@ Options parse_args(int argc, char** argv) {
             opt.employee_info = true;
         } else if (arg == "--show-info") {
             opt.show_info_path = next("--show-info");
+        } else if (arg == "--show") {
+            opt.show_specs.push_back(next("--show"));
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--budget-info") {
@@ -766,6 +769,7 @@ Options parse_args(int argc, char** argv) {
                 "  --feed-now           run one hourly feeding pass at startup\n"
                 "  --employee-info      print the .bei employee profiles and exit\n"
                 "  --show-info PATH     print .shw show summaries and exit\n"
+                "  --show NAME[:I,J]    place a show arena with dino participants\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
@@ -2258,6 +2262,52 @@ std::string dino_clip_for_action(const std::string& action) {
     return "Neutral";
 }
 
+// One `--show NAME[:I,J]` test hook. The retail `.shw` "Judge Kind" is the
+// show-type id read by `FUN_00567190` (1 race, 2 obstacle, 3 fight,
+// 4 destruction, 5 team, 6 capture, 7 fence). `participants` are indices into
+// the imported-dino vector.
+struct PortShowSpec {
+    std::string name;
+    int type = 0;
+    std::vector<int> participants;
+};
+
+std::vector<PortShowSpec> parse_show_specs(
+    const std::vector<std::string>& specs, const std::string& asset_root) {
+    std::vector<PortShowSpec> shows;
+    for (const std::string& spec : specs) {
+        const std::size_t colon = spec.find(':');
+        PortShowSpec show;
+        show.name = spec.substr(0, colon);
+        if (colon != std::string::npos) {
+            const char* cursor = spec.c_str() + colon + 1;
+            while (*cursor != '\0') {
+                char* next = nullptr;
+                const long value = std::strtol(cursor, &next, 10);
+                if (next == cursor) {
+                    ++cursor;
+                    continue;
+                }
+                show.participants.push_back(static_cast<int>(value));
+                cursor = next;
+            }
+        }
+        std::string path = show.name;
+        if (!std::filesystem::is_regular_file(path)) {
+            path = resolve_asset(asset_root,
+                                 "Data/Design/Scenario/Show/" + show.name +
+                                     ".shw");
+        }
+        try {
+            show.type = dino::load_shw(path).judge_kind;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "show %s: %s\n", show.name.c_str(), e.what());
+        }
+        shows.push_back(std::move(show));
+    }
+    return shows;
+}
+
 // Free-game easy profile table (`FreeGame.ini` `[PROFILES]`):
 // retraite, surfer, parent, enfant, holligan, scientific - 30 each.
 std::vector<dino::VisitorProfile> load_easy_visitor_profiles(
@@ -2927,6 +2977,138 @@ int run_selftest() {
                                    objective_state) ==
               dino::ObjectiveVerdict::Success,
           "objective genotype species");
+
+    // `FUN_00618020` five show needs from the retail constants.
+    {
+        dino::DinoPhenotypeTable needs_table;
+        dino::DinoAttributes attrs;
+        attrs.beauty = 50;
+        attrs.attack_head = 40;
+        attrs.aggression = 20;
+        attrs.attack_total = 100;
+        attrs.length_cm = 1000;
+        attrs.width_cm = 500;
+        attrs.height_cm = 200;
+        attrs.conventional_appeal = 60;
+        attrs.intelligence = 50;
+        const std::array<float, 5> needs =
+            dino::dino_show_needs(attrs, needs_table);
+        const auto close_to = [](float value, float expected) {
+            return std::fabs(value - expected) < 0.05f;
+        };
+        check(close_to(needs[0], 30.0f), "show need beauty");
+        check(close_to(needs[1], 13.5f), "show need danger");
+        check(close_to(needs[2], 20.69f), "show need spectacle");
+        check(close_to(needs[3], 30.0f), "show need conventional");
+        check(close_to(needs[4], 34.5f), "show need taming");
+    }
+
+    // Show objectives (`0x567190`, `0x5678b0`, `0x5692a0`).
+    {
+        dino::CampaignShowState show;
+        show.type = 1;
+        show.participants = 3;
+        show.add_score(0, 65.0f);
+        show.add_score(1, 70.0f);
+        show.add_score(2, 55.0f);
+        show.participant_ids = {0, 1, 2};
+        show.participant_hybrid = {50, 90, 91};
+        dino::CampaignState show_state;
+        show_state.shows = {show};
+        check(dino::evaluate_objective(objective("happyshow one 60"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happyshow one");
+        check(dino::evaluate_objective(objective("happyshow all 60"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective happyshow all");
+        check(dino::evaluate_objective(objective("happyshow all 50"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happyshow all pass");
+        check(dino::evaluate_objective(objective("happyshow holligan 65"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happyshow holligan");
+        check(dino::evaluate_objective(objective("happyshow hooligan 65"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happyshow hooligan alias");
+        check(dino::evaluate_objective(objective("happyshow unknown 65"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happyshow unknown surfer");
+        check(dino::evaluate_objective(objective("happyshow one 71"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective happyshow threshold");
+        check(dino::evaluate_objective(objective("happydinoshow 50 2"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective happydinoshow");
+        check(dino::evaluate_objective(objective("happydinoshow 60 2"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective happydinoshow score");
+        check(dino::evaluate_objective(objective("happydinoshow 50 4"),
+                                       show_state) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective happydinoshow count");
+        check(dino::evaluate_objective(objective("fightshow 65"), show_state) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective fightshow type");
+        dino::CampaignState fight = show_state;
+        fight.shows[0].type = 3;
+        check(dino::evaluate_objective(objective("fightshow 65"), fight) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective fightshow");
+        dino::CampaignState scientific = show_state;
+        scientific.shows[0].add_score(6, 65.0f);
+        scientific.shows[0].participant_hybrid = {50, 90};
+        check(dino::evaluate_objective(objective("scientificshow 60 90"),
+                                       scientific) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective scientificshow");
+        scientific.shows[0].participant_hybrid = {50, 91};
+        check(dino::evaluate_objective(objective("scientificshow 60 90"),
+                                       scientific) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective scientificshow cap");
+        scientific.shows[0].participant_hybrid = {50, 90};
+        scientific.shows[0].profile_scores.back().score = 60.0f;
+        check(dino::evaluate_objective(objective("scientificshow 60 90"),
+                                       scientific) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective scientificshow strict");
+        dino::CampaignState exclusive = show_state;
+        exclusive.shows.push_back(show);
+        check(dino::evaluate_objective(objective("dinoexclusiveshow"),
+                                       exclusive) ==
+                  dino::ObjectiveVerdict::Pending,
+              "objective exclusive shared");
+        dino::CampaignState exclusive_ok = show_state;
+        dino::CampaignShowState other;
+        other.participants = 1;
+        other.participant_ids = {5};
+        exclusive_ok.shows.push_back(other);
+        check(dino::evaluate_objective(objective("dinoexclusiveshow"),
+                                       exclusive_ok) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective exclusive disjoint");
+        dino::CampaignState exclusive_dup = show_state;
+        exclusive_dup.shows[0].participant_ids = {0, 0};
+        check(dino::evaluate_objective(objective("dinoexclusiveshow"),
+                                       exclusive_dup) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective exclusive same show");
+        dino::CampaignState exclusive_empty;
+        check(dino::evaluate_objective(objective("dinoexclusiveshow"),
+                                       exclusive_empty) ==
+                  dino::ObjectiveVerdict::Success,
+              "objective exclusive empty");
+    }
+
     check(dino::aggregate_verdict({dino::ObjectiveVerdict::Success,
                                    dino::ObjectiveVerdict::Success}) ==
               dino::ObjectiveVerdict::Success,
@@ -4198,6 +4380,8 @@ int main(int argc, char** argv) {
     dino::VisitorSystem visitor_system;
     std::vector<dino::VisitorProfile> visitor_profiles;
     std::vector<dino::VisitorProfile> all_visitor_profiles;
+    std::vector<PortShowSpec> port_shows =
+        parse_show_specs(opt.show_specs, opt.asset_root);
     dino::Mesh visitor_pose1;
     dino::Mesh visitor_pose2;
     dino::Image visitor_image;
@@ -10048,6 +10232,74 @@ int main(int argc, char** argv) {
                     {static_cast<int>(def.category), connected});
             }
             mission_state.fence_count = static_cast<int>(paddocks.size());
+            // Show arenas: the port has no show-construction UI yet, so
+            // `--show NAME[:I,J]` places a retail `.shw` arena and assigns
+            // imported dinosaurs by index. The per-personality scores use the
+            // retail judge pipeline: `FUN_00618020` five needs, dot with the
+            // active visitor profile weights, clamped to [-100,+100], max over
+            // participants, then [-130,+130].
+            for (const PortShowSpec& spec : port_shows) {
+                dino::CampaignShowState show;
+                show.type = spec.type;
+                for (const int index : spec.participants) {
+                    if (index < 0 ||
+                        index >= static_cast<int>(imported_dinos.size())) {
+                        continue;
+                    }
+                    show.participant_ids.push_back(index);
+                    show.participant_hybrid.push_back(
+                        imported_dinos[static_cast<std::size_t>(index)]
+                            .attributes.originality);
+                }
+                show.participants =
+                    static_cast<int>(show.participant_ids.size());
+                // The retail score vector is per visitor-profile type; the
+                // global VisitorList.ini table has all ten. Load it lazily so
+                // a campaign park with no visitors still scores its shows.
+                if (all_visitor_profiles.empty()) {
+                    try {
+                        all_visitor_profiles =
+                            load_all_visitor_profiles(opt.asset_root);
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "all visitor profiles: %s\n",
+                                     e.what());
+                    }
+                }
+                const std::vector<dino::VisitorProfile>& show_profiles =
+                    all_visitor_profiles.empty() ? visitor_profiles
+                                                 : all_visitor_profiles;
+                for (const dino::VisitorProfile& profile : show_profiles) {
+                    float best = -1.0e9f;
+                    for (const int index : show.participant_ids) {
+                        const auto needs = dino::dino_show_needs(
+                            imported_dinos[static_cast<std::size_t>(index)]
+                                .attributes,
+                            phenotype_table);
+                        float dot = 0.0f;
+                        for (std::size_t i = 0; i < needs.size(); ++i) {
+                            dot += needs[i] * profile.weights[i];
+                        }
+                        best = std::max(best,
+                                        std::clamp(dot, -100.0f, 100.0f));
+                    }
+                    if (best > -1.0e8f) {
+                        show.add_score(profile.personality_id,
+                                       std::clamp(best, -130.0f, 130.0f));
+                    }
+                }
+                if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
+                    std::fprintf(stderr,
+                                 "show %s type=%d participants=%d profiles=%zu\n",
+                                 spec.name.c_str(), show.type,
+                                 show.participants,
+                                 show.profile_scores.size());
+                    for (const auto& entry : show.profile_scores) {
+                        std::fprintf(stderr, "  profile=%d score=%.2f\n",
+                                     entry.personality, entry.score);
+                    }
+                }
+                mission_state.shows.push_back(std::move(show));
+            }
             // Live trait snapshot. The objective slots are actor fields
             // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
             // +0x1e0/+0x8c); the port's phenotype exposes the related

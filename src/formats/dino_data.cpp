@@ -351,6 +351,24 @@ void read_translator_constants(const std::string& path,
         } else if (key == "ConventionalLimbHomogeneityFactor") {
             table.conventional_limb_homogeneity_factor =
                 parse_int(value, path);
+        } else if (key == "CuteNeedBeautyFactor") {
+            table.cute_need_beauty_factor = parse_float(value);
+        } else if (key == "DangerJawFactor") {
+            table.danger_jaw_factor = parse_float(value);
+        } else if (key == "DangerAggressivityFactor") {
+            table.danger_aggressivity_factor = parse_float(value);
+        } else if (key == "DangerCombinedAttackFactor") {
+            table.danger_combined_attack_factor = parse_float(value);
+        } else if (key == "SpectacularNeedSizeFactor") {
+            table.spectacular_need_size_factor = parse_float(value);
+        } else if (key == "MaxDinosaurSize") {
+            table.max_dinosaur_size = parse_float(value);
+        } else if (key == "ConventionalNeedFactor") {
+            table.conventional_need_factor = parse_float(value);
+        } else if (key == "TamingNeedIntelligenceFactor") {
+            table.taming_need_intelligence_factor = parse_float(value);
+        } else if (key == "TamingNeedAgressivityFactor") {
+            table.taming_need_aggressivity_factor = parse_float(value);
         } else if (key == "SizeCategory1MaxLength") {
             table.size_category_max[0] = parse_int(value, path);
         } else if (key == "SizeCategory2MaxLength") {
@@ -1006,6 +1024,35 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
                        out.attack_leg + out.attack_tail;
     out.combined_attack = (out.aggression + out.attack_total) / 6;
     return out;
+}
+
+std::array<float, 5> dino_show_needs(const DinoAttributes& attributes,
+                                     const DinoPhenotypeTable& table) {
+    std::array<float, 5> needs{};
+    // `FUN_00618020`: beauty, danger, spectacle, conventional, tamability.
+    needs[0] = static_cast<float>(attributes.beauty) *
+               table.cute_need_beauty_factor;
+    needs[1] = static_cast<float>(attributes.attack_head) *
+                   table.danger_jaw_factor +
+               static_cast<float>(attributes.aggression) *
+                   table.danger_aggressivity_factor +
+               static_cast<float>(attributes.attack_total -
+                                  attributes.attack_head) *
+                   table.danger_combined_attack_factor;
+    const double volume = static_cast<double>(attributes.length_cm) *
+                          static_cast<double>(attributes.width_cm) *
+                          static_cast<double>(attributes.height_cm);
+    const double size = volume > 0.0 ? std::cbrt(volume) : 0.0;
+    needs[2] = static_cast<float>(
+        size * table.spectacular_need_size_factor /
+        (table.max_dinosaur_size > 0.0f ? table.max_dinosaur_size : 1.0f));
+    needs[3] = static_cast<float>(attributes.conventional_appeal) *
+               table.conventional_need_factor;
+    needs[4] = static_cast<float>(attributes.intelligence) *
+                   table.taming_need_intelligence_factor +
+               static_cast<float>(100 - attributes.aggression) *
+                   table.taming_need_aggressivity_factor;
+    return needs;
 }
 
 int DinoPhenotypeTable::length_cm(const DinoGenotype& genotype) const {

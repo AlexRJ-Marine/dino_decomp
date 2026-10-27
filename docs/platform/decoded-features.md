@@ -35,12 +35,19 @@ Feature status in the matrix: **decoded** (no port implementation).
 **Data** `.shw` scenario grids (43), `.bfi` features (62), `.seq` FX/sound
 events, `ShowsN` mission lists, the save show catalog.
 
-**Port status** none. `ATTRACTION_LIST_PANEL` and
-`PREDEFINED_SHOW_PANEL` render static art; `SHOW_AMOUNT` is 0.
+**Port status** the score pipeline is ported: `dino_show_needs`
+(`FUN_00618020`), the `.bvi` five-weight dot product, per-participant max and
+the `[-100,100]` / `[-130,130]` clamps. The four campaign show verbs
+(`happyshow`, `scientificshow`, `happydinoshow`, `dinoexclusiveshow`) run on
+that score vector, and `--show NAME[:I,J]` places a retail `.shw` arena with
+imported dinosaurs for tests. `ATTRACTION_LIST_PANEL` and
+`PREDEFINED_SHOW_PANEL` still render static art; there is no show-construction
+UI, judge actor or runtime schedule loop, and `SHOW_AMOUNT` stays 0.
 
-**First slice** load a `.shw`/`.bfi`, place one judge arena from `effects[5]`,
-score one dinosaur from `DinoAttributes` with the active profile weights, and
-show the five category scores. Schedule/live actors come later.
+**First slice** done for scoring (load `.shw`, assign dinosaurs, score with the
+active profile weights, feed the objectives). Remaining: place one judge arena
+from `effects[5]`, show the five category scores, and add the schedule/live
+actors.
 
 **Evidence** `../decomp/show-score.md`, `../decomp/park-time.md`,
 `../formats/shw.md`, `../formats/bfi.md`, `../formats/seq.md`.

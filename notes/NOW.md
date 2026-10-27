@@ -77,16 +77,19 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 perception: locate the factory that fills `action+0x08` and the
-   `behavior+0xf4` / actor known-target producers, then wire the decoded
-   visitor/obstacle reaction starters (`0x521d10`/`0x521d80`).
-2. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
+1. P3 perception: locate the `behavior+0xf4` / `+0xb8` / `+0xc8` id-list
+   producers (the `action+0x08` factory is `FUN_00569640`/`FUN_0056a9a0`),
+   then wire the decoded reaction starters (`0x521d10`/`0x521d80`).
+2. SHOW-4: show construction UI and live judge/schedule loop (the score
+   pipeline and objective verbs are done).
+3. SAVE-2 follow-up: identify the live-money field (the HUD cash 26000 is
    not park `+0x30`; `26000` occurs only as show 27's first parameter).
-3. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
+- 2026-10-27 - SHOW-3: all four show verbs ported (happyshow/scientificshow/happydinoshow/dinoexclusiveshow) with the FUN_00618020 five-need + .bvi weight pipeline and a --show test hook; coverage 89/89 objectives
 - 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
 - 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
 - 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files

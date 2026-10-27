@@ -272,8 +272,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   agility, `+0x8c` intelligence).
 - [x] Show query (`0x567190`): show types race/obstacle/fight/destruction/
   team/capture/fence, per-profile score array, participant minimum.
-- [x] `scientificshow` (show score > arg1, dino `+0x1e4` > arg2) and
-  `dinoexclusiveshow` (a dinosaur unique to one show).
+- [x] `scientificshow` (scientific score strictly `> arg1`, every participant
+  `+0x1e4 <= arg2`) and `dinoexclusiveshow` (a dinosaur shared by two shows
+  fails; empty show list succeeds).
 - [x] Difficulty selection: `mission+0x50` 0/1/2 picks `Budget`/
   `SellBackFactor`/`VisProfiles` and their `Medium`/`Hard` variants.
 - [ ] Human-readable names for the trait/show fields, objective weighting and
@@ -1477,9 +1478,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   complete on the Cpg04 park.
 - [x] `isolateddinos`: every aggressive dino alone in its paddock; Cpg04's
   populated park stays pending, the empty Cpg01 park completes Mission1.
-- [x] `--campaign-coverage` reports 81/89 implemented, 8 pending (the show
-  verbs), 0 unknown.
-- [ ] The show verbs once their runtime/judging sources exist.
+- [x] `--campaign-coverage` reports 89/89 implemented, 0 pending, 0 unknown.
+- [x] Show verbs: `happyshow`, `scientificshow`, `happydinoshow` and
+  `dinoexclusiveshow` run on the retail judge pipeline (`FUN_00618020` five
+  needs + `.bvi` weights); `--show NAME[:I,J]` places a `.shw` arena with
+  imported dinosaurs for tests. The show-construction UI and live judge loop
+  are still open.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
