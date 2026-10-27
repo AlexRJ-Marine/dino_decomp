@@ -49,16 +49,15 @@ the empty form. `--sav-roundtrip` reports `non-empty simulation list` for them
 and `test_cpp_sav_park_roundtrip` skips that known class. Decode/write the
 lists before claiming campaign save parity.
 
-Open semantic item: the HUD cash (26000) is not the park block `+0x30`
-`budget` (12345 in that test save). `26000` does not occur in the save at all
-except as show 27's first parameter, so the HUD `BUDGET_AMOUNT` widget is
-driven by the scenario/FreeGame config, not by the save. The port currently
-overrides `park_budget` from `sav_simulation.budget` (`src/viewer/main.cpp`,
-~line 7592) and uses the same value for `buy_budget`; that likely diverges
-from retail's HUD when a save is imported. The save's `+0x30` field is a
-different park budget (written from `spPark+0x08` by `FUN_00585780`).
-Verify before using `--sav-budget` for gameplay assertions or changing the
-port's HUD import.
+HUD cash resolved: it is the same field as the park block `+0x30`
+(`spPark->economy+0x08`; `FUN_00526010` reads it at `0x526041`, see
+`notes/hud-budget-source-recon.md`). The 26000 surviving a load is not a
+different field: the economy restore at `0x58b1b0` is conditional
+(`TEST BL,BL; JZ read; CMP EDI,0x17; JA skip`), so for version > 0x17
+(retail 46/53) a non-zero loader flag skips the read and the live value stays.
+The port restores `sav_simulation.budget` into `park_budget` (and `buy_budget`)
+- the right field, but a policy divergence from that guarded retail path.
+Confirm the `BL` flag at runtime before changing the port for exact parity.
 
 Reproduction (the exact test save is 7,374 bytes, sha256
 `0e5559a0cbd36120731396c51205192074a5f7016dcf1150b8e5119f6d8da738`):

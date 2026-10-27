@@ -1784,8 +1784,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Retail acceptance: a `--sav-write` output (`cppwrite`) is listed in the
   retail LOAD GAME panel, selects and loads a park (`notes/sav-retail-accept.png`);
   the park clock matches the save's `schedule_elapsed`. The TOOL-4 park-load
-  fix is in `notes/background-input-recon.md` §4b. Open: the HUD cash is not
-  park `+0x30` (live-money field still unidentified).
+  fix is in `notes/background-input-recon.md` §4b. HUD cash confirmed as
+  `economy+0x08` = park `+0x30`; retail's loader skips the restore for
+  version > 0x17 when `BL` is set (`notes/hud-budget-source-recon.md`). The
+  port restores it (policy divergence); confirm `BL` for exact parity.
 - [ ] Campaign autosave class: a live Cpg04 autosave (~53 KB,
   `run-test/save/auto/auto.sav`) populates the three simulation lists after
   the roads. `list0` has 20 records (the world has 20 dinosaurs). The packed

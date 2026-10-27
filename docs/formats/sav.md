@@ -540,7 +540,12 @@ round-trips byte-identically. `test_cpp_sav_park_roundtrip` covers both paths.
 --sav-slot 1`) installed as `run-test/save/slot001.sav` appears in the retail
 LOAD GAME list as `cppwrite`; selecting it starts the park (Reset `hr=0`) and
 renders it (`notes/sav-retail-accept.png`). The park clock matches the
-save's `schedule_elapsed` (23.2 s -> 09:2x). The HUD cash (26000) does not
-track the park block's `+0x30` budget (12345 in the test save), so that field
-is not the live-money display; this is an open semantic question, not a writer
-failure.
+save's `schedule_elapsed` (23.2 s -> 09:2x). The HUD cash **is** the same
+field as the park block `+0x30`: `spPark->economy+0x08`, read by the HUD
+refresh `FUN_00526010` at `0x526041` (`notes/hud-budget-source-recon.md`).
+It stayed 26000 on load because the retail economy restore is conditional:
+`0x58b1b0 TEST BL,BL; JZ read; CMP EDI,0x17; JA skip` - for a version > 0x17
+save (retail 46/53) a non-zero loader flag skips the read and the live value
+survives. The port restoring `sav_simulation.budget` into `park_budget` is a
+policy divergence, not a wrong field; the `BL` flag needs a runtime check for
+exact parity.

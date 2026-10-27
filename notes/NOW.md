@@ -96,10 +96,10 @@ See `notes/lanes.md`. Default split:
 2. SHOW-4 rest: interactive show construction panel (catalog list, place,
    hour slot/iterations, judge/schedule display); `--place-show` and the live
    runtime/scheduler are in.
-3. SAVE-2 follow-up: the HUD `BUDGET_AMOUNT` cash is not park `+0x30` and is
-   absent from the save (scenario/FreeGame config). The port currently
-   overrides `park_budget` from the save; verify before changing the HUD or
-   `buy_budget` import.
+3. SAVE-2 follow-up: HUD cash is `economy+0x08` = park `+0x30`; retail's
+   load skips the restore for version > 0x17 when the `BL` flag is set
+   (`0x58b1b0`). The port restores it (policy divergence); confirm `BL` at
+   runtime for exact parity (`notes/hud-budget-source-recon.md`).
 4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
