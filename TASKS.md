@@ -1787,10 +1787,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   park `+0x30` (live-money field still unidentified).
 - [ ] Campaign autosave class: a live Cpg04 autosave (~53 KB,
   `run-test/save/auto/auto.sav`) populates the three simulation lists after
-  the roads. `list0` has 20 records (the world has 20 dinosaurs); each starts
-  with three u32 then packed bytes and a UTF-16 species name around `+0x18`.
-  Decode the record layout and extend `sav_graph.py`/the C++ reader/writer;
-  `test_cpp_sav_park_roundtrip` currently skips this known class.
+  the roads. `list0` has 20 records (the world has 20 dinosaurs). The first
+  record is packed: `u32 63823, x=517, y=450`, four need-state bytes
+  `03 03 01 02` at `+0x0c`, a u32 name byte-length `0x18` unaligned at
+  `+0x15`, the UTF-16LE name `Ankylosaur1` at `+0x19`, then `[80,60,30]`
+  int triples. Decode the record layout and extend `sav_graph.py`/the C++
+  reader/writer; `test_cpp_sav_park_roundtrip` currently skips this class.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
