@@ -148,7 +148,11 @@ struct SavSimulation {
     std::array<std::uint8_t, 12> schedule_trailer{};
     std::uint8_t schedule_final = 0;
     std::size_t state_offset = 0;
-    std::vector<std::uint8_t> header_raw;   // 0 .. world block
+    // Save header: version comes from the world block; the name is UTF-16LE
+    // with its terminator, followed by 12 reserved bytes.
+    std::uint32_t slot = 0;
+    std::vector<std::uint8_t> name;
+    std::array<std::uint8_t, 12> header_tail{};
     std::vector<SavShowEntry> catalog;
     std::vector<SavDinoStoreEntry> dino_store;
     std::array<int, 5> visitor_model{};
@@ -259,6 +263,9 @@ std::vector<std::uint8_t> write_sav_park_block(
 std::vector<std::uint8_t> write_sav_simulation(
     const SavSimulation& simulation);
 std::vector<std::uint8_t> write_sav_catalog(const SavSimulation& simulation);
+// Rebuild the 0x18 + name-length save header.
+std::vector<std::uint8_t> write_sav_header(const SavSimulation& simulation,
+                                           std::uint32_t version);
 // Rebuild a save's world block from the retained records (mirrors
 // tools/formats/sav_write.py::write_world).
 std::vector<std::uint8_t> write_sav_world(const WldWorld& world);
@@ -266,7 +273,10 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& simulation,
                                           const WldWorld& world);
 
 // Rebuild a .sav in memory (header + world + catalog + simulation).
-std::vector<std::uint8_t> rebuild_sav(const std::string& path);
+// `new_name` (ASCII) and `new_slot` are optional mutations for re-saving.
+std::vector<std::uint8_t> rebuild_sav(const std::string& path,
+                                      const std::string* new_name = nullptr,
+                                      int new_slot = -1);
 
 // Read a .sav, rebuild header + world + catalog + simulation and compare the
 // result with the file bytes.

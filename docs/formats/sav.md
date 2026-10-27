@@ -472,7 +472,13 @@ CLI:
 ```text
 dino_viewer --sav-roundtrip run/save/slot001.sav   # whole file identical
 dino_viewer --sav-write IN.sav OUT.sav             # rebuild and emit
+dino_viewer --sav-write IN.sav OUT.sav --sav-name renamed --sav-slot 3
 ```
+
+The header (version, slot, UTF-16 name, 12 reserved bytes) is retained and
+re-serialized too, so no section of the file is copied. `--sav-name` (ASCII)
+and `--sav-slot` change only the header; the world/catalog/simulation body is
+unchanged, and the emitted file round-trips through the same reader.
 
 `--sav-roundtrip` reports `sav roundtrip: whole file identical` on
 `slot001.sav`, `slot002.sav` and `auto/slot001.sav`; `--sav-write` emits a

@@ -531,8 +531,15 @@ SavSimulation read_sav_simulation(const std::string& path) {
     Reader r(data, world.world_end, data.size(), world.version, path);
     SavSimulation out;
     const std::uint32_t name_len = read_u32(data, 8, "save name length");
-    const std::size_t world_start = 24 + name_len;
-    out.header_raw.assign(data.begin(), data.begin() + world_start);
+    if (name_len == 0 || (name_len & 1) != 0 ||
+        0x18 + static_cast<std::size_t>(name_len) > data.size()) {
+        throw std::runtime_error("wld: bad save-name length in " + path);
+    }
+    out.slot = read_u32(data, 4, "save slot");
+    out.name.assign(data.begin() + 0x0c, data.begin() + 0x0c + name_len);
+    for (std::size_t i = 0; i < out.header_tail.size(); ++i) {
+        out.header_tail[i] = data[0x0c + name_len + i];
+    }
 
     // Show catalog: ASCII path, UTF-16 name, six parameters.
     const std::uint32_t shows = r.count("show catalog count", 10000);
@@ -911,6 +918,17 @@ std::vector<std::uint8_t> write_sav_simulation(
     return out;
 }
 
+std::vector<std::uint8_t> write_sav_header(const SavSimulation& s,
+                                           std::uint32_t version) {
+    std::vector<std::uint8_t> out;
+    put_u32(out, version);
+    put_u32(out, s.slot);
+    put_u32(out, static_cast<std::uint32_t>(s.name.size()));
+    out.insert(out.end(), s.name.begin(), s.name.end());
+    out.insert(out.end(), s.header_tail.begin(), s.header_tail.end());
+    return out;
+}
+
 std::vector<std::uint8_t> write_sav_world(const WldWorld& world) {
     const SavWorldRecords& w = world.records;
     const std::uint32_t version = world.version;
@@ -1028,7 +1046,7 @@ std::vector<std::uint8_t> write_sav_catalog(
 
 std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s,
                                           const WldWorld& world) {
-    std::vector<std::uint8_t> out = s.header_raw;
+    std::vector<std::uint8_t> out = write_sav_header(s, world.version);
     const std::vector<std::uint8_t> world_bytes = write_sav_world(world);
     out.insert(out.end(), world_bytes.begin(), world_bytes.end());
     const std::vector<std::uint8_t> catalog = write_sav_catalog(s);
@@ -1038,9 +1056,31 @@ std::vector<std::uint8_t> write_sav_whole(const SavSimulation& s,
     return out;
 }
 
-std::vector<std::uint8_t> rebuild_sav(const std::string& path) {
+std::vector<std::uint8_t> rebuild_sav(const std::string& path,
+                                      const std::string* new_name,
+                                      int new_slot) {
     const WldWorld world = read_sav_world(path);
-    const SavSimulation simulation = read_sav_simulation(path);
+    SavSimulation simulation = read_sav_simulation(path);
+    if (new_name != nullptr) {
+        simulation.name.clear();
+        for (char raw : *new_name) {
+            const unsigned char ch = static_cast<unsigned char>(raw);
+            if (ch >= 0x80) {
+                throw std::runtime_error(
+                    "sav: the save name must be ASCII");
+            }
+            simulation.name.push_back(ch);
+            simulation.name.push_back(0);
+        }
+        simulation.name.push_back(0);
+        simulation.name.push_back(0);
+        if (simulation.name.size() > 1024) {
+            throw std::runtime_error("sav: the save name is too long");
+        }
+    }
+    if (new_slot >= 0) {
+        simulation.slot = static_cast<std::uint32_t>(new_slot);
+    }
     return write_sav_whole(simulation, world);
 }
 

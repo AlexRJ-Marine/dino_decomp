@@ -3206,3 +3206,31 @@ def test_cpp_sav_park_roundtrip(tmp_path):
         checked += 1
     if checked == 0:
         pytest.skip("retail saves not present")
+
+
+def test_cpp_sav_write_rename(tmp_path):
+    """--sav-name/--sav-slot change only the header; the body is untouched."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    out_path = tmp_path / "renamed.sav"
+    result = subprocess.run(
+        [str(EXE), "--sav-write", str(save), str(out_path),
+         "--sav-name", "renamed", "--sav-slot", "3", "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    source = save.read_bytes()
+    rebuilt = out_path.read_bytes()
+    version, slot, name_len = struct.unpack_from("<3I", rebuilt, 0)
+    source_name_len = struct.unpack_from("<I", source, 8)[0]
+    assert version == 53
+    assert slot == 3
+    assert rebuilt[0x0c:0x0c + name_len].decode("utf-16-le") == "renamed\x00"
+    assert rebuilt[0x18 + name_len:] == source[0x18 + source_name_len:]
+    check = subprocess.run(
+        [str(EXE), "--sav-roundtrip", str(out_path), "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert check.returncode == 0, check.stderr
+    assert "whole file identical" in check.stdout, check.stdout

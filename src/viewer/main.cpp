@@ -122,6 +122,8 @@ struct Options {
     std::string sav_park_path;
     std::string sav_roundtrip_path;
     std::string sav_write_path;
+    std::string sav_name;
+    int sav_slot = -1;
     bool wld_info = false;
     bool wld_park = false;
     bool import_dinos = true;
@@ -393,6 +395,10 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--sav-write") {
             opt.sav_roundtrip_path = next("--sav-write");
             opt.sav_write_path = next("--sav-write output");
+        } else if (arg == "--sav-name") {
+            opt.sav_name = next("--sav-name");
+        } else if (arg == "--sav-slot") {
+            opt.sav_slot = std::atoi(next("--sav-slot"));
         } else if (arg == "--wld-info") {
             opt.wld_info = true;
         } else if (arg == "--no-import-dinos") {
@@ -720,6 +726,8 @@ Options parse_args(int argc, char** argv) {
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
                 "  --sav-roundtrip FILE rebuild a .sav and compare the whole file\n"
                 "  --sav-write IN OUT   rebuild a .sav and write it to OUT\n"
+                "  --sav-name NAME      save name for --sav-write (ASCII)\n"
+                "  --sav-slot N         save slot for --sav-write\n"
                 "  --wld-info           print the world block and exit\n"
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
@@ -3126,8 +3134,11 @@ int main(int argc, char** argv) {
                     error.c_str());
         if (!opt.sav_write_path.empty()) {
             try {
+                const std::string* new_name =
+                    opt.sav_name.empty() ? nullptr : &opt.sav_name;
                 const std::vector<std::uint8_t> rebuilt =
-                    dino::rebuild_sav(opt.sav_roundtrip_path);
+                    dino::rebuild_sav(opt.sav_roundtrip_path, new_name,
+                                      opt.sav_slot);
                 std::ofstream out(opt.sav_write_path, std::ios::binary);
                 if (!out) {
                     std::fprintf(stderr, "cannot open %s\n",
