@@ -55,13 +55,15 @@ list1/list2, and expose the campaign park/visitor state (the partial C++
 
 HUD cash resolved: it is the same field as the park block `+0x30`
 (`spPark->economy+0x08`; `FUN_00526010` reads it at `0x526041`, see
-`notes/hud-budget-source-recon.md`). The 26000 surviving a load is not a
-different field: the economy restore at `0x58b1b0` is conditional
-(`TEST BL,BL; JZ read; CMP EDI,0x17; JA skip`), so for version > 0x17
-(retail 46/53) a non-zero loader flag skips the read and the live value stays.
-The port restores `sav_simulation.budget` into `park_budget` (and `buy_budget`)
-- the right field, but a policy divergence from that guarded retail path.
-Confirm the `BL` flag at runtime before changing the port for exact parity.
+`notes/hud-budget-source-recon.md`). The `0x58b1b0` guard is not a
+save-vs-autosave switch: `BL` is the park reader's third call-site argument,
+`0` for every `.sav` LOAD (manual and autosave) and `1` for the campaign
+`.wld` loader, whose stream has no park block. A `.sav` LOAD restores the
+budget (`FUN_00585240` also self-gates on the flag), so the port restoring
+`sav_simulation.budget` into `park_budget`/`buy_budget` matches retail. The
+26000 seen after the earlier load is not explained by this guard; candidates
+are a later scenario/economy writer or a campaign `.wld` start
+(`notes/hud-budget-restore-flag-recon.md` §8).
 
 Reproduction (the exact test save is 7,374 bytes, sha256
 `0e5559a0cbd36120731396c51205192074a5f7016dcf1150b8e5119f6d8da738`):

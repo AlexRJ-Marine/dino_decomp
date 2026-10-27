@@ -129,3 +129,17 @@ also drives the counts/time, so it is the whole top HUD refresh.
 Uncertainty: the `BL` loader flag and the exact origin of 26000 need one
 runtime check (breakpoint at `0x526079`, read `[[[esp+..]+0x120]+8]` / watch
 `0x58585bd0` during LOAD GAME).
+
+## 9. Correction (2026-10-27, follow-up recon)
+
+The "`BL` = loader flag, version > 0x17 skips the budget" reading was too
+broad. `notes/hud-budget-restore-flag-recon.md` proved `BL` is the park
+reader's **third call-site argument**: `0` for the `.sav` LOAD path
+(`FUN_00402f10`) and the save/autosave wrapper, `1` only for the campaign
+`.wld` loader (`FUN_00403e10`), whose stream has no park block. A manual or
+autosave `.sav` LOAD therefore sets `BL = 0` and **restores the budget**
+(`FUN_00585240` also self-gates on the flag). The port restoring
+`sav_simulation.budget` matches retail for `.sav` LOAD. The 26000 after the
+earlier test is not explained by this guard; see the follow-up note §8 for the
+remaining candidates (a later scenario/economy writer or a campaign `.wld`
+start) and the one-line runtime watch at `0x58b1b0`.
