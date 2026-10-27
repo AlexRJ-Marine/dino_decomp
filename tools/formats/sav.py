@@ -54,6 +54,8 @@ class SaveFile:
     state_offset: int = 0
     state: bytes = b""
     data: bytes = b""
+    name_len: int = 0
+    header_tail: bytes = b""
 
     @property
     def state_bytes(self) -> int:
@@ -90,6 +92,7 @@ def read_sav(path: Path) -> SaveFile:
     if name_len > 1024 or 12 + name_len > len(data):
         raise SavFormatError(f"{path}: bad save name length {name_len}")
     name = data[12:12 + name_len].decode("utf-16-le", errors="replace").rstrip("\x00")
+    header_tail = data[12 + name_len:24 + name_len]
 
     first = data.find(SHOW_PREFIX)
     if first < 8:
@@ -130,6 +133,8 @@ def read_sav(path: Path) -> SaveFile:
         state_offset=off,
         state=data[off:],
         data=data,
+        name_len=name_len,
+        header_tail=header_tail,
     )
 
 

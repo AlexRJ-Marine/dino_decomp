@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from sav import read_sav
 from sav_graph import ParkState, read_sav_graph
+from wld import read_sav_world
 
 
 def _u32(value: int) -> bytes:
@@ -152,6 +153,116 @@ def rewrite_sav_full(path: Path) -> tuple[bytes, bytes, int]:
     return original, rebuilt, state_offset
 
 
+def write_header(save) -> bytes:
+    out = bytearray()
+    out += _u32(save.version)
+    out += _u32(save.slot)
+    out += _u32(save.name_len)
+    out += save.data[12:12 + save.name_len]
+    out += save.header_tail
+    return bytes(out)
+
+
+def write_waypoints(points) -> bytes:
+    out = bytearray(_u32(len(points)))
+    for w in points:
+        out += _u32(w.flags) + _u32(w.key) + _u32(w.x) + _u32(w.y)
+        out += _u32(w.z) + _u32(w.extra)
+    return bytes(out)
+
+
+def write_placed_base(obj) -> bytes:
+    out = bytearray()
+    out += _u32(obj.object_id)
+    out += _u32(obj.field_14_first if hasattr(obj, "field_14_first")
+                else obj.field_14)
+    out += struct.pack("<4I", obj.start[0], obj.start[1],
+                       obj.end[0], obj.end[1])
+    out += write_waypoints(obj.waypoints)
+    return bytes(out)
+
+
+def write_world(world, version: int) -> bytes:
+    out = bytearray()
+    out += _u32(world.campaign_id or 0)
+    out += _u32(world.mission_id or 0)
+    if version > 9:
+        out += _u32(len(world.objectives))
+        for first, second, third in world.objectives:
+            out += _u32(first) + _u32(second) + _u32(third)
+    out += _u32(len(world.fences))
+    for fence in world.fences:
+        out += write_placed_base(fence)
+        out += _u32(fence.class_tag)
+        out += _u32(fence.field_14)
+        out += fence.extra16
+        out += _u32(fence.field_44) + _u32(fence.field_48)
+    out += _u32(len(world.shows))
+    for show in world.shows:
+        out += write_placed_base(show)
+        out += _u32(show.class_tag) + _u32(show.field_44) + _u32(show.field_48)
+    if version > 1:
+        out += _u32(len(world.animals))
+        for animal in world.animals:
+            out += _u32(animal.object_id) + _u32(animal.field_1c)
+            if version > 0x32:
+                out += _u32(animal.field_20 or 0)
+    if version > 2:
+        out += _u32(len(world.employees))
+        for employee in world.employees:
+            out += _u32(employee.object_id) + _u32(employee.field_1c)
+    out += _u32(len(world.buildings))
+    for building in world.buildings:
+        out += _u32(building.object_id) + _u32(building.linked_id)
+        out += _u32(building.class_tag) + _u32(building.kind)
+        out += _u32(building.cell_x) + _u32(building.cell_y)
+        out += _u32(building.state) + _u32(building.link)
+    if not (6 <= version <= 0x10):
+        out += _u32(len(world.visitors))
+        for visitor in world.visitors:
+            out += _u32(visitor.object_id) + _u32(visitor.field_1c)
+            out += _u32(visitor.class_tag) + _u32(visitor.field_20)
+            out += _u32(visitor.field_24)
+            if version >= 5:
+                out += _u32(visitor.field_28 or 0)
+    if version > 1:
+        out += _u32(len(world.dinosaurs))
+        for dino in world.dinosaurs:
+            out += _u32(dino.object_id) + _u32(dino.field_1c)
+            if version >= 0x25:
+                out += _u32(dino.field_24 or 0) + _u32(dino.field_28 or 0)
+                out += _u32(dino.field_2c or 0)
+            out += _u32(dino.class_tag)
+            for first, second in dino.genotype:
+                out += _u32(first) + _u32(second)
+    for flags in (world.feature_flags, world.building_flags,
+                  world.food_flags, world.misc_flags):
+        out += _u32(len(flags)) + bytes(flags)
+    return bytes(out)
+
+
+def write_catalog(save) -> bytes:
+    out = bytearray(_u32(len(save.shows)))
+    for show in save.shows:
+        path = show.path.encode("ascii") + b"\x00"
+        out += _u32(len(path)) + path
+        name = show.name.encode("utf-16-le") + b"\x00\x00"
+        out += _u32(len(name)) + name
+        out += struct.pack("<6I", *show.params)
+    return bytes(out)
+
+
+def rewrite_sav_whole(path: Path) -> tuple[bytes, bytes, int]:
+    """Rebuild header + world block + show catalog + simulation."""
+    original = path.read_bytes()
+    save = read_sav(path)
+    world = read_sav_world(path)
+    graph = read_sav_graph(path)
+    rebuilt = (write_header(save) + write_world(world, save.version) +
+               write_catalog(save) + write_simulation(graph))
+    return original, rebuilt, 0
+
+
 def rewrite_sav(path: Path) -> tuple[bytes, bytes, int]:
     """Rebuild the park block in `path`; return (original, rebuilt, offset)."""
     original = path.read_bytes()
@@ -177,16 +288,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--full", action="store_true",
                         help="rebuild the whole simulation section")
+    parser.add_argument("--whole", action="store_true",
+                        help="rebuild header + world + catalog + simulation")
     args = parser.parse_args(argv)
 
-    rewrite = rewrite_sav_full if args.full else rewrite_sav
+    if args.whole:
+        rewrite = rewrite_sav_whole
+    elif args.full:
+        rewrite = rewrite_sav_full
+    else:
+        rewrite = rewrite_sav
     original, rebuilt, offset = rewrite(args.sav)
     if args.out:
         args.out.write_bytes(rebuilt)
     length_ok = len(original) == len(rebuilt)
     diff = first_diff(original, rebuilt)
     if length_ok and diff == len(original):
-        what = "simulation" if args.full else "park block"
+        what = ("whole file" if args.whole
+                else "simulation" if args.full else "park block")
         print(f"{args.sav}: byte-identical {what} at 0x{offset:x} "
               f"({len(rebuilt)} bytes)")
         return 0

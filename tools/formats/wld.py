@@ -126,6 +126,8 @@ class Fence:
     class_tag: int
     field_44: int
     field_48: int
+    field_14_first: int = 0
+    extra16: bytes = b""
 
     def to_dict(self) -> dict:
         return {
@@ -440,13 +442,18 @@ def _read_placed_base(r: _Reader, version: int) -> tuple[int, int, tuple[int, in
 
 def _read_fence(r: _Reader) -> Fence:
     object_id, field_14, start, end, waypoints = _read_placed_base(r, r.version)
+    first_14 = field_14
     kind = r.u32()
     field_14 = r.u32()
-    # The subclass repeats the placement rectangle in every version.
+    # The subclass repeats the placement rectangle in every version; keep the
+    # raw bytes so a writer can reproduce them.
+    r.need(16)
+    extra16 = bytes(r.data[r.off:r.off + 16])
     r.skip(16)
     field_44 = r.u32() if r.version >= 2 else 0
     field_48 = r.u32() if r.version >= 0x25 else 0
-    return Fence(object_id, field_14, start, end, waypoints, kind, field_44, field_48)
+    return Fence(object_id, field_14, start, end, waypoints, kind, field_44,
+                 field_48, first_14, extra16)
 
 
 def _read_show(r: _Reader) -> Show:

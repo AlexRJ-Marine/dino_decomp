@@ -437,16 +437,16 @@ settled save (patched copy of `run/save/slot001.sav`) renders
 - The AI entry field split (17-byte records); the camera split is solved.
 ### Writer round-trip (SAVE-0)
 
-`tools/formats/sav_write.py` rebuilds the whole simulation section
-(everything after the world block) from the parsed model in retail
-writer order and splices it back into the original file. It is
-byte-identical on `run/save/slot001.sav`, `slot002.sav` and
-`auto/slot001.sav`; `tests/test_sav_write.py` guards it. That proves the
-park header, the economy stream (writer `0x00585780`), the schedule tail
-(`0x00594cb0`), roads, the three empty lists, the 0x50-byte visitor
-records, the dino store (including the UTF-16/ASCII NUL terminators), the
-visitor model, lab records, AI lists, camera and tail. The header and
-world block are still copied raw and are the next slice. The world
+`tools/formats/sav_write.py` rebuilds the **whole file** from the parsed
+models in retail writer order: header, world block (fences with the
+repeated 16-byte placement rect, shows, animals, employees, buildings,
+visitors, dinosaurs, unlock flags), show catalog, and the simulation
+section (roads, visitors, park economy stream `0x00585780` + schedule tail
+`0x00594cb0`, dino store with its NUL-terminated strings, visitor model,
+lab records, AI lists, camera, tail). It is byte-identical on
+`run/save/slot001.sav`, `slot002.sav` and `auto/slot001.sav`;
+`tests/test_sav_write.py` guards all three. `--whole` emits the file,
+`--full` only the simulation, `--park` only the park block.
 writer needs two parser changes first: `wld.py` drops bytes a writer must
 reproduce (the 16-byte repeated placement rectangle in `_read_fence`,
 legacy show sub-records, and fields it synthesizes for version < 3 /
