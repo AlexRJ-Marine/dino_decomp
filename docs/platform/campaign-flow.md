@@ -2,10 +2,11 @@
 
 Status: **menu campaign flow and the campaign runtime are ported.** The port
 renders the campaign select/briefing pages from `CampaignList.ini`, reads the
-`run/save/dino.dat` unlock mask, starts the selected unlocked campaign's first
-mission from the menu, imports `CpgNN_Save.wld`, and evaluates objectives.
-Completing a campaign's last mission shows its ending text and writes the next
-unlock bit. Cross-restart progression and briefing pagination are still open.
+`run/save/dino.dat` unlock mask, starts the selected unlocked campaign's
+stored mission from the menu, imports `CpgNN_Save.wld`, and evaluates
+objectives. Completing a campaign's last mission shows its ending text and
+writes the next unlock bit. Briefing pagination and ending-video playback
+remain open.
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -123,17 +124,18 @@ CpgNN/CpgNN_Save.wld    initial park
   retail locked-row art is still unproven. Evidence:
   `notes/campaign-menu-unlock.png` (mask `0x0F`, row 3 selected; rows 5–7
   locked).
-- The campaign menu starts at the first mission. On success, closing
-  `CPGEND` starts the next mission in the same campaign (`MissionN+1`), applies
-  its `CONTEXT.Budget` delta and reopens `MISSION_PANEL`; `--auto-continue` is
-  the headless test hook. Progression is not persisted across restarts (only
-  the active mission id is in `DINOPSAV`).
+- The menu resumes the campaign's stored mission from
+  `run/save/campaign-progress.txt` (port-owned `CpgNN CpgNN_MissionM` lines;
+  `--campaign-progress FILE` overrides for tests). Every mission start or
+  advance rewrites it. On success, closing `CPGEND` starts the next mission in
+  the same campaign (`MissionN+1`), applies its `CONTEXT.Budget` delta and
+  reopens `MISSION_PANEL`; `--auto-continue` is the headless test hook.
 - Completing a campaign's **last** mission resolves its `ending_text_id` into
   `CPGEND`, logs the ending video name and writes the next campaign's unlock
   bit to `dino.dat` (Cpg02 -> `0x02 | 0x04 = 0x06`). Cpg02_Mission5 reaches
   this path with 100 visitors and `--visitor-satisfaction 99`; the `.wld` park
-  now spawns `--visitors` after its roads are imported. Ending-video playback
-  is still open.
+  now spawns `--visitors` after its roads are imported. The completed
+  campaign's progress entry is removed. Ending-video playback is still open.
 - The retail 4-page briefing (`1/4` + idea bulb) is collapsed into the current
   `MISSION_PANEL` description.
 - `DINOPSAV` stores the active mission id (`mission Cpg04_Mission1`), so
@@ -187,6 +189,21 @@ Expect `menu campaigns: 7 unlocked=0xF`, `wld: placed 57/57 buildings`,
 island=Isl04 budget=20000`, and the three Cpg04_Mission1 objective lines.
 With a fresh mask (`01`) the same row click stays on page 2 because Cpg04 is
 locked.
+
+Resume a stored mission:
+
+```powershell
+Set-Content "$env:TEMP\campaign-progress.txt" "Cpg04 Cpg04_Mission2"
+.\build\port\dino_viewer.exe --frames 3 --menu-page 2 `
+  --dino-dat "$env:TEMP\dino-0f.dat" `
+  --campaign-progress "$env:TEMP\campaign-progress.txt" `
+  --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
+  --menu-loading-time 0 ...
+```
+
+Expect `start: campaign=Cpg04 mission=Cpg04_Mission2 island=Isl04 budget=0`
+(the -25,000 mission delta clamps the 20,000 start to 0) and
+`mission: Cpg04_Mission2 objectives=2`.
 
 Sandbox park:
 
@@ -265,9 +282,7 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 ## Gaps / next work
 
-- Persist the mission index across restarts (the campaign start always uses
-  mission 1) and play the campaign ending videos; the ending text and next
-  unlock bit are written.
+- Play the campaign ending videos (the ending text and unlock bit are done).
 - Port the retail 4-page campaign briefing (`1/4` counter, next/previous and
   idea-bulb buttons) instead of reusing the mission description box.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
@@ -302,7 +317,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `test_cpp_campaign_hungry_objective`,
   `test_cpp_campaign_connected_buildings`,
   `test_cpp_campaign_isolated_success`,
-  `test_cpp_campaign_completion_unlock`).
+  `test_cpp_campaign_completion_unlock`,
+  `test_cpp_campaign_progress_resume`).
 - Runtime: `scripts/x32dbg/start-campaign.ps1`; retail screenshots
   `notes/campaign-park.png`, `notes/campaign-sim.png`; port screenshots
   `notes/campaign-menu-select.png`, `notes/campaign-menu-briefing.png`,

@@ -1375,7 +1375,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   mission's `Budget` delta. Cpg01_Mission11 -> Mission12 (`--auto-continue`).
 - [x] On a campaign's final mission show its ending text and write the next
   unlock bit (`Cpg02_Mission5` -> `dino.dat` `0x02 | 0x04 = 0x06`).
-- [ ] Persist the mission index across restarts; play the ending videos.
+- [x] Persist the mission index in `run/save/campaign-progress.txt`; the menu
+  resumes it (`--campaign-progress FILE` override); completion removes it.
+- [ ] Play the ending videos.
 - [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [x] Fill `CampaignState.dinos` from the imported phenotype snapshots
   (cuteness/beauty, aggression, size, speed, stamina, agility, intelligence,

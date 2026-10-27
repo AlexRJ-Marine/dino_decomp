@@ -171,9 +171,10 @@ appeal (`+0x194`). Hired staff fill the `employees`
 objective from their `.bei` role names; placed buildings fill
 `connectedbuildings`/`notconnectedbuildings`. Hybrid/scarcity/ornaments
 are still empty. `DINOPSAV` stores the active mission id and `--load-port`
-resumes it; a successful mission advances to the next one in the campaign,
-the last mission shows the campaign ending text and writes the next unlock
-bit, while ending-video playback remains open;
+resumes it; the menu also resumes the campaign's stored mission from
+`run/save/campaign-progress.txt`. A successful mission advances to the next
+one in the campaign, the last mission shows the campaign ending text and
+writes the next unlock bit, while ending-video playback remains open;
 show verbs stay pending.
 
 **First slice** parse the objective commands, implement the simple evaluators

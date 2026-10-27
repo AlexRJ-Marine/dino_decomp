@@ -69,6 +69,15 @@ std::optional<Campaign> load_parent_campaign(const CampaignMission& mission);
 // Writes `run/save/dino.dat` as a 4-byte little-endian unlock mask.
 void write_campaign_unlock(const std::string& path, std::uint32_t mask);
 
+// Port-owned campaign progress: campaign folder -> current mission name.
+// Text lines `Cpg04 Cpg04_Mission2`; `#`/blank lines are ignored. A missing
+// file is an empty map.
+std::map<std::string, std::string> load_campaign_progress(
+    const std::string& path);
+void save_campaign_progress(
+    const std::map<std::string, std::string>& progress,
+    const std::string& path);
+
 // Parses one `ObjectiveN` value into verb/args/id. `description_id` is the
 // matching `_Desc` localisation id.
 CampaignObjective parse_objective_command(

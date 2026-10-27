@@ -76,8 +76,15 @@ const dino::CampaignMission* Menu::selected_mission() const {
     if (selected == nullptr || selected->missions.empty()) {
         return nullptr;
     }
-    // The retail campaign starts at its current mission; progression is not
-    // persisted by the port yet, so the first mission is the entry point.
+    const auto stored = campaign_progress.find(selected->name);
+    if (stored != campaign_progress.end()) {
+        for (const dino::CampaignMission& mission : selected->missions) {
+            if (mission.name == stored->second) {
+                return &mission;
+            }
+        }
+    }
+    // No stored progress (or a stale mission id): start at the first mission.
     return &selected->missions.front();
 }
 

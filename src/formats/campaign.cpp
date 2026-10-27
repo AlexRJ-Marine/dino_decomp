@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string_view>
 
@@ -336,6 +337,51 @@ bool campaign_unlocked(const Campaign& campaign, std::uint32_t mask) {
         return true;
     }
     return (mask & (1u << (number - 1))) != 0;
+}
+
+std::map<std::string, std::string> load_campaign_progress(
+    const std::string& path) {
+    std::map<std::string, std::string> progress;
+    std::ifstream in(path);
+    if (!in) {
+        return progress;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        std::istringstream parts(line);
+        std::string campaign;
+        std::string mission;
+        if (parts >> campaign >> mission && !campaign.empty() &&
+            campaign[0] != '#') {
+            progress[campaign] = mission;
+        }
+    }
+    return progress;
+}
+
+void save_campaign_progress(
+    const std::map<std::string, std::string>& progress,
+    const std::string& path) {
+    if (path.empty()) {
+        return;
+    }
+    const std::filesystem::path target(path);
+    if (!target.parent_path().empty()) {
+        std::filesystem::create_directories(target.parent_path());
+    }
+    std::ofstream out(target);
+    if (!out) {
+        throw std::runtime_error("cannot write campaign progress " + path);
+    }
+    for (const auto& [campaign, mission] : progress) {
+        out << campaign << ' ' << mission << '\n';
+    }
+    if (!out) {
+        throw std::runtime_error("short write to campaign progress " + path);
+    }
 }
 
 }  // namespace dino

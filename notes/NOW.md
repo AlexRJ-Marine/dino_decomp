@@ -75,6 +75,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-27 - CAMPAIGN-3 cross-restart progress: campaign-progress.txt resumes the stored mission from the menu
 - 2026-10-27 - CAMPAIGN-3 completion: last mission shows ending text and writes the next dino.dat unlock bit
 - 2026-10-27 - CAMPAIGN-3 isolateddinos: aggressive dinos alone in their paddock; Cpg04 pending, empty Cpg01 completes Mission1
 - 2026-10-27 - CAMPAIGN-3 connectedbuildings: category map + path-touching footprints; Mission5/6 complete
@@ -82,7 +83,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-26 - CAMPAIGN-3 trait fields: +0x98 agility/+0x1e0 size class/+0x194 strangeness; sizedagilitydinos on Cpg04
 - 2026-10-26 - Port +0x194 conventional appeal; all 11 store gauges now live (Allosaurus 0, Leoparus originality 67)
 - 2026-10-26 - CAMPAIGN-3 mission advance: CPGEND success starts the next mission (Mission11 -> Mission12)
-- 2026-10-26 - CAMPAIGN-3 mission id in DINOPSAV: --load-port resumes the active mission
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

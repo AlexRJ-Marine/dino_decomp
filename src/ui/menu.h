@@ -29,6 +29,8 @@ struct Menu {
     std::string error;
     std::string campaign_error;
     std::vector<dino::Campaign> campaigns;
+    // campaign folder -> current mission name (port-owned progress file).
+    std::map<std::string, std::string> campaign_progress;
     // `run/save/dino.dat` unlock mask (bit 0 = Cpg01). Missing file = 1.
     std::uint32_t unlock_mask = 1;
 

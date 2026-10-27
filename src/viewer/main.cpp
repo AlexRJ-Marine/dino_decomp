@@ -129,6 +129,7 @@ struct Options {
     std::string campaign_info_dir;
     std::string campaign_mission_path;
     std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
+    std::string campaign_progress_path;  // current mission per campaign
     bool auto_continue = false;  // test hook: advance past CPGEND automatically
     std::string start_mission_path;
     std::string place_food;
@@ -389,6 +390,8 @@ Options parse_args(int argc, char** argv) {
             opt.campaign_mission_path = next("--campaign-mission");
         } else if (arg == "--dino-dat") {
             opt.dino_dat_path = next("--dino-dat");
+        } else if (arg == "--campaign-progress") {
+            opt.campaign_progress_path = next("--campaign-progress");
         } else if (arg == "--auto-continue") {
             opt.auto_continue = true;
         } else if (arg == "--start-mission") {
@@ -666,6 +669,7 @@ Options parse_args(int argc, char** argv) {
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
                 "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
+                "  --campaign-progress FILE  current mission per campaign\n"
                 "  --auto-continue      advance past CPGEND without a click (test hook)\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
@@ -3276,6 +3280,12 @@ int main(int argc, char** argv) {
     std::optional<dino::CampaignRuntime> campaign_runtime;
     std::vector<dino::ObjectiveVerdict> last_mission_verdicts;
     std::optional<dino::CampaignMission> pending_next_mission;
+    const std::string campaign_progress_path =
+        opt.campaign_progress_path.empty()
+            ? "run/save/campaign-progress.txt"
+            : opt.campaign_progress_path;
+    std::map<std::string, std::string> campaign_progress =
+        dino::load_campaign_progress(campaign_progress_path);
 
     std::unordered_map<std::string, std::string> menu_sound_files;
     std::vector<std::string> menu_sound_names;
@@ -3363,6 +3373,7 @@ int main(int argc, char** argv) {
         } else if (menu.load_campaigns(
                        resolve_asset(opt.asset_root, "Data/Design/Scenario"),
                        campaign_unlock)) {
+            menu.campaign_progress = campaign_progress;
             std::printf(
                 "menu campaigns: %zu unlocked=0x%X (%s)\n",
                 menu.campaigns.size(),
@@ -3391,6 +3402,20 @@ int main(int argc, char** argv) {
                         dino::ui::resolve_loc_text(objective.description_id,
                                                    park.loc)
                             .c_str());
+        }
+        const std::string campaign_name =
+            std::filesystem::path(mission.path)
+                .parent_path()
+                .filename()
+                .string();
+        if (!campaign_name.empty()) {
+            campaign_progress[campaign_name] = mission.name;
+            try {
+                dino::save_campaign_progress(campaign_progress,
+                                             campaign_progress_path);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "campaign progress: %s\n", e.what());
+            }
         }
     };
 
@@ -8868,6 +8893,19 @@ int main(int argc, char** argv) {
                                                  "campaign unlock: %s\n",
                                                  e.what());
                                 }
+                            }
+                            campaign_progress.erase(campaign->name);
+                            try {
+                                dino::save_campaign_progress(
+                                    campaign_progress,
+                                    campaign_progress_path);
+                                std::printf(
+                                    "campaign progress: %s complete\n",
+                                    campaign->name.c_str());
+                            } catch (const std::exception& e) {
+                                std::fprintf(stderr,
+                                             "campaign progress: %s\n",
+                                             e.what());
                             }
                         }
                     }

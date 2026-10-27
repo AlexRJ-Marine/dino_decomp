@@ -157,6 +157,36 @@ def test_cpp_menu_campaign_select(tmp_path):
     assert "menu page=3 active=1" in result.stdout
 
 
+def test_cpp_campaign_progress_resume(tmp_path):
+    # The port-owned progress file stores `Cpg04 Cpg04_Mission2`; the menu
+    # campaign start must resume that mission instead of Mission1.
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    if not isl04.exists():
+        pytest.skip("retail Cpg04 data missing")
+    unlock = _unlock_file(tmp_path)
+    progress = tmp_path / "campaign-progress.txt"
+    progress.write_text("Cpg04 Cpg04_Mission2\n", encoding="utf-8")
+    result = _run(
+        "--frames", "3", "--menu-page", "2",
+        "--dino-dat", str(unlock),
+        "--campaign-progress", str(progress),
+        "--menu-click", "404,285",
+        "--menu-click", "364,530",
+        "--menu-click", "521,449",
+        "--menu-loading-time", "0",
+        "--width", "320", "--height", "240", "--no-vsync", "--no-save-config",
+        "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+    )
+    assert result.returncode == 0, result.stderr
+    assert (
+        "start: campaign=Cpg04 mission=Cpg04_Mission2 island=Isl04 "
+        "budget=0" in result.stdout
+    )
+    assert "mission: Cpg04_Mission2 objectives=2" in result.stdout
+    assert "mission: Cpg04_Mission1" not in result.stdout
+    assert "Cpg04 Cpg04_Mission2" in progress.read_text(encoding="utf-8")
+
+
 def test_cpp_menu_campaign_locked(tmp_path):
     # A fresh profile (mask 1) only unlocks Cpg01. Selecting row 3 (Cpg04)
     # must not advance to the briefing page.
@@ -179,12 +209,14 @@ def test_cpp_menu_campaign_mission_start(tmp_path):
     if not isl04.exists() or not wld.exists():
         pytest.skip("retail Cpg04 data missing")
     unlock = _unlock_file(tmp_path)
+    progress = tmp_path / "campaign-progress.txt"
     # Full retail flow: campaign row -> campaign briefing -> Start. The
     # loading page then loads Isl04, imports Cpg04_Save.wld and opens the
     # MISSION_PANEL with the first mission.
     result = _run(
         "--frames", "3", "--menu-page", "2",
         "--dino-dat", str(unlock),
+        "--campaign-progress", str(progress),
         "--menu-click", "404,285",   # CAMPAIGN_LIST row 3 (Cpg04)
         "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
         "--menu-click", "521,449",   # CAMPAIGN_INFO_START_BUTTON
@@ -382,12 +414,14 @@ def test_cpp_campaign_completion_unlock(tmp_path):
         pytest.skip("retail Cpg02/Cpg04 data missing")
     unlock = tmp_path / "dino.dat"
     unlock.write_bytes((0x02).to_bytes(4, "little"))
+    progress = tmp_path / "campaign-progress.txt"
     result = _run(
         "--frames", "2", "--no-menu", "--width", "320", "--height", "240",
         "--no-vsync", "--no-save-config", "--lnd", str(isl04),
         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
         "--wld-park", str(wld), "--visitors", "100",
         "--visitor-satisfaction", "99", "--dino-dat", str(unlock),
+        "--campaign-progress", str(progress),
         "--start-mission", str(mission),
     )
     assert result.returncode == 0, result.stderr
@@ -396,7 +430,10 @@ def test_cpp_campaign_completion_unlock(tmp_path):
     assert "mission Cpg02_Mission5: success" in result.stdout
     assert "campaign complete: Cpg02 ending=" in result.stdout
     assert "campaign unlock: mask=0x6" in result.stdout
+    assert "campaign progress: Cpg02 complete" in result.stdout
     assert unlock.read_bytes() == b"\x06\x00\x00\x00"
+    # The finished campaign is removed from the progress file.
+    assert "Cpg02" not in progress.read_text(encoding="utf-8")
 
 
 def test_cpp_campaign_mission_success():

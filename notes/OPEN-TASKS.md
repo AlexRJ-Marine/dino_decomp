@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 00:26. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 00:32. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 35 open items.
 
@@ -78,7 +78,7 @@ Generated from `TASKS.md` on 2026-10-27 00:26. Do not edit; regenerate with `scr
 - [ ] Visitor/obstacle reaction: the grid is dinosaurs-only, so this
 
 ## CAMPAIGN-3: Campaign menu start + live traits
-- [ ] Persist the mission index across restarts; play the ending videos.
+- [ ] Play the ending videos.
 - [ ] Port the retail 4-page briefing (`1/4` + idea bulb).
 - [ ] Fill hybrid (`+0x1e4`), scarcity (`+0x1e8`) and ornaments when those
 - [ ] Port the remaining show verbs once the show runtime exists.
