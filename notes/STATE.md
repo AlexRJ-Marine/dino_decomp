@@ -466,15 +466,31 @@ Updated: 2026-10-26
     catalog, labs, AI lists, camera and tail. `write_sav_header`/`_world`/
     `_catalog`/`_park_block`/`_simulation`/`_whole` re-serialize every byte;
     no raw slice of the file is copied.
-  - CLI: `--sav-roundtrip FILE` prints `sav roundtrip: whole file identical`;
-    `--sav-write IN OUT [--sav-name NAME --sav-slot N]` emits a save (ASCII
-    rename, header-only change).
+  - CLI: `--sav-info FILE`, `--sav-roundtrip FILE` (`whole file identical`),
+    `--sav-write IN OUT [--sav-name NAME --sav-slot N --sav-budget N]`.
   - Autosave detection uses the park header (0 manual / 3 auto), not the path.
+  - Retail acceptance passed: a `cppwrite` save is listed by the LOAD GAME
+    panel, starts the park and renders it (`notes/sav-retail-accept.png`);
+    the park clock matches the save's `schedule_elapsed`.
   - Evidence: `docs/formats/sav.md` ("C++ writer"), `notes/save-writer-handoff.md`,
     `tests/test_viewer_cpp.py::test_cpp_sav_park_roundtrip`,
-    `test_cpp_sav_write_rename`, `test_cpp_sav_write_cross_checked_by_python`.
-  - Open: retail acceptance (park-load stall, TOOL-4); the Options panel still
+    `test_cpp_sav_write_rename`, `test_cpp_sav_write_cross_checked_by_python`,
+    `test_cpp_sav_info`, `test_cpp_sav_write_budget`.
+  - Open: the HUD cash field is not park `+0x30`; the Options panel still
     writes `.psav`.
+- P3 target policy complete: **`node+0x3c` `GetTarget` / chooser threat term.**
+  - `ActionTarget` + `chooser_threat_score` (`FUN_00572dd0` actor-radius box,
+    danger grid), optional `ActionThreatProvider` on `choose_action` /
+    `DinoActionLoop`.
+  - Factory `FUN_00569640` (only caller `FUN_0056a9a0`): one target per action
+    list, class by producer (show box / asItem none / reaction actor); owner
+    skip via vtable +0x0c.
+  - Viewer maps Eat/EatForSmallies to the nearest stocked food source.
+  - Evidence: `notes/dino-target-vtable-recon.md`,
+    `docs/decomp/dinosaur-actions.md`,
+    `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser`.
+  - Open: `behavior+0xf4`/`+0xb8`/`+0xc8` id-list producers and the reaction
+    port.
 - UI-2 Phase D dialogs complete: **warning, request and campaign-end panels.**
   - `DIALOG_BACKGROUND` + one of `WARNING_PANEL`/`REQUEST_PANEL`/
     `CPGEND_PANEL`; `--warning`, `--request`, `--campaign-end`.
