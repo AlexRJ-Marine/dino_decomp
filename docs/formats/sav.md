@@ -435,7 +435,8 @@ settled save (patched copy of `run/save/slot001.sav`) renders
 - The second runtime staff bucket (`+0x20`) and the Guard role index; see
   `docs/decomp/economy.md`.
 - The AI entry field split (17-byte records); the camera split is solved.
-### Writer round-trip (SAVE-0)
+
+## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed
 models in retail writer order: header, world block (fences with the
@@ -447,8 +448,34 @@ lab records, AI lists, camera, tail). It is byte-identical on
 `run/save/slot001.sav`, `slot002.sav` and `auto/slot001.sav`;
 `tests/test_sav_write.py` guards all three. `--whole` emits the file,
 `--full` only the simulation, `--park` only the park block.
-writer needs two parser changes first: `wld.py` drops bytes a writer must
-reproduce (the 16-byte repeated placement rectangle in `_read_fence`,
-legacy show sub-records, and fields it synthesizes for version < 3 /
-< 0x25), so the model must retain those raw slices before `sav_write.py`
-can round-trip the prefix.
+
+## C++ writer (SAVE-2)
+
+`src/formats/wld.*` mirrors the Python writer and retains every byte in
+typed records:
+
+- `WldWorld::records` (`SavWorldRecords`): objectives, fences (object id,
+  first/repeat `+0x14`, placement rectangle, waypoints, class tag, repeated
+  16-byte rect, `+0x44`, `+0x48`), shows, animals, employees, buildings
+  (with the per-object link), visitors, dinosaurs (18 gene pairs) and the
+  four unlock flag arrays. `read_sav_world` parses the block a second time
+  into this model and requires it to end exactly at `world_end`.
+- `SavSimulation` keeps the park header/economy/schedule, visitors, dino
+  store (raw UTF-16/ASCII strings with terminators), catalog, visitor
+  model, labs, AI lists, camera and tail.
+- `write_sav_world`, `write_sav_catalog`, `write_sav_park_block`,
+  `write_sav_simulation` and `write_sav_whole` re-serialize all of it; no
+  slice of the file is copied.
+
+CLI:
+
+```text
+dino_viewer --sav-roundtrip run/save/slot001.sav   # whole file identical
+dino_viewer --sav-write IN.sav OUT.sav             # rebuild and emit
+```
+
+`--sav-roundtrip` reports `sav roundtrip: whole file identical` on
+`slot001.sav`, `slot002.sav` and `auto/slot001.sav`; `--sav-write` emits a
+file that the Python reference parses and round-trips byte-identically.
+`test_cpp_sav_park_roundtrip` covers both paths. Retail acceptance is still
+open (the harness park load stalls before the world files are opened).

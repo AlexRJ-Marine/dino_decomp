@@ -47,6 +47,10 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- SAVE-2: code complete — the C++ writer re-serializes the whole `.sav`
+  (header, world records, catalog, simulation) byte-identically on all three
+  retail saves; `--sav-write IN OUT` emits a file. Only retail acceptance is
+  left, gated on the park-load stall below.
 - P3-CACHE: writers ported. GetCourage/ObstAttackSize1 completion sets
   `DinoNeeds::threat`/`threat_radius` from the exact
   `combined_attack`/`obstacle_radius`; DINOPSAV persists both caches and
@@ -67,18 +71,21 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 chooser target term: resolve the policy vtable `+0x14` target
+1. SAVE-2 acceptance: get the park load past `FUN_0051d1d0` (TOOL-4), then
+   load a `--sav-write` output in retail and compare the park state.
+2. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. TOOL-4: the background menu path works end to end and level-start
+3. TOOL-4: the background menu path works end to end and level-start
    fullscreen resets are forced windowed; decode the park-start state that
    never returns from the loading screen loop (`app_data+0x20`, `0x29a` =
    movie state). Until then, a `-PhysicalInput` approval is still the way to
    run the P3 provider trace.
-3. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
+- 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
 - 2026-10-27 - ROAD-1: retail road tool (OPEN_TRANSPORT -> Road): straight 2-click runs, 10/cell from GeneralParams to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT warnings, preview
 - 2026-10-27 - TOOL-4: reset probe shows park start asks for exclusive fullscreen; forced Windowed=1 removes the Present hang, loading loop still stalls before the world files
 - 2026-10-27 - TOOL-4: app-loop scheduler gate 0x4024db patched (menu clicks work in the background), virtual cursor ring + frame offset fixed; park load now blocks in D3D8 Present
@@ -87,7 +94,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - WORLD-3: water layers animate from FUN_00602fd0 (opposite 0.03/0.01 UV/s)
 - 2026-10-27 - WORLD-3: second Modulate2x water stage (water2 + coordinate set 1)
 - 2026-10-27 - TOOL-4: proxy-driven FUN_00524610 keeps background DirectInput polling and delivers every click; retail UI gate remains
-- 2026-10-27 - VIDEO-2: windowed MPEG playback + CPGEND ending-video handoff (tennis.mpg)
 
 ## Blockers
 

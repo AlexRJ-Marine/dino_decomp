@@ -1762,6 +1762,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ### SAVE-1: Save/load
 - Reproduce enough of `.wld`/save semantics or define a new format.
+- [x] SAVE-0: Python whole-file writer (`tools/formats/sav_write.py`)
+  byte-identical on `slot001.sav`, `slot002.sav`, `auto/slot001.sav`.
+- [x] SAVE-2: C++ writer (`write_sav_world`/`write_sav_catalog`/
+  `write_sav_park_block`/`write_sav_simulation`/`write_sav_whole`) rebuilds
+  every byte from typed models; `--sav-roundtrip` reports `whole file
+  identical` and `--sav-write IN OUT` emits the file.
+- [ ] Retail acceptance: load a `--sav-write` output in the retail game and
+  compare state. Blocked on the harness park-load stall (`FUN_0051d1d0`)
+  documented under TOOL-4.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
