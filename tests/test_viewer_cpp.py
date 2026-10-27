@@ -2298,6 +2298,30 @@ def test_cpp_road_tool():
     assert "road: built" not in poor.stdout
 
 
+def test_cpp_road_tool_menu_started_park():
+    """Menu -> free game -> Infrastructure -> Road -> ground clicks, driven
+    through the live SDL event loop (--inject-click). Menu-started parks had
+    no build grid, so ground clicks were silently dropped."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    args = [str(EXE), "--asset-root", str(GAME), "--menu-page", "1",
+            "--menu-click", "200,180", "--menu-click", "494,451",
+            "--menu-click", "526,531", "--menu-loading-time", "0",
+            "--windowed", "--width", "1280", "--height", "800",
+            "--no-save-config", "--no-vsync", "--frames", "130",
+            "--inject-click", "60,1253,443",   # OPEN_TRANSPORT
+            "--inject-click", "70,1121,285",   # CONSTRUC_ROAD_BUTTON
+            "--inject-click", "90,600,520",    # start
+            "--inject-click", "110,700,520"]   # commit
+    result = subprocess.run(args, capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "start: island=isl01" in out
+    assert "construct CONSTRUC_ROAD_BUTTON" in out
+    assert "road: start " in out
+    assert "road: built " in out
+
+
 def test_cpp_road_panel_buttons_visible(tmp_path):
     """CONSTRUC_ROAD_BUTTON has no PRIORITY/ZPRIORITY; it must inherit the
     panel's and draw over the P=10 weave panels declared before it."""

@@ -213,6 +213,7 @@ struct Options {
     std::vector<std::string> park_clicks;
     std::vector<std::string> park_window_clicks;
     std::string ground_click;  // scripted scene click, "x,y" window pixels
+    std::vector<std::string> inject_clicks;  // "frame,x,y[,right]"
     std::string skybox_dir;
     bool water = true;
     bool water2 = true;  // WaterSurface stage 1 Modulate2x
@@ -590,6 +591,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_clicks.push_back(next("--park-click"));
         } else if (arg == "--park-window-click") {
             opt.park_window_clicks.push_back(next("--park-window-click"));
+        } else if (arg == "--inject-click") {
+            opt.inject_clicks.push_back(next("--inject-click"));
         } else if (arg == "--ground-click") {
             opt.ground_click = next("--ground-click");
         } else if (arg == "--no-water") {
@@ -691,6 +694,8 @@ Options parse_args(int argc, char** argv) {
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
+                "  --inject-click F,X,Y[,right]  push a real mouse click (window pixels)\n"
+                "                       into the event queue at frame F (repeatable)\n"
                 "  --road-click X,Y     road-tool ground click at a build cell (repeatable;\n"
                 "                       arm it with --construct CONSTRUC_ROAD_BUTTON or the\n"
                 "                       panel's Road button)\n"
@@ -9243,6 +9248,31 @@ int main(int argc, char** argv) {
 
     while (running) {
         sync_park_layout();
+        // --inject-click FRAME,X,Y[,right]: a real SDL button down/up pair in
+        // window pixels, so tests drive the interactive input path.
+        for (const std::string& spec : opt.inject_clicks) {
+            int at = 0;
+            float ix = 0.0f;
+            float iy = 0.0f;
+            char side[8] = {};
+            const int n = std::sscanf(spec.c_str(), "%d,%f,%f,%7s", &at, &ix, &iy, side);
+            if (n < 3 || at != frame) {
+                continue;
+            }
+            const Uint8 button =
+                (n == 4 && std::string(side) == "right") ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
+            for (const Uint32 type : {SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_BUTTON_UP}) {
+                SDL_Event injected{};
+                injected.type = type;
+                injected.button.windowID = SDL_GetWindowID(window);
+                injected.button.button = button;
+                injected.button.down = type == SDL_EVENT_MOUSE_BUTTON_DOWN;
+                injected.button.clicks = 1;
+                injected.button.x = ix;
+                injected.button.y = iy;
+                SDL_PushEvent(&injected);
+            }
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (opt.no_input) {
@@ -9381,6 +9411,12 @@ int main(int argc, char** argv) {
                     if (park.click(dx, dy, action)) {
                         if (hit >= 0) {
                             park_active_index = hit;
+                        }
+                        if (action.empty() && std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                            std::printf("park click %d,%d -> consumed by %s\n", dx, dy,
+                                        hit >= 0 ? park.overlay.widgets[static_cast<std::size_t>(hit)]
+                                                       .name.c_str()
+                                                 : "?");
                         }
                         ui_click_consumed = true;
                         if (action == "minimap zoom in") {
@@ -9523,6 +9559,11 @@ int main(int argc, char** argv) {
                 if (ui_click_consumed) {
                     ui_click_consumed = false;
                     continue;
+                }
+                if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                    std::printf("ground release %.0f,%.0f drag=%.1f tool=%d build_ready=%d\n",
+                                event.button.x, event.button.y, drag_distance,
+                                build_tool, build_ready ? 1 : 0);
                 }
                 if ((build_tool != 0 || pending_store_index >= 0) &&
                     drag_distance < 5.0f) {
@@ -10482,8 +10523,13 @@ int main(int argc, char** argv) {
                     }
                 }
             } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
-                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                                 logical_width, logical_height, hit)) {
+                const bool picked = pick_terrain(terrain, eye, view_center, click_x,
+                                                 click_y, logical_width, logical_height, hit);
+                if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                    std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
+                                click_y, picked ? 1 : 0, hit.x, hit.y);
+                }
+                if (picked) {
                     int cx = 0;
                     int cy = 0;
                     if (build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
