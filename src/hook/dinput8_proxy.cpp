@@ -845,12 +845,307 @@ bool force_input_active_enabled() {
     return cached == 1;
 }
 
+// Game window, captured from IDirectInputDevice8::SetCooperativeLevel.
+HWND g_game_hwnd = nullptr;
+
+// Patches one vtable slot and returns the previous entry (defined below).
+bool patch_vtable_entry(void** vtable, int index, void* replacement,
+                        void** original);
+
+// dgVoodoo's D3D8 Present blocks inside user32 when the game window is not
+// active (observed on the loading screen: EBP chain ends in the exe at
+// 0x0040eb6a, right after IDirect3DDevice8::Present slot +0x3c). That freezes
+// the synchronous park load which presents the loading screen. While the
+// background harness runs, skip the real Present and report success so the
+// simulation continues headless.
+using PresentFn = HRESULT(__stdcall*)(void*, const RECT*, const RECT*, HWND,
+                                      const void*);
+PresentFn g_real_present = nullptr;
+bool g_present_patched = false;
+LONG g_present_skipped = 0;
+
+HRESULT __stdcall hook_present(void* self, const RECT* source, const RECT* dest,
+                               HWND override_window, const void* dirty) {
+    // Optional diagnostic: never present in the harness. Off by default:
+    // dgVoodoo's deferred command buffer fills up if Present is skipped for
+    // too long and Draw calls then block, so only enable this for A/B runs.
+    static int skip = -1;
+    if (skip < 0) {
+        char value[8] = {};
+        skip = GetEnvironmentVariableA("DINO_SKIP_PRESENT", value,
+                                       sizeof(value)) > 0
+                   ? 1
+                   : 0;
+    }
+    if (skip == 1) {
+        if (InterlockedIncrement(&g_present_skipped) == 1) {
+            log_line("force-active: D3D8 Present skipped (DINO_SKIP_PRESENT)");
+        }
+        return S_OK;
+    }
+    static int null_rects = -1;
+    if (null_rects < 0) {
+        char value[8] = {};
+        null_rects = GetEnvironmentVariableA("DINO_PRESENT_NULL_RECTS", value,
+                                             sizeof(value)) > 0
+                         ? 1
+                         : 0;
+    }
+    if (null_rects == 1 && g_real_present != nullptr) {
+        // The loading screen presents with a dirty/source/dest rectangle; the
+        // windowed dgVoodoo path blocks there. Present the whole back buffer.
+        if (InterlockedIncrement(&g_present_skipped) == 1) {
+            log_line("force-active: D3D8 Present with null rectangles");
+        }
+        return g_real_present(self, nullptr, nullptr, override_window, nullptr);
+    }
+    return g_real_present != nullptr
+               ? g_real_present(self, source, dest, override_window, dirty)
+               : S_OK;
+}
+
+void patch_d3d8_present() {
+    if (g_present_patched) {
+        return;
+    }
+    auto* app = *reinterpret_cast<char**>(exe_va(0x674528));
+    if (app == nullptr || IsBadReadPtr(app + 0x31d38, 4)) {
+        return;
+    }
+    void* device = *reinterpret_cast<void**>(app + 0x31d38);
+    if (device == nullptr || IsBadReadPtr(device, 4)) {
+        return;
+    }
+    void** vtable = *reinterpret_cast<void***>(device);
+    if (vtable == nullptr) {
+        return;
+    }
+    if (patch_vtable_entry(vtable, 15,
+                           reinterpret_cast<void*>(&hook_present),
+                           reinterpret_cast<void**>(&g_real_present))) {
+        g_present_patched = true;
+        log_line("force-active: D3D8 Present patched (skip while background)");
+    }
+}
+
+// Patches one vtable slot and returns the previous entry (defined below).
+bool patch_vtable_entry(void** vtable, int index, void* replacement,
+                        void** original);
+
+// Frame offset (client origin - window origin) of the game window.
+void game_ui_offset(int& off_x, int& off_y);
+
+// Retail's main loop (FUN_00402460) gates the whole scheduler tick
+// (FUN_00507530) on the per-frame DirectInput state result:
+//
+//   004024d1  MOV EAX,[0x00674528]      ; app
+//   004024d6  MOV CL,[EAX+0x1a]         ; set by FUN_00412230 (state call)
+//   004024d9  TEST CL,CL
+//   004024db  JZ  0x004024ef            ; 74 12  <- skipped while backgrounded
+//   004024dd  MOV CL,[EAX+0x31cec]
+//   004024e3  TEST CL,CL
+//   004024e5  JZ  0x004024ef            ; 74 08
+//   004024e7  MOV ECX,[EBP+0x4c]        ; scheduler object
+//   004024ea  CALL 0x00507530           ; tasks: view update, UI, ...
+//
+// The view update FUN_00524610 is the first registered task (stub 0x596550 ->
+// vtable 0x642894+0x10), so when the tick is skipped the WndProc (0x5960c0)
+// queues mouse/key events into the view object and nothing consumes them. The
+// input shim below keeps the poll alive, but the menu needs the task tick.
+// Patch the first gate to JMP 0x004024e7 (EB 0A) so the scheduler runs every
+// frame regardless of activation. Env-gated with DINO_FORCE_INPUT_ACTIVE and
+// applied to the in-memory copy only (never to game/ or original/).
+bool g_scheduler_gate_patched = false;
+
+// UI event probes. The retail WndProc (0x5960c0) forwards window messages to
+// the view object's vtable (0x642894): +0x28 mouse down (0x5bb640), +0x2c
+// mouse up/move (0x5bb600), +0x30 char (0x5bb6c0), +0x34 key down (0x5bb6e0),
+// all __thiscall with one stack argument. +0x10 is the per-frame view update
+// (0x524610) run by the scheduler. Counting them proves that a scripted click
+// reaches the UI layer; the wrappers forward to the retail functions.
+LONG g_view_mouse_down = 0;
+LONG g_view_mouse_up = 0;
+LONG g_view_char = 0;
+LONG g_view_key = 0;
+LONG g_retail_view_updates = 0;
+
+using ViewEventFn = void(__fastcall*)(void*, void*, unsigned);
+using ViewUpdateFn = void(__fastcall*)(void*);
+ViewEventFn g_real_view_mouse_down = nullptr;
+ViewEventFn g_real_view_mouse_up = nullptr;
+ViewEventFn g_real_view_char = nullptr;
+ViewEventFn g_real_view_key = nullptr;
+ViewUpdateFn g_real_view_update = nullptr;
+
+void __fastcall hook_view_mouse_down(void* self, void* edx, unsigned wparam) {
+    const LONG calls = InterlockedIncrement(&g_view_mouse_down);
+    // The handler reads the per-button element pointer from view+0x3c[wparam];
+    // nonzero means the hit test found a UI element under the cursor.
+    void* element = nullptr;
+    if (self != nullptr && wparam < 2) {
+        element = *reinterpret_cast<void**>(static_cast<char*>(self) + 0x3c +
+                                            wparam * 4);
+    }
+    char line[192];
+    int ui_x = -1;
+    int ui_y = -1;
+    auto* view_manager = *reinterpret_cast<char**>(exe_va(0x675a88));
+    if (view_manager != nullptr && !IsBadReadPtr(view_manager, 0x28)) {
+        ui_x = *reinterpret_cast<int*>(view_manager + 0x18);
+        ui_y = *reinterpret_cast<int*>(view_manager + 0x1c);
+    }
+    std::snprintf(line, sizeof(line),
+                  "virtual mouse: ui mouse_down wparam=%u element=%p ui=(%d,%d) "
+                  "calls=%ld",
+                  wparam, element, ui_x, ui_y, static_cast<long>(calls));
+    log_line(line);
+    if (g_real_view_mouse_down != nullptr) {
+        g_real_view_mouse_down(self, edx, wparam);
+    }
+}
+
+void __fastcall hook_view_mouse_up(void* self, void* edx, unsigned wparam) {
+    const LONG calls = InterlockedIncrement(&g_view_mouse_up);
+    void* element = nullptr;
+    if (self != nullptr && wparam < 2) {
+        element = *reinterpret_cast<void**>(static_cast<char*>(self) + 0x3c +
+                                            wparam * 4);
+    }
+    char line[160];
+    std::snprintf(line, sizeof(line),
+                  "virtual mouse: ui mouse_up wparam=%u element=%p calls=%ld",
+                  wparam, element, static_cast<long>(calls));
+    log_line(line);
+    if (g_real_view_mouse_up != nullptr) {
+        g_real_view_mouse_up(self, edx, wparam);
+    }
+}
+
+void __fastcall hook_view_char(void* self, void* edx, unsigned wparam) {
+    const LONG calls = InterlockedIncrement(&g_view_char);
+    char line[128];
+    std::snprintf(line, sizeof(line), "virtual mouse: ui char code=0x%x calls=%ld",
+                  wparam, static_cast<long>(calls));
+    log_line(line);
+    if (g_real_view_char != nullptr) {
+        g_real_view_char(self, edx, wparam);
+    }
+}
+
+void __fastcall hook_view_key(void* self, void* edx, unsigned wparam) {
+    const LONG calls = InterlockedIncrement(&g_view_key);
+    char line[128];
+    std::snprintf(line, sizeof(line), "virtual mouse: ui key code=0x%x calls=%ld",
+                  wparam, static_cast<long>(calls));
+    log_line(line);
+    if (g_real_view_key != nullptr) {
+        g_real_view_key(self, edx, wparam);
+    }
+}
+
+void __fastcall hook_view_update(void* self, void* edx) {
+    (void)edx;
+    InterlockedIncrement(&g_retail_view_updates);
+    if (g_real_view_update != nullptr) {
+        g_real_view_update(self);
+    }
+}
+
+// ViewManager::OnMouseMove (FUN_005bb4d0, vtable 0x642894 slot +0x1c) stores the
+// UI cursor at +0x18/+0x1c and hit-tests it. Its input comes from the WndProc,
+// which converts the client coordinate to window space (adds the frame offset);
+// fullscreen offset is zero, but the bordered test window would make every
+// scripted click land ~26 px low. Subtract the frame offset so both the
+// harness's WM_MOUSEMOVE and the engine's own ring-driven move agree on the
+// client coordinate. Env-gated with the rest of the force-active shim.
+using ViewMoveFn = void(__fastcall*)(void*, void*, int, int);
+ViewMoveFn g_real_view_mouse_move = nullptr;
+
+void __fastcall hook_view_mouse_move(void* self, void* edx, int x, int y) {
+    if (!(x == -1 && y == -1)) {
+        int offset_x = 0;
+        int offset_y = 0;
+        game_ui_offset(offset_x, offset_y);
+        x -= offset_x;
+        y -= offset_y;
+        if (x < 0) {
+            x = 0;
+        }
+        if (y < 0) {
+            y = 0;
+        }
+    }
+    if (g_real_view_mouse_move != nullptr) {
+        g_real_view_mouse_move(self, edx, x, y);
+    }
+}
+
+bool install_view_probes() {
+    static bool installed = false;
+    if (installed) {
+        return true;
+    }
+    auto** vtable = reinterpret_cast<void**>(exe_va(0x642894));
+    bool ok = true;
+    ok = patch_vtable_entry(vtable, 4,
+                            reinterpret_cast<void*>(&hook_view_update),
+                            reinterpret_cast<void**>(&g_real_view_update)) &&
+         ok;
+    ok = patch_vtable_entry(vtable, 7,
+                            reinterpret_cast<void*>(&hook_view_mouse_move),
+                            reinterpret_cast<void**>(&g_real_view_mouse_move)) &&
+         ok;
+    ok = patch_vtable_entry(vtable, 10,
+                            reinterpret_cast<void*>(&hook_view_mouse_down),
+                            reinterpret_cast<void**>(&g_real_view_mouse_down)) &&
+         ok;
+    ok = patch_vtable_entry(vtable, 11,
+                            reinterpret_cast<void*>(&hook_view_mouse_up),
+                            reinterpret_cast<void**>(&g_real_view_mouse_up)) &&
+         ok;
+    ok = patch_vtable_entry(vtable, 12,
+                            reinterpret_cast<void*>(&hook_view_char),
+                            reinterpret_cast<void**>(&g_real_view_char)) &&
+         ok;
+    ok = patch_vtable_entry(vtable, 13,
+                            reinterpret_cast<void*>(&hook_view_key),
+                            reinterpret_cast<void**>(&g_real_view_key)) &&
+         ok;
+    installed = ok;
+    log_line(ok ? "force-active: view/UI event probes installed"
+                : "force-active: view/UI event probes FAILED");
+    return ok;
+}
+
+bool patch_scheduler_gate() {
+    auto* gate = reinterpret_cast<std::uint8_t*>(exe_va(0x4024db));
+    if (gate[0] != 0x74 || gate[1] != 0x12) {
+        log_line("force-active: app loop gate bytes differ; not patched");
+        return false;
+    }
+    DWORD old_protect = 0;
+    if (!VirtualProtect(gate, 2, PAGE_EXECUTE_READWRITE, &old_protect)) {
+        log_line("force-active: app loop gate VirtualProtect failed");
+        return false;
+    }
+    gate[0] = 0xEB;  // jmp short
+    gate[1] = 0x0A;  // 0x004024e7
+    DWORD ignored = 0;
+    VirtualProtect(gate, 2, old_protect, &ignored);
+    FlushInstructionCache(GetCurrentProcess(), gate, 2);
+    g_scheduler_gate_patched = true;
+    log_line("force-active: app loop scheduler gate patched "
+             "0x004024db 74 12 -> eb 0a");
+    return true;
+}
+
 DWORD WINAPI force_active_thread(LPVOID) {
     DWORD last_sample = 0;
     int last_slot = -1;
     LONG slot_changes = 0;
     LONG view_updates = 0;
     for (;;) {
+        patch_d3d8_present();
         auto* input = *reinterpret_cast<char**>(exe_va(0x675104));
         if (input != nullptr) {
             const int slot = *reinterpret_cast<int*>(input + 0x294);
@@ -866,25 +1161,36 @@ DWORD WINAPI force_active_thread(LPVOID) {
                 auto* app = *reinterpret_cast<char**>(exe_va(0x674528));
                 const bool app_ok =
                     app != nullptr && !IsBadReadPtr(app, 0x100);
-                char line[192];
+                char line[256];
                 std::snprintf(
                     line, sizeof(line),
                     "virtual mouse: force sample slot_changes=%ld "
-                    "state_calls=%ld app54=%d view_updates=%ld",
+                    "state_calls=%ld app54=%d app1a=%d gate=%d "
+                    "view_updates=%ld retail_view=%ld "
+                    "ui=%ld/%ld/%ld/%ld present_skipped=%ld",
                     static_cast<long>(slot_changes),
                     static_cast<long>(g_mouse_state_calls),
                     app_ok ? static_cast<unsigned char>(app[0x54]) : -1,
-                    static_cast<long>(view_updates));
+                    app_ok ? static_cast<unsigned char>(app[0x1a]) : -1,
+                    g_scheduler_gate_patched ? 1 : 0,
+                    static_cast<long>(view_updates),
+                    static_cast<long>(g_retail_view_updates),
+                    static_cast<long>(g_view_mouse_down),
+                    static_cast<long>(g_view_mouse_up),
+                    static_cast<long>(g_view_char),
+                    static_cast<long>(g_view_key),
+                    static_cast<long>(g_present_skipped));
                 log_line(line);
             }
         }
         auto* app = *reinterpret_cast<char**>(exe_va(0x674528));
         if (app != nullptr && !IsBadReadPtr(app, 0x100)) {
             // On deactivation the engine stops calling the view update
-            // (FUN_00524610). The detector is app+0x18 bit 0x00010000: it is
-            // initialized to 1 (ctor) and observed to go 0 in the runtime
-            // active/stuck memory diff, but it is not statically attributed
-            // yet. app+0x54 is the WndProc's active byte (0x4235b0).
+            // (FUN_00524610) because the scheduler tick is gated on the
+            // DirectInput state result (app+0x1a, i.e. byte 0x1a bit 0;
+            // statically confirmed at 0x004024db in FUN_00402460). The gate
+            // patch above makes the retail loop run the tick itself, so the
+            // manual drive below is only the fallback for a failed patch.
             //
             // RACE: this assumes the game thread skips the view update while
             // the bit is clear; if it ever runs concurrently the view/D3D8
@@ -894,7 +1200,7 @@ DWORD WINAPI force_active_thread(LPVOID) {
             const bool inactive =
                 (*reinterpret_cast<std::uint32_t*>(app + 0x18) &
                  0x00010000u) == 0;
-            if (inactive) {
+            if (inactive && !g_scheduler_gate_patched) {
                 auto* view = *reinterpret_cast<char**>(exe_va(0x675a88));
                 static DWORD last_update = 0;
                 const DWORD now = GetTickCount();
@@ -1063,9 +1369,32 @@ bool read_virtual_input(int& target_x, int& target_y, bool& down,
     return false;
 }
 
-// The DirectInput mouse object is miInputDx8 at DAT_00675104. It keeps the
-// current cursor in a three-slot ring; FUN_004458f0 adds lX/lY to the current
-// slot. Read it back so a scripted target can be reached in one or two polls.
+// The UI cursor (ViewManager +0x18/+0x1c) is fed by the WM_MOUSEMOVE that
+// FUN_004457b0 posts from the ring position, and the WndProc (0x5960c0) then
+// converts client -> screen -> window coordinates, adding the frame offset
+// (client origin - window origin). Zero in fullscreen; the bordered test
+// window has a ~3x29 px frame, so the ring position is pre-compensated.
+void game_ui_offset(int& off_x, int& off_y) {
+    off_x = 0;
+    off_y = 0;
+    if (g_game_hwnd == nullptr) {
+        return;
+    }
+    POINT client{0, 0};
+    RECT window{};
+    if (ClientToScreen(g_game_hwnd, &client) &&
+        GetWindowRect(g_game_hwnd, &window)) {
+        off_x = client.x - window.left;
+        off_y = client.y - window.top;
+    }
+}
+
+// The DirectInput mouse object is miInputDx8 at DAT_00675104. FUN_004458f0
+// writes the new absolute position into state[slot] using state[1-slot] as the
+// base (x at +0x0c, y at +0x10, two 0x10 slots, index at +0x294). At
+// GetDeviceState time the slot still has its pre-poll value, so the last
+// delivered position is the *other* slot. Read it back so a scripted target is
+// reached in one poll.
 void apply_virtual_cursor(std::uint8_t* data, DWORD cbData, int target_x,
                           int target_y) {
     if (cbData < 16) {
@@ -1076,19 +1405,42 @@ void apply_virtual_cursor(std::uint8_t* data, DWORD cbData, int target_x,
         return;
     }
     const int slot = *reinterpret_cast<int*>(input + 0x294);
-    if (slot < 0 || slot > 2) {
+    if (slot < 0 || slot > 1) {
         return;
     }
     float scale = *reinterpret_cast<float*>(input + 0x2c);
     if (scale <= 0.01f) {
         scale = 1.0f;
     }
+    const int previous = 1 - slot;
     const int current_x =
-        *reinterpret_cast<int*>(input + slot * 0x10 + 0xc);
+        *reinterpret_cast<int*>(input + previous * 0x10 + 0xc);
     const int current_y =
-        *reinterpret_cast<int*>(input + (2 - slot) * 0x10);
-    const int dx = static_cast<int>((target_x - current_x) / scale);
-    const int dy = static_cast<int>((target_y - current_y) / scale);
+        *reinterpret_cast<int*>(input + previous * 0x10 + 0x10);
+    const int ring_x = target_x;
+    const int ring_y = target_y;
+    const int dx = static_cast<int>((ring_x - current_x) / scale);
+    const int dy = static_cast<int>((ring_y - current_y) / scale);
+    // Log the first two polls of each new target so a scripted click can be
+    // proven to move the engine cursor to the requested client position.
+    static int logged_x = -1;
+    static int logged_y = -1;
+    static int logged_polls = 0;
+    if (target_x != logged_x || target_y != logged_y) {
+        logged_x = target_x;
+        logged_y = target_y;
+        logged_polls = 0;
+    }
+    if (logged_polls < 2) {
+        char line[224];
+        std::snprintf(line, sizeof(line),
+                      "virtual mouse: cursor target=(%d,%d) current=(%d,%d) "
+                      "scale=%.3f delta=(%d,%d) slot=%d",
+                      target_x, target_y, current_x, current_y, scale, dx, dy,
+                      slot);
+        log_line(line);
+        ++logged_polls;
+    }
     *reinterpret_cast<int*>(data) = dx;
     *reinterpret_cast<int*>(data + 4) = dy;
 }
@@ -1248,6 +1600,7 @@ HRESULT STDMETHODCALLTYPE hook_set_cooperative_level(void* self, HWND hwnd,
         (flags | kBackground | kNonexclusive) & ~(kForeground | kNoWinKey);
     const HRESULT hr =
         g_real_set_cooperative_level(self, hwnd, forced);
+    g_game_hwnd = hwnd;
     char line[160];
     std::snprintf(line, sizeof(line),
                   "virtual mouse: SetCooperativeLevel flags=0x%lx -> 0x%lx "
@@ -1319,6 +1672,8 @@ void install_virtual_mouse(void* dinput8) {
         return;
     }
     if (force_input_active_enabled()) {
+        patch_scheduler_gate();
+        install_view_probes();
         start_force_active_thread();
     }
     void** vtable = *reinterpret_cast<void***>(dinput8);

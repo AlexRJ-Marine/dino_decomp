@@ -35,6 +35,9 @@ add a row when a claim becomes something later work depends on.
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
 | Background DirectInput polling/clicks (`DINO_FORCE_INPUT_ACTIVE`) | `notes/background-input-recon.md`, `docs/platform/windowed-testing.md` | `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`, `run-test/dino_hook.log` |
+| App-loop scheduler gate `0x004024db` on `app+0x1a` (D3D8 state) | `notes/background-input-recon.md` section 1 | `build/scheduler-gate-3.out.log`, `build/scheduler-gate-5.out.log`, `gate=1` hook samples |
+| Virtual cursor ring (`state[1-slot]`, x `+0x0c`, y `+0x10`) + frame offset | `notes/background-input-recon.md` sections 2-3 | `build/hook-probe-cursor-4.log`, `ui mouse_down ... ui=(395,234)` |
+| Background park load blocks in `IDirect3DDevice8::Present` (`0x0040eb6a`) | `notes/background-input-recon.md` section 4 | `notes/harness/stack-probe.py`, `build/present-x32-1.out.log`, `build/probe-nullrect-1.out.log` |
 | Employee profiles + hire/wage/feeding | `docs/platform/employees.md`, `docs/decomp/employee-ai.md` | `tests/test_viewer_cpp.py::test_cpp_employee_info`, `test_cpp_employee_feeding_and_wages`, `notes/employees.png` |
 | `.shw` + `.bfi` show grid (C++ tiling) | `docs/formats/shw.md`, `docs/formats/bfi.md` | `tests/test_viewer_cpp.py::test_cpp_show_info` |
 | Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |

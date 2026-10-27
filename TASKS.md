@@ -900,26 +900,46 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `DISCL_NOWINKEY` is stripped too; the former `0x80004001` is gone.
 - [x] Keep input polling alive while deactivated: `DINO_FORCE_INPUT_ACTIVE=1`
   makes a 5 ms proxy thread drive the retail view update `FUN_00524610`
-  (input poll + key dispatch) whenever `app+0x18` bit `0x00010000` is clear.
+  (input poll + key dispatch) whenever `app+0x18` bit `0x00010000` is clear
+  (now a fallback; the gate patch below makes the retail loop do it).
   Verified `state_calls` ~64/s and one `state button=down/up` pair per click,
   direct and under x32dbg, no crash. `dino_input.txt` is re-read at 20 Hz so
   the `CreateFileA` breakpoint is not flooded.
 - [x] The synthetic-state branch is not needed: the forced background
   cooperative level + retail `Acquire` retry return real device state.
-- [ ] The retail UI still ignores background clicks: the deactivation path
-  also skips the main-loop message/UI update. Nine delivered clicks leave the
-  x32dbg `MESH/SKIN/SKEL/ENTRANCE/SAVE` breakpoints cold even after waiting
-  out the 116.5 s `generic.mpg` menu movie; saves are unchanged.
-- [ ] Next: patch/avoid the deactivation branch or call the view-manager
-  message dispatcher (`0x5960c0`, registered from `FUN_00404990`) on the game
-  thread while backgrounded, then re-run the click flow. Otherwise use one
-  approved `-PhysicalInput` foreground run for the P3 provider probe.
+- [x] The retail UI ignored background clicks because the deactivation path
+  skipped the whole scheduler tick. Decoded the gate: `0x00402460` tests
+  `app+0x1a` (the per-frame D3D8 `TestCooperativeLevel` result, set by
+  `FUN_00412230`) at `0x004024db` and jumps over `CALL 0x00507530`. The shim
+  patches `74 12 -> EB 0A` under `DINO_FORCE_INPUT_ACTIVE`, so the retail loop
+  runs the view/UI tasks itself. Verified with vtable probes on the view
+  object (`0x642894`): 9/9 and 4/4 scripted clicks reach `+0x28/+0x2c`
+  (`ui mouse_down/up`), and Free Game -> IGUANO -> Easy -> Start plays the
+  click sounds, `menu_outcome.tga`, `loading_800x600.tga` and
+  `ParkSoundDB.ini`.
+- [x] Fix the virtual cursor: `FUN_004458f0` has two 0x10 slots (`x +0x0c`,
+  `y +0x10`, index `+0x294`); at `GetDeviceState` time the last position is
+  `state[1-slot]`. The UI cursor (`ViewManager+0x18/+0x1c`) is fed by
+  `FUN_005bb4d0` after the WndProc adds the window frame offset; the shim
+  subtracts it so the scripted client coordinate lands exactly.
+- [ ] Park load still blocks: after the loading screen and `ParkSoundDB.ini`
+  the main thread sits in `IDirect3DDevice8::Present`
+  (`0x0040eb6a`, `FUN_0040eab0`) inside dgVoodoo/user32/ntdll; the whole loop
+  (and the synchronous load in `FUN_00402460`) stops. Skipping Present moves
+  the block to a draw call (dgVoodoo queue), `PresentationModel=discard` and
+  null present rectangles do not help. Next: find why this Present blocks
+  while the menu's ~50k presents returned (device Reset / swap-chain
+  parameters at level start), or bypass the loading-screen present.
+- [ ] Starting a park brings the retail window to the foreground (dgVoodoo/D3D
+  activation; `ShowWindow`/`SetWindowPos` IAT shims and `WS_EX_NOACTIVATE` did
+  not stop it). Restore the previous foreground after such runs.
 - **Acceptance:** a backgrounded harness run reaches the park and opens
   panels without foreground changes, cursor movement or physical clicks.
 - **Depends on:** TOOL-2.
 - **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/background-input-recon.md`,
-  `docs/platform/windowed-testing.md`, `run-test/dino_hook.log`,
-  `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`.
+  `docs/platform/windowed-testing.md`, `notes/harness/stack-probe.py`,
+  `build/scheduler-gate-3.out.log`, `build/present-x32-1.out.log`,
+  `build/probe-present-1.out.log`, `build/probe-nullrect-1.out.log`.
 
 ### TOOL-3: Retail UI click map for test planning
 - [x] Generate every interactive control from `MenuInterface.Ini`,
@@ -1497,6 +1517,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `drsVisitor.field_20` by `field_1c == simulation object_id`, and
   `--sav-park --settle-day` reproduces income 125 / budget 75,250.
   Ported into `VisitorProfile::price_scale` and the daily settlement.
+- [x] Runtime-verify the 14 budget-panel rows against a populated save:
+  `SavSimulation.economy` decodes the whole writer-ordered economy stream,
+  `--sav-park` imports the yesterday block into `BudgetLedger` (poison
+  `0xBAADF00D` -> 0). A patched `slot001.sav` shows
+  `dinoachat=4/5000 construction=1/2500 tickets=7/350`,
+  expenses 8326 / income 1460 / net -6866; evidence
+  `notes/budget-sav-rows.png`, `test_cpp_sav_budget_rows`.
 - [ ] Wire employee wages (`0x585d80`) + EFFECTIFS_SECU (`0x585d50`) once
   staff exist.
 - **Acceptance:** a 10-minute session is playable without crashes.

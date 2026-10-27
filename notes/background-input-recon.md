@@ -1,10 +1,113 @@
 # Background virtual input / activation trace
 
-Status: **input polling solved; the retail UI still does not act on clicks while
-backgrounded.** DirectInput now keeps being polled at ~64 Hz in the
-background and every scripted click is delivered, but the engine's
-deactivation path also skips the main-loop message/UI processing, so the menu
-does not advance.
+Status: **menu interaction solved in the background; the world load blocks in
+`IDirect3DDevice8::Present`.** The scheduler tick was gated on the D3D8 device
+state, the mouse cursor readback used the wrong ring slot, and the WndProc
+shifted client coordinates by the window frame. All three are fixed: Free Game
+-> IGUANO -> Easy -> Start now runs through the menu (click sounds,
+`menu_outcome.tga`, `loading_800x600.tga`, `ParkSoundDB.ini`). The park load
+then blocks inside `Present`, so the harness still cannot reach the park.
+
+## 2026-10-27: menu works, world load blocks in Present
+
+### 1. Scheduler gate `0x004024db` (fixed)
+
+`FUN_00402460` (APPLI per-frame update) tests the per-frame D3D8
+`TestCooperativeLevel` result before running the task scheduler:
+
+```text
+004024cc CALL 0x00412230            ; app+0x1a = TestCooperativeLevel hr >= 0
+004024d1 MOV EAX,[0x00674528]       ; app
+004024d6 MOV CL,[EAX+0x1a]
+004024d9 TEST CL,CL
+004024db JZ  0x004024ef             ; 74 12  <- skipped while backgrounded
+004024e7 MOV ECX,[EBP+0x4c]
+004024ea CALL 0x00507530            ; scheduler: view update, UI, ...
+```
+
+The view update `FUN_00524610` is the first scheduler task (stub `0x00596550`,
+vtable `0x642894+0x10`), so while the gate is closed the WndProc queues events
+and nothing consumes them. The shim patches `0x004024db` to `EB 0A` (jump
+straight to the tick) under `DINO_FORCE_INPUT_ACTIVE`. `app+0x1a` is also the
+0x00010000 bit of the dword at `app+0x18`, which is why earlier memory diffs
+read it as a flag.
+
+Evidence: `gate=1 retail_view=<presents>` in `dino_hook.log`;
+`build/scheduler-gate-3.out.log`, `build/scheduler-gate-5.out.log`.
+
+### 2. UI event path
+
+The WndProc (`0x5960c0`) forwards window messages to the view object
+(vtable `0x642894`): `+0x1c` mouse move (`FUN_005bb4d0`), `+0x28` mouse down
+(`0x5bb640`), `+0x2c` mouse up (`0x5bb600`), `+0x30` char (`0x5bb6c0`),
+`+0x34` key (`0x5bb6e0`). The shim wraps these slots and counts them:
+
+```text
+virtual mouse: ui mouse_down wparam=0 element=00000000 ui=(395,234) calls=1
+```
+
+With the gate patch every scripted click arrives (9/9 in the x32dbg run,
+4/4 in the direct probe) and the free-game flow completes the menu, plays
+`clic#2/clic#3.wav`, loads `menu_outcome.tga`, `loading_800x600.tga` and
+`ParkSoundDB.ini`.
+
+### 3. Cursor ring readback (fixed)
+
+`FUN_004458f0` writes the new absolute position into `state[slot]` using
+`state[1-slot]` as the base; there are two 0x10 slots (`x` at `+0x0c`, `y` at
+`+0x10`, index at `+0x294`). At `GetDeviceState` time the slot still has its
+pre-poll value, so the *other* slot holds the last delivered position. Reading
+`slot` instead of `1-slot` made the hook feed a stale delta and the cursor
+never reached the target.
+
+The UI cursor is `ViewManager+0x18/+0x1c`, written by `FUN_005bb4d0` from the
+`WM_MOUSEMOVE` that `FUN_004457b0` posts, after the WndProc converts
+client -> window coordinates (adds `clientOrigin - windowOrigin`; zero in
+fullscreen, ~3x26 px in the bordered test window). The hook subtracts that
+frame offset in `FUN_005bb4d0`, so the harness's posted move and the engine's
+own ring move both land on the client coordinate:
+
+```text
+virtual mouse: cursor target=(395,234) current=(395,234) delta=(0,0)
+virtual mouse: ui mouse_down ... ui=(395,234)
+```
+
+Evidence: `build/hook-probe-cursor-4.log`; `notes/harness/stack-probe.py`.
+
+### 4. Remaining blocker: first Present after the loading screen
+
+After `loading_800x600.tga` + `ParkSoundDB.ini` the main thread stops. Four
+stack samples 3 s apart (same ESP/EBP) show:
+
+```text
+EIP ntdll syscall stub <- user32 <- dgVoodoo/D3D9 frames <- 0x0040eb6a
+0x0040eb6a = instruction after CALL [device_vtbl+0x3c]  ; Present
+             in FUN_0040eab0 (loading-screen clear/draw/present)
+```
+
+The load is synchronous inside `FUN_00402460`, so while it is blocked the whole
+loop stops (input counters, `present_skipped` and file opens freeze).
+`DINO_SKIP_PRESENT=1` returns `S_OK` instead: the block then moves to a draw
+call (`0x00436420`, after `CALL [vtbl+0x11c]`), i.e. dgVoodoo's queue fills
+when nothing is presented. `PresentationModel = discard` (run-probe copy) and
+`DINO_PRESENT_NULL_RECTS=1` do not change it.
+
+Next: find why this Present blocks while the menu's ~50k presents returned -
+device Reset/swap-chain parameters at level start, or the loading screen's
+presentation path - and either satisfy that condition or bypass it.
+
+Evidence: `notes/harness/stack-probe.py` (module/EBP walk),
+`build/present-x32-1.out.log`, `build/probe-present-1.out.log`,
+`build/probe-present-2.out.log`, `build/probe-nullrect-1.out.log`,
+`build/probe-discard-1.out.log`.
+
+### 5. Focus steal
+
+When the free game starts, retail brings its window to the foreground
+(`game_fg=True` from the Start click on). `ShowWindow`/`SetWindowPos` IAT shims
+and `WS_EX_NOACTIVATE` did not prevent it (likely dgVoodoo/D3D activation), so
+those shims were dropped. Any harness run that starts a park takes the user's
+foreground window until it is killed; restore the previous window afterwards.
 
 ## Working shim (2026-10-27)
 
@@ -17,11 +120,11 @@ now does three things:
    `virtual mouse: SetCooperativeLevel flags=0x6 -> 0xa hr=0x0` and the
    former `0x16 -> 0x1a hr=0x80004001` (E_NOTIMPL) is gone.
 2. A 5 ms thread forces the `miInputDx8` poll flags (`[0x675104]+8` mouse,
-   `+0x30` keyboard) and `app+0x54` (active), and drives the retail view
-   update `FUN_00524610` (input poll + key dispatch) while the engine is
-   deactivated. `app+0x18` bit `0x00010000` is 0 in the deactivated state
-   (active/stuck memory diff; the bit is recomputed by the engine every
-   frame), which is used as the inactivity detector.
+   `+0x30` keyboard) and `app+0x54` (active). It also patches the app-loop
+   scheduler gate (`0x004024db`, see below), which makes the retail loop run
+   the view update itself. The manual drive of `FUN_00524610` from the thread
+   is kept only as a fallback when the gate patch fails; `app+0x1a`
+   (`FUN_00412230`, the D3D8 `TestCooperativeLevel` result) is the detector.
 3. `dino_input.txt` is re-read at most every 50 ms (instead of on every poll)
    so the x32dbg `CreateFileA` breakpoint storm is bounded. The 100 ms click
    hold still lands in a poll.
@@ -36,7 +139,7 @@ virtual mouse: state button=down / state button=up   (one pair per scripted clic
 and under x32dbg (`build/force-active-6-x32.log`): 9 clicks -> 9 down/9 up,
 `state_calls=4120`, `view_updates=2655`, `stuck=0`, no crash.
 
-## Remaining blocker: the menu never advances
+## Earlier blocker (resolved by the gate patch): the menu never advanced
 
 The x32dbg harness's loader/Entrance/save breakpoints stay completely cold
 after the clicks (0 hits in `build/force-active-6-x32.log` and
@@ -56,14 +159,12 @@ Two related observations:
 
 Next options, in order:
 
-1. Find the deactivation branch in the app loop (the code that clears
-   `app+0x18` bit `0x10000` and skips the view update) and either patch the
-   branch or call the **view manager message dispatcher** (`0x5960c0`,
-   registered from `FUN_00404990`) on the game thread while backgrounded.
-   The input update alone is not enough.
+1. ~~Find the deactivation branch in the app loop and patch it~~ - done: the
+   gate is `0x004024db` (`app+0x1a`), patched to `EB 0A` (section 1 above).
 2. One foreground run (`-PhysicalInput`) to unblock the P3 provider probe
    (`start-campaign.ps1 -ProviderTrace`); this needs the user's explicit OK.
    The foreground path is documented as working (state calls 42+).
+3. Find why the first Present after the loading screen blocks (section 4).
 
 ## Earlier evidence (still valid)
 

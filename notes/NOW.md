@@ -59,26 +59,29 @@ See `notes/lanes.md`. Default split:
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
   water/partition polish.
 - WORLD-3/2 polish: skybox bottom/side seam, frustum culling/LOD2.
-- TOOL-4: background DirectInput polling/clicks are verified solved via the
-  proxy-driven `FUN_00524610`; the deactivated main loop still skips the
-  UI/message update, so the menu ignores them.
+- TOOL-4: background menu interaction is solved (app-loop gate `0x4024db`
+  -> `EB 0A`; cursor ring + frame offset). Remaining: the first `Present`
+  after the loading screen blocks in dgVoodoo (`0x40eb6a`) and stalls the
+  synchronous park load; retail also takes the foreground at Start.
 
 ## Next actions
 
 1. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. TOOL-4: input delivery in the background is solved (proxy drives
-   `FUN_00524610`; `state_calls` ~64/s, a down/up pair per click). Remaining:
-   the deactivated main loop also skips UI/message processing. Patch that
-   branch or call the view-manager dispatcher `0x5960c0` on the game thread,
-   or get one `-PhysicalInput` approval for the P3 provider trace.
+2. TOOL-4: the background menu path works end to end; find why the first
+   `Present` after the loading screen blocks dgVoodoo (`0x40eb6a`) and stalls
+   the park load. Until then, a `-PhysicalInput` approval is still the way to
+   run the P3 provider trace.
 3. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
-4. SIM-4: runtime-verify the budget panel rows against a populated save.
-5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-27 - TOOL-4: decoded the app-loop scheduler gate (`0x4024db`, `app+0x1a`
+  = D3D8 state) and patched it; virtual cursor ring + WndProc frame offset fixed;
+  the free-game menu now completes and starts loading the park
+- 2026-10-27 - SIM-4: budget panel imports the save's yesterday block
+  (`SavEconomy`, `notes/budget-sav-rows.png`)
 - 2026-10-27 - WORLD-3: water layers animate from FUN_00602fd0 (opposite 0.03/0.01 UV/s)
 - 2026-10-27 - WORLD-3: second Modulate2x water stage (water2 + coordinate set 1)
 - 2026-10-27 - TOOL-4: proxy-driven FUN_00524610 keeps background DirectInput polling and delivers every click; retail UI gate remains
