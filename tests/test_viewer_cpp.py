@@ -3255,6 +3255,31 @@ def test_cpp_sav_manual_copy_in_auto_dir(tmp_path):
     assert "whole file identical" in result.stdout, result.stdout
 
 
+def test_cpp_sav_write_refuses_bad_input(tmp_path):
+    """A truncated save errors cleanly and no output is written."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    broken = tmp_path / "truncated.sav"
+    broken.write_bytes(save.read_bytes()[:-8])
+    out_path = tmp_path / "out.sav"
+    result = subprocess.run(
+        [str(EXE), "--sav-write", str(broken), str(out_path),
+         "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 2, result.stdout
+    assert "sav read failed:" in result.stderr, result.stderr
+    assert not out_path.exists()
+    forced = subprocess.run(
+        [str(EXE), "--sav-write", str(broken), str(out_path), "--sav-force",
+         "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert forced.returncode == 2, forced.stdout
+    assert not out_path.exists()
+
+
 def test_cpp_sav_write_cross_checked_by_python(tmp_path):
     """The C++-written save is accepted by the independent Python reference."""
     if not EXE.exists():
