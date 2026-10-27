@@ -33,6 +33,60 @@ the camera through the mouse pixel and bisecting the last step (24 iterations);
 the hit must be inside the island bounds. The fence tool chooses the nearest
 cell edge (west/east/south/north) and toggles its canonical edge.
 
+The `1` key tool above is the port's original per-cell toggle. The retail
+way to build paths is the road tool below.
+
+## Retail road tool (`ROAD_CONSTRUCTION`)
+
+```text
+OPEN_TRANSPORT (Infrastructure) -> CONSTRUC_ROAD_BUTTON (Road)
+  left click    place the start cell
+  left click    commit a straight run start -> cursor, then chain from its end
+  right click   cancel the run; a second right click turns the tool off
+```
+
+Decoded from state `0x10` (`notes/road-construction-recon.md`) and
+implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
+`check_road_start`, `check_road`, `place_road`) with the viewer as build tool
+`4`:
+
+- **Shape:** the run keeps the longer axis of start -> cursor (`0x5fa5b0`),
+  so roads are straight, one cell (4 units) wide.
+- **Cost:** `(|run| world units * price) >> 2`, i.e. `price` per cell beyond
+  the first; `price` is `GeneralParams.bgd` `+0x1a4` = **10**
+  (`src/formats/general_params.*`). Charged to `CONSTRUCTION` like
+  buildings; the money gate runs after placement validation.
+- **Validation** (shared warning helper `0x52c2e0`):
+  `WARNING_INSIDE_PERIMETER` when the run lies strictly inside a paddock
+  rectangle, `WARNING_ROAD_TOO_SHORT` when start == end,
+  `WARNING_BUSY_SPACE` when a cell is blocked ground (occupation mask), under
+  a building footprint, or the run crosses a fence edge. Existing road cells
+  never block, so runs can cross and extend roads. Roads have no slope rule.
+- **Look:** retail draws no road geometry. Its landscape texture manager
+  paints roads into the island texture (road layer `0x602380`): a
+  RGB(253,198,137) sandy fill with a 1-texel RGB(170,130,90) border on
+  1024x1024 maps. The port does the same with `paint_roads` on a copy of the
+  basemap, re-uploaded whenever roads change; it borders only cell sides that
+  touch a non-road cell, so joined roads read as one surface (retail merges
+  overlapping road rectangles). A Cpg04 file trace confirms retail loads no
+  road texture at all.
+- **Feedback:** failures show the retail toast text; while a run is pending a
+  preview follows the cursor drawn like the retail helper (`Helper.ini`,
+  One/One additive): `focus/road.tga` times the pulsing `gscMaterialBank`
+  colour (`0x600550`, x = trunc((sin 6t + 1) * 0.5 * 127)): material 2
+  RGB(64,64,255-x) when valid and affordable, material 3 RGB(255-x,64,64)
+  when not. The toast shows `Cost of road: N`. The preview shape is still the
+  port's flat strip, not `helper_road.mesh`.
+- **CLI:** `--construct CONSTRUC_ROAD_BUTTON` (or the two panel clicks) plus
+  `--road-click X,Y` (build cells, repeatable) drive the same code path.
+
+Port approximations: retail fences occupy pathmap cells while the port stores
+fence edges, so "crosses a fence edge" stands in for "fence cell busy"; the
+retail signed-length cost quirk for runs toward -x/-y is not reproduced; road
+selling (`&REQUEST_SELL_ROAD`) is not decoded yet. Evidence:
+`tests/test_viewer_cpp.py::test_cpp_road_tool`, `--selftest` road checks,
+`notes/road-tool.png`.
+
 ## Buildability mask
 
 Each island ships `Data/Design/Landscape/<island>/<island>_occupation.raw`:
@@ -61,8 +115,10 @@ for `0`.
 
 ## Visuals
 
-- Path tiles are terrain-conforming quads at `height + 0.05`, textured with
-  `Data/Graphics/Textures/buildings/ground.tga` (default).
+- On a retail island, path cells are painted into the terrain texture (see
+  the road tool above). Only bare terrain without a basemap falls back to
+  terrain-conforming quads at `height + 0.05` textured with
+  `buildings/ground.tga`, which retail never references.
 - Fence segments instance the retail paddock fence
   `Data/Graphics/paddock/fences/fence_paddock_lod1.mesh`, scaled so one
   segment spans one cell. The mesh has two materials

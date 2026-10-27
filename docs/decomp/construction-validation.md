@@ -229,8 +229,11 @@ original construction flow:
   campaign save has the same genotypes as the `.wld`; Cpg04 `used` = 336 in
   the port. All 20 per-dinosaur lengths match the live ctor values exactly
   (`notes/phenotype-length-runtime.md`).
-- Whether path tiles charge `CONSTRUCTION` (only the wall path and the
-  dinosaur store price are proven budget setters).
+- ~~Whether path tiles charge `CONSTRUCTION`~~ **resolved (decompiled):**
+  the `ROAD_CONSTRUCTION` commit (`0x52eb50`) charges
+  `FUN_00585d20(cost)`, cost = `(|run| world units * GeneralParams +0x1a4)
+  >> 2` = 10 per cell beyond the first. See
+  `notes/road-construction-recon.md`.
 
 ## Evidence
 

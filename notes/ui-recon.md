@@ -809,3 +809,26 @@ Port: `load_island` with `reset_view` sets the centred-world equivalent:
 target `(0,0,terrain_z)`, horizontal 39, elevation 52.7, yaw 0, and the
 park scene renders with FOV 80. `--start-dino` keeps a close demo camera so
 the allosaurus is visible.
+
+## Draw order: missing PRIORITY (2026-10-27)
+
+- `CONSTRUCTION_ROAD_METRO_PANEL`: `CONSTRUC_ROAD_BUTTON` / `CONSTRUC_METRO_BUTTON`
+  / `METRO_TITLE_PANEL` set neither `PRIORITY` nor `ZPRIORITY`; their
+  sibling weave panels are `P=10 Z=0.49` and declared earlier. With a
+  missing `PRIORITY` read as 0 the port drew the buttons first and the weave
+  covered them (the Road button was invisible).
+- Decompiled: the widget ctor `0x5bc330` stores `PRIORITY = -1`
+  (`+0x34`, `or ecx,-1`) and `ZPRIORITY = 0.0` (`+0x40`); Load `0x5bca20`
+  calls the setters only when the key is present; the child list `0x5bae40`
+  / `0x5bb850` compares priorities **signed**. `Draw` `0x5c5bf0` passes
+  `+0x40` minus small epsilons to the background/frame/texture/text helpers,
+  so ZPRIORITY is a per-primitive depth.
+- These raw defaults do not reproduce retail on their own: `-1` would still
+  sort the Road button under the weave, and a pure `Z=0` depth would put the
+  opaque `BUDGET_LEFTWOOD_MIDLEFT1_PANEL` (no P/Z) over the budget numbers.
+- Port model (**inferred**): a widget without `PRIORITY` / `ZPRIORITY`
+  inherits the nearest ancestor's value (`src/ui/overlay.cpp`), then siblings
+  sort by PRIORITY, ZPRIORITY (far first), declaration order. It keeps all
+  existing UI tests green and shows the road panel buttons
+  (`tests/test_viewer_cpp.py::test_cpp_road_panel_buttons_visible`).
+  A retail screenshot of the open Infrastructure panel would confirm it.

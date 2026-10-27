@@ -67,3 +67,4 @@ add a row when a claim becomes something later work depends on.
 | `franckstrangedinos` (carnivore/biped/size/intelligence) | `src/world/campaign_objectives.cpp` (case 15), `src/viewer/main.cpp` (trait fill), `docs/formats/campaign.md` (`0x569110`) | `test_cpp_campaign_objective_selftest`, `tests/test_campaign_cpp.py::test_cpp_campaign_franck_strange` |
 | MPEG-1 ending-video decode, frame export and playback | `third_party/pl_mpeg.h`, `src/formats/mpg.{h,cpp}`, `docs/platform/video.md` | `tests/test_video.py`, `tests/test_campaign_cpp.py::test_cpp_campaign_completion_video` |
 | Decoded feature port contracts (shows/employees/animals/lab/objectives) | `docs/platform/decoded-features.md` | `tests/test_feature_matrix.py` |
+| Road tool: straight 2-click runs, 10/cell to CONSTRUCTION, BUSY/INSIDE_PERIMETER/TOO_SHORT | `notes/road-construction-recon.md`, `docs/platform/build.md`, `notes/road-tool.png` | `tests/test_viewer_cpp.py::test_cpp_road_tool`, `--selftest` |

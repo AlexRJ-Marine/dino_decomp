@@ -28,6 +28,7 @@
 #include "../formats/shw.h"
 #include "../formats/mpg.h"
 #include "../formats/bfi.h"
+#include "../formats/general_params.h"
 #include "camera_config.h"
 #include "../world/terrain.h"
 #include "../world/vegetation.h"
@@ -171,6 +172,7 @@ struct Options {
     bool place_entrance = true;
     std::string construct_name;
     std::vector<std::string> construct_positions;
+    std::vector<std::string> road_clicks;
     std::string buy_dino;
     int buy_paddock = -1;
     int park_budget_override = -1;
@@ -493,6 +495,9 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--construct-pos") {
             opt.construct_positions.push_back(next("--construct-pos"));
             opt.build_mode = true;
+        } else if (arg == "--road-click") {
+            opt.road_clicks.push_back(next("--road-click"));
+            opt.build_mode = true;
         } else if (arg == "--park-budget") {
             opt.park_budget_override = std::atoi(next("--park-budget"));
         } else if (arg == "--buy-dino") {
@@ -686,6 +691,9 @@ Options parse_args(int argc, char** argv) {
                 "  --no-entrance        do not auto-place the free-game Entrance\n"
                 "  --construct NAME     select a building (kind name or CONSTRUC_*_BUTTON)\n"
                 "  --construct-pos X,Y  place the selected building immediately (repeatable)\n"
+                "  --road-click X,Y     road-tool ground click at a build cell (repeatable;\n"
+                "                       arm it with --construct CONSTRUC_ROAD_BUTTON or the\n"
+                "                       panel's Road button)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --buy-dino NAME      buy a Market.ini dinosaur into a paddock\n"
                 "  --buy-paddock N      paddock index for --buy-dino (default first with room)\n"
@@ -2420,6 +2428,77 @@ int run_selftest() {
     check(grid.cells_for_world(-512.0f + 10.5f * 4.0f,
                                -512.0f + 10.5f * 4.0f, cx, cy) &&
               cx == 10 && cy == 10, "world to cell");
+
+    // Retail road tool (notes/road-construction-recon.md).
+    {
+        const dino::RoadSegment h = dino::road_segment(20, 20, 26, 22);
+        check(h.x1 == 26 && h.y1 == 20 && h.cells() == 7, "road axis lock x");
+        const dino::RoadSegment v = dino::road_segment(20, 20, 22, 22);
+        check(v.x1 == 20 && v.y1 == 22, "road axis tie goes vertical");
+        check(dino::road_cost(h, 10) == 60, "road cost 10 per extra cell");
+        check(dino::road_cost(dino::road_segment(26, 20, 20, 20), 10) == 60,
+              "road cost toward -x");
+        dino::BuildGrid roads;
+        roads.init(4.0f, 1024.0f);
+        const std::vector<dino::WorldRect> pens = {{100, 100, 140, 140}};
+        auto none = [](int, int) { return false; };
+        check(dino::check_road(roads, dino::road_segment(5, 5, 5, 5), {}, none) ==
+                  dino::RoadCheck::TooShort,
+              "road too short");
+        check(dino::check_road(roads, dino::road_segment(27, 27, 30, 27), pens,
+                               none) == dino::RoadCheck::InsidePerimeter,
+              "road inside perimeter");
+        check(dino::check_road_start(roads, 30, 30, pens, none) ==
+                  dino::RoadCheck::InsidePerimeter,
+              "road start inside perimeter");
+        auto blocked = [](int x, int y) { return x == 42 && y == 40; };
+        check(dino::check_road(roads, dino::road_segment(40, 40, 45, 40), {},
+                               blocked) == dino::RoadCheck::BusySpace,
+              "road busy cell");
+        roads.set_fence(42, 41, 0, true);  // edge between (42,40) and (42,41)
+        check(dino::check_road(roads, dino::road_segment(42, 38, 42, 44), {},
+                               none) == dino::RoadCheck::BusySpace,
+              "road crosses fence");
+        const dino::RoadSegment ok = dino::road_segment(60, 60, 60, 64);
+        check(dino::check_road(roads, ok, pens, none) == dino::RoadCheck::Ok &&
+                  dino::place_road(roads, ok) == 5 && roads.path_count == 5,
+              "road placed");
+        auto everything_busy = [](int, int) { return true; };
+        check(dino::check_road(roads, dino::road_segment(60, 60, 60, 64), {},
+                               everything_busy) == dino::RoadCheck::Ok,
+              "road may run over roads");
+
+        // Road layer 0x602380: cells (10,10)+(11,10) = units x 40..47,
+        // y 40..43 -> top-down rows 980..983.
+        dino::BuildGrid painted;
+        painted.init(4.0f, 1024.0f);
+        painted.set_path(10, 10, true);
+        painted.set_path(11, 10, true);
+        dino::Image map;
+        map.width = map.height = 1024;
+        map.rgba.assign(1024u * 1024u * 4u, 0);
+        dino::paint_roads(map, painted, 1024.0f);
+        auto rgb = [&map](int x, int y) {
+            const std::uint8_t* p = &map.rgba[(static_cast<std::size_t>(y) * 1024 + x) * 4];
+            return std::array<int, 3>{p[0], p[1], p[2]};
+        };
+        const std::array<int, 3> fill = {253, 198, 137};
+        const std::array<int, 3> edge = {170, 130, 90};
+        check(rgb(41, 981) == fill && rgb(43, 981) == fill && rgb(44, 981) == fill,
+              "road paint fill joins cells");
+        check(rgb(40, 981) == edge && rgb(47, 981) == edge && rgb(41, 980) == edge &&
+                  rgb(41, 983) == edge,
+              "road paint border on open sides");
+        check(rgb(41, 979) == std::array<int, 3>{0, 0, 0} &&
+                  rgb(41, 41) == std::array<int, 3>{0, 0, 0},
+              "road paint y flipped");
+        dino::Image small;
+        small.width = small.height = 512;
+        small.rgba.assign(512u * 512u * 4u, 0);
+        dino::paint_roads(small, painted, 1024.0f);
+        const std::uint8_t* sp = &small.rgba[(static_cast<std::size_t>(490) * 512 + 20) * 4];
+        check(sp[0] == 253 && sp[1] == 198 && sp[2] == 137, "road paint small map fill only");
+    }
 
     dino::Paddock paddock;
     paddock.rect = {0, 0, 31, 31};
@@ -5411,6 +5490,10 @@ int main(int argc, char** argv) {
 
     GpuMesh path_gpu;
     GpuMesh fence_gpu;
+    GpuMesh road_preview_gpu;
+    bool road_preview_ok = true;
+    GLuint road_preview_texture = 0;  // focus/road.tga x material colour
+    dino::Image road_helper_image;
     GLuint path_texture = 0;
     GLuint fence_texture = 0;
     if (build_ready) {
@@ -5912,8 +5995,17 @@ int main(int argc, char** argv) {
         for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
             extra_items.push_back({&veg_gpu[i], veg_textures[i]});
         }
-        if (path_gpu.vao != 0) {
+        // Roads are painted into the terrain texture when the island has a
+        // basemap; the tile mesh is only the fallback for bare terrain.
+        if (path_gpu.vao != 0 && (image.width <= 0 || !opt.texture_path.empty())) {
             extra_items.push_back({&path_gpu, path_texture});
+        }
+        if (road_preview_gpu.vao != 0 && road_preview_texture != 0) {
+            // Retail helper (Data/States/Helper.ini): focus/road.tga times
+            // the pulsing gscMaterialBank colour, blended One/One.
+            DrawItem item{&road_preview_gpu, road_preview_texture};
+            item.additive = true;
+            extra_items.push_back(item);
         }
         if (fence_gpu.vao != 0) {
             extra_items.push_back({&fence_gpu, fence_texture});
@@ -5971,10 +6063,26 @@ int main(int argc, char** argv) {
     };
     rebuild_extra_items();
 
+    // Retail paints roads into the island texture (gpkLandscapeTextureManager,
+    // re-run on the scene dirty flag); `image` stays the clean basemap.
+    auto refresh_terrain_texture = [&]() {
+        if (!opt.texture_path.empty() || image.width <= 0) {
+            return;
+        }
+        dino::Image painted = image;
+        if (build_ready) {
+            dino::paint_roads(painted, build_grid, terrain.world_size);
+        }
+        if (texture != 0) {
+            glDeleteTextures(1, &texture);
+        }
+        texture = upload_texture(painted);
+    };
     auto rebuild_build_meshes = [&]() {
         if (!build_ready) {
             return;
         }
+        refresh_terrain_texture();
         const dino::BuildMeshes meshes =
             dino::build_placement_meshes(build_grid, terrain, fence_source);
         path_gpu.destroy(glfns);
@@ -7423,10 +7531,141 @@ int main(int argc, char** argv) {
         return true;
     };
 
+    // Retail road tool (`ROAD_CONSTRUCTION`, notes/road-construction-recon.md):
+    // CONSTRUC_ROAD_BUTTON arms it (build tool 4); a left click places the
+    // start, the next commits a straight run, charges CONSTRUCTION and chains
+    // from its end; right click cancels the run, a second one disarms.
+    std::uint32_t road_price = 0;
+    bool road_price_loaded = false;
+    auto ensure_road_price = [&]() {
+        if (!road_price_loaded) {
+            road_price_loaded = true;
+            try {
+                road_price = dino::load_general_params(
+                                 resolve_asset(opt.asset_root,
+                                               "Data/Design/generalparams/"
+                                               "GeneralParams.bgd"))
+                                 .road_price();
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "general params: %s\n", e.what());
+            }
+        }
+        return road_price;
+    };
+    bool road_has_start = false;
+    int road_start_x = 0;
+    int road_start_y = 0;
+    std::array<int, 4> road_preview_key = {-1, -1, -1, -1};
+    int road_preview_cost = -1;
+    auto road_message = [&](const char* id) {
+        if (park.loaded()) {
+            park.show_message(dino::ui::resolve_loc_text(id, park.loc));
+        }
+    };
+    // A cell is busy when the ground is blocked (occupation mask) or a
+    // building footprint covers it; roads themselves never block a road.
+    auto road_cell_busy = [&](int x, int y) {
+        const float cs = build_grid.cell_size;
+        if (!terrain.buildable(build_grid.origin_x + (x + 0.5f) * cs,
+                               build_grid.origin_y + (y + 0.5f) * cs)) {
+            return true;
+        }
+        ensure_construction_catalog();
+        const int wx = static_cast<int>(std::lround(
+            build_grid.origin_x + x * cs + terrain.world_size * 0.5f));
+        const int wy = static_cast<int>(std::lround(
+            build_grid.origin_y + y * cs + terrain.world_size * 0.5f));
+        const int wc = static_cast<int>(cs);
+        for (const dino::PortBuildingState& b : building_instances) {
+            if (b.kind < 0 || b.kind >= static_cast<int>(construction_defs.size())) {
+                continue;
+            }
+            const dino::BuildingDef& d =
+                construction_defs[static_cast<std::size_t>(b.kind)];
+            const int bw = static_cast<int>(b.state % 2 == 0 ? d.footprint_w : d.footprint_h);
+            const int bh = static_cast<int>(b.state % 2 == 0 ? d.footprint_h : d.footprint_w);
+            if (wx < b.cell_x + bw && b.cell_x < wx + wc && wy < b.cell_y + bh &&
+                b.cell_y < wy + wc) {
+                return true;
+            }
+        }
+        return false;
+    };
+    auto road_perimeters = [&]() {
+        std::vector<dino::WorldRect> rects;
+        rects.reserve(paddocks.size());
+        for (const dino::Paddock& p : paddocks) {
+            rects.push_back(p.rect);
+        }
+        return rects;
+    };
+    auto arm_road_tool = [&]() {
+        build_tool = 4;
+        pending_construct_kind = -1;
+        road_has_start = false;
+        std::printf("road: tool armed, price=%u per cell\n", ensure_road_price());
+    };
+    auto road_click = [&](int cx, int cy) {
+        const std::vector<dino::WorldRect> perimeters = road_perimeters();
+        if (!road_has_start) {
+            const dino::RoadCheck check = dino::check_road_start(
+                build_grid, cx, cy, perimeters, road_cell_busy);
+            if (check != dino::RoadCheck::Ok) {
+                std::printf("road: start %d,%d rejected (%s)\n", cx, cy,
+                            dino::road_warning(check) + 1);
+                road_message(dino::road_warning(check));
+                return;
+            }
+            road_has_start = true;
+            road_start_x = cx;
+            road_start_y = cy;
+            std::printf("road: start %d,%d\n", cx, cy);
+            return;
+        }
+        const dino::RoadSegment road =
+            dino::road_segment(road_start_x, road_start_y, cx, cy);
+        const dino::RoadCheck check =
+            dino::check_road(build_grid, road, perimeters, road_cell_busy);
+        if (check != dino::RoadCheck::Ok) {
+            std::printf("road: %d,%d -> %d,%d rejected (%s)\n", road.x0, road.y0,
+                        road.x1, road.y1, dino::road_warning(check) + 1);
+            road_message(dino::road_warning(check));
+            return;
+        }
+        const int cost = dino::road_cost(road, ensure_road_price());
+        if (park_budget < cost) {
+            std::printf("road: needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
+                        cost, park_budget);
+            road_message("&WARNING_NOT_ENOUGH_MONEY");
+            return;
+        }
+        const int added = dino::place_road(build_grid, road);
+        park_budget -= cost;
+        budget_ledger.spend_construction(cost);
+        rebuild_build_meshes();
+        std::printf(
+            "road: built %d,%d -> %d,%d cells=%d new=%d cost=%d budget=%d "
+            "construction=%d/%d\n",
+            road.x0, road.y0, road.x1, road.y1, road.cells(), added, cost,
+            park_budget, budget_ledger.construction_count,
+            budget_ledger.construction_total);
+        road_start_x = road.x1;  // FUN_005f8830: chain from the end point
+        road_start_y = road.y1;
+    };
+
     const std::string selected_construct =
         !opt.construct_name.empty() ? opt.construct_name
                                     : pending_construct_widget;
-    if (!selected_construct.empty()) {
+    if (selected_construct == "CONSTRUC_ROAD_BUTTON") {
+        arm_road_tool();
+        for (const std::string& value : opt.road_clicks) {
+            int x = 0;
+            int y = 0;
+            if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
+                road_click(x, y);
+            }
+        }
+    } else if (!selected_construct.empty()) {
         const int kind = construction_kind_for_name(selected_construct);
         if (kind < 0) {
             std::printf("construction: no building named %s\n",
@@ -7441,7 +7680,8 @@ int main(int argc, char** argv) {
                             .construction_cost);
         }
     }
-    if (!selected_construct.empty() && !opt.construct_positions.empty()) {
+    if (!selected_construct.empty() && selected_construct != "CONSTRUC_ROAD_BUTTON" &&
+        !opt.construct_positions.empty()) {
         const int kind = construction_kind_for_name(selected_construct);
         for (const std::string& position : opt.construct_positions) {
             int x = 0;
@@ -9198,7 +9438,15 @@ int main(int argc, char** argv) {
                                     music.play(island_music->second);
                                 }
                             }
+                            // A menu-started free game has no build grid yet;
+                            // every construction tool needs one for its
+                            // ground clicks.
                             if (action.rfind("construct ", 0) == 0) {
+                                ensure_build_ready();
+                            }
+                            if (action == "construct CONSTRUC_ROAD_BUTTON") {
+                                arm_road_tool();
+                            } else if (action.rfind("construct ", 0) == 0) {
                                 const std::string widget = action.substr(10);
                                 const int kind =
                                     construction_kind_for_widget(widget);
@@ -9232,6 +9480,7 @@ int main(int argc, char** argv) {
                                 }
                             }
                             if (action.rfind("store buy ", 0) == 0) {
+                                ensure_build_ready();  // paddock pick click
                                 handle_store_buy(
                                     std::atoi(action.c_str() + 10));
                             } else if (action == "store no selection") {
@@ -9245,6 +9494,17 @@ int main(int argc, char** argv) {
                 drag_distance = 0.0f;
                 last_mx = event.button.x;
                 last_my = event.button.y;
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                       event.button.button == SDL_BUTTON_RIGHT &&
+                       build_tool == 4) {
+                // 0x52ed6a: cancel the run in progress, else disarm the tool.
+                if (road_has_start) {
+                    road_has_start = false;
+                    std::printf("road: segment cancelled\n");
+                } else {
+                    build_tool = 0;
+                    std::printf("road: tool off\n");
+                }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                        event.button.button == SDL_BUTTON_LEFT) {
                 park_active_index = -1;
@@ -10235,7 +10495,9 @@ int main(int argc, char** argv) {
                                 build_grid.origin_y +
                                     (static_cast<float>(gy) + 0.5f) * cs);
                         };
-                        if (build_tool == 1) {
+                        if (build_tool == 4) {
+                            road_click(cx, cy);  // rebuilds the meshes itself
+                        } else if (build_tool == 1) {
                             const bool removing = build_grid.path_at(cx, cy);
                             if (!removing && !cell_buildable(cx, cy)) {
                                 std::printf("placement: blocked cell\n");
@@ -10293,7 +10555,8 @@ int main(int argc, char** argv) {
                                 build_grid.set_fence(ex, ey, edge, !removing);
                             }
                         }
-                        if (build_grid.path_count + build_grid.fence_count != before) {
+                        if (build_tool != 4 &&
+                            build_grid.path_count + build_grid.fence_count != before) {
                             rebuild_build_meshes();
                         }
                     }
@@ -10320,6 +10583,83 @@ int main(int argc, char** argv) {
                     std::printf("pick: none\n");
                 }
             }
+        }
+
+        // Road tool preview: the pending run from the start cell to the
+        // axis-locked cursor cell, rebuilt only when it changes (0x52e750).
+        if (build_ready && build_tool == 4 && road_has_start) {
+            float mxf = 0.0f;
+            float myf = 0.0f;
+            SDL_GetMouseState(&mxf, &myf);
+            dino::Vec3 hit;
+            int cx = 0;
+            int cy = 0;
+            if (pick_terrain(terrain, eye, view_center, mxf, myf, logical_width,
+                             logical_height, hit) &&
+                build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                const dino::RoadSegment road =
+                    dino::road_segment(road_start_x, road_start_y, cx, cy);
+                const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};
+                if (key != road_preview_key) {
+                    road_preview_key = key;
+                    dino::BuildGrid preview;
+                    preview.init(build_grid.cell_size, terrain.world_size);
+                    dino::place_road(preview, road);
+                    const dino::BuildMeshes meshes =
+                        dino::build_placement_meshes(preview, terrain, fence_source);
+                    road_preview_gpu.destroy(glfns);
+                    road_preview_gpu = upload_mesh(meshes.paths, glfns);
+                    const int cost = dino::road_cost(road, ensure_road_price());
+                    road_preview_ok =
+                        dino::check_road(build_grid, road, road_perimeters(),
+                                         road_cell_busy) == dino::RoadCheck::Ok &&
+                        park_budget >= cost;
+                    if (road_preview_texture == 0) {
+                        try {
+                            road_helper_image = dino::load_tga(resolve_asset(
+                                opt.asset_root, "Data/Graphics/Textures/focus/road.tga"));
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr, "road helper texture: %s\n", e.what());
+                            road_helper_image.width = road_helper_image.height = 1;
+                            road_helper_image.rgba = {255, 255, 255, 255};
+                        }
+                        road_preview_texture = upload_texture(road_helper_image);
+                    }
+                    rebuild_extra_items();
+                    if (cost != road_preview_cost) {
+                        road_preview_cost = cost;
+                        if (park.loaded()) {
+                            park.show_message(dino::ui::resolve_loc_text(
+                                                  "&MESSAGE_ROAD_COST", park.loc) +
+                                              std::to_string(cost));
+                        }
+                    }
+                }
+            }
+            // gscMaterialBank (0x600550): x = trunc((sin(6 t) + 1) * 0.5 * 127);
+            // material 2 (valid) = RGB(64, 64, 255 - x), material 3 (invalid)
+            // = RGB(255 - x, 64, 64).
+            if (road_preview_texture != 0 && road_helper_image.width > 0) {
+                const double t = static_cast<double>(SDL_GetTicks()) / 1000.0;
+                const int x = static_cast<int>((std::sin(6.0 * t) + 1.0) * 0.5 * 127.0);
+                const int color[3] = {road_preview_ok ? 64 : 255 - x, 64,
+                                      road_preview_ok ? 255 - x : 64};
+                dino::Image tinted = road_helper_image;
+                for (std::size_t i = 0; i + 3 < tinted.rgba.size(); i += 4) {
+                    for (int c = 0; c < 3; ++c) {
+                        tinted.rgba[i + c] = static_cast<std::uint8_t>(
+                            tinted.rgba[i + c] * color[c] / 255);
+                    }
+                }
+                glBindTexture(GL_TEXTURE_2D, road_preview_texture);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tinted.width, tinted.height,
+                                GL_RGBA, GL_UNSIGNED_BYTE, tinted.rgba.data());
+            }
+        } else if (road_preview_gpu.vao != 0) {
+            road_preview_gpu.destroy(glfns);
+            road_preview_key = {-1, -1, -1, -1};
+            road_preview_cost = -1;
+            rebuild_extra_items();
         }
 
         if (park.loaded() && !park.hud_hidden()) {
@@ -10578,6 +10918,7 @@ int main(int argc, char** argv) {
         }
     }
     path_gpu.destroy(glfns);
+    road_preview_gpu.destroy(glfns);
     fence_gpu.destroy(glfns);
     water_gpu.destroy(glfns);
     visitor_gpu.destroy(glfns);

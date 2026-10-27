@@ -237,6 +237,14 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | Address | Purpose | Status | Evidence |
 | --- | --- | --- | --- |
 | `0x0052bed0` | common affordability gate (budget < cost → `WARNING_NOT_ENOUGH_MONEY`); does not deduct | decompiled | `docs/decomp/construction-validation.md` |
+| `0x0052c2e0` | construction warning helper: 1 `BUSY_SPACE`, 2 `UNEVEN_FLOOR`, 3 `INSIDE_PERIMETER`, 4 `PERIMETER_TOO_SMALL`, 5 `ROAD_TOO_SHORT` | decompiled | `notes/road-construction-recon.md` |
+| `0x0052de80` | `ROAD_CONSTRUCTION` state ctor (state `0x10`, vtable `0x642c60`); binds Road/Farm/Metro buttons | decompiled | same |
+| `0x0052e750` | road state per-frame update: cost `(len * gdt+0x1a4) >> 2`, `&MESSAGE_ROAD_COST`, preview validity (not a Ghidra function) | decompiled | same |
+| `0x0052e9e0` | road state mouse button: start / commit + chain / right-click cancel (not a Ghidra function) | decompiled, ported | same; `src/world/build.cpp` (`road_*`), `tests/test_viewer_cpp.py::test_cpp_road_tool` |
+| `0x0052ee40` | road state mouse move (preview end / farm-metro ghost) | decompiled | same |
+| `0x0058ce80` / `0x0058cfd0` | `spRoadNetwork` start / run validation → codes 3, 5, 1 | decompiled, ported | same |
+| `0x0058d110` | `spRoadNetwork` add road rectangle (split/merge, sorted insert) | decompiled | same |
+| `0x005fa5b0` | road preview update: snap 4, axis lock to the longer of `|dx|`/`|dy|` | decompiled, ported | same |
 | `0x00535b10` | `FENCE_INSERTION` state constructor (`FUN_0052bd10(0x12, "FENCE_INSERTION")`, vtable `0x642d80`) | decompiled | `notes/fence-insertion-recon.md` |
 | `0x00535b40` / `0x00535b70` / `0x00535bb0` | state dtor / enter / leave | decompiled | same |
 | `0x00535be0` | state validate/apply: capacity → placement → purchase/registration → `stFence::AddActor`; warning path `0x536017` stays in state | decompiled (structure) | same |

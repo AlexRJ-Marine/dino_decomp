@@ -683,7 +683,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (87 checks)" in result.stdout
+    assert "selftest: PASS (102 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -2252,6 +2252,74 @@ def test_cpp_construction_placement():
     assert poor.returncode == 0, poor.stderr
     assert ("construction: RestCirc needs 2500, budget 100 "
             "(WARNING_NOT_ENOUGH_MONEY)") in poor.stdout
+
+
+def test_cpp_road_tool():
+    """Retail ROAD_CONSTRUCTION through the Infrastructure panel on isl01.
+
+    notes/road-construction-recon.md: two-click straight runs, axis lock,
+    10 per cell beyond the first (GeneralParams.bgd +0x1a4), CONSTRUCTION
+    charge, chaining, and the BUSY/TOO_SHORT/NOT_ENOUGH_MONEY failures.
+    """
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    base = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+            "--width", "800", "--height", "600", "--no-vsync",
+            "--no-save-config", "--lnd", str(ISL01),
+            "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+            "--no-entrance", "--park-click", "765,248",
+            "--park-click", "645,86"]
+    clicks = ["120,130", "128,131", "128,135", "128,135", "128,139"]
+    args = base + [a for c in clicks for a in ("--road-click", c)]
+    result = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "park click 645,86 -> construct CONSTRUC_ROAD_BUTTON" in out
+    assert "road: tool armed, price=10 per cell" in out
+    assert "road: start 120,130" in out
+    assert ("road: built 120,130 -> 128,130 cells=9 new=9 cost=80 "
+            "budget=74920 construction=1/80") in out
+    assert ("road: built 128,130 -> 128,135 cells=6 new=5 cost=50 "
+            "budget=74870 construction=2/130") in out
+    assert ("road: 128,135 -> 128,135 rejected (WARNING_ROAD_TOO_SHORT)"
+            in out)
+    assert ("road: 128,135 -> 128,139 rejected (WARNING_BUSY_SPACE)" in out)
+
+    poor = subprocess.run(
+        base + ["--park-budget", "60", "--road-click", "120,125",
+                "--road-click", "130,125"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert poor.returncode == 0, poor.stderr
+    assert ("road: needs 100, budget 60 (WARNING_NOT_ENOUGH_MONEY)"
+            in poor.stdout)
+    assert "road: built" not in poor.stdout
+
+
+def test_cpp_road_panel_buttons_visible(tmp_path):
+    """CONSTRUC_ROAD_BUTTON has no PRIORITY/ZPRIORITY; it must inherit the
+    panel's and draw over the P=10 weave panels declared before it."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "road-panel.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "4", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
+         str(ISL01), "--asset-root", str(GAME), "--no-water", "--no-entrance",
+         "--no-vegetation", "--park-click", "765,248",
+         "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    icon = Image.open(shot).convert("RGB").crop((633, 74, 657, 98)).tobytes()
+    pixels = [icon[i:i + 3] for i in range(0, len(icon), 3)]
+    # ROAD_ICON: grey metal frame, blue sky, green grass (the weave has none).
+    frame = sum(1 for r, g, b in pixels
+                if abs(r - g) < 12 and abs(g - b) < 12 and r > 120)
+    sky = sum(1 for r, g, b in pixels if b > 150 and b > r + 30)
+    assert frame > 40 and sky > 15
 
 
 def test_cpp_sav_park_import(tmp_path):

@@ -95,6 +95,7 @@ bool Overlay::load_interface(const std::string& interface_path,
             widget.priority = to_int(section.get("PRIORITY"));
             widget.zpriority = to_float(section.get("ZPRIORITY"));
             widget.has_zpriority = section.has("ZPRIORITY");
+            widget.has_priority = section.has("PRIORITY");
             widget.visible = section.get("VISIBLE") != "0";
             widget.enable = section.get("ENABLE") != "0";
             widget.texture = section.get("TEXTURE");
@@ -155,19 +156,29 @@ bool Overlay::load_interface(const std::string& interface_path,
         }
 
         // moWidget::Draw walks the tree parent-first. The flat draw list sorts
-        // by ZPRIORITY, so a child without its own value must inherit the
-        // nearest ancestor's; otherwise z=0 children (list slots, names) draw
-        // under the z=0.49 panel art.
+        // by PRIORITY then ZPRIORITY, so a child without its own values must
+        // inherit the nearest ancestor's; otherwise z=0 children (list slots,
+        // names) draw under the z=0.49 panel art, and P=0 buttons (the road
+        // panel's CONSTRUC_ROAD/METRO_BUTTON) draw under P=10 weave panels
+        // declared before them. Inferred: retail Load (0x5bca20) only applies
+        // PRIORITY/ZPRIORITY when present (ctor 0x5bc330 defaults -1 / 0.0),
+        // and the exact retail resolution is not decoded
+        // (notes/ui-recon.md, draw order).
         for (Widget& widget : widgets) {
-            if (widget.has_zpriority) {
-                continue;
-            }
+            const bool need_z = !widget.has_zpriority;
+            const bool need_p = !widget.has_priority;
+            bool got_z = !need_z;
+            bool got_p = !need_p;
             int parent = widget.parent_index;
-            while (parent >= 0) {
+            while (parent >= 0 && (!got_z || !got_p)) {
                 const Widget& ancestor = widgets[static_cast<std::size_t>(parent)];
-                if (ancestor.has_zpriority) {
+                if (!got_z && ancestor.has_zpriority) {
                     widget.zpriority = ancestor.zpriority;
-                    break;
+                    got_z = true;
+                }
+                if (!got_p && ancestor.has_priority) {
+                    widget.priority = ancestor.priority;
+                    got_p = true;
                 }
                 parent = ancestor.parent_index;
             }

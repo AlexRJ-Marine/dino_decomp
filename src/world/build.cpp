@@ -333,6 +333,181 @@ bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index) {
     return true;
 }
 
+int RoadSegment::cells() const {
+    return std::abs(x1 - x0) + std::abs(y1 - y0) + 1;
+}
+
+RoadSegment road_segment(int start_x, int start_y, int cursor_x, int cursor_y) {
+    RoadSegment road{start_x, start_y, cursor_x, cursor_y};
+    if (std::abs(cursor_y - start_y) < std::abs(cursor_x - start_x)) {
+        road.y1 = start_y;
+    } else {
+        road.x1 = start_x;
+    }
+    return road;
+}
+
+int road_cost(const RoadSegment& road, std::uint32_t price) {
+    // Retail uses the signed (end - start) sum, which wraps to ~1e9 for runs
+    // toward -x/-y (unverified quirk); the port uses the distance.
+    const int units = 4 * (std::abs(road.x1 - road.x0) + std::abs(road.y1 - road.y0));
+    return static_cast<int>((static_cast<std::uint32_t>(units) * price) >> 2);
+}
+
+const char* road_warning(RoadCheck check) {
+    switch (check) {
+    case RoadCheck::BusySpace:
+        return "&WARNING_BUSY_SPACE";
+    case RoadCheck::InsidePerimeter:
+        return "&WARNING_INSIDE_PERIMETER";
+    case RoadCheck::TooShort:
+        return "&WARNING_ROAD_TOO_SHORT";
+    case RoadCheck::Ok:
+        break;
+    }
+    return "";
+}
+
+namespace {
+
+// 0x58ce80 / 0x58cfd0: the run's world box [4*x0, 4*x1 + 3] lies strictly
+// inside a fence rectangle.
+bool road_inside_perimeter(int x0, int y0, int x1, int y1,
+                           const std::vector<WorldRect>& perimeters) {
+    const int wx0 = 4 * std::min(x0, x1);
+    const int wy0 = 4 * std::min(y0, y1);
+    const int wx1 = 4 * std::max(x0, x1) + 3;
+    const int wy1 = 4 * std::max(y0, y1) + 3;
+    for (const WorldRect& r : perimeters) {
+        const int rx0 = std::min(r.x0, r.x1);
+        const int rx1 = std::max(r.x0, r.x1);
+        const int ry0 = std::min(r.y0, r.y1);
+        const int ry1 = std::max(r.y0, r.y1);
+        if (rx0 < wx0 && ry0 < wy0 && wx1 < rx1 && wy1 < ry1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}  // namespace
+
+RoadCheck check_road_start(const BuildGrid& grid, int x, int y,
+                           const std::vector<WorldRect>& perimeters,
+                           const RoadBusyFn& busy) {
+    if (road_inside_perimeter(x, y, x, y, perimeters)) {
+        return RoadCheck::InsidePerimeter;
+    }
+    if (grid.in_bounds(x, y) && !grid.path_at(x, y) && busy && busy(x, y)) {
+        return RoadCheck::BusySpace;
+    }
+    return RoadCheck::Ok;
+}
+
+RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
+                     const std::vector<WorldRect>& perimeters,
+                     const RoadBusyFn& busy) {
+    if (road_inside_perimeter(road.x0, road.y0, road.x1, road.y1, perimeters)) {
+        return RoadCheck::InsidePerimeter;
+    }
+    if (road.x0 == road.x1 && road.y0 == road.y1) {
+        return RoadCheck::TooShort;
+    }
+    const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
+    const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
+    int x = road.x0;
+    int y = road.y0;
+    for (int i = 0; i < road.cells(); ++i) {
+        // Cells outside the map are skipped, as in the retail loop.
+        if (grid.in_bounds(x, y) && !grid.path_at(x, y) && busy && busy(x, y)) {
+            return RoadCheck::BusySpace;
+        }
+        if (i + 1 < road.cells()) {
+            // Retail fences occupy pathmap cells; the port stores them on
+            // cell edges, so crossing one is the same "busy" failure.
+            const bool fence = sx > 0   ? grid.fence_at(x, y, 1)
+                               : sx < 0 ? grid.fence_at(x - 1, y, 1)
+                               : sy > 0 ? grid.fence_at(x, y + 1, 0)
+                                        : grid.fence_at(x, y, 0);
+            if (fence) {
+                return RoadCheck::BusySpace;
+            }
+        }
+        x += sx;
+        y += sy;
+    }
+    return RoadCheck::Ok;
+}
+
+int place_road(BuildGrid& grid, const RoadSegment& road) {
+    const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
+    const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
+    int added = 0;
+    int x = road.x0;
+    int y = road.y0;
+    for (int i = 0; i < road.cells(); ++i) {
+        if (grid.in_bounds(x, y) && !grid.path_at(x, y)) {
+            grid.set_path(x, y, true);
+            ++added;
+        }
+        x += sx;
+        y += sy;
+    }
+    return added;
+}
+
+void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
+    if (image.width <= 0 || image.height <= 0 || world_size <= 0.0f ||
+        image.rgba.size() < static_cast<std::size_t>(image.width) * image.height * 4) {
+        return;
+    }
+    const std::uint8_t fill[3] = {253, 198, 137};
+    const std::uint8_t border[3] = {170, 130, 90};
+    const bool outline = image.width == 1024 && image.height == 1024;
+    const float sx = static_cast<float>(image.width) / world_size;
+    const float sy = static_cast<float>(image.height) / world_size;
+    const float half = world_size * 0.5f;
+    auto put = [&](int px, int py, const std::uint8_t* rgb) {
+        if (px < 0 || py < 0 || px >= image.width || py >= image.height) {
+            return;
+        }
+        std::uint8_t* p = &image.rgba[(static_cast<std::size_t>(py) * image.width + px) * 4];
+        p[0] = rgb[0];
+        p[1] = rgb[1];
+        p[2] = rgb[2];
+        p[3] = 255;
+    };
+    for (int y = 0; y < grid.height; ++y) {
+        for (int x = 0; x < grid.width; ++x) {
+            if (!grid.path_at(x, y)) {
+                continue;
+            }
+            // Retail world units (0..world_size) of this cell.
+            const float u0 = grid.origin_x + x * grid.cell_size + half;
+            const float w0 = grid.origin_y + y * grid.cell_size + half;
+            const int px0 = static_cast<int>(std::floor(u0 * sx));
+            const int px1 = static_cast<int>(std::floor((u0 + grid.cell_size) * sx)) - 1;
+            // v = (h - 1) - y * scale: world y grows upward, rows downward.
+            const int row_bottom = image.height - 1 - static_cast<int>(std::floor(w0 * sy));
+            const int row_top =
+                image.height - static_cast<int>(std::floor((w0 + grid.cell_size) * sy));
+            const bool open_w = !grid.path_at(x - 1, y);
+            const bool open_e = !grid.path_at(x + 1, y);
+            const bool open_s = !grid.path_at(x, y - 1);
+            const bool open_n = !grid.path_at(x, y + 1);
+            for (int py = row_top; py <= row_bottom; ++py) {
+                for (int px = px0; px <= px1; ++px) {
+                    const bool edge =
+                        outline && ((open_w && px == px0) || (open_e && px == px1) ||
+                                    (open_n && py == row_top) ||
+                                    (open_s && py == row_bottom));
+                    put(px, py, edge ? border : fill);
+                }
+            }
+        }
+    }
+}
+
 void save_build(const BuildGrid& grid, const std::string& path) {
     std::ofstream out(path);
     if (!out) {

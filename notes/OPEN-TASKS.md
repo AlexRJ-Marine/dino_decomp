@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 05:02. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 13:02. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 32 open items.
 
@@ -62,7 +62,7 @@ Generated from `TASKS.md` on 2026-10-27 05:02. Do not edit; regenerate with `scr
 - [ ] Keep it current as functions are replaced.
 
 ## TOOL-4: Background-safe virtual input (focus/cooperative-level shim)
-- [ ] Park load still blocks: after the loading screen and `ParkSoundDB.ini`
+- [ ] The load loop still never finishes: after `ParkSoundDB.ini` x32dbg sees
 - [ ] Starting a park brings the retail window to the foreground (dgVoodoo/D3D
 
 ## DEC-2: Simulation scheduler and AI update order

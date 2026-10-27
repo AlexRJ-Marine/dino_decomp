@@ -1,10 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "../formats/mesh.h"
+#include "../formats/tga.h"
 #include "terrain.h"
 
 namespace dino {
@@ -87,6 +89,52 @@ float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
 int paddock_size_class(int size_cm);
 bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index);
 bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index);
+
+// Retail road tool (`ROAD_CONSTRUCTION`, state 0x10; see
+// notes/road-construction-recon.md). A road is a straight, axis-aligned run
+// of 4-unit cells placed with two clicks; the second click commits and the
+// tool chains from the end point. Codes are the `FUN_0052c2e0` warnings.
+enum class RoadCheck {
+    Ok = 0,
+    BusySpace = 1,        // &WARNING_BUSY_SPACE
+    InsidePerimeter = 3,  // &WARNING_INSIDE_PERIMETER
+    TooShort = 5,         // &WARNING_ROAD_TOO_SHORT
+};
+
+struct RoadSegment {
+    int x0 = 0;  // start cell
+    int y0 = 0;
+    int x1 = 0;  // end cell; x0 == x1 or y0 == y1
+    int y1 = 0;
+    int cells() const;
+};
+
+// 0x5fa5b0: keep the longer axis of start -> cursor (ties go vertical).
+RoadSegment road_segment(int start_x, int start_y, int cursor_x, int cursor_y);
+// 0x52e7c2: (|dx| + |dy|) world units * price >> 2, i.e. price per cell
+// beyond the first. `price` is GeneralParams.bgd `+0x1a4` (10).
+int road_cost(const RoadSegment& road, std::uint32_t price);
+const char* road_warning(RoadCheck check);
+// `busy(x, y)`: the cell holds something other than a road (building,
+// blocked ground). Fence edges crossed by the run also count as busy.
+// `perimeters` are paddock/show fence rectangles in world units.
+using RoadBusyFn = std::function<bool(int x, int y)>;
+RoadCheck check_road_start(const BuildGrid& grid, int x, int y,
+                           const std::vector<WorldRect>& perimeters,
+                           const RoadBusyFn& busy);  // 0x58ce80
+RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
+                     const std::vector<WorldRect>& perimeters,
+                     const RoadBusyFn& busy);  // 0x58cfd0
+// Marks the run as path cells; returns how many cells were new.
+int place_road(BuildGrid& grid, const RoadSegment& road);
+
+// Retail draws no road geometry: gpkLandscapeTextureManager's road layer
+// (0x602380) paints the roads into the island texture. On a 1024x1024 map
+// each road is a RGB(253,198,137) fill with a 1-texel RGB(170,130,90) border;
+// smaller maps get the fill only. `image` is the top-down basemap (row 0 =
+// world y 1024). The port paints cells and borders only the sides that touch
+// a non-road cell, so joined roads read as one surface.
+void paint_roads(Image& image, const BuildGrid& grid, float world_size);
 
 // `fence_source` is the retail fence segment (long axis = local +Y).
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,

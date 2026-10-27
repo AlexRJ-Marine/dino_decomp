@@ -70,7 +70,12 @@ The loader writes the record fields at these park-application offsets:
 - `3.0` / `1.5` are rate multipliers.
 - `8.0`, `120.0`, `40.0`, `60.0` look like distances/heights (camera or
   visibility limits).
-- `10` is an integer limit; the 4 x 4 grid and the final four values
+- **`10` (`+0x1a4`) is the road price (decompiled):** `ROAD_CONSTRUCTION`
+  charges `(run length in world units * [gdt+0x1a4]) >> 2`, i.e. 10 per
+  4-unit cell beyond the first (`0x52e7c2`, `0x52eaf0`; the game-data ctor
+  `0x53d4d0` calls this loader on itself). See
+  `notes/road-construction-recon.md`; read by `src/formats/general_params.*`.
+- The 4 x 4 grid and the final four values
   (`6, 10.5, 14, 20`) are a separate float block, most likely a 4-step ramp
   whose last four values are the tier maxima.
 
