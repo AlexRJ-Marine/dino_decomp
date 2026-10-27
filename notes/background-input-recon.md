@@ -105,6 +105,16 @@ park-start state. The app-update state machine (`app_data+0x20`; `0x29a` is the
 in-house MPEG/movie state) or the loading-screen progress field is the next
 thing to decode.
 
+Ghidra reads `FUN_0051d1d0` as: open `loading_800x600.tga` -> `0x0051d34d
+CALL 0x0040eab0(0,0,0)` (the present frame) -> `0x0051d375` LOD check
+(`CMP [param_2+0x34], 3; JA invalid`) -> `0x0051d42c CALL 0x0053a400` (first
+world I/O). So the stall is between `0x51d29e` and `0x51d42c`; the loader
+returns 0 there and the one-shot start request (`0x0040256a` clears it) is
+never retried. A first attempt to read `[app+0x48]+0x10`, `[app+0x60]+0x34`
+and `[app+0x5c]+0x40` from the proxy sampled null/invalid pointers (the
+notation needs a runtime read at `0x0051d375`, e.g. dump `[param_2+0x34]`),
+so that field mapping is unverified.
+
 Evidence: `notes/harness/stack-probe.py` (module/EBP walk),
 `build/present-x32-1.out.log`, `build/probe-present-1.out.log`,
 `build/probe-present-2.out.log`, `build/probe-nullrect-1.out.log`,
