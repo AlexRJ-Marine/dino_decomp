@@ -247,3 +247,16 @@ the same width, only different values (rec0 `FOOD 41` vs rec1 `FOOD 80`, etc.).
   `tail+0x2c7`, path vector at `tail+0x2cb`, last record ends `0x6942`.
 * Byte-equality of the reconstructed watcher offsets for rec0 (`0x344` exactly
   consumed) and all 19 checkable records.
+
+## 7. Implementation (2026-10-27)
+
+* `tools/formats/sav_campaign.py` implements the full typed model
+  (`CampaignDino`, `CampaignPath`, `CampaignPathNode`) and a writer that
+  re-encodes all 20 sample records byte-identically (`--check`).
+* `tools/formats/sav_write.py --campaign` rebuilds header/world/catalog/
+  roads/list0 from models and keeps list1+ verbatim; the 53,338-byte sample
+  is byte-identical.
+* `src/formats/wld.cpp` validates each record length with the same rule and
+  keeps list0 + list1/tail raw, so the C++ `--sav-roundtrip`/`--sav-write`
+  are byte-identical too. `test_cpp_sav_park_roundtrip` includes the campaign
+  sample. The typed C++ struct and list1/list2 decode are still open.
