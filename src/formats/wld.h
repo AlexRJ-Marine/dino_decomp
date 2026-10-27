@@ -62,10 +62,42 @@ struct SavVisitor {
     std::array<std::uint32_t, 7> needs{};
 };
 
+// spPark economy stream (writer 0x00585780, 0x21a bytes at park block
+// +0x30). The budget panel reads the *yesterday* block; the current block
+// holds the counters accumulated since the last rollover. Poison counters
+// (0xBAADF00D) mean "not settled yet".
+struct SavEconomy {
+    float sellback = 1.0f;
+    int food_total = 0;
+    int food_count = 0;
+    int secu_total = 0;
+    int secu_count = 0;
+    int ticket_total = 0;
+    int ticket_count = 0;
+    std::array<int, 2> staff_buckets{};
+    std::array<int, 13> shop_revenue{};
+    std::array<int, 13> shop_sales{};
+    int dinoachat_count = 0;
+    int dinoachat_total = 0;
+    int construction_count = 0;
+    int construction_total = 0;
+    int laboaction_count = 0;
+    int laboaction_total = 0;
+    int ventes_count = 0;
+    int ventes_total = 0;
+    std::array<int, 2> yesterday_staff{};
+    std::array<int, 2> yesterday_food{};
+    std::array<int, 2> yesterday_secu{};
+    std::array<int, 13> yesterday_revenue{};
+    std::array<int, 13> yesterday_sales{};
+    std::array<int, 13> yesterday_totals{};
+};
+
 // spSimuManager prefix after the world block + show catalog.
 struct SavSimulation {
     std::vector<RoadRect> roads;
     std::vector<SavVisitor> visitors;
+    SavEconomy economy;
     int budget = 0;
     int day = 0;
     float elapsed = 0.0f;

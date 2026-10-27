@@ -1,6 +1,8 @@
 import os
 import re
+import struct
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -2379,6 +2381,74 @@ def test_cpp_freegame_store():
     assert "store stores: 0=3 2=4 3=4 4=4 5=4 6=1" in result.stdout
     assert ("first=Allosaurus 9000 allo.gen "
             "last=Velociraptor 15000 velo.gen") in result.stdout
+
+def test_cpp_sav_budget_rows(tmp_path):
+    """The budget panel imports the save's yesterday block (0x510430)."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail slot001 save missing")
+    sys.path.insert(0, str(ROOT / "tools" / "formats"))
+    from sav import read_sav  # noqa: PLC0415
+    from sav_graph import read_sav_graph  # noqa: PLC0415
+
+    header = read_sav(save)
+    park = read_sav_graph(save).park
+    data = bytearray(save.read_bytes())
+    e = header.state_offset + park.offset + 0x30
+
+    def put(off, value):
+        struct.pack_into("<I", data, e + off, value & 0xFFFFFFFF)
+
+    put(0xB2, 3)                    # yesterday staff bucket 0
+    put(0xBA, 11); put(0xBE, 2)     # food total/count
+    put(0xC2, 12); put(0xC6, 3)     # secu total/count
+    shops = [(10, 1), (20, 2), (30, 3), (40, 4), (50, 5), (60, 6)]
+    for i, (revenue, sales) in enumerate(shops, start=1):
+        put(0xCA + i * 4, revenue)
+        put(0xFE + i * 4, sales)
+    totals = [0] * 13
+    totals[0], totals[1] = 350, 7    # ENTREES total/count
+    totals[5], totals[6] = 4, 5000   # DINOACHAT count/total
+    totals[7], totals[8] = 1, 2500   # CONSTRUCTION count/total
+    totals[9], totals[10] = 2, 800   # LABOACTION count/total
+    totals[11], totals[12] = 3, 900  # VENTES count/total
+    for i, value in enumerate(totals):
+        put(0x132 + i * 4, value)
+    settled = tmp_path / "settled.sav"
+    settled.write_bytes(data)
+
+    def run(source, shot):
+        return subprocess.run(
+            [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+             "800", "--height", "600", "--no-vsync", "--no-save-config",
+             "--lnd", str(ISL01), "--asset-root", str(GAME),
+             "--no-vegetation", "--no-water", "--sav-park", str(source),
+             "--park-click", "97,584", "--budget-info",
+             "--screenshot", str(shot)],
+            capture_output=True, text=True, timeout=300,
+        )
+
+    plain_shot = tmp_path / "plain.bmp"
+    settled_shot = tmp_path / "settled.bmp"
+    plain = run(save, plain_shot)
+    result = run(settled, settled_shot)
+    assert plain.returncode == 0, plain.stderr
+    assert result.returncode == 0, result.stderr
+    assert "budget yesterday: dinoachat=0/0 construction=0/0 tickets=0/0" \
+        in plain.stdout
+    log = result.stdout
+    assert ("budget yesterday: dinoachat=4/5000 construction=1/2500 "
+            "tickets=7/350") in log
+    assert "budget totals: expenses=8326 income=1460 net=-6866" in log
+    # The row area changes when the imported yesterday block is nonzero.
+    a = Image.open(plain_shot).convert("RGB")
+    b = Image.open(settled_shot).convert("RGB")
+    diff = ImageChops.difference(a.crop((140, 170, 320, 300)),
+                                 b.crop((140, 170, 320, 300)))
+    assert diff.getbbox() is not None
+
 
 def test_cpp_budget_panel_ledger(tmp_path):
     if not EXE.exists():

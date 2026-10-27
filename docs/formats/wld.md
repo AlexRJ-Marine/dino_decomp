@@ -285,10 +285,13 @@ exposes the subset the port needs:
 - `read_sav_world(path)` — save file: skips the header
   (`0x18 + name_len`) and parses the same world block with the campaign flag
   clear. It stops before the show catalog count.
-- `read_sav_simulation(path)` — skips the show catalog, then reads the
+- `read_sav_simulation(path)` - skips the show catalog, then reads the
   simulation roads, the three empty lists, the 0x50-byte visitor records and
-  the park block's budget (`+0x30`), day (`+0x24a`) and elapsed
-  (`+0x24e`). Fences stay in the world block. Used by `--sav-park`.
+  the park block: budget/day/elapsed plus the full `SavEconomy` stream
+  (current and yesterday food/secu/ticket/staff/shop/group counters,
+  `+0x30`..`+0x24a`). Fences stay in the world block. Used by `--sav-park`;
+  the viewer imports the yesterday block into `BudgetLedger` so the budget
+  panel shows the save's recorded rows (`0xBAADF00D` maps to 0).
 - `WldWorld.buildings` carries `object_id`, `linked_id`, `class_tag`, `kind`,
   `cell_x`, `cell_y`, `state` and the per-object `link`.
 

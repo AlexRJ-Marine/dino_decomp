@@ -7028,6 +7028,50 @@ int main(int argc, char** argv) {
         park_budget = sav_simulation.budget;
         park_clock.day = sav_simulation.day;
         park_clock.elapsed = sav_simulation.elapsed;
+        // The budget panel reads the yesterday block (0x510430). Import it
+        // from the save so a settled save shows its recorded rows; the
+        // 0xBAADF00D fill from an un-settled save maps to 0.
+        {
+            constexpr std::uint32_t kPoison = 0xBAADF00Du;
+            auto sane = [](int value) {
+                return static_cast<std::uint32_t>(value) == kPoison ? 0
+                                                                    : value;
+            };
+            const dino::SavEconomy& economy = sav_simulation.economy;
+            budget_ledger.y_food_total = sane(economy.yesterday_food[0]);
+            budget_ledger.y_food_count = sane(economy.yesterday_food[1]);
+            budget_ledger.y_staff_food_total =
+                sane(economy.yesterday_staff[0]);
+            budget_ledger.y_secu_total = sane(economy.yesterday_secu[0]);
+            budget_ledger.y_secu_count = sane(economy.yesterday_secu[1]);
+            budget_ledger.y_dinoachat_count =
+                sane(economy.yesterday_totals[5]);
+            budget_ledger.y_dinoachat_total =
+                sane(economy.yesterday_totals[6]);
+            budget_ledger.y_construction_count =
+                sane(economy.yesterday_totals[7]);
+            budget_ledger.y_construction_total =
+                sane(economy.yesterday_totals[8]);
+            budget_ledger.y_laboaction_count =
+                sane(economy.yesterday_totals[9]);
+            budget_ledger.y_laboaction_total =
+                sane(economy.yesterday_totals[10]);
+            budget_ledger.y_ticket_total =
+                sane(economy.yesterday_totals[0]);
+            budget_ledger.y_ticket_count =
+                sane(economy.yesterday_totals[1]);
+            budget_ledger.y_ventes_total =
+                sane(economy.yesterday_totals[12]);
+            budget_ledger.y_ventes_count =
+                sane(economy.yesterday_totals[11]);
+            for (std::size_t i = 1;
+                 i < budget_ledger.y_shop_revenue.size(); ++i) {
+                budget_ledger.y_shop_revenue[i] =
+                    sane(economy.yesterday_revenue[i]);
+                budget_ledger.y_shop_sales[i] =
+                    sane(economy.yesterday_sales[i]);
+            }
+        }
         if (visitor_profiles.empty()) {
             try {
                 visitor_profiles = load_easy_visitor_profiles(opt.asset_root);

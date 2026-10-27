@@ -396,6 +396,47 @@ SavSimulation read_sav_simulation(const std::string& path) {
     out.day = static_cast<int>(read_u32(data, block + 0x24a, "park day"));
     out.elapsed = read_f32(data, block + 0x24e, "park elapsed");
     out.has_park = true;
+
+    // spPark economy stream at block+0x30 (writer order, see
+    // tools/formats/sav_graph.py::_read_park_stream and
+    // tools/formats/economy.py).
+    const std::size_t e = block + 0x30;
+    auto eu = [&](std::size_t off) {
+        return static_cast<int>(read_u32(data, e + off, "park economy"));
+    };
+    out.economy.sellback = read_f32(data, e + 0x04, "park sellback");
+    out.economy.food_total = eu(0x08);
+    out.economy.food_count = eu(0x0c);
+    out.economy.secu_total = eu(0x10);
+    out.economy.secu_count = eu(0x14);
+    out.economy.ticket_total = eu(0x18);
+    out.economy.ticket_count = eu(0x1c);
+    // 0x20: two bankruptcy bytes; 0x22: two staff buckets.
+    out.economy.staff_buckets[0] = eu(0x22);
+    out.economy.staff_buckets[1] = eu(0x26);
+    for (int i = 0; i < 13; ++i) {
+        out.economy.shop_revenue[i] = eu(0x2a + i * 4);
+        out.economy.shop_sales[i] = eu(0x5e + i * 4);
+    }
+    out.economy.dinoachat_count = eu(0x92);
+    out.economy.dinoachat_total = eu(0x96);
+    out.economy.construction_count = eu(0x9a);
+    out.economy.construction_total = eu(0x9e);
+    out.economy.laboaction_count = eu(0xa2);
+    out.economy.laboaction_total = eu(0xa6);
+    out.economy.ventes_count = eu(0xaa);
+    out.economy.ventes_total = eu(0xae);
+    out.economy.yesterday_staff[0] = eu(0xb2);
+    out.economy.yesterday_staff[1] = eu(0xb6);
+    out.economy.yesterday_food[0] = eu(0xba);
+    out.economy.yesterday_food[1] = eu(0xbe);
+    out.economy.yesterday_secu[0] = eu(0xc2);
+    out.economy.yesterday_secu[1] = eu(0xc6);
+    for (int i = 0; i < 13; ++i) {
+        out.economy.yesterday_revenue[i] = eu(0xca + i * 4);
+        out.economy.yesterday_sales[i] = eu(0xfe + i * 4);
+        out.economy.yesterday_totals[i] = eu(0x132 + i * 4);
+    }
     return out;
 }
 

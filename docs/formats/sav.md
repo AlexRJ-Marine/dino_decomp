@@ -402,6 +402,17 @@ python tools/formats/sav_graph.py run/save/slot001.sav --visitors --dinos --labs
 and the 10 camera floats. Tests: `tests/test_sav.py`,
 `tests/test_sav_graph.py`.
 
+### C++ economy import
+
+`SavSimulation.economy` (`src/formats/wld.*`) decodes the full park economy
+stream: sellback, current and yesterday FOOD/SECU/ticket/staff/shop/group
+counters (`+0x30`..`+0x24a`). `--sav-park` copies the yesterday block into
+`BudgetLedger` (poison `0xBAADF00D` -> 0), which drives the 14 budget-panel
+rows; the current block is exposed for future settlement use. A synthetic
+settled save (patched copy of `run/save/slot001.sav`) renders
+`notes/budget-sav-rows.png` and is covered by `test_cpp_sav_budget_rows`
+(expenses 8326, income 1460, net -6866).
+
 ## Evidence
 
 - `notes/save-graph-recon.md` — decompiled function map, offsets and field
