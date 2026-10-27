@@ -895,23 +895,31 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `scripts/Set-WindowedStyle.ps1`, `src/hook/dinput8_proxy.cpp`.
 
 ### TOOL-4: Background-safe virtual input (focus/cooperative-level shim)
-- [ ] Hook the mouse `IDirectInputDevice8::SetCooperativeLevel` (slot 13) and
-  rewrite `6`/`0x16` to background (`0x0A`/`0x1A`) when
-  `DINO_VIRTUAL_MOUSE=1`.
-- [ ] Make `GetDeviceState`/`GetDeviceData` synthesize valid state even when
-  the real device is unacquired; return `DI_OK` instead of
-  `DIERR_NOTACQUIRED`.
-- [ ] Determine whether the game tick resumes on `WM_SETFOCUS` plus the
-  active byte at `[0x674528]+0x54`; if not, find the D3D8/dgVoodoo inactive
-  pause. Ghidra evidence: `0x4454f1` (SetCooperativeLevel), `0x44591f`
-  (GetDeviceState), `0x44592e` (Acquire retry), WndProc `0x423609`.
-- [ ] Re-run `play-freegame.ps1` fully backgrounded and require
-  `state calls > 0` plus a non-blank park screenshot before calling it done.
+- [x] Hook the mouse `IDirectInputDevice8::SetCooperativeLevel` (slot 13) and
+  rewrite `6`/`0x16` to background (`0x0A`/`0x1A`) when `DINO_VIRTUAL_MOUSE=1`.
+  `DISCL_NOWINKEY` is stripped too; the former `0x80004001` is gone.
+- [x] Keep input polling alive while deactivated: `DINO_FORCE_INPUT_ACTIVE=1`
+  makes a 5 ms proxy thread drive the retail view update `FUN_00524610`
+  (input poll + key dispatch) whenever `app+0x18` bit `0x00010000` is clear.
+  Verified `state_calls` ~64/s and one `state button=down/up` pair per click,
+  direct and under x32dbg, no crash. `dino_input.txt` is re-read at 20 Hz so
+  the `CreateFileA` breakpoint is not flooded.
+- [x] The synthetic-state branch is not needed: the forced background
+  cooperative level + retail `Acquire` retry return real device state.
+- [ ] The retail UI still ignores background clicks: the deactivation path
+  also skips the main-loop message/UI update. Nine delivered clicks leave the
+  x32dbg `MESH/SKIN/SKEL/ENTRANCE/SAVE` breakpoints cold even after waiting
+  out the 116.5 s `generic.mpg` menu movie; saves are unchanged.
+- [ ] Next: patch/avoid the deactivation branch or call the view-manager
+  message dispatcher (`0x5960c0`, registered from `FUN_00404990`) on the game
+  thread while backgrounded, then re-run the click flow. Otherwise use one
+  approved `-PhysicalInput` foreground run for the P3 provider probe.
 - **Acceptance:** a backgrounded harness run reaches the park and opens
   panels without foreground changes, cursor movement or physical clicks.
 - **Depends on:** TOOL-2.
-- **Evidence:** `src/hook/dinput8_proxy.cpp`, `docs/platform/windowed-testing.md`,
-  `run-test/dino_hook.log`.
+- **Evidence:** `src/hook/dinput8_proxy.cpp`, `notes/background-input-recon.md`,
+  `docs/platform/windowed-testing.md`, `run-test/dino_hook.log`,
+  `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`.
 
 ### TOOL-3: Retail UI click map for test planning
 - [x] Generate every interactive control from `MenuInterface.Ini`,

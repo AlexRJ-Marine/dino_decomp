@@ -1,63 +1,90 @@
 # Background virtual input / activation trace
 
-Status: **blocked on retail activation**, not on DirectInput delivery.
+Status: **input polling solved; the retail UI still does not act on clicks while
+backgrounded.** DirectInput now keeps being polled at ~64 Hz in the
+background and every scripted click is delivered, but the engine's
+deactivation path also skips the main-loop message/UI processing, so the menu
+does not advance.
 
-The campaign x32dbg harness now reaches every menu screen and writes real
-frames (`notes/harness/campaign-*.png`), but the synthetic clicks are
-ignored by the retail UI while the game is in the background.
+## Working shim (2026-10-27)
 
-## Evidence
+The proxy (`src/hook/dinput8_proxy.cpp`, env `DINO_FORCE_INPUT_ACTIVE=1` only)
+now does three things:
 
-- `run-test/dino_hook.log` shows the mouse device is captured and the button
-  state is delivered:
+1. `IDirectInputDevice8::SetCooperativeLevel` (mouse vtable slot 13) is forced
+   to `DISCL_BACKGROUND | DISCL_NONEXCLUSIVE`, clearing `DISCL_FOREGROUND` and
+   `DISCL_NOWINKEY`. Log:
+   `virtual mouse: SetCooperativeLevel flags=0x6 -> 0xa hr=0x0` and the
+   former `0x16 -> 0x1a hr=0x80004001` (E_NOTIMPL) is gone.
+2. A 5 ms thread forces the `miInputDx8` poll flags (`[0x675104]+8` mouse,
+   `+0x30` keyboard) and `app+0x54` (active), and drives the retail view
+   update `FUN_00524610` (input poll + key dispatch) while the engine is
+   deactivated. `app+0x18` bit `0x00010000` is 0 in the deactivated state
+   (active/stuck memory diff; the bit is recomputed by the engine every
+   frame), which is used as the inactivity detector.
+3. `dino_input.txt` is re-read at most every 50 ms (instead of on every poll)
+   so the x32dbg `CreateFileA` breakpoint storm is bounded. The 100 ms click
+   hold still lands in a poll.
 
-  ```text
-  virtual mouse: SetCooperativeLevel patched
-  virtual mouse: SetCooperativeLevel flags=0x6 -> 0xa hr=0x0
-  virtual mouse: SetCooperativeLevel flags=0x16 -> 0x1a hr=0x80004001
-  virtual mouse: state button=down
-  virtual mouse: left down (1)
-  virtual mouse: state button=up
-  ```
+Verified in a direct (no debugger) run, fully backgrounded:
 
-- `notes/harness/campaign-main.png`, `campaign-list.png` and
-  `campaign-park.png` still show the main menu; the Campaigns click does not
-  open the campaign select page.
-- `build/harness-coop-console.log` reports:
-  `park not reached: the clicks reached DirectInput ... but the retail menu
-  did not act on them while the game is in the background`.
+```text
+virtual mouse: force sample slot_changes=2100 state_calls=2454 ... view_updates=1963
+virtual mouse: state button=down / state button=up   (one pair per scripted click)
+```
 
-## What was tried
+and under x32dbg (`build/force-active-6-x32.log`): 9 clicks -> 9 down/9 up,
+`state_calls=4120`, `view_updates=2655`, `stuck=0`, no crash.
 
-- `SetCooperativeLevel` (IDirectInputDevice8 vtable slot 13) forced to
-  `DISCL_BACKGROUND | DISCL_NONEXCLUSIVE` with `DISCL_FOREGROUND` cleared.
-  The call succeeds (`flags=0x6 -> 0xa hr=0`), but the UI still ignores the
-  clicks.
-- The virtual cursor ring was inspected in `FUN_004458f0`:
-  - x is stored at `input + slot*0x10 + 0xc`, but the delta base is
-    `input + 0x1c - slot*0x10`;
-  - y is stored at `input + (slot+1)*0x10`, delta base
-    `input + (2 - slot)*0x10`.
-  `apply_virtual_cursor` reads the y base correctly but the x base was the
-  newly written slot; changing it to the game's base did not make the menu
-  act and was reverted.
-- The harness posts `WM_ACTIVATE(WA_ACTIVE)` and `WM_SETFOCUS` before each
-  click (`Wake-GameWindow`); the retail WndProc (`0x4235b0`) sets
-  `app+0x54`/`app+0x31cec` on those messages. The window is restored with
-  `SW_SHOWNOACTIVATE`, never foregrounded.
+## Remaining blocker: the menu never advances
 
-## Conclusion
+The x32dbg harness's loader/Entrance/save breakpoints stay completely cold
+after the clicks (0 hits in `build/force-active-6-x32.log` and
+`build/force-active-7b-x32.log`, even after a 235 s wait). Save files are
+unchanged. So the clicks reach DirectInput but not the menu action path.
 
-`DISCL_BACKGROUND` is necessary but not sufficient. The retail UI still
-gates clicks on the window activation/foreground state, or reads the cursor
-position from a path other than the DirectInput ring. The next experiment is
-one of:
+Two related observations:
 
-1. a foreground run (`-PhysicalInput`, needs the user's OK) to prove the
-   provider probe and separate activation from menu flow;
-2. a deeper in-process activation shim (WndProc/activation flag or
-   `GetForegroundWindow`/cursor path) in `src/hook/dinput8_proxy.cpp`.
+- With the shim the game believes it is active and starts the 116.5 s
+  `data/video/generic.mpg` menu background movie (quartz/DirectShow graph);
+  earlier inactive runs skipped it. Waiting out the movie (235 s) does not
+  help.
+- The memory diff shows the engine's deactivation path also sets the frame
+  timing to 100 ms / 10 ms (`app+0x44`/`+0x48`) and leaves the view update
+  counter/deadline untouched; the main loop still runs (~64 Hz) but does not
+  dispatch the view/menu update.
 
-The `SetCooperativeLevel` hook change is uncommitted for hook/oracle review.
-The P3 target-provider breakpoint (`0x56e455`) and `-ProviderTrace` switch
-are ready; they fire once the campaign actually reaches the park.
+Next options, in order:
+
+1. Find the deactivation branch in the app loop (the code that clears
+   `app+0x18` bit `0x10000` and skips the view update) and either patch the
+   branch or call the **view manager message dispatcher** (`0x5960c0`,
+   registered from `FUN_00404990`) on the game thread while backgrounded.
+   The input update alone is not enough.
+2. One foreground run (`-PhysicalInput`) to unblock the P3 provider probe
+   (`start-campaign.ps1 -ProviderTrace`); this needs the user's explicit OK.
+   The foreground path is documented as working (state calls 42+).
+
+## Earlier evidence (still valid)
+
+- `run-test/dino_hook.log` before the shim showed the mouse device captured
+  and `state button=down/up` delivered in foreground runs.
+- The retail WndProc (`0x4235b0`) handles `WM_SETFOCUS` (sets `app+0x54`) and
+  `WM_NCACTIVATE` (calls `app+0x10`/`app+0x14`), but not `WM_ACTIVATE` or
+  `WM_ACTIVATEAPP`; the engine pause is above that.
+- `FUN_005234e0` registers the PauseGame action; `FUN_005257a0` registers the
+  park camera/pause bindings. The debug string
+  `L'action PauseGame n'a pas de CallBack associé` comes from the key mapper
+  (`FUN_00419330`), not from the deactivation pause itself.
+
+## Evidence paths
+
+- Hook: `src/hook/dinput8_proxy.cpp` (`DINO_FORCE_INPUT_ACTIVE`), run-test DLL
+  refreshed with `scripts/setup-test-runtime.ps1`.
+- Direct runs: `build/force-active-2..5` logs; x32dbg no-trace runs:
+  `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`; harness
+  artifacts under the gitignored `notes/harness/force-active-*`.
+- Memory diff: `build/dino_hook-run3..run4-*.log` (app+0x18/0x1A,
+  app+0x44/0x48, view+0x60).
+- x32dbg/campaign scripts: `scripts/x32dbg/play-freegame.ps1`,
+  `scripts/x32dbg/start-campaign.ps1` (`-ProviderTrace` at `0x56e455`).

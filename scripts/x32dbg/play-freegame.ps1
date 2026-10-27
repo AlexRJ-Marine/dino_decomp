@@ -196,7 +196,13 @@ if (-not $PhysicalInput -and $hwnd -ne [IntPtr]::Zero) {
         Write-Host "typing save name"
         Click-Client $hwnd 349 382
         Start-Sleep -Milliseconds 300
-        [System.Windows.Forms.SendKeys]::SendWait("agenttest")
+        if ($VirtualMouse) {
+            # Background-safe: SendKeys injects into the foreground window,
+            # which is never the game in virtual-input mode. Skip it.
+            Write-Host "skipping physical save-name keystrokes (virtual input)"
+        } else {
+            [System.Windows.Forms.SendKeys]::SendWait("agenttest")
+        }
         Start-Sleep -Milliseconds 500
         Save-Window $hwnd "save-panel-named"
         Write-Host "clicking green check"
@@ -212,7 +218,12 @@ if (-not $p.WaitForExit(10000)) { $p.Kill() }
 $out = $outTask.Result
 $err = $errTask.Result
 $out | Set-Content -Path $logPath -Encoding utf8
-$err | Set-Content -Path ($logPath -replace '\.out\.', '.err.') -Encoding utf8
+$errPath = if ($logPath -match '\.out\.') {
+    $logPath -replace '\.out\.', '.err.'
+} else {
+    [System.IO.Path]::ChangeExtension($logPath, '.err.log')
+}
+$err | Set-Content -Path $errPath -Encoding utf8
 
 Write-Host "--- loader/file matches ---"
 Select-String -Path $logPath -Pattern "SKIN_LOADER|SKEL_LOADER|MESH_LOADER|\.skel|\.skin|\.anim|\.mesh|InsertCD|EXCEPTION" | Select-Object -Last 120

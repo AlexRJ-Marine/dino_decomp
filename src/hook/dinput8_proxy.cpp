@@ -774,10 +774,13 @@ using GetDeviceStateFn =
     HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, void*);
 using GetDeviceDataFn =
     HRESULT(STDMETHODCALLTYPE*)(void*, DWORD, void*, DWORD*, DWORD);
+using SetCooperativeLevelFn =
+    HRESULT(STDMETHODCALLTYPE*)(void*, HWND, DWORD);
 
 CreateDeviceFn g_real_create_device = nullptr;
 GetDeviceStateFn g_real_get_device_state = nullptr;
 GetDeviceDataFn g_real_get_device_data = nullptr;
+SetCooperativeLevelFn g_real_set_cooperative_level = nullptr;
 void* g_mouse_device = nullptr;
 void* g_mouse_devices[8] = {};
 volatile LONG g_mouse_device_count = 0;
@@ -822,6 +825,110 @@ bool click_capture_enabled() {
                      : 0;
     }
     return cached == 1;
+}
+
+// Opt-in activation shim for the background harness. Retail disables the
+// mouse/keyboard poll flags (miInputDx8+8/+0x30) when the window loses
+// activation; its poll task still runs every frame. With DINO_VIRTUAL_MOUSE=1
+// (or DINO_MOUSE_CLICK_CAPTURE=1) plus DINO_FORCE_INPUT_ACTIVE=1, start a
+// thread that keeps the input update alive while the window stays in the
+// background. Normal play does not define the variables.
+bool force_input_active_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        char value[8] = {};
+        cached = GetEnvironmentVariableA("DINO_FORCE_INPUT_ACTIVE", value,
+                                         sizeof(value)) > 0
+                     ? 1
+                     : 0;
+    }
+    return cached == 1;
+}
+
+DWORD WINAPI force_active_thread(LPVOID) {
+    DWORD last_sample = 0;
+    int last_slot = -1;
+    LONG slot_changes = 0;
+    LONG view_updates = 0;
+    for (;;) {
+        auto* input = *reinterpret_cast<char**>(exe_va(0x675104));
+        if (input != nullptr) {
+            const int slot = *reinterpret_cast<int*>(input + 0x294);
+            if (slot != last_slot) {
+                last_slot = slot;
+                InterlockedIncrement(&slot_changes);
+            }
+            input[8] = 1;   // miInputDx8 mouse poll enable
+            input[0x30] = 1;  // miInputDx8 keyboard poll enable
+            const DWORD now = GetTickCount();
+            if (now - last_sample >= 1000) {
+                last_sample = now;
+                auto* app = *reinterpret_cast<char**>(exe_va(0x674528));
+                const bool app_ok =
+                    app != nullptr && !IsBadReadPtr(app, 0x100);
+                char line[192];
+                std::snprintf(
+                    line, sizeof(line),
+                    "virtual mouse: force sample slot_changes=%ld "
+                    "state_calls=%ld app54=%d view_updates=%ld",
+                    static_cast<long>(slot_changes),
+                    static_cast<long>(g_mouse_state_calls),
+                    app_ok ? static_cast<unsigned char>(app[0x54]) : -1,
+                    static_cast<long>(view_updates));
+                log_line(line);
+            }
+        }
+        auto* app = *reinterpret_cast<char**>(exe_va(0x674528));
+        if (app != nullptr && !IsBadReadPtr(app, 0x100)) {
+            // On deactivation the engine stops calling the view update
+            // (FUN_00524610). The detector is app+0x18 bit 0x00010000: it is
+            // initialized to 1 (ctor) and observed to go 0 in the runtime
+            // active/stuck memory diff, but it is not statically attributed
+            // yet. app+0x54 is the WndProc's active byte (0x4235b0).
+            //
+            // RACE: this assumes the game thread skips the view update while
+            // the bit is clear; if it ever runs concurrently the view/D3D8
+            // state is touched by two threads. Env-gated
+            // (DINO_FORCE_INPUT_ACTIVE + DINO_VIRTUAL_MOUSE) for the harness
+            // only; do not enable it for normal play.
+            const bool inactive =
+                (*reinterpret_cast<std::uint32_t*>(app + 0x18) &
+                 0x00010000u) == 0;
+            if (inactive) {
+                auto* view = *reinterpret_cast<char**>(exe_va(0x675a88));
+                static DWORD last_update = 0;
+                const DWORD now = GetTickCount();
+                if (view != nullptr && !IsBadReadPtr(view, 0x64) &&
+                    now - last_update >= 15) {
+                    last_update = now;
+                    using ViewUpdateFn = void(__fastcall*)(void*);
+                    reinterpret_cast<ViewUpdateFn>(exe_va(0x524610))(view);
+                    InterlockedIncrement(&view_updates);
+                }
+            }
+            if (app[0x54] == 0) {
+                app[0x54] = 1;
+            }
+        }
+        Sleep(5);
+    }
+    return 0;
+}
+
+void start_force_active_thread() {
+    static bool started = false;
+    if (started) {
+        return;
+    }
+    started = true;
+    HANDLE thread =
+        CreateThread(nullptr, 0, force_active_thread, nullptr, 0, nullptr);
+    if (thread != nullptr) {
+        CloseHandle(thread);
+        log_line("virtual mouse: force-active thread started");
+    } else {
+        log_line("virtual mouse: force-active thread FAILED");
+    }
 }
 
 bool g_click_capture_active = false;
@@ -891,12 +998,31 @@ bool gate_mouse_input(void* data, DWORD cbData) {
 
 bool read_virtual_input(int& target_x, int& target_y, bool& down,
                         bool& has_move) {
+    // The shim can poll at 64 Hz; re-opening the file on every poll makes the
+    // x32dbg CreateFileA breakpoint dominate the debuggee. 50 ms still catches
+    // the harness's 100 ms click hold.
+    static DWORD last_read = 0;
+    static int cached_x = 0;
+    static int cached_y = 0;
+    static bool cached_down = false;
+    static bool cached_has_move = false;
+    static bool cached_valid = false;
+    const DWORD now = GetTickCount();
+    if (cached_valid && now - last_read < 50) {
+        target_x = cached_x;
+        target_y = cached_y;
+        down = cached_down;
+        has_move = cached_has_move;
+        return true;
+    }
+    last_read = now;
     HANDLE file = CreateFileA("dino_input.txt", GENERIC_READ,
                               FILE_SHARE_READ | FILE_SHARE_WRITE |
                                   FILE_SHARE_DELETE,
                               nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                               nullptr);
     if (file == INVALID_HANDLE_VALUE) {
+        cached_valid = false;
         return false;
     }
     char buffer[64] = {};
@@ -916,13 +1042,24 @@ bool read_virtual_input(int& target_x, int& target_y, bool& down,
         target_y = b;
         down = c != 0;
         has_move = true;
+        cached_x = target_x;
+        cached_y = target_y;
+        cached_down = down;
+        cached_has_move = has_move;
+        cached_valid = true;
         return true;
     }
     if (count >= 1) {
         down = a != 0;
         has_move = false;
+        cached_x = target_x;
+        cached_y = target_y;
+        cached_down = down;
+        cached_has_move = has_move;
+        cached_valid = true;
         return true;
     }
+    cached_valid = false;
     return false;
 }
 
@@ -1098,6 +1235,30 @@ HRESULT STDMETHODCALLTYPE hook_get_device_data(void* self, DWORD cbObjectData,
     return hr;
 }
 
+// Retail asks for DISCL_FOREGROUND; the test harness keeps the game in the
+// background, so the device would stop reporting. Force the background
+// cooperative level and keep the device non-exclusive.
+HRESULT STDMETHODCALLTYPE hook_set_cooperative_level(void* self, HWND hwnd,
+                                                     DWORD flags) {
+    constexpr DWORD kForeground = 0x00000004;
+    constexpr DWORD kBackground = 0x00000008;
+    constexpr DWORD kNonexclusive = 0x00000002;
+    constexpr DWORD kNoWinKey = 0x00000010;
+    const DWORD forced =
+        (flags | kBackground | kNonexclusive) & ~(kForeground | kNoWinKey);
+    const HRESULT hr =
+        g_real_set_cooperative_level(self, hwnd, forced);
+    char line[160];
+    std::snprintf(line, sizeof(line),
+                  "virtual mouse: SetCooperativeLevel flags=0x%lx -> 0x%lx "
+                  "hr=0x%lx",
+                  static_cast<unsigned long>(flags),
+                  static_cast<unsigned long>(forced),
+                  static_cast<unsigned long>(hr));
+    log_line(line);
+    return hr;
+}
+
 HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
                                              void** out, IUnknown* outer) {
     const HRESULT hr = g_real_create_device(self, rguid, out, outer);
@@ -1138,6 +1299,16 @@ HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
                 log_line("virtual mouse: GetDeviceData patch FAILED");
             }
         }
+        if (g_real_set_cooperative_level == nullptr) {
+            if (patch_vtable_entry(
+                    device_vtable, 13,
+                    reinterpret_cast<void*>(&hook_set_cooperative_level),
+                    reinterpret_cast<void**>(&g_real_set_cooperative_level))) {
+                log_line("virtual mouse: SetCooperativeLevel patched");
+            } else {
+                log_line("virtual mouse: SetCooperativeLevel patch FAILED");
+            }
+        }
     }
     return hr;
 }
@@ -1146,6 +1317,9 @@ void install_virtual_mouse(void* dinput8) {
     if (dinput8 == nullptr ||
         (!virtual_mouse_enabled() && !click_capture_enabled())) {
         return;
+    }
+    if (force_input_active_enabled()) {
+        start_force_active_thread();
     }
     void** vtable = *reinterpret_cast<void***>(dinput8);
     if (vtable == nullptr ||

@@ -33,6 +33,7 @@ add a row when a claim becomes something later work depends on.
 | `.fnt` loader hook `0x430fb0` | `notes/hybrid-fnt-recon.md`, `notes/hyb7-counter.txt` | `notes/park-hook-fnt.png` |
 | `.mesh`/`.skin`/`.anim`/`.skel` hooks | `docs/decomp/hybrid.md` | `notes/hyb6-counter.txt`, `notes/park-hook-mesh-default.png` |
 | Windowed/background test runtime | `docs/platform/windowed-testing.md` | `notes/windowed-park.png`, `scripts/setup-test-runtime.ps1` |
+| Background DirectInput polling/clicks (`DINO_FORCE_INPUT_ACTIVE`) | `notes/background-input-recon.md`, `docs/platform/windowed-testing.md` | `build/force-active-6-x32.log`, `build/force-active-7b-x32.log`, `run-test/dino_hook.log` |
 | Employee profiles + hire/wage/feeding | `docs/platform/employees.md`, `docs/decomp/employee-ai.md` | `tests/test_viewer_cpp.py::test_cpp_employee_info`, `test_cpp_employee_feeding_and_wages`, `notes/employees.png` |
 | `.shw` + `.bfi` show grid (C++ tiling) | `docs/formats/shw.md`, `docs/formats/bfi.md` | `tests/test_viewer_cpp.py::test_cpp_show_info` |
 | Retail UI click map (800x600, all screens) | `docs/platform/ui-coordinates.md`, `tools/formats/ui_map.py` | `tests/test_ui_map.py`, `docs/platform/ui-coordinates.json` |

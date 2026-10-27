@@ -90,16 +90,26 @@ The harness records the previous foreground window, sends the game to the
 back, and restores the previous window. Screenshots use `PrintWindow`, not a
 screen grab. A minimized game is restored with `SW_SHOWNOACTIVATE`.
 
-**Input limitation (verified 2026-10-26):** retail calls
+**Input limitation (updated 2026-10-27):** retail calls
 `SetCooperativeLevel(..., 6)` = `DISCL_FOREGROUND | DISCL_NONEXCLUSIVE`
-(mouse; keyboard uses `0x16`). When the game is fully inactive it stops
-calling `GetDeviceState` — `run-test/dino_hook.log` shows
-`virtual mouse: state calls=0` — and virtual clicks do not register. Window
-placement and screenshots remain background-safe, but a click test must keep
-the game active until the proxy shims activation and the cooperative level.
-The Ghidra evidence is `0x4454f1` (`SetCooperativeLevel`), `0x44591f`
-(`GetDeviceState`), `0x44592e` (retry `Acquire`), and WndProc `0x423609`
-(`WM_SETFOCUS` sets the active byte).
+(mouse; keyboard uses `0x16`). The proxy forces the mouse device to
+`DISCL_BACKGROUND | DISCL_NONEXCLUSIVE` (and strips `DISCL_NOWINKEY`), and
+with `DINO_FORCE_INPUT_ACTIVE=1` it also keeps the retail input update
+(`FUN_00524610`) running at ~60 Hz while the window is deactivated. Result:
+`run-test/dino_hook.log` now shows `state_calls` growing at ~64/s and one
+`state button=down/up` pair per scripted click, with no crash.
+
+**However, the menu still does not act on those clicks in the background.**
+The engine's deactivation path also skips the main-loop message/UI update;
+the x32dbg loader/Entrance breakpoints stay cold after 9 delivered clicks
+(even after the 116.5 s `generic.mpg` menu movie). Do not cite the background
+*click flow* as working yet; only input delivery is verified. The Ghidra
+evidence is `0x4454f1` (`SetCooperativeLevel`), `0x44591f`
+(`GetDeviceState`), `0x44592e` (retry `Acquire`), `FUN_00524610`
+(view/input update), and WndProc `0x423609` (`WM_SETFOCUS` sets the active
+byte). The proxy drives `FUN_00524610` only when `app+0x18` bit `0x00010000`
+is clear (the deactivated state from the active/stuck memory diff); see
+`notes/background-input-recon.md`.
 
 The harness also posts `WM_MOUSEMOVE` to update the game's own cursor/hover.
 It writes the target and button state to `dino_input.txt`:
@@ -183,12 +193,14 @@ The click sequence was exercised with the default `play-freegame.ps1`:
 - lab, options and save panels opened
 - the physical cursor was not moved
 
-**Background input is not currently verified.** A fully backgrounded run logs
-`virtual mouse: state calls=0`; the game is not polling, so the scripted clicks
-do not advance the menu even though the script prints each step. The
-virtual-mouse override itself has been observed with `state calls=42` in a
-foreground run. Do not cite the background click flow as working until the
-cooperative-level/activation shim lands.
+**Background input delivery is verified; the background click flow is not.**
+With `DINO_FORCE_INPUT_ACTIVE=1` the proxy keeps DirectInput polling and
+delivers every scripted click while the window is behind other windows
+(`state_calls` ~64/s, down/up per click). The retail menu still ignores them
+because its deactivated main loop skips the UI/message update; loader traces
+stay cold even after waiting out `generic.mpg`. The foreground path remains
+the reference (`state calls=42`+, park reached). See
+`notes/background-input-recon.md`.
 
 Evidence:
 
@@ -202,6 +214,7 @@ Limitations:
 - only the left mouse button is scripted;
 - keyboard injection is not implemented yet;
 - `dino_input.txt` is polled from the game's working directory;
-- the game must be foreground for DirectInput to poll, so the helper briefly
-  brings the window forward (but never moves the pointer);
+- with `DINO_FORCE_INPUT_ACTIVE=1` DirectInput polling and click delivery work
+  in the background; the retail UI gate (main-loop message/UI update) is still
+  unsolved, so the foreground path remains the reference;
 - the dgVoodoo2 watermark remains visible in windowed screenshots.

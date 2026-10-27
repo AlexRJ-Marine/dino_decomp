@@ -60,22 +60,27 @@ See `notes/lanes.md`. Default split:
   water/partition polish.
 - WORLD-3/2 polish: second `Modulate2x` water stage, skybox seam, frustum
   culling/LOD2.
+- TOOL-4: background DirectInput polling/clicks are verified solved via the
+  proxy-driven `FUN_00524610`; the deactivated main loop still skips the
+  UI/message update, so the menu ignores them.
 
 ## Next actions
 
 1. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. TOOL-4: finish the background activation shim (or get one
-   `-PhysicalInput` run approved), then run
-   `start-campaign.ps1 -ProviderTrace -UnlockCampaigns` to resolve the
-   policy vtable `+0x14` target provider.
+2. TOOL-4: input delivery in the background is solved (proxy drives
+   `FUN_00524610`; `state_calls` ~64/s, a down/up pair per click). Remaining:
+   the deactivated main loop also skips UI/message processing. Patch that
+   branch or call the view-manager dispatcher `0x5960c0` on the game thread,
+   or get one `-PhysicalInput` approval for the P3 provider trace.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
 4. SIM-4: runtime-verify the budget panel rows against a populated save.
 5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-27 - TOOL-4: proxy-driven FUN_00524610 keeps background DirectInput polling and delivers every click; retail UI gate remains
 - 2026-10-27 - VIDEO-2: windowed MPEG playback + CPGEND ending-video handoff (tennis.mpg)
 - 2026-10-27 - Store tail: MESSAGE_PANEL toast keeps the panel open; mission/free-game store catalogs
 - 2026-10-27 - VIDEO-1: PL_MPEG decoder, --video-info/--video-frame, tennis 640x480@24fps
@@ -83,7 +88,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - CAMPAIGN-3 franckstrangedinos: carnivore/biped/size/intelligence predicate; Cpg06_Mission4 completes
 - 2026-10-27 - Store 3D preview: selected Market dino rendered in DINO_ACHAT_SAVE_RENDER_VIEW
 - 2026-10-27 - CAMPAIGN-3 coverage: 77/89 objectives implemented, 12 pending (franck + shows)
-- 2026-10-27 - CAMPAIGN-3 hybriddinos: phenotype originality fills +0x1e4 (Cpg04 originality 80)
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers
