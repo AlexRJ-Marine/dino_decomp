@@ -3570,7 +3570,9 @@ int main(int argc, char** argv) {
         for (const dino::MarketEntry& entry : store_catalog) {
             std::string name = entry.name;
             std::replace(name.begin(), name.end(), '_', ' ');
-            rows.push_back({name, entry.price, store_row_attributes(entry)});
+            rows.push_back(
+                {name, entry.price, store_row_attributes(entry),
+                 entry.genotype});
         }
         park.set_store_rows(std::move(rows));
     };
@@ -4846,6 +4848,93 @@ int main(int argc, char** argv) {
         }
         imported_species[key] = assets;
         return assets;
+    };
+
+    // Store `DINO_ACHAT_SAVE_RENDER_VIEW`: one static LOD1 mesh per
+    // Market.ini genotype, fitted into the preview well at draw time.
+    struct StorePreview {
+        GpuMesh gpu;
+        GLuint texture = 0;
+        dino::Vec3 center{};
+        float size = 1.0f;
+        bool ready = false;
+    };
+    std::map<std::string, StorePreview> store_previews;
+    auto store_preview_for =
+        [&](const dino::ui::StoreRow& row) -> StorePreview* {
+        if (row.genotype.empty()) {
+            return nullptr;
+        }
+        const auto found = store_previews.find(row.genotype);
+        if (found != store_previews.end()) {
+            return found->second.ready ? &found->second : nullptr;
+        }
+        StorePreview preview;
+        try {
+            const std::string path = resolve_asset(
+                opt.asset_root,
+                "Data/Design/Scenario/Genotype/" + row.genotype);
+            const int head = dino::read_gen_head_type(path);
+            const auto match = head_species.find(head);
+            const std::string species =
+                match != head_species.end() ? match->second : "allo";
+            std::string family = family_table.family_of(species);
+            if (family.empty()) {
+                family = "LightBiped";
+            }
+            const auto assets =
+                load_imported_species(species, family, opt.dino_clip);
+            if (assets) {
+                const dino::Animation* anim =
+                    assets->anim.bones.empty() ? nullptr : &assets->anim;
+                dino::Mesh pose = build_skinned_mesh(
+                    assets->skin.mesh, assets->skin, assets->skeleton, anim,
+                    0.0, assets->vertex_bone, assets->bone_skel, false);
+                if (assets->mesh.colors.size() == pose.positions.size()) {
+                    pose.colors = assets->mesh.colors;
+                }
+                if (!pose.positions.empty()) {
+                    dino::Vec3 lo{1e30f, 1e30f, 1e30f};
+                    dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
+                    for (const dino::Vec3& p : pose.positions) {
+                        lo.x = std::min(lo.x, p.x);
+                        lo.y = std::min(lo.y, p.y);
+                        lo.z = std::min(lo.z, p.z);
+                        hi.x = std::max(hi.x, p.x);
+                        hi.y = std::max(hi.y, p.y);
+                        hi.z = std::max(hi.z, p.z);
+                    }
+                    preview.center = {(lo.x + hi.x) * 0.5f,
+                                      (lo.y + hi.y) * 0.5f,
+                                      (lo.z + hi.z) * 0.5f};
+                    preview.size = std::max(
+                        {hi.x - lo.x, hi.y - lo.y, hi.z - lo.z});
+                    preview.texture = assets->texture;
+                    preview.gpu = upload_mesh(pose, glfns);
+                    preview.ready =
+                        preview.gpu.vao != 0 && preview.size > 0.001f;
+                }
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "store preview: %s\n", e.what());
+        }
+        const std::string key = row.genotype;
+        const bool ready = preview.ready;
+        if (std::getenv("DINO_DEBUG_STORE_PREVIEW") != nullptr) {
+            std::fprintf(stderr,
+                         "store preview: %s genotype=%s verts=%d "
+                         "size=%.2f texture=%u ready=%d\n",
+                         row.name.c_str(), key.c_str(),
+                         preview.gpu.index_count,
+                         static_cast<double>(preview.size),
+                         static_cast<unsigned>(preview.texture),
+                         ready ? 1 : 0);
+        }
+        store_previews.emplace(key, std::move(preview));
+        if (!ready) {
+            return nullptr;
+        }
+        return &store_previews[key];
     };
 
     auto add_imported_dino = [&](const std::string& species,
@@ -8080,6 +8169,104 @@ int main(int argc, char** argv) {
                                                static_cast<float>(widget.height) * dpi,
                                                widget.back_color),
                              0, 1.0f, 1, view_w, view_h);
+            }
+
+            // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected Market.ini
+            // dinosaur's standing LOD1 mesh directly into the well. The
+            // retail widget is a 3D preview; the port fits the mesh to the
+            // widget rect with a pixel-space MVP and scissor clipping.
+            if (widget.name == "DINO_ACHAT_SAVE_RENDER_VIEW" &&
+                !park.store_rows().empty()) {
+                const int selected = park.store_selected();
+                if (selected >= 0 &&
+                    selected < static_cast<int>(park.store_rows().size())) {
+                    if (StorePreview* preview =
+                            store_preview_for(
+                                park.store_rows()[static_cast<std::size_t>(
+                                    selected)])) {
+                        const float w =
+                            static_cast<float>(widget.width) * dpi;
+                        const float h =
+                            static_cast<float>(widget.height) * dpi;
+                        const float size =
+                            std::max(0.001f, preview->size);
+                        const dino::Vec3 center = preview->center;
+                        // Side/three-quarter camera; the scene renderer
+                        // already uses this projection convention for the
+                        // imported dinosaurs.
+                        const dino::Vec3 eye{
+                            center.x - size * 1.4f,
+                            center.y - size * 0.25f,
+                            center.z + size * 0.35f};
+                        const dino::Mat4 view =
+                            look_at(eye, center, {0.0f, 0.0f, 1.0f});
+                        const dino::Mat4 proj = perspective(
+                            32.0f, 1.0f, 0.1f, size * 10.0f);
+                        const dino::Mat4 mvp =
+                            dino::multiply(proj, view);
+                        const int vx =
+                            static_cast<int>(px(widget.abs_x));
+                        const int vy = static_cast<int>(
+                            view_h - (py(widget.abs_y) + h));
+                        glEnable(GL_SCISSOR_TEST);
+                        glScissor(vx, vy, static_cast<int>(w),
+                                  static_cast<int>(h));
+                        glViewport(vx, vy, static_cast<int>(w),
+                                   static_cast<int>(h));
+                        glEnable(GL_DEPTH_TEST);
+                        glDepthFunc(GL_LEQUAL);
+                        glDisable(GL_CULL_FACE);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                        glfns.UseProgram(program);
+                        glfns.UniformMatrix4fv(
+                            glfns.GetUniformLocation(program, "u_mvp"), 1,
+                            GL_TRUE, mvp.m);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program, "u_unlit"), 1);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program,
+                                                     "u_use_texture"),
+                            preview->texture != 0 ? 1 : 0);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program, "u_texture"), 0);
+                        glfns.Uniform1f(
+                            glfns.GetUniformLocation(program, "u_alpha"),
+                            1.0f);
+                        glfns.Uniform1i(
+                            glfns.GetUniformLocation(program,
+                                                     "u_fog_enable"),
+                            0);
+                        const float light[3] = {-0.35f, -0.68f, 0.72f};
+                        const float light_color[3] = {0.92f, 0.93f, 0.95f};
+                        const float ambient[3] = {0.62f, 0.64f, 0.68f};
+                        const float camera[3] = {0.0f, 0.0f, 4.0f};
+                        glfns.Uniform3fv(
+                            glfns.GetUniformLocation(program,
+                                                     "u_light_dir"),
+                            1, light);
+                        glfns.Uniform3fv(
+                            glfns.GetUniformLocation(program,
+                                                     "u_light_color"),
+                            1, light_color);
+                        glfns.Uniform3fv(
+                            glfns.GetUniformLocation(program, "u_ambient"),
+                            1, ambient);
+                        glfns.Uniform3fv(
+                            glfns.GetUniformLocation(program, "u_camera"),
+                            1, camera);
+                        if (preview->texture != 0) {
+                            glfns.ActiveTexture(GL_TEXTURE0);
+                            glBindTexture(GL_TEXTURE_2D, preview->texture);
+                        }
+                        glfns.BindVertexArray(preview->gpu.vao);
+                        glDrawElements(GL_TRIANGLES,
+                                       preview->gpu.index_count,
+                                       GL_UNSIGNED_INT, nullptr);
+                        glViewport(0, 0, view_w, view_h);
+                        glDisable(GL_SCISSOR_TEST);
+                        glDisable(GL_DEPTH_TEST);
+                    }
+                }
             }
 
             // PROGRESS widgets: fill the gauge track proportionally. The

@@ -618,7 +618,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (71 checks)" in result.stdout
+    assert "selftest: PASS (85 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -2468,6 +2468,38 @@ def test_cpp_store_attribute_gauges(tmp_path):
             "AGGRESSIVENESS=50/100 ATTACK=51/120 BEAUTY=38/100 "
             "PERCEPTION=58/100") in result.stdout
     assert shot.exists() and shot.stat().st_size > 0
+
+
+def test_cpp_store_3d_preview(tmp_path):
+    """The store well renders the selected Market.ini dinosaur in 3D."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    shot = tmp_path / "preview.bmp"
+    env = dict(os.environ, DINO_DEBUG_STORE_PREVIEW="1")
+    result = subprocess.run(
+        [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-click", "765,298", "--park-click", "160,88",
+         "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=300, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout + result.stderr
+    assert "store preview: Allosaurus genotype=allo.gen verts=" in log
+    assert "ready=1" in log
+    assert shot.exists() and shot.stat().st_size > 0
+    # The inner well is no longer the flat dark panel: the lit dinosaur
+    # supplies green/red values above the purple background.
+    image = Image.open(shot).convert("RGB")
+    inner = image.crop((267, 93, 267 + 144, 93 + 144))
+    bright = sum(1 for r, g, _b in inner.getdata() if g > 70 and r > 50)
+    assert bright > 500, bright
 
 
 def test_cpp_store_panel_no_money():

@@ -1100,8 +1100,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `BudgetLedger::spend_dinoachat`, places the dinosaur and erases the catalog
   row. Cpg04: Allosaurus (9,000) -> budget 66,000, paddock 7, total 368
   (`notes/store-panel.png`, `test_cpp_store_panel_purchase`,
-  `test_cpp_store_panel_no_money`). The 1.5 s reveal delay is optional;
-  the preview actor remains.
+  `test_cpp_store_panel_no_money`). The 1.5 s reveal delay is optional.
+- [x] 3D store preview: `DINO_ACHAT_SAVE_RENDER_VIEW` draws the selected
+  Market.ini dinosaur's skinned LOD1 pose in a side/three-quarter camera,
+  clipped to the widget rect. Per-genotype GPU meshes are cached; the scene
+  camera/lighting path is reused. Allosaurus renders correctly; evidence
+  `notes/store-preview.png`, `test_cpp_store_3d_preview`.
 - [x] Fill the eleven store attribute gauges from the selected Market entry.
   `Overlay` parses `PB_MAX_PROGRESS`/`PB_CURRENT_PROGRESS`, `ParkHud` maps
   `DINO_ACHAT_ATTRIBUTES_*_{GAUGE,INDICS}` to `StoreRow::attributes`, and the

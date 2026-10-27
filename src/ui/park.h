@@ -19,6 +19,7 @@ struct StoreRow {
     // ORIGINALITY/STAMINA/COURAGE/INTELLIGENCE/AGILITY/SPEED/ARMOR/
     // AGGRESSIVENESS/ATTACK/BEAUTY/PERCEPTION.
     std::array<int, 11> attributes{};
+    std::string genotype;  // Market.ini `.gen` file for the 3D preview
 };
 
 // In-park HUD controller: owns the ParkInterface.Ini tree and implements the

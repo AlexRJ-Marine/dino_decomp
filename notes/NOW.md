@@ -66,15 +66,15 @@ See `notes/lanes.md`. Default split:
 1. P3 chooser target term: resolve the policy vtable `+0x14` target
    provider (GetTarget x/y/radius) and feed `threat_score`; this also
    unblocks the visitor/obstacle reaction.
-2. Store panel polish: all eleven `PROGRESS` gauges are live (`+0x194`
-   originality ported); add the 3D preview actor in
-   `DINO_ACHAT_SAVE_RENDER_VIEW`.
+2. Store panel tail: the 11 gauges and 3D preview are live; restore the
+   panel after a dismissed warning and pick the mission/free-game catalog.
 3. WORLD-3: capture the remaining side-by-side and fix the water stage.
 4. SIM-4: runtime-verify the budget panel rows against a populated save.
 5. STAFF rest: decode job kind `0xb`.
 
 ## Recent
 
+- 2026-10-27 - Store 3D preview: selected Market dino rendered in DINO_ACHAT_SAVE_RENDER_VIEW
 - 2026-10-27 - CAMPAIGN-3 coverage: 77/89 objectives implemented, 12 pending (franck + shows)
 - 2026-10-27 - CAMPAIGN-3 hybriddinos: phenotype originality fills +0x1e4 (Cpg04 originality 80)
 - 2026-10-27 - CAMPAIGN-3 ornateddinos: 23-slot Part-6 dummy map exposed as ornament_count
@@ -82,7 +82,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - CAMPAIGN-3 cross-restart progress: campaign-progress.txt resumes the stored mission from the menu
 - 2026-10-27 - CAMPAIGN-3 completion: last mission shows ending text and writes the next dino.dat unlock bit
 - 2026-10-27 - CAMPAIGN-3 isolateddinos: aggressive dinos alone in their paddock; Cpg04 pending, empty Cpg01 completes Mission1
-- 2026-10-27 - CAMPAIGN-3 connectedbuildings: category map + path-touching footprints; Mission5/6 complete
   (`DinoAttributes`, 17/20 Cpg04 rows exact).
 
 ## Blockers

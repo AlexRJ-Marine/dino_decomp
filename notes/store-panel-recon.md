@@ -165,9 +165,17 @@ The Leoparus breed has distinct dummy alleles and shows ORIGINALITY 67.
 Evidence: `notes/store-gauges.png`, `notes/store-gauges-originality.png`,
 `test_cpp_store_attribute_gauges`.
 
-Remaining: the 3D preview actor (the `DINO_ACHAT_SAVE_RENDER_VIEW` well),
-restoring the panel after a dismissed warning, and the mission/free-game
-catalog selection (the port currently uses `Market.ini` for all modes).
+3D preview: `DINO_ACHAT_SAVE_RENDER_VIEW` now draws the selected Market.ini
+dinosaur's skinned LOD1 pose. `StoreRow.genotype` resolves the head
+species/family; a per-genotype `StorePreview` caches the GPU mesh, texture
+and model bounds. The draw reuses the scene `look_at`/`perspective` and
+lighting with a side/three-quarter camera, clipped by scissor to the widget
+rect. Allosaurus: `notes/store-preview.png`,
+`test_cpp_store_3d_preview`.
+
+Remaining: restoring the panel after a dismissed warning and the
+mission/free-game catalog selection (the port currently uses `Market.ini`
+for all modes).
 
 ### Draw-order fix
 
