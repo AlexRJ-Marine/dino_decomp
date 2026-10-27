@@ -43,11 +43,15 @@ retail LOAD GAME path now reaches a park. A C++-written save with
 - the park clock (09:28) matches the save's `schedule_elapsed` (23.2 s), so
   the world/camera/clock came from the save.
 
-Open save class: campaign autosaves (~53 KB, after a campaign park) populate
-the three simulation lists after the roads; the free-game writer covers only
-the empty form. `--sav-roundtrip` reports `non-empty simulation list` for them
-and `test_cpp_sav_park_roundtrip` skips that known class. Decode/write the
-lists before claiming campaign save parity.
+Campaign autosaves (~53 KB, after a campaign park) populate the simulation
+lists after the roads. `list0` (`saDinosaur`) is decoded and modeled in
+`tools/formats/sav_campaign.py`; the C++ reader validates each record length
+and keeps list0 plus the still-undecoded list1/list2 tail raw. Whole-file
+round-trips are byte-identical (`--sav-roundtrip`,
+`build/campaign-autosave.sav`), and `test_cpp_sav_park_roundtrip` no longer
+skips the class. Remaining for full campaign parity: typed C++ list0, decode
+list1/list2, and expose the campaign park/visitor state (the partial C++
+`--sav-info` reports zeros for those).
 
 HUD cash resolved: it is the same field as the park block `+0x30`
 (`spPark->economy+0x08`; `FUN_00526010` reads it at `0x526041`, see

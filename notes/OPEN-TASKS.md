@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 23:39. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-27 23:43. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 33 open items.
 
@@ -92,5 +92,5 @@ Generated from `TASKS.md` on 2026-10-27 23:39. Do not edit; regenerate with `scr
 - [ ] Port music streaming/looping and SFX playback into the SDL3 viewer;
 
 ## SAVE-1: Save/load
-- [ ] Campaign writer: splice `SavCampaignDino`/`list0` into the C++ reader
+- [ ] Campaign parity rest: typed C++ `SavCampaignDino`, decode `list1`/
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while

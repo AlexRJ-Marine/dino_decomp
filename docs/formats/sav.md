@@ -486,10 +486,14 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   `python sav_write.py campaign.sav --campaign` rebuilds the header, world
   block, show catalog, roads and all typed list0 records, then keeps
   `list1`/`list2` and everything after them verbatim; the result is
-  byte-identical on `build/campaign-autosave.sav` (53,338 bytes). Remaining:
-  decode `list1`/`list2` and splice `SavCampaignDino` into the C++ reader/
-  writer. The four `+0x0c` bytes range 0..4; their exact state encoding is
-  still open.
+  byte-identical on `build/campaign-autosave.sav` (53,338 bytes).
+  The C++ reader (`src/formats/wld.cpp`) validates every list0 record length
+  with the same rule and keeps `campaign_list0` + `campaign_tail` raw, so
+  `--sav-roundtrip`/`--sav-write` are byte-identical for campaign autosaves.
+  Its parse stops after list0: `--sav-info` reports zeros for the visitor/
+  park/store/lab part until list1/list2 are decoded. Remaining: typed C++
+  list0 and `list1`/`list2`. The four `+0x0c` bytes range 0..4; their exact
+  state encoding is still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed

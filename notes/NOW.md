@@ -61,9 +61,10 @@ See `notes/lanes.md`. Default split:
 - SAVE-2 campaign class: `list0` is `saDinosaur` (`0x570c90`/`0x5706c0`);
   tail `0x2D1 + threshold + tex_bytes + 0x16*N` (N at `path+0x1c6`), no
   length prefix. `tools/formats/sav_campaign.py` models every field and
-  re-encodes all 20 records byte-identically; `sav_write.py --campaign`
-  rebuilds the whole file through typed list0 (list1+ kept verbatim) and is
-  byte-identical on the 53 KB sample. Remaining: C++ splice + list1/list2.
+  re-encodes all 20 records byte-identically; the C++ writer validates each
+  record length and keeps list0 + list1/tail raw, so `--sav-roundtrip`/
+  `--sav-write` are byte-identical on the 53 KB sample (no test skip).
+  Remaining: typed C++ list0, list1/list2, campaign park/visitor info.
 - SHOW-4: mission `[SHOWS]` catalog resolution, `--place-show`, a 10-slot
   hourly `ShowRuntime` with iterations/state and objective snapshots are
   ported (`src/world/show_runtime.*`); remaining: interactive construction

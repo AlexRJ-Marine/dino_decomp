@@ -124,6 +124,15 @@ struct SavLabRecord {
 // spSimuManager prefix after the world block + show catalog.
 struct SavSimulation {
     std::vector<RoadRect> roads;
+    // Campaign autosaves populate list0 with `saDinosaur` records. The C++
+    // reader validates the schema-driven record lengths (name, texture
+    // string, path-node count) but keeps the bytes raw; the typed model is
+    // tools/formats/sav_campaign.py. list1/list2 and everything after them
+    // stay verbatim until they are decoded.
+    bool campaign = false;
+    std::uint32_t campaign_dino_count = 0;
+    std::vector<std::uint8_t> campaign_list0;  // count + records
+    std::vector<std::uint8_t> campaign_tail;   // list1 count .. EOF
     std::vector<SavVisitor> visitors;
     SavEconomy economy;
     // Park record header + schedule tail (writer order in
@@ -252,7 +261,8 @@ WldWorld read_wld(const std::string& path);
 WldWorld read_sav_world(const std::string& path);
 
 // Reads the spSimuManager prefix after the world block + 39-show catalog:
-// road rectangles, the three empty lists, the 0x50-byte visitor records and
+// road rectangles, the three lists (campaign list0 records are length-checked
+// and kept raw; list1+ tail stays verbatim), the 0x50-byte visitor records and
 // the park block's budget/day/elapsed. Fences are in the world block.
 SavSimulation read_sav_simulation(const std::string& path);
 

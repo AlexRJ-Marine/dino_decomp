@@ -525,6 +525,58 @@ WldWorld read_sav_world(const std::string& path) {
     return out;
 }
 
+namespace {
+
+// Returns the end offset of one campaign list0 (`saDinosaur`) record.
+// There is no record-length prefix: the name, the texture string and the
+// path-node count determine the size. See
+// notes/campaign-list0-tail-recon.md and tools/formats/sav_campaign.py.
+std::size_t campaign_dino_end(const std::vector<std::uint8_t>& data,
+                              std::size_t pos, const std::string& path) {
+    auto need = [&](std::size_t size, const char* what) {
+        if (pos + size > data.size()) {
+            throw std::runtime_error(std::string("wld: ") + what +
+                                     " past simulation end in " + path);
+        }
+    };
+    need(0x19, "campaign dino prefix");
+    const std::uint8_t flag = data[pos + 0x14];
+    const std::uint32_t name_len =
+        read_u32(data, pos + 0x15, "campaign dino name length");
+    if (name_len == 0 || (name_len & 1) != 0 || name_len > 4096) {
+        throw std::runtime_error("wld: bad campaign dino name length in " +
+                                 path);
+    }
+    pos += 0x19 + name_len;
+    need(4, "campaign dino field_38");
+    pos += 4;
+    if (flag == 0) {
+        need(0x30, "campaign dino thresholds");
+        pos += 0x30;
+    }
+    need(0xB0 + 0x0C + 3 + 4, "campaign dino state");
+    pos += 0xB0 + 0x0C + 3;
+    const std::uint32_t texture =
+        read_u32(data, pos, "campaign dino texture length");
+    if (texture == 0 || texture > 4096) {
+        throw std::runtime_error("wld: bad campaign dino texture length in " +
+                                 path);
+    }
+    pos += 4 + texture;
+    need(4 + 1 + 4 + 0x1CA, "campaign dino path");
+    pos += 4 + 1 + 4;
+    const std::uint32_t nodes =
+        read_u32(data, pos + 0x1C6, "campaign path node count");
+    if (nodes > 4096) {
+        throw std::runtime_error("wld: bad campaign path node count in " +
+                                 path);
+    }
+    need(0x201 + static_cast<std::size_t>(nodes) * 0x16, "campaign dino path");
+    return pos + 0x201 + static_cast<std::size_t>(nodes) * 0x16;
+}
+
+}  // namespace
+
 SavSimulation read_sav_simulation(const std::string& path) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     const WldWorld world = read_sav_world(path);
@@ -571,8 +623,25 @@ SavSimulation read_sav_simulation(const std::string& path) {
         out.roads.push_back(road);
     }
 
-    // Three simulation lists are empty in retail saves.
-    for (int i = 0; i < 3; ++i) {
+    // list0 holds saDinosaur records in campaign autosaves. Validate each
+    // record's schema-driven length, then keep list0 and the still-undecoded
+    // list1/list2 tail verbatim. Free-game saves have all three lists empty.
+    const std::uint32_t list0_count =
+        r.count("simulation list count", 10000);
+    if (list0_count != 0) {
+        const std::size_t list0_start = r.offset() - 4;
+        std::size_t pos = r.offset();
+        for (std::uint32_t i = 0; i < list0_count; ++i) {
+            pos = campaign_dino_end(data, pos, path);
+        }
+        out.campaign = true;
+        out.campaign_dino_count = list0_count;
+        out.campaign_list0.assign(data.begin() + list0_start,
+                                  data.begin() + pos);
+        out.campaign_tail.assign(data.begin() + pos, data.end());
+        return out;
+    }
+    for (int i = 1; i < 3; ++i) {
         const std::uint32_t count = r.count("simulation list count", 10000);
         if (count != 0) {
             throw std::runtime_error(
@@ -865,6 +934,13 @@ std::vector<std::uint8_t> write_sav_simulation(
         put_i32(out, road.x1);
         put_i32(out, road.y1);
     }
+    if (s.campaign) {
+        out.insert(out.end(), s.campaign_list0.begin(),
+                   s.campaign_list0.end());
+        out.insert(out.end(), s.campaign_tail.begin(),
+                   s.campaign_tail.end());
+        return out;
+    }
     for (int i = 0; i < 3; ++i) put_u32(out, 0);
     put_u32(out, static_cast<std::uint32_t>(s.visitors.size()));
     for (const SavVisitor& v : s.visitors) {
@@ -1091,26 +1167,32 @@ bool sav_park_roundtrip(const std::string& path, std::string* error) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     const WldWorld world = read_sav_world(path);
     const SavSimulation simulation = read_sav_simulation(path);
-    if (!simulation.has_park) {
-        *error = ": no park block";
-        return false;
-    }
-    const std::vector<std::uint8_t> rebuilt = write_sav_park_block(simulation);
-    if (rebuilt.size() != 0x293) {
-        *error = ": rebuilt park block has the wrong size";
-        return false;
-    }
-    if (simulation.park_offset + rebuilt.size() > data.size()) {
-        *error = ": park block past EOF";
-        return false;
-    }
-    for (std::size_t i = 0; i < rebuilt.size(); ++i) {
-        if (data[simulation.park_offset + i] != rebuilt[i]) {
-            char message[64];
-            std::snprintf(message, sizeof(message), ": park first diff at 0x%zX",
-                          simulation.park_offset + i);
-            *error = message;
+    // A campaign autosave stops after list0; there is no decoded park block,
+    // so only the whole-file rebuild is meaningful.
+    if (!simulation.campaign) {
+        if (!simulation.has_park) {
+            *error = ": no park block";
             return false;
+        }
+        const std::vector<std::uint8_t> rebuilt =
+            write_sav_park_block(simulation);
+        if (rebuilt.size() != 0x293) {
+            *error = ": rebuilt park block has the wrong size";
+            return false;
+        }
+        if (simulation.park_offset + rebuilt.size() > data.size()) {
+            *error = ": park block past EOF";
+            return false;
+        }
+        for (std::size_t i = 0; i < rebuilt.size(); ++i) {
+            if (data[simulation.park_offset + i] != rebuilt[i]) {
+                char message[64];
+                std::snprintf(message, sizeof(message),
+                              ": park first diff at 0x%zX",
+                              simulation.park_offset + i);
+                *error = message;
+                return false;
+            }
         }
     }
     const std::vector<std::uint8_t> whole = write_sav_whole(simulation, world);

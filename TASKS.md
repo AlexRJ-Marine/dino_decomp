@@ -1799,9 +1799,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Campaign whole-file Python round-trip through typed `list0`:
   `sav_write.py --campaign` rebuilds header/world/catalog/roads/list0 and
   keeps `list1`+ tail verbatim; byte-identical on the 53,338-byte sample.
-- [ ] Campaign writer: splice `SavCampaignDino`/`list0` into the C++ reader
-  and writer, decode `list1`/`list2` (list1 count=2), then round-trip a
-  campaign autosave; `test_cpp_sav_park_roundtrip` currently skips the class.
+- [x] C++ campaign round-trip: `wld.cpp` validates list0 record lengths and
+  keeps list0 + list1/tail raw; `--sav-roundtrip` and `--sav-write` are
+  byte-identical, and `test_cpp_sav_park_roundtrip` includes the campaign
+  sample instead of skipping it.
+- [ ] Campaign parity rest: typed C++ `SavCampaignDino`, decode `list1`/
+  `list2` (list1 count=2), and expose the campaign visitor/park/store state
+  (`--sav-info` currently reports zeros for that part).
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`
