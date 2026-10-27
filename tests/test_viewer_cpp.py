@@ -945,6 +945,27 @@ def test_cpp_park_panels():
     assert "park hud: loaded=1 widgets=2694 roots=38 visible=53" in log
 
 
+def test_cpp_park_window_clicks_1024():
+    """Window-space clicks must match the HUD re-anchored to a 1024x768 window.
+
+    The park HUD fills the window, so a click at the drawn control is already
+    in park design space. This catches the old letterbox subtraction that made
+    the visual buttons appear offset to the right.
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--width", "1024", "--height", "768",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--park-window-click", "321,752",   # gauge: OPEN_BUDGET_PANEL
+         "--park-window-click", "981,214"],  # right panel: OPEN_LABORATORY
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "park window click 321,752 -> open BUDGET_PANEL" in result.stdout
+    assert "park window click 981,214 -> open DINO_LAB_MAIN_CENTER" in result.stdout
+
+
 def test_cpp_park_panel_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")

@@ -1579,6 +1579,22 @@ Updated: 2026-10-26
     `tests/test_viewer_cpp.py::test_cpp_employee_info`,
     `test_cpp_employee_feeding_and_wages`.
 
+- UI pointer mapping fixed: the park HUD is re-anchored to the logical window,
+  so SDL mouse points are already park design points. The old
+  `park_design()` subtracted the 800x600 menu letterbox origin, shifting the
+  clickable area left of the drawn buttons at 1024x768 (112 px), 1280x720
+  (240 px) and other non-800-wide windows. `map_park_pointer()` is now the
+  shared identity mapping, layout is synced before events, and
+  `--park-window-click` exercises the window-space path.
+  - Evidence: `src/viewer/main.cpp` (`map_park_pointer`, `sync_park_layout`),
+    `tests/test_viewer_cpp.py::test_cpp_park_window_clicks_1024`,
+    `docs/platform/hud.md` (resolution/anchoring note).
+  - Validation: `test_cpp_park_window_clicks_1024`, `test_cpp_park_panels`,
+    `test_cpp_park_hud_1024_anchor`, `test_cpp_park_hud_load`,
+    `test_cpp_retail_menu_clicks`, `test_cpp_retail_menu_loading_handoff`
+    (6 passed); manual 1280x720 window clicks open BUDGET_PANEL and
+    DINO_LAB_MAIN_CENTER.
+
 ## In progress
 
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported

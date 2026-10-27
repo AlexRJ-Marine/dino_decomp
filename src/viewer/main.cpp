@@ -209,6 +209,7 @@ struct Options {
     bool park_hud = true;
     std::string park_hover;
     std::vector<std::string> park_clicks;
+    std::vector<std::string> park_window_clicks;
     std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::string skybox_dir;
     bool water = true;
@@ -582,6 +583,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_hover = next("--park-hover");
         } else if (arg == "--park-click") {
             opt.park_clicks.push_back(next("--park-click"));
+        } else if (arg == "--park-window-click") {
+            opt.park_window_clicks.push_back(next("--park-window-click"));
         } else if (arg == "--ground-click") {
             opt.ground_click = next("--ground-click");
         } else if (arg == "--no-water") {
@@ -761,6 +764,8 @@ Options parse_args(int argc, char** argv) {
                 "  --request TEXT       show the retail request dialog\n"
                 "  --campaign-end TEXT  show the retail campaign-end dialog\n"
                 "  --park-hover X,Y     set the park HUD hovered point\n"
+                "  --park-click X,Y     click a park HUD point in design coordinates\n"
+                "  --park-window-click X,Y  click a park HUD point in window coordinates\n"
                 "  --no-park-hud        skip the ParkInterface.Ini HUD\n"
                 "  --no-water           skip the water plane\n"
                 "  --no-water2          skip the WaterSurface Modulate2x stage 1\n"
@@ -1666,6 +1671,16 @@ struct UiSourceRect {
     int h = 0;
     bool valid = true;
 };
+
+// Park HUD widgets are re-anchored to the full logical window by
+// Overlay::layout_for_size(), so SDL window points are already park design
+// points. The menu is the exception: it is drawn as an 800x600 rect centred
+// in the window and subtracts the letterbox origin separately.
+void map_park_pointer(float window_x, float window_y, int& design_x,
+                      int& design_y) {
+    design_x = static_cast<int>(window_x);
+    design_y = static_cast<int>(window_y);
+}
 
 UiSourceRect ui_frame_rect(const UiTexture& texture, const dino::ui::Graphic& graphic,
                            int logical_frame) {
@@ -3803,27 +3818,49 @@ int main(int argc, char** argv) {
             }
             // Apply scripted HUD clicks early so --validate can report them;
             // minimap zoom actions are replayed once the render target exists.
+            auto apply_park_action = [&](int x, int y, const std::string& action,
+                                         const char* label) {
+                if (action == "minimap zoom in") {
+                    --pending_minimap_zoom;
+                } else if (action == "minimap zoom out") {
+                    ++pending_minimap_zoom;
+                } else if (action == "save port") {
+                    pending_port_save = true;
+                } else if (action == "load port") {
+                    pending_port_load = true;
+                } else if (action.rfind("construct ", 0) == 0) {
+                    pending_construct_widget = action.substr(10);
+                } else if (action.rfind("store buy ", 0) == 0) {
+                    pending_store_action = action;
+                }
+                std::printf("%s %d,%d -> %s\n", label, x, y,
+                            action.empty() ? "consumed" : action.c_str());
+            };
             for (const auto& value : opt.park_clicks) {
                 int x = 0;
                 int y = 0;
                 if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                     std::string action;
                     park.click(x, y, action);
-                    if (action == "minimap zoom in") {
-                        --pending_minimap_zoom;
-                    } else if (action == "minimap zoom out") {
-                        ++pending_minimap_zoom;
-                    } else if (action == "save port") {
-                        pending_port_save = true;
-                    } else if (action == "load port") {
-                        pending_port_load = true;
-                    } else if (action.rfind("construct ", 0) == 0) {
-                        pending_construct_widget = action.substr(10);
-                    } else if (action.rfind("store buy ", 0) == 0) {
-                        pending_store_action = action;
+                    apply_park_action(x, y, action, "park click");
+                }
+            }
+            if (!opt.park_window_clicks.empty()) {
+                // Window-coordinate clicks use the same mapping as SDL events:
+                // the park HUD is laid out to the full logical window.
+                park.overlay.layout_for_size(opt.width, opt.height);
+                for (const auto& value : opt.park_window_clicks) {
+                    int wx = 0;
+                    int wy = 0;
+                    if (std::sscanf(value.c_str(), "%d,%d", &wx, &wy) == 2) {
+                        int x = 0;
+                        int y = 0;
+                        map_park_pointer(static_cast<float>(wx),
+                                         static_cast<float>(wy), x, y);
+                        std::string action;
+                        park.click(x, y, action);
+                        apply_park_action(x, y, action, "park window click");
                     }
-                    std::printf("park click %d,%d -> %s\n", x, y,
-                                action.empty() ? "consumed" : action.c_str());
                 }
             }
         } else {
@@ -8937,18 +8974,34 @@ int main(int argc, char** argv) {
     int logical_width = opt.width;
     int logical_height = opt.height;
 
-    auto park_design = [&](float window_x, float window_y, int& design_x,
-                           int& design_y) {
-        design_x = static_cast<int>(
-            window_x - (static_cast<float>(logical_width) - 800.0f) * 0.5f);
-        design_y = static_cast<int>(
-            window_y - (static_cast<float>(logical_height) - 600.0f) * 0.5f);
+    auto park_design = [](float window_x, float window_y, int& design_x,
+                          int& design_y) {
+        map_park_pointer(window_x, window_y, design_x, design_y);
     };
+
+    // Keep hit-testing in the same coordinate space as the laid-out park
+    // overlay. This also runs before the event loop so the first click after
+    // startup or a resize uses the current window size.
+    auto sync_park_layout = [&]() {
+        SDL_GetWindowSize(window, &logical_width, &logical_height);
+        if (park.loaded() &&
+            (logical_width != park_layout_w || logical_height != park_layout_h)) {
+            park.overlay.layout_for_size(logical_width, logical_height);
+            park_layout_w = logical_width;
+            park_layout_h = logical_height;
+        }
+    };
+    if (park.loaded()) {
+        park.overlay.layout_for_size(logical_width, logical_height);
+        park_layout_w = logical_width;
+        park_layout_h = logical_height;
+    }
 
     const bool menu_hover_forced = !opt.menu_hover.empty();
     const bool park_hover_forced = !opt.park_hover.empty();
 
     while (running) {
+        sync_park_layout();
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (opt.no_input) {
@@ -9254,13 +9307,7 @@ int main(int argc, char** argv) {
         }
 
         SDL_GetWindowSizeInPixels(window, &width, &height);
-        SDL_GetWindowSize(window, &logical_width, &logical_height);
-        if (park.loaded() &&
-            (logical_width != park_layout_w || logical_height != park_layout_h)) {
-            park.overlay.layout_for_size(logical_width, logical_height);
-            park_layout_w = logical_width;
-            park_layout_h = logical_height;
-        }
+        sync_park_layout();
         if (width <= 0 || height <= 0) {
             SDL_Delay(10);
             continue;

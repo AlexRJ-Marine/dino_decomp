@@ -128,8 +128,10 @@ and campaign-end dialogs. Buttons use frame 4 normally, 5 on hover and 6
 while pressed (when the strip has those frames).
 
 CLI: `--park-click X,Y` applies a design-space click before the first frame
-(repeatable, useful for screenshots/tests); `--park-hover X,Y` sets the hover
-point; `--no-park-hud` disables the whole HUD.
+(repeatable, useful for screenshots/tests); `--park-window-click X,Y` applies
+a click in logical window coordinates (the same mapping as SDL mouse events);
+`--park-hover X,Y` sets the hover point; `--no-park-hud` disables the whole
+HUD.
 
 ### Minimap
 
@@ -154,6 +156,12 @@ gauge at 293,737 and the map at 840,584. The minimap quad follows
 `MAP_RENDERVIEW`'s anchored rect. Menu pages still centre their 800×600
 screen. High-DPI uses the drawable/logical ratio for physical scaling after
 the logical anchoring pass.
+
+Because the park HUD is laid out in window space, park hit-testing must use
+the SDL window point directly. Do **not** subtract the 800×600 menu letterbox
+origin `(logical_width - 800) / 2`; that made the clickable area sit left of
+the drawn buttons on windows wider than 800 px. The regression test is
+`test_cpp_park_window_clicks_1024`.
 
 ### Park clock
 
