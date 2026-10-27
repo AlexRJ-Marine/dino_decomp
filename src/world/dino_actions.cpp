@@ -1,6 +1,7 @@
 #include "dino_actions.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <utility>
 
 namespace dino {
@@ -78,6 +79,24 @@ int need_term(const DinoNeeds& needs, NeedAxis axis, int delta) {
     return weight * delta;
 }
 
+int chooser_threat_score(const ActionTarget& target, int actor_x, int actor_y,
+                         int actor_threat, int actor_radius,
+                         const DangerGrid& grid) {
+    if (target.x < 0) {
+        return 0;
+    }
+    int threat = -grid.at(static_cast<float>(target.x),
+                          static_cast<float>(target.y));
+    // FUN_00572dd0: target inside [actor +/- threat_radius] on both axes.
+    if (std::abs(target.x - actor_x) <= actor_radius &&
+        std::abs(target.y - actor_y) <= actor_radius) {
+        threat += grid.at(static_cast<float>(actor_x),
+                          static_cast<float>(actor_y)) -
+                  actor_threat;
+    }
+    return threat;
+}
+
 int score_action(const BaiAction& action, const DinoNeeds& needs,
                  int node_percent, int node_rest, int threat_score) {
     int score = 0;
@@ -119,7 +138,8 @@ bool preconditions_ok(const BaiAction& action, const DinoNeeds& needs,
 
 std::optional<ActionChoice> choose_action(
     const std::vector<BaiAction>& actions, const DinoNeeds& needs,
-    const std::vector<std::string>& node_names, bool inventory) {
+    const std::vector<std::string>& node_names, bool inventory,
+    const ActionThreatProvider& threat_provider) {
     std::optional<ActionChoice> best;
     for (std::size_t i = 0; i < actions.size(); ++i) {
         const BaiAction& action = actions[i];
@@ -131,7 +151,9 @@ std::optional<ActionChoice> choose_action(
         if (!preconditions_ok(action, needs, inventory)) {
             continue;
         }
-        const int score = score_action(action, needs);
+        const int threat =
+            threat_provider ? threat_provider(action) : 0;
+        const int score = score_action(action, needs, 100, 0, threat);
         if (score < 1) {
             continue;
         }
@@ -202,8 +224,9 @@ void DinoActionLoop::decide() {
     if (actions_ == nullptr) {
         return;
     }
-    const auto choice =
-        choose_action(*actions_, needs_, config_.node_names, config_.inventory);
+    const auto choice = choose_action(*actions_, needs_, config_.node_names,
+                                      config_.inventory,
+                                      config_.threat_provider);
     if (!choice) {
         return;
     }

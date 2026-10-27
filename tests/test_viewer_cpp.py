@@ -2465,6 +2465,13 @@ def test_cpp_dino_action_chooser():
     assert "dino choose small: EatForSmallies 9009" in result.stdout
     # `FUN_00571190` completion writers: GetCourage copies +0x44 into the
     # grid threat cache, ObstAttackSize1 copies +0x80 into the stamp radius.
+    # Action-target policy (`node+0x3c` vtable +0x14): target cell danger
+    # feeds the chooser threat term; a large Eat penalty changes the choice.
+    assert "dino target box: -500" in result.stdout
+    assert "dino target actor: -40" in result.stdout
+    assert "dino target none: 0" in result.stdout
+    assert "dino choose threatbox: Eat 8259" in result.stdout
+    assert "dino loop threat: Exploration" in result.stdout
     assert "dino cache getcourage: threat=54" in result.stdout
     assert "dino cache obst: radius=7" in result.stdout
 

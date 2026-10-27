@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "../formats/bai.h"
+#include "danger_grid.h"
 
 namespace dino {
 
@@ -58,6 +59,30 @@ extern const int kNeedWeights[4][4];
 // FUN_0056e5d0: cap the delta at 99, then weight * delta.
 int need_term(const DinoNeeds& needs, NeedAxis axis, int delta);
 
+// The retail action node's target policy (`node+0x3c`; vtable slot +0x14 is
+// `__thiscall void GetTarget(int *x, int *y)`, +0x18 the radius, +0x28 the
+// inventory index, +0x2c the amount). `x == -1` means "no target" and makes
+// the chooser skip the threat term. See notes/dino-target-vtable-recon.md.
+struct ActionTarget {
+    enum class Kind { None, Actor, Box };
+    Kind kind = Kind::None;
+    int x = -1;
+    int y = -1;
+    int radius = 0;
+    int item_index = 0;
+    float amount = 0.0f;
+};
+
+// `FUN_00572dd0` + the `0x56e4d1` threat term: the target cell's danger, plus
+// the actor's cell danger minus its `+0x2a0` cache when the target is inside
+// the actor's `+0x27c` threat-radius box (the retail `|tx-x| <= r` test).
+// `score_action` divides this by 10 before the SECU `need_term`.
+int chooser_threat_score(const ActionTarget& target, int actor_x, int actor_y,
+                         int actor_threat, int actor_radius,
+                         const DangerGrid& grid);
+
+using ActionThreatProvider = std::function<int(const BaiAction&)>;
+
 // FUN_0056e410: sum the action's need deltas, add the optional node rest and
 // threat terms, apply the node percentage, then add the `.bai` base score.
 int score_action(const BaiAction& action, const DinoNeeds& needs,
@@ -93,6 +118,10 @@ struct DinoActionLoopConfig {
     // food source exists. The viewer sets this per dinosaur from the food
     // sources in its paddock.
     bool inventory = false;
+    // Optional per-action threat score from the target policy. Retail
+    // evaluates `GetTarget` once per distinct target per availability pass;
+    // the callback must return 0 for `x == -1` (no target).
+    ActionThreatProvider threat_provider;
 };
 
 class DinoActionLoop {
@@ -120,6 +149,11 @@ public:
     // Consume/item gate used by the next decision.
     void set_inventory(bool available) { config_.inventory = available; }
     bool inventory() const { return config_.inventory; }
+
+    // Target-policy threat provider (`node+0x3c` vtable +0x14).
+    void set_threat_provider(ActionThreatProvider provider) {
+        config_.threat_provider = std::move(provider);
+    }
 
     // `FUN_00571440`: the park-wide danger grid owns the SECU need. The
     // viewer pushes the recomputed value once per grid rebuild (once per
@@ -157,6 +191,7 @@ private:
 std::optional<ActionChoice> choose_action(
     const std::vector<BaiAction>& actions, const DinoNeeds& needs,
     const std::vector<std::string>& node_names = {},
-    bool inventory = false);
+    bool inventory = false,
+    const ActionThreatProvider& threat_provider = {});
 
 }  // namespace dino

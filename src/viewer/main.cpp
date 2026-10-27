@@ -3574,6 +3574,53 @@ int main(int argc, char** argv) {
                     previous = name;
                 }
             }
+            // Action-target policy (`node+0x3c` vtable +0x14): the target
+            // position feeds the chooser's danger-grid threat term.
+            {
+                dino::DangerGrid grid;
+                grid.cell(12, 12) = 500;  // target cell (100, 100)
+                grid.cell(25, 25) = 300;  // actor cell  (200, 200)
+                dino::ActionTarget box;
+                box.kind = dino::ActionTarget::Kind::Box;
+                box.x = 100;
+                box.y = 100;
+                std::printf(
+                    "dino target box: %d\n",
+                    dino::chooser_threat_score(box, 200, 200, 40, 50, grid));
+                dino::ActionTarget actor;
+                actor.kind = dino::ActionTarget::Kind::Actor;
+                actor.x = 200;
+                actor.y = 200;
+                std::printf(
+                    "dino target actor: %d\n",
+                    dino::chooser_threat_score(actor, 200, 200, 40, 50, grid));
+                dino::ActionTarget none;
+                std::printf(
+                    "dino target none: %d\n",
+                    dino::chooser_threat_score(none, 200, 200, 40, 50, grid));
+                const auto threat_choice = dino::choose_action(
+                    actions, make_needs(20, 90, 50, 90, 250), nodes, true,
+                    [&](const dino::BaiAction& action) {
+                        return action.name == "Eat"
+                                   ? dino::chooser_threat_score(
+                                         box, 200, 200, 40, 50, grid)
+                                   : 0;
+                    });
+                if (threat_choice) {
+                    std::printf("dino choose threatbox: %s %d\n",
+                                threat_choice->name.c_str(),
+                                threat_choice->score);
+                }
+                dino::DinoActionLoop threat_loop(
+                    &actions, make_needs(20, 90, 50, 90, 250), loop_config);
+                threat_loop.set_threat_provider(
+                    [](const dino::BaiAction& action) {
+                        return action.name == "Eat" ? -100000 : 0;
+                    });
+                threat_loop.tick(0.1);
+                std::printf("dino loop threat: %s\n",
+                            threat_loop.action_name().c_str());
+            }
             // Completion writers `FUN_00571190`: case 0xd copies phenotype
             // +0x44 into the grid threat cache; case 0x1a copies +0x80 into
             // the stamp radius. Drive both through the public loop API.
@@ -5276,6 +5323,9 @@ int main(int argc, char** argv) {
     // comes from the cell under its position (`FUN_00571440`).
     dino::DangerGrid danger_grid;
     double danger_timer = 1.0;  // rebuild on the first frame
+    // Food instances from the import/placement paths; the chooser target
+    // provider reads them for the Eat action (see add_imported_dino).
+    std::vector<dino::FoodSource> food_sources;
     // Fence rectangles from a `.wld`/`.sav` import, kept for the park HUD's
     // paddock list after the import block ends.
     std::vector<dino::Paddock> park_paddocks;
@@ -5528,6 +5578,47 @@ int main(int argc, char** argv) {
                                 2.2f),
             glfns);
         imported_dinos.push_back(std::move(dinosaur));
+        const std::size_t dino_index = imported_dinos.size() - 1;
+        if (imported_dinos[dino_index].action_loop) {
+            // `node+0x3c` target policy (`GetTarget` +0x14). The park target
+            // factory is not decoded yet, so Eat/EatForSmallies are modelled
+            // as the nearest stocked food source (box target); every other
+            // action has no target (-1, threat term skipped).
+            imported_dinos[dino_index].action_loop->set_threat_provider(
+                [&danger_grid, &imported_dinos, &food_sources,
+                 dino_index](const dino::BaiAction& action) {
+                    const ImportedDino& self = imported_dinos[dino_index];
+                    if (action.name != "Eat" &&
+                        action.name != "EatForSmallies") {
+                        return 0;
+                    }
+                    const dino::FoodSource* nearest = nullptr;
+                    float best = 0.0f;
+                    for (const dino::FoodSource& source : food_sources) {
+                        if (source.remaining <= 0.0f) {
+                            continue;
+                        }
+                        const float dx = source.x - self.x;
+                        const float dy = source.y - self.y;
+                        const float d2 = dx * dx + dy * dy;
+                        if (nearest == nullptr || d2 < best) {
+                            nearest = &source;
+                            best = d2;
+                        }
+                    }
+                    if (nearest == nullptr) {
+                        return 0;
+                    }
+                    dino::ActionTarget target;
+                    target.kind = dino::ActionTarget::Kind::Box;
+                    target.x = static_cast<int>(nearest->x);
+                    target.y = static_cast<int>(nearest->y);
+                    return dino::chooser_threat_score(
+                        target, static_cast<int>(self.x),
+                        static_cast<int>(self.y), self.needs.threat,
+                        self.needs.threat_radius, danger_grid);
+                });
+        }
         return true;
     };
 
@@ -6069,7 +6160,6 @@ int main(int argc, char** argv) {
 
     std::vector<DrawItem> extra_items;
     std::vector<dino::FoodDef> food_defs;
-    std::vector<dino::FoodSource> food_sources;
     GpuMesh food_gpu;
     GLuint food_texture = 0;
     auto rebuild_extra_items = [&]() {
