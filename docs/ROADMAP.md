@@ -3,7 +3,7 @@
 Four phases. The goal is a playable, portable game and a readable hybrid
 decompilation that keeps the original runnable while functions are replaced.
 
-Last refreshed: 2026-10-26. The **task** view is `notes/OPEN-TASKS.md`
+Last refreshed: 2026-10-27. The **task** view is `notes/OPEN-TASKS.md`
 (generated from `TASKS.md`). The **feature** view is
 [`platform/feature-status.md`](platform/feature-status.md) — status, retail
 evidence, port entry points, tests and gaps per feature. This page only keeps
@@ -35,6 +35,9 @@ model/texture/sound viewer (met); community post published (pending).
   working (`WORLD-1/1b/1c`, `SLICE-1`).
 - Visitor agents, dinosaur action loop, danger grid/SECU, feeding: working
   (`SIM-1`, `SIM-2`, `SIM-3` partial).
+- Campaign menu, reader, evaluator, runtime, progression and completion:
+  working (`CAMPAIGN-1/2/3`); 81/89 objective lines implemented, the 8 show
+  lines and ending videos remain.
 - Retail menu, park HUD, panels, store, save/load, dialogs, minimap, clock:
   working (`UI-0/1/2` partial, `SAVE-1`).
 - Audio: WAV, menu/park clicks and streamed island music (`AUDIO-1/2/3`).
