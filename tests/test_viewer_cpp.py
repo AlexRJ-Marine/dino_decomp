@@ -3244,6 +3244,24 @@ def test_cpp_sav_write_rename(tmp_path):
     assert "whole file identical" in check.stdout, check.stdout
 
 
+def test_cpp_sav_info():
+    """--sav-info prints the header/world/simulation summary."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    save = ROOT / "run" / "save" / "slot001.sav"
+    if not save.exists():
+        pytest.skip("retail save not present")
+    result = subprocess.run(
+        [str(EXE), "--sav-info", str(save), "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "sav: version=53 slot=0 name='agenttest'" in result.stdout
+    assert "sav catalog: 39" in result.stdout
+    assert "sav park: budget=" in result.stdout
+    assert "sav objects:" in result.stdout
+    assert "sav sim:" in result.stdout
+
+
 def test_cpp_sav_write_budget(tmp_path):
     """--sav-budget changes the park block field and still round-trips."""
     if not EXE.exists():

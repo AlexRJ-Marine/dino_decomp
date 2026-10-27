@@ -121,6 +121,7 @@ struct Options {
     std::string wld_path;
     std::string sav_park_path;
     std::string sav_roundtrip_path;
+    std::string sav_info_path;
     std::string sav_write_path;
     std::string sav_name;
     int sav_slot = -1;
@@ -394,6 +395,8 @@ Options parse_args(int argc, char** argv) {
             opt.build_mode = true;
         } else if (arg == "--sav-roundtrip") {
             opt.sav_roundtrip_path = next("--sav-roundtrip");
+        } else if (arg == "--sav-info") {
+            opt.sav_info_path = next("--sav-info");
         } else if (arg == "--sav-write") {
             opt.sav_roundtrip_path = next("--sav-write");
             opt.sav_write_path = next("--sav-write output");
@@ -730,6 +733,7 @@ Options parse_args(int argc, char** argv) {
                 "  --wld FILE           read a .wld/.sav world block\n"
                 "  --wld-park FILE      import roads/fences/buildings from a .wld\n"
                 "  --sav-park FILE      import roads/fences/buildings/visitors/budget/clock from a .sav\n"
+                "  --sav-info FILE      print a .sav header/world/simulation summary\n"
                 "  --sav-roundtrip FILE rebuild a .sav and compare the whole file\n"
                 "  --sav-write IN OUT   rebuild a .sav and write it to OUT\n"
                 "  --sav-name NAME      save name for --sav-write (ASCII)\n"
@@ -3131,6 +3135,60 @@ int main(int argc, char** argv) {
     }
     if (!opt.campaign_mission_path.empty()) {
         return run_campaign_mission_info(opt.campaign_mission_path);
+    }
+
+    if (!opt.sav_info_path.empty()) {
+        try {
+            const dino::WldWorld world =
+                dino::read_sav_world(opt.sav_info_path);
+            const dino::SavSimulation sim =
+                dino::read_sav_simulation(opt.sav_info_path);
+            std::string name;
+            for (std::size_t i = 0; i + 1 < sim.name.size(); i += 2) {
+                const unsigned char lo = sim.name[i];
+                const unsigned char hi = sim.name[i + 1];
+                if (lo == 0 && hi == 0) {
+                    break;
+                }
+                name.push_back(hi == 0 && lo >= 0x20
+                                   ? static_cast<char>(lo)
+                                   : '?');
+            }
+            std::printf("sav: version=%u slot=%u name='%s'\n", world.version,
+                        sim.slot, name.c_str());
+            const dino::SavWorldRecords& records = world.records;
+            std::printf("sav world: campaign=%u mission=%u objectives=%zu\n",
+                        records.campaign_id, records.mission_id,
+                        records.objectives.size());
+            std::printf(
+                "sav objects: fences=%zu shows=%zu animals=%zu employees=%zu "
+                "buildings=%zu visitors=%zu dinosaurs=%zu roads=%zu\n",
+                records.fences.size(), records.shows.size(),
+                records.animals.size(), records.employees.size(),
+                records.buildings.size(), records.visitors.size(),
+                records.dinosaurs.size(), sim.roads.size());
+            std::printf(
+                "sav flags: feature=%zu building=%zu food=%zu misc=%zu\n",
+                records.feature_flags.size(), records.building_flags.size(),
+                records.food_flags.size(), records.misc_flags.size());
+            std::printf("sav catalog: %zu\n", sim.catalog.size());
+            std::printf("sav park: budget=%d day=%d elapsed=%.3f\n",
+                        sim.budget, sim.day, sim.elapsed);
+            std::printf(
+                "sav sim: visitors=%zu stores=%zu labs=%zu "
+                "model=%d,%d,%d,%d,%d ai=%u,%u,%u,%u,%u "
+                "camera=%.2f,%.2f,%.2f,%.2f\n",
+                sim.visitors.size(), sim.dino_store.size(), sim.labs.size(),
+                sim.visitor_model[0], sim.visitor_model[1],
+                sim.visitor_model[2], sim.visitor_model[3],
+                sim.visitor_model[4], sim.ai_counts[0], sim.ai_counts[1],
+                sim.ai_counts[2], sim.ai_counts[3], sim.ai_counts[4],
+                sim.camera[0], sim.camera[1], sim.camera[2], sim.camera[3]);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "sav info failed: %s\n", e.what());
+            return 2;
+        }
+        return 0;
     }
 
     if (!opt.sav_roundtrip_path.empty()) {
