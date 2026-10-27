@@ -5613,10 +5613,15 @@ int main(int argc, char** argv) {
                     target.kind = dino::ActionTarget::Kind::Box;
                     target.x = static_cast<int>(nearest->x);
                     target.y = static_cast<int>(nearest->y);
+                    // The loop owns the live needs; the outer copy is only
+                    // the spawn snapshot.
+                    const dino::DinoNeeds& needs =
+                        self.action_loop ? self.action_loop->needs()
+                                         : self.needs;
                     return dino::chooser_threat_score(
                         target, static_cast<int>(self.x),
-                        static_cast<int>(self.y), self.needs.threat,
-                        self.needs.threat_radius, danger_grid);
+                        static_cast<int>(self.y), needs.threat,
+                        needs.threat_radius, danger_grid);
                 });
         }
         return true;
