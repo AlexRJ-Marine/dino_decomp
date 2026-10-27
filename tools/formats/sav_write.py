@@ -84,6 +84,74 @@ def write_park(park: ParkState) -> bytes:
     return bytes(out)
 
 
+def write_visitor(visitor) -> bytes:
+    out = bytearray()
+    out += _u32(visitor.object_id)
+    out += struct.pack("<i", visitor.x)
+    out += struct.pack("<i", visitor.y)
+    out += _u32(visitor.flags)
+    out += _u32(visitor.unknown_10)
+    out += _u32(visitor.state)
+    out += struct.pack("<4f", visitor.fx, visitor.fy, visitor.dx, visitor.dy)
+    out += _u32(visitor.unknown_28)
+    out += _u32(visitor.zero_2c)
+    out += _u32(visitor.visitor_id)
+    for need in visitor.needs:
+        out += _u32(need)
+    return bytes(out)
+
+
+def write_simulation(graph) -> bytes:
+    """Serialize the whole simulation section (everything after the world block)."""
+    out = bytearray()
+    out += _u32(len(graph.road))
+    for road in graph.road:
+        out += struct.pack("<4i", road.x0, road.y0, road.x1, road.y1)
+    for _ in range(3):
+        out += _u32(0)
+    out += _u32(len(graph.visitors))
+    for visitor in graph.visitors:
+        out += write_visitor(visitor)
+    out += _u32(1)
+    out += write_park(graph.park)
+    out += _u32(len(graph.dino_store))
+    for entry in graph.dino_store:
+        name = entry.name.encode("utf-16-le") + b"\x00\x00"
+        out += _u32(len(name)) + name
+        out += _u32(entry.price)
+        path = entry.path.encode("ascii") + b"\x00"
+        out += _u32(len(path)) + path
+        description = entry.description.encode("ascii") + b"\x00"
+        out += _u32(len(description)) + description
+    for value in graph.visitor_model:
+        out += _u32(value)
+    out += _u32(graph.lab_count)
+    for record in graph.lab_records:
+        out += bytes([record.flag])
+        if record.flag != 0:
+            continue
+        for first, second in record.genes:
+            out += struct.pack("<II", first, second)
+        name = record.name.encode("ascii") + b"\x00"
+        out += _u32(len(name)) + name
+    for count in graph.ai_counts:
+        out += _u32(count)
+    for entry in graph.ai_entries:
+        out += entry
+    out += struct.pack("<10f", *graph.camera)
+    out += graph.tail_extra
+    return bytes(out)
+
+
+def rewrite_sav_full(path: Path) -> tuple[bytes, bytes, int]:
+    """Rebuild the whole simulation section; return (original, rebuilt, offset)."""
+    original = path.read_bytes()
+    graph = read_sav_graph(path)
+    state_offset = graph.save.state_offset
+    rebuilt = original[:state_offset] + write_simulation(graph)
+    return original, rebuilt, state_offset
+
+
 def rewrite_sav(path: Path) -> tuple[bytes, bytes, int]:
     """Rebuild the park block in `path`; return (original, rebuilt, offset)."""
     original = path.read_bytes()
@@ -107,15 +175,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sav", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--full", action="store_true",
+                        help="rebuild the whole simulation section")
     args = parser.parse_args(argv)
 
-    original, rebuilt, offset = rewrite_sav(args.sav)
+    rewrite = rewrite_sav_full if args.full else rewrite_sav
+    original, rebuilt, offset = rewrite(args.sav)
     if args.out:
         args.out.write_bytes(rebuilt)
     length_ok = len(original) == len(rebuilt)
     diff = first_diff(original, rebuilt)
     if length_ok and diff == len(original):
-        print(f"{args.sav}: byte-identical park block at 0x{offset:x} "
+        what = "simulation" if args.full else "park block"
+        print(f"{args.sav}: byte-identical {what} at 0x{offset:x} "
               f"({len(rebuilt)} bytes)")
         return 0
     print(f"{args.sav}: MISMATCH len {len(original)} -> {len(rebuilt)}, "
