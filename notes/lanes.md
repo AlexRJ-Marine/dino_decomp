@@ -54,6 +54,14 @@ row there without claiming it here, and do not touch another lane's files.
 - **Read-only:** `original/**` and `game/**` are never writable; `scripts/verify.ps1`
   fails if `git status` reports changes there.
 
+## Recent integration
+
+- 2026-10-27: SHOW-3 (four show objective verbs) was committed on the local
+  `f16ded1` line and rebased onto `main` as `3e0ada5`. SAVE-2, the P3
+  action-target policy and the SHOW work are now on one line; `p3-target`
+  (through `162de34`) is an ancestor backup branch. `main` is the integration
+  branch; rebase lane work on it before hand-off.
+
 ## When to use a worktree
 
 Use `tools.opencode.worktree_create` for a lane that will touch many files for
