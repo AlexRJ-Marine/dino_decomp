@@ -140,6 +140,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 - 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
@@ -147,8 +148,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
 - 2026-10-28 - Full suite green: 473 passed after enclosure rectangle/paddock and campaign show features
 - 2026-10-28 - Full suite green: 473 passed after camera/preview/enclosure/campaign-population work
-- 2026-10-28 - Playtest fixes: CAM-1 retail progress camera (no roll), enclosure UI arms fence, path preview one box, campaign .wld employees/food spawn
-- 2026-10-27 - SAVE-2: campaign list1/list2 typed + campaign .wld shows/animals/employees retained; HUD BL guard corrected
 
 ## Blockers
 
