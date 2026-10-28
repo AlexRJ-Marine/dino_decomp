@@ -68,10 +68,29 @@ bytes into `[esi+0x1a4]` at `0x543128`. The state reaches the same object as
 Because start/end are snapped to 4 units, a straight road of N cells costs
 **`10 * (N - 1)`**.
 
-*Inferred quirk:* `len` is signed and not abs'd, so a segment drawn toward
--x/-y gives a negative product that `shr` turns into ~1e9 and the money gate
-rejects. Needs a runtime check before anyone relies on it; the port uses
-`|dx| + |dy|`.
+*Inferred quirk (disproven 2026-10-28):* the raw `len` is signed, but the
+retail runs are direction-independent in practice: a probe at 800x600 with
+`test-quit-flow`-style virtual input showed "Cost of road: 100" for +x and -x,
+100 for +y and 190 for -y (a longer world run), and roads committed in all
+four directions (`notes/harness/road-dir-*`). The helper must order the
+endpoints before the per-frame cost, or the cost path uses the absolute
+extent. The port keeps `|dx| + |dy|`.
+
+## Cursor snap and the 45-degree axis flip (2026-10-28)
+
+`FUN_005f8c70` calls `FUN_005faaa0` with the 4.0 step before the axis lock.
+`0x5faaa0` builds the four corners of the containing 4x4 cell
+(`v - fmod(v, 4)` and `+4` on each axis) and picks the **nearest** corner; the
+strict `<` comparisons keep the lower coordinate at an exact half-cell
+distance. So the road cursor is rounded to the nearest 4-unit anchor
+(round-half-down), not floored.
+
+This matters: the axis lock compares the snapped end to the snapped start, so
+the horizontal/vertical flip happens at the snapped anchors. A floored cell
+(the port's `cells_for_world`) changes the flip by up to a cell and is what
+made the road direction feel wrong between axes. `BuildGrid::road_cells_for_world`
+implements `ceil(v/cell - 0.5)`; the road tool and preview use it, all other
+tools keep the floored cell.
 
 ## Mouse button `0x52e9e0` (`button`, `point`)
 

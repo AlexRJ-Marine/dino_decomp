@@ -2911,6 +2911,27 @@ int run_selftest() {
                                -512.0f + 10.5f * 4.0f, cx, cy) &&
               cx == 10 && cy == 10, "world to cell");
 
+    // Road cursor snap (`0x5faaa0` nearest anchor, half-down). The floored
+    // cell is off by one for the upper half of a cell, which moves the
+    // axis-lock flip at 45 degrees.
+    check(grid.road_cells_for_world(-512.0f + 305.0f, -512.0f + 200.0f,
+                                    cx, cy) && cx == 76 && cy == 50,
+          "road snap 305 -> 76");
+    check(grid.road_cells_for_world(-512.0f + 306.0f, -512.0f + 200.0f,
+                                    cx, cy) && cx == 76,
+          "road snap half-cell keeps lower");
+    check(grid.road_cells_for_world(-512.0f + 307.0f, -512.0f + 200.0f,
+                                    cx, cy) && cx == 77,
+          "road snap 307 -> 77");
+    check(grid.cells_for_world(-512.0f + 307.0f, -512.0f + 200.0f, cx, cy) &&
+              cx == 76,
+          "floored tool cell stays 76");
+    check(dino::road_segment(75, 50, 76, 51).x1 == 75 &&
+              dino::road_segment(75, 50, 76, 51).y1 == 51,
+          "road 1:1 flip is vertical");
+    check(dino::road_segment(75, 50, 77, 51).y1 == 50,
+          "road 2:1 flips horizontal");
+
     // Retail road tool (notes/road-construction-recon.md).
     {
         const dino::RoadSegment h = dino::road_segment(20, 20, 26, 22);
@@ -13575,7 +13596,10 @@ int main(int argc, char** argv) {
                 if (picked) {
                     int cx = 0;
                     int cy = 0;
-                    if (build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                    if ((build_tool == 4 ? build_grid.road_cells_for_world(
+                                              hit.x, hit.y, cx, cy)
+                                         : build_grid.cells_for_world(
+                                               hit.x, hit.y, cx, cy))) {
                         const int before = build_grid.path_count + build_grid.fence_count;
                         const float cs = build_grid.cell_size;
                         auto cell_buildable = [&](int gx, int gy) {
@@ -13824,7 +13848,7 @@ int main(int argc, char** argv) {
             int cy = 0;
             if (pick_terrain(terrain, eye, view_center, mxf, myf, logical_width,
                              logical_height, hit) &&
-                build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
                 const dino::RoadSegment road =
                     dino::road_segment(road_start_x, road_start_y, cx, cy);
                 const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};

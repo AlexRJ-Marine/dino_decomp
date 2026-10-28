@@ -58,6 +58,12 @@ struct BuildGrid {
     void set_fence(int x, int y, int edge, bool on);
     bool undo();
     bool cells_for_world(float wx, float wy, int& x, int& y) const;
+    // Retail `helper_road` snap (`0x5f8c70` -> `0x5faaa0`): the cursor is
+    // snapped to the NEAREST cell anchor (multiples of `cell_size`), not
+    // floored. Exact half-cell distances keep the lower coordinate (the
+    // nearest-corner loop uses a strict `<`), i.e. round-half-down. This
+    // decides where the road axis-lock flips between the two directions.
+    bool road_cells_for_world(float wx, float wy, int& x, int& y) const;
 };
 
 struct BuildMeshes {

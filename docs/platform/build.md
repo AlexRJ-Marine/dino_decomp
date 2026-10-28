@@ -86,11 +86,17 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
 `4`:
 
 - **Shape:** the run keeps the longer axis of start -> cursor (`0x5fa5b0`),
-  so roads are straight, one cell (4 units) wide.
+  so roads are straight, one cell (4 units) wide. The cursor is snapped to
+  the **nearest** 4-unit anchor (`0x5faaa0`, round-half-down) before the axis
+  lock; the port's floored build cell is only used by the other tools. This
+  snapped cell decides where the direction flips between the two axes.
 - **Cost:** `(|run| world units * price) >> 2`, i.e. `price` per cell beyond
   the first; `price` is `GeneralParams.bgd` `+0x1a4` = **10**
   (`src/formats/general_params.*`). Charged to `CONSTRUCTION` like
-  buildings; the money gate runs after placement validation.
+  buildings; the money gate runs after placement validation. A retail probe
+  shows the cost is direction-independent (+x 100, -x 100, +y 100, -y 190
+  for a longer world run), so the raw signed `len` is ordered/absolved before
+  the charge; the port uses `|dx| + |dy|`.
 - **Validation** (shared warning helper `0x52c2e0`):
   `WARNING_INSIDE_PERIMETER` when the run lies strictly inside a paddock
   rectangle, `WARNING_ROAD_TOO_SHORT` when start == end,
@@ -132,8 +138,7 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
   `--road-click X,Y` (build cells, repeatable) drive the same code path.
 
 Port approximations: retail fences occupy pathmap cells while the port stores
-fence edges, so "crosses a fence edge" stands in for "fence cell busy"; the
-retail signed-length cost quirk for runs toward -x/-y is not reproduced;
+fence edges, so "crosses a fence edge" stands in for "fence cell busy";
 removing a fence is not gated on its occupants (retail refuses a non-empty
 paddock with `&WARNING_SELLING_NON_EMPTY_FENCE` and refunds
 `value * sellback` on the empty one). Road selling is decoded: the refund

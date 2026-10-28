@@ -168,6 +168,24 @@ bool BuildGrid::cells_for_world(float wx, float wy, int& x, int& y) const {
     return in_bounds(x, y);
 }
 
+bool BuildGrid::road_cells_for_world(float wx, float wy, int& x, int& y) const {
+    // `0x5faaa0`: candidates are `floor(v/cell)*cell` and `+cell` on each
+    // axis; the nearest corner wins and ties keep the lower one. Cell indices
+    // are the anchors divided by the cell size, so this is
+    // `ceil(v/cell - 0.5)` (round-half-down), unlike the floored cell used by
+    // the other build tools.
+    const float gx = (wx - origin_x) / cell_size;
+    const float gy = (wy - origin_y) / cell_size;
+    const int cx = static_cast<int>(std::ceil(gx - 0.5f));
+    const int cy = static_cast<int>(std::ceil(gy - 0.5f));
+    if (cx < 0 || cy < 0) {
+        return false;
+    }
+    x = cx;
+    y = cy;
+    return in_bounds(x, y);
+}
+
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
                                    const Mesh& fence_source) {
     BuildMeshes out;
