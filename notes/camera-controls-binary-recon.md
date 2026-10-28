@@ -489,8 +489,8 @@ Corrections to this note:
 3. **Pan is per Update**, not per input event: every Update while the flag is
    set adds `lerp(1,20,p)` (2.9 at p=0.1). The harness runs the game unpaced in
    the background (75..1000 updates/s), so the CSV gives per-update steps, not
-   per-second speed. The port applies one update per rendered frame (vsync 60
-   by default); this is the same frame-rate dependence as the original.
+   per-second speed. The port runs the camera on a fixed 60 Hz tick (--camera-hz,
+   10..240), so an uncapped render loop keeps the 60 Hz pan speed.
 4. **The fly-in is real** (was §11 uncertainty): the first frame starts from
    eye `(128,128,250)` and the 6..2 filter brings it in.
 5. **No mouse**: no mouse movement or wheel changed any field in the probe;

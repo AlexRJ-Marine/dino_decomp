@@ -252,6 +252,7 @@ struct Options {
     bool camera_retail = false;  // force the retail park camera
     bool camera_orbit = false;   // force the legacy orbit camera
     bool camera_selftest = false;
+    float camera_hz = 60.0f;     // retail camera update rate (pan is per update)
 };
 
 void load_config(const std::string& path, Options& opt) {
@@ -510,6 +511,8 @@ Options parse_args(int argc, char** argv) {
             opt.camera_orbit = true;
         } else if (arg == "--camera-selftest") {
             opt.camera_selftest = true;
+        } else if (arg == "--camera-hz") {
+            opt.camera_hz = static_cast<float>(std::atof(next("--camera-hz")));
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -822,6 +825,7 @@ Options parse_args(int argc, char** argv) {
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
                 "  --camera-retail      force the retail park camera (default)\n"
                 "  --camera-orbit       use the legacy orbit camera\n"
+                "  --camera-hz N        retail camera tick rate (default 60)\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -7920,6 +7924,7 @@ int main(int argc, char** argv) {
     // spherical orbit for deterministic screenshots/tests.
     float camera_progress = 0.1f;
     float camera_yaw_goal = yaw;
+    float camera_accum = 0.0f;  // fixed-step camera tick accumulator
     // Retail park camera is the interactive default (verified against the
     // live 0x5e5ff0 object). Explicit CLI/focus views and --camera-orbit keep
     // the deterministic legacy orbit for screenshots and tests.
@@ -11994,7 +11999,20 @@ int main(int argc, char** argv) {
                 flags[7] = nav_zoom_out ||
                            (shift && held(dino::KeyAction::OrbitDown)) ||
                            keys[SDL_SCANCODE_END];
-                retail_camera.update(camera_config, terrain, dtf, flags);
+                // The binary applies the pan step once per camera Update.
+                // Run the retail camera at a fixed tick so a 1000 Hz render
+                // loop does not pan 16x faster than a 60 Hz one.
+                const float camera_step =
+                    1.0f / std::clamp(opt.camera_hz, 10.0f, 240.0f);
+                camera_accum =
+                    std::min(camera_accum + dtf, camera_step * 4.0f);
+                int camera_steps = 0;
+                while (camera_accum >= camera_step && camera_steps < 4) {
+                    retail_camera.update(camera_config, terrain, camera_step,
+                                         flags);
+                    camera_accum -= camera_step;
+                    ++camera_steps;
+                }
                 camera_progress = retail_camera.progress;
                 center = retail_camera.target_cur;
                 yaw = retail_camera.yaw_cur * 57.2957795f;

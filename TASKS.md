@@ -734,6 +734,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   with the **5/s** yaw low-pass (16.8 deg lag at 90 deg/s); Shift+Up/Down and
   ZOOM/DEZOOM move progress at `lerp(0.05,0.2,p)`/s; XY position/target
   filters are `lerp(6,2,p)`, Z is instant; no roll and no mouse camera.
+  The port runs the camera on a fixed 60 Hz tick (`--camera-hz`) so an
+  uncapped render loop keeps the retail pan speed.
   `--camera-orbit` keeps the legacy orbit; `--camera-selftest` asserts the
   four measured equations (`notes/camera-controls-binary-recon.md` §12,
   `docs/decomp/camera.md`).

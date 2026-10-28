@@ -1835,3 +1835,9 @@ Updated: 2026-10-28
   The `.sav` camera tail is now converted from record to centred coordinates.
 - Evidence: `notes/camera-controls-binary-recon.md` section 12,
   `docs/decomp/camera.md`, `notes/camera-motion-tilt-recon.md` status.
+
+- Follow-up (same day): the render loop is uncapped on this machine
+  (~1000 FPS with vsync requested), so applying the binary's per-update pan
+  once per rendered frame was 16x too fast. The interactive retail camera now
+  runs on a fixed 60 Hz tick (`--camera-hz`, 10..240); the camera self-test
+  still uses dt = 1/60.

@@ -106,8 +106,9 @@ Runtime checks (isl01 Free Game, `run-test/dino_camera.csv`):
 **Frame rate:** the binary applies the pan step per Update, so retail pan
 speed depends on the frame rate. The background harness runs unpaced
 (75-1000 updates/s measured), so the CSV is used for per-update steps, not
-per-second speed. The port applies one update per rendered frame at vsync
-(60 by default) and its camera self-test uses dt = 1/60.
+per-second speed. The port runs the retail camera on a fixed 60 Hz tick
+(--camera-hz, 10..240) so an uncapped render loop does not change the pan
+speed; the camera self-test uses dt = 1/60.
 
 ## Controls (`Data/Config/KeyMapper.ini`)
 

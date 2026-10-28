@@ -49,7 +49,8 @@ See `notes/lanes.md`. Default split:
 
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
-  start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** (no dt), yaw 90 deg/s
+  start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** on a fixed 60 Hz
+  tick (`--camera-hz`), yaw 90 deg/s
   with a **5/s** low-pass (16.8 deg lag, not the old 10/s), zoom
   `lerp(0.05,0.2,p)`/s, target/eye XY `lerp(6,2,p)` with instant Z, no roll,
   no mouse camera. `--camera-orbit` keeps the legacy view; `--camera-selftest`
