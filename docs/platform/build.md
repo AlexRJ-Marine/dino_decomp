@@ -184,6 +184,15 @@ with the common key handler: `pvwStateFenceConstruction` vtable **+0x1c =
   another tool) before clicking the placed enclosure.
 - Right-click or a click on empty ground deselects the enclosure highlight.
 
+Retail Esc in the **default park** is a **no-op**: no panel, no dialog, no
+pause, no quit (live probe: clock keeps running, pixel diff 0). With the
+construction strip open but no placement tool, Esc also does nothing (the
+strip stays). Esc **closes the Options panel** (it is the overlay-close key;
+`PauseGame` is **P**, not Esc). The port now matches: Esc closes
+`OPTIONS_PANEL` if visible, otherwise leaves an active placement/selection
+state, otherwise does nothing in the park. The standalone viewer (no park)
+still uses Esc to exit.
+
 Port approximations: wall lines are in the occupancy grid, but the port also
 keeps the edge model for rendering and paddock capacity, so edge-based
 crossings remain as a fallback; removing a fence is not gated on its

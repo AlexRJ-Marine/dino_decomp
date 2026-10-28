@@ -3132,6 +3132,55 @@ def test_cpp_fence_selected_wall_pulse(tmp_path):
     assert "paddock: deselected (Esc)" in deselect.stdout
 
 
+def test_cpp_escape_default_and_options(tmp_path):
+    """Retail Esc: no-op in the default park, does not close the construction
+    strip, and closes OPTIONS_PANEL. PauseGame is P, not Esc.
+
+    Live probe: notes/harness/esc-default-summary.txt (clock kept running,
+    construction strip byte-identical, Options closed).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    cpg04 = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    if not cpg04.exists() or not isl04.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    base = [str(EXE), "--frames", "12", "--no-menu", "--width", "800",
+            "--height", "600", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
+            "--camera-orbit", "--camera-target", "-44,-36",
+            "--distance", "300", "--pitch", "20"]
+
+    # Default park: Esc must not quit, pause or open anything. The screenshot
+    # is taken on the last frame, so its existence proves the loop survived.
+    shot = tmp_path / "esc-default.bmp"
+    noop = subprocess.run(
+        base + ["--inject-key", "5,27", "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=120)
+    assert noop.returncode == 0, noop.stderr
+    assert shot.exists()
+
+    # Construction strip open, no tool: Esc leaves it alone; the Enclosure
+    # opener clicked afterwards still arms the tool.
+    strip = subprocess.run(
+        base + ["--park-click", "764,135",
+                "--inject-key", "5,27",
+                "--inject-click", "8,618,145"],
+        capture_output=True, text=True, timeout=120)
+    assert strip.returncode == 0, strip.stderr
+    assert "park click 764,135 -> open CONSTRUCTION_PANEL" in strip.stdout
+    assert "fence: tool armed" in strip.stdout
+
+    # Options panel: Esc closes it.
+    options = subprocess.run(
+        base + ["--park-click", "765,348", "--inject-key", "5,27"],
+        capture_output=True, text=True, timeout=120)
+    assert options.returncode == 0, options.stderr
+    assert "park click 765,348 -> open OPTIONS_PANEL" in options.stdout
+    assert "options: closed (Esc)" in options.stdout
+
+
 def test_cpp_road_preview_tint(tmp_path):
     """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
     (0x600550): blue when buildable, red when not (here: unaffordable).

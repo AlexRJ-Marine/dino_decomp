@@ -12477,6 +12477,13 @@ int main(int argc, char** argv) {
                 if (park.name_edit_active() && key == SDLK_BACKSPACE) {
                     park.backspace_name();
                     opt.save_name = park.save_name();
+                } else if (key == SDLK_ESCAPE && park.loaded() &&
+                           park.is_visible("OPTIONS_PANEL")) {
+                    // Retail: Esc is the overlay-close key. With no tool it
+                    // is a no-op in the park, but it closes OPTIONS_PANEL
+                    // (PauseGame is P, not Esc).
+                    park.overlay.set_visible("OPTIONS_PANEL", false);
+                    std::printf("options: closed (Esc)\n");
                 } else if (key == SDLK_ESCAPE &&
                            (build_tool != 0 || pending_store_index >= 0 ||
                             fence_corner_x >= 0 || road_has_start ||
@@ -12517,7 +12524,14 @@ int main(int argc, char** argv) {
                     park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
                     park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
                 } else if (key == keymap[dino::KeyAction::Quit]) {
-                    running = false;
+                    // Retail has no Escape binding in the default park state
+                    // (the state manager binds it only on the construction /
+                    // purchase / selected states, which handle it above).
+                    // Never quit the viewer from the park; quitting goes
+                    // through the menu's Quit Game / return-to-menu flow.
+                    if (!park.loaded()) {
+                        running = false;
+                    }
                 } else if (key == keymap[dino::KeyAction::Reset]) {
                     yaw = opt.yaw;
                     pitch = opt.pitch;
