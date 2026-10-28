@@ -81,10 +81,14 @@ the rest are the fence-tool hooks:
 ### Enter / refresh
 
 `0x526930` reads the current UI list selection (`0x447b90`/`0x447c30`) and
-compares it with `0x17` (23). On a match it calls `0x5269e0` (title/price),
-`0x52c1f0` (paddock dino stats) and `0x526d70` (feature list); otherwise
-`0x52bb70` resets the preview (`+0x48 = +0x4a = 0`, `0x5f8590(8.0f)`,
-`0x5f6a10(1)`).
+compares it with `0x17` (23), the **wall element type** created by
+`0x53ac60` (the show-element factory `0x53acd0` also creates types
+0x16/0x17; see `notes/dino-target-vtable-recon.md`). On a match it calls
+`0x5269e0` (title/price), `0x52c1f0` (paddock dino stats) and `0x526d70`
+(feature list); otherwise `0x52bb70` resets the preview
+(`+0x48 = +0x4a = 0`, `0x5f8590(8.0f)`, `0x5f6a10(1)`). So the fence tool
+refreshes its panel only when the selected element is a wall, and resets the
+preview when the selection is anything else.
 
 - `0x5269e0` formats the panel title from the selected feature name,
   appends `%u` (`0x64d894`) and `"%"` (`0x663038`), and copies the result
@@ -328,10 +332,9 @@ gate or refund.
 
 ## Open
 
-- What the selected UI row `0x17` (23) means in `0x526930`. The feature list
-  is only LunchBox, so row 0x17 is not a `.bfi` FeatureList index; it is
-  probably the wall / observation-area option id or a UI class id, and the
-  list order is not yet mapped.
+- Runtime-confirm that the focused object in `0x526930` is the wall element
+  (type `0x17` = the `0x53ac60` wall record / show-element type). Statically
+  it matches; the selection object's vtable+4 was not dumped live.
 - ~~Exact decomposition of the `0x581b90` cost magic~~ **resolved:** the
   signed `NEG/SHL 31/SUB` is `-(p1.x+p1.y)`; cost is
   `((p2.x+p2.y)-(p1.x+p1.y))*2/cell*price` (perimeter cells * price).
