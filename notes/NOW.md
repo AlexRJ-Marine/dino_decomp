@@ -57,8 +57,11 @@ See `notes/lanes.md`. Default split:
   `notes/cinematics-recon.md`). List layout/scrollbars are fixed: rows use
   `LB_LINE_HEIGHT`, the viewport is 8 islands, and the exact retail VSCROLL
   (arrows ±1, track ±3, absolute drag, wheel) reaches islands 9-10
-  (`notes/ui-scrollbar-recon.md`). Next: the Options page (R-18) and
-  R-16b. Campaign Info has no retail mission list; use
+  (`notes/ui-scrollbar-recon.md`). Options is fixed: sliders apply live
+  (music/SFX/game speed), indications cycle quality/depth/screen, and
+  cinematics skip on any mouse click (`notes/menu-options-recon.md`,
+  `notes/video-exit-recon.md`). Next: R-16b and the Campaign Info mission
+  list. Campaign Info has no retail mission list; use
   `campaign-progress.txt` (or a port-only override) to pick a mission.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
@@ -125,11 +128,11 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MENU-1: Cinematics page (R-17) is done — the list is the campaigns'
-   ending videos and START plays them. Next: the Options page (R-18) and
-   retail `.sav` slots at runtime (needs an island choice). Campaign Info has
-   no retail mission list; use `campaign-progress.txt` or a port-only
-   override.
+1. MENU-1: Options (R-18) is done — sliders apply live and indication
+   buttons cycle quality/depth/screen; cinematics skip on any mouse click.
+   Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
+   Info mission list. Campaign Info has no retail mission list; use
+   `campaign-progress.txt` or a port-only override.
 2. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
    the retail alternates), Shift+Up/Down zoom. Pan is frame-rate dependent in
    retail; the port applies one step per rendered frame (vsync 60). If the
@@ -151,13 +154,13 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - MENU-1: Options page live and cinematics click-to-skip
 - 2026-10-28 - MENU-1: list viewport + exact retail VSCROLL; island row mapping fixed
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 - 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
-- 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 
 ## Blockers
 

@@ -1879,3 +1879,25 @@ Updated: 2026-10-28
   `test_cpp_menu_start_all_islands` (all 10 with scroll).
 - Open: wrapped Campaign Info description scroll, hold-to-repeat, list-row
   hover frame, Options page, retail `.sav` island choice.
+
+## 2026-10-28 - MENU-1 Options page and video exit
+
+- Options (retail page 5, controller `FUN_00518830`): the `*_INDICATION`
+  buttons and three HSCROLLs are bound; the icon widgets are inert. Sliders
+  apply live (`value=floor(pos*100/HS_RANGE+0.5)`, max 97) to music/SFX
+  volumes and GameSpeed; indication cycles LOD/texture quality
+  High->Auto->Low->Medium, screen mode (driver list >=800x600, label
+  WxHxBPP), hardware TNL/sound toggles, texture depth 16/32; OK and Cancel
+  are the same close pointer. Evidence `notes/menu-options-recon.md`.
+- Port: `Menu` options state, HSCROLL geometry/draw/input (arrows/track/
+  absolute drag/wheel), live `music.set_gain`/`UiSoundPlayer::set_gain` and
+  GameSpeed (retail 10 -> port 60), values in `dino_viewer.cfg`; screen mode
+  chosen now applies at the next launch (retail restart). Test
+  `test_cpp_menu_options_page`.
+- Cinematics exit: retail skips on any mouse button (`0x517930` polls
+  DIMOUSESTATE L/R/M), no key path; the launching click is ignored; returns
+  to page 6. The port's blocking player now skips on any button, drains the
+  launching click, keeps Esc as an extra. Evidence `notes/video-exit-recon.md`.
+- Campaign mission labels were checked: `ParkEng.loc` stores "1/4".."4/4"
+  for `&Cpg4_Mission*_Title` and the exact objective sentences; the port is
+  faithful (the odd title is retail).

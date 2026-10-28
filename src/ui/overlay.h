@@ -75,6 +75,12 @@ struct Widget {
     // PROGRESS widgets (`PB_CURRENT_PROGRESS` / `PB_MAX_PROGRESS`).
     int progress_max = 100;
     int progress_current = 0;
+    // HSCROLL/VSCROLL initial position/range (sliders). Lists derive their
+    // range from the content instead.
+    int hs_position = 0;
+    int hs_range = 0;
+    int vs_position = 0;
+    int vs_range = 0;
 
     // ALIGN_* bits: 1 left, 2 up, 4 right, 8 down, 16 center.
     int align = 0;

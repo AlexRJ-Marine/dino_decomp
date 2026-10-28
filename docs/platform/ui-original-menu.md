@@ -386,6 +386,30 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - Open: wrapped `CAMPAIGN_INFO_DESCRIPTION` scrolling, hold-to-repeat,
   list-row hover frames.
 
+### Phase B5 — Options page and video exit (done)
+
+- [x] Options controller `FUN_00518830` binds the `*_INDICATION` buttons and
+      the three HSCROLLs. Sliders apply live:
+      `value = floor(pos*100/HS_RANGE + 0.5)` (max 97); music/SFX go to the
+      audio manager, GameSpeed to the config. Arrows ±1, track ±3, absolute
+      thumb drag, wheel one line (`0x518c10`/`0x518cc0`/`0x518db0`).
+- [x] Indications: LOD quality cycles High→Auto→Low→Medium (`0x519640`),
+      texture quality the same, screen mode from the driver list
+      (`w>799 && h>599`, label `WxHxBPP`), hardware TNL/sound toggles,
+      texture depth 16/32. OK and Cancel are the **same close pointer**
+      (`0x518080`), no apply/revert.
+- [x] Port: `Menu` option state + HSCROLL geometry/draw/input; live music/SFX
+      gain and GameSpeed (retail 10 → the port's 60x clock); values saved in
+      `dino_viewer.cfg`; the selected screen mode is applied at the next
+      launch (retail's `&Restart`). Test `test_cpp_menu_options_page`.
+- [x] Cinematics/video exit: retail skips on **any mouse button**, not a key
+      (`0x517930` polls DIMOUSESTATE L/R/M); the launching click is ignored;
+      return to the originating page. The port now skips on any mouse button
+      and keeps Esc as a port-only extra. Evidence `notes/video-exit-recon.md`.
+- Open: the rendering settings (LOD/texture quality/depth/TNL/mixing) are
+  stored and labelled but have no port renderer equivalent yet; the screen
+  mode is next-launch only.
+
 ### Phase C — park HUD (done at 800×600)
 
 - [x] Load `ParkInterface.Ini` + `ParkGraphicDB.ini` (includes expanded):

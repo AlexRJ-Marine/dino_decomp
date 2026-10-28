@@ -116,6 +116,10 @@ bool Overlay::load_interface(const std::string& interface_path,
             widget.list_column4_width = to_int(section.get("LB_COLUMN4_WIDTH"));
             widget.list_column5_width = to_int(section.get("LB_COLUMN5_WIDTH"));
             widget.list_column6_width = to_int(section.get("LB_COLUMN6_WIDTH"));
+            widget.hs_position = to_int(section.get("HS_POSITION"));
+            widget.hs_range = to_int(section.get("HS_RANGE"));
+            widget.vs_position = to_int(section.get("VS_POSITION"));
+            widget.vs_range = to_int(section.get("VS_RANGE"));
             const int progress_max = to_int(section.get("PB_MAX_PROGRESS"));
             if (progress_max > 0) {
                 widget.progress_max = progress_max;

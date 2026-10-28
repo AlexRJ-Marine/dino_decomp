@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 12:34. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 13:14. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-36 open items.
+37 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -87,6 +87,7 @@ Generated from `TASKS.md` on 2026-10-28 12:34. Do not edit; regenerate with `scr
 - [ ] New game/load/save flows and mouse-driven info panels.
 
 ## UI-2: Original menu parity
+- [ ] Phase B5 rest: apply LOD/texture quality/depth/TNL at startup; the
 - [ ] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION`, verify
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live
 

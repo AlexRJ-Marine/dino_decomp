@@ -81,6 +81,29 @@ struct Menu {
     bool scroll_drag_active = false;
     std::string scroll_drag_list;
 
+    // Main-menu Options page (retail page 5, FUN_00518830). Values are the
+    // port's live settings; the HSCROLL widgets hold the slider positions.
+    int music_volume = 97;      // 0..100, slider max maps to 97
+    int sfx_volume = 97;
+    int game_speed = 10;        // retail Dino.ini default; port scale = 6*speed
+    int lod_quality = 3;        // 0 High, 1 Medium, 2 Low, 3 Auto
+    int texture_quality = 3;    // same cycle
+    int texture_depth = 16;     // 16 / 32 bits
+    int hardware_tnl = 0;       // 0 software, 1 hardware
+    int hardware_sound = 0;     // 0 software, 1 hardware
+    int screen_mode = 0;        // index into `screen_modes`
+    std::vector<std::string> screen_modes;
+    bool game_speed_dirty = false;
+    bool screen_mode_changed = false;
+    bool slider_drag_active = false;
+    std::string slider_drag_name;
+
+    void options_sync_positions();
+    void options_cycle(const std::string& name);
+    std::string option_text(const std::string& name) const;
+    void slider_drag_to(const std::string& name, int x);
+    void slider_step(const std::string& name, int delta);
+
     const dino::Campaign* selected_campaign() const;
     const dino::CampaignMission* selected_mission() const;
     bool campaign_unlocked(int index) const;

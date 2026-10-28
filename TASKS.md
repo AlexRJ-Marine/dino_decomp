@@ -1693,6 +1693,17 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   line, `thumbH=max(5,H-(U+D+5)-3*range)`, one-column width
   `list.w - scroll.w` (`notes/ui-scrollbar-recon.md`,
   `notes/menu-layout-scroll-recon.md`).
+- [x] Phase B5 (Options page): `FUN_00518830` sliders apply live
+  (`pos*100/range`, max 97), indication buttons cycle LOD/texture quality
+  (High→Auto→Low→Medium), screen mode, hardware TNL/sound and 16/32-bit
+  depth; OK/Cancel share the close pointer. Port state, HSCROLL
+  draw/input, live music/SFX/game-speed and config persistence are in
+  (`notes/menu-options-recon.md`, `test_cpp_menu_options_page`).
+- [x] Cinematics exit: retail skips on any mouse button (`0x517930`), not a
+  key; the port now does the same and returns to page 6 (Esc kept as an
+  extra). `notes/video-exit-recon.md`.
+- [ ] Phase B5 rest: apply LOD/texture quality/depth/TNL at startup; the
+  screen mode is next-launch only (retail restart).
 - [ ] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION`, verify
   hold-to-repeat, and map the list-row hover frame.
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live

@@ -222,6 +222,15 @@ struct Options {
     bool music = false;
     bool music_forced = false;
     float music_volume = 97.0f;
+    float sfx_volume = 97.0f;
+    // Main-menu Options (Dino.ini settings). Defaults from the retail config:
+    // 800x600x16, depth 16, quality AUTO, software TNL/sound, GameSpeed 10.
+    int game_speed = 10;
+    int lod_quality = 3;      // 0 High, 1 Medium, 2 Low, 3 Auto
+    int texture_quality = 3;
+    int texture_depth = 16;
+    int hardware_tnl = 0;
+    int hardware_sound = 0;
     std::string warning_text;
     std::string request_text;
     std::string campaign_end_text;
@@ -279,6 +288,22 @@ void load_config(const std::string& path, Options& opt) {
             opt.borderless = value != 0;
         } else if (key == "vsync") {
             opt.vsync = value != 0;
+        } else if (key == "music_volume") {
+            opt.music_volume = static_cast<float>(value);
+        } else if (key == "sfx_volume") {
+            opt.sfx_volume = static_cast<float>(value);
+        } else if (key == "game_speed") {
+            opt.game_speed = value;
+        } else if (key == "lod_quality") {
+            opt.lod_quality = value;
+        } else if (key == "texture_quality") {
+            opt.texture_quality = value;
+        } else if (key == "texture_depth") {
+            opt.texture_depth = value == 32 ? 32 : 16;
+        } else if (key == "hardware_tnl") {
+            opt.hardware_tnl = value != 0;
+        } else if (key == "hardware_sound") {
+            opt.hardware_sound = value != 0;
         }
     }
 }
@@ -293,6 +318,14 @@ void save_config(const std::string& path, const Options& opt) {
     out << "fullscreen=" << (opt.fullscreen ? 1 : 0) << "\n";
     out << "borderless=" << (opt.borderless ? 1 : 0) << "\n";
     out << "vsync=" << (opt.vsync ? 1 : 0) << "\n";
+    out << "music_volume=" << static_cast<int>(opt.music_volume) << "\n";
+    out << "sfx_volume=" << static_cast<int>(opt.sfx_volume) << "\n";
+    out << "game_speed=" << opt.game_speed << "\n";
+    out << "lod_quality=" << opt.lod_quality << "\n";
+    out << "texture_quality=" << opt.texture_quality << "\n";
+    out << "texture_depth=" << opt.texture_depth << "\n";
+    out << "hardware_tnl=" << opt.hardware_tnl << "\n";
+    out << "hardware_sound=" << opt.hardware_sound << "\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -1070,6 +1103,7 @@ struct UiSoundPlayer {
     double remaining = 0.0;
     bool enabled = true;
     bool muted = false;
+    float gain = 1.0f;
 
     void play(const std::string& relative) {
         if (!enabled || relative.empty()) {
@@ -1106,7 +1140,7 @@ struct UiSoundPlayer {
             enabled = false;
             return;
         }
-        SDL_SetAudioStreamGain(stream, muted ? 0.0f : 1.0f);
+        SDL_SetAudioStreamGain(stream, muted ? 0.0f : gain);
         SDL_ResumeAudioStreamDevice(stream);
         SDL_PutAudioStreamData(stream, wav.data.data(),
                                static_cast<int>(wav.data.size()));
@@ -1117,7 +1151,14 @@ struct UiSoundPlayer {
     void set_muted(bool value) {
         muted = value;
         if (stream != nullptr) {
-            SDL_SetAudioStreamGain(stream, muted ? 0.0f : 1.0f);
+            SDL_SetAudioStreamGain(stream, muted ? 0.0f : gain);
+        }
+    }
+
+    void set_gain(float value) {
+        gain = std::clamp(value, 0.0f, 1.0f);
+        if (stream != nullptr) {
+            SDL_SetAudioStreamGain(stream, muted ? 0.0f : gain);
         }
     }
 
@@ -4538,9 +4579,35 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Phenotype table, needed by the store attribute gauges as well as the
-    // imported/bought dinosaurs. Loading it here keeps `refresh_store_rows`
-    // able to fill every row's attribute panel.
+    if (menu_loaded) {
+        // Main-menu Options state (retail page 5 / Dino.ini defaults).
+        menu.music_volume = std::clamp(
+            static_cast<int>(std::lround(opt.music_volume)), 0, 100);
+        menu.sfx_volume = std::clamp(
+            static_cast<int>(std::lround(opt.sfx_volume)), 0, 100);
+        menu.game_speed = std::clamp(opt.game_speed, 0, 97);
+        menu.lod_quality = std::clamp(opt.lod_quality, 0, 3);
+        menu.texture_quality = std::clamp(opt.texture_quality, 0, 3);
+        menu.texture_depth = opt.texture_depth == 32 ? 32 : 16;
+        menu.hardware_tnl = opt.hardware_tnl != 0 ? 1 : 0;
+        menu.hardware_sound = opt.hardware_sound != 0 ? 1 : 0;
+        menu.screen_modes = {"800x600x16", "1024x768x16",
+                             "1280x800x16", "1280x1024x32",
+                             "1600x900x32"};
+        char current_mode[32];
+        std::snprintf(current_mode, sizeof(current_mode), "%dx%d",
+                      opt.width, opt.height);
+        for (std::size_t i = 0; i < menu.screen_modes.size(); ++i) {
+            if (menu.screen_modes[i].rfind(current_mode, 0) == 0) {
+                menu.screen_mode = static_cast<int>(i);
+                break;
+            }
+        }
+        menu.options_sync_positions();
+        menu.game_speed_dirty = menu.game_speed != 10;
+    }
+
+
     dino::DinoPhenotypeTable phenotype_table;
     try {
         phenotype_table = dino::read_dino_phenotype(
@@ -5393,6 +5460,9 @@ int main(int argc, char** argv) {
     ui_sound.asset_root = opt.asset_root;
     ui_sound.enabled = opt.ui_sounds;
     ui_sound.muted = opt.muted;
+    ui_sound.set_gain(menu_loaded
+                          ? std::clamp(menu.sfx_volume / 100.0f, 0.0f, 1.0f)
+                          : 1.0f);
     if (!opt.play_sound.empty()) {
         const auto sound_it = menu_sound_files.find(opt.play_sound);
         if (sound_it != menu_sound_files.end()) {
@@ -5404,7 +5474,11 @@ int main(int argc, char** argv) {
     MusicPlayer music;
     music.asset_root = opt.asset_root;
     music.enabled = opt.music;
-    music.set_gain(std::clamp(opt.music_volume / 100.0f, 0.0f, 1.0f));
+    music.set_gain(std::clamp(
+        (menu_loaded ? static_cast<float>(menu.music_volume)
+                     : opt.music_volume) /
+            100.0f,
+        0.0f, 1.0f));
     if (opt.music && !opt.lnd_path.empty() && !lnd.music.empty()) {
         const auto music_it = park_sound_files.find(lnd.music);
         if (music_it != park_sound_files.end()) {
@@ -5416,6 +5490,54 @@ int main(int argc, char** argv) {
             music.play(music_it->second);
         }
     }
+
+    // Main-menu Options apply live (retail 0x518c10/0x518cc0/0x518db0 for the
+    // sliders; OK/Cancel only close the page). Game speed maps the retail
+    // config value 10 -> the port's 60x clock.
+    auto apply_menu_options = [&]() {
+        if (!menu_loaded) {
+            return;
+        }
+        opt.music_volume = static_cast<float>(menu.music_volume);
+        opt.sfx_volume = static_cast<float>(menu.sfx_volume);
+        opt.game_speed = menu.game_speed;
+        opt.lod_quality = menu.lod_quality;
+        opt.texture_quality = menu.texture_quality;
+        opt.texture_depth = menu.texture_depth;
+        opt.hardware_tnl = menu.hardware_tnl;
+        opt.hardware_sound = menu.hardware_sound;
+        music.set_gain(opt.muted
+                           ? 0.0f
+                           : std::clamp(menu.music_volume / 100.0f, 0.0f,
+                                        1.0f));
+        ui_sound.set_gain(opt.muted
+                              ? 0.0f
+                              : std::clamp(menu.sfx_volume / 100.0f, 0.0f,
+                                           1.0f));
+        if (menu.game_speed_dirty && opt.park_time_scale <= 0.0f) {
+            park_clock.time_scale = 6.0 * static_cast<double>(
+                                              std::max(1, menu.game_speed));
+            menu.game_speed_dirty = false;
+        }
+        if (menu.screen_mode_changed && !menu.screen_modes.empty()) {
+            const std::string& mode =
+                menu.screen_modes[static_cast<std::size_t>(std::clamp(
+                    menu.screen_mode, 0,
+                    static_cast<int>(menu.screen_modes.size()) - 1))];
+            int mode_w = 0;
+            int mode_h = 0;
+            int mode_bpp = 0;
+            if (std::sscanf(mode.c_str(), "%dx%dx%d", &mode_w, &mode_h,
+                            &mode_bpp) == 3 &&
+                mode_w >= 320 && mode_h >= 240) {
+                // Retail Dino.ini stores the chosen mode and applies it at
+                // startup; the current window stays until the next launch.
+                opt.width = mode_w;
+                opt.height = mode_h;
+            }
+        }
+    };
+    apply_menu_options();
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -5627,6 +5749,18 @@ int main(int argc, char** argv) {
                 break;
             }
         }
+        // Retail starts the player from the menu click and skips on the next
+        // mouse button press (0x517930 polls DIMOUSESTATE L/R/M; there is no
+        // key path). Drain the launching click/up events first so the video
+        // is not skipped instantly.
+        {
+            SDL_Event drain;
+            while (SDL_PollEvent(&drain)) {
+                if (drain.type == SDL_EVENT_QUIT) {
+                    return false;
+                }
+            }
+        }
         bool video_running = true;
         int played = 0;
         dino::MpgFrame last_frame;
@@ -5641,9 +5775,14 @@ int main(int argc, char** argv) {
             last_frame = frame;
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
-                if (event.type == SDL_EVENT_QUIT ||
-                    (event.type == SDL_EVENT_KEY_DOWN &&
-                     event.key.key == SDLK_ESCAPE)) {
+                if (event.type == SDL_EVENT_QUIT) {
+                    video_running = false;
+                } else if (event.type == SDL_EVENT_KEY_DOWN &&
+                           event.key.key == SDLK_ESCAPE) {
+                    // Port-only extra; retail uses a mouse click.
+                    video_running = false;
+                } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                    // Retail skips on any mouse button (left/right/middle).
                     video_running = false;
                 }
             }
@@ -5862,6 +6001,81 @@ int main(int argc, char** argv) {
                                                static_cast<float>(widget.height) * dpi,
                                                widget.back_color),
                              0, 1.0f, 1, view_w, view_h);
+            }
+
+            if (widget.type == "HSCROLL") {
+                // Retail HSCROLL children have no INI geometry; the track is
+                // the widget texture and the arrows/thumb are derived:
+                // U=D=height, thumbW=max(5,W-(U+D+5)-3*range),
+                // travel=W-U-D-thumbW, thumbX=U+pos*travel/(range-1).
+                const int range = widget.hs_range > 0 ? widget.hs_range : 32;
+                const int arrow = widget.height;
+                const int thumb_w =
+                    range <= 1
+                        ? std::max(0, widget.width - 2 * arrow)
+                        : std::max(5, widget.width - (2 * arrow + 5) -
+                                          3 * range);
+                const int travel =
+                    std::max(0, widget.width - 2 * arrow - thumb_w);
+                const int pos =
+                    std::clamp(widget.hs_position, 0, range - 1);
+                const float thumb_x =
+                    px(widget.abs_x + arrow) +
+                    (range > 1 && travel > 0
+                         ? static_cast<float>(pos * travel) /
+                               static_cast<float>(range - 1) * dpi
+                         : 0.0f);
+                auto draw_scroll_child = [&](const char* suffix, float x,
+                                             float w) {
+                    for (const int child_index : widget.children) {
+                        const dino::ui::Widget& child =
+                            menu.overlay.widgets[static_cast<std::size_t>(
+                                child_index)];
+                        const std::string suffix_text(suffix);
+                        if (child.name.size() >= suffix_text.size() &&
+                            child.name.compare(
+                                child.name.size() - suffix_text.size(),
+                                suffix_text.size(), suffix_text) == 0) {
+                            if (!child.texture.empty()) {
+                                // Pick the first frame not in SKIP_LIST; the
+                                // thumb graphic skips 0..3 and 7.
+                                int child_frame = 0;
+                                if (const dino::ui::Graphic* graphic =
+                                        menu.overlay.graphic(
+                                            child.texture)) {
+                                    child_frame = 0;
+                                    for (int f = 0; f < graphic->objects; ++f) {
+                                        bool skipped = false;
+                                        for (const int skip : graphic->skip) {
+                                            if (skip == f) {
+                                                skipped = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!skipped) {
+                                            child_frame = f;
+                                            break;
+                                        }
+                                    }
+                                }
+                                draw_sprite(
+                                    child.texture.c_str(), x,
+                                    py(widget.abs_y), w,
+                                    static_cast<float>(widget.height) * dpi,
+                                    child_frame);
+                            }
+                            return;
+                        }
+                    }
+                };
+                draw_scroll_child("_BTN_LEFT", px(widget.abs_x),
+                                  static_cast<float>(arrow) * dpi);
+                draw_scroll_child(
+                    "_SCROLLRIGHT",
+                    px(widget.abs_x + widget.width - arrow),
+                    static_cast<float>(arrow) * dpi);
+                draw_scroll_child("_BTN_THUMB", thumb_x,
+                                  static_cast<float>(thumb_w) * dpi);
             }
 
             if (widget.type == "LIST") {
@@ -11241,13 +11455,23 @@ int main(int argc, char** argv) {
                                 menu.scroll_drag_list,
                                 static_cast<int>(event.motion.y - off_y));
                         }
+                        if (menu.slider_drag_active &&
+                            !menu.slider_drag_name.empty()) {
+                            menu.slider_drag_to(
+                                menu.slider_drag_name,
+                                static_cast<int>(event.motion.x - off_x));
+                            apply_menu_options();
+                        }
                     } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                                event.button.button == SDL_BUTTON_LEFT) {
                         menu.scroll_drag_active = false;
                         menu.scroll_drag_list.clear();
+                        menu.slider_drag_active = false;
+                        menu.slider_drag_name.clear();
+                        apply_menu_options();
                     } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                        // Retail VSCROLL wheel: one notch = one line
-                        // (0x5cbb7f, pos -= delta / 120).
+                        // VSCROLL/HSCROLL wheel: one notch = one line
+                        // (0x5cbb7f / 0x5be7e0, pos -= delta / 120).
                         const int mx = static_cast<int>(
                             event.wheel.mouse_x - off_x);
                         const int my = static_cast<int>(
@@ -11257,14 +11481,17 @@ int main(int argc, char** argv) {
                             const dino::ui::Widget& list =
                                 menu.overlay.widgets[static_cast<std::size_t>(
                                     hit)];
+                            int notches =
+                                static_cast<int>(event.wheel.y);
+                            if (notches == 0) {
+                                notches = event.wheel.y > 0.0f ? 1 : -1;
+                            }
                             if (list.type == "LIST" &&
                                 list.list_scroll_width > 0) {
-                                int notches =
-                                    static_cast<int>(event.wheel.y);
-                                if (notches == 0) {
-                                    notches = event.wheel.y > 0.0f ? 1 : -1;
-                                }
                                 menu.list_scroll(list.name, -notches);
+                            } else if (list.type == "HSCROLL") {
+                                menu.slider_step(list.name, -notches);
+                                apply_menu_options();
                             }
                         }
                     } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
@@ -11286,6 +11513,7 @@ int main(int argc, char** argv) {
                             }
                         }
                         menu.click(mx, my);
+                        apply_menu_options();
                         queue_menu_load();
                         if (!pending_menu_load_path.empty()) {
                             do_port_load(pending_menu_load_path);
@@ -13303,7 +13531,8 @@ int main(int argc, char** argv) {
     if (opt.save_config) {
         int final_width = 0, final_height = 0;
         SDL_GetWindowSize(window, &final_width, &final_height);
-        if (!opt.fullscreen && final_width >= 64 && final_height >= 64) {
+        if (!menu.screen_mode_changed && !opt.fullscreen &&
+            final_width >= 64 && final_height >= 64) {
             opt.width = final_width;
             opt.height = final_height;
         }

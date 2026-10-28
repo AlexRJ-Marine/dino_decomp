@@ -1056,6 +1056,31 @@ def test_cpp_retail_menu_free_rows(tmp_path):
     r, g, b = image.getpixel((210, 220))
     assert r < 40 and g > 50 and b > 90
 
+def test_cpp_menu_options_page(tmp_path):
+    """Options sliders/indications apply live and persist (retail 0x518c10..)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    cfg = tmp_path / "options.cfg"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-vsync", "--config", str(cfg),
+         "--width", "800", "--height", "600", "--asset-root", str(GAME),
+         "--menu", "--menu-page", "5",
+         "--menu-click", "270,188",   # music left (97 -> 94)
+         "--menu-click", "345,294",   # game speed right (10 -> 13)
+         "--menu-click", "523,188",   # texture quality Auto -> Low
+         "--menu-click", "523,294",   # texture depth 16 -> 32
+         "--menu-click", "523,400"],  # screen 800x600 -> 1024x768
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    text = cfg.read_text()
+    assert "music_volume=94" in text
+    assert "game_speed=13" in text
+    assert "texture_quality=2" in text
+    assert "texture_depth=32" in text
+    assert "width=1024" in text and "height=768" in text
+
+
 def test_cpp_park_hud_load():
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")

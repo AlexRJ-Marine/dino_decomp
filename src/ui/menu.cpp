@@ -112,7 +112,8 @@ int Menu::hit_test(int x, int y) const {
         if (!widget_visible(i) || !widget.enable) {
             continue;
         }
-        if (widget.type != "BUTTON" && widget.type != "LIST") {
+        if (widget.type != "BUTTON" && widget.type != "LIST" &&
+            widget.type != "HSCROLL") {
             continue;
         }
         if (x >= widget.abs_x && x < widget.abs_x + widget.width &&
@@ -244,6 +245,127 @@ void Menu::list_drag_to(const std::string& name, int y) {
     list_set_first_row(name, std::clamp(pos, 0, g.range - 1));
 }
 
+void Menu::options_sync_positions() {
+    auto set_pos = [&](const char* name, int value) {
+        Widget* widget = overlay.get(name);
+        if (widget == nullptr) {
+            return;
+        }
+        const int range = widget->hs_range > 0 ? widget->hs_range : 32;
+        widget->hs_position = std::clamp(
+            (value * range + 50) / 100, 0, range - 1);
+    };
+    set_pos("OPTIONS_MUSIC_HSCROLL", music_volume);
+    set_pos("OPTIONS_SOUNDS_HSCROLL", sfx_volume);
+    set_pos("OPTIONS_GAME_SPEED_HSCROLL", game_speed);
+}
+
+void Menu::options_cycle(const std::string& name) {
+    if (name == "OPTIONS_GRAPH_QUALITY_INDICATION") {
+        // Retail 0x519640: v = (v == 0) ? 3 : v - 1.
+        lod_quality = lod_quality == 0 ? 3 : lod_quality - 1;
+    } else if (name == "OPTIONS_GRAPH_TEXTURE_QUALITY_INDICATION") {
+        texture_quality = texture_quality == 0 ? 3 : texture_quality - 1;
+    } else if (name == "OPTIONS_SCREEN_SIZE_INDICATION") {
+        if (!screen_modes.empty()) {
+            screen_mode = (screen_mode + 1) %
+                          static_cast<int>(screen_modes.size());
+            screen_mode_changed = true;
+        }
+    } else if (name == "OPTIONS_GRAPH_MIXING_INDICATION") {
+        hardware_tnl = hardware_tnl != 0 ? 0 : 1;
+    } else if (name == "OPTIONS_MUSIC_MIXING_INDICATION") {
+        hardware_sound = hardware_sound != 0 ? 0 : 1;
+    } else if (name == "OPTIONS_GRAPH_TEXTURE_DEPTH_INDICATION") {
+        texture_depth = texture_depth == 16 ? 32 : 16;
+    }
+}
+
+std::string Menu::option_text(const std::string& name) const {
+    auto quality = [](int value) -> const char* {
+        switch (value) {
+            case 0: return "High";
+            case 1: return "Medium";
+            case 2: return "Low";
+            default: return "Auto";
+        }
+    };
+    if (name == "OPTIONS_GRAPH_QUALITY_INDICATION") {
+        return quality(lod_quality);
+    }
+    if (name == "OPTIONS_GRAPH_TEXTURE_QUALITY_INDICATION") {
+        return quality(texture_quality);
+    }
+    if (name == "OPTIONS_SCREEN_SIZE_INDICATION") {
+        if (!screen_modes.empty()) {
+            return screen_modes[static_cast<std::size_t>(std::clamp(
+                screen_mode, 0, static_cast<int>(screen_modes.size()) - 1))];
+        }
+        return "800x600x16";
+    }
+    if (name == "OPTIONS_GRAPH_MIXING_INDICATION") {
+        return hardware_tnl != 0 ? "Hardware" : "Software";
+    }
+    if (name == "OPTIONS_MUSIC_MIXING_INDICATION") {
+        return hardware_sound != 0 ? "Hardware" : "Software";
+    }
+    if (name == "OPTIONS_GRAPH_TEXTURE_DEPTH_INDICATION") {
+        return texture_depth == 32 ? "32 bits" : "16 bits";
+    }
+    return std::string();
+}
+
+void Menu::slider_step(const std::string& name, int delta) {
+    Widget* widget = overlay.get(name);
+    if (widget == nullptr) {
+        return;
+    }
+    const int range = widget->hs_range > 0 ? widget->hs_range : 32;
+    widget->hs_position =
+        std::clamp(widget->hs_position + delta, 0, range - 1);
+    const int value = (widget->hs_position * 100 + range / 2) / range;
+    if (name == "OPTIONS_MUSIC_HSCROLL") {
+        music_volume = value;
+    } else if (name == "OPTIONS_SOUNDS_HSCROLL") {
+        sfx_volume = value;
+    } else if (name == "OPTIONS_GAME_SPEED_HSCROLL") {
+        game_speed = value;
+        game_speed_dirty = true;
+    }
+}
+
+void Menu::slider_drag_to(const std::string& name, int x) {
+    Widget* widget = overlay.get(name);
+    if (widget == nullptr) {
+        return;
+    }
+    const int range = widget->hs_range > 0 ? widget->hs_range : 32;
+    if (range <= 1 || widget->width <= 0) {
+        return;
+    }
+    const int arrow = widget->height;
+    const int thumb_w =
+        range <= 1
+            ? std::max(0, widget->width - 2 * arrow)
+            : std::max(5, widget->width - (2 * arrow + 5) - 3 * range);
+    const int travel = std::max(0, widget->width - 2 * arrow - thumb_w);
+    if (travel <= 0) {
+        return;
+    }
+    const int pos =
+        (x - (widget->abs_x + arrow)) * range / travel;
+    widget->hs_position = std::clamp(pos, 0, range - 1);
+    const int value = (widget->hs_position * 100 + range / 2) / range;
+    if (name == "OPTIONS_MUSIC_HSCROLL") {
+        music_volume = value;
+    } else if (name == "OPTIONS_SOUNDS_HSCROLL") {
+        sfx_volume = value;
+    } else if (name == "OPTIONS_GAME_SPEED_HSCROLL") {
+        game_speed = value;
+        game_speed_dirty = true;
+    }
+}
+
 void Menu::click(int x, int y) {
     const int hit = hit_test(x, y);
     if (hit < 0) {
@@ -251,6 +373,37 @@ void Menu::click(int x, int y) {
     }
     const Widget& widget = overlay.widgets[static_cast<std::size_t>(hit)];
     const std::string& name = widget.name;
+
+    // Retail HSCROLL (0x5be7e0): left/right arrows -1/+1, track -3/+3,
+    // absolute thumb drag, wheel one notch. Options sliders apply live.
+    if (widget.type == "HSCROLL") {
+        const int range = widget.hs_range > 0 ? widget.hs_range : 32;
+        const int arrow = widget.height;
+        const int thumb_w =
+            range <= 1
+                ? std::max(0, widget.width - 2 * arrow)
+                : std::max(5, widget.width - (2 * arrow + 5) - 3 * range);
+        const int travel =
+            std::max(0, widget.width - 2 * arrow - thumb_w);
+        const int pos = std::clamp(widget.hs_position, 0, range - 1);
+        const int thumb_x =
+            widget.abs_x + arrow +
+            (range > 1 && travel > 0 ? pos * travel / (range - 1) : 0);
+        if (x < widget.abs_x + arrow) {
+            slider_step(name, -1);
+        } else if (x >= widget.abs_x + widget.width - arrow) {
+            slider_step(name, 1);
+        } else if (x >= thumb_x && x < thumb_x + thumb_w) {
+            slider_drag_active = true;
+            slider_drag_name = name;
+        } else if (x < thumb_x) {
+            slider_step(name, -3);
+        } else {
+            slider_step(name, 3);
+        }
+        hover = -1;
+        return;
+    }
 
     // Retail VSCROLL (0x5c4650): the list's right strip. Up/down = 1 line,
     // track above/below the thumb = 3, thumb press starts a drag (the viewer
@@ -374,6 +527,17 @@ void Menu::click(int x, int y) {
         if (cinematic_unlocked(cinematic) && !cinematic_video().empty()) {
             cinematic_requested = true;
         }
+    } else if (name == "OPTIONS_GRAPH_QUALITY_INDICATION" ||
+               name == "OPTIONS_GRAPH_TEXTURE_QUALITY_INDICATION" ||
+               name == "OPTIONS_SCREEN_SIZE_INDICATION" ||
+               name == "OPTIONS_GRAPH_MIXING_INDICATION" ||
+               name == "OPTIONS_MUSIC_MIXING_INDICATION" ||
+               name == "OPTIONS_GRAPH_TEXTURE_DEPTH_INDICATION") {
+        options_cycle(name);
+    } else if (name == "OPTIONS_OK_BUTTON" ||
+               name == "OPTIONS_CANCEL_BUTTON") {
+        // Retail binds both to the same close pointer: no apply/revert.
+        page = 0;
     } else if (ends_with(name, "_CANCEL_BUTTON") ||
                ends_with(name, "_BACK_BUTTON")) {
         page = 0;
@@ -382,6 +546,10 @@ void Menu::click(int x, int y) {
 }
 
 std::string Menu::text_for(const Widget& widget) const {
+    const std::string option = option_text(widget.name);
+    if (!option.empty()) {
+        return option;
+    }
     if (page == 3 && widget.name == "CAMPAIGN_INFO_TITLE") {
         const dino::Campaign* campaign_ptr = selected_campaign();
         if (campaign_ptr != nullptr && !campaign_ptr->title_id.empty()) {
