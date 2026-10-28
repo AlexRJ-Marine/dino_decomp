@@ -1,6 +1,6 @@
 # State
 
-Updated: 2026-10-26
+Updated: 2026-10-28
 
 > Short dashboard and next actions: `notes/NOW.md`. Open tasks:
 > `notes/OPEN-TASKS.md`. This file is the long archive; append, do not rewrite.
@@ -1809,3 +1809,29 @@ Updated: 2026-10-26
   `docs/decomp/camera.md` is marked static-hypothesis until the binary input
   mapping/start state is re-verified. The prior `camera-retail-*.png` files
   are port captures, not retail.
+
+## 2026-10-28 - CAM-1 retail camera: solved from the binary and live-verified
+
+- The playtest rejection of the first progress model was correct: it applied
+  `*4` and `dt` to the pan (retail is per update, no dt), inverted the yaw
+  direction, used a 10/s yaw filter (the ctor stores 5.0), had no target/eye
+  current-goal filters, and started at the legacy yaw 35/pitch 20 orbit.
+- Recovered and verified from `0x5e5ff0`: start p=0.1/yaw 0/target
+  (0,0,terrain)/eye (128-half,128-half,250); pan `lerp(1,20,p)` per update;
+  yaw `dt*pi/2` with a **5/s** low-pass; progress `dt*lerp(0.05,0.2,p)`;
+  target/eye XY `lerp(6,2,p)` and Z instant; eye =
+  target_goal + (cos/sin yaw_cur)*distance(p), height
+  `h + max(target_goal.z, terrain(eye), 16)`; map box half+250; no roll.
+- Live evidence: the DINPUT8 proxy patches camera vtable `0x6481a4` slot 2
+  (`DINO_CAMERA_PROBE=1`) and samples the object; `scripts/x32dbg/camera-probe.ps1`
+  drives Free Game with `dino_keys.txt`. `run-test/dino_camera.csv` confirmed
+  the first-frame fly-in (128 -> 177.7449 at dt 0.021), the 2.9/update pan,
+  `k/dt=5.0` yaw and the zoom rate. The harness is unpaced in the background,
+  so only per-update steps are taken from it.
+- Port: `RetailParkCamera` in `src/viewer/main.cpp` is the interactive
+  default; `--camera-orbit` is the legacy orbit, explicit
+  `--camera-target/--distance/--focus-*` still use the orbit. `--camera-selftest`
+  asserts settle/pan/yaw/zoom; new tests in `tests/test_viewer_cpp.py`.
+  The `.sav` camera tail is now converted from record to centred coordinates.
+- Evidence: `notes/camera-controls-binary-recon.md` section 12,
+  `docs/decomp/camera.md`, `notes/camera-motion-tilt-recon.md` status.

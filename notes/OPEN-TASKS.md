@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 01:42. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 09:59. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-35 open items.
+34 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -54,9 +54,6 @@ Generated from `TASKS.md` on 2026-10-28 01:42. Do not edit; regenerate with `scr
 
 ## OUTREACH-1: XeNTaX / ZenHax post
 - [ ] Publish and record any replies.
-
-## CAM-1: Retail camera controls
-- [ ] Port the active-camera rotation/transition object
 
 ## DEC-6: Function status list
 - [ ] Keep it current as functions are replaced.

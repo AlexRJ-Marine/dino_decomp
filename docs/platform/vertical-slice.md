@@ -47,16 +47,21 @@ starts the walking animation. Screenshot: `notes/menu-start-dino.png`.
 ## Camera
 
 Retail target-orbit mode (default): **arrows** pan the look-at target over
-the island, **Shift+arrows** rotate around it at `pi/2` rad/s, and
-`+`/`-` or the wheel zoom. The target follows the terrain height; `R`
-resets. Mouse-drag rotation is a port-only convenience. When a dinosaur is
-placed, the target is the spawn point at `z = terrain + 3`; otherwise it
-frames the whole island.
+the island (per frame, `lerp(1,20,progress)`), **Shift+arrows** rotate around
+it at `pi/2` rad/s with the retail **5/s** yaw low-pass (`Del`/`PgDn`/`Home`/
+`End` are the alternate rotate bindings), and **Shift+Up/Down** or the
+navigation panel's ZOOM/DEZOOM change `progress` (distance 10..300 and
+elevation 3..500 together). The target follows the terrain height; `R`
+resets. Retail has no mouse camera binding; mouse-drag rotation is only for
+`--camera-orbit` and free-fly. When a dinosaur is placed, the target is the
+spawn point at `z = terrain + 3`; otherwise it frames the island.
 
-The menu-started park uses the recovered Free Game camera: target is the
-island centre at terrain height, horizontal distance 39, elevation 52.7,
-yaw 0 (`Data/Config/camera.ini` progress 0.1; retail save eye
-`(551,512,84.7)`, target `(512,512,32)` on isl01). The park scene renders
+The menu-started park uses the recovered Free Game camera: the retail ctor
+starts at target `(512,512,50)` / eye `(128,128,250)` in record coordinates,
+progress 0.1, yaw 0, and the first update snaps the target to the terrain
+(`(512,512,32)` on isl01) while the eye flies in to `(551,512,84.7)`. In
+viewer coordinates that is target `(0,0,32)`, eye `(39,0,84.7)` after the
+fly-in. The park scene renders
 with the original FOV **80°**; mesh-only views keep 33°. `--start-dino` uses a
 close demo camera (distance 22) so the allosaurus is visible.
 

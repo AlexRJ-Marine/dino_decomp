@@ -36,10 +36,15 @@ vsync=1
 ## Camera
 
 - **Retail target-orbit (default).** `arrow keys` pan the look-at target
-  across the island; `Shift+arrows` rotate around it at
-  `camera.ini`'s `pi/2` rad/s; `+`/`-` or the wheel zoom
-  (`DistanceMin/Max` 10..300). The target follows the terrain height. Mouse
-  drag rotation is a port-only convenience, not a retail binding.
+  across the island by `lerp(1,20,progress)` **per frame** (retail has no dt
+  factor here); `Shift+arrows` rotate around it at `camera.ini`'s `pi/2` rad/s
+  with the retail **5/s** yaw low-pass (`Del`/`PgDn`/`Home`/`End` are the
+  alternate rotate bindings); `Shift+Up/Down` and the navigation panel's
+  ZOOM/DEZOOM change `progress`, which drives distance 10..300 and elevation
+  3..500 together. The target follows the terrain height. Retail has no mouse
+  camera binding; mouse drag only works in `--camera-orbit` and free-fly.
+- **Legacy orbit (`--camera-orbit`).** The previous spherical orbit, including
+  `+`/`-`/wheel zoom and mouse drag, kept for deterministic screenshots.
 - **Free-fly (`C`, debug).** `W/A/S/D` move the eye along the view
   direction, `Q/E` move down/up, Shift sprints, and mouse drag looks around.
   The eye is clamped to the terrain surface.

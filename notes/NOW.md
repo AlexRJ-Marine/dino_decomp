@@ -47,6 +47,14 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- CAM-1: **retail park camera solved and now the interactive default.**
+  Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
+  start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** (no dt), yaw 90 deg/s
+  with a **5/s** low-pass (16.8 deg lag, not the old 10/s), zoom
+  `lerp(0.05,0.2,p)`/s, target/eye XY `lerp(6,2,p)` with instant Z, no roll,
+  no mouse camera. `--camera-orbit` keeps the legacy view; `--camera-selftest`
+  asserts the measured equations. `notes/camera-controls-binary-recon.md` §12.
+  Re-test the in-hand feel.
 - SAVE-2: **complete and accepted by retail.** The C++ writer re-serializes
   the whole `.sav` byte-identically; a `--sav-write` output (`cppwrite`) is
   listed by the retail LOAD GAME panel, selects and loads a park
@@ -100,30 +108,34 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
+1. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
+   the retail alternates), Shift+Up/Down zoom. Pan is frame-rate dependent in
+   retail; the port applies one step per rendered frame (vsync 60). If the
+   user reports a speed mismatch, measure their display rate before changing
+   the step, not the formula.
+2. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
    in the show/attraction controller (Cpg04 is the test park; Free Game has 0
    dinos). Do not invent a list producer; the lists stay empty.
-2. CAMPAIGN population: `WldWorld.records` now retains campaign shows/
+3. CAMPAIGN population: `WldWorld.records` now retains campaign shows/
    animals/employees; wire them into `load_campaign_park` and assert
    shows=1/animals=2/employees=6 on Cpg04 (`notes/playtest-2026-10-27.md`).
-3. SHOW-4 rest: live `.bfi` arena/judge actors and per-show weight
+4. SHOW-4 rest: live `.bfi` arena/judge actors and per-show weight
    authoring; the construction panel and attraction-list actions are in.
-4. SAVE-2 HUD: cash is `economy+0x08` = park `+0x30`. Manual/autosave `.sav`
+5. SAVE-2 HUD: cash is `economy+0x08` = park `+0x30`. Manual/autosave `.sav`
    LOAD has `BL=0` and restores it; the `0x58b1b0` skip is only the campaign
    `.wld` path (`BL=1`, no park block). The port matches; the 26000 mystery
    needs a runtime watch (`notes/hud-budget-restore-flag-recon.md` §8).
-4. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+6. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
+- 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 - 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
 - 2026-10-28 - Full suite green: 473 passed after enclosure rectangle/paddock and campaign show features
 - 2026-10-28 - Full suite green: 473 passed after camera/preview/enclosure/campaign-population work
 - 2026-10-28 - Playtest fixes: CAM-1 retail progress camera (no roll), enclosure UI arms fence, path preview one box, campaign .wld employees/food spawn
 - 2026-10-27 - SAVE-2: campaign list1/list2 typed + campaign .wld shows/animals/employees retained; HUD BL guard corrected
 - 2026-10-27 - SHOW-4: interactive show construction panel + attraction list actions
-- 2026-10-27 - SAVE-2: campaign list0 typed + byte-identical Python/C++ round-trip (list1/2 open)
-- 2026-10-27 - SHOW-4: show catalog + placement + 10-slot hourly scheduler + live runtime (fast 334)
 
 ## Blockers
 

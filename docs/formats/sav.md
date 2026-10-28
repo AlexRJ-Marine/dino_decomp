@@ -379,11 +379,12 @@ The split is proven against the verified start-camera framing: the manual
 save's first two vectors are exactly the eye and target used by
 `FUN_0051dad0`'s park handoff (`docs/platform/vertical-slice.md`).
 
-The C++ viewer applies this tail on `--sav-park`: eye/target set the orbit
-camera center, distance, yaw and pitch (unless `--camera-target`/`--distance`
-is given). The manual save reproduces the start view; the auto save starts
-far out at eye `(128,128,250)`. Guarded by `test_cpp_sav_park_import` and
-`test_cpp_sav_park_auto_camera`.
+The C++ viewer applies this tail on `--sav-park`: the record-coordinate
+eye/target are converted to the viewer's centred world (`-world_size/2`) and
+set the retail park camera's current and goal state (progress from the tail),
+unless `--camera-target`/`--distance` is given. The manual save reproduces the
+start view; the auto save starts far out at eye `(128,128,250)`. Guarded by
+`test_cpp_sav_park_import` and `test_cpp_sav_park_auto_camera`.
 
 **Retail manual LOAD does not apply the tail.** A manual save with the auto
 camera patched into the last 40 bytes (eye 128,128,250 / target 512,512,50)

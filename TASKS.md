@@ -724,31 +724,43 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FUN_00527b80(4..7)` -> `FUN_005e59b0` (camera flag array `+0x34`).
 - [x] Replace the placeholder orbit/WASD path with the target-orbit camera:
   arrows pan, Shift+arrows rotate at 90 deg/s, `+/-`/wheel zoom 10..300,
-  terrain-follow target, `C` free-fly as debug.
-- [ ] Camera controls: the first progress-model implementation was rejected
-  by playtest. Default is back on the previous orbit; `--camera-retail` is A/B
-  only. Re-verify `0x005e5ff0`/`FUN_00527b80`, the eight-action mapping and the
-  park start state from the binary (`notes/camera-controls-binary-recon.md`);
-  do not use the `camera-retail-*.png` files as retail evidence.
+  terrain-follow target, `C` free-fly as debug. (The +/-/wheel zoom is now
+  legacy-only; retail has no keyboard/wheel zoom binding.)
+- [x] Camera controls: re-verified `0x005e5ff0`/`FUN_00527b80` and the park
+  start state from the binary and against a live retail run. The retail camera
+  is now the interactive default: p=0.1, yaw 0, target (0,0,terrain),
+  eye (128-half,128-half,250) fly-in; arrows pan by `lerp(1,20,p)` **per
+  update** (no dt); Shift+arrows / Del/PgDn/Home/End rotate at `pi/2` rad/s
+  with the **5/s** yaw low-pass (16.8 deg lag at 90 deg/s); Shift+Up/Down and
+  ZOOM/DEZOOM move progress at `lerp(0.05,0.2,p)`/s; XY position/target
+  filters are `lerp(6,2,p)`, Z is instant; no roll and no mouse camera.
+  `--camera-orbit` keeps the legacy orbit; `--camera-selftest` asserts the
+  four measured equations (`notes/camera-controls-binary-recon.md` §12,
+  `docs/decomp/camera.md`).
 - [x] Wire the `NAVIGATION_PANEL` buttons to the same actions
   (`GOTOP/GOBOTTOM/GOLEFT/GORIGHT`, `TURNLEFT/TURNRIGHT`,
   `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.
 - [x] Read `Data/Config/camera.ini` `[Config1]` and drive the pan, rotation,
   zoom, elevation/distance limits and height smoothing from it
   (`src/viewer/camera_config.*`).
-- [x] Port the `FUN_00529d00` target-height smoothing (0.1 step at 60 Hz)
-  using `PositionHardness`.
-- [x] Verify with synthetic scan-code input and `DINO_DEBUG_CAMERA=1`
-  (`target` -23.3 after 2 s, `yaw` -181.1 after 2 s, distance 65.6 -> 47.3
-  after 1 s).
-- [ ] Port the active-camera rotation/transition object
-  (`camSwitcher+0x20/+0x24`) and the `TargetHardness` clamp semantics.
+- [x] Port the target-height smoothing using `PositionHardness`; the exact
+  retail 6..2 filters are implemented for target and eye (XY), with instant Z.
+- [x] Verify with synthetic input and `DINO_DEBUG_CAMERA=1`; the live retail
+  probe (`scripts/x32dbg/camera-probe.ps1`, `DINO_CAMERA_PROBE=1`) recorded
+  the per-update pan step (2.9 at p=0.1), yaw k/dt=5.0 and the zoom rate.
+- [x] Active-camera rotation/transition object (`camSwitcher+0x20/+0x24`):
+  `+0x24` is the pose proxy, `+0x20` stays null in the park (assert at
+  `0x5e5beb`); no second camera to port.
 - **Acceptance:** the retail key map drives the camera; rotation is
-  `pi/2` rad/s; a side-by-side matches the original at the start camera.
+  `pi/2` rad/s with the 5/s low-pass; the start camera and pan/zoom match the
+  original in play.
 - **Depends on:** FMT-30, UI-2 camera research.
-- **Evidence:** `notes/camera-rotation-recon.md`,
-  `notes/camera-retail-controls.txt`, `notes/camera-retail-*.png`,
-  `docs/platform/qol.md`, `docs/platform/vertical-slice.md`.
+- **Evidence:** `notes/camera-controls-binary-recon.md` (§12 runtime
+  corrections), `docs/decomp/camera.md`, `scripts/x32dbg/camera-probe.ps1`,
+  `run-test/dino_camera.csv`, `notes/camera-rotation-recon.md`,
+  `notes/camera-retail-controls.txt`.
+- **Note:** `notes/camera-retail-*.png` are **port** captures, not retail;
+  do not use them as retail evidence.
 
 ## Phase 3 — hybrid decompilation
 

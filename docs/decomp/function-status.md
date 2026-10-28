@@ -88,7 +88,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005ba6b0` / `0x005ba8f0` | widget type `RENDER` (10), `RV_ZMIN`/`RV_ZMAX` | decompiled | same |
 | `0x00529d00` | park observer update — camera FOV 80°, aspect 4:3, near ≥ 1, far 1000, clamps | decompiled | same |
 | `0x005e5960` | `camSwitcher::Update` — copies the active camera eye/target to the observer every frame | decompiled | `notes/ui-recon.md` ("Start camera solved") |
-| `0x005e5fb0` / `0x005e5f20` | camera save/load — eye, target, progress (0.1..1.0), yaw | decompiled, verified | retail save + `.wld` cameras |
+| `0x005e5fb0` / `0x005e5f20` | camera save/load - progress, yaw goal (z at `+0x12c`), eye/target | decompiled, verified | retail save + `.wld` cameras |
 | `0x005e5d5d`..`0x005e6271` | new-camera defaults — centre target, distance 39, elevation 52.7, yaw 0 | decompiled, verified | `camera.ini`, retail save |
 | `0x00527650` | `pvwPark3DRenderView` ctor — park camera/renderer | decompiled (partial) | same |
 | `0x0050c1a0` | in-park `OPTIONS_PANEL` controller (options/save/load tabs) | decompiled | same |
@@ -290,7 +290,7 @@ the original exe (Phase 3 `HYB-1..7`).
 | minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
 | HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
 | park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, base 9 + scale 60, 12 h day + HUD time/day |
-| free-game start camera | `src/viewer/main.cpp` (`load_island`) | reimplemented, target centre + 39/52.7/yaw 0 + FOV 80 |
+| free-game start camera | `src/viewer/main.cpp` (`RetailParkCamera`) | reimplemented, retail ctor target (512,512,50)/eye (128,128,250) p=0.1 yaw 0, fly-in, 5/s yaw filter + FOV 80 |
 | `.sav` header + slot list | `src/formats/sav.cpp` | reimplemented, version/slot/UTF-16 name |
 | island music | `src/viewer/main.cpp` (`MusicPlayer`) | reimplemented, chunk-streamed/looped theme |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |

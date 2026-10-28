@@ -249,7 +249,9 @@ struct Options {
     float yaw = 35.0f;
     float pitch = 20.0f;
     float distance = 0.0f;
-    bool camera_retail = false;  // experimental progress model; not retail-verified
+    bool camera_retail = false;  // force the retail park camera
+    bool camera_orbit = false;   // force the legacy orbit camera
+    bool camera_selftest = false;
 };
 
 void load_config(const std::string& path, Options& opt) {
@@ -504,6 +506,10 @@ Options parse_args(int argc, char** argv) {
             opt.camera_target = next("--camera-target");
         } else if (arg == "--camera-retail") {
             opt.camera_retail = true;
+        } else if (arg == "--camera-orbit") {
+            opt.camera_orbit = true;
+        } else if (arg == "--camera-selftest") {
+            opt.camera_selftest = true;
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -814,7 +820,8 @@ Options parse_args(int argc, char** argv) {
                 "  --show-locked        place shows closed to the public\n"
                 "  --show-status        print the attraction list rows after the first tick\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
-                "  --camera-retail      experimental retail progress camera (unverified)\n"
+                "  --camera-retail      force the retail park camera (default)\n"
+                "  --camera-orbit       use the legacy orbit camera\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -3451,6 +3458,177 @@ int run_campaign_mission_info(const std::string& mission_path) {
         std::fprintf(stderr, "campaign mission: %s\n", e.what());
         return 1;
     }
+}
+
+// Retail park camera (camSwitcher camera object, vtable 0x6481a4, update
+// 0x5e5ff0). State and per-update order are taken from the disassembly and
+// confirmed against a live retail run (run-test\dino_camera.csv):
+//   * target/eye have separate goal and current vectors;
+//   * XY use a first-order filter k = dt*lerp(6,2,p), Z is instant;
+//   * yaw is low-passed at 10/s and drives the eye offset;
+//   * pan is per update (no dt) and moves the target goal by lerp(1,20,p);
+//   * rotation (pi/2 rad/s) and progress (0.05..0.2 /s) are dt-scaled;
+//   * progress drives horizontal distance 10..300 and elevation 3..500.
+// Coordinates are the viewer's centred world coordinates; the retail ctor
+// values (target 512,512,50 / eye 128,128,250) are shifted by world_size/2.
+struct RetailParkCamera {
+    dino::Vec3 target_cur{0.0f, 0.0f, 50.0f};
+    dino::Vec3 target_goal{0.0f, 0.0f, 50.0f};
+    dino::Vec3 eye_cur{-384.0f, -384.0f, 250.0f};
+    dino::Vec3 eye_goal{-384.0f, -384.0f, 250.0f};
+    float yaw_cur = 0.0f;   // radians, target -> eye
+    float yaw_goal = 0.0f;
+    float progress = 0.1f;
+    float altitude = 16.0f;  // camera object +0x50
+    bool initialised = false;
+
+    void reset(const dino::Terrain& terrain) {
+        const float half = terrain.world_size * 0.5f;
+        target_cur = target_goal = {0.0f, 0.0f, 50.0f};
+        eye_cur = eye_goal = {128.0f - half, 128.0f - half, 250.0f};
+        yaw_cur = yaw_goal = 0.0f;
+        progress = 0.1f;
+        altitude = 16.0f;
+        initialised = true;
+    }
+
+    void set_saved(const dino::Vec3& eye, const dino::Vec3& target,
+                   float saved_progress) {
+        eye_cur = eye_goal = eye;
+        target_cur = target_goal = target;
+        progress = std::clamp(saved_progress, 0.0f, 1.0f);
+        yaw_cur = yaw_goal = std::atan2(eye.y - target.y, eye.x - target.x);
+        initialised = true;
+    }
+
+    void update(const dino::CameraConfig& config, const dino::Terrain& terrain,
+                float dt, const bool (&flags)[8]) {
+        if (!initialised) {
+            reset(terrain);
+        }
+        const float step_dt = std::max(0.0f, dt);
+        // 4/5: rotate; 6/7: progress (zoom). Both are dt-scaled.
+        const float rotation = config.rotation_speed(progress) * step_dt;
+        if (flags[4]) {
+            yaw_goal += rotation;
+        }
+        if (flags[5]) {
+            yaw_goal -= rotation;
+        }
+        const float progress_step = config.progress_speed(progress) * step_dt;
+        if (flags[6]) {
+            progress -= progress_step;
+        }
+        if (flags[7]) {
+            progress += progress_step;
+        }
+        progress = std::clamp(progress, 0.0f, 1.0f);
+
+        // 0..3: pan the target goal along the current view direction. The
+        // step is per update: 0x5e5ff0 does not read its dt argument.
+        float fx = target_cur.x - eye_cur.x;
+        float fy = target_cur.y - eye_cur.y;
+        const float length = std::sqrt(fx * fx + fy * fy);
+        if (length > 1e-6f) {
+            fx /= length;
+            fy /= length;
+        } else {
+            fx = -std::cos(yaw_cur);
+            fy = -std::sin(yaw_cur);
+        }
+        const float pan = config.move_speed(progress);
+        if (flags[0]) {
+            target_goal.x += fx * pan;
+            target_goal.y += fy * pan;
+        }
+        if (flags[1]) {
+            target_goal.x -= fx * pan;
+            target_goal.y -= fy * pan;
+        }
+        if (flags[2]) {
+            target_goal.x += -fy * pan;
+            target_goal.y += fx * pan;
+        }
+        if (flags[3]) {
+            target_goal.x += fy * pan;
+            target_goal.y += -fx * pan;
+        }
+        // The target may leave the heightfield by 250 world units.
+        const float pan_limit = terrain.world_size * 0.5f + 250.0f;
+        target_goal.x = std::clamp(target_goal.x, -pan_limit, pan_limit);
+        target_goal.y = std::clamp(target_goal.y, -pan_limit, pan_limit);
+        // +0x98 glue: target goal Z tracks the terrain under the current
+        // target (Z is instant, so goal and current stay equal).
+        target_goal.z += terrain.height_at(target_cur.x, target_cur.y) -
+                         target_cur.z;
+
+        // Eye goal: target goal + yaw offset * distance(p); height above the
+        // highest of target terrain, terrain under the eye, and altitude.
+        const float radius = config.distance(progress);
+        const float height = config.elevation(progress);
+        eye_goal.x = target_goal.x + std::cos(yaw_cur) * radius;
+        eye_goal.y = target_goal.y + std::sin(yaw_cur) * radius;
+        const float eye_terrain = terrain.height_at(eye_goal.x, eye_goal.y);
+        eye_goal.z =
+            height + std::max({target_goal.z, eye_terrain, altitude});
+
+        // First-order filters. Z is instant (pair 1000,1000 -> k = 1).
+        // The yaw pairs are 5.0/5.0 in the ctor (0x5e5d67..), not 10.
+        yaw_cur += (yaw_goal - yaw_cur) *
+                   std::clamp(step_dt * 5.0f, 0.0f, 1.0f);
+        const float target_k = std::clamp(
+            step_dt * config.target_hardness(progress), 0.0f, 1.0f);
+        target_cur.x += (target_goal.x - target_cur.x) * target_k;
+        target_cur.y += (target_goal.y - target_cur.y) * target_k;
+        target_cur.z = target_goal.z;
+        const float eye_k = std::clamp(
+            step_dt * config.position_hardness(progress), 0.0f, 1.0f);
+        eye_cur.x += (eye_goal.x - eye_cur.x) * eye_k;
+        eye_cur.y += (eye_goal.y - eye_cur.y) * eye_k;
+        eye_cur.z = eye_goal.z;
+    }
+};
+
+int camera_selftest(const dino::CameraConfig& config,
+                    const dino::Terrain& terrain) {
+    RetailParkCamera cam;
+    cam.reset(terrain);
+    bool none[8] = {};
+    for (int i = 0; i < 120; ++i) {
+        cam.update(config, terrain, 1.0f / 60.0f, none);
+    }
+    std::printf(
+        "camera selftest settle target=%.4f,%.4f,%.4f "
+        "eye=%.4f,%.4f,%.4f p=%.4f yaw=%.6f\n",
+        cam.target_cur.x, cam.target_cur.y, cam.target_cur.z,
+        cam.eye_cur.x, cam.eye_cur.y, cam.eye_cur.z, cam.progress,
+        cam.yaw_cur);
+    const dino::Vec3 before = cam.target_goal;
+    bool up[8] = {};
+    up[0] = true;
+    for (int i = 0; i < 10; ++i) {
+        cam.update(config, terrain, 1.0f / 60.0f, up);
+    }
+    std::printf("camera selftest pan dx=%.4f dy=%.4f step=%.4f\n",
+                cam.target_goal.x - before.x, cam.target_goal.y - before.y,
+                config.move_speed(cam.progress));
+    const float yaw_before = cam.yaw_goal;
+    bool left[8] = {};
+    left[4] = true;
+    for (int i = 0; i < 60; ++i) {
+        cam.update(config, terrain, 1.0f / 60.0f, left);
+    }
+    std::printf("camera selftest yaw goal_delta=%.6f cur_delta=%.6f\n",
+                cam.yaw_goal - yaw_before, cam.yaw_cur - yaw_before);
+    const float progress_before = cam.progress;
+    bool zoom_in[8] = {};
+    zoom_in[6] = true;
+    for (int i = 0; i < 60; ++i) {
+        cam.update(config, terrain, 1.0f / 60.0f, zoom_in);
+    }
+    std::printf("camera selftest zoom delta=%.6f p=%.6f\n",
+                cam.progress - progress_before, cam.progress);
+    return 0;
 }
 
 }  // namespace
@@ -7742,11 +7920,15 @@ int main(int argc, char** argv) {
     // spherical orbit for deterministic screenshots/tests.
     float camera_progress = 0.1f;
     float camera_yaw_goal = yaw;
-    // Experimental progress model; the default stays on the previous orbit
-    // camera until the binary input mapping is verified.
+    // Retail park camera is the interactive default (verified against the
+    // live 0x5e5ff0 object). Explicit CLI/focus views and --camera-orbit keep
+    // the deterministic legacy orbit for screenshots and tests.
+    RetailParkCamera retail_camera;
+    const bool explicit_camera_view =
+        !opt.camera_target.empty() || opt.distance > 0.0f ||
+        opt.focus_building || opt.focus_dinos || place_dino;
     bool camera_retail_model =
-        opt.camera_retail && opt.camera_target.empty() &&
-        opt.distance <= 0.0f;
+        !opt.camera_orbit && (opt.camera_retail || !explicit_camera_view);
     if (opt.focus_building && building_center.x < 1e29f) {
         center = building_center;
         distance = 60.0f;
@@ -7788,10 +7970,7 @@ int main(int argc, char** argv) {
         const float cy = std::cos(yaw * 3.14159265f / 180.0f);
         const float sy = std::sin(yaw * 3.14159265f / 180.0f);
         if (camera_retail_model) {
-            const float radius = camera_radius();
-            return dino::Vec3{center.x + radius * cy,
-                              center.y + radius * sy,
-                              center.z + camera_height()};
+            return retail_camera.eye_cur;
         }
         const float cp = std::cos(pitch * 3.14159265f / 180.0f);
         const float sp = std::sin(pitch * 3.14159265f / 180.0f);
@@ -8101,6 +8280,12 @@ int main(int argc, char** argv) {
         }
 
         place_dino = skinned;
+        if (place_dino && opt.camera_target.empty() &&
+            opt.distance <= 0.0f && !opt.camera_retail) {
+            // --start-dino uses the demo close-up; the retail park camera
+            // would fly to the island centre instead.
+            camera_retail_model = false;
+        }
         if (place_dino) {
             spawn_x = opt.spawn_x >= 0.0f ? opt.spawn_x
                                           : terrain.world_size * 0.5f;
@@ -8148,23 +8333,36 @@ int main(int argc, char** argv) {
                 yaw = opt.yaw;
                 pitch = opt.pitch;
             } else {
-                // Free Game start camera (camSwitcher/camera.ini): target is
-                // the island centre at terrain height, horizontal distance 39
-                // and elevation 52.7 at progress 0.1, yaw 0. Scaled for other
-                // world sizes. The retail save stores eye (551,512,84.7),
-                // target (512,512,32) on isl01.
-                const float scale = terrain.world_size / 1024.0f;
-                const float horizontal =
-                    camera_config.distance(camera_config.progress) * scale;
-                const float elevation =
-                    camera_config.elevation(camera_config.progress) * scale;
-                center = {0.0f, 0.0f, terrain.height_at(0.0f, 0.0f)};
-                distance = std::sqrt(horizontal * horizontal +
-                                     elevation * elevation);
-                yaw = 0.0f;
-                pitch =
-                    std::asin(std::clamp(elevation / distance, -1.0f, 1.0f)) *
-                    180.0f / 3.14159265f;
+                // Retail camSwitcher ctor: target (512,512,50), eye
+                // (128,128,250) in record coordinates, yaw 0, progress 0.1.
+                // The first update glues the target to the terrain and the
+                // eye flies in with the 6..2 XY filter.
+                retail_camera.reset(terrain);
+                if (camera_retail_model) {
+                    center = retail_camera.target_cur;
+                    yaw = 0.0f;
+                    const float radius =
+                        camera_config.distance(retail_camera.progress);
+                    const float elevation =
+                        camera_config.elevation(retail_camera.progress);
+                    distance = std::sqrt(radius * radius +
+                                         elevation * elevation);
+                    pitch = std::atan2(elevation, radius) *
+                            180.0f / 3.14159265f;
+                } else {
+                    // Legacy orbit start used by --camera-orbit.
+                    center = {0.0f, 0.0f, terrain.height_at(0.0f, 0.0f)};
+                    const float horizontal =
+                        camera_config.distance(camera_config.progress);
+                    const float elevation =
+                        camera_config.elevation(camera_config.progress);
+                    distance = std::sqrt(horizontal * horizontal +
+                                         elevation * elevation);
+                    yaw = 0.0f;
+                    pitch = std::asin(std::clamp(elevation / distance,
+                                                 -1.0f, 1.0f)) *
+                            180.0f / 3.14159265f;
+                }
             }
             free_pos = orbit_eye();
             if (free_camera) {
@@ -8229,18 +8427,34 @@ int main(int argc, char** argv) {
             const float length =
                 std::sqrt(dx * dx + dy * dy + dz * dz);
             if (length > 1e-4f) {
-                center = {cam[3], cam[4], cam[5]};
-                distance = length;
-                if (horizontal > 1e-4f) {
-                    yaw = std::atan2(dy, dx) * 180.0f / 3.14159265f;
+                // The save tail stores retail record coordinates (isl01:
+                // target 512,512,32). Convert to the viewer's centred world
+                // before using it.
+                const float half = terrain.world_size * 0.5f;
+                const dino::Vec3 saved_eye{cam[0] - half, cam[1] - half,
+                                           cam[2]};
+                const dino::Vec3 saved_target{cam[3] - half, cam[4] - half,
+                                              cam[5]};
+                if (camera_retail_model) {
+                    retail_camera.set_saved(saved_eye, saved_target, cam[6]);
+                    center = retail_camera.target_cur;
+                    yaw = retail_camera.yaw_cur * 180.0f / 3.14159265f;
+                    distance = length;
+                    pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
+                            180.0f / 3.14159265f;
+                } else {
+                    center = saved_target;
+                    distance = length;
+                    if (horizontal > 1e-4f) {
+                        yaw = std::atan2(dy, dx) * 180.0f / 3.14159265f;
+                    }
+                    pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
+                            180.0f / 3.14159265f;
                 }
-                pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
-                        180.0f / 3.14159265f;
                 // The tail's progress is the retail orbit parameter; using it
                 // preserves the saved eye exactly (radius/height are derived).
                 camera_progress = std::clamp(cam[6], 0.0f, 1.0f);
                 camera_yaw_goal = yaw;
-                camera_retail_model = opt.camera_retail;
                 if (free_camera) {
                     enter_free_camera();
                 }
@@ -9595,6 +9809,25 @@ int main(int argc, char** argv) {
         free_pos = state.free_pos;
         free_yaw = state.free_yaw;
         free_pitch = state.free_pitch;
+        // The port state stores the orbit form (target/yaw/pitch/distance).
+        // Rebuild the retail camera's eye/target/goals from it so a loaded
+        // session keeps its view instead of snapping back to the start state.
+        if (camera_retail_model && terrain.world_size > 0.0f) {
+            const float yaw_rad = state.yaw * 3.14159265f / 180.0f;
+            const float pitch_rad = pitch * 3.14159265f / 180.0f;
+            const dino::Vec3 eye{
+                center.x + distance * std::cos(pitch_rad) * std::cos(yaw_rad),
+                center.y + distance * std::cos(pitch_rad) * std::sin(yaw_rad),
+                center.z + distance * std::sin(pitch_rad)};
+            const float height = std::max(0.0f, eye.z - center.z);
+            const float progress = std::clamp(
+                (height - camera_config.elevation_min) /
+                    std::max(1e-3f, camera_config.elevation_max -
+                                       camera_config.elevation_min),
+                0.0f, 1.0f);
+            retail_camera.set_saved(eye, center, progress);
+            camera_progress = progress;
+        }
 
         build_grid.init(state.cell_size > 0.0f ? state.cell_size : 4.0f,
                         terrain.world_size);
@@ -11197,9 +11430,8 @@ int main(int argc, char** argv) {
                     free_yaw += dx * 0.3f;
                     free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
                 } else if (camera_retail_model) {
-                    camera_yaw_goal += dx * 0.4f;
-                    camera_progress = std::clamp(
-                        camera_progress + dy * 0.002f, 0.0f, 1.0f);
+                    // Retail has no mouse-drag camera (KeyMapper.ini has no
+                    // mouse entries and 0x5e5ff0 has no mouse input path).
                 } else {
                     yaw += dx * 0.4f;
                     pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
@@ -11208,10 +11440,7 @@ int main(int argc, char** argv) {
                 last_my = event.motion.y;
             } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
                 if (camera_retail_model) {
-                    const float step =
-                        event.wheel.y > 0.0f ? -0.05f : 0.05f;
-                    camera_progress =
-                        std::clamp(camera_progress + step, 0.0f, 1.0f);
+                    // Retail has no mouse wheel binding for the park camera.
                 } else {
                     distance = std::clamp(
                         distance * std::pow(1.1f, -event.wheel.y),
@@ -11229,6 +11458,9 @@ int main(int argc, char** argv) {
 
         SDL_GetWindowSizeInPixels(window, &width, &height);
         sync_park_layout();
+        if (opt.camera_selftest && terrain.world_size > 0.0f) {
+            return camera_selftest(camera_config, terrain);
+        }
         if (width <= 0 || height <= 0) {
             SDL_Delay(10);
             continue;
@@ -11736,37 +11968,58 @@ int main(int argc, char** argv) {
             const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
                                keys[SDL_SCANCODE_RSHIFT];
             const float dtf = static_cast<float>(dt);
-            // camera.ini uses one `progress` p in [0,1] to interpolate every
-            // speed/limit. The retail model keeps it as authoritative; the
-            // legacy path recovers it from the current eye distance/pitch.
-            float progress = camera_progress;
-            if (!camera_retail_model) {
+            if (camera_retail_model) {
+                // Eight action bytes consumed by 0x005e5ff0:
+                //   0..3 pan (arrows / GOTOP..GORIGHT),
+                //   4/5 yaw (Shift+Left/Right, Del/PgDn),
+                //   6/7 progress (Shift+Up/Down, Home/End, ZOOM/DEZOOM).
+                bool flags[8] = {};
+                flags[0] = nav_pan_forward ||
+                           (!shift && held(dino::KeyAction::OrbitUp));
+                flags[1] = nav_pan_back ||
+                           (!shift && held(dino::KeyAction::OrbitDown));
+                flags[2] = nav_pan_left ||
+                           (!shift && held(dino::KeyAction::OrbitLeft));
+                flags[3] = nav_pan_right ||
+                           (!shift && held(dino::KeyAction::OrbitRight));
+                flags[4] = nav_turn_left ||
+                           (shift && held(dino::KeyAction::OrbitLeft)) ||
+                           keys[SDL_SCANCODE_DELETE];
+                flags[5] = nav_turn_right ||
+                           (shift && held(dino::KeyAction::OrbitRight)) ||
+                           keys[SDL_SCANCODE_PAGEDOWN];
+                flags[6] = nav_zoom_in ||
+                           (shift && held(dino::KeyAction::OrbitUp)) ||
+                           keys[SDL_SCANCODE_HOME];
+                flags[7] = nav_zoom_out ||
+                           (shift && held(dino::KeyAction::OrbitDown)) ||
+                           keys[SDL_SCANCODE_END];
+                retail_camera.update(camera_config, terrain, dtf, flags);
+                camera_progress = retail_camera.progress;
+                center = retail_camera.target_cur;
+                yaw = retail_camera.yaw_cur * 57.2957795f;
+                camera_yaw_goal = yaw;
+                const float radius =
+                    camera_config.distance(camera_progress);
+                const float height =
+                    camera_config.elevation(camera_progress);
+                pitch = std::atan2(height, radius) * 57.2957795f;
+                distance = std::sqrt(radius * radius + height * height);
+            } else {
+                // Legacy spherical orbit for --camera-orbit and explicit
+                // screenshot views. Speed/limits still come from camera.ini.
                 const float pitch_rad = pitch * 3.14159265f / 180.0f;
                 const float horizontal =
                     std::max(camera_config.distance_min,
                              distance * std::cos(pitch_rad));
-                progress = std::clamp(
+                const float progress = std::clamp(
                     (horizontal - camera_config.distance_min) /
                         std::max(1.0f, camera_config.distance_max -
                                            camera_config.distance_min),
                     0.0f, 1.0f);
-            }
-            const float rotate =
-                camera_config.rotation_speed(progress) * 57.2957795f * dtf;
-            if (camera_retail_model) {
-                if (nav_turn_left ||
-                    (shift && held(dino::KeyAction::OrbitLeft))) {
-                    camera_yaw_goal -= rotate;
-                }
-                if (nav_turn_right ||
-                    (shift && held(dino::KeyAction::OrbitRight))) {
-                    camera_yaw_goal += rotate;
-                }
-                // Retail low-passes the yaw at 10/s, giving the ~9 deg lag
-                // that reads as a small lean while turning.
-                yaw += (camera_yaw_goal - yaw) *
-                       std::min(1.0f, 10.0f * dtf);
-            } else {
+                const float rotate =
+                    camera_config.rotation_speed(progress) * 57.2957795f *
+                    dtf;
                 if (nav_turn_left ||
                     (shift && held(dino::KeyAction::OrbitLeft))) {
                     yaw -= rotate;
@@ -11775,97 +12028,67 @@ int main(int argc, char** argv) {
                     (shift && held(dino::KeyAction::OrbitRight))) {
                     yaw += rotate;
                 }
-            }
-            const float min_pitch =
-                std::atan2(camera_config.elevation_min,
-                           std::max(1e-3f, distance)) *
-                57.2957795f;
-            const float max_pitch =
-                std::atan2(camera_config.elevation_max,
-                           std::max(1e-3f, distance)) *
-                57.2957795f;
-            if (camera_retail_model) {
-                const float dp = camera_config.progress_speed(progress) * dtf;
-                if (shift && held(dino::KeyAction::OrbitUp)) {
-                    camera_progress =
-                        std::clamp(camera_progress - dp, 0.0f, 1.0f);
-                }
-                if (shift && held(dino::KeyAction::OrbitDown)) {
-                    camera_progress =
-                        std::clamp(camera_progress + dp, 0.0f, 1.0f);
-                }
-                progress = camera_progress;
-            } else {
+                const float min_pitch =
+                    std::atan2(camera_config.elevation_min,
+                               std::max(1e-3f, distance)) *
+                    57.2957795f;
+                const float max_pitch =
+                    std::atan2(camera_config.elevation_max,
+                               std::max(1e-3f, distance)) *
+                    57.2957795f;
                 if (shift && held(dino::KeyAction::OrbitUp)) {
                     pitch = std::min(max_pitch, pitch + rotate);
                 }
                 if (shift && held(dino::KeyAction::OrbitDown)) {
                     pitch = std::max(min_pitch, pitch - rotate);
                 }
-            }
-            // `yaw` points from the target to the eye; the view direction is
-            // the opposite. Move the target in the camera's ground plane at
-            // the retail pan speed (MoveSpeed is in 4-unit cells/second).
-            const float view_yaw =
-                yaw * 3.14159265f / 180.0f + 3.14159265f;
-            const dino::Vec3 forward{std::cos(view_yaw),
-                                     std::sin(view_yaw), 0.0f};
-            const dino::Vec3 right{std::sin(view_yaw),
-                                   -std::cos(view_yaw), 0.0f};
-            const float step =
-                camera_config.move_speed(progress) * 4.0f * dtf;
-            dino::Vec3 delta{0.0f, 0.0f, 0.0f};
-            if (nav_pan_forward || (!shift && held(dino::KeyAction::OrbitUp))) {
-                delta.x += forward.x * step;
-                delta.y += forward.y * step;
-            }
-            if (nav_pan_back || (!shift && held(dino::KeyAction::OrbitDown))) {
-                delta.x -= forward.x * step;
-                delta.y -= forward.y * step;
-            }
-            if (nav_pan_right || (!shift && held(dino::KeyAction::OrbitRight))) {
-                delta.x += right.x * step;
-                delta.y += right.y * step;
-            }
-            if (nav_pan_left || (!shift && held(dino::KeyAction::OrbitLeft))) {
-                delta.x -= right.x * step;
-                delta.y -= right.y * step;
-            }
-            if (delta.x != 0.0f || delta.y != 0.0f) {
-                center.x += delta.x;
-                center.y += delta.y;
-                if (terrain.world_size > 0.0f) {
-                    const float half = terrain.world_size * 0.5f;
-                    center.x = std::clamp(center.x, -half, half);
-                    center.y = std::clamp(center.y, -half, half);
-                    // FUN_00529d00 smooths the target height; 0.1 per
-                    // 60 Hz frame matches its (height-current)*0.1 step.
-                    const float target_z =
-                        terrain.height_at(center.x, center.y) + 2.5f;
-                    const float alpha = std::min(
-                        1.0f, camera_config.position_hardness(progress) * dtf);
-                    center.z += (target_z - center.z) * alpha;
+                // `yaw` points from the target to the eye; the view direction
+                // is the opposite. Move the target in the camera's ground
+                // plane at the camera.ini MoveSpeed (4-unit cells/second).
+                const float view_yaw =
+                    yaw * 3.14159265f / 180.0f + 3.14159265f;
+                const dino::Vec3 forward{std::cos(view_yaw),
+                                         std::sin(view_yaw), 0.0f};
+                const dino::Vec3 right{std::sin(view_yaw),
+                                       -std::cos(view_yaw), 0.0f};
+                const float step =
+                    camera_config.move_speed(progress) * 4.0f * dtf;
+                dino::Vec3 delta{0.0f, 0.0f, 0.0f};
+                if (nav_pan_forward ||
+                    (!shift && held(dino::KeyAction::OrbitUp))) {
+                    delta.x += forward.x * step;
+                    delta.y += forward.y * step;
                 }
-            }
-            if (camera_retail_model) {
-                // Retail: zoom in/out and Shift+Up/Down are the same axis;
-                // both move progress at ProgressSpeed(p) per second.
-                const float dp =
-                    camera_config.progress_speed(progress) * dtf;
-                if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
-                    camera_progress =
-                        std::clamp(camera_progress - dp, 0.0f, 1.0f);
+                if (nav_pan_back ||
+                    (!shift && held(dino::KeyAction::OrbitDown))) {
+                    delta.x -= forward.x * step;
+                    delta.y -= forward.y * step;
                 }
-                if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
-                    camera_progress =
-                        std::clamp(camera_progress + dp, 0.0f, 1.0f);
+                if (nav_pan_right ||
+                    (!shift && held(dino::KeyAction::OrbitRight))) {
+                    delta.x += right.x * step;
+                    delta.y += right.y * step;
                 }
-                const float radius = camera_radius();
-                const float height = camera_height();
-                pitch = std::atan2(height, radius) *
-                        57.2957795f;
-                distance = std::sqrt(radius * radius + height * height);
-            } else {
+                if (nav_pan_left ||
+                    (!shift && held(dino::KeyAction::OrbitLeft))) {
+                    delta.x -= right.x * step;
+                    delta.y -= right.y * step;
+                }
+                if (delta.x != 0.0f || delta.y != 0.0f) {
+                    center.x += delta.x;
+                    center.y += delta.y;
+                    if (terrain.world_size > 0.0f) {
+                        const float half = terrain.world_size * 0.5f;
+                        center.x = std::clamp(center.x, -half, half);
+                        center.y = std::clamp(center.y, -half, half);
+                        const float target_z =
+                            terrain.height_at(center.x, center.y) + 2.5f;
+                        const float alpha = std::min(
+                            1.0f,
+                            camera_config.position_hardness(progress) * dtf);
+                        center.z += (target_z - center.z) * alpha;
+                    }
+                }
                 // ProgressSpeed is a fraction of the full distance range per
                 // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
                 const float zoom_step =

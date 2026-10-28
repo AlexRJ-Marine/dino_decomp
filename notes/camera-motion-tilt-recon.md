@@ -1,6 +1,6 @@
 # Retail park camera - the "tilt when the camera moves" (motion feel)
 
-Status: **HYPOTHESIS ONLY — rejected by playtest 2026-10-28.** The field/no-roll analysis may be correct, but the action mapping, initial progress and port implementation do not reproduce the controls. The default camera has been reverted to the previous orbit; `notes/camera-controls-binary-recon.md` is the authoritative redo. Original static finding: the retail park camera has no roll/tilt
+Status: **SUPERSEDED by runtime verification (2026-10-28).** The no-roll / single-progress model below is correct, but two constants are wrong: the yaw low-pass is **5/s** (ctor 0x5e5d67 stores 5.0; measured k/dt = 5.0), not 10/s, and pan is **per update** (lerp(1,20,p), no dt). The port now uses the verified model as the interactive default; see notes/camera-controls-binary-recon.md section 12 and docs/decomp/camera.md. Original static finding: the retail park camera has no roll/tilt
 state and never rotates the view up vector. The lean that a playtest reports is
 a *pitch* effect produced by the single `progress` parameter plus the yaw
 low-pass. Details, addresses and the port contract below.
@@ -306,3 +306,9 @@ recovered constant. The yaw block does use `dt`: `FLD [esp+0xb4]; FMUL
   `progress`, and the active-camera selection all need binary verification.
   The default `src/viewer/main.cpp` camera is back on the previous orbit;
   `--camera-retail` keeps the experimental model for A/B comparison only.
+
+- 2026-10-28 camera correction (superseded below): the earlier bullet's "10/s
+  yaw low-pass" is wrong. The ctor stores 5.0 and the live object measures
+  k/dt = 5.0, so the lag is 16.8 deg at 90 deg/s. Pan is per update
+  (`lerp(1,20,p)`), not per second. See
+  `notes/camera-controls-binary-recon.md` section 12.

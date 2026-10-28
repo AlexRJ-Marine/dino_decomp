@@ -1,15 +1,13 @@
 # Park camera (CAM-1)
 
-Status: **static hypothesis; port rejected by playtest 2026-10-28.** The
-object/no-roll fields below may be correct, but the action mapping, initial
-`progress` and port implementation do not reproduce the retail controls. The
-default viewer camera is back on the previous orbit; `--camera-retail` is
-A/B only. Re-verification: `notes/camera-controls-binary-recon.md`. Do not use
-the `camera-retail-*.png` files as retail evidence (they are port captures).
-The retail park camera is one 0x164-byte object (vtable `0x6481a4`, update
-`0x5e5ff0`) driven by a single `progress` parameter. It has no roll state and
-its up vector is always world +Z. Raw static evidence:
+Status: **solved from the binary and verified against a live retail run; the
+port uses it as the interactive default.** The retail park camera is one
+0x164-byte object (vtable `0x6481a4`, update `0x5e5ff0`) driven by a single
+`progress` parameter. It has no roll state and its up vector is always world
++Z. Static evidence: `notes/camera-controls-binary-recon.md`,
 `notes/camera-motion-tilt-recon.md`, `notes/camera-rotation-recon.md`.
+Runtime evidence: `run-test/dino_camera.csv` from
+`scripts/x32dbg/camera-probe.ps1` (the DINPUT8 proxy samples the live object).
 
 ## Object and update chain
 
@@ -39,18 +37,18 @@ the eight action bytes at `camSwitcher+0x34` -> camera `+0xb4`.
 | ---: | --- | --- |
 | `+0x20` | vec3 | **eye output** |
 | `+0x2c` | vec3 | **target output** |
-| `+0x50` | float | camera altitude above terrain (`FUN_005e5a00`) |
+| `+0x50` | float | camera altitude above terrain (`FUN_005e5a00`), 16 in the park |
 | `+0x54` / `+0x60` | vec3 | eye current / goal |
 | `+0x84` / `+0x90` | vec3 | target current / goal |
 | `+0x98` | float | target goal Z (terrain height) |
 | `+0x6c` / `+0x74` / `+0x7c` | pair | eye smoothing: PositionHardness, PositionHardness, (1000,1000) |
 | `+0x9c` / `+0xa4` / `+0xac` | pair | target smoothing: TargetHardness, TargetHardness, (1000,1000) |
 | `+0xb4` | ptr | eight input action bytes |
-| `+0xb8..+0xc4` | float | eye height clamp |
+| `+0xb8..+0xc4` | float | target X/Y map box (isl01: -250..1274 record) |
 | `+0x108` | ptr | heightfield (`FUN_005e59d0`) |
 | `+0x114` | float | rotation speed = 1.570796 rad/s (`0x5e68ac`) |
-| `+0x118` / `+0x12c` | float | yaw current / goal (z component) |
-| `+0x130` / `+0x138` / `+0x140` | pair | yaw smoothing, all (10,10) |
+| `+0x120` / `+0x12c` | float | **yaw current / goal** (z of the two vec3s; x/y unused) |
+| `+0x130` / `+0x138` / `+0x140` | pair | yaw smoothing, all **(5.0, 5.0)** (`0x5e5d67..`) |
 | `+0x148` | pair | elevation = lerp(3, 500, p) |
 | `+0x150` | pair | horizontal distance = lerp(10, 300, p) |
 | `+0x158` | float | **progress p** in [0,1], init 0.1 |
@@ -62,72 +60,90 @@ reader `FUN_005e5690`, smoothing copy in `FUN_005e67f0`.
 
 ## Motion (`0x5e5ff0`)
 
+Per update, in this order (`dt` = the update argument, p = progress):
+
 ```c
-// dt = argument, p = this->progress
-yaw_goal += dir45 * dt * 1.570796f;
+// 4/5: yaw; 6/7: progress. Both are dt-scaled.
+yaw_goal += dir45 * dt * rot_speed(p);        // rot_speed = 1.570796
 progress += dir67 * dt * lerp(0.05f, 0.2f, p);
 clamp(progress, 0, 1);
 
-// pan (dir 0..3): move the target goal in the ground plane
-target_goal.xy += dir * lerp(1, 20, p);        // no dt factor in the recovered block
+// 0..3: pan the target goal. NO dt: this is per update.
+fwd = normalize((target_cur - eye_cur).xy);
+target_goal.xy += rotate(fwd, flag) * lerp(1, 20, p);
+clamp(target_goal.xy, map_box);
 target_goal.z += terrain(target_cur.xy) - target_cur.z;
 
 // eye goal: one progress drives radius and height
 eye_goal.xy = target_goal.xy +
-              (cos(yaw), sin(yaw)) * lerp(10, 300, p);
-eye_goal.z  = target_goal.z + lerp(3, 500, p);
-eye_goal.z  = max(eye_goal.z, terrain(eye_goal.xy) + altitude);
+              (cos(yaw_cur), sin(yaw_cur)) * lerp(10, 300, p);
+eye_goal.z  = lerp(3, 500, p) +
+              max(target_goal.z, terrain(eye_goal.xy), altitude);
 
 // first-order smoothing (FUN_005e6960)
 cur += (goal - cur) * clamp(dt * lerp(min, max, p), 0, 1);
-smooth(yaw_current,    dt, (10,10));
-smooth(target_current, dt, TargetHardness 6..2);
-smooth(eye_current,    dt, PositionHardness 6..2);
-// X/Y use the hardness pair; Z uses (1000,1000), i.e. instant
+yaw_cur    += (yaw_goal - yaw_cur) * clamp(dt * 5.0, 0, 1);
+target_cur += ... TargetHardness 6..2 (X/Y), Z instant;
+eye_cur    += ... PositionHardness 6..2 (X/Y), Z instant;
 
-out.eye = eye_current; out.target = target_current;
+out.eye = eye_cur; out.target = target_cur;
 ```
 
-Zoom and tilt are the **same axis**: `NAVIGATION_ZOOM`/`DEZOOM` register the
-same handlers (indices 6/7) as `CameraRotateUp`/`Down`. `pitch` is derived,
-not stored: `atan2(h(p), r(p))` = 16.7 deg at p=0, 53.5 at p=0.1, 59.0 at
-p=1. The "tilt while moving" is the 10/s yaw low-pass (9 deg steady-state
-lag), not roll. The Free Game save tail confirms the model: eye
-`(551,512,84.7)` / target `(512,512,32)` on isl01 is exactly
-`r(0.1)=39`, `h(0.1)=52.7`, yaw 0.
+Runtime checks (isl01 Free Game, `run-test/dino_camera.csv`):
+
+- ctor: eye `(128,128,250)`, target `(512,512,50)` record; first update
+  target Z `= terrain(512,512) = 32`, eye goal `(551,512,84.7)`.
+- first update dt 0.021: eye X `128 -> 177.7449`; `k = 0.1176 = dt * 5.6`
+  (`TargetHardness = PositionHardness = 6..2`, p=0.1).
+- pan at p=0.1: target goal `-2.9` per update, independent of dt
+  (0.001..0.015 in the same run). Map clamp at record `-250`.
+- yaw: goal `+dt*1.570796`; measured `k/dt = 5.0` from consecutive samples;
+  steady lag at 90 deg/s is 0.293 rad (16.8 deg).
+- zoom in at p=0.1: `dp/dt = -0.065 = -lerp(0.05,0.2,p)`.
+- eye Z: `h + max(target, terrain(eye), 16)`; target/goal Z are equal every
+  sampled frame (`tgt_goal_z == tgt_cur_z`).
+
+**Frame rate:** the binary applies the pan step per Update, so retail pan
+speed depends on the frame rate. The background harness runs unpaced
+(75-1000 updates/s measured), so the CSV is used for per-update steps, not
+per-second speed. The port applies one update per rendered frame at vsync
+(60 by default) and its camera self-test uses dt = 1/60.
 
 ## Controls (`Data/Config/KeyMapper.ini`)
 
 | Action | Keys |
 | --- | --- |
-| `CameraKeyUp/Down/Left/Right` | arrows: pan the target |
-| `CameraRotateLeft/Right` | `Shift+Left`/`Delete`, `Shift+Right`/`PageDown` |
-| `CameraRotateUp/Down` | `Shift+Up`/`Home`, `Shift+Down`/`End`; also zoom in/out |
+| `CameraKeyUp/Down/Left/Right` | arrows: pan the target (indices 0..3) |
+| `CameraRotateLeft/Right` | `Shift+Left`/`Delete`, `Shift+Right`/`PageDown` (4/5) |
+| `CameraRotateUp/Down` | `Shift+Up`/`Home`, `Shift+Down`/`End` (6/7, progress) |
 | `NAVIGATION_TURNLEFT/TURNRIGHT` | same rotation state |
-| `NAVIGATION_ZOOM/DEZOOM` | same progress axis (indices 6/7) |
+| `NAVIGATION_ZOOM/DEZOOM` | same progress axis (6/7) |
 
-`FUN_005257a0` registers the callbacks; `FUN_00527b80` gates them on the
-controller state and writes one of the eight bytes through
-`FUN_005e59b0`.
+There are **no mouse or wheel entries** in `KeyMapper.ini`, and `0x5e5ff0`
+has no live mouse path (the edge-scroll branch is unwired). The port ignores
+mouse drag/wheel in retail mode. `FUN_005257a0` registers the callbacks;
+`FUN_00527b80` gates them on the controller state and writes one of the eight
+bytes through `FUN_005e59b0`.
 
 ## Port
 
 - `src/viewer/camera_config.{h,cpp}` reads `camera.ini [Config1]`.
-- `src/viewer/main.cpp` keeps one authoritative `progress` (init 0.1) for the
-  interactive park camera, derives radius/height, applies the 10/s yaw
-  low-pass, and never adds roll.
-- Zoom and `Shift+Up/Down` both change `progress`; arrows pan; the
-  `NAVIGATION_PANEL` buttons use the same actions.
-- Explicit `--camera-target` / `--distance` / `--yaw` / `--pitch` views keep
-  the legacy spherical orbit for deterministic screenshots and tests.
+- `src/viewer/main.cpp` has `RetailParkCamera` with the exact state:
+  target/eye current+goal, yaw current+goal, progress, altitude. It is the
+  **default** interactive park camera; `--camera-orbit` restores the legacy
+  spherical orbit, and explicit `--camera-target` / `--distance` /
+  `--focus-*` views keep the deterministic orbit.
+- Start state: `p=0.1`, yaw 0, target `(0,0,terrain)` in viewer coordinates,
+  eye `(128-half, 128-half, 250)` (the retail ctor fly-in). The saved camera
+  tail (record coordinates) is converted by `-half` for eye and target.
+- A port-only `.psav` save stores the orbit form (target/yaw/pitch/distance);
+  loading it rebuilds the retail camera's eye/target/goals from that form so
+  the session keeps its view. `--camera-retail` forces retail mode even for
+  `--start-dino`/explicit views.
+- Pan is per update (`lerp(1,20,p)`, no dt), yaw is `dt*pi/2` with the 5/s
+  low-pass, progress is `dt*lerp(0.05,0.2,p)`; no roll and no mouse camera.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_camera_retail_progress_default`,
-  `test_cpp_free_camera_start`, `tests/test_config.py::test_camera`.
-
-Retail pan is **per frame**, not per second: `0x5e6ae0(config_pair, p)` is a
-plain `lerp(1, 20, p)` and `0x5e6a90` adds the unit direction times that step
-to the target goal with no `dt` factor. The port multiplies it by 4 world
-units/s as a feel approximation; the exact retail frame rate is not
-calibrated.
+  `test_cpp_camera_retail_selftest`, `test_cpp_camera_orbit_option_keeps_legacy_view`.
 
 ## Serialization
 
@@ -136,20 +152,20 @@ serialize exactly four floats:
 
 ```text
 float progress        (+0x158)
-float yaw_goal[3]     (+0x124..+0x12c; only the z component is used)
+float yaw_goal[3]     (+0x124..+0x12c; only z, +0x12c, is used)
 ```
 
 The read is guarded by a stream version/size `>= 0xe`; after reading, yaw
-current `+0x118` is copied from yaw goal `+0x124` (no smoothing on load).
+current (+0x120) is copied from yaw goal (+0x12c) with no smoothing on load.
 The derived eye/target are not part of this block. The save tail's eye/target
-is a separate camera-switcher record; the port's `--sav-park` applies it to
-the orbit camera.
+is a separate camera-switcher record; `--sav-park` applies it to the retail
+camera (converting record to centred world coordinates).
 
 ## Open
 
-- Retail frame rate / exact effective pan speed (the code is per-frame).
-- `TargetHardness`/`PositionHardness` clamp and transition semantics beyond
-  the first-order form above.
+- Retail foreground frame rate (pan is per frame). The port uses the display
+  rate; a different frame rate changes pan speed by the same factor, as in
+  the original.
 
 ## Evidence
 
@@ -159,6 +175,9 @@ the orbit camera.
   `0x5e5560` defaults, `0x5e5690` INI reader, `0x5e67f0`, `0x5e68ac`,
   `0x5e57a0` action registration, `0x527b80`, `0x5e59b0`, `0x529c50`,
   `0x529d00`, `0x52785a`, `0x4475e0`.
-- `notes/camera-motion-tilt-recon.md` (full offsets, runtime cross-check),
-  `notes/camera-rotation-recon.md` (keybindings, dispatch), and the
-  `notes/camera-retail-*.png` reference screenshots.
+- `notes/camera-controls-binary-recon.md` (action table, corrected offsets
+  and 5/s yaw pair), `notes/camera-motion-tilt-recon.md` (older static
+  analysis; its 10/s claim is superseded), `notes/camera-rotation-recon.md`.
+- `scripts/x32dbg/camera-probe.ps1` + `run-test/dino_camera.csv`
+  (`DINO_CAMERA_PROBE=1`, vtable `0x6481a4` slot 2) and
+  `--camera-selftest`.

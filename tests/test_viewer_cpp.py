@@ -189,7 +189,8 @@ def test_cpp_free_camera_start(tmp_path):
 
 
 def test_cpp_camera_retail_progress_default():
-    """The park camera starts at retail progress 0.1: r=39, h=52.7, pitch=53.5."""
+    """The park camera defaults to the retail ctor state: p=0.1, yaw=0,
+    target (0,0,terrain), r=39, h=52.7, pitch=53.5, no roll."""
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")
     if not ISL01.exists():
@@ -200,13 +201,60 @@ def test_cpp_camera_retail_progress_default():
         [str(EXE), "--frames", "31", "--no-menu", "--width", "320",
          "--height", "240", "--no-vsync", "--no-save-config",
          "--lnd", str(ISL01), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water", "--camera-retail"],
+         "--no-vegetation", "--no-water"],
         capture_output=True, text=True, timeout=120, env=env,
     )
     assert result.returncode == 0, result.stderr
-    assert "p=0.100 r=39.0 h=52.7" in result.stderr, result.stderr
-    assert "pitch=53.5" in result.stderr, result.stderr
+    assert ("target=0.0,0.0,32.0 yaw=0.0 pitch=53.5 dist=65.6 "
+            "p=0.100 r=39.0 h=52.7") in result.stderr, result.stderr
     assert "up=0,0,1" in result.stderr, result.stderr
+
+
+def test_cpp_camera_retail_selftest():
+    """Exact 0x5e5ff0 equations: per-update pan, dt-scaled yaw/zoom, filters.
+
+    Expected values are derived from the binary and the live retail probe
+    (run-test/dino_camera.csv): pan = lerp(1,20,0.1) = 2.9 per update;
+    yaw 90 deg/s with a 10/s low-pass (lag a*(1-k)/k = 0.1309 rad);
+    progress speed lerp(0.05,0.2,p)."""
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "10", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--camera-selftest"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "camera selftest settle target=0.0000,0.0000,32.0000" in out, out
+    assert "camera selftest pan dx=-29.0000" in out, out
+    assert "step=2.9000" in out, out
+    assert "camera selftest yaw goal_delta=1.570795" in out, out
+    assert "camera selftest yaw goal_delta=1.570795 cur_delta=1.284372" in out, out
+    assert "camera selftest zoom delta=-0.060430 p=0.039570" in out, out
+
+
+def test_cpp_camera_orbit_option_keeps_legacy_view():
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    env = os.environ.copy()
+    env["DINO_DEBUG_CAMERA"] = "1"
+    result = subprocess.run(
+        [str(EXE), "--frames", "31", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--camera-orbit"],
+        capture_output=True, text=True, timeout=120, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "yaw=35.0 pitch=20.0" in result.stderr, result.stderr
+    assert "p=-1.000" in result.stderr, result.stderr
 
 
 def test_cpp_keymap_has_free_camera_actions():
@@ -2961,7 +3009,7 @@ def test_cpp_store_message_keeps_panel(tmp_path):
               "--lnd", str(isl04), "--asset-root", str(GAME),
               "--no-vegetation", "--no-water", "--wld-park", str(wld),
               "--park-budget", "100", "--park-click", "765,298",
-              "--park-click", "160,88"]
+              "--park-click", "160,88", "--camera-orbit"]
     env = dict(os.environ, DINO_DEBUG_MESSAGE="1")
     opened = tmp_path / "opened.bmp"
     refused = tmp_path / "refused.bmp"

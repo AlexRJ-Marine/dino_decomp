@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace {
@@ -767,6 +768,10 @@ const GUID kGUID_SysMouse = {0x6F1D2B60,
                              0xD5A0,
                              0x11CF,
                              {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
+const GUID kGUID_SysKeyboard = {0x6F1D2B61,
+                                0xD5A0,
+                                0x11CF,
+                                {0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00}};
 
 using CreateDeviceFn =
     HRESULT(STDMETHODCALLTYPE*)(void*, const GUID*, void**, IUnknown*);
@@ -783,12 +788,17 @@ GetDeviceDataFn g_real_get_device_data = nullptr;
 SetCooperativeLevelFn g_real_set_cooperative_level = nullptr;
 void* g_mouse_device = nullptr;
 void* g_mouse_devices[8] = {};
+void* g_keyboard_device = nullptr;
 volatile LONG g_mouse_device_count = 0;
 volatile LONG g_mouse_state_calls = 0;
 volatile LONG g_mouse_data_calls = 0;
 volatile LONG g_mouse_button_overrides = 0;
+volatile LONG g_keyboard_state_calls = 0;
+volatile LONG g_keyboard_data_calls = 0;
 bool g_data_button_down = false;
 bool g_state_button_down = false;
+std::uint8_t g_injected_keys[256] = {};
+std::uint8_t g_data_injected_keys[256] = {};
 
 bool is_mouse_device(void* self) {
     const LONG count = g_mouse_device_count;
@@ -805,6 +815,21 @@ bool virtual_mouse_enabled() {
     if (cached < 0) {
         char value[8] = {};
         cached = GetEnvironmentVariableA("DINO_VIRTUAL_MOUSE", value,
+                                         sizeof(value)) > 0
+                     ? 1
+                     : 0;
+    }
+    return cached == 1;
+}
+
+// Opt-in keyboard injection: dino_keys.txt holds space/comma separated
+// DirectInput scan codes (hex), e.g. "C8 2A" for Up+Shift. The harness rewrites
+// the file; the proxy polls it at 20 Hz.
+bool virtual_keys_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        char value[8] = {};
+        cached = GetEnvironmentVariableA("DINO_VIRTUAL_KEYS", value,
                                          sizeof(value)) > 0
                      ? 1
                      : 0;
@@ -1579,6 +1604,61 @@ bool read_virtual_input(int& target_x, int& target_y, bool& down,
     return false;
 }
 
+// Read dino_keys.txt into a 256-byte DirectInput keyboard state. Returns false
+// when the file is absent (the caller then releases keys it injected before).
+bool read_virtual_keys(std::uint8_t* keys) {
+    static DWORD last_read = 0;
+    static std::uint8_t cached[256] = {};
+    static bool cached_valid = false;
+    const DWORD now = GetTickCount();
+    if (cached_valid && now - last_read < 50) {
+        std::memcpy(keys, cached, sizeof(cached));
+        return true;
+    }
+    last_read = now;
+    HANDLE file = CreateFileA("dino_keys.txt", GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                  FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                              nullptr);
+    if (file == INVALID_HANDLE_VALUE) {
+        cached_valid = false;
+        return false;
+    }
+    char buffer[1024] = {};
+    DWORD read = 0;
+    const BOOL ok = ReadFile(file, buffer, sizeof(buffer) - 1, &read, nullptr);
+    CloseHandle(file);
+    std::memset(cached, 0, sizeof(cached));
+    if (ok && read > 0) {
+        buffer[read] = '\0';
+        char* cursor = buffer;
+        while (*cursor != '\0') {
+            while (*cursor != '\0' &&
+                   (*cursor == ' ' || *cursor == ',' || *cursor == '\t' ||
+                    *cursor == '\r' || *cursor == '\n')) {
+                ++cursor;
+            }
+            if (*cursor == '\0' || *cursor == '#') {
+                break;
+            }
+            char* end = nullptr;
+            const unsigned long code = std::strtoul(cursor, &end, 16);
+            if (end == cursor) {
+                ++cursor;
+                continue;
+            }
+            cursor = end;
+            if (code < 256) {
+                cached[code] = 1;
+            }
+        }
+    }
+    cached_valid = true;
+    std::memcpy(keys, cached, sizeof(cached));
+    return true;
+}
+
 // The UI cursor (ViewManager +0x18/+0x1c) is fed by the WM_MOUSEMOVE that
 // FUN_004457b0 posts from the ring position, and the WndProc (0x5960c0) then
 // converts client -> screen -> window coordinates, adding the frame offset
@@ -1678,7 +1758,60 @@ HRESULT STDMETHODCALLTYPE hook_get_device_state(void* self, DWORD cbData,
     const HRESULT hr = g_real_get_device_state != nullptr
                            ? g_real_get_device_state(self, cbData, data)
                            : E_FAIL;
-    if (FAILED(hr) || !is_mouse_device(self) || data == nullptr) {
+    if (FAILED(hr) || data == nullptr) {
+        return hr;
+    }
+    if (self != nullptr && self == g_keyboard_device) {
+        if (!virtual_keys_enabled() || cbData < 256) {
+            return hr;
+        }
+        std::uint8_t keys[256] = {};
+        if (!read_virtual_keys(keys)) {
+            std::memset(keys, 0, sizeof(keys));
+        }
+        auto* state = static_cast<std::uint8_t*>(data);
+        bool changed = false;
+        for (int i = 0; i < 256; ++i) {
+            if (keys[i] != 0) {
+                state[i] = 0x80;
+            } else if (g_injected_keys[i] != 0) {
+                // Release only keys this shim pressed; keep physical input.
+                state[i] = 0;
+            }
+            if (keys[i] != g_injected_keys[i]) {
+                changed = true;
+            }
+            g_injected_keys[i] = keys[i];
+        }
+        const LONG calls = InterlockedIncrement(&g_keyboard_state_calls);
+        if (calls == 1) {
+            char line[160];
+            std::snprintf(line, sizeof(line),
+                          "virtual keys: GetDeviceState self=%p cb=%lu",
+                          self, static_cast<unsigned long>(cbData));
+            log_line(line);
+        }
+        if (changed) {
+            char pressed[256] = {};
+            std::size_t used = 0;
+            for (int i = 0; i < 256; ++i) {
+                if (keys[i] != 0 && used + 4 < sizeof(pressed)) {
+                    used += static_cast<std::size_t>(std::snprintf(
+                        pressed + used, sizeof(pressed) - used,
+                        used == 0 ? "%02X" : ",%02X", i));
+                }
+            }
+            if (used == 0) {
+                std::snprintf(pressed, sizeof(pressed), "-");
+            }
+            char line[320];
+            std::snprintf(line, sizeof(line), "virtual keys: pressed=%s",
+                          pressed);
+            log_line(line);
+        }
+        return hr;
+    }
+    if (!is_mouse_device(self)) {
         return hr;
     }
     if (!gate_mouse_input(data, cbData)) {
@@ -1744,6 +1877,52 @@ HRESULT STDMETHODCALLTYPE hook_get_device_data(void* self, DWORD cbObjectData,
                                                     pdwInOut, dwFlags)
                            : E_FAIL;
     if (FAILED(hr) || rgdod == nullptr || pdwInOut == nullptr) {
+        return hr;
+    }
+    if (self != nullptr && self == g_keyboard_device) {
+        const LONG kcalls = InterlockedIncrement(&g_keyboard_data_calls);
+        if (kcalls == 1) {
+            char line[160];
+            std::snprintf(line, sizeof(line),
+                          "virtual keys: GetDeviceData self=%p cb=%lu",
+                          self, static_cast<unsigned long>(cbObjectData));
+            log_line(line);
+        }
+        if (!virtual_keys_enabled()) {
+            return hr;
+        }
+        std::uint8_t keys[256] = {};
+        if (!read_virtual_keys(keys)) {
+            std::memset(keys, 0, sizeof(keys));
+        }
+        struct KeyEvent {
+            DWORD offset;
+            DWORD data;
+            DWORD timestamp;
+            DWORD sequence;
+        };
+        auto* events = static_cast<KeyEvent*>(rgdod);
+        bool changed = false;
+        for (int i = 0; i < 256 && *pdwInOut < capacity; ++i) {
+            if (keys[i] == g_data_injected_keys[i]) {
+                continue;
+            }
+            KeyEvent& event = events[*pdwInOut];
+            event.offset = static_cast<DWORD>(i);
+            event.data = keys[i] != 0 ? 0x80 : 0;
+            event.timestamp = GetTickCount();
+            event.sequence = 0;
+            ++(*pdwInOut);
+            g_data_injected_keys[i] = keys[i];
+            changed = true;
+        }
+        if (changed && (kcalls % 20) == 1) {
+            char line[96];
+            std::snprintf(line, sizeof(line),
+                          "virtual keys: data events=%lu",
+                          static_cast<unsigned long>(*pdwInOut));
+            log_line(line);
+        }
         return hr;
     }
     const LONG calls = InterlockedIncrement(&g_mouse_data_calls);
@@ -1825,9 +2004,17 @@ HRESULT STDMETHODCALLTYPE hook_set_cooperative_level(void* self, HWND hwnd,
 HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
                                              void** out, IUnknown* outer) {
     const HRESULT hr = g_real_create_device(self, rguid, out, outer);
-    if (SUCCEEDED(hr) && out != nullptr && *out != nullptr &&
-        rguid != nullptr &&
-        std::memcmp(rguid, &kGUID_SysMouse, sizeof(GUID)) == 0) {
+    if (FAILED(hr) || out == nullptr || *out == nullptr || rguid == nullptr) {
+        return hr;
+    }
+    const bool mouse =
+        std::memcmp(rguid, &kGUID_SysMouse, sizeof(GUID)) == 0;
+    const bool keyboard =
+        std::memcmp(rguid, &kGUID_SysKeyboard, sizeof(GUID)) == 0;
+    if (!mouse && !keyboard) {
+        return hr;
+    }
+    if (mouse) {
         g_mouse_device = *out;
         const LONG device_index =
             InterlockedIncrement(&g_mouse_device_count) - 1;
@@ -1839,41 +2026,184 @@ HRESULT STDMETHODCALLTYPE hook_create_device(void* self, const GUID* rguid,
                       "virtual mouse: GUID_SysMouse device captured (%ld)",
                       static_cast<long>(device_index + 1));
         log_line(capture_line);
-        void** device_vtable = *reinterpret_cast<void***>(*out);
-        if (g_real_get_device_state == nullptr) {
-            if (patch_vtable_entry(device_vtable, 9,
-                                   reinterpret_cast<void*>(
-                                       &hook_get_device_state),
-                                   reinterpret_cast<void**>(
-                                       &g_real_get_device_state))) {
-                log_line("virtual mouse: GetDeviceState patched");
-            } else {
-                log_line("virtual mouse: GetDeviceState patch FAILED");
-            }
+    } else {
+        g_keyboard_device = *out;
+        log_line("virtual keys: GUID_SysKeyboard device captured");
+    }
+    void** device_vtable = *reinterpret_cast<void***>(*out);
+    if (device_vtable == nullptr) {
+        return hr;
+    }
+    if (device_vtable[9] !=
+        reinterpret_cast<void*>(&hook_get_device_state)) {
+        if (patch_vtable_entry(device_vtable, 9,
+                               reinterpret_cast<void*>(
+                                   &hook_get_device_state),
+                               reinterpret_cast<void**>(
+                                   &g_real_get_device_state))) {
+            log_line("virtual input: GetDeviceState patched");
+        } else {
+            log_line("virtual input: GetDeviceState patch FAILED");
         }
-        if (g_real_get_device_data == nullptr) {
-            if (patch_vtable_entry(device_vtable, 10,
-                                   reinterpret_cast<void*>(
-                                       &hook_get_device_data),
-                                   reinterpret_cast<void**>(
-                                       &g_real_get_device_data))) {
-                log_line("virtual mouse: GetDeviceData patched");
-            } else {
-                log_line("virtual mouse: GetDeviceData patch FAILED");
-            }
+    }
+    if (device_vtable[10] !=
+        reinterpret_cast<void*>(&hook_get_device_data)) {
+        if (patch_vtable_entry(device_vtable, 10,
+                               reinterpret_cast<void*>(
+                                   &hook_get_device_data),
+                               reinterpret_cast<void**>(
+                                   &g_real_get_device_data))) {
+            log_line("virtual input: GetDeviceData patched");
+        } else {
+            log_line("virtual input: GetDeviceData patch FAILED");
         }
-        if (g_real_set_cooperative_level == nullptr) {
-            if (patch_vtable_entry(
-                    device_vtable, 13,
-                    reinterpret_cast<void*>(&hook_set_cooperative_level),
-                    reinterpret_cast<void**>(&g_real_set_cooperative_level))) {
-                log_line("virtual mouse: SetCooperativeLevel patched");
-            } else {
-                log_line("virtual mouse: SetCooperativeLevel patch FAILED");
-            }
+    }
+    if (device_vtable[13] !=
+        reinterpret_cast<void*>(&hook_set_cooperative_level)) {
+        if (patch_vtable_entry(
+                device_vtable, 13,
+                reinterpret_cast<void*>(&hook_set_cooperative_level),
+                reinterpret_cast<void**>(&g_real_set_cooperative_level))) {
+            log_line("virtual input: SetCooperativeLevel patched");
+        } else {
+            log_line("virtual input: SetCooperativeLevel patch FAILED");
         }
     }
     return hr;
+}
+
+// ---------------------------------------------------------------------------
+// Retail camera sampler (opt-in with DINO_CAMERA_PROBE=1).
+//
+// Parks the probe on the active camera's Update (vtable 0x6481a4 slot 2,
+// function 0x5e5ff0) so every field the port models can be read back from the
+// real object: progress, yaw current/goal, eye/target current/goal, elevation
+// and distance pairs, and the eight action flags at [this+0xb4].
+// Output: dino_camera.csv in the process working directory.
+// ---------------------------------------------------------------------------
+using CameraUpdateFn = void(__fastcall*)(void*, void*, float);
+CameraUpdateFn g_real_camera_update = nullptr;
+volatile LONG g_camera_updates = 0;
+FILE* g_camera_csv = nullptr;
+
+bool camera_probe_enabled() {
+    static int cached = -1;
+    if (cached < 0) {
+        char value[8] = {};
+        cached = GetEnvironmentVariableA("DINO_CAMERA_PROBE", value,
+                                         sizeof(value)) > 0
+                     ? 1
+                     : 0;
+    }
+    return cached == 1;
+}
+
+void __fastcall hook_camera_update(void* self, void* edx, float dt) {
+    if (g_real_camera_update != nullptr) {
+        g_real_camera_update(self, edx, dt);
+    }
+    if (self == nullptr) {
+        return;
+    }
+    const LONG calls = InterlockedIncrement(&g_camera_updates);
+    auto* base = static_cast<const unsigned char*>(self);
+    auto f32 = [base](int offset) {
+        float value = 0.0f;
+        std::memcpy(&value, base + offset, sizeof(value));
+        return value;
+    };
+    unsigned flags = 0;
+    auto* flag_ptr =
+        *reinterpret_cast<std::uint8_t* const*>(base + 0xb4);
+    if (flag_ptr != nullptr && !IsBadReadPtr(flag_ptr, 8)) {
+        for (int i = 0; i < 8; ++i) {
+            if (flag_ptr[i] != 0) {
+                flags |= 1u << i;
+            }
+        }
+    }
+    if (g_camera_csv == nullptr) {
+        g_camera_csv = std::fopen("dino_camera.csv", "w");
+        if (g_camera_csv != nullptr) {
+            std::fprintf(
+                g_camera_csv,
+                "ms,call,dt,p,yaw,yaw_goal,"
+                "eye_x,eye_y,eye_z,tgt_x,tgt_y,tgt_z,"
+                "eye_goal_x,eye_goal_y,eye_goal_z,"
+                "tgt_goal_x,tgt_goal_y,tgt_goal_z,"
+                "eye_cur_x,eye_cur_y,eye_cur_z,"
+                "tgt_cur_x,tgt_cur_y,tgt_cur_z,"
+                "rot,elev_min,elev_max,dist_min,dist_max,"
+                "alt,flags\n");
+        }
+    }
+    if (g_camera_csv != nullptr) {
+        std::fprintf(
+            g_camera_csv,
+            "%lu,%ld,%.6f,%.6f,%.6f,%.6f,"
+            "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+            "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+            "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+            "%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,0x%02x\n",
+            static_cast<unsigned long>(GetTickCount()), static_cast<long>(calls),
+            static_cast<double>(dt), static_cast<double>(f32(0x158)),
+            static_cast<double>(f32(0x120)), static_cast<double>(f32(0x12c)),
+            static_cast<double>(f32(0x20)), static_cast<double>(f32(0x24)),
+            static_cast<double>(f32(0x28)), static_cast<double>(f32(0x2c)),
+            static_cast<double>(f32(0x30)), static_cast<double>(f32(0x34)),
+            static_cast<double>(f32(0x60)), static_cast<double>(f32(0x64)),
+            static_cast<double>(f32(0x68)), static_cast<double>(f32(0x90)),
+            static_cast<double>(f32(0x94)), static_cast<double>(f32(0x98)),
+            static_cast<double>(f32(0x54)), static_cast<double>(f32(0x58)),
+            static_cast<double>(f32(0x5c)), static_cast<double>(f32(0x84)),
+            static_cast<double>(f32(0x88)), static_cast<double>(f32(0x8c)),
+            static_cast<double>(f32(0x114)),
+            static_cast<double>(f32(0x148)),
+            static_cast<double>(f32(0x14c)),
+            static_cast<double>(f32(0x150)),
+            static_cast<double>(f32(0x154)),
+            static_cast<double>(f32(0x50)), flags);
+        if ((calls % 30) == 0) {
+            std::fflush(g_camera_csv);
+        }
+    }
+    if (calls == 1) {
+        void** vtable = *reinterpret_cast<void***>(self);
+        char line[224];
+        std::snprintf(line, sizeof(line),
+                      "camera probe: first update self=%p vtable=%p "
+                      "update=%p dt=%.6f p=%.4f",
+                      self, vtable,
+                      vtable != nullptr ? vtable[2] : nullptr,
+                      static_cast<double>(dt), static_cast<double>(f32(0x158)));
+        log_line(line);
+    }
+}
+
+bool install_camera_probe() {
+    static bool installed = false;
+    if (installed) {
+        return true;
+    }
+    void** vtable = reinterpret_cast<void**>(exe_va(0x6481a4));
+    void* expected = reinterpret_cast<void*>(exe_va(0x5e5ff0));
+    if (vtable == nullptr || vtable[2] != expected) {
+        char line[192];
+        std::snprintf(line, sizeof(line),
+                      "camera probe: vtable[2]=%p expected=%p; not patched",
+                      vtable != nullptr ? vtable[2] : nullptr, expected);
+        log_line(line);
+        return false;
+    }
+    if (!patch_vtable_entry(vtable, 2,
+                            reinterpret_cast<void*>(&hook_camera_update),
+                            reinterpret_cast<void**>(&g_real_camera_update))) {
+        log_line("camera probe: patch FAILED");
+        return false;
+    }
+    installed = true;
+    log_line("camera probe: 0x5e5ff0 patched (vtable 0x6481a4 slot 2)");
+    return true;
 }
 
 void install_virtual_mouse(void* dinput8) {
@@ -2132,6 +2462,9 @@ extern "C" __declspec(dllexport) HRESULT WINAPI DirectInput8Create(
     }
     const HRESULT result = g_real_create(hinst, version, riid, out, outer);
     if (SUCCEEDED(result) && out != nullptr && *out != nullptr) {
+        if (camera_probe_enabled()) {
+            install_camera_probe();
+        }
         install_virtual_mouse(*out);
     }
     return result;
