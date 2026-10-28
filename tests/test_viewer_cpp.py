@@ -908,6 +908,55 @@ def test_cpp_retail_menu_shot(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+def test_cpp_retail_menu_load_game_page(tmp_path):
+    """LOAD_GAME_NAMES_LIST must list save slots and LOAD_LOAD_BUTTON load one.
+
+    Retail page 4 is the Load Game panel; the port used to render the
+    ISLAND_LIST fallback there and ignored the OK button. The first slice
+    lists `run/save` slots and loads a port `.psav` (which carries its own
+    island). A retail `.sav` needs an island choice and stays out of scope.
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    seed = tmp_path / "menu_seed.psav"
+    made = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
+         "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--place-path", "128,128", "--save-port", str(seed)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert made.returncode == 0, made.stderr
+    assert "DINOPSAV 1" in seed.read_text()
+    assert "island isl01" in seed.read_text()
+    assert "path 128 128" in seed.read_text()
+
+    save_dir = ROOT / "run" / "save"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    target = save_dir / "00_menu_test.psav"
+    target.write_bytes(seed.read_bytes())
+    shot = tmp_path / "menu-load.bmp"
+    try:
+        result = subprocess.run(
+            [str(EXE), "--frames", "4", "--menu", "--menu-page", "4",
+             "--width", "800", "--height", "600", "--no-vsync",
+             "--no-save-config", "--lnd", str(ISL01),
+             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+             "--menu-loading-time", "0", "--menu-click", "409,154",
+             "--menu-click", "354,525", "--screenshot", str(shot)],
+            capture_output=True, text=True, timeout=180,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "port load: island=isl01" in result.stdout, result.stdout
+        assert "paths=1" in result.stdout, result.stdout
+        # The loading page is gone: the shot is the park, not menu art.
+        image = Image.open(shot).convert("RGB")
+        assert image.getpixel((10, 10)) != (255, 255, 255)
+    finally:
+        if target.exists():
+            target.unlink()
+
+
 def test_cpp_retail_menu_hover(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")

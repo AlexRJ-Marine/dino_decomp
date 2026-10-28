@@ -4488,6 +4488,15 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "save scan: %s\n", e.what());
     }
     std::sort(save_slots.begin(), save_slots.end());
+    // The main-menu Load Game page can only restore a port `.psav` for now:
+    // it carries its own island. A retail `.sav` needs an island choice and
+    // is left to `--sav-park` until that import is a runtime function.
+    std::vector<std::pair<std::string, std::string>> menu_save_slots;
+    for (const auto& slot : save_slots) {
+        if (std::filesystem::path(slot.first).extension() == ".psav") {
+            menu_save_slots.push_back(slot);
+        }
+    }
     if (opt.list_sounds) {
         for (const auto& name : menu_sound_names) {
             std::printf("sound %s: %s\n", name.c_str(),
@@ -4703,6 +4712,7 @@ int main(int argc, char** argv) {
     int pending_minimap_zoom = 0;
     bool pending_port_save = false;
     bool pending_port_load = false;
+    std::string pending_menu_load_path;
     std::string pending_construct_widget;
     bool pending_fence_tool = false;
     int fence_corner_x = -1;
@@ -4823,8 +4833,21 @@ int main(int argc, char** argv) {
         }
     }
 
+    auto queue_menu_load = [&]() {
+        if (!menu.load_requested) {
+            return;
+        }
+        menu.load_requested = false;
+        if (menu.save_count <= 0) {
+            return;
+        }
+        const int slot = std::clamp(menu.save_slot, 0, menu.save_count - 1);
+        pending_menu_load_path =
+            menu_save_slots[static_cast<std::size_t>(slot)].first;
+    };
     if (menu_loaded) {
         menu.loading_time = opt.menu_loading_time;
+        menu.save_count = static_cast<int>(menu_save_slots.size());
         if (opt.menu_page >= 0) {
             menu.page = std::clamp(opt.menu_page, 0, 8);
         }
@@ -4833,6 +4856,7 @@ int main(int argc, char** argv) {
             int y = 0;
             if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                 menu.click(x, y);
+                queue_menu_load();
             }
         }
         if (!opt.menu_hover.empty()) {
@@ -5827,9 +5851,14 @@ int main(int argc, char** argv) {
                 const bool campaign_list = widget.name == "CAMPAIGN_LIST";
                 const bool campaign_info =
                     widget.name == "CAMPAIGN_INFO_DESCRIPTION";
+                const bool load_list =
+                    widget.name == "LOAD_GAME_NAMES_LIST";
                 int selected_row = menu.island;
                 int scroll_rows = 10;
-                if (campaign_list) {
+                if (load_list) {
+                    selected_row = menu.save_slot;
+                    scroll_rows = std::max(1, menu.save_count);
+                } else if (campaign_list) {
                     selected_row = menu.campaign;
                     scroll_rows = static_cast<int>(menu.campaigns.size());
                 } else if (campaign_info) {
@@ -5840,7 +5869,7 @@ int main(int argc, char** argv) {
                     campaign_list
                         ? std::min(rows,
                                    static_cast<int>(menu.campaigns.size()))
-                        : rows;
+                        : (load_list ? std::min(rows, menu.save_count) : rows);
                 const dino::ui::Graphic* row_graphic =
                     menu.overlay.graphic("ISLAND_LIST_BUTTON");
                 UiTexture* row_texture =
@@ -5914,7 +5943,14 @@ int main(int argc, char** argv) {
                         }
                         if (list_font != nullptr) {
                             std::string name;
-                            if (campaign_list) {
+                            if (load_list) {
+                                if (row < static_cast<int>(
+                                              menu_save_slots.size())) {
+                                    name = menu_save_slots
+                                               [static_cast<std::size_t>(row)]
+                                                   .second;
+                                }
+                            } else if (campaign_list) {
                                 if (row < static_cast<int>(
                                               menu.campaigns.size())) {
                                     name = dino::ui::resolve_loc_text(
@@ -11068,6 +11104,15 @@ int main(int argc, char** argv) {
     if (menu_loaded && opt.use_menu && !menu.active) {
         start_screen = false;
     }
+    // A pre-loop `--menu-click` on LOAD_LOAD_BUTTON only queued the path:
+    // load it now that do_port_load and the menu state exist.
+    if (!pending_menu_load_path.empty()) {
+        do_port_load(pending_menu_load_path);
+        pending_menu_load_path.clear();
+        menu.loading = false;
+        menu.active = false;
+        start_screen = false;
+    }
     bool show_help = opt.force_help;
     bool dragging = false;
     bool ui_click_consumed = false;
@@ -11171,6 +11216,13 @@ int main(int argc, char** argv) {
                             }
                         }
                         menu.click(mx, my);
+                        queue_menu_load();
+                        if (!pending_menu_load_path.empty()) {
+                            do_port_load(pending_menu_load_path);
+                            pending_menu_load_path.clear();
+                            menu.loading = false;
+                            menu.active = false;
+                        }
                         if (menu.quit) {
                             running = false;
                         }

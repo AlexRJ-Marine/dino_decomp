@@ -176,6 +176,17 @@ void Menu::click(int x, int y) {
             start_campaign = true;
             loading_timer = loading_time;
         }
+    } else if (name == "LOAD_GAME_NAMES_LIST") {
+        const int line =
+            widget.list_line_height > 0 ? widget.list_line_height : 28;
+        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
+        save_slot = save_count > 0
+                        ? std::clamp(selected, 0, save_count - 1)
+                        : 0;
+    } else if (name == "LOAD_LOAD_BUTTON") {
+        if (save_count > 0 && save_slot >= 0 && save_slot < save_count) {
+            load_requested = true;
+        }
     } else if (ends_with(name, "_CANCEL_BUTTON") ||
                ends_with(name, "_BACK_BUTTON")) {
         page = 0;

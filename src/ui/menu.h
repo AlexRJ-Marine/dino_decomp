@@ -21,6 +21,9 @@ struct Menu {
     int hover = -1;
     int island = 0;       // selected island index 0..9
     int campaign = 0;     // selected campaign row (CampaignList.ini order)
+    int save_slot = 0;    // selected LOAD_GAME_NAMES_LIST row
+    int save_count = 0;   // number of save slots (set by the viewer)
+    bool load_requested = false;  // LOAD_LOAD_BUTTON pressed
     int difficulty = 1;   // 0 easy, 1 middle, 2 hard
     bool loading = false;
     bool start_campaign = false;  // CAMPAIGN_INFO_START_BUTTON was pressed
