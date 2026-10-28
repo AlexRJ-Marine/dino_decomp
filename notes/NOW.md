@@ -47,6 +47,19 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- PLACE-1: **exact object placement (current priority).** Road cursor now
+  snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
+  the horizontal/vertical flip at 45 degrees matches; the signed-length cost
+  quirk is disproven (retail +x/-x 100, +y 100, -y 190, all commit). Marcus's
+  `portable-setup` road network (segments, merge `0x58d890`, T-snap
+  `0x58d9d0`, per-segment paint `0x602380`), Entrance start road, detail map
+  and vegetation LOD are merged into `main`. Occupancy grid foundation added
+  with the retail classes (walls 7, buildings 1, roads `DAT_00675a60`); wall
+  raster is a 1-unit line, validators use the high nibble plus a 0.01
+  height-slope test (`notes/wall-raster-recon.md`). Next: wire the occupancy
+  grid into roads/buildings/fences, then the exact fence flow (margin scan,
+  `4*margin-1`, cost, wall cells, sell gate/refund), then building/food/show
+  placement — no placeholders.
 - MENU-1: **main-menu playtest.** Load Game is fixed (`9f58349`): page 4
   lists the port `.psav` slots and loads the selected one. Retail `.sav`
   slots are now unblocked: the header stores mode + island index
@@ -159,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - PLACE-1: merged marcusrj portable-setup (road segments/merge/T-snap/paint, Entrance road, detail map, vegetation LOD); road cursor now retail nearest-cell snap (0x5faaa0) fixing the 45-degree direction flip; signed cost quirk disproven by retail probe; OccupancyGrid foundation with retail classes (walls 7, buildings 1) + wall-raster/validators decoded (1-unit line, 0.01 slope). Full suite 492
 - 2026-10-28 - PARK-QUIT: exact retail flow (REQUEST dialog &REQUEST_RETURN_MENU, validate -> main menu with menu music, cancel stays, no save warning/autosave; binary listener 0x524180/callback 0x5242e0, retail harness test-quit-flow.ps1); full suite 483
 - 2026-10-28 - MENU-1: point-sampled .fnt atlas, whole-pixel text origins, cell-height centring; campaign row/title glyphs now pixel-identical to retail (full suite 483)
 - 2026-10-28 - MENU-1: retail glyph advance (width-1), campaign briefing pixel wrap at 213 px/17 px rows, TEXT_HEIGHT gate, VSCROLL hidden at range 1, campaign list starts unselected (disabled START), in-park Quit wired; full suite 482
@@ -166,14 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - MENU-1: list viewport + exact retail VSCROLL; island row mapping fixed
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
-- 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
-- 2026-10-28 - R-20: roads as retail spRoadNetwork segments (merge 0x58d890, T-snap 0x58d9d0, per-segment paint 0x602380) + detailmap.ini terrain (AddSigned, world/16)
-- 2026-10-28 - R-19: Entrance dock (all .mesh chunks: boat/radar/ponton2/ponton) + FUN_0051dad0 free-game start road (524,392)-(524,452)
-- 2026-10-28 - R-2: vegetation sector LOD (retail 0x508c10/0x609970: LOD1<=200, LOD2<=400 x LODQuality) + port frustum cull
-- 2026-10-28 - R-1: skybox seam fixed - retail 0x00600df0 camera-centred +-100 cube; test_cpp_skybox_follows_camera
-- 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
-- 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
-- 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 
 ## Blockers
 
