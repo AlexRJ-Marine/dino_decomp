@@ -106,6 +106,7 @@ add_executable(dino_port
     src/render/gl_api.cpp
     src/render/mesh_gpu.cpp
     src/render/shaders.cpp
+    src/render/text.cpp
     src/selftest.cpp
 )
 
