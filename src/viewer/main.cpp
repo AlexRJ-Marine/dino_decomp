@@ -8392,8 +8392,12 @@ int main(int argc, char** argv) {
         fence_gpu = upload_mesh(meshes.fences, glfns);
         fence_selected_gpu = upload_mesh(meshes.fences_selected, glfns);
         fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
-        fence_ground_gpu =
-            upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
+        const dino::Mesh ground = dino::fence_ground_mesh(paddocks, terrain);
+        if (std::getenv("DINO_DEBUG_GROUND") != nullptr) {
+            std::printf("ground: %zu paddocks, %zu verts\n", paddocks.size(),
+                        ground.positions.size());
+        }
+        fence_ground_gpu = upload_mesh(ground, glfns);
         rebuild_extra_items();
         std::printf("build: %d path cells, %d fences\n", build_grid.path_count,
                     build_grid.fence_count);
@@ -8534,6 +8538,10 @@ int main(int argc, char** argv) {
             paddock.ground_variant = std::rand() & 3;
             paddocks.push_back(paddock);
         }
+        // `import_park_layout` runs before the paddock list exists, so its
+        // rebuild produced no gatAttraction ground quads. Loaded parks need
+        // the sandy interiors immediately, not only after the next build.
+        rebuild_build_meshes();
         // `dinosaur+0x1e0` is a size class (8/16/32/64). The exact class comes
         // from the individual's phenotype; the port derives it from the
         // species rest-mesh bbox until the genotype translator is ported.
@@ -14029,7 +14037,9 @@ int main(int argc, char** argv) {
                 fence_preview_ok = ok;
                 rebuild_extra_items();
             }
-        } else if (fence_preview_visible) {
+        } else if (fence_preview_visible || fence_template_visible) {
+            // After the first corner the disc is hidden but the mode-2 grid
+            // is still drawn; leaving the tool must clear both.
             fence_preview_visible = false;
             fence_preview_cell_x = -1;
             fence_preview_cell_y = -1;

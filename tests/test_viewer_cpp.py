@@ -3181,6 +3181,59 @@ def test_cpp_escape_default_and_options(tmp_path):
     assert "options: closed (Esc)" in options.stdout
 
 
+def test_cpp_escape_clears_fence_template(tmp_path):
+    """Esc after the first enclosure corner hides the mode-2 blue dot grid."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = [str(EXE), "--frames", "12", "--no-menu", "--width", "800",
+            "--height", "600", "--no-vsync", "--no-save-config",
+            "--lnd", str(ISL01), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--no-entrance",
+            "--camera-orbit", "--camera-target", "0,0", "--distance", "200",
+            "--park-click", "764,135", "--park-click", "618,145",
+            "--fence-cursor", "400,300", "--inject-click", "5,300,300"]
+    before_path = tmp_path / "before.bmp"
+    after_path = tmp_path / "after.bmp"
+    before = subprocess.run(base + ["--screenshot", str(before_path)],
+                            capture_output=True, text=True, timeout=120)
+    assert before.returncode == 0, before.stderr
+    after = subprocess.run(
+        base + ["--inject-key", "10,27", "--screenshot", str(after_path)],
+        capture_output=True, text=True, timeout=120)
+    assert after.returncode == 0, after.stderr
+    assert "fence: tool off (Esc)" in after.stdout
+
+    def blue_dots(path):
+        import numpy as np
+        image = np.asarray(Image.open(path).convert("RGB")).astype(int)
+        region = image[250:360, 240:460]
+        return int(((region[:, :, 2] > 100) & (region[:, :, 0] < 80) &
+                    (region[:, :, 1] < 80)).sum())
+
+    assert blue_dots(before_path) > 100
+    assert blue_dots(after_path) == 0
+
+
+def test_cpp_campaign_enclosure_ground_loaded():
+    """Loaded campaign paddocks get their gatAttraction floor immediately,
+    without waiting for a new build (the rebuild ran before `paddocks`)."""
+    cpg04 = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    if not EXE.exists() or not cpg04.exists() or not isl04.exists():
+        pytest.skip("viewer or retail Cpg04/isl04 missing")
+    env = dict(os.environ, DINO_DEBUG_GROUND="1")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
+         "--camera-orbit", "--camera-target", "-44,-36",
+         "--distance", "300", "--pitch", "20"],
+        capture_output=True, text=True, timeout=120, env=env)
+    assert result.returncode == 0, result.stderr
+    assert "ground: 9 paddocks, 36 verts" in result.stdout
+
+
 def test_cpp_road_preview_tint(tmp_path):
     """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
     (0x600550): blue when buildable, red when not (here: unaffordable).

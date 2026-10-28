@@ -91,7 +91,10 @@ building, 4x4, 500) and fence selling.
   `notes/harness/fence-rev-template-valid.png` / `-invalid.png`). The grid
   turns maroon on the same `0x58a4e0` failures as the cost rect (side < 23,
   inside a paddock, inset occupancy scan). Implemented in
-  `fence_template_mesh`, drawn only after the first corner.
+  `fence_template_mesh`, drawn only after the first corner. Leaving the tool
+  (Esc, panel close, another tool) must hide **both** the disc and the grid;
+  the port's cleanup originally checked only the disc, so Esc after the first
+  corner left the blue dots on screen.
 
 ### Paddock ground
 
@@ -109,6 +112,12 @@ a landscape texture-manager layer (`notes/fence-ground-beam-preview-recon.md`
 - state `dino_attractionground.ini`: unlit, fog Y, ZWrite N,
   SrcAlpha/InvSrcAlpha, dual texture. Repainted immediately because
   `AddAttraction` sets `scene+0xec` and the scene render recomposes.
+- Loaded parks: retail creates the quads for every `stFence` in the saved
+  park, so a campaign save shows its enclosure floors immediately. The port's
+  `import_park_layout` rebuilt the meshes **before** the `paddocks` vector was
+  populated, so loaded enclosures had no floor until the next build; a second
+  `rebuild_build_meshes()` after the paddock list is built fixes it
+  (`test_cpp_campaign_enclosure_ground_loaded`: 9 Cpg04 paddocks / 36 verts).
 - Capture: interior mean RGB (160.9,129.0,62.0) 0.5 s after the build
   (`notes/harness/fence-rev-ground-after.png`); the port reproduces it in
   `build/paddock-ground4.png`.
