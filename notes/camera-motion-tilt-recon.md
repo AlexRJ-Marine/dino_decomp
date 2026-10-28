@@ -290,3 +290,12 @@ version/size `>= 0xe` and copies yaw current `+0x118` from the goal after
 loading, so a loaded camera starts at its saved yaw without smoothing. The
 derived eye/target are not serialized by the camera object; the `.sav` tail's
 eye/target belongs to the camera-switcher record.
+
+## Pan is per-frame (2026-10-28)
+
+`0x5e6ae0(config_pair, p)` is a plain `lerp(1,20,p)` and `0x5e6a90` adds
+`unit_dir * step` to the target goal without a `dt` multiply. The pan block
+therefore has no time factor: retail speed depends on the update/frame rate.
+The port's `* 4` world-units-per-second factor is a feel approximation, not a
+recovered constant. The yaw block does use `dt`: `FLD [esp+0xb4]; FMUL
+[ESI+0x114]` at `0x5e64fc`.

@@ -118,6 +118,12 @@ controller state and writes one of the eight bytes through
 - Tests: `tests/test_viewer_cpp.py::test_cpp_camera_retail_progress_default`,
   `test_cpp_free_camera_start`, `tests/test_config.py::test_camera`.
 
+Retail pan is **per frame**, not per second: `0x5e6ae0(config_pair, p)` is a
+plain `lerp(1, 20, p)` and `0x5e6a90` adds the unit direction times that step
+to the target goal with no `dt` factor. The port multiplies it by 4 world
+units/s as a feel approximation; the exact retail frame rate is not
+calibrated.
+
 ## Serialization
 
 The active camera's `vtable+0` / `+4` (`0x5e5f20` read, `0x5e5fb0` write)
@@ -136,9 +142,7 @@ the orbit camera.
 
 ## Open
 
-- Exact placement of the `dt` factor in the pan block (the recovered
-  `0x5e632f..0x5e64db` block shows `step = lerp(1,20,p)` without a multiply;
-  the port uses world units per second).
+- Retail frame rate / exact effective pan speed (the code is per-frame).
 - `TargetHardness`/`PositionHardness` clamp and transition semantics beyond
   the first-order form above.
 
