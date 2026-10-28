@@ -984,6 +984,60 @@ def test_cpp_retail_menu_clicks():
     assert "menu page=8 active=1" in start.stdout
 
 
+def test_cpp_free_game_entrance_road(tmp_path):
+    """Free Game start lays the retail access road from the Entrance door.
+
+    FUN_0051dad0 + FUN_00586b80: isl01 Entrance (520,376) state 1 has its door
+    at (524,400); the road runs (524,392)-(524,452), the rectangle stored in
+    every retail free-game save (run*/save/slot00*.sav).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--screenshot", str(tmp_path / "s.bmp"),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--menu-loading-time", "0", "--menu-click", "395,234",
+         "--menu-click", "526,531"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "building: Entrance mesh=" in result.stdout
+    assert "parts=5" in result.stdout
+    assert "entrance road: 524,392-524,452 path_cells=16" in result.stdout
+
+
+def test_cpp_entrance_dock_and_road_render(tmp_path):
+    """The dock chunks and the access road change the pixels at the shore."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    bbi = GAME / "Data" / "Design" / "buildings" / "Entrance.bbi"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "800", "--height", "600",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--camera-orbit",
+              "--camera-target", "13.5,-124.5", "--distance", "85",
+              "--pitch", "55", "--yaw", "0", "--building", str(bbi),
+              "--building-pos", "520,376", "--building-state", "1"]
+    road_shot = tmp_path / "road.bmp"
+    plain_shot = tmp_path / "plain.bmp"
+    road = subprocess.run(common + ["--build", "--entrance-road",
+                                    "--screenshot", str(road_shot)],
+                          capture_output=True, text=True, timeout=120)
+    plain = subprocess.run(common + ["--screenshot", str(plain_shot)],
+                           capture_output=True, text=True, timeout=120)
+    assert road.returncode == 0, road.stderr
+    assert plain.returncode == 0, plain.stderr
+    assert "entrance road: 524,392-524,452 path_cells=16" in road.stdout
+    with_road = Image.open(road_shot).convert("RGB")
+    without = Image.open(plain_shot).convert("RGB")
+    diff = ImageChops.difference(with_road, without).convert("L")
+    strong = diff.point(lambda v: 255 if v > 40 else 0)
+    box = strong.getbbox()
+    # The painted road starts at the dock gate (screen centre) and runs inland.
+    assert box is not None and box[2] - box[0] > 100, box
+
+
 def test_cpp_retail_menu_loading_handoff(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1764,7 +1818,8 @@ def test_cpp_building_bbi_place(tmp_path):
                        capture_output=True, text=True, timeout=120)
     assert b.returncode == 0, b.stderr
     assert "building: Entrance mesh=" in b.stdout
-    assert "verts=296 tris=231" in b.stdout
+    # boat, radar, ponton2 (gangway, two materials) and ponton (dock).
+    assert "verts=854 tris=577 parts=5" in b.stdout
     first = Image.open(base).convert("RGB")
     second = Image.open(placed).convert("RGB")
     region = (300, 250, 560, 430)

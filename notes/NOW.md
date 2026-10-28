@@ -61,6 +61,7 @@ See `notes/lanes.md`. Default split:
   R-16b. Campaign Info has no retail mission list; use
   `campaign-progress.txt` (or a port-only override) to pick a mission.
 - R-1 (marcusrj): skybox seam fixed — retail `0x00600df0` centres a ±100 cube on the camera; `notes/skybox-seam-recon.md`, `test_cpp_skybox_follows_camera`.
+- R-16 (marcusrj): Entrance dock + start road — `.mesh` chunk_count is real (dock = chunks 3/4 of entrance_lod1), free game lays the `FUN_0051dad0` road (524,392)-(524,452); `notes/entrance-dock-road-recon.md`.
 - R-2 (marcusrj): vegetation LOD from retail gpkLandscape — 15x15 sectors, LOD1 <= 200 / LOD2 <= 400 x LODQuality, else hidden; port frustum cull on top; `notes/landscape-lod-recon.md`.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
@@ -158,6 +159,7 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
+- 2026-10-28 - R-16: Entrance dock (all .mesh chunks: boat/radar/ponton2/ponton) + FUN_0051dad0 free-game start road (524,392)-(524,452)
 - 2026-10-28 - R-2: vegetation sector LOD (retail 0x508c10/0x609970: LOD1<=200, LOD2<=400 x LODQuality) + port frustum cull
 - 2026-10-28 - R-1: skybox seam fixed - retail 0x00600df0 camera-centred +-100 cube; test_cpp_skybox_follows_camera
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)

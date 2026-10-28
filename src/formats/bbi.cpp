@@ -131,6 +131,9 @@ BuildingDef load_bbi(const std::string& path) {
     def.model0 = u32(data, 109);
     def.model1 = f32(data, 113);
     def.model_count = u32(data, 117);
+    for (std::size_t i = 0; i < def.door.size(); ++i) {
+        def.door[i] = f32(data, 89 + i * 4);
+    }
 
     std::size_t off = 121;
     for (int i = 0; i < 10; ++i) {

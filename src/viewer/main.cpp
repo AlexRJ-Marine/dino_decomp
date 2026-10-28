@@ -110,6 +110,9 @@ struct Options {
     std::string lod_quality;
     bool no_lod = false;  // draw every vegetation sector at LOD1 (A/B)
     bool no_cull = false;  // disable the port-only frustum test (A/B)
+    // Lay the FUN_0051dad0 access road for a --building Entrance at startup
+    // (the Free Game start always lays it).
+    bool entrance_road = false;
     bool skin_bind_from_skin = false;
     bool free_camera = false;
     bool build_mode = false;
@@ -371,6 +374,8 @@ Options parse_args(int argc, char** argv) {
             opt.no_lod = true;
         } else if (arg == "--no-cull") {
             opt.no_cull = true;
+        } else if (arg == "--entrance-road") {
+            opt.entrance_road = true;
         } else if (arg == "--skin-bind") {
             const std::string value = next("--skin-bind");
             if (value == "skin") {
@@ -761,6 +766,8 @@ Options parse_args(int argc, char** argv) {
                 "                       (default: Dino.ini [GRAPHIC] LODQuality)\n"
                 "  --no-lod             draw all vegetation at LOD1, no distance cut\n"
                 "  --no-cull            draw vegetation batches outside the view too\n"
+                "  --entrance-road      with --build, lay the retail start road from a\n"
+                "                       --building Entrance (Free Game start does it)\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --free-camera        start in free-fly camera mode (C toggles)\n"
                 "  --build              path/fence placement (1=path, 2=fence, 0=off, U=undo)\n"
@@ -3854,6 +3861,13 @@ int main(int argc, char** argv) {
                 records.animals.size(), records.employees.size(),
                 records.buildings.size(), records.visitors.size(),
                 records.dinosaurs.size(), sim.roads.size());
+            for (const auto& b : records.buildings) {
+                std::printf("sav building: kind=%u cell=%u,%u state=%u\n",
+                            b.kind, b.cell_x, b.cell_y, b.state);
+            }
+            for (const auto& r : sim.roads) {
+                std::printf("sav road: %d,%d-%d,%d\n", r.x0, r.y0, r.x1, r.y1);
+            }
             std::printf(
                 "sav flags: feature=%zu building=%zu food=%zu misc=%zu\n",
                 records.feature_flags.size(), records.building_flags.size(),
@@ -7001,6 +7015,9 @@ int main(int argc, char** argv) {
     std::vector<dino::Attraction> attractions;
     int entrance_cell_x = -1;
     int entrance_cell_y = -1;
+    // FUN_0051dad0 access road of the last placed Entrance; laid as a free
+    // road when a park starts (Free Game start, or --build at startup).
+    std::optional<dino::WorldRect> entrance_road;
     dino::Vec3 building_center{1e30f, 1e30f, 1e30f};
 
     auto clear_buildings = [&]() {
@@ -7015,6 +7032,7 @@ int main(int argc, char** argv) {
         attractions.clear();
         entrance_cell_x = -1;
         entrance_cell_y = -1;
+        entrance_road.reset();
         building_center = {1e30f, 1e30f, 1e30f};
     };
 
@@ -7081,19 +7099,27 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            dino::Mesh placed;
+            // A static `.mesh` can hold several chunks (entrance_lod1: boat,
+            // radar, ponton2 gangway, ponton dock); retail draws them all, so
+            // every chunk/material becomes its own textured part.
+            std::vector<dino::Mesh> parts;
             if (ends_with_ci(mesh_rel, ".skin")) {
                 dino::Skin skinned =
                     dino::load_skin_auto(resolve_asset(opt.asset_root, mesh_rel));
-                placed = std::move(skinned.mesh);
+                parts.push_back(std::move(skinned.mesh));
                 // `.skin` full meshes are stored in centimetres.
-                for (dino::Vec3& p : placed.positions) {
+                for (dino::Vec3& p : parts.front().positions) {
                     p.x *= 0.01f;
                     p.y *= 0.01f;
                     p.z *= 0.01f;
                 }
             } else {
-                placed = dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
+                for (const dino::Mesh& chunk : dino::load_mesh_chunks(
+                         resolve_asset(opt.asset_root, mesh_rel))) {
+                    for (dino::Mesh& part : dino::split_by_material(chunk)) {
+                        parts.push_back(std::move(part));
+                    }
+                }
             }
             // `tail_strings` mostly holds the building's mesh/skeleton paths
             // (e.g. `DATA\graphics\buildings\souvenirs\souv_construction_
@@ -7114,16 +7140,20 @@ int main(int argc, char** argv) {
                     break;
                 }
             }
-            GLuint texture = 0;
-            const std::string texture_name = placed.texture_name();
-            if (!texture_name.empty()) {
-                try {
-                    texture = upload_texture(dino::load_tga(
-                        resolve_asset(opt.asset_root,
-                                      texture_dir + "/" + texture_name)));
-                } catch (const std::exception& e) {
-                    std::fprintf(stderr, "building texture: %s\n", e.what());
+            std::vector<GLuint> part_textures;
+            for (const dino::Mesh& part : parts) {
+                GLuint texture = 0;
+                const std::string texture_name = part.texture_name();
+                if (!texture_name.empty()) {
+                    try {
+                        texture = upload_texture(dino::load_tga(
+                            resolve_asset(opt.asset_root,
+                                          texture_dir + "/" + texture_name)));
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "building texture: %s\n", e.what());
+                    }
                 }
+                part_textures.push_back(texture);
             }
             // `FUN_00586b80`: cell_x/cell_y is the footprint min corner; odd
             // orientation states swap the footprint axes. `gpkBuilding`
@@ -7151,6 +7181,9 @@ int main(int argc, char** argv) {
             const float radians = angle_deg * 3.14159265f / 180.0f;
             const float cos_a = std::cos(radians);
             const float sin_a = std::sin(radians);
+            for (std::size_t part_index = 0; part_index < parts.size();
+                 ++part_index) {
+            dino::Mesh& placed = parts[part_index];
             if (def.model0 == 1) {
                 // FUN_0061c510: slope-aligned basis from the terrain normal.
                 const dino::TerrainBasis basis =
@@ -7191,7 +7224,9 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            building_draws.push_back({upload_mesh(placed, glfns), texture});
+            building_draws.push_back(
+                {upload_mesh(placed, glfns), part_textures[part_index]});
+            }
             if (kind >= 0) {
                 building_defs[kind] = def;
                 building_instances.push_back(
@@ -7209,6 +7244,9 @@ int main(int argc, char** argv) {
             if (def.category == 10) {
                 entrance_cell_x = centre_cell_x;
                 entrance_cell_y = centre_cell_y;
+                entrance_road = dino::entrance_access_road(
+                    def, static_cast<int>(cell_x), static_cast<int>(cell_y),
+                    orientation);
             } else if (def.category > 0) {
                 dino::Attraction attraction;
                 attraction.cell_x = centre_cell_x;
@@ -7227,11 +7265,25 @@ int main(int argc, char** argv) {
                 attraction.category = static_cast<int>(def.category);
                 attractions.push_back(attraction);
             }
+            std::size_t total_verts = 0;
+            std::size_t total_tris = 0;
+            const dino::Mesh* last_chunk = nullptr;
+            for (const dino::Mesh& part : parts) {
+                // Material parts of one chunk share its vertex array.
+                if (last_chunk == nullptr || part.name != last_chunk->name) {
+                    total_verts += part.positions.size();
+                }
+                last_chunk = &part;
+                total_tris += part.triangle_count();
+            }
+            const std::string texture_name =
+                parts.empty() ? std::string() : parts.front().texture_name();
             std::printf(
-                "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
-                "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f texture=%s\n",
-                def.name.c_str(), mesh_rel.c_str(), placed.positions.size(),
-                placed.triangle_count(), cell_x, cell_y, centre_x, centre_y, wz,
+                "building: %s mesh=%s verts=%zu tris=%zu parts=%zu "
+                "cell=%.1f,%.1f centre=%.1f,%.1f z=%.1f state=%d angle=%.0f "
+                "texture=%s\n",
+                def.name.c_str(), mesh_rel.c_str(), total_verts, total_tris,
+                parts.size(), cell_x, cell_y, centre_x, centre_y, wz,
                 orientation, angle_deg, texture_name.c_str());
             return true;
         } catch (const std::exception& e) {
@@ -7589,6 +7641,13 @@ int main(int argc, char** argv) {
 
     if (opt.wld_park || sav_ready) {
         import_park_layout();
+    } else if (opt.entrance_road && entrance_road && build_ready) {
+        // Opt-in: treat a --building Entrance at startup as a fresh park.
+        dino::import_roads(build_grid, {*entrance_road});
+        rebuild_build_meshes();
+        std::printf("entrance road: %d,%d-%d,%d path_cells=%d\n",
+                    entrance_road->x0, entrance_road->y0, entrance_road->x1,
+                    entrance_road->y1, build_grid.path_count);
     }
     // `--visitors` is handled before the `.wld` roads are imported, so a
     // campaign park would spawn on zero path cells. Spawn once more after
@@ -8289,6 +8348,7 @@ int main(int argc, char** argv) {
     // heightmap, skybox, water, music and vegetation list, so only the folder
     // name is selected here. Used by the Free Game start handoff.
     auto load_island = [&](const std::string& island, bool reset_view) {
+        entrance_road.reset();
         if (visitor_profiles.empty()) {
             try {
                 visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
@@ -8523,11 +8583,13 @@ int main(int argc, char** argv) {
                 const dino::BuildingDef entrance = dino::load_bbi(
                     resolve_asset(opt.asset_root,
                                   "Data/Design/buildings/Entrance.bbi"));
+                const int state =
+                    std::clamp(static_cast<int>(lnd.unknown_int), 0, 3);
+                // place_building records the access road; the Free Game
+                // start lays it once the build grid exists.
                 place_building(entrance, static_cast<float>(lnd.width),
-                               static_cast<float>(lnd.height),
-                               std::clamp(static_cast<int>(lnd.unknown_int), 0,
-                                          3),
-                               0.0f, 1.0f, 9);
+                               static_cast<float>(lnd.height), state, 0.0f,
+                               1.0f, 9);
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "entrance: %s\n", e.what());
             }
@@ -11866,6 +11928,16 @@ int main(int argc, char** argv) {
                         current_island =
                             island_names[static_cast<std::size_t>(island_index)];
                         minimap_rendered_scale = -1.0f;
+                        if (entrance_road) {
+                            ensure_build_ready();
+                            dino::import_roads(build_grid, {*entrance_road});
+                            rebuild_build_meshes();
+                            std::printf(
+                                "entrance road: %d,%d-%d,%d path_cells=%d\n",
+                                entrance_road->x0, entrance_road->y0,
+                                entrance_road->x1, entrance_road->y1,
+                                build_grid.path_count);
+                        }
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "island load: %s\n", e.what());
                     }

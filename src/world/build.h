@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "../formats/bbi.h"
 #include "../formats/mesh.h"
 #include "../formats/tga.h"
 #include "terrain.h"
@@ -65,6 +66,21 @@ struct WorldRect {
 // Imports retail park data into the 4-unit grid. Road rectangles become path
 // cells; fence rectangles become canonical south/east edges.
 void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads);
+
+// spBuilding door rect in engine units (FUN_00586b80, jump table 0x586d0c):
+// the .bbi door segment rotated by the orientation state around the
+// footprint at (cell_x, cell_y); values are truncated like __ftol.
+WorldRect building_door(const BuildingDef& def, int cell_x, int cell_y,
+                        int state);
+
+// FUN_0051dad0: when a park starts, retail lays one free road from each
+// Entrance (category 10). The door centre is snapped to the 4-unit grid and
+// the road runs 8 units back into the building and 52 units out:
+// state 0 (c-8,c)..(c+52,c), 1 (c,c-8)..(c,c+52), 2 (c-52)..(c+8),
+// 3 (c,c-52)..(c,c+8). isl01 (520,376) state 1 -> (524,392)-(524,452),
+// the road stored in every retail free-game save.
+WorldRect entrance_access_road(const BuildingDef& def, int cell_x, int cell_y,
+                               int state);
 void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences);
 
 // Retail paddock capacity model (`stFence`, 0x57dc60 / 0x57eb50). A paddock is

@@ -96,9 +96,13 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& d, std::size_t off,
         mesh.indices.push_back(index);
     }
 
+    // Each optional block is `u8 flag, u32 count`; a cleared flag still
+    // carries a zero count (entrance_crash/destroy, helper_building).
     const std::uint8_t uv_flag = u8(d, off, "uv_flag");
     ++off;
-    if (uv_flag) {
+    if (!uv_flag) {
+        off += 4;
+    } else {
         const std::uint32_t uv_count = u32(d, off, "uv_count");
         off += 4;
         if (uv_count != vertex_count) {
@@ -114,7 +118,9 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& d, std::size_t off,
 
     const std::uint8_t normal_flag = u8(d, off, "normal_flag");
     ++off;
-    if (normal_flag) {
+    if (!normal_flag) {
+        off += 4;
+    } else {
         const std::uint32_t normal_count = u32(d, off, "normal_count");
         off += 4;
         if (normal_count != vertex_count) {
@@ -183,6 +189,125 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& d, std::size_t off,
         (void)parse_materials(tail_offset);
     }
     return MeshBody{std::move(mesh), tail_offset};
+}
+
+namespace {
+
+void check_header(const std::vector<std::uint8_t>& d, const std::string& path) {
+    static constexpr std::uint8_t kMagic[5] = {1, 3, 0, 0, 0};
+    need(d, 0, 21, "header");
+    if (std::memcmp(d.data(), kMagic, 5) != 0) {
+        throw std::runtime_error("mesh: bad magic in " + path);
+    }
+    if (u32(d, 9, "sentinel") != 0x12345678u) {
+        throw std::runtime_error("mesh: bad sentinel in " + path);
+    }
+}
+
+std::string chunk_name(const std::vector<std::uint8_t>& d, std::size_t& off,
+                       const std::string& path) {
+    const std::uint32_t name_len = u32(d, off, "name_len");
+    if (name_len == 0 || name_len > 256) {
+        throw std::runtime_error("mesh: bad name length in " + path);
+    }
+    need(d, off + 4, name_len, "name");
+    if (d[off + 4 + name_len - 1] != 0) {
+        throw std::runtime_error("mesh: name is not NUL-terminated in " + path);
+    }
+    std::string name(reinterpret_cast<const char*>(d.data() + off + 4), name_len - 1);
+    off += 4 + name_len;
+    return name;
+}
+
+}  // namespace
+
+std::vector<Mesh> load_mesh_chunks(const std::string& path) {
+    const auto d = read_binary_file(path);
+    check_header(d, path);
+    const std::uint32_t hash = u32(d, 5, "hash");
+    const std::uint32_t chunk_count = u32(d, 13, "chunk_count");
+    if (chunk_count == 0 || chunk_count > 64) {
+        throw std::runtime_error("mesh: bad chunk count in " + path);
+    }
+    std::vector<Mesh> chunks;
+    std::size_t off = 17;
+    for (std::uint32_t c = 0; c < chunk_count; ++c) {
+        std::string name = chunk_name(d, off, path);
+        MeshBody body = parse_mesh_body(d, off, std::move(name), hash);
+        Mesh mesh = std::move(body.mesh);
+        off = body.tail_offset;
+        const std::uint8_t color_flag = u8(d, off, "color flag");
+        const std::uint32_t color_count = u32(d, off + 1, "color count");
+        off += 5;
+        if (color_flag) {
+            need(d, off, static_cast<std::size_t>(color_count) * 4, "colors");
+            off += static_cast<std::size_t>(color_count) * 4;
+        }
+        const std::uint32_t material_count = u32(d, off, "material count");
+        off += 4;
+        if (material_count > 64) {
+            throw std::runtime_error("mesh: bad material count in " + path);
+        }
+        mesh.materials.clear();
+        for (std::uint32_t i = 0; i < material_count; ++i) {
+            need(d, off, 21, "material header");
+            off += 21;
+            Material material;
+            material.texture = read_string(d, off, "material texture");
+            material.name = read_string(d, off, "material name");
+            mesh.materials.push_back(std::move(material));
+        }
+        const std::uint32_t triangle_count = u32(d, off, "triangle count");
+        off += 4;
+        if (triangle_count != mesh.triangle_count()) {
+            throw std::runtime_error("mesh: triangle material count mismatch in " +
+                                     path);
+        }
+        need(d, off, static_cast<std::size_t>(triangle_count) * 2 + 16,
+             "triangle materials");
+        mesh.triangle_materials.reserve(triangle_count);
+        for (std::uint32_t i = 0; i < triangle_count; ++i) {
+            mesh.triangle_materials.push_back(static_cast<std::uint16_t>(
+                d[off] | (d[off + 1] << 8)));
+            off += 2;
+        }
+        off += 16;  // zero in every retail chunk
+        chunks.push_back(std::move(mesh));
+    }
+    if (off != d.size()) {
+        throw std::runtime_error("mesh: trailing data after chunks in " + path);
+    }
+    return chunks;
+}
+
+std::vector<Mesh> split_by_material(const Mesh& chunk) {
+    if (chunk.materials.size() <= 1 ||
+        chunk.triangle_materials.size() != chunk.triangle_count()) {
+        return {chunk};
+    }
+    std::vector<Mesh> parts;
+    for (std::size_t m = 0; m < chunk.materials.size(); ++m) {
+        Mesh part;
+        part.name = chunk.name;
+        part.hash = chunk.hash;
+        part.positions = chunk.positions;
+        part.uvs = chunk.uvs;
+        part.normals = chunk.normals;
+        part.colors = chunk.colors;
+        part.materials = {chunk.materials[m]};
+        for (std::size_t t = 0; t < chunk.triangle_count(); ++t) {
+            if (chunk.triangle_materials[t] != m) {
+                continue;
+            }
+            part.indices.insert(part.indices.end(), chunk.indices.begin() + t * 3,
+                                chunk.indices.begin() + t * 3 + 3);
+            part.triangle_materials.push_back(0);
+        }
+        if (!part.indices.empty()) {
+            parts.push_back(std::move(part));
+        }
+    }
+    return parts;
 }
 
 Mesh load_mesh(const std::string& path) {

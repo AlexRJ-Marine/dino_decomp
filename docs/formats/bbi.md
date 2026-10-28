@@ -45,6 +45,7 @@ definition base.
 | 37 | +0x28 | f32 | **visit duration** seconds (`FUN_005219f0`) | 10.0 |
 | 49 | +0x6c | u32 | **category** (0..12; 10 = Entrance) | 10 |
 | 73 | +0x48 | f32 | **appeal scale** (`attraction+0x24`) | 4.0 |
+| 89..101 | +0x5c..+0x68 | f32[4] | **door** segment `(x0,y0,x1,y1)` in footprint units, rotated by `FUN_00586b80` into `spBuilding+0x18..+0x24`; Entrance access road (`FUN_0051dad0`) | 24, 7, 24, 6 |
 | 105 | +0x68 | u32 | **radius²** (`descriptor+0x58`) | 1,024 |
 | 109 | +0x70 | u32 | `model[0]`: 0 = yaw only, 1 = slope-aligned | 0 |
 | 113 | +0x74 | f32 | `model[1]`: local Z offset | 0.0 |

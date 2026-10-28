@@ -292,6 +292,46 @@ void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
     }
 }
 
+WorldRect building_door(const BuildingDef& def, int cell_x, int cell_y,
+                        int state) {
+    const float w0 = static_cast<float>(def.footprint_w) - 1.0f;
+    const float w1 = static_cast<float>(def.footprint_h) - 1.0f;
+    const auto& d = def.door;
+    auto t = [](float v) { return static_cast<int>(v); };  // __ftol truncates
+    switch (((state % 4) + 4) % 4) {
+        case 0:
+            return {cell_x + t(d[0]), cell_y + t(d[1]), cell_x + t(d[2]),
+                    cell_y + t(d[3])};
+        case 1:
+            return {cell_x + t(w1 - d[1]), cell_y + t(d[0]),
+                    cell_x + t(w1 - d[3]), cell_y + t(d[2])};
+        case 2:
+            return {cell_x + t(w0 - d[0]), cell_y + t(w1 - d[1]),
+                    cell_x + t(w0 - d[2]), cell_y + t(w1 - d[3])};
+        default:
+            return {cell_x + t(d[1]), cell_y + t(w0 - d[0]),
+                    cell_x + t(d[3]), cell_y + t(w0 - d[2])};
+    }
+}
+
+WorldRect entrance_access_road(const BuildingDef& def, int cell_x, int cell_y,
+                               int state) {
+    const WorldRect door = building_door(def, cell_x, cell_y, state);
+    // `((v + (v >> 31 & 3)) >> 2) * 4`: divide by 4 toward zero.
+    const int cx = ((door.x0 + door.x1) / 2) / 4 * 4;
+    const int cy = ((door.y0 + door.y1) / 2) / 4 * 4;
+    switch (((state % 4) + 4) % 4) {
+        case 0:
+            return {cx - 8, cy, cx + 52, cy};
+        case 1:
+            return {cx, cy - 8, cx, cy + 52};
+        case 2:
+            return {cx - 52, cy, cx + 8, cy};
+        default:
+            return {cx, cy - 52, cx, cy + 8};
+    }
+}
+
 void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
         return;
     }

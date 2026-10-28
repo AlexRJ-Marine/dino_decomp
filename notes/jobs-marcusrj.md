@@ -45,6 +45,7 @@ file is the single place to claim work.
 | R-16b | Menu: retail `.sav` slots | `src/formats/sav.*`, `src/ui/menu.*`, `src/viewer/main.cpp` | List `.sav` beside `.psav`. The island is in the header (`p=0x0c+name_len`: mode @p+0, island index @p+8; mode 1 = campaign id), so load `IslandList.ini[island]` then the existing `.sav` import; no island picker. Evidence `notes/sav-menu-load-recon.md`. |
 | R-17 | Menu: Cinematics list | `src/ui/menu.*`, `src/viewer/main.cpp` menu list/loading | Done: rows are the campaigns' `EndingVideoName` (basket/tennis/trampoline/Trappe/mixe; Cpg06/Cpg08 empty), START plays `Data/Video/<EndingVideo>`; the "seven clips" assumption was wrong (the list is campaign-driven, not the folder). Evidence `notes/cinematics-recon.md`; test `test_cpp_retail_menu_cinematics_page`. |
 | R-18 | Menu: Options page | `src/ui/menu.*`, `src/viewer/main.cpp` | The page is static (icons + empty sliders/OK). Decide which retail settings are playtest-relevant (music/SFX/resolution) and wire them to the existing config/audio; otherwise document it as deferred. |
+| R-16 | Entrance dock + starting road — DONE — claude — 2026-10-28 (all `.mesh` chunks; `FUN_0051dad0` road; `notes/entrance-dock-road-recon.md`) | `src/formats/mesh.*`, `src/world/build.*`, `src/viewer/main.cpp` | Dock/gangway render; free-game start lays (524,392)-(524,452) on isl01 |
 
 ## Coordination
 

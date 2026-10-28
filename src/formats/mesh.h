@@ -33,6 +33,8 @@ struct Mesh {
     std::vector<Vec3> normals;
     std::vector<Color> colors;
     std::vector<Material> materials;
+    // Per-triangle material index from the chunk trailer (load_mesh_chunks).
+    std::vector<std::uint16_t> triangle_materials;
 
     std::size_t triangle_count() const { return indices.size() / 3; }
 
@@ -55,6 +57,20 @@ MeshBody parse_mesh_body(const std::vector<std::uint8_t>& data, std::size_t offs
                          std::string name, std::uint32_t hash);
 
 // Reads the retail .mesh format. Throws std::runtime_error on malformed input.
+// Returns the first chunk only (the whole file for 516 of 536 retail meshes).
 Mesh load_mesh(const std::string& path);
+
+// Reads every chunk of a .mesh. `chunk_count` (0x0D) is 2..4 in 20 retail
+// files, e.g. entrance_lod1.mesh = boat, radar, ponton2 (gangway) and ponton
+// (dock). Each chunk is `u32 name_len, name, body, u8 colour flag, u32
+// colour count, colours, u32 material count, materials, u32 triangle count,
+// u16 material per triangle, 16 zero bytes`; the file ends after the last
+// chunk (all 536 retail meshes, notes/entrance-dock-road-recon.md).
+std::vector<Mesh> load_mesh_chunks(const std::string& path);
+
+// Splits a chunk into one mesh per material that its triangles use, so each
+// part can be drawn with its own texture. Vertices are shared, unused ones
+// are kept.
+std::vector<Mesh> split_by_material(const Mesh& chunk);
 
 }  // namespace dino
