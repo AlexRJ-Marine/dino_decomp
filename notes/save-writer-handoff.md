@@ -80,3 +80,12 @@ The LOAD GAME panel listed `cppwrite`; selecting that row and LOAD started
 the park (Reset `hr=0`) and the 40 s screenshot shows the park with clock
 09:28 (the save's `schedule_elapsed` is 23.2 s). The acceptance run restores
 the original `slot001.sav` in its `finally` block.
+
+Campaign save caveat: `FUN_0058b200` skips the visitor list, park economy
+(`FUN_00585780`), schedule (`FUN_00594cb0`) and the `spPark+0x148` tail on the
+campaign branch. A campaign autosave therefore has **no 0x293 park block**;
+after list0/list1/list2 it continues with the `spPark+0x90` list (57 records
+in the sample), `+0xa0`, `+0x40`, the store/lab writer and the camera tail.
+`--sav-park` cannot import a campaign save; campaign population must come from
+the `CpgNN_Save.wld` world records (and eventually the campaign save's
+list1/list2 state). The 57-list record size is the next decode target.
