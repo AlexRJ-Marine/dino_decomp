@@ -154,6 +154,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - PARK-QUIT: exact retail flow (REQUEST dialog &REQUEST_RETURN_MENU, validate -> main menu with menu music, cancel stays, no save warning/autosave; binary listener 0x524180/callback 0x5242e0, retail harness test-quit-flow.ps1); full suite 483
 - 2026-10-28 - MENU-1: point-sampled .fnt atlas, whole-pixel text origins, cell-height centring; campaign row/title glyphs now pixel-identical to retail (full suite 483)
 - 2026-10-28 - MENU-1: retail glyph advance (width-1), campaign briefing pixel wrap at 213 px/17 px rows, TEXT_HEIGHT gate, VSCROLL hidden at range 1, campaign list starts unselected (disabled START), in-park Quit wired; full suite 482
 - 2026-10-28 - MENU-1: Options page live and cinematics click-to-skip
@@ -161,7 +162,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
-- 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 
 ## Blockers
 
