@@ -1,6 +1,6 @@
 # NOW — Dino Island
 
-Updated: 2026-10-27
+Updated: 2026-10-28
 
 This is the injected dashboard. Keep it under ~80 lines. Full history and
 evidence live in `notes/STATE.md` (read on demand); open tasks are in
@@ -116,6 +116,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - Playtest fixes: CAM-1 retail progress camera (no roll), enclosure UI arms fence, path preview one box, campaign .wld employees/food spawn
 - 2026-10-27 - SAVE-2: campaign list1/list2 typed + campaign .wld shows/animals/employees retained; HUD BL guard corrected
 - 2026-10-27 - SHOW-4: interactive show construction panel + attraction list actions
 - 2026-10-27 - SAVE-2: campaign list0 typed + byte-identical Python/C++ round-trip (list1/2 open)
@@ -123,7 +124,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 - 2026-10-27 - P3: action target policy (node+0x3c +0x14) ported; chooser threat term + viewer Eat target
 - 2026-10-27 - SHOW-3: all four show verbs ported (happyshow/scientificshow/happydinoshow/dinoexclusiveshow) with the FUN_00618020 five-need + .bvi weight pipeline and a --show test hook; coverage 89/89 objectives
-- 2026-10-27 - SAVE-2: C++ writer re-serializes the whole .sav byte-identically (world records, catalog, simulation); --sav-write emits it
 
 ## Blockers
 
