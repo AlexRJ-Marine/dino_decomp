@@ -226,6 +226,8 @@ original construction flow:
   through `0x526f20`: `0x58a4e0` perimeter validation with margin `+0x50`,
   `0x581b90` cost, `0x52bed0` affordability, `0x585d20` CONSTRUCTION charge,
   and `0x53ac60` wall record (type 0x17, two corners at `+0x18..+0x24`).
+  `0x581b90` is the perimeter price:
+  `((x1+y1)-(x0+y0))*2/cell*price` (fence cells * per-cell price).
 - **feature placement** (`+0x48`): a feature selected in the fence list
   (`LunchBox` and the observation-area toggle). The click validates through
   `0x5812b0` + `0x527150`, checks the budget, then spawns the `.bfi` actor

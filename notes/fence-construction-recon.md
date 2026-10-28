@@ -202,17 +202,37 @@ Failure keeps the panel open; the warning is displayed through `0x5e3d70`.
 
 ## Cost
 
-`0x581b90(p1, p2, config)`:
+`0x581b90(p1, p2, config)` is the perimeter price. The actual x86 is:
 
-```text
-(((p1.x + p1.y) * 0x7fffffff + (p2.x + p2.y)) * 2 / config[0]) * config[4]
+```asm
+; EAX = p1.x + p1.y
+NEG EAX
+SHL EAX,0x1f
+SUB EAX,ECX          ; ECX = p1.x + p1.y
+ADD EAX, p2.x + p2.y
+SHL EAX,1
+DIV config[0]        ; cell size
+IMUL EAX,config[4]   ; price per cell
 ```
 
-The `0x7fffffff` multiplier is the compiler's magic for the integer
-perimeter/division sequence; the effective result is the perimeter length in
-cells times `config[4]` (the per-cell wall price). The exact decomposition is
-open, but the caller (`0x526f20`) uses it only as the CONSTRUCTION charge and
-the `FENCE_FEATURE_PRICE` widget.
+The `NEG/SHL 31/SUB` sequence is the signed `- (p1.x + p1.y)` with the
+compiler's sign correction; it is not a `0x7fffffff` multiplier (Ghidra
+renders it that way). Test values confirm the formula:
+
+```text
+p1=(1,1) p2=(5,5) cell=4 price=10
+  (5+5 - 1-1) * 2 / 4 * 10 = 20
+```
+
+So:
+
+```text
+cost = ((p2.x + p2.y) - (p1.x + p1.y)) * 2 / cell * price_per_cell
+```
+
+which is the rectangle **perimeter** in cells times the per-cell price
+(`config[0]` = 4, `config[4]` = the `FENCE_FEATURE_PRICE` value). The caller
+`0x526f20` sorts the corners through `0x52bbf0` before calling.
 
 ## Key handler (`0x52be60`)
 
@@ -279,7 +299,9 @@ gate or refund.
   is only LunchBox, so row 0x17 is not a `.bfi` FeatureList index; it is
   probably the wall / observation-area option id or a UI class id, and the
   list order is not yet mapped.
-- Exact decomposition of the `0x581b90` cost magic.
+- ~~Exact decomposition of the `0x581b90` cost magic~~ **resolved:** the
+  signed `NEG/SHL 31/SUB` is `-(p1.x+p1.y)`; cost is
+  `((p2.x+p2.y)-(p1.x+p1.y))*2/cell*price` (perimeter cells * price).
 - `0x527030` / `0x526e70` extended hooks.
 - `0x584700` cell-record field layout and `0x5849a0` finalisation.
 
