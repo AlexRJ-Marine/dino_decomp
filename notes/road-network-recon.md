@@ -1,4 +1,4 @@
-# Road network and road/terrain look (R-17)
+# Road network and road/terrain look (R-20)
 
 Date: 2026-10-28. Binary `DinoIsland.exe`, Ghidra project
 `DinoIsland.exe-ebea17` via the MCP plus capstone. Builds on

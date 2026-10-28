@@ -112,8 +112,8 @@ view test. Retail relies on the 400-unit cut and D3D clipping.
 
 ## Captures
 
-- `notes/vegetation-lod-before-after.png`: pre-R-2 build (`f92e0ba`) vs R-2
-  (`bb9020b`) at the park camera and orbits at 300/600 units.
+- `notes/vegetation-lod-before-after.png`: pre-R-2 build (`f92e0ba`, now `f3e6f09`) vs R-2
+  (`bb9020b`, now `1874786` after the rebase) at the park camera and orbits at 300/600 units.
 - `notes/vegetation-lod-ab.png`: retail park camera (distance 65.6) and an
   orbit at 300 units, LOD rule vs `--no-lod`.
 - First-frame stats (`vegetation frame:`), isl01:
