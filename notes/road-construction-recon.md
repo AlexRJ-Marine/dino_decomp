@@ -163,11 +163,26 @@ and stores their indices at `+0x64`/`+0x68` (Farm/Metro). `0x52e6b0` (enter)
 resets `+0x48/+0x49/+0x4a`, sets `+0x6c` from `tool+0xc+0x40`, shows the
 panel and calls `0x52c1f0`.
 
+## Road button body `0x52e100`
+
+The `CONSTRUC_ROAD_BUTTON` notification handler (only acts when the
+notification argument is 0):
+
+```text
+state = owner+0x5c
+0x5f8650(state+0x6c)            // clear the preview helper
+0x5f8700(state+0x6c, state+0x50) // set the preview start point
+0x52cc10(state+0x40, 0)          // reset the tool selection
+state+0x48 = 1; state+0x49 = 0
+0x5f6a10(tool+0xc, 1)            // enable the helper
+update CONSTR_PRICE_SLOT via 0x500560
+```
+
+So the retail button arms the straight-run state, places the helper at the
+current ground point and refreshes the price slot; it does not commit a road.
+
 ## Not yet decoded
 
-- The Road button handler body `0x52e100` is still a label inside the panel
-  owner, not a recovered function; the expected effect is `+0x48 = 1` and the
-  helper enabled.
 - Runtime confirmation of the price chain and the negative-direction quirk.
 
 ## Evidence
