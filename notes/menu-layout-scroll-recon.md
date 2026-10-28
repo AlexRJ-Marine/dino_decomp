@@ -132,9 +132,47 @@ campaign 8 (8 rows), load 14 at 20 px (as many as save slots), cinematics 8.
   `campaign-selected.png`). The port defaults `Menu::campaign = -1` and draws
   the disabled START frame until an unlocked campaign is selected.
 * In-park options `OPTIONS_MENU_EXIT_ICON` (`ConstructionInterface.Ini`,
-  `&QuitGame`) was unhandled; `ParkHud::quit_requested()` now makes the
-  viewer exit, matching the main-menu Quit. Test
-  `test_cpp_park_options_quit`.
+  `&QuitGame`) does **not** exit. The widget string (0x662924) is bound in the
+  ParkView ctor (0x52408d) to a listener at 0x524180 that shows the REQUEST
+  panel with `&REQUEST_RETURN_MENU` ("Do you really want to quit and return to
+  the menu?") and a result callback at 0x5242e0. The callback writes byte 0 of
+  the ParkView's 3-byte state struct (`ParkView+0x1b4`, passed in by the view
+  manager: `FUN_00596630` passes `manager+0xc`, stored by `FUN_00523360`); the
+  update then returns to the main menu. There is no save call and no
+  save-related text. Validate = return to menu, cancel = stay.
+
+  Raw evidence:
+  ```
+  ; ParkView ctor, OPTIONS_MENU_EXIT_ICON lookup
+  0052408d PUSH 0x662924                 ; "OPTIONS_MENU_EXIT_ICON"
+  00524085 CALL 0x4139d0                 ; widget lookup
+  005240cb MOV [ECX+0x20], 0x524180      ; listener function pointer
+  005240d4 CALL 0x5bbf20                 ; add listener
+
+  ; listener 0x524180 (event id 0 = click)
+  00524196 MOV ECX, 0x662c14             ; "&REQUEST_RETURN_MENU"
+  00524254 PUSH 0x5242e0                 ; result callback
+  00524259 PUSH ESI                      ; text object
+  0052425a CALL 0x5e3ba0                 ; request_panel->Show (this=[ebp+0x1bc])
+
+  ; result callback 0x5242e0 (validate)
+  005242f0 MOV EAX, [EDI+0x1b4]          ; 3-byte state struct
+  0052430e MOV byte [EAX], 1             ; quit-requested
+  0052436f CALL 0x405400                 ; click sound only
+  ```
+  `0x5242e0` contains no save/write call; the main-menu `QUIT_BUTTON`
+  (`Menu::quit`) is the only path that exits the application. ParkEng.loc:
+  `&REQUEST_RETURN_MENU` = "Do you really want to quit and return to the menu?".
+
+  Port: `ParkHud::return_to_menu_requested()` + `activate_main_menu()`;
+  test `test_cpp_park_quit_confirmation_and_menu`; retail captures
+  `notes/harness/quit-confirm.png`, `quit-after-confirm.png`,
+  `quit-cancel.png`. Runtime confirmation (`quit-confirm-timeline.txt`):
+  validate lands on the main menu; the `run-test/save/` snapshots before the
+  dialog, while open and 12 s after confirming have identical file lists,
+  sizes, mtimes and SHA-256 -- **no autosave and no save warning**. Cancel
+  closes the dialog and the park keeps running
+  (`quit-cancel-timeline.txt`).
 * Text rendering (the visible "textures don't look right"):
   * The `.fnt` atlas is binary 0/255 and retail samples it with **point
     filtering**. The port used `GL_LINEAR`, so every 1-px stroke sampled at a

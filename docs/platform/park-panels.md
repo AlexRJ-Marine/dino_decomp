@@ -209,10 +209,32 @@ Expect `open OPTIONS_PANEL`, `options save tab`, `save port`, and a
 `port save:` line. The load tab uses `378,73`, selects a row at
 `300,{131 + row*12}`, then `334,436` (`load port`).
 
-`--park-click 765,348 --park-click 447,74` opens the panel and hits
+`--park-click 765,348 --park-click 447,74` opens the panel and clicks
 `OPTIONS_MENU_EXIT_ICON` (parent `OPTIONS_MENU_EXIT_GAME`,
-`ConstructionInterface.Ini`, hint `&QuitGame`); the viewer exits exactly like
-the main-menu Quit. Evidence: `test_cpp_park_options_quit`.
+`ConstructionInterface.Ini`, hint `&QuitGame`). Retail raises the **REQUEST**
+panel with `&REQUEST_RETURN_MENU` — "Do you really want to quit and return to
+the menu?" — not an immediate exit:
+
+- validate (`REQUEST_VALIDATE_ICON`, 384,370): returns to the **main menu**
+  (page 0). No save prompt; the park session ends. The retail harness
+  snapshotted `run-test/save/` before the dialog, while it was open and 12 s
+  after confirming: every file's size/mtime/SHA-256 is unchanged, so there is
+  no autosave on this path.
+- cancel (`REQUEST_CANCEL_ICON`, 414,370): closes the dialog and stays in the
+  park.
+
+Port: `ParkHud::return_to_menu_requested()` + `activate_main_menu()` (which
+also calls `ParkHud::end_session()` and restores the menu music).
+Evidence: `tests/test_viewer_cpp.py::test_cpp_park_quit_confirmation_and_menu`,
+retail captures `notes/harness/quit-confirm.png`,
+`quit-after-confirm.png`, `quit-cancel.png` and the timelines
+`quit-confirm-timeline.txt` / `quit-cancel-timeline.txt`.
+Re-run against retail with
+`scripts\x32dbg\test-quit-flow.ps1 -Action confirm` (or `-Action cancel`:
+windowed harness, `run-test/`, virtual mouse, background-safe).
+
+The main-menu `QUIT_BUTTON` is different: it exits the application directly
+(`Menu::quit`).
 
 ### Dialogs
 

@@ -1228,23 +1228,69 @@ def test_cpp_menu_text_metrics(tmp_path):
     assert title_rows and min(title_rows) == 69 and max(title_rows) == 80
 
 
-def test_cpp_park_options_quit(tmp_path):
-    """In-park OPTIONS_MENU_EXIT_ICON (`&QuitGame`) exits the viewer."""
+def test_cpp_park_quit_confirmation_and_menu(tmp_path):
+    """In-park `&QuitGame` asks "quit and return to the menu?" then returns.
+
+    Retail binds OPTIONS_MENU_EXIT_ICON to a listener that shows the REQUEST
+    panel with `&REQUEST_RETURN_MENU`; the validate icon sets the return
+    flag, the cancel icon closes the dialog and stays in the park. No save
+    prompt is part of the flow.
+    """
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
     if not EXE.exists() or not isl04.exists() or not wld.exists():
         pytest.skip("viewer or retail Cpg04 data missing")
-    result = subprocess.run(
-        [str(EXE), "--frames", "5", "--no-menu", "--no-vsync",
-         "--no-save-config", "--width", "800", "--height", "600",
-         "--lnd", str(isl04), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water", "--wld-park", str(wld),
-         "--park-click", "765,348",   # open OPTIONS_PANEL
-         "--park-click", "447,74"],   # quit icon
+    base = [
+        str(EXE), "--frames", "5", "--no-vsync", "--no-save-config",
+        "--width", "800", "--height", "600", "--asset-root", str(GAME),
+        "--lnd", str(isl04), "--no-vegetation", "--no-water",
+        "--wld-park", str(wld), "--park-click", "765,348",  # OPTIONS_PANEL
+        "--park-click", "447,74",                            # Quit Game
+    ]
+    dialog = tmp_path / "dialog.bmp"
+    menu = tmp_path / "menu.bmp"
+    stay = tmp_path / "stay.bmp"
+    a = subprocess.run(base + ["--screenshot", str(dialog)],
+                       capture_output=True, text=True, timeout=180)
+    assert a.returncode == 0, a.stderr
+    assert "park click 447,74 -> request return menu" in a.stdout, a.stdout
+
+    b = subprocess.run(
+        base + ["--park-click", "384,370", "--screenshot", str(menu)],
         capture_output=True, text=True, timeout=180,
     )
-    assert result.returncode == 0, result.stderr
-    assert "park click 447,74 -> quit game" in result.stdout, result.stdout
+    assert b.returncode == 0, b.stderr
+    assert "park click 384,370 -> quit to menu" in b.stdout, b.stdout
+
+    c = subprocess.run(
+        base + ["--park-click", "414,370", "--screenshot", str(stay)],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert c.returncode == 0, c.stderr
+    assert "park click 414,370 -> cancel request" in c.stdout, c.stdout
+
+    # Reference main menu (page 0) for the compare.
+    ref = tmp_path / "ref.bmp"
+    r = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-vsync", "--no-save-config",
+         "--width", "800", "--height", "600", "--asset-root", str(GAME),
+         "--menu", "--menu-page", "0", "--screenshot", str(ref)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert r.returncode == 0, r.stderr
+    reference = Image.open(ref).convert("RGB")
+    returned = Image.open(menu).convert("RGB")
+    stayed = Image.open(stay).convert("RGB")
+    diff = ImageChops.difference(reference, returned)
+    # The returned screen is the menu, not the park: nearly all pixels match
+    # the reference menu, while the cancel screen does not.
+    menu_mismatch = sum(
+        1 for p in diff.getdata() if max(p) > 24)
+    stay_mismatch = sum(
+        1 for p in ImageChops.difference(reference, stayed).getdata()
+        if max(p) > 24)
+    assert menu_mismatch < 2000, menu_mismatch
+    assert stay_mismatch > 100000, stay_mismatch
 
 
 def test_cpp_park_hud_load():

@@ -112,9 +112,14 @@ public:
     void show_mission_panel();
     void set_mission_verdicts(const std::vector<int>& verdicts);
     void clear_mission();
-    // In-park `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`): the viewer exits.
-    bool quit_requested() const { return quit_requested_; }
-    void clear_quit_request() { quit_requested_ = false; }
+    // In-park `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`) raises the retail
+    // REQUEST dialog "Do you really want to quit and return to the menu?"
+    // (`&REQUEST_RETURN_MENU`). Validate returns to the main menu.
+    bool return_to_menu_requested() const { return return_to_menu_requested_; }
+    void clear_return_to_menu_request() { return_to_menu_requested_ = false; }
+    // Retail destroys the park view on confirm. Close transient HUD state so
+    // a park started later from the menu opens clean.
+    void end_session();
 
     // Show construction (`PREDEFINED_SHOW_PANEL`): the mission `[SHOWS]`
     // catalog fills `PREDEFINED_SHOW_LIST`; VALIDATE arms the viewer's show
@@ -153,7 +158,8 @@ private:
     int save_selected_ = -1;
     std::string save_name_ = "quicksave";
     bool name_edit_ = false;
-    bool quit_requested_ = false;
+    bool quit_confirm_ = false;
+    bool return_to_menu_requested_ = false;
     std::vector<StoreRow> store_rows_;
     int store_selected_ = -1;
     int store_scroll_ = 0;

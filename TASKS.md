@@ -1713,8 +1713,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_campaign_info_description_scroll`,
   `test_cpp_campaign_list_starts_unselected`,
   `test_cpp_campaign_list_fits_has_no_scrollbar`.
-- [x] In-park Quit: `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`) exits the viewer
-  (`ParkHud::quit_requested`, `test_cpp_park_options_quit`).
+- [x] In-park Quit: `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`) opens the retail
+  REQUEST dialog `&REQUEST_RETURN_MENU` ("Do you really want to quit and
+  return to the menu?"); validate returns to the main menu, cancel stays, no
+  save prompt (`ParkHud::return_to_menu_requested` + `activate_main_menu`,
+  `test_cpp_park_quit_confirmation_and_menu`).
 - [ ] List-row hover frame and hold-to-repeat remain cosmetic.
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live
   3D thumbnails in the list slots.

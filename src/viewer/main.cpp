@@ -4640,7 +4640,10 @@ int main(int argc, char** argv) {
 
     dino::ui::Menu menu;
     bool menu_loaded = false;
-    bool park_quit_requested = false;
+    // In-park `&QuitGame` opens the retail REQUEST dialog ("Do you really
+    // want to quit and return to the menu?"). Validate returns to the main
+    // menu; it does not exit the application.
+    bool park_return_to_menu = false;
     dino::ui::ParkHud park;
     dino::ShowRuntime show_runtime;
     std::vector<dino::ShowCatalogEntry> show_catalog;
@@ -4968,9 +4971,9 @@ int main(int argc, char** argv) {
                 if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                     std::string action;
                     park.click(x, y, action);
-                    if (park.quit_requested()) {
-                        park.clear_quit_request();
-                        park_quit_requested = true;
+                    if (park.return_to_menu_requested()) {
+                        park.clear_return_to_menu_request();
+                        park_return_to_menu = true;
                     }
                     apply_park_action(x, y, action, "park click");
                 }
@@ -4989,9 +4992,9 @@ int main(int argc, char** argv) {
                                          static_cast<float>(wy), x, y);
                         std::string action;
                         park.click(x, y, action);
-                        if (park.quit_requested()) {
-                            park.clear_quit_request();
-                            park_quit_requested = true;
+                        if (park.return_to_menu_requested()) {
+                            park.clear_return_to_menu_request();
+                            park_return_to_menu = true;
                         }
                         apply_park_action(x, y, action, "park window click");
                     }
@@ -11520,13 +11523,39 @@ int main(int argc, char** argv) {
     };
 
     bool running = true;
-    if (park_quit_requested) {
-        running = false;
-    }
     bool start_screen = opt.force_menu ||
         (opt.frames == 0 && opt.screenshot.empty() && !opt.no_menu);
     if (menu_loaded && opt.use_menu && !menu.active) {
         start_screen = false;
+    }
+    // Retail flies back to the main menu (page 0) after the `&QuitGame`
+    // confirmation; the park session ends without a save prompt.
+    auto activate_main_menu = [&]() {
+        park_return_to_menu = false;
+        if (!menu_loaded || !opt.use_menu) {
+            // No menu in this run mode: quitting the park still exits.
+            running = false;
+            return;
+        }
+        menu.active = true;
+        menu.page = 0;
+        menu.loading = false;
+        menu.start_campaign = false;
+        menu.loading_timer = 0.0f;
+        start_screen = true;
+        park_hover_x = -1;
+        park_hover_y = -1;
+        park.end_session();
+        // Retail returns to the menu score, not the island music.
+        if (opt.music) {
+            const auto menu_music = menu_sound_files.find("music");
+            if (menu_music != menu_sound_files.end()) {
+                music.play(menu_music->second);
+            }
+        }
+    };
+    if (park_return_to_menu) {
+        activate_main_menu();
     }
     // A pre-loop `--menu-click` on LOAD_LOAD_BUTTON only queued the path:
     // load it now that do_port_load and the menu state exist.
@@ -11794,9 +11823,9 @@ int main(int argc, char** argv) {
                     const int hit = park.overlay.hit_test(dx, dy);
                     std::string action;
                     if (park.click(dx, dy, action)) {
-                        if (park.quit_requested()) {
-                            park.clear_quit_request();
-                            running = false;
+                        if (park.return_to_menu_requested()) {
+                            park.clear_return_to_menu_request();
+                            activate_main_menu();
                         }
                         if (hit >= 0) {
                             park_active_index = hit;

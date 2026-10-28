@@ -271,14 +271,29 @@ void ParkHud::show_campaign_end(const std::string& text) {
 void ParkHud::close_dialog() {
     dialog_kind_ = DialogKind::none;
     dialog_text_.clear();
+    quit_confirm_ = false;
     overlay.set_visible("WARNING_PANEL", false);
     overlay.set_visible("REQUEST_PANEL", false);
     overlay.set_visible("CPGEND_PANEL", false);
     overlay.set_visible("DIALOG_BACKGROUND", false);
 }
 
-void ParkHud::show_message(const std::string& text) {
-    message_text_ = text;
+void ParkHud::end_session() {
+    close_dialog();
+    hide_panels();
+    clear_message();
+    name_edit_ = false;
+    save_selected_ = -1;
+    options_tab_ = "save";
+    store_selected_ = -1;
+    store_scroll_ = 0;
+    show_selected_ = -1;
+    show_scroll_ = 0;
+    hud_hidden_ = false;
+    show_hud(true);
+}
+
+void ParkHud::show_message(const std::string& text) {    message_text_ = text;
     // `moMessage` keeps the toast on screen while the state runs; the exact
     // retail lifetime is a `moMessage` constant we have not extracted, so use
     // a fixed 4 s. The texts are short loc strings.
@@ -645,8 +660,16 @@ bool ParkHud::click(int x, int y, std::string& action) {
             action = "close warning";
         } else if (dialog_kind_ == DialogKind::request) {
             if (name == "REQUEST_VALIDATE_ICON") {
+                const bool quit = quit_confirm_;
                 close_dialog();
-                action = "accept request";
+                if (quit) {
+                    // Retail: `&QuitGame` -> REQUEST dialog with
+                    // `&REQUEST_RETURN_MENU`; validate returns to the menu.
+                    return_to_menu_requested_ = true;
+                    action = "quit to menu";
+                } else {
+                    action = "accept request";
+                }
             } else if (name == "REQUEST_CANCEL_ICON") {
                 close_dialog();
                 action = "cancel request";
@@ -677,10 +700,12 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return true;
     }
     if (name == "OPTIONS_MENU_EXIT_ICON") {
-        // In-park options `&QuitGame` (ConstructionInterface.Ini). The main
-        // menu QUIT exits the application directly; do the same here.
-        quit_requested_ = true;
-        action = "quit game";
+        // Retail `&QuitGame`: raise the REQUEST dialog with
+        // `&REQUEST_RETURN_MENU` ("Do you really want to quit and return to
+        // the menu?"). Validate returns to the menu, cancel stays in the park.
+        quit_confirm_ = true;
+        show_request(resolve_loc_text("&REQUEST_RETURN_MENU", loc));
+        action = "request return menu";
         return true;
     }
     if (name == "OPTIONS_NAME_SLOT") {
