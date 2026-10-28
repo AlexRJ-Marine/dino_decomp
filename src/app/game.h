@@ -442,8 +442,11 @@ private:
     dino::Vec3 eye;
     dino::Vec3 view_center;
 
-    // --- boot ----------------------------------------------------------
+    // --- lifecycle ------------------------------------------------------
     std::optional<int> boot();
+    // Release the GL/SDL resources and write the end-of-run output.
+    void shutdown();
+
     // Boot phases, in the order boot() calls them.
     std::optional<int> boot_command_line();
     std::optional<int> boot_budgets_and_clock();

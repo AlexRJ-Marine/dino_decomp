@@ -9,7 +9,9 @@
 namespace dino::app {
 
 Game::Game(int argc, char** argv) : opt(parse_args(argc, argv)) {}
+
 Game::~Game() = default;
+
 int Game::run() {
     if (std::optional<int> exit_code = boot()) {
         return *exit_code;
@@ -42,6 +44,13 @@ int Game::run() {
         present_frame();
     }
 
+    shutdown();
+    return 0;
+}
+
+// Release every GL/SDL resource and write the end-of-run output (config,
+// build save, visitor stats).
+void Game::shutdown() {
     if (opt.save_config) {
         int final_width = 0, final_height = 0;
         SDL_GetWindowSize(window, &final_width, &final_height);
@@ -170,7 +179,6 @@ int Game::run() {
             visitor_system.visitors.size(), states[0], states[1], states[2],
             states[3], needs[0] / count, needs[1] / count, needs[2] / count);
     }
-    return 0;
 }
 
 void Game::begin_frame() {
