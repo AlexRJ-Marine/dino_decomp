@@ -31,4 +31,8 @@ BfiFeature load_bfi(const std::string& path);
 // Reads every `*.bfi` in `dir`, sorted by file name.
 std::vector<BfiFeature> load_bfi_dir(const std::string& dir);
 
+// Reads `FeatureList.ini` order (the index used by show waypoints) and loads
+// each named `.bfi` from `dir`.
+std::vector<BfiFeature> load_bfi_feature_list(const std::string& dir);
+
 }  // namespace dino

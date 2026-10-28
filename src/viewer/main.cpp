@@ -6976,6 +6976,11 @@ int main(int argc, char** argv) {
     std::vector<dino::FoodDef> food_defs;
     GpuMesh food_gpu;
     GLuint food_texture = 0;
+    struct ShowFeatureDraw {
+        GpuMesh gpu;
+        GLuint texture = 0;
+    };
+    std::vector<ShowFeatureDraw> show_feature_draws;
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
         for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
@@ -7035,6 +7040,11 @@ int main(int argc, char** argv) {
         if (food_gpu.vao != 0 && !food_sources.empty() &&
             food_sources.front().remaining > 0.0f) {
             extra_items.push_back({&food_gpu, food_texture});
+        }
+        for (const ShowFeatureDraw& feature : show_feature_draws) {
+            if (feature.gpu.vao != 0) {
+                extra_items.push_back({&feature.gpu, feature.texture});
+            }
         }
         for (const BuildingDraw& building : building_draws) {
             if (building.gpu.vao != 0) {
@@ -9319,6 +9329,94 @@ int main(int argc, char** argv) {
         try {
             const dino::WldWorld world = dino::read_wld(world_path);
             place_world_buildings(world);
+            // Campaign show arenas: each drsShow waypoint is one placed .bfi
+            // feature (index, rotation, cell offset). Draw them from the
+            // FeatureList order used by the waypoints.
+            for (ShowFeatureDraw& feature : show_feature_draws) {
+                feature.gpu.destroy(glfns);
+            }
+            show_feature_draws.clear();
+            std::vector<dino::BfiFeature> show_features;
+            try {
+                show_features = dino::load_bfi_feature_list(resolve_asset(
+                    opt.asset_root, "Data/Design/attractions/features"));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "campaign show features: %s\n", e.what());
+            }
+            auto ends_with = [](const std::string& text, const char* suffix) {
+                const std::size_t n = std::char_traits<char>::length(suffix);
+                if (text.size() < n) {
+                    return false;
+                }
+                for (std::size_t i = 0; i < n; ++i) {
+                    const char a = static_cast<char>(std::tolower(
+                        static_cast<unsigned char>(text[text.size() - n + i])));
+                    const char b = static_cast<char>(std::tolower(
+                        static_cast<unsigned char>(suffix[i])));
+                    if (a != b) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            std::size_t show_features_spawned = 0;
+            std::size_t show_waypoints = 0;
+            const float half_world = terrain.world_size * 0.5f;
+            for (const dino::SavWorldPlaced& show : world.records.shows) {
+                for (const dino::SavWorldWaypoint& wp : show.waypoints) {
+                    ++show_waypoints;
+                    if (wp.x >= show_features.size()) {
+                        continue;
+                    }
+                    const dino::BfiFeature& feature =
+                        show_features[static_cast<std::size_t>(wp.x)];
+                    std::string mesh_rel;
+                    for (const std::string& slot : feature.mesh_slots) {
+                        if (ends_with(slot, ".mesh")) {
+                            mesh_rel = slot;
+                            break;
+                        }
+                    }
+                    if (mesh_rel.empty()) {
+                        continue;
+                    }
+                    try {
+                        dino::Mesh mesh = dino::load_mesh(
+                            resolve_asset(opt.asset_root, mesh_rel));
+                        const std::string texture_name = mesh.texture_name();
+                        GLuint texture = 0;
+                        if (!texture_name.empty()) {
+                            try {
+                                texture = upload_texture(dino::load_tga(
+                                    resolve_asset(opt.asset_root,
+                                                  feature.texture_dir + "/" +
+                                                      texture_name)));
+                            } catch (const std::exception& e) {
+                                std::fprintf(stderr,
+                                             "campaign show texture: %s\n",
+                                             e.what());
+                            }
+                        }
+                        const float wx =
+                            static_cast<float>(show.start_x + wp.z) - half_world;
+                        const float wy =
+                            static_cast<float>(show.start_y + wp.extra) - half_world;
+                        mesh = place_on_terrain(
+                            std::move(mesh), terrain, wx, wy,
+                            static_cast<float>(wp.y) * 90.0f);
+                        show_feature_draws.push_back(
+                            {upload_mesh(mesh, glfns), texture});
+                        ++show_features_spawned;
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "campaign show feature: %s\n",
+                                     e.what());
+                    }
+                }
+            }
+            std::printf("campaign show features: spawned=%zu/%zu features=%zu\n",
+                        show_features_spawned, show_waypoints,
+                        show_features.size());
+            rebuild_extra_items();
             wld_dinosaurs = world.dinosaurs;
             for (const dino::RoadRect& road : world.roads) {
                 wld_roads.push_back({road.x0, road.y0, road.x1, road.y1});

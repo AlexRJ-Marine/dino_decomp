@@ -137,6 +137,27 @@ BfiFeature load_bfi(const std::string& path) {
     return feature;
 }
 
+std::vector<BfiFeature> load_bfi_feature_list(const std::string& dir) {
+    std::ifstream list(dir + "/FeatureList.ini");
+    if (!list) {
+        throw std::runtime_error("bfi: cannot open FeatureList.ini in " + dir);
+    }
+    std::uint32_t count = 0;
+    if (!(list >> count)) {
+        throw std::runtime_error("bfi: bad FeatureList.ini count in " + dir);
+    }
+    std::vector<BfiFeature> features;
+    features.reserve(count);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        std::string name;
+        if (!(list >> name)) {
+            throw std::runtime_error("bfi: short FeatureList.ini in " + dir);
+        }
+        features.push_back(load_bfi(dir + "/" + name + ".bfi"));
+    }
+    return features;
+}
+
 std::vector<BfiFeature> load_bfi_dir(const std::string& dir) {
     std::vector<std::filesystem::path> paths;
     for (const auto& entry : std::filesystem::directory_iterator(dir)) {

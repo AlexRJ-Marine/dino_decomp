@@ -574,6 +574,8 @@ def test_cpp_menu_campaign_mission_start(tmp_path):
     assert "campaign employees: rendered=6" in result.stdout
     assert "campaign food sources: spawned=2/2" in result.stdout
     assert "campaign food sources: rendered=2" in result.stdout
+    assert ("campaign show features: spawned=51/71 features=62"
+            in result.stdout)
     assert "wld: placed 57/57 buildings" in result.stdout
     assert (
         "dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
