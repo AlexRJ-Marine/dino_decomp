@@ -41,8 +41,11 @@ vsync=1
   with the retail **5/s** yaw low-pass (`Del`/`PgDn`/`Home`/`End` are the
   alternate rotate bindings); `Shift+Up/Down` and the navigation panel's
   ZOOM/DEZOOM change `progress`, which drives distance 10..300 and elevation
-  3..500 together. The target follows the terrain height. Retail has no mouse
-  camera binding; mouse drag only works in `--camera-orbit` and free-fly.
+  3..500 together. The target follows the terrain height. Mouse **edge scroll**
+  is retail: the cursor within 2 px of a client edge pans (off while Shift is
+  held; `--edge-scroll N` widens the band for windowed play). There is no
+  drag or wheel camera binding; those only work in `--camera-orbit` and
+  free-fly.
 - **Legacy orbit (`--camera-orbit`).** The previous spherical orbit, including
   `+`/`-`/wheel zoom and mouse drag, kept for deterministic screenshots.
 - **Free-fly (`C`, debug).** `W/A/S/D` move the eye along the view

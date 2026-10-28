@@ -35,6 +35,7 @@ public class DinoCamProbeWin {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
 }
 "@
 Add-Type -AssemblyName System.Drawing
@@ -55,6 +56,23 @@ function Hold-Keys([string]$name, [string]$codes, [int]$milliseconds) {
     Set-Keys ""
     Log "key-up   $name"
     Start-Sleep -Milliseconds 1300
+}
+
+# Move the virtual cursor without a button. The proxy feeds the relative delta
+# from dino_input.txt to the engine's ring; WM_MOUSEMOVE keeps the UI cursor
+# in sync. Used to test retail edge scrolling / mouse camera motion.
+function Move-Mouse([string]$name, [int]$x, [int]$y, [int]$milliseconds) {
+    Log "mouse-move $name ($x,$y)"
+    $inputPath = Join-Path $wd "dino_input.txt"
+    Set-Content -Path $inputPath -Value ("{0} {1} 0" -f $x, $y) -NoNewline
+    $lParam = [IntPtr](($y -shl 16) -bor ($x -band 0xffff))
+    [DinoCamProbeWin]::PostMessage($hwnd, 0x200, [IntPtr]::Zero, $lParam) | Out-Null
+    Start-Sleep -Milliseconds $milliseconds
+    # Park the cursor in the middle between tests.
+    Set-Content -Path $inputPath -Value "400 300 0" -NoNewline
+    [DinoCamProbeWin]::PostMessage(
+        $hwnd, 0x200, [IntPtr]::Zero, [IntPtr]((300 -shl 16) -bor 400)) | Out-Null
+    Start-Sleep -Milliseconds 1200
 }
 function Save-Shot([IntPtr]$hwnd, [string]$name) {
     if ($hwnd -eq [IntPtr]::Zero) { return }
@@ -146,6 +164,14 @@ Start-Sleep -Seconds 3
 # --- camera key segments -------------------------------------------------
 Log "baseline 2s"
 Start-Sleep -Seconds 2
+
+# Mouse camera / edge-scroll tests: hold the virtual cursor at each edge.
+Move-Mouse "right-edge"  799 300 2500
+Move-Mouse "left-edge"     1 300 2500
+Move-Mouse "bottom-edge" 400 599 2500
+Move-Mouse "top-edge"    400   1 2500
+Move-Mouse "bottom-right" 799 599 2500
+Move-Mouse "bottom-left"    1 599 2500
 
 Hold-Keys "Up"          "C8"       1000
 Hold-Keys "Down"        "D0"       1000

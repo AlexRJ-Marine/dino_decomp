@@ -458,6 +458,12 @@ log "p={d:[ecx+0x158]} yaw={d:[ecx+0x120]} yawg={d:[ecx+0x124]} tgt={d:[ecx+0x90
 
 ## 12. Runtime verification (2026-10-28) — supersedes parts of §7 and §10
 
+> **Update (same day):** the "no mouse" item 5 and the §8/§11 edge-scroll
+> conclusion are wrong. `notes/camera-mouse-tilt-recon.md` proves the live
+> edge scroll (`0x527b00` mouse callback → `0x52a690` → `camSwitcher+4/+8`),
+> the 2 px bands and the pre-pan eye goal that produces the tilt. The rest of
+> §12 (5/s yaw, +0x120/+0x12c, per-update pan, fly-in) stands.
+
 A live probe was added to the DINPUT8 proxy (`DINO_CAMERA_PROBE=1`): it patches
 vtable `0x6481a4` slot 2 (`0x5e5ff0`) and samples the real object each update
 into `run-test/dino_camera.csv`. Driver: `scripts/x32dbg/camera-probe.ps1`

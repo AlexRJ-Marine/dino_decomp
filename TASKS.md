@@ -733,12 +733,26 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   update** (no dt); Shift+arrows / Del/PgDn/Home/End rotate at `pi/2` rad/s
   with the **5/s** yaw low-pass (16.8 deg lag at 90 deg/s); Shift+Up/Down and
   ZOOM/DEZOOM move progress at `lerp(0.05,0.2,p)`/s; XY position/target
-  filters are `lerp(6,2,p)`, Z is instant; no roll and no mouse camera.
+  filters are `lerp(6,2,p)`, Z is instant; no roll. Mouse edge scroll is
+  ported (2 px client bands, OR-ed into the pan flags, off while Shift is
+  held; `--edge-scroll` widens it for windowed play) and the eye goal is
+  built **before** the pan, reproducing the retail one-step lean.
   The port runs the camera on a fixed 60 Hz tick (`--camera-hz`) so an
   uncapped render loop keeps the retail pan speed.
   `--camera-orbit` keeps the legacy orbit; `--camera-selftest` asserts the
   four measured equations (`notes/camera-controls-binary-recon.md` §12,
   `docs/decomp/camera.md`).
+- [x] Mouse edge scroll: `0x527b00` mouse callback -> `0x52a690` ->
+  `camSwitcher+4/+8`; `0x5e5ff0` ORs `x<2`/`x>w-2`/`y<2`/`y>h-2` into flags
+  2/3/0/1. The earlier "unwired" reading was wrong; the live probe saw the
+  bottom edge move the target +762 with flags 0x00
+  (`notes/camera-mouse-tilt-recon.md`, `run-test/dino_camera.csv`).
+- [x] Tilt: no roll; the lean is pitch/yaw from the eye goal being computed
+  **before** the pan (`W - step`: r 39->41.9, 4.25 deg lateral) plus terrain
+  under the eye and the 5/s yaw lag. Port reorders the update;
+  `--camera-selftest` asserts `lean_goal dx=41.9`.
+- [ ] Minimap `MAP_RENDERVIEW` click -> target snap
+  (`0x529a40` -> `0x5e5cb0`): the port's minimap click is not wired yet.
 - [x] Wire the `NAVIGATION_PANEL` buttons to the same actions
   (`GOTOP/GOBOTTOM/GOLEFT/GORIGHT`, `TURNLEFT/TURNRIGHT`,
   `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.

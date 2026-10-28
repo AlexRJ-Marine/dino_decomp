@@ -53,9 +53,11 @@ See `notes/lanes.md`. Default split:
   tick (`--camera-hz`), yaw 90 deg/s
   with a **5/s** low-pass (16.8 deg lag, not the old 10/s), zoom
   `lerp(0.05,0.2,p)`/s, target/eye XY `lerp(6,2,p)` with instant Z, no roll,
-  no mouse camera. `--camera-orbit` keeps the legacy view; `--camera-selftest`
-  asserts the measured equations. `notes/camera-controls-binary-recon.md` §12.
-  Re-test the in-hand feel.
+  mouse edge scroll (2 px; Shift disables; `--edge-scroll`). The eye goal is
+  built **before** the pan (retail order), which is the visible lean.
+  `--camera-orbit` keeps the legacy view; `--camera-selftest`
+  asserts the measured equations. `notes/camera-mouse-tilt-recon.md`,
+  `notes/camera-controls-binary-recon.md` §12. Re-test the in-hand feel.
 - SAVE-2: **complete and accepted by retail.** The C++ writer re-serializes
   the whole `.sav` byte-identically; a `--sav-write` output (`cppwrite`) is
   listed by the retail LOAD GAME panel, selects and loads a park
@@ -130,13 +132,14 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
+- 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
 - 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 - 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
 - 2026-10-28 - Full suite green: 473 passed after enclosure rectangle/paddock and campaign show features
 - 2026-10-28 - Full suite green: 473 passed after camera/preview/enclosure/campaign-population work
 - 2026-10-28 - Playtest fixes: CAM-1 retail progress camera (no roll), enclosure UI arms fence, path preview one box, campaign .wld employees/food spawn
 - 2026-10-27 - SAVE-2: campaign list1/list2 typed + campaign .wld shows/animals/employees retained; HUD BL guard corrected
-- 2026-10-27 - SHOW-4: interactive show construction panel + attraction list actions
 
 ## Blockers
 
@@ -148,3 +151,4 @@ See `notes/lanes.md`. Default split:
 - `docs/decomp/` — function status, scheduler, economy, show score, hybrid.
 - `notes/history/` — dated completion log (`scripts/state.ps1 -Done`).
 - `notes/evidence-index.md` — claim → evidence → test index.
+

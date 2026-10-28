@@ -2137,7 +2137,14 @@ void __fastcall hook_camera_update(void* self, void* edx, float dt) {
                 "alt,flags\n");
         }
     }
-    if (g_camera_csv != nullptr) {
+    static DWORD last_probe_sample = 0;
+    const DWORD probe_now = GetTickCount();
+    const bool sample_row =
+        (calls == 1) || (probe_now - last_probe_sample >= 50);
+    if (sample_row) {
+        last_probe_sample = probe_now;
+    }
+    if (sample_row && g_camera_csv != nullptr) {
         std::fprintf(
             g_camera_csv,
             "%lu,%ld,%.6f,%.6f,%.6f,%.6f,"
@@ -2145,7 +2152,7 @@ void __fastcall hook_camera_update(void* self, void* edx, float dt) {
             "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
             "%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
             "%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,0x%02x\n",
-            static_cast<unsigned long>(GetTickCount()), static_cast<long>(calls),
+            static_cast<unsigned long>(probe_now), static_cast<long>(calls),
             static_cast<double>(dt), static_cast<double>(f32(0x158)),
             static_cast<double>(f32(0x120)), static_cast<double>(f32(0x12c)),
             static_cast<double>(f32(0x20)), static_cast<double>(f32(0x24)),
@@ -2163,9 +2170,7 @@ void __fastcall hook_camera_update(void* self, void* edx, float dt) {
             static_cast<double>(f32(0x150)),
             static_cast<double>(f32(0x154)),
             static_cast<double>(f32(0x50)), flags);
-        if ((calls % 30) == 0) {
-            std::fflush(g_camera_csv);
-        }
+        std::fflush(g_camera_csv);
     }
     if (calls == 1) {
         void** vtable = *reinterpret_cast<void***>(self);

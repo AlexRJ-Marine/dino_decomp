@@ -63,24 +63,25 @@ reader `FUN_005e5690`, smoothing copy in `FUN_005e67f0`.
 Per update, in this order (`dt` = the update argument, p = progress):
 
 ```c
-// 4/5: yaw; 6/7: progress. Both are dt-scaled.
-yaw_goal += dir45 * dt * rot_speed(p);        // rot_speed = 1.570796
-progress += dir67 * dt * lerp(0.05f, 0.2f, p);
-clamp(progress, 0, 1);
+// 1. target Z glue (0x5e609b): before the eye goal
+target_goal.z += max(terrain(target_cur.xy), altitude) - target_cur.z;
 
-// 0..3: pan the target goal. NO dt: this is per update.
-fwd = normalize((target_cur - eye_cur).xy);
-target_goal.xy += rotate(fwd, flag) * lerp(1, 20, p);
-clamp(target_goal.xy, map_box);
-target_goal.z += terrain(target_cur.xy) - target_cur.z;
-
-// eye goal: one progress drives radius and height
+// 2. eye goal: built from the PRE-input target, current yaw and progress
 eye_goal.xy = target_goal.xy +
               (cos(yaw_cur), sin(yaw_cur)) * lerp(10, 300, p);
 eye_goal.z  = lerp(3, 500, p) +
               max(target_goal.z, terrain(eye_goal.xy), altitude);
 
-// first-order smoothing (FUN_005e6960)
+// 3. input. 4/5 yaw and 6/7 progress are dt-scaled; 0..3 pan is per update
+//    (no dt) and the mouse edge test is OR-ed into flags 0..3.
+yaw_goal += dir45 * dt * rot_speed(p);        // rot_speed = 1.570796
+progress += dir67 * dt * lerp(0.05f, 0.2f, p);
+clamp(progress, 0, 1);
+fwd = normalize((target_cur - eye_cur).xy);
+target_goal.xy += rotate(fwd, flag) * lerp(1, 20, p);
+clamp(target_goal.xy, map_box);
+
+// 4. first-order smoothing (FUN_005e6960)
 cur += (goal - cur) * clamp(dt * lerp(min, max, p), 0, 1);
 yaw_cur    += (yaw_goal - yaw_cur) * clamp(dt * 5.0, 0, 1);
 target_cur += ... TargetHardness 6..2 (X/Y), Z instant;
@@ -88,6 +89,14 @@ eye_cur    += ... PositionHardness 6..2 (X/Y), Z instant;
 
 out.eye = eye_cur; out.target = target_cur;
 ```
+
+Because the eye goal is built **before** the pan, a held pan leaves the eye
+one step behind: `eye - target = W - step`. At p=0.1 a forward pan stretches
+`r` 39 -> 41.9 (pitch 53.5 -> 51.5 deg) and a lateral pan swings the view by
+`atan(2.9/39) = 4.25 deg`. That one-update lag is the visible lean/tilt while
+moving; there is still no roll (the up vector is world +Z). The terrain under
+the moving eye adds up to +6.8 deg on isl01, and the 5/s yaw lag adds +2.4 deg
+while rotating. See `notes/camera-mouse-tilt-recon.md` §5.
 
 Runtime checks (isl01 Free Game, `run-test/dino_camera.csv`):
 
@@ -120,9 +129,15 @@ speed; the camera self-test uses dt = 1/60.
 | `NAVIGATION_TURNLEFT/TURNRIGHT` | same rotation state |
 | `NAVIGATION_ZOOM/DEZOOM` | same progress axis (6/7) |
 
-There are **no mouse or wheel entries** in `KeyMapper.ini`, and `0x5e5ff0`
-has no live mouse path (the edge-scroll branch is unwired). The port ignores
-mouse drag/wheel in retail mode. `FUN_005257a0` registers the callbacks;
+`KeyMapper.ini` has no mouse or wheel bindings, but the park camera still has
+a **mouse edge scroll**: the client-pixel cursor is written by the park
+`RENDERVIEW` mouse-move callback (`0x5279b0` -> `0x52a690`) into
+`camSwitcher+4/+8`, and `0x5e5ff0` ORs `x<2`, `x>w-2`, `y<2`, `y>h-2` into
+pan flags 2/3/0/1. It is suppressed while Shift is held, has a hard 2 px
+band (no ramp), and persists when the window stops receiving moves. A
+`MAP_RENDERVIEW` click is a separate path that snaps the target to the
+clicked world point (`0x529a40` -> `0x5e5cb0`); the port's minimap click is
+not wired yet. No drag and no wheel. `FUN_005257a0` registers the callbacks;
 `FUN_00527b80` gates them on the controller state and writes one of the eight
 bytes through `FUN_005e59b0`.
 
@@ -142,7 +157,13 @@ bytes through `FUN_005e59b0`.
   the session keeps its view. `--camera-retail` forces retail mode even for
   `--start-dino`/explicit views.
 - Pan is per update (`lerp(1,20,p)`, no dt), yaw is `dt*pi/2` with the 5/s
-  low-pass, progress is `dt*lerp(0.05,0.2,p)`; no roll and no mouse camera.
+  low-pass, progress is `dt*lerp(0.05,0.2,p)`; no roll. The eye goal is
+  computed **before** the pan (retail order) so the one-step lean is
+  reproduced; `--camera-selftest` asserts `lean_goal dx=41.9`.
+- Mouse edge scroll: the last client-pixel cursor position (SDL mouse motion,
+  persisted on focus loss) sets pan flags 2/3/0/1 within a 2 px band
+  (`--edge-scroll N` widens it for windowed play), disabled while Shift is
+  held. No drag and no wheel.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_camera_retail_progress_default`,
   `test_cpp_camera_retail_selftest`, `test_cpp_camera_orbit_option_keeps_legacy_view`.
 

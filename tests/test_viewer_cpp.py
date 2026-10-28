@@ -233,6 +233,7 @@ def test_cpp_camera_retail_selftest():
     assert "camera selftest settle target=0.0000,0.0000,32.0000" in out, out
     assert "camera selftest pan dx=-29.0000" in out, out
     assert "step=2.9000" in out, out
+    assert "camera selftest lean_goal dx=41.9000" in out, out
     assert "camera selftest yaw goal_delta=1.570795" in out, out
     assert "camera selftest yaw goal_delta=1.570795 cur_delta=1.284372" in out, out
     assert "camera selftest zoom delta=-0.060430 p=0.039570" in out, out

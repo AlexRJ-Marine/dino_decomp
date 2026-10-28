@@ -1841,3 +1841,22 @@ Updated: 2026-10-28
   once per rendered frame was 16x too fast. The interactive retail camera now
   runs on a fixed 60 Hz tick (`--camera-hz`, 10..240); the camera self-test
   still uses dt = 1/60.
+
+## 2026-10-28 - CAM-1 mouse edge scroll and tilt (playtest follow-up)
+
+- The playtest reported (a) still no tilt while moving and (b) retail mouse
+  camera motion. Both were real: the previous note's "edge-scroll unwired"
+  and "no mouse" were wrong, and the port computed the eye goal after the pan.
+- Static trace (`notes/camera-mouse-tilt-recon.md`): WM_MOUSEMOVE client px ->
+  park RENDERVIEW callback `0x527b00` -> `0x52a690` -> `camSwitcher+4/+8`;
+  `0x5e5ff0` ORs `x<2`/`x>w-2`/`y<2`/`y>h-2` into pan flags 2/3/0/1, off while
+  Shift is held (the `[0x6750f0]+0x2a/+0x36` gate is the DirectInput Shift
+  array, not a UI mode). Hard 2 px band, no ramp; the position persists.
+- Tilt: no roll. `0x5e5ff0` builds the eye goal **before** the pan, so the
+  eye trails by one step: `D = W - step` (r 39->41.9 forward, 4.25 deg
+  lateral). Terrain under the eye adds up to +6.8 deg; the 5/s yaw lag +2.4 deg.
+- Port: `RetailParkCamera::update` reordered (target Z glue, eye goal, input,
+  smoothing); SDL mouse motion tracked in client pixels and OR-ed into the pan
+  flags (`--edge-scroll`, default 2); fixed 60 Hz tick retained. Selftest now
+  asserts `lean_goal dx=41.9`. The minimap `MAP_RENDERVIEW` click snap is still
+  open.

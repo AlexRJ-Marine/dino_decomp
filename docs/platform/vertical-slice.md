@@ -47,14 +47,16 @@ starts the walking animation. Screenshot: `notes/menu-start-dino.png`.
 ## Camera
 
 Retail target-orbit mode (default): **arrows** pan the look-at target over
-the island (per frame, `lerp(1,20,progress)`), **Shift+arrows** rotate around
-it at `pi/2` rad/s with the retail **5/s** yaw low-pass (`Del`/`PgDn`/`Home`/
-`End` are the alternate rotate bindings), and **Shift+Up/Down** or the
-navigation panel's ZOOM/DEZOOM change `progress` (distance 10..300 and
-elevation 3..500 together). The target follows the terrain height; `R`
-resets. Retail has no mouse camera binding; mouse-drag rotation is only for
-`--camera-orbit` and free-fly. When a dinosaur is placed, the target is the
-spawn point at `z = terrain + 3`; otherwise it frames the island.
+the island (per camera tick, `lerp(1,20,progress)`), **Shift+arrows** rotate
+around it at `pi/2` rad/s with the retail **5/s** yaw low-pass
+(`Del`/`PgDn`/`Home`/`End` are the alternate rotate bindings), and
+**Shift+Up/Down** or the navigation panel's ZOOM/DEZOOM change `progress`
+(distance 10..300 and elevation 3..500 together). The target follows the
+terrain height; `R` resets. Mouse **edge scroll** pans when the client cursor
+is within 2 px of an edge (off while Shift; `--edge-scroll N` widens it for
+windowed play); mouse-drag rotation is only for `--camera-orbit` and
+free-fly. When a dinosaur is placed, the target is the spawn point at
+`z = terrain + 3`; otherwise it frames the island.
 
 The menu-started park uses the recovered Free Game camera: the retail ctor
 starts at target `(512,512,50)` / eye `(128,128,250)` in record coordinates,

@@ -253,6 +253,7 @@ struct Options {
     bool camera_orbit = false;   // force the legacy orbit camera
     bool camera_selftest = false;
     float camera_hz = 60.0f;     // retail camera update rate (pan is per update)
+    int edge_scroll = 2;         // client-pixel edge band (retail = 2)
 };
 
 void load_config(const std::string& path, Options& opt) {
@@ -513,6 +514,8 @@ Options parse_args(int argc, char** argv) {
             opt.camera_selftest = true;
         } else if (arg == "--camera-hz") {
             opt.camera_hz = static_cast<float>(std::atof(next("--camera-hz")));
+        } else if (arg == "--edge-scroll") {
+            opt.edge_scroll = std::atoi(next("--edge-scroll"));
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -826,6 +829,7 @@ Options parse_args(int argc, char** argv) {
                 "  --camera-retail      force the retail park camera (default)\n"
                 "  --camera-orbit       use the legacy orbit camera\n"
                 "  --camera-hz N        retail camera tick rate (default 60)\n"
+                "  --edge-scroll N      mouse edge band in client px (default 2)\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -3511,6 +3515,21 @@ struct RetailParkCamera {
             reset(terrain);
         }
         const float step_dt = std::max(0.0f, dt);
+        // Retail order (0x5e5ff0): target Z glue, then the eye goal built
+        // from the pre-input target, then input (rotate/progress/pan), then
+        // smoothing. Building the eye before the pan leaves it one pan step
+        // behind the target - the pitch/yaw lean seen while moving.
+        target_goal.z +=
+            std::max(terrain.height_at(target_cur.x, target_cur.y), altitude) -
+            target_cur.z;
+        const float radius = config.distance(progress);
+        const float height = config.elevation(progress);
+        eye_goal.x = target_goal.x + std::cos(yaw_cur) * radius;
+        eye_goal.y = target_goal.y + std::sin(yaw_cur) * radius;
+        const float eye_terrain = terrain.height_at(eye_goal.x, eye_goal.y);
+        eye_goal.z =
+            height + std::max({target_goal.z, eye_terrain, altitude});
+
         // 4/5: rotate; 6/7: progress (zoom). Both are dt-scaled.
         const float rotation = config.rotation_speed(progress) * step_dt;
         if (flags[4]) {
@@ -3561,20 +3580,6 @@ struct RetailParkCamera {
         const float pan_limit = terrain.world_size * 0.5f + 250.0f;
         target_goal.x = std::clamp(target_goal.x, -pan_limit, pan_limit);
         target_goal.y = std::clamp(target_goal.y, -pan_limit, pan_limit);
-        // +0x98 glue: target goal Z tracks the terrain under the current
-        // target (Z is instant, so goal and current stay equal).
-        target_goal.z += terrain.height_at(target_cur.x, target_cur.y) -
-                         target_cur.z;
-
-        // Eye goal: target goal + yaw offset * distance(p); height above the
-        // highest of target terrain, terrain under the eye, and altitude.
-        const float radius = config.distance(progress);
-        const float height = config.elevation(progress);
-        eye_goal.x = target_goal.x + std::cos(yaw_cur) * radius;
-        eye_goal.y = target_goal.y + std::sin(yaw_cur) * radius;
-        const float eye_terrain = terrain.height_at(eye_goal.x, eye_goal.y);
-        eye_goal.z =
-            height + std::max({target_goal.z, eye_terrain, altitude});
 
         // First-order filters. Z is instant (pair 1000,1000 -> k = 1).
         // The yaw pairs are 5.0/5.0 in the ctor (0x5e5d67..), not 10.
@@ -3616,6 +3621,11 @@ int camera_selftest(const dino::CameraConfig& config,
     std::printf("camera selftest pan dx=%.4f dy=%.4f step=%.4f\n",
                 cam.target_goal.x - before.x, cam.target_goal.y - before.y,
                 config.move_speed(cam.progress));
+    // Pre-pan eye goal: the offset must be r + step = 41.9 at p=0.1 for a
+    // forward pan (retail eye goal is built before the target moves).
+    std::printf("camera selftest lean_goal dx=%.4f dy=%.4f\n",
+                cam.eye_goal.x - cam.target_goal.x,
+                cam.eye_goal.y - cam.target_goal.y);
     const float yaw_before = cam.yaw_goal;
     bool left[8] = {};
     left[4] = true;
@@ -7925,6 +7935,9 @@ int main(int argc, char** argv) {
     float camera_progress = 0.1f;
     float camera_yaw_goal = yaw;
     float camera_accum = 0.0f;  // fixed-step camera tick accumulator
+    int cam_mouse_x = 0;        // last client-pixel mouse position (retail
+    int cam_mouse_y = 0;        // edge scroll; persists on focus loss)
+    bool cam_mouse_valid = false;
     // Retail park camera is the interactive default (verified against the
     // live 0x5e5ff0 object). Explicit CLI/focus views and --camera-orbit keep
     // the deterministic legacy orbit for screenshots and tests.
@@ -11417,6 +11430,25 @@ int main(int argc, char** argv) {
                     click_y = event.button.y;
                 }
             } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                // Retail edge scroll uses the client-pixel cursor position
+                // from WM_MOUSEMOVE. Keep the last position; it persists on
+                // focus loss (retail keeps scrolling if left in a band).
+                int window_w = 0;
+                int window_h = 0;
+                SDL_GetWindowSize(window, &window_w, &window_h);
+                const float mouse_scale_x =
+                    window_w > 0 ? static_cast<float>(width) / window_w
+                                 : 1.0f;
+                const float mouse_scale_y =
+                    window_h > 0 ? static_cast<float>(height) / window_h
+                                 : 1.0f;
+                cam_mouse_x = std::clamp(
+                    static_cast<int>(event.motion.x * mouse_scale_x), 0,
+                    std::max(0, width - 1));
+                cam_mouse_y = std::clamp(
+                    static_cast<int>(event.motion.y * mouse_scale_y), 0,
+                    std::max(0, height - 1));
+                cam_mouse_valid = true;
                 if (park.loaded()) {
                     int dx = 0, dy = 0;
                     park_design(event.motion.x, event.motion.y, dx, dy);
@@ -11999,6 +12031,18 @@ int main(int argc, char** argv) {
                 flags[7] = nav_zoom_out ||
                            (shift && held(dino::KeyAction::OrbitDown)) ||
                            keys[SDL_SCANCODE_END];
+                // Retail edge scroll: 2 client px bands, OR-ed into the same
+                // pan flags, disabled while the rotate modifier (Shift) is
+                // held. The position persists on focus loss.
+                const int edge_band = std::max(1, opt.edge_scroll);
+                if (!shift && cam_mouse_valid) {
+                    flags[2] = flags[2] || cam_mouse_x < edge_band;
+                    flags[3] = flags[3] ||
+                               cam_mouse_x > width - edge_band;
+                    flags[0] = flags[0] || cam_mouse_y < edge_band;
+                    flags[1] = flags[1] ||
+                               cam_mouse_y > height - edge_band;
+                }
                 // The binary applies the pan step once per camera Update.
                 // Run the retail camera at a fixed tick so a 1000 Hz render
                 // loop does not pan 16x faster than a 60 Hz one.
