@@ -1231,6 +1231,9 @@ def test_cpp_retail_menu_cinematics_page(tmp_path):
         assert played.returncode == 0, played.stderr
         assert f"Data/Video/{clip}" in played.stdout, played.stdout
         assert "video played: 1 frames" in played.stdout, played.stdout
+        # The retail ending videos carry an MP2 track; the port feeds it to
+        # an SDL float stream (retail's movie player does the same).
+        assert "video audio: 44100 Hz stereo" in played.stdout, played.stdout
 
     # Row 5 (Cpg06) has an empty EndingVideo: START must do nothing.
     empty = run(["--menu-click", "400,354", "--menu-click", "369,530",
@@ -1246,6 +1249,18 @@ def test_cpp_retail_menu_cinematics_page(tmp_path):
                   "--video-play-frames", "1"], dat=fresh)
     assert locked.returncode == 0, locked.stderr
     assert "menu cinematic:" not in locked.stdout, locked.stdout
+
+
+def test_cpp_mpg_cinematic_audio_probe():
+    """The retail ending videos carry one 44.1 kHz MP2 audio stream."""
+    clip = GAME / "Data" / "Video" / "basket.mpg"
+    if not EXE.exists() or not clip.exists():
+        pytest.skip("viewer or retail basket.mpg missing")
+    result = subprocess.run(
+        [str(EXE), "--video-info", str(clip)],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "audio=44100Hz streams=1" in result.stdout, result.stdout
 
 
 def test_cpp_retail_menu_hover(tmp_path):

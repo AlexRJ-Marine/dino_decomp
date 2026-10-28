@@ -4122,9 +4122,11 @@ int main(int argc, char** argv) {
         try {
             const dino::MpgInfo info = dino::probe_mpg(opt.video_info_path);
             std::printf(
-                "video: %s width=%d height=%d duration=%.3f fps=%.3f\n",
+                "video: %s width=%d height=%d duration=%.3f fps=%.3f "
+                "audio=%dHz streams=%d\n",
                 opt.video_info_path.c_str(), info.width, info.height,
-                info.duration, info.frame_rate);
+                info.duration, info.frame_rate, info.audio_samplerate,
+                info.audio_streams);
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "video info: %s\n", e.what());
@@ -6299,18 +6301,70 @@ int main(int argc, char** argv) {
                 }
             }
         }
+        // The cinematics carry an MP2 track (`plm_audio_*`). Retail's movie
+        // player plays it while the menu/island music is suspended; do the
+        // same, with the video paced by its frame PTS so the audio stays in
+        // sync.
+        const bool music_was_playing = music.stream != nullptr;
+        if (music_was_playing) {
+            SDL_PauseAudioStreamDevice(music.stream);
+        }
+        SDL_AudioStream* video_audio = nullptr;
+        if (video.has_audio()) {
+            SDL_AudioSpec spec{};
+            spec.format = SDL_AUDIO_F32;
+            spec.channels = 2;
+            spec.freq = video.audio_samplerate();
+            video_audio = SDL_OpenAudioDeviceStream(
+                SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+            if (video_audio != nullptr) {
+                SDL_SetAudioStreamGain(
+                    video_audio,
+                    opt.muted ? 0.0f
+                              : std::clamp(opt.sfx_volume / 100.0f, 0.0f,
+                                           1.0f));
+                SDL_ResumeAudioStreamDevice(video_audio);
+                std::printf("video audio: %d Hz stereo\n",
+                            video.audio_samplerate());
+            } else {
+                std::fprintf(stderr, "video audio device: %s\n",
+                             SDL_GetError());
+            }
+        }
+        auto finish_video = [&]() {
+            if (video_audio != nullptr) {
+                SDL_DestroyAudioStream(video_audio);
+                video_audio = nullptr;
+            }
+            if (music_was_playing && music.stream != nullptr) {
+                SDL_ResumeAudioStreamDevice(music.stream);
+            }
+        };
         bool video_running = true;
         int played = 0;
         dino::MpgFrame last_frame;
         dino::Mesh video_quad_mesh;
         GpuMesh video_quad;
         GLuint video_texture = 0;
+        const Uint64 play_start = SDL_GetTicks();
+        double first_time = -1.0;
         while (video_running) {
             dino::MpgFrame frame;
             if (!video.next(frame)) {
                 break;
             }
             last_frame = frame;
+            if (first_time < 0.0) {
+                first_time = frame.time;
+            }
+            if (video_audio != nullptr) {
+                const std::vector<float> pcm = video.take_audio();
+                if (!pcm.empty()) {
+                    SDL_PutAudioStreamData(
+                        video_audio, pcm.data(),
+                        static_cast<int>(pcm.size() * sizeof(float)));
+                }
+            }
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {
@@ -6369,10 +6423,17 @@ int main(int argc, char** argv) {
             if (max_frames > 0 && played >= max_frames) {
                 break;
             }
-            const double rate =
-                video.frame_rate() > 0.0 ? video.frame_rate() : 24.0;
-            SDL_Delay(static_cast<Uint32>(std::max(1.0, 1000.0 / rate)));
+            // Pace on the frame PTS (retail's movie clock); the decoded MP2
+            // samples are queued ahead of it in the SDL audio buffer.
+            const double target = frame.time - first_time;
+            const double elapsed =
+                static_cast<double>(SDL_GetTicks() - play_start) / 1000.0;
+            if (target > elapsed) {
+                SDL_Delay(static_cast<Uint32>((target - elapsed) * 1000.0 +
+                                              0.5));
+            }
         }
+        finish_video();
         if (!opt.screenshot.empty() && last_frame.width > 0) {
             std::vector<std::uint8_t> rgba(
                 static_cast<std::size_t>(last_frame.width) *

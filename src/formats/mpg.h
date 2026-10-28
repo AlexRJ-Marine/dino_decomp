@@ -12,6 +12,9 @@ struct MpgInfo {
     int height = 0;
     double duration = 0.0;    // seconds
     double frame_rate = 0.0;  // frames per second
+    // MPEG-1 Audio Layer II track (the cinematics' soundtrack).
+    int audio_streams = 0;
+    int audio_samplerate = 0;
 };
 
 struct MpgFrame {
@@ -42,6 +45,11 @@ public:
     int height() const;
     double frame_rate() const;
     double duration() const;
+    // Embedded MP2 audio: interleaved stereo float in [-1, 1].
+    bool has_audio() const;
+    int audio_samplerate() const;
+    // Moves the samples decoded since the previous call out of the stream.
+    std::vector<float> take_audio();
     bool next(MpgFrame& frame);
 
     struct Impl;

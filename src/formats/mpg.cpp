@@ -16,7 +16,9 @@ plm_t* open_video(const std::string& path) {
     if (video == nullptr) {
         throw std::runtime_error("mpg: cannot open " + path);
     }
-    plm_set_audio_enabled(video, 0);
+    // Keep the MP2 track available so probe_mpg can report it; callers that
+    // only decode video disable it explicitly.
+    plm_set_audio_enabled(video, 1);
     return video;
 }
 
@@ -57,9 +59,23 @@ struct MpgStream::Impl {
     double duration = 0.0;
     bool ready = false;
     MpgFrame pending;
+    int audio_streams = 0;
+    int audio_samplerate = 0;
+    std::vector<float> audio;  // interleaved stereo, decoded since take_audio
 };
 
 namespace {
+
+void on_stream_audio(plm_t* self, plm_samples_t* samples, void* user) {
+    (void)self;
+    MpgStream::Impl* impl = static_cast<MpgStream::Impl*>(user);
+    if (impl == nullptr || samples == nullptr) {
+        return;
+    }
+    const std::size_t count = samples->count;
+    impl->audio.insert(impl->audio.end(), samples->interleaved,
+                       samples->interleaved + count * 2);
+}
 
 void on_stream_video(plm_t* self, plm_frame_t* frame, void* user) {
     (void)self;
@@ -90,7 +106,17 @@ bool MpgStream::open(const std::string& path, std::string& error) {
         error = "cannot open " + path;
         return false;
     }
-    plm_set_audio_enabled(impl_->video, 0);
+    plm_set_audio_enabled(impl_->video, 1);
+    impl_->audio_streams = plm_get_num_audio_streams(impl_->video);
+    impl_->audio_samplerate = impl_->audio_streams > 0
+                                  ? plm_get_samplerate(impl_->video)
+                                  : 0;
+    if (impl_->audio_streams > 0) {
+        plm_set_audio_stream(impl_->video, 0);
+        plm_set_audio_decode_callback(impl_->video, on_stream_audio, impl_);
+    } else {
+        plm_set_audio_enabled(impl_->video, 0);
+    }
     impl_->width = static_cast<int>(plm_get_width(impl_->video));
     impl_->height = static_cast<int>(plm_get_height(impl_->video));
     impl_->frame_rate = plm_get_framerate(impl_->video);
@@ -113,6 +139,9 @@ void MpgStream::close() {
     }
     impl_->ready = false;
     impl_->pending = MpgFrame{};
+    impl_->audio.clear();
+    impl_->audio_streams = 0;
+    impl_->audio_samplerate = 0;
 }
 
 int MpgStream::width() const { return impl_ != nullptr ? impl_->width : 0; }
@@ -122,6 +151,24 @@ double MpgStream::frame_rate() const {
 }
 double MpgStream::duration() const {
     return impl_ != nullptr ? impl_->duration : 0.0;
+}
+
+bool MpgStream::has_audio() const {
+    return impl_ != nullptr && impl_->audio_streams > 0 &&
+           impl_->audio_samplerate > 0;
+}
+
+int MpgStream::audio_samplerate() const {
+    return impl_ != nullptr ? impl_->audio_samplerate : 0;
+}
+
+std::vector<float> MpgStream::take_audio() {
+    if (impl_ == nullptr) {
+        return {};
+    }
+    std::vector<float> out = std::move(impl_->audio);
+    impl_->audio.clear();
+    return out;
 }
 
 bool MpgStream::next(MpgFrame& frame) {
@@ -155,6 +202,9 @@ MpgInfo probe_mpg(const std::string& path) {
     info.height = static_cast<int>(plm_get_height(video));
     info.duration = plm_get_duration(video);
     info.frame_rate = plm_get_framerate(video);
+    info.audio_streams = plm_get_num_audio_streams(video);
+    info.audio_samplerate =
+        info.audio_streams > 0 ? plm_get_samplerate(video) : 0;
     plm_destroy(video);
     if (info.width <= 0 || info.height <= 0) {
         throw std::runtime_error("mpg: no video stream in " + path);
@@ -167,6 +217,7 @@ MpgFrame decode_mpg_frame(const std::string& path, int frame_index) {
         throw std::runtime_error("mpg: negative frame index");
     }
     plm_t* video = open_video(path);
+    plm_set_audio_enabled(video, 0);  // video-only thumbnail decode
     DecodeTarget target;
     target.target = frame_index;
     plm_set_video_decode_callback(video, on_video, &target);
