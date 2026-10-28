@@ -3139,6 +3139,13 @@ int run_selftest() {
     }
     check(paddock.used == 64.0f && paddock.fill() == 1.0f, "paddock full");
     check(!dino::paddock_add(paddock, 9, 0), "paddock no room");
+    // stFence::GetSellValue: the build-870 enclosure (30x30 units) sells for
+    // 630 because the value uses the 4-unit-inset perimeter (live retail).
+    check(dino::fence_sell_value({540, 460, 569, 489}, 4.0f, 30, 4) == 630,
+          "fence sell value 870 -> 630");
+    check(dino::fence_sell_value({540, 460, 569, 489}, 4.0f, 30, 4, 0.5f) ==
+              315,
+          "fence sellback 0.5");
 
     // gscMaterialBank pulse (`FUN_00600550`) worked values from
     // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit
@@ -4818,6 +4825,7 @@ int main(int argc, char** argv) {
 
     std::vector<std::string> island_names;
     int free_game_budgets[3] = {75000, 50000, 25000};
+    float free_game_sellback[3] = {1.0f, 0.5f, 0.2f};
     try {
         island_names = read_island_list(resolve_asset(
             opt.asset_root, "Data/Design/landscape/IslandList.ini"));
@@ -4835,6 +4843,15 @@ int main(int argc, char** argv) {
             free_game_budgets[0] = budget("Budget", 75000);
             free_game_budgets[1] = budget("BudgetMedium", 50000);
             free_game_budgets[2] = budget("BudgetHard", 25000);
+            auto sellback = [&](const char* key, float fallback) {
+                const std::string value = context->get(key);
+                return value.empty()
+                           ? fallback
+                           : static_cast<float>(std::atof(value.c_str()));
+            };
+            free_game_sellback[0] = sellback("SellBackFactor", 1.0f);
+            free_game_sellback[1] = sellback("SellBackFactorMedium", 0.5f);
+            free_game_sellback[2] = sellback("SellBackFactorHard", 0.2f);
         }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "free game scenario: %s\n", e.what());
@@ -4962,6 +4979,11 @@ int main(int argc, char** argv) {
     // want to quit and return to the menu?"). Validate returns to the main
     // menu; it does not exit the application.
     bool park_return_to_menu = false;
+    // Shared sell state (retail pvwState SELLING 0x14, `OPEN_SELLING`):
+    // armed by the HUD Sell switch, then a ground click picks the object.
+    bool pending_sell_mode = false;
+    bool park_sell_mode = false;
+    int park_sell_paddock = -1;  // pending fence sale shown in REQUEST_PANEL
     dino::ui::ParkHud park;
     dino::ShowRuntime show_runtime;
     std::vector<dino::ShowCatalogEntry> show_catalog;
@@ -5280,6 +5302,8 @@ int main(int argc, char** argv) {
                 } else if (action ==
                            "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
                     pending_fence_tool = true;
+                } else if (action == "sell mode") {
+                    pending_sell_mode = true;
                 } else if (action.rfind("store buy ", 0) == 0) {
                     pending_store_action = action;
                 } else if (action.rfind("show place ", 0) == 0) {
@@ -7660,6 +7684,32 @@ int main(int argc, char** argv) {
         }
         return &paddocks[static_cast<std::size_t>(selected_paddock)].rect;
     };
+    // Nearest fence perimeter under a map-unit point (selection and sell
+    // mode): the 3-unit margin covers the wall raster + posts.
+    auto paddock_at_map = [&](float mx, float my) -> int {
+        int best = -1;
+        float best_d = 1e30f;
+        for (std::size_t p = 0; p < paddocks.size(); ++p) {
+            const dino::WorldRect& r = paddocks[p].rect;
+            const float x0 = static_cast<float>(std::min(r.x0, r.x1));
+            const float x1 = static_cast<float>(std::max(r.x0, r.x1));
+            const float y0 = static_cast<float>(std::min(r.y0, r.y1));
+            const float y1 = static_cast<float>(std::max(r.y0, r.y1));
+            const float margin = 3.0f;
+            if (mx < x0 - margin || mx > x1 + margin || my < y0 - margin ||
+                my > y1 + margin) {
+                continue;
+            }
+            const float dx = mx - (x0 + x1) * 0.5f;
+            const float dy = my - (y0 + y1) * 0.5f;
+            const float d = dx * dx + dy * dy;
+            if (d < best_d) {
+                best_d = d;
+                best = static_cast<int>(p);
+            }
+        }
+        return best;
+    };
     if (build_ready) {
         path_texture = path_image.width > 0 ? upload_texture(path_image) : 0;
         fence_texture = fence_image.width > 0 ? upload_texture(fence_image) : 0;
@@ -9583,6 +9633,61 @@ int main(int argc, char** argv) {
     int park_hover_y = -1;
     int park_active_index = -1;
     int park_budget = free_game_budgets[0];
+    // CONTEXT.SellBackFactor (campaign or FreeGame difficulty); retail
+    // multiplies the fence/object sell value by this before crediting.
+    float park_sellback = free_game_sellback[0];
+    // Shared sell completion for a fence (REQUEST_PANEL validate). Retail
+    // 0x533de0: remove the LunchBox actors, credit `value * SellBackFactor`,
+    // delete the fence graphics, then remove the 12-unit ground cells.
+    // The dinos are never removed here: a non-empty paddock is refused.
+    auto sell_paddock_now = [&](int index) {
+        if (index < 0 || index >= static_cast<int>(paddocks.size())) {
+            park_sell_paddock = -1;
+            return;
+        }
+        const dino::Paddock pen = paddocks[static_cast<std::size_t>(index)];
+        if (!pen.occupants.empty() || pen.used > 0.0f) {
+            park.show_warning(dino::ui::resolve_loc_text(
+                "&WARNING_SELLING_NON_EMPTY_FENCE", park.loc));
+            park_sell_paddock = -1;
+            std::printf("sell: enclosure %d refused (occupied)\n", index);
+            return;
+        }
+        const int value = dino::fence_sell_value(
+            pen.rect, build_grid.cell_size, 30, 4, park_sellback);
+        const int x0 = std::min(pen.rect.x0, pen.rect.x1);
+        const int x1 = std::max(pen.rect.x0, pen.rect.x1);
+        const int y0 = std::min(pen.rect.y0, pen.rect.y1);
+        const int y1 = std::max(pen.rect.y0, pen.rect.y1);
+        const int cell = std::max(1, static_cast<int>(build_grid.cell_size));
+        const int cx0 = x0 / cell;
+        const int cx1 = x1 / cell;
+        const int cy0 = y0 / cell;
+        const int cy1 = y1 / cell;
+        for (int x = cx0; x <= cx1; ++x) {
+            build_grid.set_fence(x, cy0, 0, false);
+            build_grid.set_fence(x, cy1 + 1, 0, false);
+        }
+        for (int y = cy0; y <= cy1; ++y) {
+            build_grid.set_fence(cx0 - 1, y, 1, false);
+            build_grid.set_fence(cx1, y, 1, false);
+        }
+        build_grid.occupancy.stamp_wall_rect(x0, y0, x1, y1, false);
+        paddocks.erase(paddocks.begin() + index);
+        if (selected_paddock == index) {
+            selected_paddock = -1;
+        } else if (selected_paddock > index) {
+            --selected_paddock;
+        }
+        park_paddocks = paddocks;
+        park_budget += value;
+        park_sell_paddock = -1;
+        rebuild_build_meshes();
+        std::printf(
+            "sell: sold enclosure %d refund=%d budget=%d sellback=%.2f\n",
+            index, value, park_budget,
+            static_cast<double>(park_sellback));
+    };
     auto advance_campaign = [&]() {
         if (!pending_next_mission) {
             if (!pending_ending_video.empty()) {
@@ -12556,7 +12661,8 @@ int main(int argc, char** argv) {
                 } else if (key == SDLK_ESCAPE &&
                            (build_tool != 0 || pending_store_index >= 0 ||
                             fence_corner_x >= 0 || road_has_start ||
-                            selected_paddock >= 0)) {
+                            selected_paddock >= 0 || park_sell_mode ||
+                            park_sell_paddock >= 0)) {
                     // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
                     // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
                     // The road/building/show states use the same common leave.
@@ -12576,6 +12682,14 @@ int main(int argc, char** argv) {
                         selected_paddock = -1;
                         std::printf("paddock: deselected (Esc)\n");
                         rebuild_build_meshes();
+                    }
+                    if (park_sell_mode || park_sell_paddock >= 0) {
+                        park_sell_mode = false;
+                        park_sell_paddock = -1;
+                        if (park.dialog_open()) {
+                            park.close_dialog();
+                        }
+                        std::printf("sell: mode off (Esc)\n");
                     }
                     build_tool = 0;
                     fence_corner_x = -1;
@@ -12760,6 +12874,29 @@ int main(int argc, char** argv) {
                                 }
                             } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
                                 pending_store_index = -1;
+                            }
+                        } else if (action == "sell mode") {
+                            // HUD Sell switch (`OPEN_SELLING`, state 0x14):
+                            // arm the shared object-sell state.
+                            pending_sell_mode = true;
+                            if (park_sell_mode) {
+                                // Toggling the switch leaves the state.
+                                park_sell_mode = false;
+                                park_sell_paddock = -1;
+                                if (park.dialog_open()) {
+                                    park.close_dialog();
+                                }
+                                std::printf("sell: mode off\n");
+                                pending_sell_mode = false;
+                            }
+                        } else if (action == "accept request") {
+                            if (park_sell_paddock >= 0) {
+                                sell_paddock_now(park_sell_paddock);
+                            }
+                        } else if (action == "cancel request") {
+                            if (park_sell_paddock >= 0) {
+                                park_sell_paddock = -1;
+                                std::printf("sell: cancelled\n");
                             }
                         }
                         if (!action.empty()) {
@@ -12981,6 +13118,31 @@ int main(int argc, char** argv) {
             selected_paddock = opt.select_paddock;
             rebuild_build_meshes();
         }
+        if (pending_sell_mode) {
+            pending_sell_mode = false;
+            if (park.loaded()) {
+                park_sell_mode = true;
+                park_sell_paddock = -1;
+                build_tool = 0;
+                fence_corner_x = -1;
+                fence_corner_y = -1;
+                pending_construct_kind = -1;
+                pending_show_index = -1;
+                pending_store_index = -1;
+                road_has_start = false;
+                selected_paddock = -1;
+                park.overlay.set_visible(
+                    "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
+                park.overlay.set_visible("CONSTRUCTION_PANEL", false);
+                park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
+                                         false);
+                park.overlay.set_visible("CONSTRUCTION_ROAD_METRO_PANEL",
+                                         false);
+                park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+                rebuild_build_meshes();
+                std::printf("sell: mode armed\n");
+            }
+        }
         if (opt.camera_selftest && terrain.world_size > 0.0f) {
             return camera_selftest(camera_config, terrain);
         }
@@ -13059,11 +13221,13 @@ int main(int argc, char** argv) {
                             budget += std::atoi(delta->second.c_str());
                         }
                         park_budget = std::max(0, budget);
+                        park_sellback = static_cast<float>(campaign->sell_back);
                         std::printf(
                             "start: campaign=%s mission=%s island=%s "
-                            "budget=%d\n",
+                            "budget=%d sellback=%.2f\n",
                             campaign->name.c_str(), mission->name.c_str(),
-                            campaign->island.c_str(), park_budget);
+                            campaign->island.c_str(), park_budget,
+                            static_cast<double>(park_sellback));
                         start_campaign_mission(*mission);
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "campaign start: %s\n", e.what());
@@ -13093,6 +13257,7 @@ int main(int argc, char** argv) {
                         std::fprintf(stderr, "island load: %s\n", e.what());
                     }
                     park_budget = free_game_budgets[difficulty];
+                    park_sellback = free_game_sellback[difficulty];
                     // Free game lists its own [DINOSTORE] subset (20 entries)
                     // in FreeGame.ini; campaign missions override this with
                     // their mission block in start_campaign_mission.
@@ -14335,16 +14500,17 @@ int main(int argc, char** argv) {
                                 const int y1 =
                                     std::max(fence_corner_y, py) - 1;
                                 std::string warning;
-                                bool limit = false;
                                 int cost = 0;
                                 // 0x58a4e0: a side shorter than
                                 // 6*margin-1 (margin 4 -> 23 units) is
                                 // PERIMETER_TOO_SMALL, then the inside test,
                                 // then the inset margin scan.
+                                // (The `>= 16` check in 0x527150 is the
+                                // stFence LunchBox dish list, max 15 — not a
+                                // park enclosure cap; see
+                                // notes/fence-panel-sell-recon.md.)
                                 if (x1 - x0 < 23 || y1 - y0 < 23) {
                                     warning = "&WARNING_PERIMETER_TOO_SMALL";
-                                } else if (paddocks.size() >= 16) {
-                                    limit = true;
                                 } else if (inside_paddock(
                                                (static_cast<float>(x0) +
                                                 static_cast<float>(x1)) *
@@ -14369,10 +14535,6 @@ int main(int argc, char** argv) {
                                 }
                                 if (!warning.empty()) {
                                     road_message(warning.c_str());
-                                } else if (limit) {
-                                    std::printf(
-                                        "fence: enclosure limit reached "
-                                        "(16)\n");
                                 } else {
                                     const int before =
                                         build_grid.fence_count;
@@ -14491,41 +14653,49 @@ int main(int argc, char** argv) {
                     }
                 }
             } else if (build_ready) {
-                // Paddock selection: clicking in or near a perimeter selects
-                // it (retail `gatFence` -> pass B). Clicking empty ground or
-                // right-click deselects; pass B is the Dino_SelectedWall
-                // pulse. The retail info panel is still a separate task.
+                // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
+                // selection (retail `gatFence` -> pass B). Clicking empty
+                // ground/right-click deselects; the Dino_SelectedWall pulse
+                // is pass B. The retail info panel is still a separate task.
                 dino::Vec3 hit;
                 if (pick_terrain(terrain, eye, view_center, click_x, click_y,
                                  logical_width, logical_height, hit)) {
                     const float half = terrain.world_size * 0.5f;
                     const float mx = hit.x + half;
                     const float my = hit.y + half;
-                    int best = -1;
-                    float best_d = 1e30f;
-                    for (std::size_t p = 0; p < paddocks.size(); ++p) {
-                        const dino::WorldRect& r = paddocks[p].rect;
-                        const float x0 = static_cast<float>(std::min(r.x0, r.x1));
-                        const float x1 = static_cast<float>(std::max(r.x0, r.x1));
-                        const float y0 = static_cast<float>(std::min(r.y0, r.y1));
-                        const float y1 = static_cast<float>(std::max(r.y0, r.y1));
-                        const float margin = 3.0f;  // fence wall + post width
-                        if (mx < x0 - margin || mx > x1 + margin ||
-                            my < y0 - margin || my > y1 + margin) {
-                            continue;
+                    const int index = paddock_at_map(mx, my);
+                    if (park_sell_mode) {
+                        if (index < 0) {
+                            std::printf("sell: no enclosure under the cursor\n");
+                        } else {
+                            const dino::Paddock& pen =
+                                paddocks[static_cast<std::size_t>(index)];
+                            if (!pen.occupants.empty() || pen.used > 0.0f) {
+                                park.show_warning(
+                                    dino::ui::resolve_loc_text(
+                                        "&WARNING_SELLING_NON_EMPTY_FENCE",
+                                        park.loc));
+                                std::printf(
+                                    "sell: enclosure %d refused (occupied)\n",
+                                    index);
+                            } else {
+                                const int value = dino::fence_sell_value(
+                                    pen.rect, build_grid.cell_size, 30, 4,
+                                    park_sellback);
+                                park_sell_paddock = index;
+                                park.show_request(
+                                    dino::ui::resolve_loc_text(
+                                        "&REQUEST_SELL_FENCE", park.loc) +
+                                    std::to_string(value));
+                                std::printf(
+                                    "sell: enclosure %d value=%d\n", index,
+                                    value);
+                            }
                         }
-                        const float dx = mx - (x0 + x1) * 0.5f;
-                        const float dy = my - (y0 + y1) * 0.5f;
-                        const float d = dx * dx + dy * dy;
-                        if (d < best_d) {
-                            best_d = d;
-                            best = static_cast<int>(p);
-                        }
-                    }
-                    if (best != selected_paddock) {
-                        selected_paddock = best;
-                        if (best >= 0) {
-                            std::printf("paddock: selected %d\n", best);
+                    } else if (index != selected_paddock) {
+                        selected_paddock = index;
+                        if (index >= 0) {
+                            std::printf("paddock: selected %d\n", index);
                         } else {
                             std::printf("paddock: deselected\n");
                         }

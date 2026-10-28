@@ -169,6 +169,16 @@ struct Paddock {
 // (1.0..2.0). Exposure: notes/fence-selected-state-recon.md §1.3/§1.4.
 void fence_pulse_colors(double t, float lamp[3], float selected[3]);
 
+// `stFence::GetSellValue` (0x581710) for the Fence.bwi style: the build cost
+// formula applied to the perimeter **inset by the wall margin**:
+// ((x1-m + y1-m) - (x0+m + y0+m)) * 2 / cell * price. Live retail: a build
+// costing 870 sells for 630 (margin 4, cell 4, price 30). `sellback` is the
+// park's SellBackFactor (GeneralParams CONTEXT.SellBackFactor; free game easy
+// is 1.0).
+int fence_sell_value(const WorldRect& rect, float cell_size,
+                     std::uint32_t price_per_cell, int margin,
+                     float sellback = 1.0f);
+
 float paddock_capacity(const WorldRect& rect, float cell_size);
 float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
 // Size class for `dinosaur+0x1e0` (TranslatorConstants.ini

@@ -875,7 +875,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (192 checks)" in result.stdout
+    assert "selftest: PASS (194 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -3194,6 +3194,63 @@ def test_cpp_escape_default_and_options(tmp_path):
     assert options.returncode == 0, options.stderr
     assert "park click 765,348 -> open OPTIONS_PANEL" in options.stdout
     assert "options: closed (Esc)" in options.stdout
+
+
+def test_cpp_fence_sell_empty():
+    """HUD Sell -> click enclosure -> REQUEST -> validate credits the
+    stFence::GetSellValue refund (build 2130 -> sell 1890) and removes the
+    fence and its ground. Live retail: 870 -> 630, same inset formula."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "36", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--no-entrance", "--camera-orbit",
+         "--camera-target", "0,0", "--distance", "200",
+         "--park-click", "764,135", "--park-click", "618,145",
+         "--inject-click", "5,300,300", "--inject-click", "15,350,400",
+         "--inject-click", "20,591,584",  # HUD Sell
+         "--inject-click", "25,300,320",  # enclosure
+         "--inject-click", "30,384,370"],  # REQUEST validate
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "fence: built rect 540,460-595,547" in out
+    assert "sell: mode armed" in out
+    assert "sell: enclosure 0 value=1890" in out
+    assert ("sell: sold enclosure 0 refund=1890 budget=74760 sellback=1.00"
+            in out)
+    assert "build: 0 path cells, 0 fences" in out
+
+
+def test_cpp_fence_sell_refuses_occupied():
+    """A paddock with dinosaurs cannot be sold; retail shows
+    &WARNING_SELLING_NON_EMPTY_FENCE and keeps the fence and budget."""
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    cpg04 = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not EXE.exists() or not isl04.exists() or not cpg04.exists():
+        pytest.skip("viewer or retail isl04/Cpg04 missing")
+    # Buy an Allosaurus into the paddock at map (456,464)-(479,487); the
+    # scripted ground click at (400,300) picks it, then the live Sell click
+    # at the same screen point must be refused.
+    result = subprocess.run(
+        [str(EXE), "--frames", "10", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
+         "--distance", "300", "--pitch", "20",
+         "--park-click", "765,298", "--park-click", "160,88",
+         "--park-click", "470,520", "--ground-click", "400,300",
+         "--inject-click", "2,591,584",
+         "--inject-click", "5,400,300"],
+        capture_output=True, text=True, timeout=300)
+    assert result.returncode == 0, result.stderr
+    out = result.stdout
+    assert "store: bought Allosaurus" in out
+    assert "sell: mode armed" in out
+    assert "sell: enclosure" in out and "refused (occupied)" in out
+    assert "sell: sold" not in out
 
 
 def test_cpp_escape_clears_fence_template(tmp_path):

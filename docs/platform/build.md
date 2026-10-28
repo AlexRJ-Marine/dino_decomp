@@ -47,7 +47,8 @@ fence feature (LunchBox / observation area) or draws a paddock perimeter:
 
 - first click stores a corner after the busy/inside check (`0x58a190`);
 - second click builds the sorted rectangle (`0x52bbf0`), previews it
-  (`0x527150`, 16-edge limit), validates with the selected feature's margin
+  (`0x527150`; its `>= 16` check is the LunchBox dish list, not an edge cap),
+  validates with the selected feature's margin
   (`0x58a4e0`), charges `CONSTRUCTION` (`0x581b90` cost, `0x52bed0` gate,
   `0x585d20` deduction) and records the wall (`0x53ac60`, type 0x17);
 - feature mode (selected list row) spawns the `.bfi` actor (`0x53acd0`) and
@@ -72,7 +73,7 @@ class; cost is `((x1+y1)-(x0+y0))*2/4*30` (30 per perimeter cell, all 24
 into the occupancy grid as class 7. The pending corner shows
 `&MESSAGE_FENCE_PERIMETER_COST` ("Cost of enclosure: N"). Still open: the
 0.01 height-slope gate, LunchBox row, Observation Area (`PointOfView`
-building, 4x4, 500) and fence selling.
+building, 4x4, 500). Fence selling is ported (below).
 
 ### Enclosure preview (helper modes 1 and 2)
 
@@ -204,12 +205,41 @@ still uses Esc to exit.
 
 Port approximations: wall lines are in the occupancy grid, but the port also
 keeps the edge model for rendering and paddock capacity, so edge-based
-crossings remain as a fallback; removing a fence is not gated on its
-occupants (retail refuses a non-empty paddock with
-`&WARNING_SELLING_NON_EMPTY_FENCE` and refunds `value * sellback` on the
-empty one). Road selling is decoded: the refund reuses the build formula
-`((x1-x0)+(y1-y0))*price/4`; the port does not implement the sell request
-yet. Evidence:
+crossings remain as a fallback.
+
+### Selling a fence (shared sell state)
+
+Retail's HUD **Sell** switch (`OPEN_SELLING`, screen (591,584)) enters the
+shared state 0x14 `SELLING`. A click on an enclosure resolves it like the
+selection click (`0x53c2d0`) and opens `REQUEST_PANEL` with
+`&REQUEST_SELL_FENCE` + the value. Validate runs `0x533de0`:
+
+1. refuse when `stFence+0x98 != +0x9c` (dinosaurs inside) with
+   `&WARNING_SELLING_NON_EMPTY_FENCE` — "The enclosure cannot be sold: It
+   still contains dinosaurs.";
+2. remove the `"Lunchbox"` feature actors;
+3. credit `int(GetSellValue * SellBackFactor)`;
+4. delete the fence graphics and the 12-unit ground cells / wall occupancy.
+
+`GetSellValue` (`0x581710`) is the build formula on the **margin-inset**
+perimeter: `((x1-m + y1-m) - (x0+m + y0+m)) * 2/cell * price`, m=4 from
+`Fence.bwi`. Live retail: build 870 → sell 630; the port's 2130 build sells
+for 1890. `SellBackFactor` is `FreeGame.ini` `SellBackFactor` /
+`SellBackFactorMedium` / `SellBackFactorHard` = 1.0/0.5/0.2, or the campaign
+`CONTEXT.SELLBACKFACTOR`.
+
+The port implements the fence branch (`sell_paddock_now`): removes the
+canonical edges, the class-7 wall lines and the paddock (which drops its
+ground quad), credits the budget and rebuilds the meshes. Cancel keeps the
+fence; the state stays armed. Esc leaves sell mode and closes the request.
+The same HUD state will dispatch roads, buildings, dinosaurs, features and
+shows next; their branches are decoded in `notes/fence-panel-sell-recon.md`.
+
+Note: the old "16-edge limit" was a misreading — the `>= 16` check in
+`0x527150` is the `stFence` **LunchBox dish list** (max 15 dishes), not a
+park enclosure cap. The port's 16-paddock gate is removed.
+
+Evidence:
 
 Retail itself draws a **filled circular ground disc**, not a ring
 (`notes/road-enclosure-preview-capture.md`): solid blue ~RGB(38,38,136) when

@@ -742,6 +742,23 @@ void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {
     }
 }
 
+int fence_sell_value(const WorldRect& rect, float cell_size,
+                     std::uint32_t price_per_cell, int margin,
+                     float sellback) {
+    const int x0 = std::min(rect.x0, rect.x1) + margin;
+    const int x1 = std::max(rect.x0, rect.x1) - margin;
+    const int y0 = std::min(rect.y0, rect.y1) + margin;
+    const int y1 = std::max(rect.y0, rect.y1) - margin;
+    const int units = (x1 + y1) - (x0 + y0);
+    const int cell = static_cast<int>(cell_size);
+    if (units <= 0 || cell <= 0) {
+        return 0;
+    }
+    const int value =
+        (units * 2 / cell) * static_cast<int>(price_per_cell);
+    return static_cast<int>(static_cast<float>(value) * sellback);
+}
+
 float paddock_capacity(const WorldRect& rect, float cell_size) {
     if (cell_size <= 0.0f) {
         return 0.0f;
