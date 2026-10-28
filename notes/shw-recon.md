@@ -177,10 +177,19 @@ rows, otherwise it calls `FUN_00516dd0`, which for every row:
 - empty: copies `DAT_006743c8` (the zero-filled scratch string) into the row
   text, i.e. clears it.
 
-`ListInterface.Ini` fills all ten `NAME` rows with `TEXT = "10:00 AM"`; the
-port renders the hour label (`10:00 AM` .. `07:00 PM`) for empty slots as a
-readable reconstruction. The exact retail empty-row text is unverified (the
-template says `10:00 AM`, `FUN_00516dd0` clears it).
+The hour labels are **separate widgets**: `ATTRACTION_LIST_TIME1..10` carry
+`&Schedule10AM` .. `&Schedule7PM` (`ListInterface.Ini`), so the name rows
+hold only the show name. An empty row is blank: `FUN_00516dd0` copies
+`DAT_006743c8` (zero-filled scratch) into `ATTRACTION_LIST_NAME<n>`, while
+the row's INI `TEXT = "10:00 AM"` is only the pre-refresh template. The port
+matches this: `ATTRACTION_LIST_NAME`/`ITERATION_INDIC` are skipped when the
+runtime text is empty, and the `TIME` widgets draw the hours
+(`notes/attraction-list-empty.png`).
+
+For an occupied row, retail appends `"%u"` of `show+0x8c` to the show name
+(format string at `0x64d894`); the port keeps the name and the iteration
+count in the separate `ITERATION_INDIC` cell. That is a deliberate
+readability divergence.
 
 ### Port wiring
 

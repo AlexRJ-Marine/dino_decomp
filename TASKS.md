@@ -1499,7 +1499,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Hourly show runtime: `ShowRuntime` binds each show to a slot
   (`show+0x100`), starts it on the hour, plays `show+0x8c` performances and
   calls the judge pipeline once per completed performance.
-- [ ] Live `.bfi` arena/judge actors, per-show weight authoring and exact empty-row attraction text.
+- [x] Attraction-list empty rows: the hour labels are the separate
+  `ATTRACTION_LIST_TIME1..10` widgets and `FUN_00516dd0` clears
+  `ATTRACTION_LIST_NAME` to `DAT_006743c8`; the port now blanks empty rows
+  (`notes/attraction-list-empty.png`).
+- [ ] Live `.bfi` arena/judge actors and per-show weight authoring.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and

@@ -7669,6 +7669,14 @@ int main(int argc, char** argv) {
     float distance = opt.distance > 0.0f ? opt.distance : auto_distance;
     float yaw = opt.yaw;
     float pitch = opt.pitch;
+    // Retail park camera model (camera.ini): one `progress` p in [0,1] drives
+    // both the horizontal radius and the height above the target, so zoom and
+    // tilt are the same axis. Explicit CLI camera views keep the legacy
+    // spherical orbit for deterministic screenshots/tests.
+    float camera_progress = 0.1f;
+    float camera_yaw_goal = yaw;
+    bool camera_retail_model =
+        opt.camera_target.empty() && opt.distance <= 0.0f;
     if (opt.focus_building && building_center.x < 1e29f) {
         center = building_center;
         distance = 60.0f;
@@ -7696,11 +7704,27 @@ int main(int argc, char** argv) {
         }
     }
 
+    auto camera_radius = [&]() {
+        return camera_config.distance_min +
+               (camera_config.distance_max - camera_config.distance_min) *
+                   camera_progress;
+    };
+    auto camera_height = [&]() {
+        return camera_config.elevation_min +
+               (camera_config.elevation_max - camera_config.elevation_min) *
+                   camera_progress;
+    };
     auto orbit_eye = [&]() {
-        const float cp = std::cos(pitch * 3.14159265f / 180.0f);
-        const float sp = std::sin(pitch * 3.14159265f / 180.0f);
         const float cy = std::cos(yaw * 3.14159265f / 180.0f);
         const float sy = std::sin(yaw * 3.14159265f / 180.0f);
+        if (camera_retail_model) {
+            const float radius = camera_radius();
+            return dino::Vec3{center.x + radius * cy,
+                              center.y + radius * sy,
+                              center.z + camera_height()};
+        }
+        const float cp = std::cos(pitch * 3.14159265f / 180.0f);
+        const float sp = std::sin(pitch * 3.14159265f / 180.0f);
         return dino::Vec3{center.x + distance * cp * cy,
                           center.y + distance * cp * sy,
                           center.z + distance * sp};
@@ -8142,6 +8166,11 @@ int main(int argc, char** argv) {
                 }
                 pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
                         180.0f / 3.14159265f;
+                // The tail's progress is the retail orbit parameter; using it
+                // preserves the saved eye exactly (radius/height are derived).
+                camera_progress = std::clamp(cam[6], 0.0f, 1.0f);
+                camera_yaw_goal = yaw;
+                camera_retail_model = true;
                 if (free_camera) {
                     enter_free_camera();
                 }
@@ -10955,6 +10984,10 @@ int main(int argc, char** argv) {
                 if (free_camera) {
                     free_yaw += dx * 0.3f;
                     free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
+                } else if (camera_retail_model) {
+                    camera_yaw_goal += dx * 0.4f;
+                    camera_progress = std::clamp(
+                        camera_progress + dy * 0.002f, 0.0f, 1.0f);
                 } else {
                     yaw += dx * 0.4f;
                     pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
@@ -10962,9 +10995,17 @@ int main(int argc, char** argv) {
                 last_mx = event.motion.x;
                 last_my = event.motion.y;
             } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                distance = std::clamp(
-                    distance * std::pow(1.1f, -event.wheel.y),
-                    camera_config.distance_min, camera_config.distance_max);
+                if (camera_retail_model) {
+                    const float step =
+                        event.wheel.y > 0.0f ? -0.05f : 0.05f;
+                    camera_progress =
+                        std::clamp(camera_progress + step, 0.0f, 1.0f);
+                } else {
+                    distance = std::clamp(
+                        distance * std::pow(1.1f, -event.wheel.y),
+                        camera_config.distance_min,
+                        camera_config.distance_max);
+                }
             } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
                 width = event.window.data1;
                 height = event.window.data2;
@@ -11483,25 +11524,45 @@ int main(int argc, char** argv) {
             const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
                                keys[SDL_SCANCODE_RSHIFT];
             const float dtf = static_cast<float>(dt);
-            // camera.ini uses `progress` to interpolate every speed/limit.
-            // The port's look-at distance is the horizontal component, so
-            // recover progress from the current eye distance and pitch.
-            const float pitch_rad = pitch * 3.14159265f / 180.0f;
-            const float horizontal =
-                std::max(camera_config.distance_min,
-                         distance * std::cos(pitch_rad));
-            const float progress = std::clamp(
-                (horizontal - camera_config.distance_min) /
-                    std::max(1.0f, camera_config.distance_max -
-                                       camera_config.distance_min),
-                0.0f, 1.0f);
+            // camera.ini uses one `progress` p in [0,1] to interpolate every
+            // speed/limit. The retail model keeps it as authoritative; the
+            // legacy path recovers it from the current eye distance/pitch.
+            float progress = camera_progress;
+            if (!camera_retail_model) {
+                const float pitch_rad = pitch * 3.14159265f / 180.0f;
+                const float horizontal =
+                    std::max(camera_config.distance_min,
+                             distance * std::cos(pitch_rad));
+                progress = std::clamp(
+                    (horizontal - camera_config.distance_min) /
+                        std::max(1.0f, camera_config.distance_max -
+                                           camera_config.distance_min),
+                    0.0f, 1.0f);
+            }
             const float rotate =
                 camera_config.rotation_speed(progress) * 57.2957795f * dtf;
-            if (nav_turn_left || (shift && held(dino::KeyAction::OrbitLeft))) {
-                yaw -= rotate;
-            }
-            if (nav_turn_right || (shift && held(dino::KeyAction::OrbitRight))) {
-                yaw += rotate;
+            if (camera_retail_model) {
+                if (nav_turn_left ||
+                    (shift && held(dino::KeyAction::OrbitLeft))) {
+                    camera_yaw_goal -= rotate;
+                }
+                if (nav_turn_right ||
+                    (shift && held(dino::KeyAction::OrbitRight))) {
+                    camera_yaw_goal += rotate;
+                }
+                // Retail low-passes the yaw at 10/s, giving the ~9 deg lag
+                // that reads as a small lean while turning.
+                yaw += (camera_yaw_goal - yaw) *
+                       std::min(1.0f, 10.0f * dtf);
+            } else {
+                if (nav_turn_left ||
+                    (shift && held(dino::KeyAction::OrbitLeft))) {
+                    yaw -= rotate;
+                }
+                if (nav_turn_right ||
+                    (shift && held(dino::KeyAction::OrbitRight))) {
+                    yaw += rotate;
+                }
             }
             const float min_pitch =
                 std::atan2(camera_config.elevation_min,
@@ -11511,11 +11572,24 @@ int main(int argc, char** argv) {
                 std::atan2(camera_config.elevation_max,
                            std::max(1e-3f, distance)) *
                 57.2957795f;
-            if (shift && held(dino::KeyAction::OrbitUp)) {
-                pitch = std::min(max_pitch, pitch + rotate);
-            }
-            if (shift && held(dino::KeyAction::OrbitDown)) {
-                pitch = std::max(min_pitch, pitch - rotate);
+            if (camera_retail_model) {
+                const float dp = camera_config.progress_speed(progress) * dtf;
+                if (shift && held(dino::KeyAction::OrbitUp)) {
+                    camera_progress =
+                        std::clamp(camera_progress - dp, 0.0f, 1.0f);
+                }
+                if (shift && held(dino::KeyAction::OrbitDown)) {
+                    camera_progress =
+                        std::clamp(camera_progress + dp, 0.0f, 1.0f);
+                }
+                progress = camera_progress;
+            } else {
+                if (shift && held(dino::KeyAction::OrbitUp)) {
+                    pitch = std::min(max_pitch, pitch + rotate);
+                }
+                if (shift && held(dino::KeyAction::OrbitDown)) {
+                    pitch = std::max(min_pitch, pitch - rotate);
+                }
             }
             // `yaw` points from the target to the eye; the view direction is
             // the opposite. Move the target in the camera's ground plane at
@@ -11561,28 +11635,54 @@ int main(int argc, char** argv) {
                     center.z += (target_z - center.z) * alpha;
                 }
             }
-            // ProgressSpeed is a fraction of the full distance range per
-            // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
-            const float zoom_step =
-                camera_config.progress_speed(progress) *
-                (camera_config.distance_max - camera_config.distance_min) *
-                dtf;
-            if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
-                distance = std::max(camera_config.distance_min,
-                                    distance - zoom_step);
-            }
-            if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
-                distance = std::min(camera_config.distance_max,
-                                    distance + zoom_step);
+            if (camera_retail_model) {
+                // Retail: zoom in/out and Shift+Up/Down are the same axis;
+                // both move progress at ProgressSpeed(p) per second.
+                const float dp =
+                    camera_config.progress_speed(progress) * dtf;
+                if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
+                    camera_progress =
+                        std::clamp(camera_progress - dp, 0.0f, 1.0f);
+                }
+                if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
+                    camera_progress =
+                        std::clamp(camera_progress + dp, 0.0f, 1.0f);
+                }
+                const float radius = camera_radius();
+                const float height = camera_height();
+                pitch = std::atan2(height, radius) *
+                        57.2957795f;
+                distance = std::sqrt(radius * radius + height * height);
+            } else {
+                // ProgressSpeed is a fraction of the full distance range per
+                // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
+                const float zoom_step =
+                    camera_config.progress_speed(progress) *
+                    (camera_config.distance_max -
+                     camera_config.distance_min) *
+                    dtf;
+                if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
+                    distance = std::max(camera_config.distance_min,
+                                        distance - zoom_step);
+                }
+                if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
+                    distance = std::min(camera_config.distance_max,
+                                        distance + zoom_step);
+                }
             }
         }
 
         if (std::getenv("DINO_DEBUG_CAMERA") != nullptr && (frame % 30) == 0) {
             std::fprintf(stderr,
                          "cam free=%d target=%.1f,%.1f,%.1f yaw=%.1f "
-                         "pitch=%.1f dist=%.1f\n",
+                         "pitch=%.1f dist=%.1f p=%.3f r=%.1f h=%.1f "
+                         "yaw_goal=%.1f up=0,0,1\n",
                          free_camera ? 1 : 0, center.x, center.y, center.z,
-                         yaw, pitch, distance);
+                         yaw, pitch, distance,
+                         camera_retail_model ? camera_progress : -1.0f,
+                         camera_retail_model ? camera_radius() : -1.0f,
+                         camera_retail_model ? camera_height() : -1.0f,
+                         camera_yaw_goal);
         }
 
         if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {

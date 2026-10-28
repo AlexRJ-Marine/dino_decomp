@@ -113,8 +113,9 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
   `PREDEFINED_SHOW_VALIDATE` arms the show placement tool; the next ground
   click places the arena. `--show-status` prints the ten attraction rows.
 - **Attraction list:** `ATTRACTION_LIST_NAME<n>` shows the scheduled show
-  (or the hour label), `ATTRACTION_LIST_ITERATION_INDIC<n>` its
-  performances-per-day, and `LOCK`/`UNLOCK`, `ITERATION_UP/DOWN`,
+  and is blank on an empty slot (retail clears it; the hour labels are the
+  separate `ATTRACTION_LIST_TIME<n>` widgets), `ATTRACTION_LIST_ITERATION_INDIC<n>`
+  the performances-per-day, and `LOCK`/`UNLOCK`, `ITERATION_UP/DOWN`,
   `PERMUTATION` and `SELECTION_LIGHT` act on the placed show (`show+0x8c`,
   `show+0xd3`, hour slot `show+0x100`).
 - **Mission panel:** with `--start-mission FILE` the briefing description,

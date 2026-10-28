@@ -118,3 +118,14 @@ update) and the exact `TargetHardness` clamp/transition semantics remain;
 the current rotation is linear at the recovered speed. Evidence addresses:
 `0x005257a0`, `0x00527b80`, `0x005e59b0`, `0x005e5960`, `0x005e5bc0`,
 `0x00529d00`, `0x005e5560`.
+
+## Resolution (2026-10-28)
+
+`notes/camera-motion-tilt-recon.md` closes the active-camera question. The
+retail park camera is a 0x164-byte object (vtable `0x006481a4`, update
+`0x005e5ff0`) with **no roll/up state**: eye/target are a pure function of one
+`progress` p (`r = 10+290p`, `h = 3+497p`, `pitch = atan2(h,r)`), with a 10/s
+yaw low-pass. The "tilt while moving" is the pitch transient from that yaw lag
+and the shared zoom/tilt axis, not a roll. The port now uses the progress model
+for the interactive park camera; explicit `--camera-target/--distance` views
+keep the legacy spherical orbit for deterministic tests.

@@ -64,6 +64,9 @@ if ($VirtualMouse) {
         & (Join-Path $root "scripts\setup-test-runtime.ps1")
     }
     $env:DINO_VIRTUAL_MOUSE = "1"
+    # Retail stops polling DirectInput when it is not the active window; the
+    # proxy reports active when this is set (same contract as the target trace).
+    $env:DINO_FORCE_INPUT_ACTIVE = "1"
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
     $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }

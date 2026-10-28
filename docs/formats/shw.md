@@ -262,7 +262,12 @@ cage/team pairs. `tests/test_viewer_cpp.py::test_cpp_show_info` checks
 `PREDEFINED_SHOW_VALIDATE` (`0x0052d1e0`) arms the placement tool, and the
 next ground click places the arena at record coordinates 0..1024. The
 `ATTRACTION_LIST_PANEL` rows show the scheduled show, its iteration count
-(`show+0x8c`) and lock state (`show+0xd3`). Tests:
+(`show+0x8c`) and lock state (`show+0xd3`). Empty rows are blank: retail
+clears `ATTRACTION_LIST_NAME<n>` to the zero-filled scratch string
+`DAT_006743c8` (`FUN_00516dd0`), and the hour labels are the separate
+`ATTRACTION_LIST_TIME1..10` widgets (`&Schedule10AM` .. `&Schedule7PM`).
+Retail appends the iteration count to the name (`"%u"` of `show+0x8c`); the
+port keeps it in the separate `ITERATION_INDIC` cell. Tests:
 `tests/test_campaign_cpp.py::test_cpp_campaign_show_panel_ui`,
 `test_cpp_campaign_show_list_scroll`,
 `test_cpp_campaign_attraction_list_actions`.

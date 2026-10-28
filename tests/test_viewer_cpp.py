@@ -188,6 +188,27 @@ def test_cpp_free_camera_start(tmp_path):
     assert Image.open(shot).size == (400, 300)
 
 
+def test_cpp_camera_retail_progress_default():
+    """The park camera starts at retail progress 0.1: r=39, h=52.7, pitch=53.5."""
+    if not EXE.exists():
+        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+    if not ISL01.exists():
+        pytest.skip("retail isl01 missing")
+    env = os.environ.copy()
+    env["DINO_DEBUG_CAMERA"] = "1"
+    result = subprocess.run(
+        [str(EXE), "--frames", "31", "--no-menu", "--width", "320",
+         "--height", "240", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water"],
+        capture_output=True, text=True, timeout=120, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "p=0.100 r=39.0 h=52.7" in result.stderr, result.stderr
+    assert "pitch=53.5" in result.stderr, result.stderr
+    assert "up=0,0,1" in result.stderr, result.stderr
+
+
 def test_cpp_keymap_has_free_camera_actions():
     if not EXE.exists():
         pytest.skip("dino_viewer not built (run scripts/build.ps1)")
