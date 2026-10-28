@@ -172,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - UI: paddock info panel on enclosure selection - EnclosureN name, dino count, occupation %, per-diet food sufficiency snapshot (0x5269e0/0x57e720); sell-mode cursor observation and DINO-STATS-1/P3-MOTION-1 audits recorded; full suite 500
 - 2026-10-28 - ECONOMY: fence sell flow - HUD Sell state, REQUEST dialog, inset-perimeter GetSellValue x SellBackFactor (live 870->630, port 2130->1890), non-empty gate, fence/ground/wall removal; removed the disproven 16-paddock gate; full suite 497
 - 2026-10-28 - VIDEO: cinematic MP2 audio wired - PL_MPEG audio decode, SDL float stereo stream, frame-PTS pacing, menu/island music paused; all retail movies probe 44.1 kHz/1 stream; full suite 497
 - 2026-10-28 - PLACE-1: Esc now clears the pending mode-2 enclosure grid (was leaving the blue dots); loaded/campaign paddocks build their gatAttraction sandy floors at load (rebuild after the paddock list); full suite 496
@@ -179,7 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - PLACE-1: Esc leaves the active placement state (retail fence key handler 0x52be60 -> leave 0x5269c0, no close button); fence/road/building/show/store tools release and a selected paddock deselects, so placed enclosures can be selected; --inject-key test hook; full suite 493
 - 2026-10-28 - PLACE-1: fence palette pulse ported from the binary - bank 4 additive laser sin4 (1.571 s), bank 1 Dino_SelectedWall sin10 (0.628 s, 1.0-2.0x); click-select enclosure with right-click deselect; HUD/minimap tint reset; full suite 493
 - 2026-10-28 - PLACE-1: exact retail enclosure visuals - gatAttraction sandy ground quad (boue_pad x ground_occup_pad, rand quadrant, Wrap), additive cyan-white laser2 post lamps, mode-2 4-unit helper grid with exact colours, fence nearest-anchor snap; full suite 492
-- 2026-10-28 - PLACE-1: ground pick now uses the terrain render FOV (80 deg), fixing the road/fence cursor offset; enclosure pending template draws helper_sphere dots every 8 units along the sides (blue/maroon), start validation matches the disc; full suite 492
 
 ## Blockers
 
