@@ -103,6 +103,7 @@ add_executable(dino_port
     src/app/keymap.cpp
     src/app/camera_config.cpp
     src/app/capture.cpp
+    src/app/park_camera.cpp
     src/app/cli.cpp
     src/render/gl_api.cpp
     src/render/mesh_gpu.cpp
