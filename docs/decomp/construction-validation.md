@@ -245,7 +245,9 @@ The port stores fence edges instead of rasterised cells.
 Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
 `0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,
 `&WARNING_INSIDE_PERIMETER`, `&WARNING_PERIMETER_TOO_SMALL` and
-`&WARNING_ROAD_TOO_SHORT`.
+`&WARNING_ROAD_TOO_SHORT`. The selected-feature check `0x527030` caps
+LunchBoxes at 16 per fence (`&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE`), and
+`0x526e70` updates the feature preview.
 
 Selling (`&REQUEST_SELL_FENCE`, `0x663d4c`) is part of the shared sell
 handler. It refuses a paddock whose occupant vector

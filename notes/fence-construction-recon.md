@@ -33,10 +33,10 @@ the rest are the fence-tool hooks:
 | +0x1c | `0x52be60` | key handler (`N`/`J` rotate, Esc leaves) |
 | +0x20 | `0x508d30` | base no-op |
 | +0x24 | `0x52bfc0` | rotate: `+0x3c = (+0x3c +/- 1) & 3` |
-| +0x28 | `0x527030` | feature-list row check (LunchBox) |
+| +0x28 | `0x527030` | feature limit: LunchBox class + 16-entry cap -> `&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE` |
 | +0x2c | `0x40c1d0` | helper |
 | +0x30 | `0x527150` | perimeter preview/validate (orientation, 16-edge limit) |
-| +0x34 | `0x526e70` | helper |
+| +0x34 | `0x526e70` | feature preview: LunchBox uses `+0x1b8` as height, others `0x5f85f0`/`0x5f8790` |
 | +0x38 | `0x526f20` | perimeter apply (validate, cost, budget, wall record) |
 | +0x3c | `0x608100` | no-op |
 | +0x40 | `0x527370` | wall-record builder / orientation |
@@ -302,7 +302,9 @@ gate or refund.
 - ~~Exact decomposition of the `0x581b90` cost magic~~ **resolved:** the
   signed `NEG/SHL 31/SUB` is `-(p1.x+p1.y)`; cost is
   `((p2.x+p2.y)-(p1.x+p1.y))*2/cell*price` (perimeter cells * price).
-- `0x527030` / `0x526e70` extended hooks.
+- ~~`0x527030` / `0x526e70` extended hooks~~ **resolved:** `0x527030` is the
+  LunchBox 16-entry cap (`&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE`), and
+  `0x526e70` is the feature preview update.
 - `0x584700` cell-record field layout and `0x5849a0` finalisation.
 
 ## Evidence
