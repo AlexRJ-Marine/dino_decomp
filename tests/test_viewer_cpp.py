@@ -3078,8 +3078,8 @@ def test_cpp_enclosure_preview_inside_paddock_red():
 
 
 def test_cpp_fence_selected_wall_pulse(tmp_path):
-    """Closing the fence panel leaves the tool; clicking the paddock selects
-    it and the `Dino_SelectedWall` pass doubles the fence body.
+    """Esc leaves the fence state (retail +0x1c/+0x08); clicking the paddock
+    then selects it and the `Dino_SelectedWall` pass doubles the fence body.
 
     Evidence: notes/fence-selected-state-recon.md (bank 1 grey 128..255,
     sin 10 t, stage-1 Modulate2x = 1.0..2.0x) and the live retail time series
@@ -3101,12 +3101,12 @@ def test_cpp_fence_selected_wall_pulse(tmp_path):
                            capture_output=True, text=True, timeout=120)
     assert unsel.returncode == 0, unsel.stderr
     sel = subprocess.run(
-        base + ["--inject-click", "20,679,278",
+        base + ["--inject-key", "20,27",  # Esc leaves the fence state
                 "--inject-click", "25,300,320",
                 "--screenshot", str(sel_path)],
         capture_output=True, text=True, timeout=120)
     assert sel.returncode == 0, sel.stderr
-    assert "fence: tool off (panel close)" in sel.stdout
+    assert "fence: tool off (Esc)" in sel.stdout
     assert "paddock: selected 0" in sel.stdout
     a = Image.open(unsel_path).convert("RGB")
     b = Image.open(sel_path).convert("RGB")
@@ -3120,6 +3120,16 @@ def test_cpp_fence_selected_wall_pulse(tmp_path):
     # differs. Retail-measured body ratio is ~1.9-2.0; allow 1.3 for the
     # grass between posts.
     assert band_mean(b) > band_mean(a) * 1.3, (band_mean(a), band_mean(b))
+
+    # Esc must deselect the enclosure instead of quitting the viewer.
+    deselect = subprocess.run(
+        base + ["--inject-key", "20,27",
+                "--inject-click", "25,300,320",
+                "--inject-key", "30,27"],
+        capture_output=True, text=True, timeout=120)
+    assert deselect.returncode == 0, deselect.stderr
+    assert "paddock: selected 0" in deselect.stdout
+    assert "paddock: deselected (Esc)" in deselect.stdout
 
 
 def test_cpp_road_preview_tint(tmp_path):

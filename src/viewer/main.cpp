@@ -250,6 +250,7 @@ struct Options {
     std::vector<std::string> park_window_clicks;
     std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::vector<std::string> inject_clicks;  // "frame,x,y[,right]"
+    std::vector<std::string> inject_keys;    // "frame,keycode" (tests)
     std::string road_cursor;  // fixed road preview cursor "x,y" (tests)
     std::string fence_cursor;  // fixed enclosure preview cursor "x,y" (tests)
     std::string skybox_dir;
@@ -722,6 +723,8 @@ Options parse_args(int argc, char** argv) {
             opt.fence_cursor = next("--fence-cursor");
         } else if (arg == "--inject-click") {
             opt.inject_clicks.push_back(next("--inject-click"));
+        } else if (arg == "--inject-key") {
+            opt.inject_keys.push_back(next("--inject-key"));
         } else if (arg == "--ground-click") {
             opt.ground_click = next("--ground-click");
         } else if (arg == "--no-water") {
@@ -836,6 +839,7 @@ Options parse_args(int argc, char** argv) {
                 "                       arm it with PREDEFINED_SHOW_VALIDATE or --place-show)\n"
                 "  --inject-click F,X,Y[,right]  push a real mouse click (window pixels)\n"
                 "                       into the event queue at frame F (repeatable)\n"
+                "  --inject-key F,KEY    push a key down/up pair at frame F (SDL keycode)\n"
                 "  --road-click X,Y     road-tool ground click at a build cell (repeatable;\n"
                 "                       arm it with --construct CONSTRUC_ROAD_BUTTON or the\n"
                 "                       panel's Road button)\n"
@@ -12295,6 +12299,26 @@ int main(int argc, char** argv) {
 
     while (running) {
         sync_park_layout();
+        // --inject-key FRAME,KEYCODE: a real key down/up pair (tests).
+        for (const std::string& spec : opt.inject_keys) {
+            int at = 0;
+            int code = 0;
+            if (std::sscanf(spec.c_str(), "%d,%d", &at, &code) != 2 ||
+                at != frame) {
+                continue;
+            }
+            for (const Uint32 type : {SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP}) {
+                SDL_Event injected{};
+                injected.type = type;
+                injected.key.windowID = SDL_GetWindowID(window);
+                injected.key.key = static_cast<SDL_Keycode>(code);
+                injected.key.scancode = SDL_GetScancodeFromKey(
+                    static_cast<SDL_Keycode>(code), nullptr);
+                injected.key.down = type == SDL_EVENT_KEY_DOWN;
+                injected.key.repeat = false;
+                SDL_PushEvent(&injected);
+            }
+        }
         // --inject-click FRAME,X,Y[,right]: a real SDL button down/up pair in
         // window pixels, so tests drive the interactive input path.
         for (const std::string& spec : opt.inject_clicks) {
@@ -12453,6 +12477,45 @@ int main(int argc, char** argv) {
                 if (park.name_edit_active() && key == SDLK_BACKSPACE) {
                     park.backspace_name();
                     opt.save_name = park.save_name();
+                } else if (key == SDLK_ESCAPE &&
+                           (build_tool != 0 || pending_store_index >= 0 ||
+                            fence_corner_x >= 0 || road_has_start ||
+                            selected_paddock >= 0)) {
+                    // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
+                    // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
+                    // The road/building/show states use the same common leave.
+                    if (build_tool == 6 || build_tool == 2) {
+                        std::printf("fence: tool off (Esc)\n");
+                    } else if (build_tool == 4) {
+                        std::printf("road: tool off (Esc)\n");
+                    } else if (build_tool == 3) {
+                        std::printf("construction: tool off (Esc)\n");
+                    } else if (build_tool == 5) {
+                        std::printf("show: tool off (Esc)\n");
+                    }
+                    if (pending_store_index >= 0) {
+                        std::printf("store: selection off (Esc)\n");
+                    }
+                    if (selected_paddock >= 0) {
+                        selected_paddock = -1;
+                        std::printf("paddock: deselected (Esc)\n");
+                        rebuild_build_meshes();
+                    }
+                    build_tool = 0;
+                    fence_corner_x = -1;
+                    fence_corner_y = -1;
+                    pending_construct_kind = -1;
+                    pending_show_index = -1;
+                    pending_store_index = -1;
+                    road_has_start = false;
+                    park.overlay.set_visible(
+                        "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
+                    park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
+                                             false);
+                    park.overlay.set_visible(
+                        "CONSTRUCTION_ROAD_METRO_PANEL", false);
+                    park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+                    park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
                 } else if (key == keymap[dino::KeyAction::Quit]) {
                     running = false;
                 } else if (key == keymap[dino::KeyAction::Reset]) {
@@ -12568,6 +12631,53 @@ int main(int argc, char** argv) {
                             park.overlay.set_visible("OPTIONS_PANEL", false);
                         } else if (action == "close campaign end") {
                             advance_campaign();
+                        } else if (action.rfind("close ", 0) == 0) {
+                            // Leaving a construction/info panel deactivates
+                            // its placement tool (retail's info-panel
+                            // controller state deactivation). The openers
+                            // toggle, so the same icon that armed the tool
+                            // closes the panel and frees the next click.
+                            const std::string panel = action.substr(6);
+                            if (panel ==
+                                "FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                                if (build_tool == 6) {
+                                    build_tool = 0;
+                                    fence_corner_x = -1;
+                                    fence_corner_y = -1;
+                                    pending_construct_kind = -1;
+                                    std::printf(
+                                        "fence: tool off (panel closed)\n");
+                                }
+                            } else if (
+                                panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
+                                panel == "CONSTRUCTION_PANEL") {
+                                if (build_tool == 3) {
+                                    build_tool = 0;
+                                    pending_construct_kind = -1;
+                                    std::printf(
+                                        "construction: tool off (panel "
+                                        "closed)\n");
+                                }
+                            } else if (
+                                panel == "CONSTRUCTION_ROAD_METRO_PANEL") {
+                                if (build_tool == 4) {
+                                    build_tool = 0;
+                                    road_has_start = false;
+                                    std::printf(
+                                        "road: tool off (panel closed)\n");
+                                }
+                            } else if (
+                                panel == "PREDEFINED_SHOW_PANEL" ||
+                                panel == "CONSTRUCTION_KIT_PANEL") {
+                                if (build_tool == 5) {
+                                    build_tool = 0;
+                                    pending_show_index = -1;
+                                    std::printf(
+                                        "show: tool off (panel closed)\n");
+                                }
+                            } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
+                                pending_store_index = -1;
+                            }
                         }
                         if (!action.empty()) {
                             std::printf("park click %d,%d -> %s\n", dx, dy,

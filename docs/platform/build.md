@@ -163,6 +163,27 @@ Still open: the retail paddock **info panel** opened by the selection click
 (`0x5ed240`, no static caller found) is implemented from the live retail
 behaviour rather than the static xref scan.
 
+### Leaving a placement tool
+
+The fence panel has **no close button** (`FENCE_CONSTRUCTION_AND_INFO_PANEL`
+contains only the stats and construction sub-panels). Retail leaves the state
+with the common key handler: `pvwStateFenceConstruction` vtable **+0x1c =
+`0x52be60`** handles Esc, which calls the state's leave **+0x08 = `0x5269c0`**
+(hides the panel). The port now maps Esc to the same release:
+
+- Esc with an active placement state clears it: fence (`build_tool 6`), road
+  (`4`), building (`3`), show (`5`) and store selection; the corresponding
+  panel is hidden. A selected enclosure is deselected as well (retail uses Esc
+  for that too).
+- The building/road panels' **put-back/close** widgets and the HUD opener
+  toggles also deactivate the matching tool (the fence opener is covered by
+  its panel, hence Esc).
+- A **successful placement does not auto-leave** the state in retail: the fence
+  apply `0x526f20` only updates the info/name and keeps the style selected.
+  The port keeps the tool armed after a build, so press Esc (or switch to
+  another tool) before clicking the placed enclosure.
+- Right-click or a click on empty ground deselects the enclosure highlight.
+
 Port approximations: wall lines are in the occupancy grid, but the port also
 keeps the edge model for rendering and paddock capacity, so edge-based
 crossings remain as a fallback; removing a fence is not gated on its
