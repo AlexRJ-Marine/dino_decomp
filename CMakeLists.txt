@@ -100,6 +100,8 @@ find_package(SDL3 CONFIG REQUIRED PATHS "${SDL3_ROOT}" NO_DEFAULT_PATH)
 
 add_executable(dino_port
     src/app/main.cpp
+    src/app/game.cpp
+    src/app/ui_geometry.cpp
     src/app/asset_paths.cpp
     src/app/reports.cpp
     src/app/keymap.cpp
