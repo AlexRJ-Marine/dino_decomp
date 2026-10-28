@@ -182,6 +182,33 @@ icon button (`*_START_BUTTON`, `*_CANCEL_BUTTON`, `*_OK_BUTTON` with
 label, e.g. the campaign page START/CANCEL buttons and the Free Game page
 Start/Cancel captured in `notes/ui-atlas-outcome4-full.png`.
 
+## Text rendering
+
+The `.fnt` atlas is **binary** (coverage is 0 or 255; see
+`docs/formats/fnt.md`) and retail samples it with **point filtering**. Two
+consequences for a port:
+
+- Use `GL_NEAREST` for the font atlas, not `GL_LINEAR`. Linear filtering at
+  fractional positions turns every 1-px stroke into a ~70 % blend, which makes
+  the whole UI look thin and washed out.
+- Snap the text origin to whole pixels. Retail also centres on the font's
+  `cell_height` (12 for FONT14, 16 for FONT19), not `line_height`, and
+  truncates the half pixel: a 34-px list row is `(34-12)/2 = 11`, a 27-px
+  FONT19 title plaque is `(27-16)/2 = 5`. Both reproduce the retail captures
+  pixel-for-pixel.
+- Retail's rendered text is ~6 % transparent (white text samples at
+  `240,244,247` over the menu bars). This is likely a global UI text alpha
+  (`240/255`); it is cosmetic and not modelled.
+
+### `LIST` wrapping
+
+`LIST` text wraps at the list column width in **pixels**, not characters:
+`CAMPAIGN_INFO_DESCRIPTION` (`WIDTH=235`, `LB_VSCROLL_WIDTH=22`) wraps at
+213 px and its rows advance by `LB_LINE_HEIGHT` (17 px). Word-wrap with the
+font's advances at 213 px reproduces the retail briefing line breaks exactly.
+Retail clips the last row's descenders at the row viewport
+(`visible_lines * line_height`).
+
 ## Glyph advance
 
 Retail advances the pen one pixel **less** than the glyph's ink width:

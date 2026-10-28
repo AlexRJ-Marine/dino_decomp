@@ -1725,8 +1725,8 @@ GLuint upload_font_atlas(const dino::Fnt& font) {
     GLuint id = 0;
     glGenTextures(1, &id);
     glBindTexture(GL_TEXTURE_2D, id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -1744,9 +1744,15 @@ dino::Mesh build_text_mesh(const dino::Fnt& font, const std::string& text,
     const float inv_h = 1.0f / static_cast<float>(font.atlas_height);
     float pen_x = x;
     float pen_y = y;
+    // The retail font atlas is binary (0/255) and sampled point-wise; snap
+    // the origin to whole pixels so each glyph quad samples its own texels
+    // instead of bleeding into the neighbouring glyph.
+    pen_x = std::round(pen_x);
+    pen_y = std::round(pen_y);
+    const float origin_x = pen_x;
     for (const unsigned char ch : text) {
         if (ch == '\n') {
-            pen_x = x;
+            pen_x = origin_x;
             pen_y += static_cast<float>(font.line_height) * scale;
             continue;
         }
@@ -1918,13 +1924,21 @@ dino::Mesh build_text_block(const dino::Fnt& font, const std::string& text,
     const float line_height =
         line_pitch > 0.0f ? line_pitch
                           : static_cast<float>(font.line_height) * scale;
-    const float total_height = line_height * static_cast<float>(lines.size());
+    // Retail centres a text block on the font's cell height (12 for FONT14,
+    // 16 for FONT19), not its line height, and truncates the half pixel:
+    // a 34-px list row gets (34-12)/2 = 11, a 27-px title plaque with FONT19
+    // gets (27-16)/2 = 5.5 -> 5. Both match the retail captures exactly.
+    const float cell_height =
+        static_cast<float>(font.cell_height) * scale;
+    const float total_height =
+        cell_height +
+        line_height * static_cast<float>(lines.size() > 0 ? lines.size() - 1 : 0);
     float start_y = y;
     if (justify.find("DOWN") != std::string::npos) {
         start_y = y + box_h - total_height;
     } else if (justify.find("CENTER") != std::string::npos ||
                justify.find("Y") != std::string::npos) {
-        start_y = y + (box_h - total_height) * 0.5f;
+        start_y = y + std::trunc((box_h - total_height) * 0.5f);
     }
     for (std::size_t i = 0; i < lines.size(); ++i) {
         const float width = text_width(font, lines[i], scale);
@@ -6277,7 +6291,7 @@ int main(int argc, char** argv) {
                         }
                         const dino::Mesh block = build_text_block(
                             *list_font, visible,
-                            px(widget.abs_x) + 4.0f * dpi,
+                            px(widget.abs_x),
                             py(widget.abs_y) + 2.0f * dpi, list_scale * dpi,
                             widget.text_color, "LEFT",
                             static_cast<float>(row_w - 4) * dpi,

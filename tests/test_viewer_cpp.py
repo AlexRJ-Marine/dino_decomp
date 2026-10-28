@@ -1186,6 +1186,48 @@ def test_cpp_campaign_list_fits_has_no_scrollbar(tmp_path):
     assert red_pixels(shots["info"]) > 10
 
 
+def test_cpp_menu_text_metrics(tmp_path):
+    """Menu text is point-sampled at retail's position.
+
+    The FONT14/FONT19 atlases are binary; retail samples them with point
+    filtering, so glyph interiors are solid white. Centring uses the font cell
+    height, which puts the FONT19 "CAMPAIGNS" title ink at y 69..80.
+    """
+    if not EXE.exists() or not (GAME / "Data/Overlay/MenuInterface.Ini").exists():
+        pytest.skip("viewer or retail data missing")
+    shot = tmp_path / "menu.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--no-vsync", "--no-save-config",
+         "--width", "800", "--height", "600", "--asset-root", str(GAME),
+         "--menu", "--menu-page", "2", "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    im = Image.open(shot).convert("RGB")
+
+    def white_count(x0, x1, y0, y1):
+        return sum(
+            1 for x in range(x0, x1) for y in range(y0, y1)
+            if min(im.getpixel((x, y))) > 230
+        )
+
+    def white_rows(x0, x1, y0, y1):
+        rows = []
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                if min(im.getpixel((x, y))) > 230:
+                    rows.append(y)
+                    break
+        return rows
+
+    # "PANIC IN THE SAVANNA" row: solid glyph interiors, not a linear-filter
+    # blend (which left most stroke pixels at 170..220).
+    assert white_count(336, 470, 277, 296) > 100
+    # FONT19 title plaque: retail ink box y 69..80 at 800x600.
+    title_rows = white_rows(348, 448, 60, 88)
+    assert title_rows and min(title_rows) == 69 and max(title_rows) == 80
+
+
 def test_cpp_park_options_quit(tmp_path):
     """In-park OPTIONS_MENU_EXIT_ICON (`&QuitGame`) exits the viewer."""
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"

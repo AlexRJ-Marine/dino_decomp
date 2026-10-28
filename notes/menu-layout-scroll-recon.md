@@ -135,13 +135,31 @@ campaign 8 (8 rows), load 14 at 20 px (as many as save slots), cinematics 8.
   `&QuitGame`) was unhandled; `ParkHud::quit_requested()` now makes the
   viewer exit, matching the main-menu Quit. Test
   `test_cpp_park_options_quit`.
+* Text rendering (the visible "textures don't look right"):
+  * The `.fnt` atlas is binary 0/255 and retail samples it with **point
+    filtering**. The port used `GL_LINEAR`, so every 1-px stroke sampled at a
+    fractional position blended to ~70 % and the whole UI looked thin/washed
+    out. The atlas is now `GL_NEAREST`.
+  * Text quads are snapped to whole pixels (`build_text_mesh` rounds the
+    origin); otherwise point sampling can pick a neighbouring glyph's texel.
+  * Retail centres a text block on the font **cell height** (12 FONT14, 16
+    FONT19) and truncates the half pixel: `(34-12)/2 = 11` for a list row and
+    `(27-16)/2 = 5.5 -> 5` for the FONT19 title plaque. The port centred on
+    `line_height` (14/19), which put every label 1 px high. After the fix the
+    "PANIC" glyph block and the title ink box are pixel-identical to the
+    retail captures.
+  * The briefing had a hard-coded +4 px x padding; retail starts it at the
+    list x (glyph ink +2). Removed.
+  * Retail text renders ~6 % transparent (samples `240,244,247`); cosmetic,
+    not modelled.
 * Evidence: `test_cpp_campaign_info_description_scroll` (text viewport and
   thumb differ after three down-arrow clicks), screenshots
-  `build/campaign-info-port8`, `build/campaign-select-port6`,
+  `build/campaign-info-port11`, `build/campaign-select-port9`,
   `build/campaign-selected-port` (build dir, not tracked) diffed against
   `notes/harness/campaign-info.png`, `campaign-list.png`,
-  `campaign-selected.png` (retail dgVoodoo captures); the text-region diff is
-  only glyph rasterisation.
+  `campaign-selected.png` (retail dgVoodoo captures); with the fixes the
+  title/row ink boxes and the glyphs themselves match exactly, the remaining
+  diff is the 6 % text alpha and the retail cursor/watermark.
 
 ## Evidence
 
