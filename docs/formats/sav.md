@@ -491,17 +491,24 @@ settled save (patched copy of `run/save/slot001.sav`) renders
   0x2C records) and `list2` is the employee list (`spPark+0xe4`, save
   `0x5766b0`, fixed 0x2B records). The sample has 2 food sources at
   `0x6946..0x699E` and 6 employees at `0x69A2..0x6AA4`; the visitor count at
-  `0x6AA4` is 0 and the next list (attraction family, `spPark+0x90`) has 57
-  records at `0x6AA8`. Both lists are self-delimiting and are modeled by
-  `sav_campaign.py` (`read_campaign_list1/2`, `write_campaign_list1/2`;
+  `0x6AA4` is 0 and the next list (`spPark+0x90`) has 57 records at `0x6AA8`.
+  Both lists are self-delimiting and are modeled by `sav_campaign.py`
+  (`read_campaign_list1/2`, `write_campaign_list1/2`;
   `--check` reports `list1/list2 round-trip: 2 + 6 records identical`).
   The C++ reader (`src/formats/wld.cpp`) validates both fixed record sizes and
   retains the counts; it keeps list1+ as raw `campaign_tail`, so
-  `--sav-roundtrip`/`--sav-write` stay byte-identical. Remaining: walk the
-  57-record attraction list and locate the campaign park block; `--sav-info`
-  reports zeros for the visitor/park/store/lab part until then.
-  Full recon: `notes/campaign-list1-2-recon.md`. The four `+0x0c` list0 bytes
-  range 0..4; their exact state encoding is still open.
+  `--sav-roundtrip`/`--sav-write` stay byte-identical.
+
+  **Campaign saves have no park block.** `FUN_0058b200` gates the visitor
+  list, `FUN_00585780` park economy, `FUN_00594cb0` schedule and the
+  `spPark+0x148` tail on the non-campaign branch. After list2 the campaign
+  file continues with the `spPark+0x90` attraction list (57 records), then
+  `+0xa0`, `+0x40`, `FUN_0058ee50` (store/lab) and the AI/camera tail. This
+  is why `--sav-info` reports zeros for visitors/park and why a campaign save
+  cannot drive `--sav-park`: campaign population must come from the
+  `CpgNN_Save.wld` world records. Remaining: the 57-list record size and the
+  store/lab tail. Full recon: `notes/campaign-list1-2-recon.md` §8-9. The four
+  `+0x0c` list0 bytes range 0..4; their exact state encoding is still open.
 ## Writer round-trip (SAVE-0, Python)
 
 `tools/formats/sav_write.py` rebuilds the **whole file** from the parsed

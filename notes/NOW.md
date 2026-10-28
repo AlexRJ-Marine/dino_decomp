@@ -64,8 +64,9 @@ See `notes/lanes.md`. Default split:
   re-encodes all 20 records byte-identically; the C++ writer validates each
   record length and keeps list0 + list1/tail raw, so `--sav-roundtrip`/
   `--sav-write` are byte-identical on the 53 KB sample (no test skip).
-  list1/list2 decoded (2 food sources, 6 employees); remaining: 57-record
-  attraction list, campaign park block, typed C++ list0.
+  list1/list2 decoded (2 food sources, 6 employees). Campaign saves have
+  **no park block** (`FUN_0058b200` gates it out); remaining: 57-record
+  attraction list, store/lab tail, typed C++ list0.
 - SHOW-4: mission `[SHOWS]` catalog, `--place-show`, the 10-slot hourly
   `ShowRuntime`, the interactive construction panel (`PREDEFINED_SHOW_LIST`
   selection/scroll + VALIDATE placement) and the ten attraction rows

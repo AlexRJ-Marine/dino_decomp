@@ -490,9 +490,14 @@ Updated: 2026-10-26
   - HUD cash resolved: `spPark->economy+0x08`, the same field as park block
     `+0x30`; retail's loader skips the restore for version > 0x17 when `BL`
     is set (`0x58b1b0`). The port restores it (policy divergence).
-  - Open: campaign `list1`/`list2` decode, typed C++ `SavCampaignDino`, and
-    campaign visitor/park info (`--sav-park`); the Options panel still writes
-    `.psav`.
+  - Campaign `list1`/`list2` decoded (`saFoodSource` 0x2C ×2,
+    employees 0x2B ×6; `notes/campaign-list1-2-recon.md`). Campaign saves
+    have **no park block**: `FUN_0058b200` gates visitors/economy/schedule
+    out; after list2 come `spPark+0x90` (57 records), `+0xa0`, `+0x40`,
+    store/lab and the camera tail.
+  - Open: 57-list/store-lab record sizes, typed C++ `SavCampaignDino`, and
+    campaign population from `CpgNN_Save.wld`; `--sav-park` cannot use a
+    campaign save. The Options panel still writes `.psav`.
 - P3 target policy complete: **`node+0x3c` `GetTarget` / chooser threat term.**
   - `ActionTarget` + `chooser_threat_score` (`FUN_00572dd0` actor-radius box,
     danger grid), optional `ActionThreatProvider` on `choose_action` /

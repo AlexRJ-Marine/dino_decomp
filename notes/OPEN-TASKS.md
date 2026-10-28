@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-27 23:53. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 00:07. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 35 open items.
 
@@ -93,6 +93,6 @@ Generated from `TASKS.md` on 2026-10-27 23:53. Do not edit; regenerate with `scr
 - [ ] Port music streaming/looping and SFX playback into the SDL3 viewer;
 
 ## SAVE-1: Save/load
-- [ ] Campaign parity rest: walk the 57-record attraction list and locate the
+- [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while

@@ -1822,9 +1822,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Campaign `.wld` object records: `read_world_block` now retains shows,
   animals and employees in `WldWorld.records` (previously discarded); Cpg04
   reports shows=1 animals=2 employees=6.
-- [ ] Campaign parity rest: walk the 57-record attraction list and locate the
-  campaign park block/economy, typed C++ `SavCampaignDino`, and expose the
-  campaign visitor/park/store state (`--sav-info` currently reports zeros).
+- [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
+  `+0xa0`, `+0x40` and the store/lab tail; typed C++ `SavCampaignDino`.
+  Campaign saves have **no park block** (`FUN_0058b200` gates visitors/
+  economy/schedule out), so `--sav-park` cannot use one.
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
   into `load_campaign_park` and assert the Cpg04 counts
   (`notes/playtest-2026-10-27.md`).
