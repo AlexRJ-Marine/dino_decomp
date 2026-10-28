@@ -307,15 +307,24 @@ quantity/percent/carni/herbi widgets. `0x511d50` (vtable `+8`) is the dirty
 check: it returns whether the selected row (`[panel+0xc]`) differs from the
 paddock count.
 
-`0x57e720(paddock, scale, out)` produces the row stats:
+`0x57e720(paddock, scale, out)` produces the row stats. The widget `HINT`s
+map the four outputs:
 
 ```text
+out[0] FENCE_LIST_QUANTITY_SLOT        &FenceDinoQuantity
+out[1] FENCE_LIST_POURCENT_SLOT        &FenceOccupationPercentage
+out[2] FENCE_LIST_HERBIQUANTITY_SLOT   &HerbiFoodSufficiency
+out[3] FENCE_LIST_CARNIQUANTITY_SLOT   &CarniFoodSufficiency
+
 out[0] = occupant count            ([paddock+0x9c] - [paddock+0x98]) / 4
-out[1] = count scaled by the passed factor
-out[2]/out[3] = herbivore/carnivore percentages
+out[1] = occupation percentage (from the count; exact scale open)
+out[2]/out[3] = herbivore/carnivore FOOD SUFFICIENCY
     each occupant contributes scale * [dino+0x6c]; occupants with
     [dino+0x200] == 1 go to the first bucket; an empty bucket is 100%
 ```
+
+So the two `...QUANTITY...` widgets under `DINO_INDICATEURS2` are food
+sufficiency gauges, not animal counts; the array name is misleading.
 
 The snapshot is a normal row **button**, not a render target:
 `FENCE_SNAPSHOT_SLOT1` has `TEXTURE = DINO_SNAPSHOT_SLOT1`, which
