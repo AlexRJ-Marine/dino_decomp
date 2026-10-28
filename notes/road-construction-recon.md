@@ -196,10 +196,9 @@ terrain as everywhere else. So a 4-unit retail road is a sandy strip with a
 
 ## Port preview divergence (2026-10-28)
 
-`8c23d92` changed `road_helper_mesh` from one helper box per cell to one
-stretched box spanning the run (`append_mesh_scaled`), and set
-`DrawItem::depth_write` for the preview. Reason: per-cell boxes overlap in the
-additive One/One pass and saturate to white. Retail still draws one
-`helper_road.mesh` per 4-unit step (`0x5fa708..0x5fa891`); the port keeps the
-retail tint/validity but approximates the shape. The exact retail blue/alpha
-still needs a capture.
+`8c23d92` briefly changed `road_helper_mesh` to one stretched box spanning
+the run; the current source keeps retail's one `helper_road.mesh` per 4-unit
+step (`0x5fa708..0x5fa891`) and adds `DrawItem::depth_write` for the preview.
+The per-cell boxes saturate to white in the additive One/One pass when the
+box's back/side faces also write; depth-writing the nearest face keeps the
+retail shape and the tint. The exact retail blue/alpha still needs a capture.
