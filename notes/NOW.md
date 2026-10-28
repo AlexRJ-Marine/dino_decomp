@@ -172,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - PLACE-1: Esc now clears the pending mode-2 enclosure grid (was leaving the blue dots); loaded/campaign paddocks build their gatAttraction sandy floors at load (rebuild after the paddock list); full suite 496
 - 2026-10-28 - INPUT: retail Escape behavior - default park no-op, construction strip stays, Esc closes OPTIONS_PANEL, placement/selection states leave; park Esc never quits; full suite 494
 - 2026-10-28 - PLACE-1: Esc leaves the active placement state (retail fence key handler 0x52be60 -> leave 0x5269c0, no close button); fence/road/building/show/store tools release and a selected paddock deselects, so placed enclosures can be selected; --inject-key test hook; full suite 493
 - 2026-10-28 - PLACE-1: fence palette pulse ported from the binary - bank 4 additive laser sin4 (1.571 s), bank 1 Dino_SelectedWall sin10 (0.628 s, 1.0-2.0x); click-select enclosure with right-click deselect; HUD/minimap tint reset; full suite 493
@@ -179,7 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - PLACE-1: ground pick now uses the terrain render FOV (80 deg), fixing the road/fence cursor offset; enclosure pending template draws helper_sphere dots every 8 units along the sides (blue/maroon), start validation matches the disc; full suite 492
 - 2026-10-28 - PLACE-1: map-unit occupancy grid wired into roads/buildings/fences (classes 1/2/7/0xF); exact two-click enclosure (margin 4, side >= 23, 30/cell from Fence.bwi, class-7 wall lines, cost toast); full suite 492
 - 2026-10-28 - PLACE-1: merged marcusrj portable-setup (road segments/merge/T-snap/paint, Entrance road, detail map, vegetation LOD); road cursor now retail nearest-cell snap (0x5faaa0) fixing the 45-degree direction flip; signed cost quirk disproven by retail probe; OccupancyGrid foundation with retail classes (walls 7, buildings 1) + wall-raster/validators decoded (1-unit line, 0.01 slope). Full suite 492
-- 2026-10-28 - PARK-QUIT: exact retail flow (REQUEST dialog &REQUEST_RETURN_MENU, validate -> main menu with menu music, cancel stays, no save warning/autosave; binary listener 0x524180/callback 0x5242e0, retail harness test-quit-flow.ps1); full suite 483
 
 ## Blockers
 
