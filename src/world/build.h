@@ -20,6 +20,42 @@ struct WorldRect {
     int y1 = 0;
 };
 
+// Retail `spRoadNetwork` / `stWall` occupancy grid (`0x5849a0`): one u16 per
+// world unit; the high nibble is the occupant class. Roads stamp
+// `DAT_00675a60`, walls class 7 (`0x584200` -> `0x5849a0`), buildings class 1
+// (`0x586b80`). The road validator accepts a road over a road and rejects
+// every other occupant; the construction cell scan rejects any non-zero
+// high nibble and also applies the 0.01 height-slope test. Coordinates are
+// engine map units (centred world + size/2).
+struct OccupancyGrid {
+    // High-nibble occupant class. Retail values: buildings stamp 1, walls 7
+    // (`DAT_006757b4`), roads `DAT_00675a60` (a runtime class; any distinct
+    // value works because only the road-over-road comparison is special).
+    // 0xf is the port's non-buildable `.raw` terrain class.
+    static constexpr std::uint16_t kTypeMask = 0xf000;
+    static constexpr std::uint16_t kBuilding = 0x1000;  // 0x586b80
+    static constexpr std::uint16_t kRoad = 0x2000;      // DAT_00675a60 class
+    static constexpr std::uint16_t kWall = 0x7000;      // 0x5849a0 (7)
+    static constexpr std::uint16_t kBlocked = 0xf000;   // non-buildable .raw
+    int width = 0;
+    int height = 0;
+    std::vector<std::uint16_t> cells;
+
+    void init(int w, int h);
+    // `mask` is the runtime `.raw` occupation array (row 0 = map bottom, as
+    // `Terrain::occupation`): every non-zero byte becomes kBlocked.
+    void init_from_mask(const std::vector<std::uint8_t>& mask, int w, int h);
+    bool in_bounds(int x, int y) const {
+        return x >= 0 && y >= 0 && x < width && y < height;
+    }
+    std::uint16_t at(int x, int y) const;
+    // Inclusive map-unit rectangle; stamps/clears only the high nibble.
+    void stamp(int x0, int y0, int x1, int y1, std::uint16_t type);
+    void clear(int x0, int y0, int x1, int y1, std::uint16_t type);
+    bool free_rect(int x0, int y0, int x1, int y1) const;
+    bool road_free(int x0, int y0, int x1, int y1) const;
+};
+
 // Grid-based path/fence placement in the same 1024-unit world as the terrain.
 //
 // A cell is `cell_size` world units; cell (0,0) starts at -world_size/2. Paths
@@ -123,7 +159,6 @@ float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
 int paddock_size_class(int size_cm);
 bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index);
 bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index);
-
 // Retail road tool (`ROAD_CONSTRUCTION`, state 0x10; see
 // notes/road-construction-recon.md). A road is a straight, axis-aligned run
 // of 4-unit cells placed with two clicks; the second click commits and the
@@ -142,6 +177,10 @@ struct RoadSegment {
     int y1 = 0;
     int cells() const;
 };
+
+// Cell (4-unit) rectangle a `RoadSegment` occupies, in map units:
+// `[min(x0,x1)*cell, max(x0,x1)*cell + cell-1]`.
+WorldRect road_units(const RoadSegment& road, int cell);
 
 // 0x5fa5b0: keep the longer axis of start -> cursor (ties go vertical).
 RoadSegment road_segment(int start_x, int start_y, int cursor_x, int cursor_y);

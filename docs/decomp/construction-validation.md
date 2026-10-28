@@ -234,13 +234,29 @@ original construction flow:
   (`0x53acd0`) and, for `AnimalBait`, the animal actor (`0x53b0d0`).
 
 Both paths end in the `stPerimeter` / `stWall` model: `0x584090` builds the
-rectangle's four `stWall` segments (`0x582210`), each rasterised to grid cells
-(`0x584200`, `length/cell` 0x28-byte cell records, Bresenham walk). The
-occupancy grid is one `u16` per world unit; `0x5849a0` stamps the wall type
-into the high nibble (`u16 = (u16 & 0x0fff) | (type << 12)`) and clears it on
-removal. Show arenas use the same constructor (`0x580f00` with the `.shw`
-`Wall type`), so the enclosure tool and show placement share the wall model.
-The port stores fence edges instead of rasterised cells.
+rectangle's four `stWall` segments (`0x582210`), each rasterised by `0x584200`
+as a **1-unit-thick line** along the segment, once per map-unit point. The
+`0x28`-byte cell records only group consecutive points (up to
+`trunc((length+1)/cell)` records); they are not a 4x4 stamp. `0x5849a0`
+stamps every point with the occupant class in the high nibble
+(`u16 = (u16 & 0x0fff) | (type << 12)`); walls use the global class **7**
+(`DAT_006757b4`), buildings use class **1** (`0x586b80` over the footprint),
+roads use `DAT_00675a60`. Removal clears the high nibble. Show arenas use the
+same constructor (`0x580f00` with the `.shw` wall type). The port stores
+fence edges instead of rasterised wall cells, which remains an approximation
+until the occupancy grid is wired into the fence tool.
+
+Validation uses the **high nibble only** (`0x58a390`: `TEST byte [cell+1],
+0xf0`; any class is busy), plus a height-slope test: the bilinear height at
+the cell origin vs the reference must be within **0.01** of 256-scale height,
+else `WARNING_UNEVEN_FLOOR` (code 2). `0x58a190` scans `p .. p+margin-1`;
+`0x58a4e0` first rejects a side smaller than `4*margin - 1`
+(`WARNING_PERIMETER_TOO_SMALL`), then scans the inset interior
+`p1+margin .. p2-margin`. `0x5812b0` (feature footprint) only tests the
+`scene+0x34` rect vector and has no grid/slope access.
+The selected-feature check `0x527030` caps LunchBoxes at 16 per fence
+(`&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE`), and `0x526e70` updates the feature
+preview.
 
 Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
 `0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,

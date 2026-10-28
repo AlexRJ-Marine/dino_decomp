@@ -2971,6 +2971,26 @@ int run_selftest() {
                                everything_busy) == dino::RoadCheck::Ok,
               "road may run over roads");
 
+        // spRoadNetwork occupancy (0x5849a0): u16 per map unit, high nibble
+        // type; roads may overlap roads, every other occupant blocks.
+        {
+            dino::OccupancyGrid occ;
+            occ.init(8, 8);
+            check(occ.road_free(0, 0, 7, 7), "occupancy empty");
+            occ.stamp(2, 2, 5, 4, dino::OccupancyGrid::kRoad);
+            check(occ.road_free(0, 0, 7, 7), "road over road ok");
+            check(!occ.free_rect(2, 2, 2, 2), "road cell occupied");
+            occ.stamp(3, 3, 3, 3, dino::OccupancyGrid::kWall);
+            check(!occ.road_free(2, 2, 5, 4), "wall blocks road");
+            occ.clear(3, 3, 3, 3, dino::OccupancyGrid::kWall);
+            check(occ.road_free(2, 2, 5, 4), "wall clear restores road");
+            const dino::WorldRect units =
+                dino::road_units(dino::road_segment(3, 4, 7, 4), 4);
+            check(units.x0 == 12 && units.y0 == 16 && units.x1 == 31 &&
+                      units.y1 == 19,
+                  "road units");
+        }
+
         // Road layer 0x602380: cells (10,10)+(11,10) = units x 40..47,
         // y 40..43 -> top-down rows 980..983.
         dino::BuildGrid painted;

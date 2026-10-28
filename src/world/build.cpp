@@ -186,6 +186,132 @@ bool BuildGrid::road_cells_for_world(float wx, float wy, int& x, int& y) const {
     return in_bounds(x, y);
 }
 
+void OccupancyGrid::init(int w, int h) {
+    width = std::max(0, w);
+    height = std::max(0, h);
+    cells.assign(static_cast<std::size_t>(width) * height, 0);
+}
+
+void OccupancyGrid::init_from_mask(const std::vector<std::uint8_t>& mask,
+                                   int w, int h) {
+    init(w, h);
+    if (width <= 0 || height <= 0 ||
+        mask.size() < static_cast<std::size_t>(width) * height) {
+        return;
+    }
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+        if (mask[i] != 0) {
+            cells[i] = kBlocked;
+        }
+    }
+}
+
+std::uint16_t OccupancyGrid::at(int x, int y) const {
+    if (!in_bounds(x, y)) {
+        return kBlocked;
+    }
+    return cells[static_cast<std::size_t>(y) * width + x];
+}
+
+void OccupancyGrid::stamp(int x0, int y0, int x1, int y1,
+                          std::uint16_t type) {
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    if (x0 > x1) {
+        std::swap(x0, x1);
+    }
+    if (y0 > y1) {
+        std::swap(y0, y1);
+    }
+    x0 = std::clamp(x0, 0, width - 1);
+    x1 = std::clamp(x1, 0, width - 1);
+    y0 = std::clamp(y0, 0, height - 1);
+    y1 = std::clamp(y1, 0, height - 1);
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            std::uint16_t& cell = cells[static_cast<std::size_t>(y) * width + x];
+            cell = static_cast<std::uint16_t>((cell & 0x0fff) | type);
+        }
+    }
+}
+
+void OccupancyGrid::clear(int x0, int y0, int x1, int y1,
+                          std::uint16_t type) {
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    if (x0 > x1) {
+        std::swap(x0, x1);
+    }
+    if (y0 > y1) {
+        std::swap(y0, y1);
+    }
+    x0 = std::clamp(x0, 0, width - 1);
+    x1 = std::clamp(x1, 0, width - 1);
+    y0 = std::clamp(y0, 0, height - 1);
+    y1 = std::clamp(y1, 0, height - 1);
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            std::uint16_t& cell = cells[static_cast<std::size_t>(y) * width + x];
+            if ((cell & kTypeMask) == type) {
+                cell = static_cast<std::uint16_t>(cell & 0x0fff);
+            }
+        }
+    }
+}
+
+bool OccupancyGrid::free_rect(int x0, int y0, int x1, int y1) const {
+    if (x0 > x1) {
+        std::swap(x0, x1);
+    }
+    if (y0 > y1) {
+        std::swap(y0, y1);
+    }
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            if (!in_bounds(x, y)) {
+                continue;
+            }
+            if (cells[static_cast<std::size_t>(y) * width + x] != 0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool OccupancyGrid::road_free(int x0, int y0, int x1, int y1) const {
+    if (x0 > x1) {
+        std::swap(x0, x1);
+    }
+    if (y0 > y1) {
+        std::swap(y0, y1);
+    }
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            if (!in_bounds(x, y)) {
+                continue;
+            }
+            const std::uint16_t cell =
+                cells[static_cast<std::size_t>(y) * width + x];
+            const std::uint16_t type = cell & kTypeMask;
+            if (type != 0 && type != kRoad) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+WorldRect road_units(const RoadSegment& road, int cell) {
+    const int x0 = std::min(road.x0, road.x1) * cell;
+    const int y0 = std::min(road.y0, road.y1) * cell;
+    const int x1 = std::max(road.x0, road.x1) * cell + cell - 1;
+    const int y1 = std::max(road.y0, road.y1) * cell + cell - 1;
+    return {x0, y0, x1, y1};
+}
+
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
                                    const Mesh& fence_source) {
     BuildMeshes out;
