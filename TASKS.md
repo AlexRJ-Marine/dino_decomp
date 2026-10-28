@@ -1087,8 +1087,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   selftest covers the flat (yaw-equivalent) and tilted cases. Construction-UI
   placement is live (`--construct`). `model[1]` is 0.0 at `.bbi` offset 113 in
   all 39 files, so there is no Z offset.
+- [x] Vegetation LOD + culling (R-2): retail gpkLandscape files objects in
+  15x15 64-unit sectors and picks `.blf` LOD1 <= 200, LOD2 <= 400 (x
+  `LODQuality`), else hidden; the port matches and adds a frustum test.
+  Evidence: `notes/landscape-lod-recon.md`, `notes/vegetation-lod-ab.png`,
+  `test_cpp_vegetation_sector_lod`, `test_cpp_vegetation_frustum_cull`.
 - [ ] Read scenario/landscape placement data beyond buildings; instance
-  meshes; cull.
+  meshes.
 - **Acceptance:** 1,000+ instances render at interactive FPS.
 - **Depends on:** WORLD-1.
 - **Status:** vegetation placement and batching done (1,536 instances in 9
@@ -1266,6 +1271,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `0x00600f80` / draw `0x00600df0`: front=-X, left=+Y, back=+X, right=-Y,
   top=+Z, bottom=-Z, UVs (0,0),(1,0),(0,1),(1,1), v=0 at the PNG top.
   The previous mapping was rotated ~90 degrees.
+- [x] Skybox bottom/side seam (R-1): `0x00600df0` sets `world =
+  Scale(100) * Translate(camera)` on a unit cube, so the port now draws a
+  ±100 cube centred on the eye instead of an 8,000-unit cube at the origin.
+  Evidence: `notes/skybox-seam-recon.md`, `notes/skybox-seam-ab.png`,
+  `test_cpp_skybox_follows_camera`.
 - [x] Side-by-side at isl01 09:42, same camera (`notes/p5-side-by-side.png`):
   terrain, basemap, vegetation, HUD and warm fog match. Remaining polish:
   minimap rotation/detail and slightly smoother retail terrain shading.

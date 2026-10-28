@@ -33,6 +33,23 @@ The material texture name is resolved under the `.bbi` texture directory when
 present, otherwise `Data/Graphics/Textures/buildings` (the Entrance material
 is `boat.tga`).
 
+A static `.mesh` can have several chunks, and retail draws them all. The
+port loads every chunk (`dino::load_mesh_chunks`) and draws one part per
+chunk and material with its own texture. `entrance_lod1.mesh` is the boat,
+radar, `ponton2` (gangway, `boat.tga` + `ponton.tga`) and `ponton` (pier,
+posts and gate, `ponton.tga`): 854 vertices, 577 triangles, 5 parts.
+
+### Starting road
+
+When a park starts, retail lays one free road from each Entrance
+(`FUN_0051dad0`): the `.bbi` door segment (file 89..101) is rotated into the
+building's door rect (`FUN_00586b80`), its centre snapped to the 4-unit grid,
+and the road runs 8 units back and 52 units out along the orientation. isl01
+gives `(524,392)-(524,452)`, the rectangle in every retail free-game save. The
+port lays it on a Free Game start (and, opt-in, for a `--building` Entrance
+with `--build --entrance-road`). Evidence: `notes/entrance-dock-road-recon.md`,
+`notes/entrance-dock-road.png`.
+
 ## CLI
 
 ```text

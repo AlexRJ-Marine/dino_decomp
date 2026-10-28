@@ -106,6 +106,15 @@ struct Options {
     bool loop_audio = true;
     bool muted = false;
     bool no_vegetation = false;
+    // Dino.ini [GRAPHIC] LODQuality; empty = read it from the asset root.
+    std::string lod_quality;
+    bool no_lod = false;  // draw every vegetation sector at LOD1 (A/B)
+    bool no_cull = false;  // disable the port-only frustum test (A/B)
+    // Lay the FUN_0051dad0 access road for a --building Entrance at startup
+    // (the Free Game start always lays it).
+    bool entrance_road = false;
+    // Legacy terrain look: lit, fogged basemap without the detail map.
+    bool terrain_lit = false;
     bool skin_bind_from_skin = false;
     bool free_camera = false;
     bool build_mode = false;
@@ -226,7 +235,7 @@ struct Options {
     // Main-menu Options (Dino.ini settings). Defaults from the retail config:
     // 800x600x16, depth 16, quality AUTO, software TNL/sound, GameSpeed 10.
     int game_speed = 10;
-    int lod_quality = 3;      // 0 High, 1 Medium, 2 Low, 3 Auto
+    int menu_lod_quality = 3;  // Main-menu Options: 0 High, 1 Medium, 2 Low, 3 Auto
     int texture_quality = 3;
     int texture_depth = 16;
     int hardware_tnl = 0;
@@ -295,7 +304,7 @@ void load_config(const std::string& path, Options& opt) {
         } else if (key == "game_speed") {
             opt.game_speed = value;
         } else if (key == "lod_quality") {
-            opt.lod_quality = value;
+            opt.menu_lod_quality = value;
         } else if (key == "texture_quality") {
             opt.texture_quality = value;
         } else if (key == "texture_depth") {
@@ -321,7 +330,7 @@ void save_config(const std::string& path, const Options& opt) {
     out << "music_volume=" << static_cast<int>(opt.music_volume) << "\n";
     out << "sfx_volume=" << static_cast<int>(opt.sfx_volume) << "\n";
     out << "game_speed=" << opt.game_speed << "\n";
-    out << "lod_quality=" << opt.lod_quality << "\n";
+    out << "lod_quality=" << opt.menu_lod_quality << "\n";
     out << "texture_quality=" << opt.texture_quality << "\n";
     out << "texture_depth=" << opt.texture_depth << "\n";
     out << "hardware_tnl=" << opt.hardware_tnl << "\n";
@@ -394,6 +403,16 @@ Options parse_args(int argc, char** argv) {
             opt.height_scale = static_cast<float>(std::atof(next("--height-scale")));
         } else if (arg == "--no-vegetation") {
             opt.no_vegetation = true;
+        } else if (arg == "--lod-quality") {
+            opt.lod_quality = next("--lod-quality");
+        } else if (arg == "--no-lod") {
+            opt.no_lod = true;
+        } else if (arg == "--no-cull") {
+            opt.no_cull = true;
+        } else if (arg == "--entrance-road") {
+            opt.entrance_road = true;
+        } else if (arg == "--terrain-lit") {
+            opt.terrain_lit = true;
         } else if (arg == "--skin-bind") {
             const std::string value = next("--skin-bind");
             if (value == "skin") {
@@ -780,6 +799,13 @@ Options parse_args(int argc, char** argv) {
                 "  --terrain-size N     terrain world size (default 1024)\n"
                 "  --height-scale N     heightmap multiplier (default 1)\n"
                 "  --no-vegetation      skip the .imp/.blf placed objects\n"
+                "  --lod-quality Q      HIGH/MEDIUM/LOW/AUTO vegetation LOD range\n"
+                "                       (default: Dino.ini [GRAPHIC] LODQuality)\n"
+                "  --no-lod             draw all vegetation at LOD1, no distance cut\n"
+                "  --no-cull            draw vegetation batches outside the view too\n"
+                "  --entrance-road      with --build, lay the retail start road from a\n"
+                "                       --building Entrance (Free Game start does it)\n"
+                "  --terrain-lit        legacy lit terrain without the retail detail map\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --free-camera        start in free-fly camera mode (C toggles)\n"
                 "  --build              path/fence placement (1=path, 2=fence, 0=off, U=undo)\n"
@@ -1292,6 +1318,7 @@ struct MusicPlayer {
 
 struct GlFns {
     PFNGLGENVERTEXARRAYSPROC GenVertexArrays = nullptr;
+    PFNGLGENERATEMIPMAPPROC GenerateMipmap = nullptr;
     PFNGLBINDVERTEXARRAYPROC BindVertexArray = nullptr;
     PFNGLDELETEVERTEXARRAYSPROC DeleteVertexArrays = nullptr;
     PFNGLGENBUFFERSPROC GenBuffers = nullptr;
@@ -1369,6 +1396,7 @@ struct GlFns {
         LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
+        LOAD(GenerateMipmap, "glGenerateMipmap")
         LOAD(GenFramebuffers, "glGenFramebuffers")
         LOAD(BindFramebuffer, "glBindFramebuffer")
         LOAD(FramebufferTexture2D, "glFramebufferTexture2D")
@@ -1411,6 +1439,7 @@ layout(location = 3) in vec4 a_color;
 uniform mat4 u_mvp;
 uniform vec4 u_uv2_transform;
 uniform vec2 u_uv_offset;
+uniform float u_uv2_world;
 out vec3 v_normal;
 out vec2 v_uv;
 out vec2 v_uv2;
@@ -1425,6 +1454,10 @@ void main() {
     // WaterSurface stage 1 uses texture coordinate set 1: the same water
     // texture with a slightly different tiling and a small offset.
     v_uv2 = a_uv * u_uv2_transform.xy + u_uv2_transform.zw;
+    // DetailMap.ini stage 1 (coordinate set 1): world units / 16.
+    if (u_uv2_world > 0.0) {
+        v_uv2 = a_pos.xy * u_uv2_world;
+    }
     v_color = a_color;
     v_world = a_pos;
 }
@@ -1441,10 +1474,12 @@ uniform sampler2D u_texture2;
 uniform int u_use_texture;
 uniform int u_use_texture2;
 uniform int u_modulate2x;
+uniform int u_add_signed;
 uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
 uniform float u_alpha;
+uniform float u_alpha_ref;
 uniform int u_unlit;
 uniform vec3 u_camera;
 uniform vec3 u_fog_color;
@@ -1465,13 +1500,22 @@ void main() {
     }
     // WaterSurface.ini: stage 1 Modulate2x (Texture x Current, doubled),
     // alpha SelectArg1(Texture), texture coordinate set 1.
-    if (u_use_texture2 != 0) {
+    if (u_use_texture2 != 0 && u_add_signed != 0) {
+        // DetailMap.ini: stage 0 SelectArg1(basemap), stage 1
+        // AddSigned(detail, current) = detail + current - 0.5.
+        vec4 detail = texture(u_texture2, v_uv2);
+        base = clamp(texel.rgb + detail.rgb - 0.5, 0.0, 1.0);
+    } else if (u_use_texture2 != 0) {
         vec4 texel2 = texture(u_texture2, v_uv2);
         if (u_modulate2x != 0) {
             texel2.rgb = clamp(texel2.rgb * 2.0, 0.0, 1.0);
         }
         base *= texel2.rgb;
         texel.a *= texel2.a;
+    }
+    // mgStateAlphaTest Ref 128 Func Greater (TextureAlpha*.ini).
+    if (u_alpha_ref >= 0.0 && u_use_texture != 0 && texel.a <= u_alpha_ref) {
+        discard;
     }
     if (u_unlit == 2) {
         frag_color = vec4(v_color.rgb, texel.r * u_alpha * v_color.a);
@@ -1659,6 +1703,20 @@ GLuint upload_texture(const dino::Image& image) {
     return upload_texture_wrapped(image, GL_CLAMP_TO_EDGE);
 }
 
+// Terrain detail map: repeat-wrapped and mipmapped. Retail asks for no mip
+// maps (TextureParam_DetailMap.txt), but the world/16 tiling then aliases
+// into noise at park-camera distances; the dgVoodoo2 retail captures show a
+// filtered detail layer, which mipmaps reproduce.
+GLuint upload_detail_texture(const dino::Image& image, const GlFns& gl) {
+    const GLuint id = upload_texture_wrapped(image, GL_REPEAT);
+    if (gl.GenerateMipmap != nullptr) {
+        gl.GenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                        GL_LINEAR_MIPMAP_LINEAR);
+    }
+    return id;
+}
+
 dino::Mesh make_water_plane(float half_size, float z, float tiles) {
     dino::Mesh mesh;
     mesh.name = "water";
@@ -1673,6 +1731,11 @@ dino::Mesh make_water_plane(float half_size, float z, float tiles) {
     mesh.indices = {0, 1, 2, 0, 2, 3};
     return mesh;
 }
+
+// The retail draw 0x00600df0 sets world = Scale(100) * Translate(camera) on a
+// unit cube from the builder, so the box is 200 units across and always
+// centred on the eye (draw_scene adds the translation).
+constexpr float kSkyboxHalfSize = 100.0f;
 
 dino::Mesh make_sky_face(int index, float half_size) {
     const float h = half_size;
@@ -2117,6 +2180,8 @@ struct DrawItem {
     // Skip lighting for flat preview quads whose sampled colour must match
     // retail exactly (enclosure disc).
     bool unlit = false;
+    // Cut-out textures (trees): discard texels with alpha <= 128/255.
+    bool alpha_test = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
     int fog = 0;
     // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
@@ -2125,6 +2190,44 @@ struct DrawItem {
     float uv_offset[2] = {0.0f, 0.0f};
     float uv2_scale[2] = {1.0f, 1.0f};
     float uv2_offset[2] = {0.0f, 0.0f};
+    // Vegetation sector batches: drawn only while the flag is non-zero.
+    const unsigned char* visible = nullptr;
+    // World bounding sphere (x, y, z, radius); radius < 0 = never culled.
+    float bound[4] = {0.0f, 0.0f, 0.0f, -1.0f};
+};
+
+// Port-only view-frustum test (retail landscape objects have none; they are
+// cut by LOD distance only). Planes come from rows of the column-vector
+// clip matrix: w +/- x, w +/- y, w +/- z.
+struct Frustum {
+    float planes[6][4];
+    explicit Frustum(const dino::Mat4& clip) {
+        const float* m = clip.m;
+        for (int i = 0; i < 3; ++i) {
+            for (int s = 0; s < 2; ++s) {
+                float* plane = planes[i * 2 + s];
+                const float sign = s == 0 ? 1.0f : -1.0f;
+                for (int k = 0; k < 4; ++k) {
+                    plane[k] = m[12 + k] + sign * m[i * 4 + k];
+                }
+                const float len = std::sqrt(plane[0] * plane[0] +
+                                            plane[1] * plane[1] +
+                                            plane[2] * plane[2]);
+                for (int k = 0; k < 4; ++k) {
+                    plane[k] /= len;
+                }
+            }
+        }
+    }
+    bool outside(const float sphere[4]) const {
+        for (const auto& plane : planes) {
+            if (plane[0] * sphere[0] + plane[1] * sphere[1] +
+                    plane[2] * sphere[2] + plane[3] < -sphere[3]) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 dino::Mat4 ortho(float left, float right, float bottom, float top,
@@ -2198,17 +2301,21 @@ struct MinimapTarget {
     }
 };
 
-void draw_scene(const GpuMesh& mesh, GLuint texture,
+// Returns how many bounded extras the frustum test skipped.
+int draw_scene(const GpuMesh& mesh, GLuint texture,
                 const std::vector<DrawItem>& extras,
                 const SkyboxGL& skybox,
                 GLuint program,
                 const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
-                int width, int height, float fov_deg = 33.0f) {
+                int width, int height, float fov_deg = 33.0f,
+                bool cull = true, GLuint detail_texture = 0) {
     const dino::Mat4 proj = perspective(fov_deg,
                                         static_cast<float>(width) / std::max(1, height),
                                         0.1f, 20000.0f);
     const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
     const dino::Mat4 mvp = dino::multiply(proj, view);
+    const Frustum frustum(mvp);
+    int culled = 0;
 
     glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2232,6 +2339,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
                  0.0f, 0.0f);
     gl.Uniform2f(gl.GetUniformLocation(program, "u_uv_offset"), 0.0f, 0.0f);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
+    const GLint alpha_ref_loc = gl.GetUniformLocation(program, "u_alpha_ref");
+    gl.Uniform1f(alpha_ref_loc, -1.0f);
 
     // Data/States/FogParam.txt: linear 1500..2000, colour (255,220,165).
     const GLint camera_loc = gl.GetUniformLocation(program, "u_camera");
@@ -2249,6 +2358,13 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
 
     const GLint unlit_loc = gl.GetUniformLocation(program, "u_unlit");
     if (skybox.ready) {
+        dino::Mat4 follow;
+        follow.m[3] = eye.x;
+        follow.m[7] = eye.y;
+        follow.m[11] = eye.z;
+        const dino::Mat4 sky_mvp = dino::multiply(mvp, follow);
+        gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                            sky_mvp.m);
         gl.Uniform1i(unlit_loc, 1);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
@@ -2264,6 +2380,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         }
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
+        gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                            mvp.m);
         gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"),
                      texture != 0 ? 1 : 0);
     }
@@ -2273,8 +2391,27 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         gl.ActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
     }
+    // Retail terrain state DATA\states\detailmap.ini (bound by 0x5f3f10 before
+    // gpkLandscape 0x5fb8b0): unlit, no fog, basemap AddSigned detail map on
+    // texture coordinates world/16 (landscape parameter 1/16 at 0x5fb8b0).
+    const bool detail = detail_texture != 0 && texture != 0;
+    if (detail) {
+        gl.ActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, detail_texture);
+        gl.ActiveTexture(GL_TEXTURE0);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture2"), 1);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_add_signed"), 1);
+        gl.Uniform1f(gl.GetUniformLocation(program, "u_uv2_world"), 1.0f / 16.0f);
+        gl.Uniform1i(unlit_loc, 1);
+    }
     gl.BindVertexArray(mesh.vao);
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, nullptr);
+    if (detail) {
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture2"), 0);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_add_signed"), 0);
+        gl.Uniform1f(gl.GetUniformLocation(program, "u_uv2_world"), 0.0f);
+        gl.Uniform1i(unlit_loc, 0);
+    }
 
     const GLint use_texture_loc = gl.GetUniformLocation(program, "u_use_texture");
     const GLint alpha_loc = gl.GetUniformLocation(program, "u_alpha");
@@ -2288,9 +2425,19 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         if (item.mesh == nullptr || item.mesh->vao == 0) {
             continue;
         }
+        if (item.visible != nullptr && *item.visible == 0) {
+            continue;
+        }
+        if (item.bound[3] >= 0.0f && frustum.outside(item.bound)) {
+            if (cull) {
+                ++culled;
+                continue;
+            }
+        }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1i(unlit_loc, item.unlit ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
+        gl.Uniform1f(alpha_ref_loc, item.alpha_test ? 128.0f / 255.0f : -1.0f);
         gl.Uniform1i(use_texture2_loc, item.texture2 != 0 ? 1 : 0);
         gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
         gl.Uniform4f(uv2_loc, item.uv2_scale[0], item.uv2_scale[1],
@@ -2336,7 +2483,9 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform1i(use_texture2_loc, 0);
     gl.Uniform1i(modulate2x_loc, 0);
     gl.Uniform2f(uv_offset_loc, 0.0f, 0.0f);
+    gl.Uniform1f(alpha_ref_loc, -1.0f);
     gl.UseProgram(0);
+    return culled;
 }
 
 void build_skin_mapping(const dino::Skin& skin, const dino::Skeleton& skeleton,
@@ -2831,6 +2980,56 @@ int run_selftest() {
         dino::paint_roads(small, painted, 1024.0f);
         const std::uint8_t* sp = &small.rgba[(static_cast<std::size_t>(490) * 512 + 20) * 4];
         check(sp[0] == 253 && sp[1] == 198 && sp[2] == 137, "road paint small map fill only");
+
+        // spRoadNetwork (notes/road-network-recon.md).
+        dino::BuildGrid net;
+        net.init(4.0f, 1024.0f);
+        dino::add_road(net, {100, 100, 100, 140});
+        dino::add_road(net, {100, 144, 100, 160});
+        check(net.roads.size() == 1 && net.roads[0].y0 == 100 &&
+                  net.roads[0].y1 == 160,
+              "road network merges touching collinear roads (0x58d890)");
+        dino::add_road(net, {104, 120, 140, 120});
+        check(net.roads.size() == 2 && net.roads[0].x0 == 100 &&
+                  net.roads[1].x0 == 100 && net.roads[1].y0 == 120 &&
+                  net.roads[1].x1 == 140,
+              "road network snaps a T-junction onto the side road (0x58d9d0)");
+        dino::add_road(net, {120, 100, 120, 116});
+        check(net.roads.size() == 3 && net.roads[2].x0 == 120 &&
+                  net.roads[2].y1 == 120,
+              "road network extends a road that stops short of another");
+        dino::BuildGrid one;
+        one.init(4.0f, 1024.0f);
+        dino::add_road(one, {40, 40, 40, 44});
+        dino::Image rect_map;
+        rect_map.width = rect_map.height = 1024;
+        rect_map.rgba.assign(1024u * 1024u * 4u, 0);
+        dino::paint_roads(rect_map, one, 1024.0f);
+        auto texel = [&](int x, int row) {
+            return &rect_map.rgba[(static_cast<std::size_t>(row) * 1024 + x) * 4];
+        };
+        // (40,40)-(40,44) covers x 40..43, rows 1023-47..1023-40 = 976..983.
+        check(texel(40, 980)[0] == 170 && texel(43, 980)[0] == 170 &&
+                  texel(41, 976)[0] == 170 && texel(41, 983)[0] == 170,
+              "road segment painted with a full 1-texel border (0x602380)");
+        check(texel(41, 977)[0] == 253 && texel(42, 982)[0] == 253 &&
+                  texel(44, 980)[3] == 0 && texel(41, 975)[3] == 0,
+              "road segment fill is inset and ends at x1+3 / y1+3");
+        // Crossing: vertical x 100..103 and horizontal y 120..123. The
+        // vertical road's border column x=100 inside the horizontal road's
+        // fill rows (y 121..122 -> rows 901..902) stays sand (fill z 0.996
+        // beats border z 0.997 under ShapeColor2D LessEqual).
+        dino::BuildGrid cross;
+        cross.init(4.0f, 1024.0f);
+        dino::add_road(cross, {80, 120, 140, 120});
+        dino::add_road(cross, {100, 100, 100, 140});
+        std::fill(rect_map.rgba.begin(), rect_map.rgba.end(), 0);
+        dino::paint_roads(rect_map, cross, 1024.0f);
+        check(texel(100, 901)[0] == 253 && texel(103, 902)[0] == 253 &&
+                  texel(101, 900)[0] == 253 && texel(99, 901)[0] == 253,
+              "road crossing joins without border lines (fill over border)");
+        check(texel(100, 890)[0] == 170 && texel(90, 900)[0] == 170,
+              "road crossing keeps the outer borders");
     }
 
     dino::Paddock paddock;
@@ -3896,6 +4095,13 @@ int main(int argc, char** argv) {
                 records.animals.size(), records.employees.size(),
                 records.buildings.size(), records.visitors.size(),
                 records.dinosaurs.size(), sim.roads.size());
+            for (const auto& b : records.buildings) {
+                std::printf("sav building: kind=%u cell=%u,%u state=%u\n",
+                            b.kind, b.cell_x, b.cell_y, b.state);
+            }
+            for (const auto& r : sim.roads) {
+                std::printf("sav road: %d,%d-%d,%d\n", r.x0, r.y0, r.x1, r.y1);
+            }
             std::printf(
                 "sav flags: feature=%zu building=%zu food=%zu misc=%zu\n",
                 records.feature_flags.size(), records.building_flags.size(),
@@ -4682,7 +4888,7 @@ int main(int argc, char** argv) {
         menu.sfx_volume = std::clamp(
             static_cast<int>(std::lround(opt.sfx_volume)), 0, 100);
         menu.game_speed = std::clamp(opt.game_speed, 0, 97);
-        menu.lod_quality = std::clamp(opt.lod_quality, 0, 3);
+        menu.lod_quality = std::clamp(opt.menu_lod_quality, 0, 3);
         menu.texture_quality = std::clamp(opt.texture_quality, 0, 3);
         menu.texture_depth = opt.texture_depth == 32 ? 32 : 16;
         menu.hardware_tnl = opt.hardware_tnl != 0 ? 1 : 0;
@@ -4701,6 +4907,15 @@ int main(int argc, char** argv) {
         }
         menu.options_sync_positions();
         menu.game_speed_dirty = menu.game_speed != 10;
+        // The menu Options LOD quality is the same retail setting as
+        // Dino.ini [GRAPHIC] LODQuality (R-2 vegetation range). An explicit
+        // `--lod-quality NAME` still wins.
+        if (opt.lod_quality.empty()) {
+            static const char* const kLodNames[] = {"HIGH", "MEDIUM", "LOW",
+                                                    "AUTO"};
+            opt.lod_quality =
+                kLodNames[std::clamp(opt.menu_lod_quality, 0, 3)];
+        }
     }
 
 
@@ -5111,6 +5326,7 @@ int main(int argc, char** argv) {
 
     dino::Mesh mesh;
     dino::Image image;
+    dino::Image detail_image;  // .lnd detail map (DetailMap.ini stage 1)
     dino::Image dino_image;
     dino::Skeleton skeleton;
     dino::Skin skin;
@@ -5119,6 +5335,27 @@ int main(int argc, char** argv) {
     dino::Lnd lnd;
     dino::Terrain terrain;
     dino::Vegetation vegetation;
+    // Retail reads LODQuality from Data/Config/Dino.ini (default AUTO = 1.0).
+    float lod_quality = 1.0f;
+    {
+        std::string setting = opt.lod_quality;
+        if (setting.empty()) {
+            const std::string ini_path =
+                resolve_asset(opt.asset_root, "Data/Config/Dino.ini");
+            if (std::filesystem::exists(ini_path)) {
+                try {
+                    const auto ini = dino::ui::load_ini(ini_path);
+                    if (const auto* graphic = ini.find("GRAPHIC")) {
+                        setting = graphic->get("LODQuality");
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "Dino.ini: %s\n", e.what());
+                }
+            }
+        }
+        lod_quality = dino::landscape_lod_quality(setting);
+    }
+    bool veg_stats = true;  // print the first frame's LOD split
     dino::BuildGrid build_grid;
     dino::Mesh fence_source;
     dino::Image path_image;
@@ -5164,6 +5401,14 @@ int main(int argc, char** argv) {
             }
             if (opt.texture_path.empty() && !lnd.basemap.empty()) {
                 image = dino::load_tga(resolve_asset(opt.asset_root, lnd.basemap));
+            }
+            if (!opt.terrain_lit && !lnd.detailmap.empty()) {
+                try {
+                    detail_image = dino::load_tga(
+                        resolve_asset(opt.asset_root, lnd.detailmap));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "detail map: %s\n", e.what());
+                }
             }
             if (!opt.no_vegetation) {
                 vegetation = dino::load_vegetation(opt.asset_root, lnd, terrain);
@@ -5524,8 +5769,12 @@ int main(int argc, char** argv) {
                         terrain.mesh.triangle_count());
             if (!opt.no_vegetation) {
                 std::printf("vegetation: %zu groups, %zu instances, %zu triangles\n",
-                            vegetation.groups.size(), vegetation.instances,
+                            vegetation.entries, vegetation.instances,
                             vegetation.triangles);
+                std::printf("vegetation lod: %zu sector batches, lod2 %zu "
+                            "triangles, quality %.1f\n",
+                            vegetation.groups.size(), vegetation.lod2_triangles,
+                            lod_quality);
                 for (const auto& warning : vegetation.warnings) {
                     std::printf("vegetation warning: %s\n", warning.c_str());
                 }
@@ -5638,7 +5887,7 @@ int main(int argc, char** argv) {
         opt.music_volume = static_cast<float>(menu.music_volume);
         opt.sfx_volume = static_cast<float>(menu.sfx_volume);
         opt.game_speed = menu.game_speed;
-        opt.lod_quality = menu.lod_quality;
+        opt.menu_lod_quality = menu.lod_quality;
         opt.texture_quality = menu.texture_quality;
         opt.texture_depth = menu.texture_depth;
         opt.hardware_tnl = menu.hardware_tnl;
@@ -5726,6 +5975,10 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return 1;
     }
+    // Alpha test is off unless a draw item asks for it (uniforms start at 0).
+    glfns.UseProgram(program);
+    glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha_ref"), -1.0f);
+    glfns.UseProgram(0);
 
     SDL_AudioStream* audio = nullptr;
     if (!wav.data.empty()) {
@@ -5772,6 +6025,8 @@ int main(int argc, char** argv) {
     }
 
     GLuint texture = image.width > 0 ? upload_texture(image) : 0;
+    GLuint detail_texture =
+        detail_image.width > 0 ? upload_detail_texture(detail_image, glfns) : 0;
     const GLuint dino_texture = dino_image.width > 0 ? upload_texture(dino_image) : 0;
     const GLuint hud_font_texture =
         (opt.hud && hud_font_ready) ? upload_font_atlas(hud_font) : 0;
@@ -7099,20 +7354,69 @@ int main(int argc, char** argv) {
     }
 
     std::vector<GpuMesh> veg_gpu;
-    std::vector<GLuint> veg_textures;
-    veg_gpu.reserve(vegetation.groups.size());
-    veg_textures.reserve(vegetation.groups.size());
-    for (const auto& group : vegetation.groups) {
-        veg_gpu.push_back(upload_mesh(group.mesh, glfns));
-        GLuint group_texture = 0;
-        if (!group.texture_path.empty() && std::filesystem::exists(group.texture_path)) {
-            try {
-                group_texture = upload_texture(dino::load_tga(group.texture_path));
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+    std::vector<GLuint> veg_textures;          // one per group (shared ids)
+    std::vector<unsigned char> veg_visible;    // per group, set every frame
+    std::vector<std::array<float, 4>> veg_bounds;  // per group, world sphere
+    // Uploads each sector/LOD batch; a texture is uploaded once per path.
+    auto upload_vegetation = [&]() {
+        std::map<std::string, GLuint> cache;
+        veg_gpu.reserve(vegetation.groups.size());
+        veg_textures.reserve(vegetation.groups.size());
+        for (const auto& group : vegetation.groups) {
+            veg_gpu.push_back(upload_mesh(group.mesh, glfns));
+            GLuint group_texture = 0;
+            const auto cached = cache.find(group.texture_path);
+            if (cached != cache.end()) {
+                group_texture = cached->second;
+            } else if (!group.texture_path.empty() &&
+                       std::filesystem::exists(group.texture_path)) {
+                try {
+                    group_texture = upload_texture(dino::load_tga(group.texture_path));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+                }
+                cache[group.texture_path] = group_texture;
+            }
+            veg_textures.push_back(group_texture);
+        }
+        veg_visible.assign(vegetation.groups.size(), 1);
+        veg_bounds.clear();
+        for (const auto& group : vegetation.groups) {
+            Bounds box;
+            for (const auto& p : group.mesh.positions) {
+                box.add(p);
+            }
+            const float cx = (box.min.x + box.max.x) * 0.5f;
+            const float cy = (box.min.y + box.max.y) * 0.5f;
+            const float cz = (box.min.z + box.max.z) * 0.5f;
+            const float rx = box.max.x - cx;
+            const float ry = box.max.y - cy;
+            const float rz = box.max.z - cz;
+            veg_bounds.push_back({cx, cy, cz, std::sqrt(rx * rx + ry * ry + rz * rz)});
+        }
+    };
+    auto release_vegetation = [&]() {
+        for (auto& mesh : veg_gpu) {
+            mesh.destroy(glfns);
+        }
+        std::vector<GLuint> ids = veg_textures;
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+        for (const GLuint id : ids) {
+            if (id != 0) {
+                glDeleteTextures(1, &id);
             }
         }
-        veg_textures.push_back(group_texture);
+        veg_gpu.clear();
+        veg_textures.clear();
+        veg_visible.clear();
+        veg_bounds.clear();
+    };
+    upload_vegetation();
+    for (const auto& group : vegetation.groups) {
+        if (group.lod != 0) {
+            continue;
+        }
         for (const auto& p : group.mesh.positions) {
             bounds.add(p);
         }
@@ -7162,7 +7466,7 @@ int main(int argc, char** argv) {
         if (sky_images[i].width <= 0) {
             continue;
         }
-        skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
+        skybox.faces[i] = upload_mesh(make_sky_face(i, kSkyboxHalfSize), glfns);
         skybox.textures[i] = upload_texture(sky_images[i]);
         if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
             ++sky_faces;
@@ -7218,6 +7522,9 @@ int main(int argc, char** argv) {
     std::vector<dino::Attraction> attractions;
     int entrance_cell_x = -1;
     int entrance_cell_y = -1;
+    // FUN_0051dad0 access road of the last placed Entrance; laid as a free
+    // road when a park starts (Free Game start, or --build at startup).
+    std::optional<dino::WorldRect> entrance_road;
     dino::Vec3 building_center{1e30f, 1e30f, 1e30f};
 
     auto clear_buildings = [&]() {
@@ -7232,6 +7539,7 @@ int main(int argc, char** argv) {
         attractions.clear();
         entrance_cell_x = -1;
         entrance_cell_y = -1;
+        entrance_road.reset();
         building_center = {1e30f, 1e30f, 1e30f};
     };
 
@@ -7298,19 +7606,27 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            dino::Mesh placed;
+            // A static `.mesh` can hold several chunks (entrance_lod1: boat,
+            // radar, ponton2 gangway, ponton dock); retail draws them all, so
+            // every chunk/material becomes its own textured part.
+            std::vector<dino::Mesh> parts;
             if (ends_with_ci(mesh_rel, ".skin")) {
                 dino::Skin skinned =
                     dino::load_skin_auto(resolve_asset(opt.asset_root, mesh_rel));
-                placed = std::move(skinned.mesh);
+                parts.push_back(std::move(skinned.mesh));
                 // `.skin` full meshes are stored in centimetres.
-                for (dino::Vec3& p : placed.positions) {
+                for (dino::Vec3& p : parts.front().positions) {
                     p.x *= 0.01f;
                     p.y *= 0.01f;
                     p.z *= 0.01f;
                 }
             } else {
-                placed = dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
+                for (const dino::Mesh& chunk : dino::load_mesh_chunks(
+                         resolve_asset(opt.asset_root, mesh_rel))) {
+                    for (dino::Mesh& part : dino::split_by_material(chunk)) {
+                        parts.push_back(std::move(part));
+                    }
+                }
             }
             // `tail_strings` mostly holds the building's mesh/skeleton paths
             // (e.g. `DATA\graphics\buildings\souvenirs\souv_construction_
@@ -7331,16 +7647,20 @@ int main(int argc, char** argv) {
                     break;
                 }
             }
-            GLuint texture = 0;
-            const std::string texture_name = placed.texture_name();
-            if (!texture_name.empty()) {
-                try {
-                    texture = upload_texture(dino::load_tga(
-                        resolve_asset(opt.asset_root,
-                                      texture_dir + "/" + texture_name)));
-                } catch (const std::exception& e) {
-                    std::fprintf(stderr, "building texture: %s\n", e.what());
+            std::vector<GLuint> part_textures;
+            for (const dino::Mesh& part : parts) {
+                GLuint texture = 0;
+                const std::string texture_name = part.texture_name();
+                if (!texture_name.empty()) {
+                    try {
+                        texture = upload_texture(dino::load_tga(
+                            resolve_asset(opt.asset_root,
+                                          texture_dir + "/" + texture_name)));
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "building texture: %s\n", e.what());
+                    }
                 }
+                part_textures.push_back(texture);
             }
             // `FUN_00586b80`: cell_x/cell_y is the footprint min corner; odd
             // orientation states swap the footprint axes. `gpkBuilding`
@@ -7368,6 +7688,9 @@ int main(int argc, char** argv) {
             const float radians = angle_deg * 3.14159265f / 180.0f;
             const float cos_a = std::cos(radians);
             const float sin_a = std::sin(radians);
+            for (std::size_t part_index = 0; part_index < parts.size();
+                 ++part_index) {
+            dino::Mesh& placed = parts[part_index];
             if (def.model0 == 1) {
                 // FUN_0061c510: slope-aligned basis from the terrain normal.
                 const dino::TerrainBasis basis =
@@ -7408,7 +7731,9 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            building_draws.push_back({upload_mesh(placed, glfns), texture});
+            building_draws.push_back(
+                {upload_mesh(placed, glfns), part_textures[part_index]});
+            }
             if (kind >= 0) {
                 building_defs[kind] = def;
                 building_instances.push_back(
@@ -7426,6 +7751,9 @@ int main(int argc, char** argv) {
             if (def.category == 10) {
                 entrance_cell_x = centre_cell_x;
                 entrance_cell_y = centre_cell_y;
+                entrance_road = dino::entrance_access_road(
+                    def, static_cast<int>(cell_x), static_cast<int>(cell_y),
+                    orientation);
             } else if (def.category > 0) {
                 dino::Attraction attraction;
                 attraction.cell_x = centre_cell_x;
@@ -7444,11 +7772,25 @@ int main(int argc, char** argv) {
                 attraction.category = static_cast<int>(def.category);
                 attractions.push_back(attraction);
             }
+            std::size_t total_verts = 0;
+            std::size_t total_tris = 0;
+            const dino::Mesh* last_chunk = nullptr;
+            for (const dino::Mesh& part : parts) {
+                // Material parts of one chunk share its vertex array.
+                if (last_chunk == nullptr || part.name != last_chunk->name) {
+                    total_verts += part.positions.size();
+                }
+                last_chunk = &part;
+                total_tris += part.triangle_count();
+            }
+            const std::string texture_name =
+                parts.empty() ? std::string() : parts.front().texture_name();
             std::printf(
-                "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
-                "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f texture=%s\n",
-                def.name.c_str(), mesh_rel.c_str(), placed.positions.size(),
-                placed.triangle_count(), cell_x, cell_y, centre_x, centre_y, wz,
+                "building: %s mesh=%s verts=%zu tris=%zu parts=%zu "
+                "cell=%.1f,%.1f centre=%.1f,%.1f z=%.1f state=%d angle=%.0f "
+                "texture=%s\n",
+                def.name.c_str(), mesh_rel.c_str(), total_verts, total_tris,
+                parts.size(), cell_x, cell_y, centre_x, centre_y, wz,
                 orientation, angle_deg, texture_name.c_str());
             return true;
         } catch (const std::exception& e) {
@@ -7665,7 +8007,12 @@ int main(int argc, char** argv) {
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
         for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
-            extra_items.push_back({&veg_gpu[i], veg_textures[i]});
+            DrawItem item{&veg_gpu[i], veg_textures[i]};
+            item.visible = &veg_visible[i];
+            item.alpha_test = true;
+            std::copy(std::begin(veg_bounds[i]), std::end(veg_bounds[i]),
+                      std::begin(item.bound));
+            extra_items.push_back(item);
         }
         // Roads are painted into the terrain texture when the island has a
         // basemap; the tile mesh is only the fallback for bare terrain.
@@ -7801,6 +8148,13 @@ int main(int argc, char** argv) {
 
     if (opt.wld_park || sav_ready) {
         import_park_layout();
+    } else if (opt.entrance_road && entrance_road && build_ready) {
+        // Opt-in: treat a --building Entrance at startup as a fresh park.
+        dino::import_roads(build_grid, {*entrance_road});
+        rebuild_build_meshes();
+        std::printf("entrance road: %d,%d-%d,%d path_cells=%d\n",
+                    entrance_road->x0, entrance_road->y0, entrance_road->x1,
+                    entrance_road->y1, build_grid.path_count);
     }
     // `--visitors` is handled before the `.wld` roads are imported, so a
     // campaign park would spawn on zero path cells. Spawn once more after
@@ -8501,6 +8855,7 @@ int main(int argc, char** argv) {
     // heightmap, skybox, water, music and vegetation list, so only the folder
     // name is selected here. Used by the Free Game start handoff.
     auto load_island = [&](const std::string& island, bool reset_view) {
+        entrance_road.reset();
         if (visitor_profiles.empty()) {
             try {
                 visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
@@ -8539,6 +8894,15 @@ int main(int argc, char** argv) {
             new_image =
                 dino::load_tga(resolve_asset(opt.asset_root, new_lnd.basemap));
         }
+        dino::Image new_detail;
+        if (!opt.terrain_lit && !new_lnd.detailmap.empty()) {
+            try {
+                new_detail = dino::load_tga(
+                    resolve_asset(opt.asset_root, new_lnd.detailmap));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "detail map: %s\n", e.what());
+            }
+        }
         std::array<dino::Image, 6> new_sky{};
         const std::string sky_dir =
             opt.skybox_dir.empty() ? resolve_asset(opt.asset_root, new_lnd.skybox)
@@ -8576,16 +8940,7 @@ int main(int argc, char** argv) {
 
         // Release the previous island's GPU resources before replacing them.
         gpu.destroy(glfns);
-        for (auto& mesh : veg_gpu) {
-            mesh.destroy(glfns);
-        }
-        for (const GLuint id : veg_textures) {
-            if (id != 0) {
-                glDeleteTextures(1, &id);
-            }
-        }
-        veg_gpu.clear();
-        veg_textures.clear();
+        release_vegetation();
         for (int i = 0; i < 6; ++i) {
             skybox.faces[i].destroy(glfns);
             if (skybox.textures[i] != 0) {
@@ -8617,6 +8972,7 @@ int main(int argc, char** argv) {
                 texture = 0;
             }
             image = std::move(new_image);
+            detail_image = std::move(new_detail);
         }
 
         lnd = std::move(new_lnd);
@@ -8630,32 +8986,24 @@ int main(int argc, char** argv) {
         if (opt.texture_path.empty() && image.width > 0) {
             texture = upload_texture(image);
         }
+        if (detail_texture != 0) {
+            glDeleteTextures(1, &detail_texture);
+            detail_texture = 0;
+        }
+        if (detail_image.width > 0) {
+            detail_texture = upload_detail_texture(detail_image, glfns);
+        }
         display = terrain.mesh;
         gpu = upload_mesh(display, glfns);
 
-        veg_gpu.reserve(vegetation.groups.size());
-        veg_textures.reserve(vegetation.groups.size());
-        for (const auto& group : vegetation.groups) {
-            veg_gpu.push_back(upload_mesh(group.mesh, glfns));
-            GLuint group_texture = 0;
-            if (!group.texture_path.empty() &&
-                std::filesystem::exists(group.texture_path)) {
-                try {
-                    group_texture =
-                        upload_texture(dino::load_tga(group.texture_path));
-                } catch (const std::exception& e) {
-                    std::fprintf(stderr, "vegetation texture: %s\n", e.what());
-                }
-            }
-            veg_textures.push_back(group_texture);
-        }
+        upload_vegetation();
 
         int loaded_faces = 0;
         for (int i = 0; i < 6; ++i) {
             if (sky_images[i].width <= 0) {
                 continue;
             }
-            skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
+            skybox.faces[i] = upload_mesh(make_sky_face(i, kSkyboxHalfSize), glfns);
             skybox.textures[i] = upload_texture(sky_images[i]);
             if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
                 ++loaded_faces;
@@ -8759,11 +9107,13 @@ int main(int argc, char** argv) {
                 const dino::BuildingDef entrance = dino::load_bbi(
                     resolve_asset(opt.asset_root,
                                   "Data/Design/buildings/Entrance.bbi"));
+                const int state =
+                    std::clamp(static_cast<int>(lnd.unknown_int), 0, 3);
+                // place_building records the access road; the Free Game
+                // start lays it once the build grid exists.
                 place_building(entrance, static_cast<float>(lnd.width),
-                               static_cast<float>(lnd.height),
-                               std::clamp(static_cast<int>(lnd.unknown_int), 0,
-                                          3),
-                               0.0f, 1.0f, 9);
+                               static_cast<float>(lnd.height), state, 0.0f,
+                               1.0f, 9);
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "entrance: %s\n", e.what());
             }
@@ -8775,6 +9125,9 @@ int main(int argc, char** argv) {
             bounds.add(p);
         }
         for (const auto& group : vegetation.groups) {
+            if (group.lod != 0) {
+                continue;
+            }
             for (const auto& p : group.mesh.positions) {
                 bounds.add(p);
             }
@@ -9654,6 +10007,9 @@ int main(int argc, char** argv) {
         state.origin_y = build_grid.origin_y;
         state.width = build_grid.width;
         state.height = build_grid.height;
+        for (const dino::WorldRect& road : build_grid.roads) {
+            state.roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
         for (int cy = 0; cy < build_grid.height; ++cy) {
             for (int cx = 0; cx < build_grid.width; ++cx) {
                 if (build_grid.path_at(cx, cy)) {
@@ -10335,6 +10691,9 @@ int main(int argc, char** argv) {
         for (const auto& cell : state.paths) {
             build_grid.set_path(cell.first, cell.second, true);
         }
+        for (const auto& road : state.roads) {
+            dino::add_road(build_grid, {road[0], road[1], road[2], road[3]});
+        }
         for (const dino::PortFenceState& fence : state.fences) {
             build_grid.set_fence(fence.x, fence.y, fence.edge, true);
         }
@@ -10639,6 +10998,9 @@ int main(int argc, char** argv) {
         state.origin_y = import_grid.origin_y;
         state.width = import_grid.width;
         state.height = import_grid.height;
+        for (const dino::WorldRect& road : import_grid.roads) {
+            state.roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
         for (int y = 0; y < import_grid.height; ++y) {
             for (int x = 0; x < import_grid.width; ++x) {
                 if (import_grid.path_at(x, y)) {
@@ -12146,6 +12508,16 @@ int main(int argc, char** argv) {
                         current_island =
                             island_names[static_cast<std::size_t>(island_index)];
                         minimap_rendered_scale = -1.0f;
+                        if (entrance_road) {
+                            ensure_build_ready();
+                            dino::import_roads(build_grid, {*entrance_road});
+                            rebuild_build_meshes();
+                            std::printf(
+                                "entrance road: %d,%d-%d,%d path_cells=%d\n",
+                                entrance_road->x0, entrance_road->y0,
+                                entrance_road->x1, entrance_road->y1,
+                                build_grid.path_count);
+                        }
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "island load: %s\n", e.what());
                     }
@@ -13551,9 +13923,43 @@ int main(int argc, char** argv) {
                 item.uv2_offset[1] = 0.01f * water_scroll;
             }
         }
-        draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
-                   view_center, width, height,
-                   terrain.world_size > 0.0f ? 80.0f : 33.0f);
+        // gpkLandscapeSector 0x609970: one camera distance per sector,
+        // then every object in it picks LOD1/LOD2/none (0x508c10).
+        for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+            const auto& group = vegetation.groups[i];
+            if (opt.no_lod) {
+                veg_visible[i] = group.lod == 0 ? 1 : 0;
+                continue;
+            }
+            const dino::Vec3& c = vegetation.sector_centres[group.sector];
+            const float dx = c.x - eye.x;
+            const float dy = c.y - eye.y;
+            const float dz = c.z - eye.z;
+            const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+            veg_visible[i] =
+                dino::landscape_lod(distance, lod_quality) == group.lod ? 1 : 0;
+        }
+        const int culled =
+            draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
+                       view_center, width, height,
+                       terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull,
+                       opt.texture_path.empty() ? detail_texture : 0);
+        if (veg_stats) {
+            std::size_t drawn[2] = {0, 0};
+            std::size_t batches = 0;
+            for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+                if (veg_visible[i] != 0) {
+                    drawn[vegetation.groups[i].lod] += vegetation.groups[i].instances;
+                    ++batches;
+                }
+            }
+            std::printf("vegetation frame: lod1 %zu lod2 %zu hidden %zu, "
+                        "batches %zu culled %d\n",
+                        drawn[0], drawn[1],
+                        vegetation.instances - drawn[0] - drawn[1], batches,
+                        culled);
+            veg_stats = false;
+        }
 
         auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
                            int unlit) {

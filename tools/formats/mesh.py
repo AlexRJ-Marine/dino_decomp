@@ -200,6 +200,82 @@ def read_mesh(path: Path) -> Mesh:
     )
 
 
+@dataclass
+class MeshChunk:
+    name: str
+    vertex_count: int
+    triangle_count: int
+    textures: list[str]
+    triangle_materials: list[int]
+    bounds: tuple[tuple[float, float, float], tuple[float, float, float]]
+
+
+def read_mesh_chunks(path: Path) -> list[MeshChunk]:
+    """Read every chunk of a ``.mesh`` and require the file to end after them.
+
+    Per chunk: ``u32 name_len, name, vertex_count, positions, index_count,
+    indices, (u8 flag, u32 count, data) for UVs and normals, u8 colour flag,
+    u32 colour count, colours, u32 material count, materials (21 bytes + two
+    strings), u32 triangle count, u16 material per triangle, 16 zero bytes``.
+    A cleared UV/normal flag still carries a zero count.
+    """
+    data = path.read_bytes()
+    if data[:5] != MAGIC:
+        raise MeshFormatError(f"bad magic at 0x00: {data[:5].hex(' ')}")
+    _, sentinel, chunk_count = struct.unpack_from("<3I", data, 5)
+    if sentinel != SENTINEL:
+        raise MeshFormatError(f"bad sentinel at 0x09: {sentinel:#010x}")
+    u32 = lambda o: struct.unpack_from("<I", data, o)[0]  # noqa: E731
+
+    def string(o: int) -> tuple[str, int]:
+        n = u32(o)
+        _need(data, o + 4, n, "string")
+        if n == 0 or data[o + 4 + n - 1] != 0:
+            raise MeshFormatError(f"bad string at 0x{o:x}")
+        return data[o + 4 : o + 3 + n].decode("latin-1"), o + 4 + n
+
+    chunks: list[MeshChunk] = []
+    off = 0x11
+    for _ in range(chunk_count):
+        name, off = string(off)
+        vc = u32(off)
+        off += 4
+        points = [struct.unpack_from("<3f", data, off + i * 12) for i in range(vc)]
+        off += 12 * vc
+        ic = u32(off)
+        if ic % 3:
+            raise MeshFormatError(f"{name}: index_count {ic} not a multiple of 3")
+        off += 4 + 4 * ic
+        for stride, what in ((8, "uv"), (12, "normal")):
+            flag, count = data[off], u32(off + 1)
+            if flag not in (0, 1) or (flag and count != vc) or (not flag and count):
+                raise MeshFormatError(f"{name}: bad {what} block at 0x{off:x}")
+            off += 5 + stride * count
+        color_flag, color_count = data[off], u32(off + 1)
+        off += 5 + (4 * color_count if color_flag else 0)
+        textures: list[str] = []
+        material_count = u32(off)
+        off += 4
+        for _ in range(material_count):
+            off += 21
+            texture, off = string(off)
+            _, off = string(off)
+            textures.append(texture)
+        tri_count = u32(off)
+        if tri_count != ic // 3:
+            raise MeshFormatError(f"{name}: {tri_count} triangle materials, {ic // 3} triangles")
+        off += 4
+        _need(data, off, 2 * tri_count + 16, "triangle materials")
+        tri_mats = list(struct.unpack_from(f"<{tri_count}H", data, off))
+        off += 2 * tri_count + 16
+        lo = tuple(min(p[k] for p in points) for k in range(3)) if points else (0.0,) * 3
+        hi = tuple(max(p[k] for p in points) for k in range(3)) if points else (0.0,) * 3
+        chunks.append(MeshChunk(name, vc, ic // 3, textures, tri_mats, (lo, hi)))
+    if off != len(data):
+        raise MeshFormatError(f"{path}: {len(data) - off} bytes after {chunk_count} chunks")
+    return chunks
+
+
 def write_obj(mesh: Mesh, out: Path) -> None:
     with out.open("w", encoding="utf-8", newline="\n") as f:
         f.write(f"# {mesh.name} from {mesh.path}\n")

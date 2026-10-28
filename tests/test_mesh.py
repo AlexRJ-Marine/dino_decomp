@@ -6,7 +6,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools" / "formats"))
 
-from mesh import MeshFormatError, read_mesh, scan, write_obj  # noqa: E402
+from mesh import MeshFormatError, read_mesh, read_mesh_chunks, scan, write_obj  # noqa: E402
 
 GAME = ROOT / "game" / "%MAINDIR%"
 COW = GAME / "Data" / "Graphics" / "Actors" / "animals" / "cow" / "cow_lod1.mesh"
@@ -70,3 +70,33 @@ def test_obj_export(tmp_path):
 def test_rejects_bad_magic():
     with pytest.raises(MeshFormatError):
         read_mesh(Path(__file__))  # a Python file is not a mesh
+
+
+ENTRANCE = GAME / "Data" / "Graphics" / "buildings" / "entrance" / "entrance_lod1.mesh"
+
+
+def test_entrance_mesh_chunks():
+    """entrance_lod1.mesh holds the boat, radar, gangway and dock chunks."""
+    if not ENTRANCE.exists():
+        pytest.skip("retail sample not present")
+    chunks = read_mesh_chunks(ENTRANCE)
+    assert [c.name for c in chunks] == ["boat", "radar", "ponton2", "ponton"]
+    assert [c.vertex_count for c in chunks] == [296, 16, 20, 522]
+    assert [c.triangle_count for c in chunks] == [231, 6, 10, 330]
+    assert chunks[2].textures == ["boat.tga", "ponton.tga"]
+    assert sorted(set(chunks[2].triangle_materials)) == [0, 1]
+    assert chunks[3].textures == ["ponton.tga"]
+    # The dock runs from the boat side (x -22) past the pivot to the shore.
+    lo, hi = chunks[3].bounds
+    assert lo[0] < -20 and hi[0] > 8
+
+
+def test_all_meshes_chunk_layout():
+    """Every retail .mesh ends exactly after its chunk_count chunks."""
+    if not GAME.exists():
+        pytest.skip("retail game tree not present")
+    counts = {}
+    for path in sorted(GAME.rglob("*.mesh")):
+        n = len(read_mesh_chunks(path))
+        counts[n] = counts.get(n, 0) + 1
+    assert counts == {1: 516, 2: 13, 3: 2, 4: 5}

@@ -5,11 +5,20 @@
 #include <string>
 #include <vector>
 
+#include "../formats/bbi.h"
 #include "../formats/mesh.h"
 #include "../formats/tga.h"
 #include "terrain.h"
 
 namespace dino {
+
+// World-unit rectangle from a retail `.wld`/`.sav` road or fence record.
+struct WorldRect {
+    int x0 = 0;
+    int y0 = 0;
+    int x1 = 0;
+    int y1 = 0;
+};
 
 // Grid-based path/fence placement in the same 1024-unit world as the terrain.
 //
@@ -32,6 +41,10 @@ struct BuildGrid {
     std::vector<std::uint8_t> path;
     std::vector<std::uint8_t> fences;  // bit 0 = south, bit 1 = east
     std::vector<Change> undo_stack;
+    // spRoadNetwork segment list (+0x08..+0x0c): start/end points in world
+    // units (0..1024), x0 <= x1 and y0 <= y1, kept sorted by x0. A segment
+    // covers [x0, x1+3] x [y0, y1+3] (0x594810). Filled by add_road.
+    std::vector<WorldRect> roads;
     int path_count = 0;
     int fence_count = 0;
 
@@ -54,17 +67,32 @@ struct BuildMeshes {
     int fence_segments = 0;
 };
 
-// World-unit rectangle from a retail `.wld`/`.sav` road or fence record.
-struct WorldRect {
-    int x0 = 0;
-    int y0 = 0;
-    int x1 = 0;
-    int y1 = 0;
-};
-
 // Imports retail park data into the 4-unit grid. Road rectangles become path
 // cells; fence rectangles become canonical south/east edges.
 void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads);
+
+// spRoadNetwork::AddRoad (0x58d110): merges the new segment with collinear
+// segments that overlap or touch within 4 units (0x58d890), extends it or a
+// perpendicular segment by 4 so T-junctions overlap (0x58d9d0), inserts it
+// sorted by x0 (0x58dbd0) and marks its cells as path. Endpoints are world
+// units; they are ordered first (retail only builds +x/+y runs, see
+// notes/road-network-recon.md).
+void add_road(BuildGrid& grid, WorldRect road);
+
+// spBuilding door rect in engine units (FUN_00586b80, jump table 0x586d0c):
+// the .bbi door segment rotated by the orientation state around the
+// footprint at (cell_x, cell_y); values are truncated like __ftol.
+WorldRect building_door(const BuildingDef& def, int cell_x, int cell_y,
+                        int state);
+
+// FUN_0051dad0: when a park starts, retail lays one free road from each
+// Entrance (category 10). The door centre is snapped to the 4-unit grid and
+// the road runs 8 units back into the building and 52 units out:
+// state 0 (c-8,c)..(c+52,c), 1 (c,c-8)..(c,c+52), 2 (c-52)..(c+8),
+// 3 (c,c-52)..(c,c+8). isl01 (520,376) state 1 -> (524,392)-(524,452),
+// the road stored in every retail free-game save.
+WorldRect entrance_access_road(const BuildingDef& def, int cell_x, int cell_y,
+                               int state);
 void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences);
 
 // Retail paddock capacity model (`stFence`, 0x57dc60 / 0x57eb50). A paddock is
@@ -146,6 +174,11 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
 // smaller maps get the fill only. `image` is the top-down basemap (row 0 =
 // world y 1024). The port paints cells and borders only the sides that touch
 // a non-road cell, so joined roads read as one surface.
+// Road layer 0x602380: every segment of grid.roads, in list order, as an
+// opaque rectangle [x0, x1+3] x [y0, y1+3] (rows flipped); on a 1024x1024
+// texture an RGB(170,130,90) rectangle with an RGB(253,198,137) rectangle
+// inset by one texel, otherwise only the fill. Path cells that no complete
+// segment covers (legacy --place-path cells, undo) use the per-cell look.
 void paint_roads(Image& image, const BuildGrid& grid, float world_size);
 
 // `fence_source` is the retail fence segment (long axis = local +Y).

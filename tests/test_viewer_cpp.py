@@ -606,6 +606,122 @@ def test_cpp_skybox_and_water():
     assert "water2 256x256" in result.stdout
 
 
+_VEG_FRAME = re.compile(
+    r"vegetation frame: lod1 (\d+) lod2 (\d+) hidden (\d+), "
+    r"batches (\d+) culled (\d+)")
+
+
+def _vegetation_frame(tmp_path, name, *extra):
+    shot = tmp_path / f"{name}.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--no-park-hud",
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--camera-orbit",
+         *extra, "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    match = _VEG_FRAME.search(result.stdout)
+    assert match, result.stdout
+    return tuple(int(v) for v in match.groups()), Image.open(shot).convert("RGB")
+
+
+def test_cpp_vegetation_sector_lod(tmp_path):
+    """Retail gpkLandscape LOD: 15x15 sectors, LOD1 <= 200, LOD2 <= 400.
+
+    0x603ad0 registers the .blf LODs at 200/400 units, 0x609970 measures one
+    camera distance per sector and 0x508c10 picks the first level with
+    quality*distance >= d, else nothing (notes/landscape-lod-recon.md).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--config", str(tmp_path / "isolated.cfg")],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "vegetation: 9 groups, 1536 instances, 52291 triangles" in result.stdout
+    # Dino.ini ships LODQuality=AUTO, which retail maps to 1.0 (0x51d1d0).
+    assert ("vegetation lod: 422 sector batches, lod2 14576 triangles, "
+            "quality 1.0") in result.stdout
+
+    far = ["--distance", "300", "--pitch", "30", "--yaw", "30"]
+    (l1, l2, hidden, _, _), lod_img = _vegetation_frame(tmp_path, "auto", *far)
+    assert l1 + l2 + hidden == 1536
+    assert l1 > 0 and l2 > 0 and hidden > 0
+    (n1, n2, nh, _, _), full_img = _vegetation_frame(
+        tmp_path, "nolod", *far, "--no-lod")
+    assert (n1, n2, nh) == (1536, 0, 0)
+    assert ImageChops.difference(lod_img, full_img).getbbox() is not None
+    # HIGH doubles the ranges (2.0), LOW halves them (0.5).
+    (h1, _, hh, _, _), _ = _vegetation_frame(
+        tmp_path, "high", *far, "--lod-quality", "HIGH")
+    (w1, _, wh, _, _), _ = _vegetation_frame(
+        tmp_path, "low", *far, "--lod-quality", "LOW")
+    assert h1 > l1 > w1
+    assert hh < hidden < wh
+
+    # The retail park camera distance keeps nearby trees at LOD1.
+    (c1, _, _, _, _), _ = _vegetation_frame(
+        tmp_path, "near", "--distance", "65.6", "--pitch", "53.4", "--yaw", "0")
+    assert c1 > 0
+
+
+def test_cpp_vegetation_frustum_cull(tmp_path):
+    """Port-only frustum test skips off-screen batches without changing pixels."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    near = ["--distance", "65.6", "--pitch", "53.4", "--yaw", "0",
+            "--park-time", "09:42"]
+    (a1, a2, ah, batches, culled), culled_img = _vegetation_frame(
+        tmp_path, "cull", *near)
+    (b1, b2, bh, _, none), full_img = _vegetation_frame(
+        tmp_path, "nocull", *near, "--no-cull")
+    assert (a1, a2, ah) == (b1, b2, bh)
+    assert none == 0
+    assert 0 < culled < batches
+    # Frames differ run to run only by low-amplitude animation noise.
+    diff = ImageChops.difference(culled_img, full_img).convert("L")
+    assert max(diff.getextrema()) <= 8
+
+
+def test_cpp_skybox_follows_camera(tmp_path):
+    """Retail 0x00600df0 centres the sky cube on the eye (no bottom/side seam).
+
+    Looking 60 degrees down only the bottom face is visible, so no corner may
+    show the light-blue horizon band; looking up, the sky must not change with
+    the orbit distance. The old origin-centred cube failed both
+    (notes/skybox-seam-ab.png).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "320", "--height", "240",
+              "--no-vsync", "--no-save-config", "--camera-orbit", "--lnd",
+              str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+              "--yaw", "45"]
+
+    def shot(name, pitch, distance):
+        path = tmp_path / name
+        result = subprocess.run(
+            common + ["--pitch", pitch, "--distance", distance,
+                      "--screenshot", str(path)],
+            capture_output=True, text=True, timeout=180)
+        assert result.returncode == 0, result.stderr
+        return Image.open(path).convert("RGB")
+
+    down = shot("down.bmp", "60", "3000")
+    for corner in ((4, 4), (315, 4), (4, 235), (315, 235)):
+        r, g, _ = down.getpixel(corner)
+        assert r < 30 and g < 30, (corner, down.getpixel(corner))
+
+    near = shot("up-near.bmp", "-60", "1500")
+    far = shot("up-far.bmp", "-60", "3000")
+    strip = (0, 0, 320, 40)
+    diff = ImageStat.Stat(
+        ImageChops.difference(near.crop(strip), far.crop(strip))).mean
+    assert max(diff) < 2.0, diff
+
+
 def test_cpp_water_animation(tmp_path):
     """The two water layers scroll at the retail 0.03/0.01 UV/s rates."""
     if not EXE.exists() or not ISL01.exists():
@@ -759,7 +875,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (170 checks)" in result.stdout
+    assert "selftest: PASS (177 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -867,6 +983,115 @@ def test_cpp_retail_menu_clicks():
     )
     assert start.returncode == 0, start.stderr
     assert "menu page=8 active=1" in start.stdout
+
+
+def test_cpp_free_game_entrance_road(tmp_path):
+    """Free Game start lays the retail access road from the Entrance door.
+
+    FUN_0051dad0 + FUN_00586b80: isl01 Entrance (520,376) state 1 has its door
+    at (524,400); the road runs (524,392)-(524,452), the rectangle stored in
+    every retail free-game save (run*/save/slot00*.sav).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "3", "--screenshot", str(tmp_path / "s.bmp"),
+         "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--menu-loading-time", "0", "--menu-click", "395,234",
+         "--menu-click", "526,531"],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "building: Entrance mesh=" in result.stdout
+    assert "parts=5" in result.stdout
+    assert "entrance road: 524,392-524,452 path_cells=16" in result.stdout
+
+
+def test_cpp_entrance_dock_and_road_render(tmp_path):
+    """The dock chunks and the access road change the pixels at the shore."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    bbi = GAME / "Data" / "Design" / "buildings" / "Entrance.bbi"
+    common = [str(EXE), "--frames", "3", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "800", "--height", "600",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--camera-orbit",
+              "--camera-target", "13.5,-124.5", "--distance", "85",
+              "--pitch", "55", "--yaw", "0", "--building", str(bbi),
+              "--building-pos", "520,376", "--building-state", "1"]
+    road_shot = tmp_path / "road.bmp"
+    plain_shot = tmp_path / "plain.bmp"
+    road = subprocess.run(common + ["--build", "--entrance-road",
+                                    "--screenshot", str(road_shot)],
+                          capture_output=True, text=True, timeout=120)
+    plain = subprocess.run(common + ["--screenshot", str(plain_shot)],
+                           capture_output=True, text=True, timeout=120)
+    assert road.returncode == 0, road.stderr
+    assert plain.returncode == 0, plain.stderr
+    assert "entrance road: 524,392-524,452 path_cells=16" in road.stdout
+    with_road = Image.open(road_shot).convert("RGB")
+    without = Image.open(plain_shot).convert("RGB")
+    diff = ImageChops.difference(with_road, without).convert("L")
+    strong = diff.point(lambda v: 255 if v > 40 else 0)
+    box = strong.getbbox()
+    # The painted road starts at the dock gate (screen centre) and runs inland.
+    assert box is not None and box[2] - box[0] > 100, box
+
+
+def test_cpp_road_network_retail_segments(tmp_path):
+    """Road tool runs join into retail spRoadNetwork segments in the save.
+
+    The chained vertical runs 121..125 and 125..129 merge into one segment
+    (0x58d890); the corner run east from 129 stays its own segment. The port
+    save keeps the segment rectangles as `road` lines (T-junction snapping,
+    0x58d9d0, is covered by --selftest).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    target = tmp_path / "net.dpsav"
+    clicks = ["108,121", "108,125", "108,129", "115,129"]
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
+         str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--no-entrance", "--park-click", "765,248",
+         "--park-click", "645,86"]
+        + [a for c in clicks for a in ("--road-click", c)]
+        + ["--save-port", str(target)],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    roads = [ln.split()[1:] for ln in target.read_text().splitlines()
+             if ln.startswith("road ")]
+    # Cells 108,121..129 = world (432,484)-(432,516); then x 432..460 at 516.
+    assert roads == [["432", "484", "432", "516"],
+                     ["432", "516", "460", "516"]], roads
+
+
+def test_cpp_terrain_detail_map(tmp_path):
+    """Retail detailmap.ini: unlit basemap AddSigned the .lnd detail map.
+
+    The default terrain differs from --terrain-lit, and the detail layer adds
+    texture (higher local variance) to an otherwise smooth basemap area.
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "400", "--height", "300",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--camera-orbit",
+              "--distance", "40", "--pitch", "60", "--yaw", "0"]
+    shots = {}
+    for name, extra in (("detail", []), ("lit", ["--terrain-lit"])):
+        path = tmp_path / f"{name}.bmp"
+        run = subprocess.run(common + extra + ["--screenshot", str(path)],
+                             capture_output=True, text=True, timeout=120)
+        assert run.returncode == 0, run.stderr
+        shots[name] = Image.open(path).convert("L").crop((100, 100, 300, 250))
+    detail_var = ImageStat.Stat(shots["detail"]).var[0]
+    lit_var = ImageStat.Stat(shots["lit"]).var[0]
+    assert ImageChops.difference(shots["detail"], shots["lit"]).getbbox()
+    assert detail_var > lit_var, (detail_var, lit_var)
 
 
 def test_cpp_retail_menu_loading_handoff(tmp_path):
@@ -1886,7 +2111,8 @@ def test_cpp_building_bbi_place(tmp_path):
                        capture_output=True, text=True, timeout=120)
     assert b.returncode == 0, b.stderr
     assert "building: Entrance mesh=" in b.stdout
-    assert "verts=296 tris=231" in b.stdout
+    # boat, radar, ponton2 (gangway, two materials) and ponton (dock).
+    assert "verts=854 tris=577 parts=5" in b.stdout
     first = Image.open(base).convert("RGB")
     second = Image.open(placed).convert("RGB")
     region = (300, 250, 560, 430)

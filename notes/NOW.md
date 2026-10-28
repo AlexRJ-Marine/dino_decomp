@@ -63,6 +63,10 @@ See `notes/lanes.md`. Default split:
   `notes/video-exit-recon.md`). Next: R-16b and the Campaign Info mission
   list. Campaign Info has no retail mission list; use
   `campaign-progress.txt` (or a port-only override) to pick a mission.
+- R-1 (marcusrj): skybox seam fixed — retail `0x00600df0` centres a ±100 cube on the camera; `notes/skybox-seam-recon.md`, `test_cpp_skybox_follows_camera`.
+- R-20 (marcusrj): roads are retail `spRoadNetwork` segments (merge `0x58d890`, T-snap `0x58d9d0`, per-segment paint `0x602380`); terrain uses `detailmap.ini` (AddSigned detail, world/16, unlit); `notes/road-network-recon.md`.
+- R-19 (marcusrj): Entrance dock + start road — `.mesh` chunk_count is real (dock = chunks 3/4 of entrance_lod1), free game lays the `FUN_0051dad0` road (524,392)-(524,452); `notes/entrance-dock-road-recon.md`.
+- R-2 (marcusrj): vegetation LOD from retail gpkLandscape — 15x15 sectors, LOD1 <= 200 / LOD2 <= 400 x LODQuality, else hidden; port frustum cull on top; `notes/landscape-lod-recon.md`.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
   start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** on a fixed 60 Hz
@@ -117,7 +121,8 @@ See `notes/lanes.md`. Default split:
   perception reaction; the cache writers are done.
 - UI-2 Phase C rest: list snapshots, slider/checkbox selection, minimap
   water/partition polish.
-- WORLD-3/2 polish: skybox bottom/side seam, frustum culling/LOD2.
+- WORLD-3/2 polish: vegetation sector LOD + cull done (R-2); terrain
+  patch LOD and vegetation slope tilt remain.
 - TOOL-4: **park load solved.** The background stall was a hidden mcLib
   "Unable to restore previous video mode" dialog: dgVoodoo returned
   `D3DERR_DEVICELOST` for the park's 800x600 R5G6B5 Reset. The proxy now
@@ -150,7 +155,7 @@ See `notes/lanes.md`. Default split:
    LOAD has `BL=0` and restores it; the `0x58b1b0` skip is only the campaign
    `.wld` path (`BL=1`, no park block). The port matches; the 26000 mystery
    needs a runtime watch (`notes/hud-budget-restore-flag-recon.md` §8).
-7. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+7. WORLD-3: skybox seam fixed (R-1); capture a final retail side-by-side.
 
 ## Recent
 
@@ -162,6 +167,13 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
+- 2026-10-28 - R-20: roads as retail spRoadNetwork segments (merge 0x58d890, T-snap 0x58d9d0, per-segment paint 0x602380) + detailmap.ini terrain (AddSigned, world/16)
+- 2026-10-28 - R-19: Entrance dock (all .mesh chunks: boat/radar/ponton2/ponton) + FUN_0051dad0 free-game start road (524,392)-(524,452)
+- 2026-10-28 - R-2: vegetation sector LOD (retail 0x508c10/0x609970: LOD1<=200, LOD2<=400 x LODQuality) + port frustum cull
+- 2026-10-28 - R-1: skybox seam fixed - retail 0x00600df0 camera-centred +-100 cube; test_cpp_skybox_follows_camera
+- 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
+- 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
+- 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 
 ## Blockers
 

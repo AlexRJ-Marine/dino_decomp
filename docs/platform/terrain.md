@@ -38,6 +38,18 @@ The `.lnd` `width`/`height` (520×376) are kept as metadata. The 1024-unit
 world is confirmed by `.imp`: every instance on every island lies in
 `0..1024` (`docs/formats/imp.md`).
 
+## Detail map (`detailmap.ini`)
+
+Retail draws the island with `DATA\states\detailmap.ini` (bound by
+`0x5f3f10` before `gpkLandscape`): unlit, no fog, stage 0 = the basemap with
+roads painted in, stage 1 = **AddSigned** of the `.lnd` detail map
+(`detail + basemap - 0.5`) on texture coordinates `world/16`
+(`0x61fa1f..0x61facf`, landscape parameter `1/16`). The port does the same in
+the terrain pass; the detail texture is mipmapped to avoid aliasing at park
+distance (retail requests none). `--terrain-lit` restores the old lit,
+fogged basemap. Evidence: `notes/road-network-recon.md`,
+`notes/terrain-detail-compare.png`, `test_cpp_terrain_detail_map`.
+
 ## Vegetation (`.imp` + `.blf`)
 
 `src/world/vegetation.cpp` follows the `.lnd` vegetation list:
@@ -67,7 +79,30 @@ flipped. Cross-check on isl01: all 1,536 instances land on terrain
 order only 71.4% are on land and 40.6% on free cells.
 
 `isl01` result: 9 groups, 1,536 instances, 52,291 triangles; coordinates match
-the `.imp` totals exactly. Texture paths resolve through the `.blf` directory
+the `.imp` totals exactly.
+
+### LOD and culling (retail gpkLandscape)
+
+Retail files each object into a 15x15 grid of 64-unit sectors
+(`(int(y)>>6)*15 + (int(x)>>6)`, centres `32+64*i`, Z from the heightmap).
+Every frame a sector measures its distance `d` to the camera, and each object
+in it draws `.blf` LOD1 if `d <= 200*K`, LOD2 if `d <= 400*K`, otherwise
+nothing. `K` is `Dino.ini [GRAPHIC] LODQuality` (HIGH 2.0, MEDIUM 1.0,
+LOW 0.5, AUTO 1.0; retail ships AUTO). Evidence:
+`notes/landscape-lod-recon.md` (`0x603ad0`, `0x508c10`, `0x609970`,
+`0x5fb8b0`, `0x5fbf90`, `0x51d1d0`).
+
+The port bakes one batch per (entry, sector, LOD) (isl01: 422 batches, LOD2
+14,576 triangles) and applies the same rule each frame. Options:
+`--lod-quality Q` (default read from `Data/Config/Dino.ini`), `--no-lod`
+(everything LOD1, the old behaviour). Vegetation uses the cut-out AlphaTest
+(Ref 128, Greater) because the LOD2 textures are mostly transparent.
+
+Retail has no frustum test on this path. The port adds one as a pure
+optimisation: a bounding sphere per batch against the six clip planes
+(`--no-cull` turns it off); the picture is unchanged. Capture:
+`notes/vegetation-lod-ab.png`; tests `test_cpp_vegetation_sector_lod`,
+`test_cpp_vegetation_frustum_cull`. Texture paths resolve through the `.blf` directory
 (`Data/Graphics/Textures/buildings`).
 
 Options:
@@ -157,6 +192,6 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
   regardless of these fields.
 - Water plane / shoreline animation; currently the basemap ocean is painted on
   the heightfield.
-- Detailmap blending and terrain material layers.
+- Terrain material layers beyond the detail map (detail map done).
 - `.raw` occupation mask (1024×1024) semantics.
-- Slope tilt and LOD selection for vegetation (lod2 mesh + `_lod2` texture).
+- Slope tilt for vegetation (LOD selection is done, see above).

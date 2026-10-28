@@ -31,6 +31,11 @@ struct BuildingDef {
     std::uint32_t model0 = 0;
     float model1 = 0.0f;
     std::uint32_t model_count = 0;
+    // Door segment in footprint-local units, D+0x5c..+0x68 = file 89..101
+    // (x0, y0, x1, y1); every retail file has (w, h/2+0.5, w, h/2-0.5)
+    // except Security (6, 1, 6, -1). FUN_00586b80 turns it into
+    // spBuilding+0x18..+0x24.
+    std::array<float, 4> door{};
     std::vector<std::string> meshes;  // skin, crash/destroy/construction/lod1/lod2..., skel, anim
     std::vector<std::string> tail_strings;
 };

@@ -19,7 +19,7 @@ All `.mesh` files start with:
 | 0x00 | 5 | magic | `01 03 00 00 00` (shared with `.skin`, `.skel`, `.anim`) |
 | 0x05 | 4 | hash | u32 LE; varies per file |
 | 0x09 | 4 | sentinel | `78 56 34 12` = `0x12345678` |
-| 0x0D | 4 | chunk_count | `1` in all retail meshes |
+| 0x0D | 4 | chunk_count | 1 in 516 files; 2..4 in 20 (see Chunks) |
 | 0x11 | 4 | name_len | includes trailing NUL |
 | 0x15 | name_len | name | ASCII, NUL-terminated |
 
@@ -84,7 +84,28 @@ The material tail grammar is still open.
 - Tail layout: material colors, texture name, material name, triangle count.
   `cow_lod1` tail contains `cow_lod1.tga`, `15 - Default`, and `0x42` (66).
 - Are indices ever 16-bit or triangle strips? All retail files use u32 lists.
-- Is there a second mesh chunk? `chunk_count` is 1 everywhere.
+- Second chunks: **yes** (corrected 2026-10-28). 20 retail meshes have
+  2..4 chunks, e.g. `entrance_lod1.mesh` = boat, radar, ponton2, ponton
+  (the dock). See Chunks below.
+
+## Chunks
+
+`chunk_count` chunks follow the 0x11 header field, each:
+
+```text
+u32 name_len, name (NUL)
+body (vertex_count .. normals; a cleared UV/normal flag still has a u32 0)
+u8 colour flag, u32 colour count, RGBA x count (if flag)
+u32 material count, {21 bytes, string texture, string name} x count
+u32 triangle count, u16 material index x triangle count
+16 zero bytes
+```
+
+Every one of the 536 retail meshes ends exactly after its last chunk
+(counts 1: 516, 2: 13, 3: 2, 4: 5). Evidence:
+`notes/entrance-dock-road-recon.md`, `tools/formats/mesh.py`
+`read_mesh_chunks`, `tests/test_mesh.py::test_all_meshes_chunk_layout`;
+C++ `dino::load_mesh_chunks`.
 
 ## Next
 

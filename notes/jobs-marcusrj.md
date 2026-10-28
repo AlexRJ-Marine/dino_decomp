@@ -26,8 +26,8 @@ file is the single place to claim work.
 
 | # | Job | Scope / files | Done when |
 | --- | --- | --- | --- |
-| R-1 | Skybox seam | `src/viewer/main.cpp` sky faces, `docs/platform/environment.md` | Bottom/side seam gone at pitch ±60; side-by-side shot in `notes/`; A/B test |
-| R-2 | Frustum culling + LOD2 | `src/viewer/main.cpp` terrain draw | Off-screen chunks skipped, LOD2 at distance, `test_cpp_*` for both |
+| R-1 | Skybox seam — DONE — claude — 2026-10-28 (camera-centred cube, `notes/skybox-seam-recon.md`) | `src/viewer/main.cpp` sky faces, `docs/platform/environment.md` | Bottom/side seam gone at pitch ±60; side-by-side shot in `notes/`; A/B test |
+| R-2 | Frustum culling + LOD2 — DONE — claude — 2026-10-28 (vegetation sector LOD from `0x508c10`/`0x609970`, port frustum cull; `notes/landscape-lod-recon.md`) | `src/viewer/main.cpp` terrain draw | Off-screen chunks skipped, LOD2 at distance, `test_cpp_*` for both |
 | R-3 | UI-2 Phase C rest | `src/ui/*`, `src/viewer/main.cpp` list widgets | Slider + checkbox selection on store/lab lists; minimap water colour + partition lines; snapshot test |
 | R-4 | SIM-4 wages | `src/world/economy.*`, `docs/decomp/economy.md` | `0x585d80` wages + `0x585d50` EFFECTIFS_SECU wired once staff actors exist; ledger test |
 | R-5 | Skinned mesh export | `tools/formats/`, `docs/formats/` | One retail skinned mesh round-trips to glTF/OBJ, renders in Blender, pytest |
@@ -45,6 +45,8 @@ file is the single place to claim work.
 | R-16b | Menu: retail `.sav` slots | `src/formats/sav.*`, `src/ui/menu.*`, `src/viewer/main.cpp` | List `.sav` beside `.psav`. The island is in the header (`p=0x0c+name_len`: mode @p+0, island index @p+8; mode 1 = campaign id), so load `IslandList.ini[island]` then the existing `.sav` import; no island picker. Evidence `notes/sav-menu-load-recon.md`. |
 | R-17 | Menu: Cinematics list | `src/ui/menu.*`, `src/viewer/main.cpp` menu list/loading | Done: rows are the campaigns' `EndingVideoName` (basket/tennis/trampoline/Trappe/mixe; Cpg06/Cpg08 empty), START plays `Data/Video/<EndingVideo>`; the "seven clips" assumption was wrong (the list is campaign-driven, not the folder). Evidence `notes/cinematics-recon.md`; test `test_cpp_retail_menu_cinematics_page`. |
 | R-18 | Menu: Options page | `src/ui/menu.*`, `src/viewer/main.cpp` | The page is static (icons + empty sliders/OK). Decide which retail settings are playtest-relevant (music/SFX/resolution) and wire them to the existing config/audio; otherwise document it as deferred. |
+| R-19 | Entrance dock + starting road — DONE — claude — 2026-10-28 (commits say R-16; all `.mesh` chunks; `FUN_0051dad0` road; `notes/entrance-dock-road-recon.md`) | `src/formats/mesh.*`, `src/world/build.*`, `src/viewer/main.cpp` | Dock/gangway render; free-game start lays (524,392)-(524,452) on isl01 |
+| R-20 | Road network + road/terrain look — DONE — claude — 2026-10-28 (commits say R-17; retail segment merge/junction/paint, detail-map terrain; `notes/road-network-recon.md`) | `src/world/build.*`, `src/world/port_save.*`, `src/viewer/main.cpp` | Roads stored/painted as retail segments; terrain AddSigned detail map; selling still R-8 |
 
 ## Coordination
 

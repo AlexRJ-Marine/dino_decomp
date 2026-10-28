@@ -131,6 +131,9 @@ struct PortState {
     int width = 0;
     int height = 0;
     std::vector<std::pair<int, int>> paths;
+    // spRoadNetwork segments in world units (x0, y0, x1, y1); paths stay the
+    // cell list so older files still load.
+    std::vector<std::array<int, 4>> roads;
     std::vector<PortFenceState> fences;
     std::vector<PortVisitorState> visitors;
     std::vector<PortBuildingState> buildings;
