@@ -428,12 +428,36 @@ private:
     std::uint64_t freq;
     std::uint64_t last;
     double elapsed;
+    // Frame delta in seconds; the retail scheduler's per-frame tick.
+    double frame_dt;
     int width;
     int height;
     int logical_width;
     int logical_height;
     bool menu_hover_forced;
     bool park_hover_forced;
+
+    // Per-frame camera rig: eye and look-at target shared by terrain
+    // picking, the minimap and the scene draw.
+    dino::Vec3 eye;
+    dino::Vec3 view_center;
+
+    // --- frame loop ----------------------------------------------------
+    // One call per phase, in frame order; see run().
+    void handle_input();
+    void begin_frame();
+    void advance_time();
+    void update_session();
+    void update_audio();
+    void update_camera();
+    void update_diagnostics();
+    void set_background();
+    void update_simulation();
+    void update_camera_view();
+    void update_placement();
+    void update_preview();
+    void draw_frame();
+    void present_frame();
 
     // --- sections ------------------------------------------------------
     std::array<int, 11> store_row_attributes(const dino::MarketEntry& entry);

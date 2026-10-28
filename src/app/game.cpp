@@ -2270,680 +2270,11 @@ int Game::run() {
     park_hover_forced = !opt.park_hover.empty();
 
     while (running) {
-        sync_park_layout();
-        // --inject-key FRAME,KEYCODE: a real key down/up pair (tests).
-        for (const std::string& spec : opt.inject_keys) {
-            int at = 0;
-            int code = 0;
-            if (std::sscanf(spec.c_str(), "%d,%d", &at, &code) != 2 ||
-                at != frame) {
-                continue;
-            }
-            for (const Uint32 type : {SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP}) {
-                SDL_Event injected{};
-                injected.type = type;
-                injected.key.windowID = SDL_GetWindowID(window);
-                injected.key.key = static_cast<SDL_Keycode>(code);
-                injected.key.scancode = SDL_GetScancodeFromKey(
-                    static_cast<SDL_Keycode>(code), nullptr);
-                injected.key.down = type == SDL_EVENT_KEY_DOWN;
-                injected.key.repeat = false;
-                SDL_PushEvent(&injected);
-            }
-        }
-        // --inject-click FRAME,X,Y[,right]: a real SDL button down/up pair in
-        // window pixels, so tests drive the interactive input path.
-        for (const std::string& spec : opt.inject_clicks) {
-            int at = 0;
-            float ix = 0.0f;
-            float iy = 0.0f;
-            char side[8] = {};
-            const int n = std::sscanf(spec.c_str(), "%d,%f,%f,%7s", &at, &ix, &iy, side);
-            if (n < 3 || at != frame) {
-                continue;
-            }
-            const Uint8 button =
-                (n == 4 && std::string(side) == "right") ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
-            for (const Uint32 type : {SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_BUTTON_UP}) {
-                SDL_Event injected{};
-                injected.type = type;
-                injected.button.windowID = SDL_GetWindowID(window);
-                injected.button.button = button;
-                injected.button.down = type == SDL_EVENT_MOUSE_BUTTON_DOWN;
-                injected.button.clicks = 1;
-                injected.button.x = ix;
-                injected.button.y = iy;
-                SDL_PushEvent(&injected);
-            }
-        }
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (opt.no_input) {
-                continue;
-            }
-            if (start_screen) {
-                if (event.type == SDL_EVENT_QUIT) {
-                    running = false;
-                } else if (menu_loaded && opt.use_menu) {
-                    const float off_x =
-                        (static_cast<float>(logical_width) - 800.0f) * 0.5f;
-                    const float off_y =
-                        (static_cast<float>(logical_height) - 600.0f) * 0.5f;
-                    if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                        if (!menu_hover_forced) {
-                            menu.move(static_cast<int>(event.motion.x - off_x),
-                                      static_cast<int>(event.motion.y - off_y));
-                        }
-                        if (menu.scroll_drag_active &&
-                            !menu.scroll_drag_list.empty()) {
-                            menu.list_drag_to(
-                                menu.scroll_drag_list,
-                                static_cast<int>(event.motion.y - off_y));
-                        }
-                        if (menu.slider_drag_active &&
-                            !menu.slider_drag_name.empty()) {
-                            menu.slider_drag_to(
-                                menu.slider_drag_name,
-                                static_cast<int>(event.motion.x - off_x));
-                            apply_menu_options();
-                        }
-                    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
-                               event.button.button == SDL_BUTTON_LEFT) {
-                        menu.scroll_drag_active = false;
-                        menu.scroll_drag_list.clear();
-                        menu.slider_drag_active = false;
-                        menu.slider_drag_name.clear();
-                        apply_menu_options();
-                    } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                        // VSCROLL/HSCROLL wheel: one notch = one line
-                        // (0x5cbb7f / 0x5be7e0, pos -= delta / 120).
-                        const int mx = static_cast<int>(
-                            event.wheel.mouse_x - off_x);
-                        const int my = static_cast<int>(
-                            event.wheel.mouse_y - off_y);
-                        const int hit = menu.hit_test(mx, my);
-                        if (hit >= 0) {
-                            const dino::ui::Widget& list =
-                                menu.overlay.widgets[static_cast<std::size_t>(
-                                    hit)];
-                            int notches =
-                                static_cast<int>(event.wheel.y);
-                            if (notches == 0) {
-                                notches = event.wheel.y > 0.0f ? 1 : -1;
-                            }
-                            if (list.type == "LIST" &&
-                                list.list_scroll_width > 0) {
-                                menu.list_scroll(list.name, -notches);
-                            } else if (list.type == "HSCROLL") {
-                                menu.slider_step(list.name, -notches);
-                                apply_menu_options();
-                            }
-                        }
-                    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                               event.button.button == SDL_BUTTON_LEFT) {
-                        const int mx = static_cast<int>(event.button.x - off_x);
-                        const int my = static_cast<int>(event.button.y - off_y);
-                        const int menu_hit = menu.hit_test(mx, my);
-                        if (menu_hit >= 0) {
-                            const std::string& name =
-                                menu.overlay.widgets[static_cast<std::size_t>(
-                                    menu_hit)]
-                                    .name;
-                            const std::string sound_name =
-                                name == "QUIT_BUTTON" ? "exitClic" : "clicDefault";
-                            const auto sound_it =
-                                menu_sound_files.find(sound_name);
-                            if (sound_it != menu_sound_files.end()) {
-                                ui_sound.play(sound_it->second);
-                            }
-                        }
-                        menu.click(mx, my);
-                        apply_menu_options();
-                        queue_menu_load();
-                        if (!pending_menu_load_path.empty()) {
-                            do_port_load(pending_menu_load_path);
-                            pending_menu_load_path.clear();
-                            menu.loading = false;
-                            menu.active = false;
-                        }
-                        queue_menu_cinematic();
-                        play_pending_cinematic();
-                        if (menu.quit) {
-                            running = false;
-                        }
-                        if (!menu.active) {
-                            start_screen = false;
-                        }
-                    } else if (event.type == SDL_EVENT_KEY_DOWN &&
-                               !event.key.repeat) {
-                        if (event.key.key == SDLK_ESCAPE) {
-                            menu.escape();
-                            if (menu.quit) {
-                                running = false;
-                            }
-                        } else if (event.key.key == SDLK_RETURN && menu.page == 0) {
-                            menu.page = 1;
-                        }
-                    }
-                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                    if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
-                        start_screen = false;
-                    } else if (event.key.key == SDLK_ESCAPE) {
-                        running = false;
-                    }
-                }
-                continue;
-            }
-            if (event.type == SDL_EVENT_QUIT) {
-                running = false;
-            } else if (event.type == SDL_EVENT_TEXT_INPUT) {
-                if (park.loaded() && park.name_edit_active() &&
-                    park.options_tab() == "save") {
-                    for (const char* c = event.text.text; *c != '\0'; ++c) {
-                        park.append_name_char(*c);
-                    }
-                    opt.save_name = park.save_name();
-                }
-            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                const SDL_Keycode key = event.key.key;
-                if (park.name_edit_active() && key == SDLK_BACKSPACE) {
-                    park.backspace_name();
-                    opt.save_name = park.save_name();
-                } else if (key == SDLK_ESCAPE && park.loaded() &&
-                           park.is_visible("OPTIONS_PANEL")) {
-                    // Retail: Esc is the overlay-close key. With no tool it
-                    // is a no-op in the park, but it closes OPTIONS_PANEL
-                    // (PauseGame is P, not Esc).
-                    park.overlay.set_visible("OPTIONS_PANEL", false);
-                    std::printf("options: closed (Esc)\n");
-                } else if (key == SDLK_ESCAPE &&
-                           (build_tool != 0 || pending_store_index >= 0 ||
-                            fence_corner_x >= 0 || road_has_start ||
-                            selected_paddock >= 0 || park_sell_mode ||
-                            park_sell_paddock >= 0)) {
-                    // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
-                    // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
-                    // The road/building/show states use the same common leave.
-                    if (build_tool == 6 || build_tool == 2) {
-                        std::printf("fence: tool off (Esc)\n");
-                    } else if (build_tool == 4) {
-                        std::printf("road: tool off (Esc)\n");
-                    } else if (build_tool == 3) {
-                        std::printf("construction: tool off (Esc)\n");
-                    } else if (build_tool == 5) {
-                        std::printf("show: tool off (Esc)\n");
-                    }
-                    if (pending_store_index >= 0) {
-                        std::printf("store: selection off (Esc)\n");
-                    }
-                    if (selected_paddock >= 0) {
-                        selected_paddock = -1;
-                        std::printf("paddock: deselected (Esc)\n");
-                        rebuild_build_meshes();
-                        refresh_fence_info_panel();
-                    }
-                    if (park_sell_mode || park_sell_paddock >= 0) {
-                        park_sell_mode = false;
-                        park_sell_paddock = -1;
-                        if (park.dialog_open()) {
-                            park.close_dialog();
-                        }
-                        std::printf("sell: mode off (Esc)\n");
-                    }
-                    build_tool = 0;
-                    fence_corner_x = -1;
-                    fence_corner_y = -1;
-                    pending_construct_kind = -1;
-                    pending_show_index = -1;
-                    pending_store_index = -1;
-                    road_has_start = false;
-                    park.overlay.set_visible(
-                        "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
-                    park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
-                                             false);
-                    park.overlay.set_visible(
-                        "CONSTRUCTION_ROAD_METRO_PANEL", false);
-                    park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
-                    park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
-                } else if (key == keymap[dino::KeyAction::Quit]) {
-                    // Retail has no Escape binding in the default park state
-                    // (the state manager binds it only on the construction /
-                    // purchase / selected states, which handle it above).
-                    // Never quit the viewer from the park; quitting goes
-                    // through the menu's Quit Game / return-to-menu flow.
-                    if (!park.loaded()) {
-                        running = false;
-                    }
-                } else if (key == keymap[dino::KeyAction::Reset]) {
-                    yaw = opt.yaw;
-                    pitch = opt.pitch;
-                    distance = auto_distance;
-                } else if (key == keymap[dino::KeyAction::Fullscreen]) {
-                    opt.fullscreen = !opt.fullscreen;
-                    SDL_SetWindowFullscreen(window, opt.fullscreen);
-                } else if (key == keymap[dino::KeyAction::Borderless]) {
-                    opt.borderless = !opt.borderless;
-                    SDL_SetWindowBordered(window, !opt.borderless);
-                } else if (key == keymap[dino::KeyAction::Mute]) {
-                    opt.muted = !opt.muted;
-                    if (audio != nullptr) {
-                        SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
-                    }
-                    ui_sound.set_muted(opt.muted);
-                    music.set_gain(opt.muted
-                                       ? 0.0f
-                                       : std::clamp(opt.music_volume / 100.0f,
-                                                    0.0f, 1.0f));
-                } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
-                    free_camera = !free_camera;
-                    if (free_camera) {
-                        enter_free_camera();
-                    }
-                } else if (key == SDLK_F1) {
-                    hud_visible = !hud_visible;
-                } else if (key == SDLK_TAB) {
-                    show_help = !show_help;
-                } else if (key == SDLK_1) {
-                    build_tool = 1;
-                    std::printf("build tool: path\n");
-                } else if (key == SDLK_2) {
-                    build_tool = 2;
-                    std::printf("build tool: fence\n");
-                } else if (key == SDLK_0) {
-                    build_tool = 0;
-                    pending_construct_kind = -1;
-                    std::printf("build tool: off\n");
-                } else if (key == SDLK_U) {
-                    if (build_grid.undo()) {
-                        rebuild_build_meshes();
-                    }
-                }
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                       event.button.button == SDL_BUTTON_LEFT) {
-                if (park.loaded()) {
-                    int dx = 0, dy = 0;
-                    park_design(event.button.x, event.button.y, dx, dy);
-                    if (!park_hover_forced) {
-                        park_hover_x = dx;
-                        park_hover_y = dy;
-                    }
-                    const int hit = park.overlay.hit_test(dx, dy);
-                    std::string action;
-                    if (park.click(dx, dy, action)) {
-                        if (park.return_to_menu_requested()) {
-                            park.clear_return_to_menu_request();
-                            activate_main_menu();
-                        }
-                        if (hit >= 0) {
-                            park_active_index = hit;
-                        }
-                        if (action.empty() && std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                            std::printf("park click %d,%d -> consumed by %s\n", dx, dy,
-                                        hit >= 0 ? park.overlay.widgets[static_cast<std::size_t>(hit)]
-                                                       .name.c_str()
-                                                 : "?");
-                        }
-                        ui_click_consumed = true;
-                        // Clicking the construction panel's background/close
-                        // (consumed with no widget action) leaves the retail
-                        // FENCE_CONSTRUCTION state, so the next ground click
-                        // can select an enclosure.
-                        if (hit < 0 && action.empty() && build_tool == 6) {
-                            build_tool = 0;
-                            fence_corner_x = -1;
-                            fence_corner_y = -1;
-                            pending_construct_kind = -1;
-                            std::printf("fence: tool off (panel close)\n");
-                        }
-                        if (action == "minimap zoom in") {
-                            minimap_zoom_in = true;
-                        } else if (action == "minimap zoom out") {
-                            minimap_zoom_out = true;
-                        } else if (action == "camera pan forward") {
-                            nav_pan_forward = true;
-                        } else if (action == "camera pan back") {
-                            nav_pan_back = true;
-                        } else if (action == "camera pan left") {
-                            nav_pan_left = true;
-                        } else if (action == "camera pan right") {
-                            nav_pan_right = true;
-                        } else if (action == "camera turn left") {
-                            nav_turn_left = true;
-                        } else if (action == "camera turn right") {
-                            nav_turn_right = true;
-                        } else if (action == "camera zoom in") {
-                            nav_zoom_in = true;
-                        } else if (action == "camera zoom out") {
-                            nav_zoom_out = true;
-                        } else if (action == "save port" ||
-                                   action == "load port") {
-                            const std::string path =
-                                port_save_target(action == "load port");
-                            if (action == "save port") {
-                                do_port_save(path);
-                            } else {
-                                do_port_load(path);
-                            }
-                            park.overlay.set_visible("OPTIONS_PANEL", false);
-                        } else if (action == "close campaign end") {
-                            advance_campaign();
-                        } else if (action.rfind("close ", 0) == 0) {
-                            // Leaving a construction/info panel deactivates
-                            // its placement tool (retail's info-panel
-                            // controller state deactivation). The openers
-                            // toggle, so the same icon that armed the tool
-                            // closes the panel and frees the next click.
-                            const std::string panel = action.substr(6);
-                            if (panel ==
-                                "FENCE_CONSTRUCTION_AND_INFO_PANEL") {
-                                if (build_tool == 6) {
-                                    build_tool = 0;
-                                    fence_corner_x = -1;
-                                    fence_corner_y = -1;
-                                    pending_construct_kind = -1;
-                                    std::printf(
-                                        "fence: tool off (panel closed)\n");
-                                }
-                            } else if (
-                                panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
-                                panel == "CONSTRUCTION_PANEL") {
-                                if (build_tool == 3) {
-                                    build_tool = 0;
-                                    pending_construct_kind = -1;
-                                    std::printf(
-                                        "construction: tool off (panel "
-                                        "closed)\n");
-                                }
-                            } else if (
-                                panel == "CONSTRUCTION_ROAD_METRO_PANEL") {
-                                if (build_tool == 4) {
-                                    build_tool = 0;
-                                    road_has_start = false;
-                                    std::printf(
-                                        "road: tool off (panel closed)\n");
-                                }
-                            } else if (
-                                panel == "PREDEFINED_SHOW_PANEL" ||
-                                panel == "CONSTRUCTION_KIT_PANEL") {
-                                if (build_tool == 5) {
-                                    build_tool = 0;
-                                    pending_show_index = -1;
-                                    std::printf(
-                                        "show: tool off (panel closed)\n");
-                                }
-                            } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
-                                pending_store_index = -1;
-                            }
-                        } else if (action == "sell mode") {
-                            // HUD Sell switch (`OPEN_SELLING`, state 0x14):
-                            // arm the shared object-sell state.
-                            pending_sell_mode = true;
-                            if (park_sell_mode) {
-                                // Toggling the switch leaves the state.
-                                park_sell_mode = false;
-                                park_sell_paddock = -1;
-                                if (park.dialog_open()) {
-                                    park.close_dialog();
-                                }
-                                std::printf("sell: mode off\n");
-                                pending_sell_mode = false;
-                            }
-                        } else if (action == "accept request") {
-                            if (park_sell_paddock >= 0) {
-                                sell_paddock_now(park_sell_paddock);
-                            }
-                        } else if (action == "cancel request") {
-                            if (park_sell_paddock >= 0) {
-                                park_sell_paddock = -1;
-                                std::printf("sell: cancelled\n");
-                            }
-                        }
-                        if (!action.empty()) {
-                            std::printf("park click %d,%d -> %s\n", dx, dy,
-                                        action.c_str());
-                            const auto sound_it =
-                                menu_sound_files.find("clicDefault");
-                            if (sound_it != menu_sound_files.end()) {
-                                ui_sound.play(sound_it->second);
-                            }
-                            if (action.rfind("open DINO_LAB", 0) == 0 ||
-                                action.rfind("open LAB_", 0) == 0) {
-                                const auto lab_music =
-                                    park_sound_files.find("musLabo");
-                                if (lab_music != park_sound_files.end()) {
-                                    music.play(lab_music->second);
-                                }
-                            } else if (action == "close lab" &&
-                                       !lnd.music.empty()) {
-                                const auto island_music =
-                                    park_sound_files.find(lnd.music);
-                                if (island_music != park_sound_files.end()) {
-                                    music.play(island_music->second);
-                                }
-                            }
-                            // A menu-started free game has no build grid yet;
-                            // every construction tool needs one for its
-                            // ground clicks.
-                            if (action.rfind("construct ", 0) == 0) {
-                                ensure_build_ready();
-                            }
-                            if (action ==
-                                "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
-                                // Retail arms the enclosure tool when the
-                                // Enclosure panel opens; the ground clicks
-                                // then add fence edges.
-                                ensure_build_ready();
-                                build_tool = 6;
-                                fence_corner_x = -1;
-                                fence_corner_y = -1;
-                                pending_construct_kind = -1;
-                                std::printf(
-                                    "fence: tool armed (click two corners)\n");
-                            }
-                            if (action == "construct CONSTRUC_ROAD_BUTTON") {
-                                arm_road_tool();
-                            } else if (action.rfind("construct ", 0) == 0) {
-                                const std::string widget = action.substr(10);
-                                const int kind =
-                                    construction_kind_for_widget(widget);
-                                if (kind < 0) {
-                                    std::printf(
-                                        "construction: no building for %s\n",
-                                        widget.c_str());
-                                } else {
-                                    const dino::BuildingDef& def =
-                                        construction_defs[static_cast<
-                                            std::size_t>(kind)];
-                                    if (park_budget <
-                                        static_cast<int>(
-                                            def.construction_cost)) {
-                                        std::printf(
-                                            "construction: %s needs %u, "
-                                            "budget %d "
-                                            "(WARNING_NOT_ENOUGH_MONEY)\n",
-                                            def.name.c_str(),
-                                            def.construction_cost,
-                                            park_budget);
-                                    } else {
-                                        build_tool = 3;
-                                        pending_construct_kind = kind;
-                                        std::printf(
-                                            "construction: %s selected, "
-                                            "cost=%u (click the ground)\n",
-                                            def.name.c_str(),
-                                            def.construction_cost);
-                                    }
-                                }
-                            }
-                            if (action.rfind("store buy ", 0) == 0) {
-                                ensure_build_ready();  // paddock pick click
-                                handle_store_buy(
-                                    std::atoi(action.c_str() + 10));
-                            } else if (action == "store no selection") {
-                                std::printf("store: no dinosaur selected\n");
-                            } else if (action.rfind("show place ", 0) == 0) {
-                                handle_show_place(
-                                    std::atoi(action.c_str() + 11));
-                            } else if (action == "show no selection") {
-                                std::printf("show: no show selected\n");
-                            } else if (action.rfind("attraction ", 0) == 0) {
-                                handle_attraction_action(action);
-                            }
-                        }
-                        continue;
-                    }
-                }
-                dragging = true;
-                drag_distance = 0.0f;
-                last_mx = event.button.x;
-                last_my = event.button.y;
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                       event.button.button == SDL_BUTTON_RIGHT &&
-                       build_tool == 0 && selected_paddock >= 0) {
-                // Retail leaves the selected-object state on a right click.
-                selected_paddock = -1;
-                std::printf("paddock: deselected\n");
-                rebuild_build_meshes();
-                refresh_fence_info_panel();
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                       event.button.button == SDL_BUTTON_RIGHT &&
-                       build_tool == 4) {
-                // 0x52ed6a: cancel the run in progress, else disarm the tool.
-                if (road_has_start) {
-                    road_has_start = false;
-                    std::printf("road: segment cancelled\n");
-                } else {
-                    build_tool = 0;
-                    std::printf("road: tool off\n");
-                }
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
-                       event.button.button == SDL_BUTTON_LEFT) {
-                park_active_index = -1;
-                minimap_zoom_in = false;
-                minimap_zoom_out = false;
-                nav_pan_forward = false;
-                nav_pan_back = false;
-                nav_pan_left = false;
-                nav_pan_right = false;
-                nav_turn_left = false;
-                nav_turn_right = false;
-                nav_zoom_in = false;
-                nav_zoom_out = false;
-                dragging = false;
-                if (ui_click_consumed) {
-                    ui_click_consumed = false;
-                    continue;
-                }
-                if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                    std::printf("ground release %.0f,%.0f drag=%.1f tool=%d build_ready=%d\n",
-                                event.button.x, event.button.y, drag_distance,
-                                build_tool, build_ready ? 1 : 0);
-                }
-                if ((build_tool != 0 || pending_store_index >= 0 ||
-                     build_ready) &&
-                    drag_distance < 5.0f) {
-                    pending_click = true;
-                    click_x = event.button.x;
-                    click_y = event.button.y;
-                }
-            } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                // Retail edge scroll uses the client-pixel cursor position
-                // from WM_MOUSEMOVE. Keep the last position; it persists on
-                // focus loss (retail keeps scrolling if left in a band).
-                int window_w = 0;
-                int window_h = 0;
-                SDL_GetWindowSize(window, &window_w, &window_h);
-                const float mouse_scale_x =
-                    window_w > 0 ? static_cast<float>(width) / window_w
-                                 : 1.0f;
-                const float mouse_scale_y =
-                    window_h > 0 ? static_cast<float>(height) / window_h
-                                 : 1.0f;
-                cam_mouse_x = std::clamp(
-                    static_cast<int>(event.motion.x * mouse_scale_x), 0,
-                    std::max(0, width - 1));
-                cam_mouse_y = std::clamp(
-                    static_cast<int>(event.motion.y * mouse_scale_y), 0,
-                    std::max(0, height - 1));
-                cam_mouse_valid = true;
-                if (park.loaded()) {
-                    int dx = 0, dy = 0;
-                    park_design(event.motion.x, event.motion.y, dx, dy);
-                    if (!park_hover_forced) {
-                        park_hover_x = dx;
-                        park_hover_y = dy;
-                    }
-                }
-                if (!dragging) {
-                    continue;
-                }
-                const float dx = event.motion.x - last_mx;
-                const float dy = event.motion.y - last_my;
-                drag_distance += std::abs(dx) + std::abs(dy);
-                if (free_camera) {
-                    free_yaw += dx * 0.3f;
-                    free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
-                } else if (camera_retail_model) {
-                    // Retail has no mouse-drag camera (KeyMapper.ini has no
-                    // mouse entries and 0x5e5ff0 has no mouse input path).
-                } else {
-                    yaw += dx * 0.4f;
-                    pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
-                }
-                last_mx = event.motion.x;
-                last_my = event.motion.y;
-            } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                if (camera_retail_model) {
-                    // Retail has no mouse wheel binding for the park camera.
-                } else {
-                    distance = std::clamp(
-                        distance * std::pow(1.1f, -event.wheel.y),
-                        camera_config.distance_min,
-                        camera_config.distance_max);
-                }
-            } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
-                width = event.window.data1;
-                height = event.window.data2;
-            }
-        }
+        handle_input();
         if (!running) {
             break;
         }
-
-        SDL_GetWindowSizeInPixels(window, &width, &height);
-        sync_park_layout();
-        if (build_ready && opt.select_paddock >= 0 &&
-            opt.select_paddock < static_cast<int>(paddocks.size()) &&
-            selected_paddock != opt.select_paddock) {
-            selected_paddock = opt.select_paddock;
-            rebuild_build_meshes();
-            refresh_fence_info_panel();
-        }
-        if (pending_sell_mode) {
-            pending_sell_mode = false;
-            if (park.loaded()) {
-                park_sell_mode = true;
-                park_sell_paddock = -1;
-                build_tool = 0;
-                fence_corner_x = -1;
-                fence_corner_y = -1;
-                pending_construct_kind = -1;
-                pending_show_index = -1;
-                pending_store_index = -1;
-                road_has_start = false;
-                selected_paddock = -1;
-                park.overlay.set_visible(
-                    "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
-                park.overlay.set_visible("CONSTRUCTION_PANEL", false);
-                park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
-                                         false);
-                park.overlay.set_visible("CONSTRUCTION_ROAD_METRO_PANEL",
-                                         false);
-                park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
-                rebuild_build_meshes();
-                std::printf("sell: mode armed\n");
-            }
-        }
+        begin_frame();
         if (opt.camera_selftest && terrain.world_size > 0.0f) {
             return camera_selftest(camera_config, terrain);
         }
@@ -2951,1913 +2282,18 @@ int Game::run() {
             SDL_Delay(10);
             continue;
         }
-
-        const std::uint64_t now = SDL_GetPerformanceCounter();
-        const double dt = static_cast<double>(now - last) / static_cast<double>(freq);
-        last = now;
-        elapsed += dt;
-
-        // Retail palette time: starts at 0 when the park scene is created and
-        // accumulates the park frame dt (FUN_00600550).
-        if (park.loaded() && !park_pulse_started) {
-            park_pulse_time = 0.0;
-            park_pulse_started = true;
-        } else if (!park.loaded()) {
-            park_pulse_started = false;
-            park_pulse_time = 0.0;
-        }
-        if (opt.pulse_time >= 0.0f) {
-            park_pulse_time = opt.pulse_time;
-        } else {
-            park_pulse_time += dt;
-        }
-        {
-            float lamp_raw[3] = {1.0f, 1.0f, 1.0f};
-            dino::fence_pulse_colors(park_pulse_time, lamp_raw,
-                                     selected_tint.data());
-            // State 7 lights the material (Light Y, AmbientMatSource
-            // Material): the mesh header's white ambient dominates the blue
-            // diffuse, which is why the retail lamps read near-white with a
-            // subtle blue pulse. Scene ambient from dino_additif's lit path.
-            lamp_tint[0] = 0.62f + lamp_raw[0];
-            lamp_tint[1] = 0.64f + lamp_raw[1];
-            lamp_tint[2] = 0.68f + lamp_raw[2];
-        }
-
-        if (menu_loaded && opt.use_menu && menu.loading) {
-            menu.loading_timer -= static_cast<float>(dt);
-            if (menu.loading_timer <= 0.0f) {
-                menu.loading = false;
-                menu.active = false;
-                start_screen = false;
-                const bool campaign_start = menu.start_campaign;
-                menu.start_campaign = false;
-                const dino::Campaign* campaign =
-                    campaign_start ? menu.selected_campaign() : nullptr;
-                const dino::CampaignMission* mission =
-                    campaign_start ? menu.selected_mission() : nullptr;
-                if (campaign != nullptr && mission != nullptr &&
-                    menu.campaign_unlocked(menu.campaign)) {
-                    try {
-                        std::string island_name = campaign->island;
-                        std::transform(
-                            island_name.begin(), island_name.end(),
-                            island_name.begin(), [](unsigned char c) {
-                                return static_cast<char>(std::tolower(c));
-                            });
-                        load_island(island_name, true);
-                        current_island = island_name;
-                        minimap_rendered_scale = -1.0f;
-                        const std::string scenario_root = resolve_asset(
-                            opt.asset_root, "Data/Design/Scenario");
-                        const std::string world_path =
-                            (std::filesystem::path(scenario_root) /
-                             campaign->name / campaign->world_file)
-                                .string();
-                        load_campaign_park(world_path);
-                        int budget = campaign->budget;
-                        const auto delta =
-                            mission->values.find("CONTEXT.BUDGET");
-                        if (delta != mission->values.end()) {
-                            budget += std::atoi(delta->second.c_str());
-                        }
-                        park_budget = std::max(0, budget);
-                        park_sellback = static_cast<float>(campaign->sell_back);
-                        std::printf(
-                            "start: campaign=%s mission=%s island=%s "
-                            "budget=%d sellback=%.2f\n",
-                            campaign->name.c_str(), mission->name.c_str(),
-                            campaign->island.c_str(), park_budget,
-                            static_cast<double>(park_sellback));
-                        start_campaign_mission(*mission);
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "campaign start: %s\n", e.what());
-                    }
-                } else if (!campaign_start && !island_names.empty()) {
-                    const int island_index =
-                        std::clamp(menu.island, 0,
-                                   static_cast<int>(island_names.size()) - 1);
-                    const int difficulty = std::clamp(menu.difficulty, 0, 2);
-                    try {
-                        load_island(island_names[static_cast<std::size_t>(island_index)],
-                                    true);
-                        current_island =
-                            island_names[static_cast<std::size_t>(island_index)];
-                        minimap_rendered_scale = -1.0f;
-                        if (entrance_road) {
-                            ensure_build_ready();
-                            dino::import_roads(build_grid, {*entrance_road});
-                            rebuild_build_meshes();
-                            std::printf(
-                                "entrance road: %d,%d-%d,%d path_cells=%d\n",
-                                entrance_road->x0, entrance_road->y0,
-                                entrance_road->x1, entrance_road->y1,
-                                build_grid.path_count);
-                        }
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "island load: %s\n", e.what());
-                    }
-                    park_budget = free_game_budgets[difficulty];
-                    park_sellback = free_game_sellback[difficulty];
-                    // Free game lists its own [DINOSTORE] subset (20 entries)
-                    // in FreeGame.ini; campaign missions override this with
-                    // their mission block in start_campaign_mission.
-                    try {
-                        apply_store_catalog(
-                            dino::load_market(resolve_asset(
-                                opt.asset_root,
-                                "Data/Design/Scenario/FreeGame.ini")),
-                            "FreeGame.ini");
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "store catalog: %s\n", e.what());
-                    }
-                    std::printf(
-                        "start: island=%s difficulty=%d budget=%d\n",
-                        island_names[static_cast<std::size_t>(island_index)].c_str(),
-                        difficulty, park_budget);
-                }
-            }
-        }
-
-        if (campaign_runtime && campaign_runtime->active()) {
-            apply_show_specs();
-        }
-        if (park.loaded() && !start_screen) {
-            park.update(dt);
-            park_clock.advance(dt);
-            if (campaign_runtime && campaign_runtime->active()) {
-                const int hour_index = static_cast<int>(
-                    park_clock.elapsed * park_clock.hours_per_second());
-                show_runtime.tick(
-                    hour_index, park_clock.day, park_clock.end_of_day, dt,
-                    park_clock.time_scale, [&](dino::ParkShow& show) {
-                        fill_show_scores(show.record, show.participants);
-                        std::printf(
-                            "show: %s finished round %d/%d at %02d:%02d\n",
-                            show.entry.stem.c_str(), show.done,
-                            show.iterations, park_clock.hour(),
-                            park_clock.minute());
-                    });
-            }
-            if (opt.show_status && !show_status_printed) {
-                show_status_printed = true;
-                for (int slot = 1; slot <= 10; ++slot) {
-                    std::string text;
-                    int iterations = 0;
-                    int locked = 0;
-                    attraction_row_text(slot, text, iterations, locked);
-                    std::printf(
-                        "attraction list: slot=%d name=%s iterations=%d "
-                        "locked=%d\n",
-                        slot, text.c_str(), iterations, locked);
-                }
-            }
-            if (park_clock.new_hour && !employee_system.employees.empty()) {
-                const int assigned = employee_system.start_hour(
-                    employee_profiles, food_sources, food_defs);
-                if (assigned > 0) {
-                    std::printf("feed: hour=%d assigned=%d\n",
-                                park_clock.hour(), assigned);
-                }
-            }
-            employee_system.update(dt, employee_profiles, food_sources,
-                                   food_defs);
-            if (employee_gpu.vao != 0 && !employee_pose.positions.empty()) {
-                update_mesh(employee_gpu,
-                            employee_system.build_mesh(terrain, employee_pose),
-                            glfns);
-            }
-            if (park_clock.end_of_day) {
-                run_daily_settlement();
-                park_clock.next_day();
-            }
-        }
-        if (campaign_runtime && campaign_runtime->active()) {
-            dino::CampaignState mission_state;
-            mission_state.treasury = park_budget;
-            for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
-                mission_state.merchandise_income +=
-                    budget_ledger.shop_revenue[i];
-            }
-            // The port has no death counter; deaths stay zero (dyingdinos
-            // passes). Hired staff feed the `employees` objective.
-            mission_state.deaths = 0;
-            mission_state.camera_altitude = static_cast<int>(
-                (free_camera ? free_pos : orbit_eye()).z);
-            mission_state.clock_minutes = park_clock.minutes();
-            mission_state.store_empty = store_catalog.empty();
-            mission_state.bankrupt = park_budget < 0;
-            // VisitorList.ini personality order 0..9; mission objective
-            // profile strings use these names.
-            static const char* const kProfileNames[10] = {
-                "surfer",  "holligan", "parent", "blase",    "retraite",
-                "riche",   "scientific", "amoureux", "spd", "enfant"};
-            for (const dino::Visitor& visitor : visitor_system.visitors) {
-                dino::CampaignVisitorState state_visitor;
-                const int profile = visitor.global_profile;
-                state_visitor.profile =
-                    profile >= 0 && profile < 10
-                        ? kProfileNames[profile]
-                        : std::to_string(visitor.profile);
-                state_visitor.satisfaction = visitor.need0;
-                mission_state.visitors.push_back(state_visitor);
-            }
-            // Hired staff are the live `employees` source. The objective
-            // profile strings match the `.bei` role names
-            // (Nutritionist/Guard); "all" matches any role.
-            for (const dino::Employee& employee : employee_system.employees) {
-                if (employee.profile >= 0 &&
-                    employee.profile <
-                        static_cast<int>(employee_profiles.size())) {
-                    mission_state.employee_roles.push_back(
-                        employee_profiles[static_cast<std::size_t>(
-                                              employee.profile)]
-                            .name);
-                }
-            }
-            // Connected-buildings objective: a building is connected when a
-            // path cell touches its footprint perimeter. `+0x34` is the retail
-            // flag; the port derives it from the live build grid.
-            for (const dino::PortBuildingState& building :
-                 building_instances) {
-                const auto def_it = building_defs.find(building.kind);
-                if (def_it == building_defs.end()) {
-                    continue;
-                }
-                const dino::BuildingDef& def = def_it->second;
-                const bool rotated = building.state % 2 != 0;
-                const int width = static_cast<int>(
-                    rotated ? def.footprint_h : def.footprint_w);
-                const int height = static_cast<int>(
-                    rotated ? def.footprint_w : def.footprint_h);
-                // `.wld` roads/fences and building cells are uncentered world
-                // units; `import_roads` maps them with world/cell_size, so the
-                // connectivity test uses the same convention.
-                const float cell = build_grid.cell_size > 0.0f
-                                       ? build_grid.cell_size
-                                       : 4.0f;
-                const int gx0 = static_cast<int>(
-                    std::floor(static_cast<float>(building.cell_x) / cell));
-                const int gy0 = static_cast<int>(
-                    std::floor(static_cast<float>(building.cell_y) / cell));
-                const int gx1 = static_cast<int>(std::floor(
-                    static_cast<float>(building.cell_x + width - 1) / cell));
-                const int gy1 = static_cast<int>(std::floor(
-                    static_cast<float>(building.cell_y + height - 1) / cell));
-                bool connected = false;
-                for (int y = gy0; y <= gy1 && !connected; ++y) {
-                    connected = build_grid.path_at(gx0 - 1, y) ||
-                                build_grid.path_at(gx1 + 1, y);
-                }
-                for (int x = gx0; x <= gx1 && !connected; ++x) {
-                    connected = build_grid.path_at(x, gy0 - 1) ||
-                                build_grid.path_at(x, gy1 + 1);
-                }
-                if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
-                    std::fprintf(
-                        stderr,
-                        "building kind=%d cat=%d cell=%d,%d wh=%dx%d "
-                        "grid=%d,%d..%d,%d connected=%d\n",
-                        building.kind, static_cast<int>(def.category),
-                        building.cell_x, building.cell_y, width, height, gx0,
-                        gy0, gx1, gy1, connected ? 1 : 0);
-                }
-                mission_state.buildings.push_back(
-                    {static_cast<int>(def.category), connected});
-            }
-            mission_state.fence_count = static_cast<int>(paddocks.size());
-            // Show arenas: `--show NAME[:I,J]` is the immediate-score test
-            // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
-            // per-performance scores arrive on the hour. Both use the retail
-            // judge pipeline in `fill_show_scores`.
-            for (const PortShowSpec& spec : port_shows) {
-                dino::CampaignShowState show;
-                show.type = spec.type;
-                fill_show_scores(show, spec.participants);
-                if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
-                    std::fprintf(stderr,
-                                 "show %s type=%d participants=%d profiles=%zu\n",
-                                 spec.name.c_str(), show.type,
-                                 show.participants,
-                                 show.profile_scores.size());
-                    for (const auto& entry : show.profile_scores) {
-                        std::fprintf(stderr, "  profile=%d score=%.2f\n",
-                                     entry.personality, entry.score);
-                    }
-                }
-                mission_state.shows.push_back(std::move(show));
-            }
-            for (const dino::CampaignShowState& show :
-                 show_runtime.campaign_states()) {
-                mission_state.shows.push_back(show);
-            }
-            // Live trait snapshot. The objective slots are actor fields
-            // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
-            // +0x1e0/+0x8c); the port's phenotype exposes the related
-            // beauty/aggression/stamina/agility/intelligence and a body
-            // length. Hybrid/scarcity/strangeness/ornaments are not ported
-            // yet, so those verbs stay pending.
-            for (const ImportedDino& dinosaur : imported_dinos) {
-                dino::DinoTraitState trait;
-                trait.species = dinosaur.species;
-                trait.cuteness = dinosaur.attributes.beauty;
-                trait.aggression = dinosaur.attributes.aggression;
-                const dino::DinoNeeds& needs =
-                    dinosaur.action_loop ? dinosaur.action_loop->needs()
-                                         : dinosaur.needs;
-                trait.food = needs.value[0];
-                // Actor +0x98 is agility; +0x1e0 is the phenotype size class
-                // (0..3), not the body length.
-                trait.agility = dinosaur.attributes.agility;
-                trait.size_class = dinosaur.attributes.size_class;
-                trait.strangeness =
-                    dinosaur.attributes.conventional_appeal;
-                trait.ornament_count =
-                    dinosaur.attributes.ornament_count;
-                trait.carnivore = dinosaur.carnivore;
-                trait.biped = !dinosaur.attributes.quadruped;
-                trait.age = 0;  // imported dinos are spawned at park start
-                trait.speed = static_cast<int>(
-                    dinosaur.attributes.walk_speed * 100.0f);
-                trait.stamina = dinosaur.attributes.stamina;
-                trait.intelligence = dinosaur.attributes.intelligence;
-                trait.beauty = dinosaur.attributes.beauty;
-                // `+0x1e4` is hybrid/strangeness. The store's ORIGINALITY /
-                // Strangeness gauge is `100 - conventional_appeal`; use that
-                // phenotype value until the actor writer is traced.
-                trait.hybrid = dinosaur.attributes.originality;
-                // Isolation: the dino is inside a paddock rectangle and no
-                // other imported dino shares that rectangle.
-                for (const dino::Paddock& paddock : paddocks) {
-                    const float x0 =
-                        static_cast<float>(std::min(paddock.rect.x0,
-                                                    paddock.rect.x1));
-                    const float x1 =
-                        static_cast<float>(std::max(paddock.rect.x0,
-                                                    paddock.rect.x1));
-                    const float y0 =
-                        static_cast<float>(std::min(paddock.rect.y0,
-                                                    paddock.rect.y1));
-                    const float y1 =
-                        static_cast<float>(std::max(paddock.rect.y0,
-                                                    paddock.rect.y1));
-                    if (dinosaur.x < x0 || dinosaur.x > x1 ||
-                        dinosaur.y < y0 || dinosaur.y > y1) {
-                        continue;
-                    }
-                    int occupants = 0;
-                    for (const ImportedDino& other : imported_dinos) {
-                        if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
-                            other.y <= y1) {
-                            ++occupants;
-                        }
-                    }
-                    trait.isolated = occupants <= 1;
-                    break;
-                }
-                mission_state.dinos.push_back(trait);
-            }
-            campaign_runtime->tick(dt, mission_state);
-            const auto& verdicts = campaign_runtime->verdicts();
-            if (verdicts != last_mission_verdicts) {
-                std::vector<int> values;
-                values.reserve(verdicts.size());
-                for (dino::ObjectiveVerdict verdict : verdicts) {
-                    values.push_back(static_cast<int>(verdict));
-                }
-                park.set_mission_verdicts(values);
-                for (std::size_t i = 0; i < verdicts.size(); ++i) {
-                    if (i < last_mission_verdicts.size() &&
-                        verdicts[i] == last_mission_verdicts[i]) {
-                        continue;
-                    }
-                    std::printf(
-                        "mission objective %zu %s -> %s\n", i,
-                        campaign_runtime->mission()
-                            .objectives[i]
-                            .verb.c_str(),
-                        dino::verdict_name(verdicts[i]));
-                }
-                last_mission_verdicts = verdicts;
-            }
-            if (campaign_runtime->finished()) {
-                const bool success = campaign_runtime->overall() ==
-                                     dino::ObjectiveVerdict::Success;
-                const dino::CampaignMission finished =
-                    campaign_runtime->mission();
-                std::printf("mission %s: %s\n", finished.name.c_str(),
-                            success ? "success" : "failure");
-                std::string end_text =
-                    success ? "Mission complete." : "Mission failed.";
-                pending_next_mission.reset();
-                if (success) {
-                    pending_next_mission =
-                        dino::next_campaign_mission(finished);
-                    if (!pending_next_mission) {
-                        const std::optional<dino::Campaign> campaign =
-                            dino::load_parent_campaign(finished);
-                        if (campaign) {
-                            const std::string ending =
-                                dino::ui::resolve_loc_text(
-                                    campaign->ending_text_id, park.loc);
-                            if (!ending.empty()) {
-                                end_text = ending;
-                            }
-                            std::printf(
-                                "campaign complete: %s ending=%s video=%s\n",
-                                campaign->name.c_str(), ending.c_str(),
-                                campaign->ending_video.c_str());
-                            if (!campaign->ending_video.empty()) {
-                                pending_ending_video = resolve_asset(
-                                    opt.asset_root,
-                                    "Data/Video/" + campaign->ending_video);
-                            }
-                            const unsigned number =
-                                dino::campaign_number(campaign->name);
-                            std::uint32_t next_value = campaign_unlock;
-                            if (number > 0) {
-                                next_value = std::max(next_value, number + 1);
-                            }
-                            if (next_value != campaign_unlock) {
-                                campaign_unlock = next_value;
-                                try {
-                                    dino::write_campaign_unlock(
-                                        campaign_dino_dat, campaign_unlock);
-                                    std::printf(
-                                        "campaign unlock: value=%u\n",
-                                        static_cast<unsigned>(
-                                            campaign_unlock));
-                                } catch (const std::exception& e) {
-                                    std::fprintf(stderr,
-                                                 "campaign unlock: %s\n",
-                                                 e.what());
-                                }
-                            }
-                            campaign_progress.erase(campaign->name);
-                            try {
-                                dino::save_campaign_progress(
-                                    campaign_progress,
-                                    campaign_progress_path);
-                                std::printf(
-                                    "campaign progress: %s complete\n",
-                                    campaign->name.c_str());
-                            } catch (const std::exception& e) {
-                                std::fprintf(stderr,
-                                             "campaign progress: %s\n",
-                                             e.what());
-                            }
-                        }
-                    }
-                }
-                park.show_campaign_end(end_text);
-                campaign_runtime->stop();
-                if (opt.auto_continue) {
-                    park.close_dialog();
-                    advance_campaign();
-                }
-            }
-        }
-        ui_sound.update(dt);
-        music.update();
-
-        if (minimap_zoom_in) {
-            minimap_scale =
-                std::max(0.1f, minimap_scale - static_cast<float>(dt) * 0.15f);
-        }
-        if (minimap_zoom_out) {
-            minimap_scale =
-                std::min(2.0f, minimap_scale + static_cast<float>(dt) * 0.15f);
-        }
-
-        if (free_camera && !opt.no_input) {
-            const bool* keys = SDL_GetKeyboardState(nullptr);
-            auto held = [&](dino::KeyAction action) {
-                const SDL_Scancode scancode =
-                    SDL_GetScancodeFromKey(keymap[action], nullptr);
-                return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
-            };
-            const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
-            const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
-            const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
-                                     std::cos(pitch_rad) * std::sin(yaw_rad),
-                                     std::sin(pitch_rad)};
-            const dino::Vec3 right{std::sin(yaw_rad), -std::cos(yaw_rad), 0.0f};
-            const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
-            const float step = speed * static_cast<float>(dt);
-            if (held(dino::KeyAction::MoveForward)) {
-                free_pos.x += forward.x * step;
-                free_pos.y += forward.y * step;
-                free_pos.z += forward.z * step;
-            }
-            if (held(dino::KeyAction::MoveBack)) {
-                free_pos.x -= forward.x * step;
-                free_pos.y -= forward.y * step;
-                free_pos.z -= forward.z * step;
-            }
-            if (held(dino::KeyAction::MoveRight)) {
-                free_pos.x += right.x * step;
-                free_pos.y += right.y * step;
-            }
-            if (held(dino::KeyAction::MoveLeft)) {
-                free_pos.x -= right.x * step;
-                free_pos.y -= right.y * step;
-            }
-            if (held(dino::KeyAction::MoveUp)) {
-                free_pos.z += step;
-            }
-            if (held(dino::KeyAction::MoveDown)) {
-                free_pos.z -= step;
-            }
-            if (terrain.world_size > 0.0f) {
-                const float half = terrain.world_size * 0.5f;
-                if (free_pos.x >= -half && free_pos.x <= half &&
-                    free_pos.y >= -half && free_pos.y <= half) {
-                    const float min_z = terrain.height_at(free_pos.x, free_pos.y) + 1.6f;
-                    free_pos.z = std::max(free_pos.z, min_z);
-                }
-            }
-        } else if (!opt.no_input && !start_screen && !park.name_edit_active()) {
-            // Retail park camera (camera.ini / KeyMapper.ini):
-            //   arrows       pan the look-at target (CameraKey*)
-            //   Shift+arrows rotate around it (CameraRotate*, pi/2 rad/s)
-            //   + / -        zoom (NAVIGATION_ZOOM/DEZOOM)
-            // The drag rotation below is a port-only mouse convenience.
-            const bool* keys = SDL_GetKeyboardState(nullptr);
-            auto held = [&](dino::KeyAction action) {
-                const SDL_Scancode scancode =
-                    SDL_GetScancodeFromKey(keymap[action], nullptr);
-                return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
-            };
-            const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
-                               keys[SDL_SCANCODE_RSHIFT];
-            const float dtf = static_cast<float>(dt);
-            if (camera_retail_model) {
-                // Eight action bytes consumed by 0x005e5ff0:
-                //   0..3 pan (arrows / GOTOP..GORIGHT),
-                //   4/5 yaw (Shift+Left/Right, Del/PgDn),
-                //   6/7 progress (Shift+Up/Down, Home/End, ZOOM/DEZOOM).
-                bool flags[8] = {};
-                flags[0] = nav_pan_forward ||
-                           (!shift && held(dino::KeyAction::OrbitUp));
-                flags[1] = nav_pan_back ||
-                           (!shift && held(dino::KeyAction::OrbitDown));
-                flags[2] = nav_pan_left ||
-                           (!shift && held(dino::KeyAction::OrbitLeft));
-                flags[3] = nav_pan_right ||
-                           (!shift && held(dino::KeyAction::OrbitRight));
-                flags[4] = nav_turn_left ||
-                           (shift && held(dino::KeyAction::OrbitLeft)) ||
-                           keys[SDL_SCANCODE_DELETE];
-                flags[5] = nav_turn_right ||
-                           (shift && held(dino::KeyAction::OrbitRight)) ||
-                           keys[SDL_SCANCODE_PAGEDOWN];
-                flags[6] = nav_zoom_in ||
-                           (shift && held(dino::KeyAction::OrbitUp)) ||
-                           keys[SDL_SCANCODE_HOME];
-                flags[7] = nav_zoom_out ||
-                           (shift && held(dino::KeyAction::OrbitDown)) ||
-                           keys[SDL_SCANCODE_END];
-                // Retail edge scroll: 2 client px bands, OR-ed into the same
-                // pan flags, disabled while the rotate modifier (Shift) is
-                // held. The position persists on focus loss.
-                const int edge_band = std::max(1, opt.edge_scroll);
-                if (!shift && cam_mouse_valid) {
-                    flags[2] = flags[2] || cam_mouse_x < edge_band;
-                    flags[3] = flags[3] ||
-                               cam_mouse_x > width - edge_band;
-                    flags[0] = flags[0] || cam_mouse_y < edge_band;
-                    flags[1] = flags[1] ||
-                               cam_mouse_y > height - edge_band;
-                }
-                // The binary applies the pan step once per camera Update.
-                // Run the retail camera at a fixed tick so a 1000 Hz render
-                // loop does not pan 16x faster than a 60 Hz one.
-                const float camera_step =
-                    1.0f / std::clamp(opt.camera_hz, 10.0f, 240.0f);
-                camera_accum =
-                    std::min(camera_accum + dtf, camera_step * 4.0f);
-                int camera_steps = 0;
-                while (camera_accum >= camera_step && camera_steps < 4) {
-                    retail_camera.update(camera_config, terrain, camera_step,
-                                         flags);
-                    camera_accum -= camera_step;
-                    ++camera_steps;
-                }
-                camera_progress = retail_camera.progress;
-                center = retail_camera.target_cur;
-                yaw = retail_camera.yaw_cur * 57.2957795f;
-                camera_yaw_goal = yaw;
-                const float radius =
-                    camera_config.distance(camera_progress);
-                const float height =
-                    camera_config.elevation(camera_progress);
-                pitch = std::atan2(height, radius) * 57.2957795f;
-                distance = std::sqrt(radius * radius + height * height);
-            } else {
-                // Legacy spherical orbit for --camera-orbit and explicit
-                // screenshot views. Speed/limits still come from camera.ini.
-                const float pitch_rad = pitch * 3.14159265f / 180.0f;
-                const float horizontal =
-                    std::max(camera_config.distance_min,
-                             distance * std::cos(pitch_rad));
-                const float progress = std::clamp(
-                    (horizontal - camera_config.distance_min) /
-                        std::max(1.0f, camera_config.distance_max -
-                                           camera_config.distance_min),
-                    0.0f, 1.0f);
-                const float rotate =
-                    camera_config.rotation_speed(progress) * 57.2957795f *
-                    dtf;
-                if (nav_turn_left ||
-                    (shift && held(dino::KeyAction::OrbitLeft))) {
-                    yaw -= rotate;
-                }
-                if (nav_turn_right ||
-                    (shift && held(dino::KeyAction::OrbitRight))) {
-                    yaw += rotate;
-                }
-                const float min_pitch =
-                    std::atan2(camera_config.elevation_min,
-                               std::max(1e-3f, distance)) *
-                    57.2957795f;
-                const float max_pitch =
-                    std::atan2(camera_config.elevation_max,
-                               std::max(1e-3f, distance)) *
-                    57.2957795f;
-                if (shift && held(dino::KeyAction::OrbitUp)) {
-                    pitch = std::min(max_pitch, pitch + rotate);
-                }
-                if (shift && held(dino::KeyAction::OrbitDown)) {
-                    pitch = std::max(min_pitch, pitch - rotate);
-                }
-                // `yaw` points from the target to the eye; the view direction
-                // is the opposite. Move the target in the camera's ground
-                // plane at the camera.ini MoveSpeed (4-unit cells/second).
-                const float view_yaw =
-                    yaw * 3.14159265f / 180.0f + 3.14159265f;
-                const dino::Vec3 forward{std::cos(view_yaw),
-                                         std::sin(view_yaw), 0.0f};
-                const dino::Vec3 right{std::sin(view_yaw),
-                                       -std::cos(view_yaw), 0.0f};
-                const float step =
-                    camera_config.move_speed(progress) * 4.0f * dtf;
-                dino::Vec3 delta{0.0f, 0.0f, 0.0f};
-                if (nav_pan_forward ||
-                    (!shift && held(dino::KeyAction::OrbitUp))) {
-                    delta.x += forward.x * step;
-                    delta.y += forward.y * step;
-                }
-                if (nav_pan_back ||
-                    (!shift && held(dino::KeyAction::OrbitDown))) {
-                    delta.x -= forward.x * step;
-                    delta.y -= forward.y * step;
-                }
-                if (nav_pan_right ||
-                    (!shift && held(dino::KeyAction::OrbitRight))) {
-                    delta.x += right.x * step;
-                    delta.y += right.y * step;
-                }
-                if (nav_pan_left ||
-                    (!shift && held(dino::KeyAction::OrbitLeft))) {
-                    delta.x -= right.x * step;
-                    delta.y -= right.y * step;
-                }
-                if (delta.x != 0.0f || delta.y != 0.0f) {
-                    center.x += delta.x;
-                    center.y += delta.y;
-                    if (terrain.world_size > 0.0f) {
-                        const float half = terrain.world_size * 0.5f;
-                        center.x = std::clamp(center.x, -half, half);
-                        center.y = std::clamp(center.y, -half, half);
-                        const float target_z =
-                            terrain.height_at(center.x, center.y) + 2.5f;
-                        const float alpha = std::min(
-                            1.0f,
-                            camera_config.position_hardness(progress) * dtf);
-                        center.z += (target_z - center.z) * alpha;
-                    }
-                }
-                // ProgressSpeed is a fraction of the full distance range per
-                // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
-                const float zoom_step =
-                    camera_config.progress_speed(progress) *
-                    (camera_config.distance_max -
-                     camera_config.distance_min) *
-                    dtf;
-                if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
-                    distance = std::max(camera_config.distance_min,
-                                        distance - zoom_step);
-                }
-                if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
-                    distance = std::min(camera_config.distance_max,
-                                        distance + zoom_step);
-                }
-            }
-        }
-
-        if (std::getenv("DINO_DEBUG_CAMERA") != nullptr && (frame % 30) == 0) {
-            std::fprintf(stderr,
-                         "cam free=%d target=%.1f,%.1f,%.1f yaw=%.1f "
-                         "pitch=%.1f dist=%.1f p=%.3f r=%.1f h=%.1f "
-                         "yaw_goal=%.1f up=0,0,1\n",
-                         free_camera ? 1 : 0, center.x, center.y, center.z,
-                         yaw, pitch, distance,
-                         camera_retail_model ? camera_progress : -1.0f,
-                         camera_retail_model ? camera_radius() : -1.0f,
-                         camera_retail_model ? camera_height() : -1.0f,
-                         camera_yaw_goal);
-        }
-
-        if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
-            const int queued = SDL_GetAudioStreamQueued(audio);
-            if (queued < static_cast<int>(wav.data.size() / 2)) {
-                SDL_PutAudioStreamData(audio, wav.data.data(),
-                                       static_cast<int>(wav.data.size()));
-            }
-        }
-
-        const float pulse = 0.5f + 0.5f * SDL_sinf(static_cast<float>(elapsed) * 1.5f);
-        glClearColor(0.055f + 0.02f * pulse, 0.09f + 0.03f * pulse,
-                     0.14f + 0.04f * pulse, 1.0f);
-
-        if (skinned) {
-            double anim_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
-            if (opt.anim_time < 0.0 && anim.duration > 0) {
-                if (!opt.capture_dir.empty() && opt.frames > 0) {
-                    anim_time = std::fmod(static_cast<double>(frame) *
-                                              static_cast<double>(anim.duration) /
-                                              static_cast<double>(opt.frames),
-                                          static_cast<double>(anim.duration));
-                } else {
-                    anim_time = std::fmod(elapsed * 4800.0 * opt.anim_speed,
-                                          static_cast<double>(anim.duration));
-                }
-            }
-            const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
-            dino::Mesh deformed = build_skinned_mesh(skin.mesh, skin, skeleton,
-                                                     anim_ptr, anim_time,
-                                                     vertex_bone, bone_skel,
-                                                     opt.skin_bind_from_skin);
-            if (mesh.colors.size() == deformed.positions.size()) {
-                deformed.colors = mesh.colors;
-            }
-            if (place_dino) {
-                deformed = place_on_terrain(std::move(deformed), terrain,
-                                            spawn_x, spawn_y, opt.dino_angle);
-                update_mesh(dino_gpu, deformed, glfns);
-            } else {
-                update_mesh(gpu, deformed, glfns);
-            }
-        }
-
-        // `FUN_00589CD0`: rebuild the 8-unit danger grid once per second, then
-        // recompute each dinosaur's SECU from the cell under its position.
-        if (!imported_dinos.empty() && terrain.world_size > 0.0f) {
-            danger_timer += dt;
-            if (danger_timer >= 1.0) {
-                danger_timer = 0.0;
-                danger_grid.clear();
-                for (const ImportedDino& dinosaur : imported_dinos) {
-                    const dino::DinoNeeds& needs =
-                        dinosaur.action_loop ? dinosaur.action_loop->needs()
-                                             : dinosaur.needs;
-                    // ImportedDino::x/y are raw `.wld`/`.raw` units (the
-                    // terrain and placement code subtract world_size/2).
-                    danger_grid.stamp(dinosaur.x, dinosaur.y,
-                                      needs.threat_radius, needs.threat);
-                }
-                // The grid is "live" when any dinosaur carries danger
-                // attributes. With every cache at 0 (the import default) the
-                // retail grid would pin SECU to 99, so the port keeps the
-                // configured value and `--dino-needs` fixtures stay useful.
-                bool any_live = false;
-                for (const ImportedDino& dinosaur : imported_dinos) {
-                    const dino::DinoNeeds& needs =
-                        dinosaur.action_loop ? dinosaur.action_loop->needs()
-                                             : dinosaur.needs;
-                    if (needs.threat != 0 || needs.threat_radius != 0 ||
-                        needs.health != needs.max_health) {
-                        any_live = true;
-                        break;
-                    }
-                }
-                for (ImportedDino& dinosaur : imported_dinos) {
-                    dino::DinoNeeds& needs =
-                        dinosaur.action_loop ? dinosaur.action_loop->needs()
-                                             : dinosaur.needs;
-                    const float raw_x = dinosaur.x;
-                    const float raw_y = dinosaur.y;
-                    const int cell = danger_grid.at(raw_x, raw_y);
-                    const int secu = dino::secu_from_grid(
-                        danger_grid, raw_x, raw_y, needs.threat, needs.health,
-                        needs.max_health);
-                    // The port's need range is 0..99; retail stores the raw
-                    // value but never exceeds 99 for in-grid, undamaged
-                    // dinosaurs.
-                    const int applied = std::max(0, std::min(99, secu));
-                    if (any_live) {
-                        needs.value[2] = applied;
-                        if (dinosaur.action_loop) {
-                            dinosaur.action_loop->set_secu(applied);
-                        }
-                    }
-                    if (opt.secu_probe) {
-                        std::printf(
-                            "secu: %s x=%.1f y=%.1f threat=%d radius=%d "
-                            "cell=%d health=%d/%d secu=%d\n",
-                            dinosaur.species.c_str(), dinosaur.x, dinosaur.y,
-                            needs.threat, needs.threat_radius, cell,
-                            needs.health, needs.max_health, applied);
-                    }
-                }
-            }
-        }
-
-        for (ImportedDino& dinosaur : imported_dinos) {
-            if (dinosaur.action_loop) {
-                // The `.bai` consume gate: Eat is only available when the
-                // dinosaur's paddock holds a matching food source.
-                const int pen = paddock_at(dinosaur.x, dinosaur.y);
-                dinosaur.action_loop->set_inventory(
-                    paddock_food(pen, dinosaur.carnivore) != nullptr);
-                const int finished_before =
-                    dinosaur.action_loop->finished_count();
-                const std::string previous =
-                    dinosaur.action_loop->action_name();
-                dinosaur.action_loop->tick(dt);
-                if (dinosaur.action_loop->finished_count() !=
-                    finished_before) {
-                    const std::string& finished =
-                        dinosaur.action_loop->last_finished_action();
-                    if (finished == "Eat" || finished == "EatForSmallies") {
-                        dino::FoodSource* source =
-                            paddock_food(pen, dinosaur.carnivore);
-                        if (source != nullptr) {
-                            source->remaining =
-                                std::max(0.0f, source->remaining - 1.0f);
-                            const std::string& food_name =
-                                food_defs[static_cast<std::size_t>(
-                                              source->def)]
-                                    .name;
-                            std::printf(
-                                "dino eat: %s <- %s remaining=%.2f\n",
-                                dinosaur.species.c_str(), food_name.c_str(),
-                                source->remaining);
-                            if (source->remaining <= 0.0f) {
-                                std::printf("food: %s depleted\n",
-                                            food_name.c_str());
-                                rebuild_extra_items();
-                            }
-                        }
-                    }
-                }
-                const std::string& action =
-                    dinosaur.action_loop->action_name();
-                if (action != previous) {
-                    if (action != "idle") {
-                        const dino::BaiAction& definition =
-                            dino_action_table[static_cast<std::size_t>(
-                                dinosaur.action_loop->action_index())];
-                        const int score = dino::score_action(
-                            definition, dinosaur.action_loop->needs());
-                        const dino::DinoNeeds& needs =
-                            dinosaur.action_loop->needs();
-                        std::printf(
-                            "dino action: %s %s score=%d "
-                            "needs=%d/%d/%d/%d\n",
-                            dinosaur.species.c_str(), action.c_str(), score,
-                            needs.value[0], needs.value[1], needs.value[2],
-                            needs.value[3]);
-                    }
-                    const std::string clip =
-                        action == "idle" ? "Neutral"
-                                         : dino_clip_for_action(action);
-                    if (clip != dinosaur.clip) {
-                        try {
-                            dinosaur.assets = load_imported_species(
-                                dinosaur.species, dinosaur.family, clip);
-                            dinosaur.clip = clip;
-                        } catch (const std::exception& e) {
-                            std::fprintf(stderr, "dino clip %s: %s\n",
-                                         clip.c_str(), e.what());
-                        }
-                    }
-                }
-            }
-            const ImportedSpecies& assets = *dinosaur.assets;
-            if (assets.anim.bones.empty() || assets.anim.duration <= 0.0) {
-                continue;
-            }
-            double anim_time = opt.anim_time;
-            if (opt.anim_time < 0.0) {
-                anim_time = std::fmod(
-                    elapsed * 4800.0 * opt.anim_speed + dinosaur.phase,
-                    static_cast<double>(assets.anim.duration));
-            }
-            dino::Mesh deformed = build_skinned_mesh(
-                assets.skin.mesh, assets.skin, assets.skeleton, &assets.anim,
-                anim_time, assets.vertex_bone, assets.bone_skel, false);
-            if (assets.mesh.colors.size() == deformed.positions.size()) {
-                deformed.colors = assets.mesh.colors;
-            }
-            deformed = place_on_terrain(std::move(deformed), terrain,
-                                        dinosaur.x, dinosaur.y,
-                                        dinosaur.angle);
-            update_mesh(dinosaur.gpu, deformed, glfns);
-        }
-
-        if (!visitor_system.visitors.empty()) {
-            visitor_system.update(build_grid, terrain,
-                                  static_cast<float>(dt), attractions,
-                                  entrance_cell_x, entrance_cell_y,
-                                  visitor_profiles);
-            update_mesh(visitor_gpu,
-                        visitor_system.build_mesh(build_grid, terrain,
-                                                  visitor_pose1, visitor_pose2),
-                        glfns);
-        }
-
-        dino::Vec3 eye;
-        dino::Vec3 view_center;
-        if (free_camera) {
-            const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
-            const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
-            const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
-                                     std::cos(pitch_rad) * std::sin(yaw_rad),
-                                     std::sin(pitch_rad)};
-            eye = free_pos;
-            view_center = {free_pos.x + forward.x * 10.0f,
-                           free_pos.y + forward.y * 10.0f,
-                           free_pos.z + forward.z * 10.0f};
-        } else {
-            eye = orbit_eye();
-            view_center = center;
-        }
-
-        if (pending_fence_tool) {
-            ensure_build_ready();
-            build_tool = 6;
-            fence_corner_x = -1;
-            fence_corner_y = -1;
-            pending_construct_kind = -1;
-            pending_fence_tool = false;
-            std::printf("fence: tool armed (click two corners)\n");
-        }
-        if ((build_tool == 2 || build_tool == 6) && build_ready &&
-            !opt.no_input) {
-            float mxf = 0.0f;
-            float myf = 0.0f;
-            SDL_GetMouseState(&mxf, &myf);
-            if (!opt.fence_cursor.empty()) {
-                std::sscanf(opt.fence_cursor.c_str(), "%f,%f", &mxf, &myf);
-            }
-            dino::Vec3 hit;
-            int cx = 0;
-            int cy = 0;
-            bool visible = false;
-            bool ok = false;
-            if (pick_terrain(terrain, eye, view_center, mxf, myf,
-                             logical_width, logical_height, hit) &&
-                build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
-                const float cs = build_grid.cell_size;
-                const float wx =
-                    build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
-                const float wy =
-                    build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
-                // 0x5f8c70 -> 0x5faaa0: the helper snaps the picked point to
-                // the nearest 4-unit anchor (cell corner in map units); the
-                // disc/grid sphere sits at anchor + step/2 = the cell centre.
-                const int start_x = static_cast<int>(static_cast<float>(cx) * cs);
-                const int start_y = static_cast<int>(static_cast<float>(cy) * cs);
-                // 0x58a190 runs on the snapped helper position: scan
-                // `p .. p+margin-1` (margin 4) for a busy high nibble.
-                ok = build_grid.occupancy.free_rect(
-                    start_x, start_y, start_x + 3, start_y + 3);
-                // Retail rejects a fence start strictly inside an existing
-                // paddock (`WARNING_INSIDE_PERIMETER`). Use the snapped point,
-                // the same point the first-click check uses.
-                const float rx = static_cast<float>(start_x);
-                const float ry = static_cast<float>(start_y);
-                for (const dino::WorldRect& rect : road_perimeters()) {
-                    if (rx > std::min(rect.x0, rect.x1) &&
-                        rx < std::max(rect.x0, rect.x1) &&
-                        ry > std::min(rect.y0, rect.y1) &&
-                        ry < std::max(rect.y0, rect.y1)) {
-                        ok = false;
-                        break;
-                    }
-                }
-                // Mode 1 shows the start disc; after the first corner the
-                // helper switches to mode 2 (the grid) and the disc is gone.
-                visible = build_tool != 6 || fence_corner_x < 0;
-                if (build_tool == 6 && fence_corner_x >= 0 &&
-                    fence_corner_y >= 0) {
-                    // 0x52ad00 shows &MESSAGE_FENCE_PERIMETER_COST while the
-                    // opposite corner is pending; 0x581b90 uses the sorted
-                    // max-1 rect and Fence.bwi's 4/30.
-                    const int px = static_cast<int>(
-                        static_cast<float>(cx) * cs);
-                    const int py = static_cast<int>(
-                        static_cast<float>(cy) * cs);
-                    const int rx0 = std::min(fence_corner_x, px);
-                    const int ry0 = std::min(fence_corner_y, py);
-                    const int rx1 = std::max(fence_corner_x, px) - 1;
-                    const int ry1 = std::max(fence_corner_y, py) - 1;
-                    // The helper grid spans the two snapped corners (not the
-                    // max-1 cost rect): (100,100)-(116,116) -> centres
-                    // 102/106/110/114 with a 4-unit step.
-                    const int tx0 = std::min(fence_corner_x, px);
-                    const int ty0 = std::min(fence_corner_y, py);
-                    const int tx1 = std::max(fence_corner_x, px);
-                    const int ty1 = std::max(fence_corner_y, py);
-                    const int cost =
-                        ((rx1 + ry1) - (rx0 + ry0)) * 2 / 4 * 30;
-                    if (cost != fence_preview_cost) {
-                        fence_preview_cost = cost;
-                        if (park.loaded()) {
-                            park.show_message(
-                                dino::ui::resolve_loc_text(
-                                    "&MESSAGE_FENCE_PERIMETER_COST",
-                                    park.loc) +
-                                std::to_string(cost));
-                        }
-                    }
-                    // Pending-rectangle template: helper mode 2 fills the
-                    // rectangle with helper_sphere dots on a 4-unit grid
-                    // (diameter 4 interior, 2 on the border row/column),
-                    // blue when the retail 0x58a4e0 checks pass, maroon
-                    // otherwise.
-                    bool template_ok =
-                        rx1 - rx0 >= 23 && ry1 - ry0 >= 23;
-                    if (template_ok) {
-                        for (const dino::WorldRect& rect :
-                             road_perimeters()) {
-                            if (std::min(rect.x0, rect.x1) < rx0 &&
-                                std::min(rect.y0, rect.y1) < ry0 &&
-                                rx1 < std::max(rect.x0, rect.x1) &&
-                                ry1 < std::max(rect.y0, rect.y1)) {
-                                template_ok = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (template_ok &&
-                        !build_grid.occupancy.free_rect(rx0 + 4, ry0 + 4,
-                                                        rx1 - 4, ry1 - 4)) {
-                        template_ok = false;
-                    }
-                    const std::array<int, 6> tkey = {
-                        tx0, ty0, tx1, ty1, template_ok ? 1 : 0, 1};
-                    if (tkey != fence_template_key) {
-                        fence_template_key = tkey;
-                        fence_template_ok = template_ok;
-                        if (fence_sphere_source.positions.empty()) {
-                            try {
-                                fence_sphere_source = dino::load_mesh(
-                                    resolve_asset(
-                                        opt.asset_root,
-                                        "Data/Graphics/focus/"
-                                        "helper_sphere.mesh"));
-                            } catch (const std::exception& e) {
-                                std::fprintf(stderr,
-                                             "fence template mesh: %s\n",
-                                             e.what());
-                            }
-                        }
-                        fence_template_gpu.destroy(glfns);
-                        if (!fence_sphere_source.positions.empty()) {
-                            fence_template_gpu = upload_mesh(
-                                dino::fence_template_mesh(
-                                    fence_sphere_source,
-                                    {tx0, ty0, tx1, ty1}, terrain, 4.0f),
-                                glfns);
-                        }
-                        fence_template_visible =
-                            fence_template_gpu.vao != 0;
-                        rebuild_extra_items();
-                    }
-                } else if (fence_template_visible) {
-                    fence_template_visible = false;
-                    fence_template_key = {-1, -1, -1, -1, -1, -1};
-                    rebuild_extra_items();
-                }
-                if (cx != fence_preview_cell_x ||
-                    cy != fence_preview_cell_y ||
-                    ok != fence_preview_ok ||
-                    fence_preview_gpu.vao == 0) {
-                    fence_preview_cell_x = cx;
-                    fence_preview_cell_y = cy;
-                    fence_preview_gpu.destroy(glfns);
-                    // Mode 1 draws one helper_sphere of scale 8 on the unit
-                    // mesh (helper step 8) at the cell centre: radius 4.
-                    fence_preview_gpu = upload_mesh(
-                        dino::fence_preview_disc(
-                            wx, wy, terrain.height_at(wx, wy) + 0.15f, cs),
-                        glfns);
-                    std::printf("fence preview: cell=%d,%d ok=%d\n", cx, cy,
-                                ok ? 1 : 0);
-                }
-            }
-            if (visible != fence_preview_visible ||
-                ok != fence_preview_ok) {
-                fence_preview_visible = visible;
-                fence_preview_ok = ok;
-                rebuild_extra_items();
-            }
-        } else if (fence_preview_visible || fence_template_visible) {
-            // After the first corner the disc is hidden but the mode-2 grid
-            // is still drawn; leaving the tool must clear both.
-            fence_preview_visible = false;
-            fence_preview_cell_x = -1;
-            fence_preview_cell_y = -1;
-            if (fence_template_visible) {
-                fence_template_visible = false;
-                fence_template_key = {-1, -1, -1, -1, -1, -1};
-            }
-            rebuild_extra_items();
-        }
-        if (pending_click) {
-            pending_click = false;
-            if (pending_store_index >= 0 && build_ready) {
-                // FENCE_INSERTION: the click picks the paddock; a full paddock
-                // keeps the insertion state and shows the retail warning.
-                dino::Vec3 hit;
-                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                                 logical_width, logical_height, hit)) {
-                    const float half = terrain.world_size * 0.5f;
-                    const float wx = hit.x + half;
-                    const float wy = hit.y + half;
-                    std::printf("store: pick world %.1f %.1f\n", wx, wy);
-                    int paddock_index = -1;
-                    for (std::size_t p = 0; p < paddocks.size(); ++p) {
-                        const dino::WorldRect& r = paddocks[p].rect;
-                        if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
-                            wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
-                            wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
-                            wy <= static_cast<float>(std::max(r.y0, r.y1))) {
-                            paddock_index = static_cast<int>(p);
-                            break;
-                        }
-                    }
-                    if (paddock_index < 0) {
-                        std::printf("store: click inside a paddock\n");
-                    } else if (pending_store_index >=
-                               static_cast<int>(store_catalog.size())) {
-                        pending_store_index = -1;
-                        pending_store_price = 0;
-                    } else {
-                        const dino::MarketEntry entry =
-                            store_catalog[static_cast<std::size_t>(
-                                pending_store_index)];
-                        std::string species;
-                        std::string family;
-                        int cost_class = 0;
-                        try {
-                            const std::string genotype_path = resolve_asset(
-                                opt.asset_root,
-                                "Data/Design/Scenario/Genotype/" +
-                                    entry.genotype);
-                            const int head =
-                                dino::read_gen_head_type(genotype_path);
-                            dino::DinoGenotype genotype{};
-                            bool have_genotype = false;
-                            try {
-                                genotype =
-                                    dino::read_gen_genotype(genotype_path);
-                                have_genotype = true;
-                            } catch (const std::exception&) {
-                            }
-                            const auto match = head_species.find(head);
-                            species = match != head_species.end()
-                                          ? match->second
-                                          : "allo";
-                            family = family_table.family_of(species);
-                            if (family.empty()) {
-                                family = "LightBiped";
-                            }
-                            cost_class =
-                                (have_genotype && phenotype_table.valid)
-                                    ? phenotype_table.size_class(genotype)
-                                    : (size_for_species
-                                           ? size_for_species(species)
-                                           : 1);
-                            const int dino_id =
-                                1000000 +
-                                static_cast<int>(imported_dinos.size());
-                            dino::Paddock& paddock =
-                                paddocks[static_cast<std::size_t>(
-                                    paddock_index)];
-                            if (!dino::paddock_can_add(paddock, dino_id,
-                                                       cost_class)) {
-                                std::printf(
-                                    "store: no room in paddock %d "
-                                    "(WARNING_NO_ROOM_IN_FENCE)\n",
-                                    paddock_index);
-                                park.show_message(
-                                    dino::ui::resolve_loc_text(
-                                        "&WARNING_NO_ROOM_IN_FENCE",
-                                        park.loc));
-                            } else {
-                                const bool have_attributes =
-                                    have_genotype && phenotype_table.valid;
-                                const dino::DinoAttributes store_attrs =
-                                    have_attributes
-                                        ? phenotype_table.attributes(genotype)
-                                        : dino::DinoAttributes{};
-                                if (add_imported_dino(
-                                        species, family, opt.dino_clip, wx,
-                                        wy, 0.0f,
-                                        have_attributes ? &store_attrs
-                                                        : nullptr)) {
-                                    dino::paddock_add(paddock, dino_id,
-                                                      cost_class);
-                                    park_budget -= pending_store_price;
-                                    budget_ledger.spend_dinoachat(
-                                        pending_store_price);
-                                    store_catalog.erase(
-                                        store_catalog.begin() +
-                                        pending_store_index);
-                                    refresh_store_rows();
-                                    park_paddocks = paddocks;
-                                    float total_used = 0.0f;
-                                    for (const dino::Paddock& p : paddocks) {
-                                        total_used += p.used;
-                                    }
-                                    std::printf(
-                                        "store: bought %s price=%d budget=%d "
-                                        "paddock=%d dinos=%zu "
-                                        "dinoachat=%d/%d used=%.0f "
-                                        "total=%.0f\n",
-                                        entry.name.c_str(),
-                                        pending_store_price, park_budget,
-                                        paddock_index, imported_dinos.size(),
-                                        budget_ledger.dinoachat_count,
-                                        budget_ledger.dinoachat_total,
-                                        paddock.used, total_used);
-                                    pending_store_index = -1;
-                                    pending_store_price = 0;
-                                    rebuild_extra_items();
-                                } else {
-                                    std::printf(
-                                        "store: %s model load failed\n",
-                                        entry.name.c_str());
-                                }
-                            }
-                        } catch (const std::exception& e) {
-                            std::fprintf(stderr, "store: %s\n", e.what());
-                        }
-                    }
-                }
-            } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
-                const bool picked = pick_terrain(terrain, eye, view_center, click_x,
-                                                 click_y, logical_width, logical_height, hit);
-                if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                    std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
-                                click_y, picked ? 1 : 0, hit.x, hit.y);
-                }
-                if (picked) {
-                    int cx = 0;
-                    int cy = 0;
-                    // The road cursor and the fence helper both snap to the
-                    // nearest 4-unit anchor (0x5faaa0); the other build tools
-                    // use the floored cell.
-                    if ((build_tool == 4 || build_tool == 6
-                             ? build_grid.road_cells_for_world(hit.x, hit.y,
-                                                               cx, cy)
-                             : build_grid.cells_for_world(hit.x, hit.y, cx,
-                                                          cy))) {
-                        const int before = build_grid.path_count + build_grid.fence_count;
-                        const float cs = build_grid.cell_size;
-                        auto cell_buildable = [&](int gx, int gy) {
-                            return terrain.buildable(
-                                build_grid.origin_x +
-                                    (static_cast<float>(gx) + 0.5f) * cs,
-                                build_grid.origin_y +
-                                    (static_cast<float>(gy) + 0.5f) * cs);
-                        };
-                        if (build_tool == 4) {
-                            road_click(cx, cy);  // rebuilds the meshes itself
-                        } else if (build_tool == 1) {
-                            const bool removing = build_grid.path_at(cx, cy);
-                            if (!removing && !cell_buildable(cx, cy)) {
-                                std::printf("placement: blocked cell\n");
-                            } else {
-                                build_grid.set_path(cx, cy, !removing);
-                            }
-                        } else if (build_tool == 6) {
-                            // Retail FENCE_CONSTRUCTION: the helper snaps the
-                            // click to the nearest anchor (0x5f8c70) and
-                            // stores that corner; the second click builds the
-                            // sorted max-1 rectangle.
-                            const int px = static_cast<int>(
-                                static_cast<float>(cx) * cs);
-                            const int py = static_cast<int>(
-                                static_cast<float>(cy) * cs);
-                            auto inside_paddock = [&](float rx, float ry) {
-                                for (const dino::Paddock& paddock : paddocks) {
-                                    const dino::WorldRect& rect =
-                                        paddock.rect;
-                                    if (rx > std::min(rect.x0, rect.x1) &&
-                                        rx < std::max(rect.x0, rect.x1) &&
-                                        ry > std::min(rect.y0, rect.y1) &&
-                                        ry < std::max(rect.y0, rect.y1)) {
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            };
-                            if (fence_corner_x < 0) {
-                                // 0x58a190: scan `p .. p+margin-1` (margin 4
-                                // from Fence.bwi) for a busy high nibble and
-                                // the height-slope rule; point strictly
-                                // inside an existing perimeter -> code 3.
-                                const bool busy =
-                                    !build_grid.occupancy.free_rect(
-                                        px, py, px + 3, py + 3);
-                                if (busy) {
-                                    road_message("&WARNING_BUSY_SPACE");
-                                } else if (inside_paddock(
-                                               static_cast<float>(px),
-                                               static_cast<float>(py))) {
-                                    road_message(
-                                        "&WARNING_INSIDE_PERIMETER");
-                                } else {
-                                    fence_corner_x = px;
-                                    fence_corner_y = py;
-                                    std::printf(
-                                        "fence: corner %d,%d (click opposite "
-                                        "corner)\n",
-                                        px, py);
-                                }
-                            } else {
-                                // 0x52bbf0 sorts the two clicked points and
-                                // subtracts 1 from the high corner.
-                                const int x0 =
-                                    std::min(fence_corner_x, px);
-                                const int y0 =
-                                    std::min(fence_corner_y, py);
-                                const int x1 =
-                                    std::max(fence_corner_x, px) - 1;
-                                const int y1 =
-                                    std::max(fence_corner_y, py) - 1;
-                                std::string warning;
-                                int cost = 0;
-                                // 0x58a4e0: a side shorter than
-                                // 6*margin-1 (margin 4 -> 23 units) is
-                                // PERIMETER_TOO_SMALL, then the inside test,
-                                // then the inset margin scan.
-                                // (The `>= 16` check in 0x527150 is the
-                                // stFence LunchBox dish list, max 15 — not a
-                                // park enclosure cap; see
-                                // notes/fence-panel-sell-recon.md.)
-                                if (x1 - x0 < 23 || y1 - y0 < 23) {
-                                    warning = "&WARNING_PERIMETER_TOO_SMALL";
-                                } else if (inside_paddock(
-                                               (static_cast<float>(x0) +
-                                                static_cast<float>(x1)) *
-                                                   0.5f,
-                                               (static_cast<float>(y0) +
-                                                static_cast<float>(y1)) *
-                                                   0.5f)) {
-                                    warning = "&WARNING_INSIDE_PERIMETER";
-                                } else if (!build_grid.occupancy.free_rect(
-                                               x0 + 4, y0 + 4, x1 - 4,
-                                               y1 - 4)) {
-                                    warning = "&WARNING_BUSY_SPACE";
-                                } else {
-                                    // 0x581b90: ((x1+y1)-(x0+y0))*2/
-                                    // cell*price; Fence.bwi cell 4, price 30.
-                                    cost = ((x1 + y1) - (x0 + y0)) * 2 / 4 *
-                                           30;
-                                    if (park_budget < cost) {
-                                        warning =
-                                            "&WARNING_NOT_ENOUGH_MONEY";
-                                    }
-                                }
-                                if (!warning.empty()) {
-                                    road_message(warning.c_str());
-                                } else {
-                                    const int before =
-                                        build_grid.fence_count;
-                                    const int cx0 = std::max(
-                                        0, static_cast<int>(
-                                               std::floor(x0 / cs)));
-                                    const int cx1 = static_cast<int>(
-                                        std::floor(x1 / cs));
-                                    const int cy0 = std::max(
-                                        0, static_cast<int>(
-                                               std::floor(y0 / cs)));
-                                    const int cy1 = static_cast<int>(
-                                        std::floor(y1 / cs));
-                                    for (int x = cx0; x <= cx1; ++x) {
-                                        build_grid.set_fence(x, cy0, 0, true);
-                                        build_grid.set_fence(x, cy1 + 1, 0,
-                                                             true);
-                                    }
-                                    for (int y = cy0; y <= cy1; ++y) {
-                                        build_grid.set_fence(cx0 - 1, y, 1,
-                                                             true);
-                                        build_grid.set_fence(cx1, y, 1,
-                                                             true);
-                                    }
-                                    // stPerimeter's four wall lines: 1 map
-                                    // unit thick, inclusive min .. max-1.
-                                    build_grid.occupancy.stamp_wall_rect(
-                                        x0, y0, x1, y1, true);
-                                    dino::Paddock paddock;
-                                    paddock.rect = {x0, y0, x1, y1};
-                                    paddock.capacity = dino::paddock_capacity(
-                                        paddock.rect, cs);
-                                    // 0x5ec7e0: rand() & 3 picks the ground
-                                    // atlas quadrant per stFence.
-                                    paddock.ground_variant = std::rand() & 3;
-                                    paddock.name = "Enclosure" +
-                                                   std::to_string(
-                                                       paddocks.size() + 1);
-                                    paddocks.push_back(paddock);
-                                    park_budget -= cost;
-                                    budget_ledger.spend_construction(cost);
-                                    std::printf(
-                                        "fence: built rect %d,%d-%d,%d "
-                                        "edges=%d paddock=%zu capacity=%.0f "
-                                        "cost=%d budget=%d "
-                                        "construction=%d/%d\n",
-                                        x0, y0, x1, y1,
-                                        build_grid.fence_count - before,
-                                        paddocks.size(),
-                                        static_cast<double>(paddock.capacity),
-                                        cost, park_budget,
-                                        budget_ledger.construction_count,
-                                        budget_ledger.construction_total);
-                                    rebuild_build_meshes();
-                                }
-                                fence_corner_x = -1;
-                                fence_corner_y = -1;
-                            }
-                        } else if (build_tool == 3 &&
-                                   pending_construct_kind >= 0) {
-                            const float half = terrain.world_size * 0.5f;
-                            try_construct(
-                                pending_construct_kind,
-                                static_cast<int>(std::floor(hit.x + half)),
-                                static_cast<int>(std::floor(hit.y + half)), 0);
-                        } else if (build_tool == 5 && pending_show_index >= 0) {
-                            // Grid cell -> show record coordinate (0..1024).
-                            place_show_at(
-                                static_cast<int>(std::lround(cx * cs)),
-                                static_cast<int>(std::lround(cy * cs)));
-                        } else {
-                            const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
-                            const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
-                            float best = 1e30f;
-                            int ex = cx;
-                            int ey = cy;
-                            int edge = 0;
-                            auto consider = [&](float distance, int gx, int gy, int e) {
-                                if (distance < best) {
-                                    best = distance;
-                                    ex = gx;
-                                    ey = gy;
-                                    edge = e;
-                                }
-                            };
-                            if (cx > 0) {
-                                consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
-                            }
-                            consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
-                            consider(std::fabs(hit.y - y0), cx, cy, 0);
-                            if (cy + 1 < build_grid.height) {
-                                consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
-                            }
-                            const bool removing =
-                                build_grid.fence_at(ex, ey, edge);
-                            bool allowed = removing;
-                            if (!allowed) {
-                                const bool inside = cell_buildable(ex, ey);
-                                bool neighbour = true;
-                                if (edge == 1) {
-                                    if (ex + 1 < build_grid.width) {
-                                        neighbour = cell_buildable(ex + 1, ey);
-                                    }
-                                } else if (ey > 0) {
-                                    neighbour = cell_buildable(ex, ey - 1);
-                                }
-                                allowed = inside && neighbour;
-                            }
-                            if (!allowed) {
-                                std::printf("placement: blocked cell\n");
-                            } else {
-                                build_grid.set_fence(ex, ey, edge, !removing);
-                            }
-                        }
-                        if (build_tool != 4 &&
-                            build_grid.path_count + build_grid.fence_count != before) {
-                            rebuild_build_meshes();
-                        }
-                    }
-                }
-            } else if (build_ready) {
-                // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
-                // selection (retail `gatFence` -> pass B). Clicking empty
-                // ground/right-click deselects; the Dino_SelectedWall pulse
-                // is pass B. The retail info panel is still a separate task.
-                dino::Vec3 hit;
-                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                                 logical_width, logical_height, hit)) {
-                    const float half = terrain.world_size * 0.5f;
-                    const float mx = hit.x + half;
-                    const float my = hit.y + half;
-                    const int index = paddock_at_map(mx, my);
-                    if (park_sell_mode) {
-                        if (index < 0) {
-                            std::printf("sell: no enclosure under the cursor\n");
-                        } else {
-                            const dino::Paddock& pen =
-                                paddocks[static_cast<std::size_t>(index)];
-                            if (!pen.occupants.empty() || pen.used > 0.0f) {
-                                park.show_warning(
-                                    dino::ui::resolve_loc_text(
-                                        "&WARNING_SELLING_NON_EMPTY_FENCE",
-                                        park.loc));
-                                std::printf(
-                                    "sell: enclosure %d refused (occupied)\n",
-                                    index);
-                            } else {
-                                const int value = dino::fence_sell_value(
-                                    pen.rect, build_grid.cell_size, 30, 4,
-                                    park_sellback);
-                                park_sell_paddock = index;
-                                park.show_request(
-                                    dino::ui::resolve_loc_text(
-                                        "&REQUEST_SELL_FENCE", park.loc) +
-                                    std::to_string(value));
-                                std::printf(
-                                    "sell: enclosure %d value=%d\n", index,
-                                    value);
-                            }
-                        }
-                    } else if (index != selected_paddock) {
-                        selected_paddock = index;
-                        if (index >= 0) {
-                            std::printf("paddock: selected %d\n", index);
-                        } else {
-                            std::printf("paddock: deselected\n");
-                        }
-                        rebuild_build_meshes();
-                        refresh_fence_info_panel();
-                    }
-                }
-            }
-        }
-
-        if (frame == 0 && !opt.pick_test.empty()) {
-            int mx = 0;
-            int my = 0;
-            if (std::sscanf(opt.pick_test.c_str(), "%d,%d", &mx, &my) == 2) {
-                dino::Vec3 hit;
-                if (pick_terrain(terrain, eye, view_center, static_cast<float>(mx),
-                                 static_cast<float>(my), logical_width,
-                                 logical_height, hit)) {
-                    const float cs = build_ready ? build_grid.cell_size : 4.0f;
-                    const float origin = build_ready ? build_grid.origin_x
-                                                     : -terrain.world_size * 0.5f;
-                    const int cx = static_cast<int>(std::floor((hit.x - origin) / cs));
-                    const int cy = static_cast<int>(std::floor((hit.y - origin) / cs));
-                    std::printf("pick: %.2f %.2f %.2f cell %d %d\n", hit.x, hit.y,
-                                hit.z, cx, cy);
-                } else {
-                    std::printf("pick: none\n");
-                }
-            }
-        }
-
-        // Road tool preview: the pending run from the start cell to the
-        // axis-locked cursor cell, rebuilt only when it changes (0x52e750).
-        if (build_ready && build_tool == 4 && road_has_start) {
-            float mxf = 0.0f;
-            float myf = 0.0f;
-            SDL_GetMouseState(&mxf, &myf);
-            if (!opt.road_cursor.empty()) {
-                std::sscanf(opt.road_cursor.c_str(), "%f,%f", &mxf, &myf);
-            }
-            dino::Vec3 hit;
-            int cx = 0;
-            int cy = 0;
-            if (pick_terrain(terrain, eye, view_center, mxf, myf, logical_width,
-                             logical_height, hit) &&
-                build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
-                const dino::RoadSegment road =
-                    dino::road_segment(road_start_x, road_start_y, cx, cy);
-                const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};
-                if (key != road_preview_key) {
-                    road_preview_key = key;
-                    if (road_helper_box.positions.empty()) {
-                        try {
-                            road_helper_box = dino::load_mesh(resolve_asset(
-                                opt.asset_root, "Data/Graphics/focus/helper_road.mesh"));
-                        } catch (const std::exception& e) {
-                            std::fprintf(stderr, "road helper mesh: %s\n", e.what());
-                        }
-                    }
-                    road_preview_gpu.destroy(glfns);
-                    road_preview_gpu = upload_mesh(
-                        dino::road_helper_mesh(road_helper_box, road, build_grid, terrain),
-                        glfns);
-                    const int cost = dino::road_cost(road, ensure_road_price());
-                    road_preview_ok =
-                        dino::check_road(build_grid, road, road_perimeters(),
-                                         [this](int x, int y) { return road_cell_busy(x, y); }) == dino::RoadCheck::Ok &&
-                        park_budget >= cost;
-                    if (road_preview_texture == 0) {
-                        try {
-                            road_helper_image = dino::load_tga(resolve_asset(
-                                opt.asset_root, "Data/Graphics/Textures/focus/road.tga"));
-                        } catch (const std::exception& e) {
-                            std::fprintf(stderr, "road helper texture: %s\n", e.what());
-                            road_helper_image.width = road_helper_image.height = 1;
-                            road_helper_image.rgba = {255, 255, 255, 255};
-                        }
-                        road_preview_texture = upload_texture(road_helper_image);
-                    }
-                    rebuild_extra_items();
-                    if (cost != road_preview_cost) {
-                        road_preview_cost = cost;
-                        if (park.loaded()) {
-                            park.show_message(dino::ui::resolve_loc_text(
-                                                  "&MESSAGE_ROAD_COST", park.loc) +
-                                              std::to_string(cost));
-                        }
-                    }
-                }
-            }
-            // gscMaterialBank (0x600550): x = trunc((sin(6 t) + 1) * 0.5 * 127);
-            // material 2 (valid) = RGB(64, 64, 255 - x), material 3 (invalid)
-            // = RGB(255 - x, 64, 64).
-            if (road_preview_texture != 0 && road_helper_image.width > 0) {
-                const double t = static_cast<double>(SDL_GetTicks()) / 1000.0;
-                const int x = static_cast<int>((std::sin(6.0 * t) + 1.0) * 0.5 * 127.0);
-                const int color[3] = {road_preview_ok ? 64 : 255 - x, 64,
-                                      road_preview_ok ? 255 - x : 64};
-                dino::Image tinted = road_helper_image;
-                for (std::size_t i = 0; i + 3 < tinted.rgba.size(); i += 4) {
-                    for (int c = 0; c < 3; ++c) {
-                        tinted.rgba[i + c] = static_cast<std::uint8_t>(
-                            tinted.rgba[i + c] * color[c] / 255);
-                    }
-                }
-                glBindTexture(GL_TEXTURE_2D, road_preview_texture);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tinted.width, tinted.height,
-                                GL_RGBA, GL_UNSIGNED_BYTE, tinted.rgba.data());
-            }
-        } else if (road_preview_gpu.vao != 0) {
-            road_preview_gpu.destroy(glfns);
-            road_preview_key = {-1, -1, -1, -1};
-            road_preview_cost = -1;
-            rebuild_extra_items();
-        }
-
-        if (park.loaded() && !park.hud_hidden()) {
-            const float heading =
-                std::atan2(view_center.y - eye.y, view_center.x - eye.x);
-            const bool moved =
-                std::abs(view_center.x - minimap_focus.x) > 0.5f ||
-                std::abs(view_center.y - minimap_focus.y) > 0.5f ||
-                std::abs(heading - minimap_heading) > 0.002f ||
-                std::abs(minimap_scale - minimap_rendered_scale) > 0.002f;
-            if (moved) {
-                render_minimap(view_center, heading);
-                minimap_focus = view_center;
-                minimap_heading = heading;
-                minimap_rendered_scale = minimap_scale;
-            }
-        }
-        // WaterSurface animation (FUN_00602fd0): +0x10 += dt*0.03,
-        // +0x14 += dt*0.01. Stage 0 uses (-u14,-u10), stage 1 (+u10,+u14),
-        // so the two layers drift in opposite directions.
-        water_scroll += std::min(static_cast<float>(dt), 0.1f);
-        for (DrawItem& item : extra_items) {
-            if (item.modulate2x && item.texture2 != 0) {
-                item.uv_offset[0] = -0.01f * water_scroll;
-                item.uv_offset[1] = -0.03f * water_scroll;
-                item.uv2_offset[0] =
-                    0.25f / 30.0f + 0.03f * water_scroll;
-                item.uv2_offset[1] = 0.01f * water_scroll;
-            }
-        }
-        // gpkLandscapeSector 0x609970: one camera distance per sector,
-        // then every object in it picks LOD1/LOD2/none (0x508c10).
-        for (std::size_t i = 0; i < veg_visible.size(); ++i) {
-            const auto& group = vegetation.groups[i];
-            if (opt.no_lod) {
-                veg_visible[i] = group.lod == 0 ? 1 : 0;
-                continue;
-            }
-            const dino::Vec3& c = vegetation.sector_centres[group.sector];
-            const float dx = c.x - eye.x;
-            const float dy = c.y - eye.y;
-            const float dz = c.z - eye.z;
-            const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-            veg_visible[i] =
-                dino::landscape_lod(distance, lod_quality) == group.lod ? 1 : 0;
-        }
-        const int culled =
-            draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
-                       view_center, width, height,
-                       terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull,
-                       opt.texture_path.empty() ? detail_texture : 0);
-        if (veg_stats) {
-            std::size_t drawn[2] = {0, 0};
-            std::size_t batches = 0;
-            for (std::size_t i = 0; i < veg_visible.size(); ++i) {
-                if (veg_visible[i] != 0) {
-                    drawn[vegetation.groups[i].lod] += vegetation.groups[i].instances;
-                    ++batches;
-                }
-            }
-            std::printf("vegetation frame: lod1 %zu lod2 %zu hidden %zu, "
-                        "batches %zu culled %d\n",
-                        drawn[0], drawn[1],
-                        vegetation.instances - drawn[0] - drawn[1], batches,
-                        culled);
-            veg_stats = false;
-        }
-
-        auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
-                           int unlit) {
-            draw_ui_mesh(hud_gpu, mesh, texture_id, alpha, unlit, width, height);
-        };
-
-        if (start_screen) {
-            if (menu_loaded && opt.use_menu) {
-                draw_menu(width, height, logical_width, logical_height);
-            } else if (hud_font_texture != 0) {
-                draw_2d(build_screen_rect(0.0f, 0.0f, static_cast<float>(width),
-                                          static_cast<float>(height),
-                                          {8, 12, 18, 255}),
-                        0, 0.55f, 1);
-                const std::string title = "DINO ISLAND";
-                const float title_scale = 4.0f;
-                const float title_width = text_width(hud_font, title, title_scale);
-                draw_2d(build_text_mesh(hud_font, title,
-                                        (static_cast<float>(width) - title_width) * 0.5f,
-                                        static_cast<float>(height) * 0.30f,
-                                        title_scale, {240, 236, 220, 255}),
-                        hud_font_texture, 1.0f, 2);
-                const std::string subtitle = "Press ENTER to begin";
-                const float subtitle_scale = 1.6f;
-                const float subtitle_width =
-                    text_width(hud_font, subtitle, subtitle_scale);
-                draw_2d(build_text_mesh(
-                            hud_font, subtitle,
-                            (static_cast<float>(width) - subtitle_width) * 0.5f,
-                            static_cast<float>(height) * 0.52f, subtitle_scale,
-                            {220, 228, 236, 255}),
-                        hud_font_texture, 1.0f, 2);
-                const std::string hint = "Esc quits    Tab help";
-                const float hint_width = text_width(hud_font, hint, 1.2f);
-                draw_2d(build_text_mesh(
-                            hud_font, hint,
-                            (static_cast<float>(width) - hint_width) * 0.5f,
-                            static_cast<float>(height) * 0.66f, 1.2f,
-                            {170, 185, 200, 255}),
-                        hud_font_texture, 1.0f, 2);
-            }
-        } else {
-            if (park.loaded()) {
-                draw_park_hud(width, height, logical_width, logical_height);
-                if (minimap_ready && !park.hud_hidden()) {
-                    const float dpi =
-                        logical_width > 0
-                            ? static_cast<float>(width) /
-                                  static_cast<float>(logical_width)
-                            : 1.0f;
-                    const dino::ui::Widget* map_widget =
-                        park.overlay.get("MAP_RENDERVIEW");
-                    const float map_x =
-                        static_cast<float>(map_widget ? map_widget->abs_x : 652) *
-                        dpi;
-                    const float map_y =
-                        static_cast<float>(map_widget ? map_widget->abs_y : 451) *
-                        dpi;
-                    const float map_w =
-                        static_cast<float>(map_widget ? map_widget->width : 136) *
-                        dpi;
-                    const float map_h =
-                        static_cast<float>(map_widget ? map_widget->height : 136) *
-                        dpi;
-                    // MAP_RENDERVIEW is a bottom-up FBO texture: flip V.
-                    draw_ui_mesh(
-                        menu_gpu,
-                        build_ui_quad(map_x, map_y, map_w, map_h, 0.0f, 1.0f,
-                                      1.0f, 0.0f, {255, 255, 255, 255}),
-                        minimap.color, 1.0f, 1, width, height);
-
-                    // Retail map marker: red block at the camera position
-                    // with a short heading tick (FUN_005fb120 maps the camera
-                    // position into the rotated, target-centred quad).
-                    const float half = terrain.world_size * 2.0f * minimap_scale;
-                    if (half > 0.5f) {
-                        const float angle = std::atan2(view_center.y - eye.y,
-                                                       view_center.x - eye.x);
-                        const float dx = eye.x - view_center.x;
-                        const float dy = eye.y - view_center.y;
-                        const float sx =
-                            dx * std::sin(angle) - dy * std::cos(angle);
-                        const float sy =
-                            dx * std::cos(angle) + dy * std::sin(angle);
-                        const float centre_x = map_x + map_w * 0.5f;
-                        const float centre_y = map_y + map_h * 0.5f;
-                        const float half_px = map_w * 0.5f;
-                        const float marker_x =
-                            centre_x + (sx / half) * half_px;
-                        const float marker_y =
-                            centre_y - (sy / half) * half_px;
-                        const float inset = 4.0f * dpi;
-                        if (marker_x > map_x + inset &&
-                            marker_x < map_x + map_w - inset &&
-                            marker_y > map_y + inset &&
-                            marker_y < map_y + map_h - inset) {
-                            draw_ui_mesh(
-                                menu_gpu,
-                                build_screen_rect(marker_x - 2.5f * dpi,
-                                                  marker_y - 2.5f * dpi,
-                                                  5.0f * dpi, 5.0f * dpi,
-                                                  {220, 32, 32, 255}),
-                                0, 1.0f, 1, width, height);
-                            draw_ui_mesh(
-                                menu_gpu,
-                                build_screen_rect(marker_x - 0.75f * dpi,
-                                                  marker_y - 7.0f * dpi,
-                                                  1.5f * dpi, 4.5f * dpi,
-                                                  {250, 224, 64, 255}),
-                                0, 1.0f, 1, width, height);
-                        }
-                    }
-                }
-            }
-            if (hud_visible && hud_font_texture != 0) {
-                char line1[128];
-                char line2[192];
-                std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
-                              dt > 0.0 ? 1.0 / dt : 0.0);
-                std::snprintf(line2, sizeof(line2),
-                              "visitors %zu   paths %d   fences %d",
-                              visitor_system.visitors.size(), build_grid.path_count,
-                              build_grid.fence_count);
-                std::string text = std::string(line1) + "\n" + line2;
-                if (opt.frames == 0 && elapsed < 12.0) {
-                    text += "\nArrows pan   Shift+Arrows rotate   "
-                            "+/- or wheel zoom   C free-fly";
-                }
-                draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
-                                        {235, 240, 245, 255}),
-                        hud_font_texture, 0.95f, 2);
-            }
-            if (show_help && hud_font_texture != 0) {
-                const float panel_w =
-                    std::min(640.0f, static_cast<float>(width) - 80.0f);
-                draw_2d(build_screen_rect(40.0f, 60.0f, panel_w, 230.0f,
-                                          {10, 14, 20, 255}),
-                        0, 0.80f, 1);
-                draw_2d(build_text_mesh(
-                            hud_font,
-                            "CONTROLS\n\n"
-                            "Arrows pan target   Shift+Arrows rotate\n"
-                            "+/- or wheel zoom   C free-fly   R reset\n"
-                            "1 path    2 fence    0 off    U undo    click place\n"
-                            "F1 HUD    Tab close    Esc quit",
-                            64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
-                        hud_font_texture, 1.0f, 2);
-            }
-        }
-
-        if (!opt.capture_dir.empty()) {
-            std::filesystem::create_directories(opt.capture_dir);
-            char path[1024];
-            std::snprintf(path, sizeof(path), "%s/%s_%04d.bmp",
-                          opt.capture_dir.c_str(), opt.capture_prefix.c_str(), frame);
-            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
-            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-            write_bmp(path, width, height, pixels);
-        }
-
-        if (!opt.screenshot.empty() &&
-            (opt.frames <= 0 ? false : frame + 1 >= opt.frames)) {
-            std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
-            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-            write_bmp(opt.screenshot, width, height, pixels);
-        }
-
-        SDL_GL_SwapWindow(window);
-        ++frame;
-        if (opt.frames > 0 && frame >= opt.frames) {
-            running = false;
-        }
-        if (frame % 120 == 0) {
-            std::printf("frame %d | %.1f FPS | %dx%d | yaw %.1f pitch %.1f dist %.2f\n",
-                        frame, 1.0 / (dt > 0.0 ? dt : 1.0), width, height,
-                        yaw, pitch, distance);
-        }
+        advance_time();
+        update_session();
+        update_audio();
+        update_camera();
+        update_diagnostics();
+        set_background();
+        update_simulation();
+        update_camera_view();
+        update_placement();
+        update_preview();
+        draw_frame();
+        present_frame();
     }
 
     if (opt.save_config) {
@@ -4990,6 +2426,2620 @@ int Game::run() {
     }
     return 0;
 }
+
+// ---------------------------------------------------------------------------
+// Frame loop phases, in the order run() calls them.
+// ---------------------------------------------------------------------------
+
+void Game::handle_input() {
+    sync_park_layout();
+    // --inject-key FRAME,KEYCODE: a real key down/up pair (tests).
+    for (const std::string& spec : opt.inject_keys) {
+        int at = 0;
+        int code = 0;
+        if (std::sscanf(spec.c_str(), "%d,%d", &at, &code) != 2 ||
+            at != frame) {
+            continue;
+        }
+        for (const Uint32 type : {SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP}) {
+            SDL_Event injected{};
+            injected.type = type;
+            injected.key.windowID = SDL_GetWindowID(window);
+            injected.key.key = static_cast<SDL_Keycode>(code);
+            injected.key.scancode = SDL_GetScancodeFromKey(
+                static_cast<SDL_Keycode>(code), nullptr);
+            injected.key.down = type == SDL_EVENT_KEY_DOWN;
+            injected.key.repeat = false;
+            SDL_PushEvent(&injected);
+        }
+    }
+    // --inject-click FRAME,X,Y[,right]: a real SDL button down/up pair in
+    // window pixels, so tests drive the interactive input path.
+    for (const std::string& spec : opt.inject_clicks) {
+        int at = 0;
+        float ix = 0.0f;
+        float iy = 0.0f;
+        char side[8] = {};
+        const int n = std::sscanf(spec.c_str(), "%d,%f,%f,%7s", &at, &ix, &iy, side);
+        if (n < 3 || at != frame) {
+            continue;
+        }
+        const Uint8 button =
+            (n == 4 && std::string(side) == "right") ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
+        for (const Uint32 type : {SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_BUTTON_UP}) {
+            SDL_Event injected{};
+            injected.type = type;
+            injected.button.windowID = SDL_GetWindowID(window);
+            injected.button.button = button;
+            injected.button.down = type == SDL_EVENT_MOUSE_BUTTON_DOWN;
+            injected.button.clicks = 1;
+            injected.button.x = ix;
+            injected.button.y = iy;
+            SDL_PushEvent(&injected);
+        }
+    }
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (opt.no_input) {
+            continue;
+        }
+        if (start_screen) {
+            if (event.type == SDL_EVENT_QUIT) {
+                running = false;
+            } else if (menu_loaded && opt.use_menu) {
+                const float off_x =
+                    (static_cast<float>(logical_width) - 800.0f) * 0.5f;
+                const float off_y =
+                    (static_cast<float>(logical_height) - 600.0f) * 0.5f;
+                if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                    if (!menu_hover_forced) {
+                        menu.move(static_cast<int>(event.motion.x - off_x),
+                                  static_cast<int>(event.motion.y - off_y));
+                    }
+                    if (menu.scroll_drag_active &&
+                        !menu.scroll_drag_list.empty()) {
+                        menu.list_drag_to(
+                            menu.scroll_drag_list,
+                            static_cast<int>(event.motion.y - off_y));
+                    }
+                    if (menu.slider_drag_active &&
+                        !menu.slider_drag_name.empty()) {
+                        menu.slider_drag_to(
+                            menu.slider_drag_name,
+                            static_cast<int>(event.motion.x - off_x));
+                        apply_menu_options();
+                    }
+                } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                           event.button.button == SDL_BUTTON_LEFT) {
+                    menu.scroll_drag_active = false;
+                    menu.scroll_drag_list.clear();
+                    menu.slider_drag_active = false;
+                    menu.slider_drag_name.clear();
+                    apply_menu_options();
+                } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                    // VSCROLL/HSCROLL wheel: one notch = one line
+                    // (0x5cbb7f / 0x5be7e0, pos -= delta / 120).
+                    const int mx = static_cast<int>(
+                        event.wheel.mouse_x - off_x);
+                    const int my = static_cast<int>(
+                        event.wheel.mouse_y - off_y);
+                    const int hit = menu.hit_test(mx, my);
+                    if (hit >= 0) {
+                        const dino::ui::Widget& list =
+                            menu.overlay.widgets[static_cast<std::size_t>(
+                                hit)];
+                        int notches =
+                            static_cast<int>(event.wheel.y);
+                        if (notches == 0) {
+                            notches = event.wheel.y > 0.0f ? 1 : -1;
+                        }
+                        if (list.type == "LIST" &&
+                            list.list_scroll_width > 0) {
+                            menu.list_scroll(list.name, -notches);
+                        } else if (list.type == "HSCROLL") {
+                            menu.slider_step(list.name, -notches);
+                            apply_menu_options();
+                        }
+                    }
+                } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                           event.button.button == SDL_BUTTON_LEFT) {
+                    const int mx = static_cast<int>(event.button.x - off_x);
+                    const int my = static_cast<int>(event.button.y - off_y);
+                    const int menu_hit = menu.hit_test(mx, my);
+                    if (menu_hit >= 0) {
+                        const std::string& name =
+                            menu.overlay.widgets[static_cast<std::size_t>(
+                                menu_hit)]
+                                .name;
+                        const std::string sound_name =
+                            name == "QUIT_BUTTON" ? "exitClic" : "clicDefault";
+                        const auto sound_it =
+                            menu_sound_files.find(sound_name);
+                        if (sound_it != menu_sound_files.end()) {
+                            ui_sound.play(sound_it->second);
+                        }
+                    }
+                    menu.click(mx, my);
+                    apply_menu_options();
+                    queue_menu_load();
+                    if (!pending_menu_load_path.empty()) {
+                        do_port_load(pending_menu_load_path);
+                        pending_menu_load_path.clear();
+                        menu.loading = false;
+                        menu.active = false;
+                    }
+                    queue_menu_cinematic();
+                    play_pending_cinematic();
+                    if (menu.quit) {
+                        running = false;
+                    }
+                    if (!menu.active) {
+                        start_screen = false;
+                    }
+                } else if (event.type == SDL_EVENT_KEY_DOWN &&
+                           !event.key.repeat) {
+                    if (event.key.key == SDLK_ESCAPE) {
+                        menu.escape();
+                        if (menu.quit) {
+                            running = false;
+                        }
+                    } else if (event.key.key == SDLK_RETURN && menu.page == 0) {
+                        menu.page = 1;
+                    }
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+                if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
+                    start_screen = false;
+                } else if (event.key.key == SDLK_ESCAPE) {
+                    running = false;
+                }
+            }
+            continue;
+        }
+        if (event.type == SDL_EVENT_QUIT) {
+            running = false;
+        } else if (event.type == SDL_EVENT_TEXT_INPUT) {
+            if (park.loaded() && park.name_edit_active() &&
+                park.options_tab() == "save") {
+                for (const char* c = event.text.text; *c != '\0'; ++c) {
+                    park.append_name_char(*c);
+                }
+                opt.save_name = park.save_name();
+            }
+        } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+            const SDL_Keycode key = event.key.key;
+            if (park.name_edit_active() && key == SDLK_BACKSPACE) {
+                park.backspace_name();
+                opt.save_name = park.save_name();
+            } else if (key == SDLK_ESCAPE && park.loaded() &&
+                       park.is_visible("OPTIONS_PANEL")) {
+                // Retail: Esc is the overlay-close key. With no tool it
+                // is a no-op in the park, but it closes OPTIONS_PANEL
+                // (PauseGame is P, not Esc).
+                park.overlay.set_visible("OPTIONS_PANEL", false);
+                std::printf("options: closed (Esc)\n");
+            } else if (key == SDLK_ESCAPE &&
+                       (build_tool != 0 || pending_store_index >= 0 ||
+                        fence_corner_x >= 0 || road_has_start ||
+                        selected_paddock >= 0 || park_sell_mode ||
+                        park_sell_paddock >= 0)) {
+                // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
+                // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
+                // The road/building/show states use the same common leave.
+                if (build_tool == 6 || build_tool == 2) {
+                    std::printf("fence: tool off (Esc)\n");
+                } else if (build_tool == 4) {
+                    std::printf("road: tool off (Esc)\n");
+                } else if (build_tool == 3) {
+                    std::printf("construction: tool off (Esc)\n");
+                } else if (build_tool == 5) {
+                    std::printf("show: tool off (Esc)\n");
+                }
+                if (pending_store_index >= 0) {
+                    std::printf("store: selection off (Esc)\n");
+                }
+                if (selected_paddock >= 0) {
+                    selected_paddock = -1;
+                    std::printf("paddock: deselected (Esc)\n");
+                    rebuild_build_meshes();
+                    refresh_fence_info_panel();
+                }
+                if (park_sell_mode || park_sell_paddock >= 0) {
+                    park_sell_mode = false;
+                    park_sell_paddock = -1;
+                    if (park.dialog_open()) {
+                        park.close_dialog();
+                    }
+                    std::printf("sell: mode off (Esc)\n");
+                }
+                build_tool = 0;
+                fence_corner_x = -1;
+                fence_corner_y = -1;
+                pending_construct_kind = -1;
+                pending_show_index = -1;
+                pending_store_index = -1;
+                road_has_start = false;
+                park.overlay.set_visible(
+                    "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
+                park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
+                                         false);
+                park.overlay.set_visible(
+                    "CONSTRUCTION_ROAD_METRO_PANEL", false);
+                park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+                park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
+            } else if (key == keymap[dino::KeyAction::Quit]) {
+                // Retail has no Escape binding in the default park state
+                // (the state manager binds it only on the construction /
+                // purchase / selected states, which handle it above).
+                // Never quit the viewer from the park; quitting goes
+                // through the menu's Quit Game / return-to-menu flow.
+                if (!park.loaded()) {
+                    running = false;
+                }
+            } else if (key == keymap[dino::KeyAction::Reset]) {
+                yaw = opt.yaw;
+                pitch = opt.pitch;
+                distance = auto_distance;
+            } else if (key == keymap[dino::KeyAction::Fullscreen]) {
+                opt.fullscreen = !opt.fullscreen;
+                SDL_SetWindowFullscreen(window, opt.fullscreen);
+            } else if (key == keymap[dino::KeyAction::Borderless]) {
+                opt.borderless = !opt.borderless;
+                SDL_SetWindowBordered(window, !opt.borderless);
+            } else if (key == keymap[dino::KeyAction::Mute]) {
+                opt.muted = !opt.muted;
+                if (audio != nullptr) {
+                    SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
+                }
+                ui_sound.set_muted(opt.muted);
+                music.set_gain(opt.muted
+                                   ? 0.0f
+                                   : std::clamp(opt.music_volume / 100.0f,
+                                                0.0f, 1.0f));
+            } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
+                free_camera = !free_camera;
+                if (free_camera) {
+                    enter_free_camera();
+                }
+            } else if (key == SDLK_F1) {
+                hud_visible = !hud_visible;
+            } else if (key == SDLK_TAB) {
+                show_help = !show_help;
+            } else if (key == SDLK_1) {
+                build_tool = 1;
+                std::printf("build tool: path\n");
+            } else if (key == SDLK_2) {
+                build_tool = 2;
+                std::printf("build tool: fence\n");
+            } else if (key == SDLK_0) {
+                build_tool = 0;
+                pending_construct_kind = -1;
+                std::printf("build tool: off\n");
+            } else if (key == SDLK_U) {
+                if (build_grid.undo()) {
+                    rebuild_build_meshes();
+                }
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                   event.button.button == SDL_BUTTON_LEFT) {
+            if (park.loaded()) {
+                int dx = 0, dy = 0;
+                park_design(event.button.x, event.button.y, dx, dy);
+                if (!park_hover_forced) {
+                    park_hover_x = dx;
+                    park_hover_y = dy;
+                }
+                const int hit = park.overlay.hit_test(dx, dy);
+                std::string action;
+                if (park.click(dx, dy, action)) {
+                    if (park.return_to_menu_requested()) {
+                        park.clear_return_to_menu_request();
+                        activate_main_menu();
+                    }
+                    if (hit >= 0) {
+                        park_active_index = hit;
+                    }
+                    if (action.empty() && std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                        std::printf("park click %d,%d -> consumed by %s\n", dx, dy,
+                                    hit >= 0 ? park.overlay.widgets[static_cast<std::size_t>(hit)]
+                                                   .name.c_str()
+                                             : "?");
+                    }
+                    ui_click_consumed = true;
+                    // Clicking the construction panel's background/close
+                    // (consumed with no widget action) leaves the retail
+                    // FENCE_CONSTRUCTION state, so the next ground click
+                    // can select an enclosure.
+                    if (hit < 0 && action.empty() && build_tool == 6) {
+                        build_tool = 0;
+                        fence_corner_x = -1;
+                        fence_corner_y = -1;
+                        pending_construct_kind = -1;
+                        std::printf("fence: tool off (panel close)\n");
+                    }
+                    if (action == "minimap zoom in") {
+                        minimap_zoom_in = true;
+                    } else if (action == "minimap zoom out") {
+                        minimap_zoom_out = true;
+                    } else if (action == "camera pan forward") {
+                        nav_pan_forward = true;
+                    } else if (action == "camera pan back") {
+                        nav_pan_back = true;
+                    } else if (action == "camera pan left") {
+                        nav_pan_left = true;
+                    } else if (action == "camera pan right") {
+                        nav_pan_right = true;
+                    } else if (action == "camera turn left") {
+                        nav_turn_left = true;
+                    } else if (action == "camera turn right") {
+                        nav_turn_right = true;
+                    } else if (action == "camera zoom in") {
+                        nav_zoom_in = true;
+                    } else if (action == "camera zoom out") {
+                        nav_zoom_out = true;
+                    } else if (action == "save port" ||
+                               action == "load port") {
+                        const std::string path =
+                            port_save_target(action == "load port");
+                        if (action == "save port") {
+                            do_port_save(path);
+                        } else {
+                            do_port_load(path);
+                        }
+                        park.overlay.set_visible("OPTIONS_PANEL", false);
+                    } else if (action == "close campaign end") {
+                        advance_campaign();
+                    } else if (action.rfind("close ", 0) == 0) {
+                        // Leaving a construction/info panel deactivates
+                        // its placement tool (retail's info-panel
+                        // controller state deactivation). The openers
+                        // toggle, so the same icon that armed the tool
+                        // closes the panel and frees the next click.
+                        const std::string panel = action.substr(6);
+                        if (panel ==
+                            "FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                            if (build_tool == 6) {
+                                build_tool = 0;
+                                fence_corner_x = -1;
+                                fence_corner_y = -1;
+                                pending_construct_kind = -1;
+                                std::printf(
+                                    "fence: tool off (panel closed)\n");
+                            }
+                        } else if (
+                            panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
+                            panel == "CONSTRUCTION_PANEL") {
+                            if (build_tool == 3) {
+                                build_tool = 0;
+                                pending_construct_kind = -1;
+                                std::printf(
+                                    "construction: tool off (panel "
+                                    "closed)\n");
+                            }
+                        } else if (
+                            panel == "CONSTRUCTION_ROAD_METRO_PANEL") {
+                            if (build_tool == 4) {
+                                build_tool = 0;
+                                road_has_start = false;
+                                std::printf(
+                                    "road: tool off (panel closed)\n");
+                            }
+                        } else if (
+                            panel == "PREDEFINED_SHOW_PANEL" ||
+                            panel == "CONSTRUCTION_KIT_PANEL") {
+                            if (build_tool == 5) {
+                                build_tool = 0;
+                                pending_show_index = -1;
+                                std::printf(
+                                    "show: tool off (panel closed)\n");
+                            }
+                        } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
+                            pending_store_index = -1;
+                        }
+                    } else if (action == "sell mode") {
+                        // HUD Sell switch (`OPEN_SELLING`, state 0x14):
+                        // arm the shared object-sell state.
+                        pending_sell_mode = true;
+                        if (park_sell_mode) {
+                            // Toggling the switch leaves the state.
+                            park_sell_mode = false;
+                            park_sell_paddock = -1;
+                            if (park.dialog_open()) {
+                                park.close_dialog();
+                            }
+                            std::printf("sell: mode off\n");
+                            pending_sell_mode = false;
+                        }
+                    } else if (action == "accept request") {
+                        if (park_sell_paddock >= 0) {
+                            sell_paddock_now(park_sell_paddock);
+                        }
+                    } else if (action == "cancel request") {
+                        if (park_sell_paddock >= 0) {
+                            park_sell_paddock = -1;
+                            std::printf("sell: cancelled\n");
+                        }
+                    }
+                    if (!action.empty()) {
+                        std::printf("park click %d,%d -> %s\n", dx, dy,
+                                    action.c_str());
+                        const auto sound_it =
+                            menu_sound_files.find("clicDefault");
+                        if (sound_it != menu_sound_files.end()) {
+                            ui_sound.play(sound_it->second);
+                        }
+                        if (action.rfind("open DINO_LAB", 0) == 0 ||
+                            action.rfind("open LAB_", 0) == 0) {
+                            const auto lab_music =
+                                park_sound_files.find("musLabo");
+                            if (lab_music != park_sound_files.end()) {
+                                music.play(lab_music->second);
+                            }
+                        } else if (action == "close lab" &&
+                                   !lnd.music.empty()) {
+                            const auto island_music =
+                                park_sound_files.find(lnd.music);
+                            if (island_music != park_sound_files.end()) {
+                                music.play(island_music->second);
+                            }
+                        }
+                        // A menu-started free game has no build grid yet;
+                        // every construction tool needs one for its
+                        // ground clicks.
+                        if (action.rfind("construct ", 0) == 0) {
+                            ensure_build_ready();
+                        }
+                        if (action ==
+                            "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                            // Retail arms the enclosure tool when the
+                            // Enclosure panel opens; the ground clicks
+                            // then add fence edges.
+                            ensure_build_ready();
+                            build_tool = 6;
+                            fence_corner_x = -1;
+                            fence_corner_y = -1;
+                            pending_construct_kind = -1;
+                            std::printf(
+                                "fence: tool armed (click two corners)\n");
+                        }
+                        if (action == "construct CONSTRUC_ROAD_BUTTON") {
+                            arm_road_tool();
+                        } else if (action.rfind("construct ", 0) == 0) {
+                            const std::string widget = action.substr(10);
+                            const int kind =
+                                construction_kind_for_widget(widget);
+                            if (kind < 0) {
+                                std::printf(
+                                    "construction: no building for %s\n",
+                                    widget.c_str());
+                            } else {
+                                const dino::BuildingDef& def =
+                                    construction_defs[static_cast<
+                                        std::size_t>(kind)];
+                                if (park_budget <
+                                    static_cast<int>(
+                                        def.construction_cost)) {
+                                    std::printf(
+                                        "construction: %s needs %u, "
+                                        "budget %d "
+                                        "(WARNING_NOT_ENOUGH_MONEY)\n",
+                                        def.name.c_str(),
+                                        def.construction_cost,
+                                        park_budget);
+                                } else {
+                                    build_tool = 3;
+                                    pending_construct_kind = kind;
+                                    std::printf(
+                                        "construction: %s selected, "
+                                        "cost=%u (click the ground)\n",
+                                        def.name.c_str(),
+                                        def.construction_cost);
+                                }
+                            }
+                        }
+                        if (action.rfind("store buy ", 0) == 0) {
+                            ensure_build_ready();  // paddock pick click
+                            handle_store_buy(
+                                std::atoi(action.c_str() + 10));
+                        } else if (action == "store no selection") {
+                            std::printf("store: no dinosaur selected\n");
+                        } else if (action.rfind("show place ", 0) == 0) {
+                            handle_show_place(
+                                std::atoi(action.c_str() + 11));
+                        } else if (action == "show no selection") {
+                            std::printf("show: no show selected\n");
+                        } else if (action.rfind("attraction ", 0) == 0) {
+                            handle_attraction_action(action);
+                        }
+                    }
+                    continue;
+                }
+            }
+            dragging = true;
+            drag_distance = 0.0f;
+            last_mx = event.button.x;
+            last_my = event.button.y;
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                   event.button.button == SDL_BUTTON_RIGHT &&
+                   build_tool == 0 && selected_paddock >= 0) {
+            // Retail leaves the selected-object state on a right click.
+            selected_paddock = -1;
+            std::printf("paddock: deselected\n");
+            rebuild_build_meshes();
+            refresh_fence_info_panel();
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                   event.button.button == SDL_BUTTON_RIGHT &&
+                   build_tool == 4) {
+            // 0x52ed6a: cancel the run in progress, else disarm the tool.
+            if (road_has_start) {
+                road_has_start = false;
+                std::printf("road: segment cancelled\n");
+            } else {
+                build_tool = 0;
+                std::printf("road: tool off\n");
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                   event.button.button == SDL_BUTTON_LEFT) {
+            park_active_index = -1;
+            minimap_zoom_in = false;
+            minimap_zoom_out = false;
+            nav_pan_forward = false;
+            nav_pan_back = false;
+            nav_pan_left = false;
+            nav_pan_right = false;
+            nav_turn_left = false;
+            nav_turn_right = false;
+            nav_zoom_in = false;
+            nav_zoom_out = false;
+            dragging = false;
+            if (ui_click_consumed) {
+                ui_click_consumed = false;
+                continue;
+            }
+            if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                std::printf("ground release %.0f,%.0f drag=%.1f tool=%d build_ready=%d\n",
+                            event.button.x, event.button.y, drag_distance,
+                            build_tool, build_ready ? 1 : 0);
+            }
+            if ((build_tool != 0 || pending_store_index >= 0 ||
+                 build_ready) &&
+                drag_distance < 5.0f) {
+                pending_click = true;
+                click_x = event.button.x;
+                click_y = event.button.y;
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+            // Retail edge scroll uses the client-pixel cursor position
+            // from WM_MOUSEMOVE. Keep the last position; it persists on
+            // focus loss (retail keeps scrolling if left in a band).
+            int window_w = 0;
+            int window_h = 0;
+            SDL_GetWindowSize(window, &window_w, &window_h);
+            const float mouse_scale_x =
+                window_w > 0 ? static_cast<float>(width) / window_w
+                             : 1.0f;
+            const float mouse_scale_y =
+                window_h > 0 ? static_cast<float>(height) / window_h
+                             : 1.0f;
+            cam_mouse_x = std::clamp(
+                static_cast<int>(event.motion.x * mouse_scale_x), 0,
+                std::max(0, width - 1));
+            cam_mouse_y = std::clamp(
+                static_cast<int>(event.motion.y * mouse_scale_y), 0,
+                std::max(0, height - 1));
+            cam_mouse_valid = true;
+            if (park.loaded()) {
+                int dx = 0, dy = 0;
+                park_design(event.motion.x, event.motion.y, dx, dy);
+                if (!park_hover_forced) {
+                    park_hover_x = dx;
+                    park_hover_y = dy;
+                }
+            }
+            if (!dragging) {
+                continue;
+            }
+            const float dx = event.motion.x - last_mx;
+            const float dy = event.motion.y - last_my;
+            drag_distance += std::abs(dx) + std::abs(dy);
+            if (free_camera) {
+                free_yaw += dx * 0.3f;
+                free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
+            } else if (camera_retail_model) {
+                // Retail has no mouse-drag camera (KeyMapper.ini has no
+                // mouse entries and 0x5e5ff0 has no mouse input path).
+            } else {
+                yaw += dx * 0.4f;
+                pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
+            }
+            last_mx = event.motion.x;
+            last_my = event.motion.y;
+        } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            if (camera_retail_model) {
+                // Retail has no mouse wheel binding for the park camera.
+            } else {
+                distance = std::clamp(
+                    distance * std::pow(1.1f, -event.wheel.y),
+                    camera_config.distance_min,
+                    camera_config.distance_max);
+            }
+        } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
+            width = event.window.data1;
+            height = event.window.data2;
+        }
+    }
+}
+
+void Game::begin_frame() {
+    SDL_GetWindowSizeInPixels(window, &width, &height);
+    sync_park_layout();
+    if (build_ready && opt.select_paddock >= 0 &&
+        opt.select_paddock < static_cast<int>(paddocks.size()) &&
+        selected_paddock != opt.select_paddock) {
+        selected_paddock = opt.select_paddock;
+        rebuild_build_meshes();
+        refresh_fence_info_panel();
+    }
+    if (pending_sell_mode) {
+        pending_sell_mode = false;
+        if (park.loaded()) {
+            park_sell_mode = true;
+            park_sell_paddock = -1;
+            build_tool = 0;
+            fence_corner_x = -1;
+            fence_corner_y = -1;
+            pending_construct_kind = -1;
+            pending_show_index = -1;
+            pending_store_index = -1;
+            road_has_start = false;
+            selected_paddock = -1;
+            park.overlay.set_visible(
+                "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
+            park.overlay.set_visible("CONSTRUCTION_PANEL", false);
+            park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
+                                     false);
+            park.overlay.set_visible("CONSTRUCTION_ROAD_METRO_PANEL",
+                                     false);
+            park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+            rebuild_build_meshes();
+            std::printf("sell: mode armed\n");
+        }
+    }
+}
+
+void Game::advance_time() {
+    const std::uint64_t now = SDL_GetPerformanceCounter();
+    frame_dt = static_cast<double>(now - last) / static_cast<double>(freq);
+    last = now;
+    elapsed += frame_dt;
+
+    // Retail palette time: starts at 0 when the park scene is created and
+    // accumulates the park frame dt (FUN_00600550).
+    if (park.loaded() && !park_pulse_started) {
+        park_pulse_time = 0.0;
+        park_pulse_started = true;
+    } else if (!park.loaded()) {
+        park_pulse_started = false;
+        park_pulse_time = 0.0;
+    }
+    if (opt.pulse_time >= 0.0f) {
+        park_pulse_time = opt.pulse_time;
+    } else {
+        park_pulse_time += frame_dt;
+    }
+    {
+        float lamp_raw[3] = {1.0f, 1.0f, 1.0f};
+        dino::fence_pulse_colors(park_pulse_time, lamp_raw,
+                                 selected_tint.data());
+        // State 7 lights the material (Light Y, AmbientMatSource
+        // Material): the mesh header's white ambient dominates the blue
+        // diffuse, which is why the retail lamps read near-white with a
+        // subtle blue pulse. Scene ambient from dino_additif's lit path.
+        lamp_tint[0] = 0.62f + lamp_raw[0];
+        lamp_tint[1] = 0.64f + lamp_raw[1];
+        lamp_tint[2] = 0.68f + lamp_raw[2];
+    }
+}
+
+void Game::update_session() {
+    if (menu_loaded && opt.use_menu && menu.loading) {
+        menu.loading_timer -= static_cast<float>(frame_dt);
+        if (menu.loading_timer <= 0.0f) {
+            menu.loading = false;
+            menu.active = false;
+            start_screen = false;
+            const bool campaign_start = menu.start_campaign;
+            menu.start_campaign = false;
+            const dino::Campaign* campaign =
+                campaign_start ? menu.selected_campaign() : nullptr;
+            const dino::CampaignMission* mission =
+                campaign_start ? menu.selected_mission() : nullptr;
+            if (campaign != nullptr && mission != nullptr &&
+                menu.campaign_unlocked(menu.campaign)) {
+                try {
+                    std::string island_name = campaign->island;
+                    std::transform(
+                        island_name.begin(), island_name.end(),
+                        island_name.begin(), [](unsigned char c) {
+                            return static_cast<char>(std::tolower(c));
+                        });
+                    load_island(island_name, true);
+                    current_island = island_name;
+                    minimap_rendered_scale = -1.0f;
+                    const std::string scenario_root = resolve_asset(
+                        opt.asset_root, "Data/Design/Scenario");
+                    const std::string world_path =
+                        (std::filesystem::path(scenario_root) /
+                         campaign->name / campaign->world_file)
+                            .string();
+                    load_campaign_park(world_path);
+                    int budget = campaign->budget;
+                    const auto delta =
+                        mission->values.find("CONTEXT.BUDGET");
+                    if (delta != mission->values.end()) {
+                        budget += std::atoi(delta->second.c_str());
+                    }
+                    park_budget = std::max(0, budget);
+                    park_sellback = static_cast<float>(campaign->sell_back);
+                    std::printf(
+                        "start: campaign=%s mission=%s island=%s "
+                        "budget=%d sellback=%.2f\n",
+                        campaign->name.c_str(), mission->name.c_str(),
+                        campaign->island.c_str(), park_budget,
+                        static_cast<double>(park_sellback));
+                    start_campaign_mission(*mission);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "campaign start: %s\n", e.what());
+                }
+            } else if (!campaign_start && !island_names.empty()) {
+                const int island_index =
+                    std::clamp(menu.island, 0,
+                               static_cast<int>(island_names.size()) - 1);
+                const int difficulty = std::clamp(menu.difficulty, 0, 2);
+                try {
+                    load_island(island_names[static_cast<std::size_t>(island_index)],
+                                true);
+                    current_island =
+                        island_names[static_cast<std::size_t>(island_index)];
+                    minimap_rendered_scale = -1.0f;
+                    if (entrance_road) {
+                        ensure_build_ready();
+                        dino::import_roads(build_grid, {*entrance_road});
+                        rebuild_build_meshes();
+                        std::printf(
+                            "entrance road: %d,%d-%d,%d path_cells=%d\n",
+                            entrance_road->x0, entrance_road->y0,
+                            entrance_road->x1, entrance_road->y1,
+                            build_grid.path_count);
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "island load: %s\n", e.what());
+                }
+                park_budget = free_game_budgets[difficulty];
+                park_sellback = free_game_sellback[difficulty];
+                // Free game lists its own [DINOSTORE] subset (20 entries)
+                // in FreeGame.ini; campaign missions override this with
+                // their mission block in start_campaign_mission.
+                try {
+                    apply_store_catalog(
+                        dino::load_market(resolve_asset(
+                            opt.asset_root,
+                            "Data/Design/Scenario/FreeGame.ini")),
+                        "FreeGame.ini");
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "store catalog: %s\n", e.what());
+                }
+                std::printf(
+                    "start: island=%s difficulty=%d budget=%d\n",
+                    island_names[static_cast<std::size_t>(island_index)].c_str(),
+                    difficulty, park_budget);
+            }
+        }
+    }
+
+    if (campaign_runtime && campaign_runtime->active()) {
+        apply_show_specs();
+    }
+    if (park.loaded() && !start_screen) {
+        park.update(frame_dt);
+        park_clock.advance(frame_dt);
+        if (campaign_runtime && campaign_runtime->active()) {
+            const int hour_index = static_cast<int>(
+                park_clock.elapsed * park_clock.hours_per_second());
+            show_runtime.tick(
+                hour_index, park_clock.day, park_clock.end_of_day, frame_dt,
+                park_clock.time_scale, [&](dino::ParkShow& show) {
+                    fill_show_scores(show.record, show.participants);
+                    std::printf(
+                        "show: %s finished round %d/%d at %02d:%02d\n",
+                        show.entry.stem.c_str(), show.done,
+                        show.iterations, park_clock.hour(),
+                        park_clock.minute());
+                });
+        }
+        if (opt.show_status && !show_status_printed) {
+            show_status_printed = true;
+            for (int slot = 1; slot <= 10; ++slot) {
+                std::string text;
+                int iterations = 0;
+                int locked = 0;
+                attraction_row_text(slot, text, iterations, locked);
+                std::printf(
+                    "attraction list: slot=%d name=%s iterations=%d "
+                    "locked=%d\n",
+                    slot, text.c_str(), iterations, locked);
+            }
+        }
+        if (park_clock.new_hour && !employee_system.employees.empty()) {
+            const int assigned = employee_system.start_hour(
+                employee_profiles, food_sources, food_defs);
+            if (assigned > 0) {
+                std::printf("feed: hour=%d assigned=%d\n",
+                            park_clock.hour(), assigned);
+            }
+        }
+        employee_system.update(frame_dt, employee_profiles, food_sources,
+                               food_defs);
+        if (employee_gpu.vao != 0 && !employee_pose.positions.empty()) {
+            update_mesh(employee_gpu,
+                        employee_system.build_mesh(terrain, employee_pose),
+                        glfns);
+        }
+        if (park_clock.end_of_day) {
+            run_daily_settlement();
+            park_clock.next_day();
+        }
+    }
+    if (campaign_runtime && campaign_runtime->active()) {
+        dino::CampaignState mission_state;
+        mission_state.treasury = park_budget;
+        for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
+            mission_state.merchandise_income +=
+                budget_ledger.shop_revenue[i];
+        }
+        // The port has no death counter; deaths stay zero (dyingdinos
+        // passes). Hired staff feed the `employees` objective.
+        mission_state.deaths = 0;
+        mission_state.camera_altitude = static_cast<int>(
+            (free_camera ? free_pos : orbit_eye()).z);
+        mission_state.clock_minutes = park_clock.minutes();
+        mission_state.store_empty = store_catalog.empty();
+        mission_state.bankrupt = park_budget < 0;
+        // VisitorList.ini personality order 0..9; mission objective
+        // profile strings use these names.
+        static const char* const kProfileNames[10] = {
+            "surfer",  "holligan", "parent", "blase",    "retraite",
+            "riche",   "scientific", "amoureux", "spd", "enfant"};
+        for (const dino::Visitor& visitor : visitor_system.visitors) {
+            dino::CampaignVisitorState state_visitor;
+            const int profile = visitor.global_profile;
+            state_visitor.profile =
+                profile >= 0 && profile < 10
+                    ? kProfileNames[profile]
+                    : std::to_string(visitor.profile);
+            state_visitor.satisfaction = visitor.need0;
+            mission_state.visitors.push_back(state_visitor);
+        }
+        // Hired staff are the live `employees` source. The objective
+        // profile strings match the `.bei` role names
+        // (Nutritionist/Guard); "all" matches any role.
+        for (const dino::Employee& employee : employee_system.employees) {
+            if (employee.profile >= 0 &&
+                employee.profile <
+                    static_cast<int>(employee_profiles.size())) {
+                mission_state.employee_roles.push_back(
+                    employee_profiles[static_cast<std::size_t>(
+                                          employee.profile)]
+                        .name);
+            }
+        }
+        // Connected-buildings objective: a building is connected when a
+        // path cell touches its footprint perimeter. `+0x34` is the retail
+        // flag; the port derives it from the live build grid.
+        for (const dino::PortBuildingState& building :
+             building_instances) {
+            const auto def_it = building_defs.find(building.kind);
+            if (def_it == building_defs.end()) {
+                continue;
+            }
+            const dino::BuildingDef& def = def_it->second;
+            const bool rotated = building.state % 2 != 0;
+            const int width = static_cast<int>(
+                rotated ? def.footprint_h : def.footprint_w);
+            const int height = static_cast<int>(
+                rotated ? def.footprint_w : def.footprint_h);
+            // `.wld` roads/fences and building cells are uncentered world
+            // units; `import_roads` maps them with world/cell_size, so the
+            // connectivity test uses the same convention.
+            const float cell = build_grid.cell_size > 0.0f
+                                   ? build_grid.cell_size
+                                   : 4.0f;
+            const int gx0 = static_cast<int>(
+                std::floor(static_cast<float>(building.cell_x) / cell));
+            const int gy0 = static_cast<int>(
+                std::floor(static_cast<float>(building.cell_y) / cell));
+            const int gx1 = static_cast<int>(std::floor(
+                static_cast<float>(building.cell_x + width - 1) / cell));
+            const int gy1 = static_cast<int>(std::floor(
+                static_cast<float>(building.cell_y + height - 1) / cell));
+            bool connected = false;
+            for (int y = gy0; y <= gy1 && !connected; ++y) {
+                connected = build_grid.path_at(gx0 - 1, y) ||
+                            build_grid.path_at(gx1 + 1, y);
+            }
+            for (int x = gx0; x <= gx1 && !connected; ++x) {
+                connected = build_grid.path_at(x, gy0 - 1) ||
+                            build_grid.path_at(x, gy1 + 1);
+            }
+            if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
+                std::fprintf(
+                    stderr,
+                    "building kind=%d cat=%d cell=%d,%d wh=%dx%d "
+                    "grid=%d,%d..%d,%d connected=%d\n",
+                    building.kind, static_cast<int>(def.category),
+                    building.cell_x, building.cell_y, width, height, gx0,
+                    gy0, gx1, gy1, connected ? 1 : 0);
+            }
+            mission_state.buildings.push_back(
+                {static_cast<int>(def.category), connected});
+        }
+        mission_state.fence_count = static_cast<int>(paddocks.size());
+        // Show arenas: `--show NAME[:I,J]` is the immediate-score test
+        // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
+        // per-performance scores arrive on the hour. Both use the retail
+        // judge pipeline in `fill_show_scores`.
+        for (const PortShowSpec& spec : port_shows) {
+            dino::CampaignShowState show;
+            show.type = spec.type;
+            fill_show_scores(show, spec.participants);
+            if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
+                std::fprintf(stderr,
+                             "show %s type=%d participants=%d profiles=%zu\n",
+                             spec.name.c_str(), show.type,
+                             show.participants,
+                             show.profile_scores.size());
+                for (const auto& entry : show.profile_scores) {
+                    std::fprintf(stderr, "  profile=%d score=%.2f\n",
+                                 entry.personality, entry.score);
+                }
+            }
+            mission_state.shows.push_back(std::move(show));
+        }
+        for (const dino::CampaignShowState& show :
+             show_runtime.campaign_states()) {
+            mission_state.shows.push_back(show);
+        }
+        // Live trait snapshot. The objective slots are actor fields
+        // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
+        // +0x1e0/+0x8c); the port's phenotype exposes the related
+        // beauty/aggression/stamina/agility/intelligence and a body
+        // length. Hybrid/scarcity/strangeness/ornaments are not ported
+        // yet, so those verbs stay pending.
+        for (const ImportedDino& dinosaur : imported_dinos) {
+            dino::DinoTraitState trait;
+            trait.species = dinosaur.species;
+            trait.cuteness = dinosaur.attributes.beauty;
+            trait.aggression = dinosaur.attributes.aggression;
+            const dino::DinoNeeds& needs =
+                dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                     : dinosaur.needs;
+            trait.food = needs.value[0];
+            // Actor +0x98 is agility; +0x1e0 is the phenotype size class
+            // (0..3), not the body length.
+            trait.agility = dinosaur.attributes.agility;
+            trait.size_class = dinosaur.attributes.size_class;
+            trait.strangeness =
+                dinosaur.attributes.conventional_appeal;
+            trait.ornament_count =
+                dinosaur.attributes.ornament_count;
+            trait.carnivore = dinosaur.carnivore;
+            trait.biped = !dinosaur.attributes.quadruped;
+            trait.age = 0;  // imported dinos are spawned at park start
+            trait.speed = static_cast<int>(
+                dinosaur.attributes.walk_speed * 100.0f);
+            trait.stamina = dinosaur.attributes.stamina;
+            trait.intelligence = dinosaur.attributes.intelligence;
+            trait.beauty = dinosaur.attributes.beauty;
+            // `+0x1e4` is hybrid/strangeness. The store's ORIGINALITY /
+            // Strangeness gauge is `100 - conventional_appeal`; use that
+            // phenotype value until the actor writer is traced.
+            trait.hybrid = dinosaur.attributes.originality;
+            // Isolation: the dino is inside a paddock rectangle and no
+            // other imported dino shares that rectangle.
+            for (const dino::Paddock& paddock : paddocks) {
+                const float x0 =
+                    static_cast<float>(std::min(paddock.rect.x0,
+                                                paddock.rect.x1));
+                const float x1 =
+                    static_cast<float>(std::max(paddock.rect.x0,
+                                                paddock.rect.x1));
+                const float y0 =
+                    static_cast<float>(std::min(paddock.rect.y0,
+                                                paddock.rect.y1));
+                const float y1 =
+                    static_cast<float>(std::max(paddock.rect.y0,
+                                                paddock.rect.y1));
+                if (dinosaur.x < x0 || dinosaur.x > x1 ||
+                    dinosaur.y < y0 || dinosaur.y > y1) {
+                    continue;
+                }
+                int occupants = 0;
+                for (const ImportedDino& other : imported_dinos) {
+                    if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
+                        other.y <= y1) {
+                        ++occupants;
+                    }
+                }
+                trait.isolated = occupants <= 1;
+                break;
+            }
+            mission_state.dinos.push_back(trait);
+        }
+        campaign_runtime->tick(frame_dt, mission_state);
+        const auto& verdicts = campaign_runtime->verdicts();
+        if (verdicts != last_mission_verdicts) {
+            std::vector<int> values;
+            values.reserve(verdicts.size());
+            for (dino::ObjectiveVerdict verdict : verdicts) {
+                values.push_back(static_cast<int>(verdict));
+            }
+            park.set_mission_verdicts(values);
+            for (std::size_t i = 0; i < verdicts.size(); ++i) {
+                if (i < last_mission_verdicts.size() &&
+                    verdicts[i] == last_mission_verdicts[i]) {
+                    continue;
+                }
+                std::printf(
+                    "mission objective %zu %s -> %s\n", i,
+                    campaign_runtime->mission()
+                        .objectives[i]
+                        .verb.c_str(),
+                    dino::verdict_name(verdicts[i]));
+            }
+            last_mission_verdicts = verdicts;
+        }
+        if (campaign_runtime->finished()) {
+            const bool success = campaign_runtime->overall() ==
+                                 dino::ObjectiveVerdict::Success;
+            const dino::CampaignMission finished =
+                campaign_runtime->mission();
+            std::printf("mission %s: %s\n", finished.name.c_str(),
+                        success ? "success" : "failure");
+            std::string end_text =
+                success ? "Mission complete." : "Mission failed.";
+            pending_next_mission.reset();
+            if (success) {
+                pending_next_mission =
+                    dino::next_campaign_mission(finished);
+                if (!pending_next_mission) {
+                    const std::optional<dino::Campaign> campaign =
+                        dino::load_parent_campaign(finished);
+                    if (campaign) {
+                        const std::string ending =
+                            dino::ui::resolve_loc_text(
+                                campaign->ending_text_id, park.loc);
+                        if (!ending.empty()) {
+                            end_text = ending;
+                        }
+                        std::printf(
+                            "campaign complete: %s ending=%s video=%s\n",
+                            campaign->name.c_str(), ending.c_str(),
+                            campaign->ending_video.c_str());
+                        if (!campaign->ending_video.empty()) {
+                            pending_ending_video = resolve_asset(
+                                opt.asset_root,
+                                "Data/Video/" + campaign->ending_video);
+                        }
+                        const unsigned number =
+                            dino::campaign_number(campaign->name);
+                        std::uint32_t next_value = campaign_unlock;
+                        if (number > 0) {
+                            next_value = std::max(next_value, number + 1);
+                        }
+                        if (next_value != campaign_unlock) {
+                            campaign_unlock = next_value;
+                            try {
+                                dino::write_campaign_unlock(
+                                    campaign_dino_dat, campaign_unlock);
+                                std::printf(
+                                    "campaign unlock: value=%u\n",
+                                    static_cast<unsigned>(
+                                        campaign_unlock));
+                            } catch (const std::exception& e) {
+                                std::fprintf(stderr,
+                                             "campaign unlock: %s\n",
+                                             e.what());
+                            }
+                        }
+                        campaign_progress.erase(campaign->name);
+                        try {
+                            dino::save_campaign_progress(
+                                campaign_progress,
+                                campaign_progress_path);
+                            std::printf(
+                                "campaign progress: %s complete\n",
+                                campaign->name.c_str());
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr,
+                                         "campaign progress: %s\n",
+                                         e.what());
+                        }
+                    }
+                }
+            }
+            park.show_campaign_end(end_text);
+            campaign_runtime->stop();
+            if (opt.auto_continue) {
+                park.close_dialog();
+                advance_campaign();
+            }
+        }
+    }
+}
+
+void Game::update_audio() {
+    ui_sound.update(frame_dt);
+    music.update();
+
+    if (minimap_zoom_in) {
+        minimap_scale =
+            std::max(0.1f, minimap_scale - static_cast<float>(frame_dt) * 0.15f);
+    }
+    if (minimap_zoom_out) {
+        minimap_scale =
+            std::min(2.0f, minimap_scale + static_cast<float>(frame_dt) * 0.15f);
+    }
+}
+
+void Game::update_camera() {
+    if (free_camera && !opt.no_input) {
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        auto held = [&](dino::KeyAction action) {
+            const SDL_Scancode scancode =
+                SDL_GetScancodeFromKey(keymap[action], nullptr);
+            return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
+        };
+        const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
+        const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+        const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
+                                 std::cos(pitch_rad) * std::sin(yaw_rad),
+                                 std::sin(pitch_rad)};
+        const dino::Vec3 right{std::sin(yaw_rad), -std::cos(yaw_rad), 0.0f};
+        const float speed = held(dino::KeyAction::Sprint) ? 140.0f : 40.0f;
+        const float step = speed * static_cast<float>(frame_dt);
+        if (held(dino::KeyAction::MoveForward)) {
+            free_pos.x += forward.x * step;
+            free_pos.y += forward.y * step;
+            free_pos.z += forward.z * step;
+        }
+        if (held(dino::KeyAction::MoveBack)) {
+            free_pos.x -= forward.x * step;
+            free_pos.y -= forward.y * step;
+            free_pos.z -= forward.z * step;
+        }
+        if (held(dino::KeyAction::MoveRight)) {
+            free_pos.x += right.x * step;
+            free_pos.y += right.y * step;
+        }
+        if (held(dino::KeyAction::MoveLeft)) {
+            free_pos.x -= right.x * step;
+            free_pos.y -= right.y * step;
+        }
+        if (held(dino::KeyAction::MoveUp)) {
+            free_pos.z += step;
+        }
+        if (held(dino::KeyAction::MoveDown)) {
+            free_pos.z -= step;
+        }
+        if (terrain.world_size > 0.0f) {
+            const float half = terrain.world_size * 0.5f;
+            if (free_pos.x >= -half && free_pos.x <= half &&
+                free_pos.y >= -half && free_pos.y <= half) {
+                const float min_z = terrain.height_at(free_pos.x, free_pos.y) + 1.6f;
+                free_pos.z = std::max(free_pos.z, min_z);
+            }
+        }
+    } else if (!opt.no_input && !start_screen && !park.name_edit_active()) {
+        // Retail park camera (camera.ini / KeyMapper.ini):
+        //   arrows       pan the look-at target (CameraKey*)
+        //   Shift+arrows rotate around it (CameraRotate*, pi/2 rad/s)
+        //   + / -        zoom (NAVIGATION_ZOOM/DEZOOM)
+        // The drag rotation below is a port-only mouse convenience.
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        auto held = [&](dino::KeyAction action) {
+            const SDL_Scancode scancode =
+                SDL_GetScancodeFromKey(keymap[action], nullptr);
+            return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
+        };
+        const bool shift = keys[SDL_SCANCODE_LSHIFT] ||
+                           keys[SDL_SCANCODE_RSHIFT];
+        const float dtf = static_cast<float>(frame_dt);
+        if (camera_retail_model) {
+            // Eight action bytes consumed by 0x005e5ff0:
+            //   0..3 pan (arrows / GOTOP..GORIGHT),
+            //   4/5 yaw (Shift+Left/Right, Del/PgDn),
+            //   6/7 progress (Shift+Up/Down, Home/End, ZOOM/DEZOOM).
+            bool flags[8] = {};
+            flags[0] = nav_pan_forward ||
+                       (!shift && held(dino::KeyAction::OrbitUp));
+            flags[1] = nav_pan_back ||
+                       (!shift && held(dino::KeyAction::OrbitDown));
+            flags[2] = nav_pan_left ||
+                       (!shift && held(dino::KeyAction::OrbitLeft));
+            flags[3] = nav_pan_right ||
+                       (!shift && held(dino::KeyAction::OrbitRight));
+            flags[4] = nav_turn_left ||
+                       (shift && held(dino::KeyAction::OrbitLeft)) ||
+                       keys[SDL_SCANCODE_DELETE];
+            flags[5] = nav_turn_right ||
+                       (shift && held(dino::KeyAction::OrbitRight)) ||
+                       keys[SDL_SCANCODE_PAGEDOWN];
+            flags[6] = nav_zoom_in ||
+                       (shift && held(dino::KeyAction::OrbitUp)) ||
+                       keys[SDL_SCANCODE_HOME];
+            flags[7] = nav_zoom_out ||
+                       (shift && held(dino::KeyAction::OrbitDown)) ||
+                       keys[SDL_SCANCODE_END];
+            // Retail edge scroll: 2 client px bands, OR-ed into the same
+            // pan flags, disabled while the rotate modifier (Shift) is
+            // held. The position persists on focus loss.
+            const int edge_band = std::max(1, opt.edge_scroll);
+            if (!shift && cam_mouse_valid) {
+                flags[2] = flags[2] || cam_mouse_x < edge_band;
+                flags[3] = flags[3] ||
+                           cam_mouse_x > width - edge_band;
+                flags[0] = flags[0] || cam_mouse_y < edge_band;
+                flags[1] = flags[1] ||
+                           cam_mouse_y > height - edge_band;
+            }
+            // The binary applies the pan step once per camera Update.
+            // Run the retail camera at a fixed tick so a 1000 Hz render
+            // loop does not pan 16x faster than a 60 Hz one.
+            const float camera_step =
+                1.0f / std::clamp(opt.camera_hz, 10.0f, 240.0f);
+            camera_accum =
+                std::min(camera_accum + dtf, camera_step * 4.0f);
+            int camera_steps = 0;
+            while (camera_accum >= camera_step && camera_steps < 4) {
+                retail_camera.update(camera_config, terrain, camera_step,
+                                     flags);
+                camera_accum -= camera_step;
+                ++camera_steps;
+            }
+            camera_progress = retail_camera.progress;
+            center = retail_camera.target_cur;
+            yaw = retail_camera.yaw_cur * 57.2957795f;
+            camera_yaw_goal = yaw;
+            const float radius =
+                camera_config.distance(camera_progress);
+            const float height =
+                camera_config.elevation(camera_progress);
+            pitch = std::atan2(height, radius) * 57.2957795f;
+            distance = std::sqrt(radius * radius + height * height);
+        } else {
+            // Legacy spherical orbit for --camera-orbit and explicit
+            // screenshot views. Speed/limits still come from camera.ini.
+            const float pitch_rad = pitch * 3.14159265f / 180.0f;
+            const float horizontal =
+                std::max(camera_config.distance_min,
+                         distance * std::cos(pitch_rad));
+            const float progress = std::clamp(
+                (horizontal - camera_config.distance_min) /
+                    std::max(1.0f, camera_config.distance_max -
+                                       camera_config.distance_min),
+                0.0f, 1.0f);
+            const float rotate =
+                camera_config.rotation_speed(progress) * 57.2957795f *
+                dtf;
+            if (nav_turn_left ||
+                (shift && held(dino::KeyAction::OrbitLeft))) {
+                yaw -= rotate;
+            }
+            if (nav_turn_right ||
+                (shift && held(dino::KeyAction::OrbitRight))) {
+                yaw += rotate;
+            }
+            const float min_pitch =
+                std::atan2(camera_config.elevation_min,
+                           std::max(1e-3f, distance)) *
+                57.2957795f;
+            const float max_pitch =
+                std::atan2(camera_config.elevation_max,
+                           std::max(1e-3f, distance)) *
+                57.2957795f;
+            if (shift && held(dino::KeyAction::OrbitUp)) {
+                pitch = std::min(max_pitch, pitch + rotate);
+            }
+            if (shift && held(dino::KeyAction::OrbitDown)) {
+                pitch = std::max(min_pitch, pitch - rotate);
+            }
+            // `yaw` points from the target to the eye; the view direction
+            // is the opposite. Move the target in the camera's ground
+            // plane at the camera.ini MoveSpeed (4-unit cells/second).
+            const float view_yaw =
+                yaw * 3.14159265f / 180.0f + 3.14159265f;
+            const dino::Vec3 forward{std::cos(view_yaw),
+                                     std::sin(view_yaw), 0.0f};
+            const dino::Vec3 right{std::sin(view_yaw),
+                                   -std::cos(view_yaw), 0.0f};
+            const float step =
+                camera_config.move_speed(progress) * 4.0f * dtf;
+            dino::Vec3 delta{0.0f, 0.0f, 0.0f};
+            if (nav_pan_forward ||
+                (!shift && held(dino::KeyAction::OrbitUp))) {
+                delta.x += forward.x * step;
+                delta.y += forward.y * step;
+            }
+            if (nav_pan_back ||
+                (!shift && held(dino::KeyAction::OrbitDown))) {
+                delta.x -= forward.x * step;
+                delta.y -= forward.y * step;
+            }
+            if (nav_pan_right ||
+                (!shift && held(dino::KeyAction::OrbitRight))) {
+                delta.x += right.x * step;
+                delta.y += right.y * step;
+            }
+            if (nav_pan_left ||
+                (!shift && held(dino::KeyAction::OrbitLeft))) {
+                delta.x -= right.x * step;
+                delta.y -= right.y * step;
+            }
+            if (delta.x != 0.0f || delta.y != 0.0f) {
+                center.x += delta.x;
+                center.y += delta.y;
+                if (terrain.world_size > 0.0f) {
+                    const float half = terrain.world_size * 0.5f;
+                    center.x = std::clamp(center.x, -half, half);
+                    center.y = std::clamp(center.y, -half, half);
+                    const float target_z =
+                        terrain.height_at(center.x, center.y) + 2.5f;
+                    const float alpha = std::min(
+                        1.0f,
+                        camera_config.position_hardness(progress) * dtf);
+                    center.z += (target_z - center.z) * alpha;
+                }
+            }
+            // ProgressSpeed is a fraction of the full distance range per
+            // second: 0.05..0.2 over 290 units = 14.5..58 units/s.
+            const float zoom_step =
+                camera_config.progress_speed(progress) *
+                (camera_config.distance_max -
+                 camera_config.distance_min) *
+                dtf;
+            if (nav_zoom_in || held(dino::KeyAction::ZoomIn)) {
+                distance = std::max(camera_config.distance_min,
+                                    distance - zoom_step);
+            }
+            if (nav_zoom_out || held(dino::KeyAction::ZoomOut)) {
+                distance = std::min(camera_config.distance_max,
+                                    distance + zoom_step);
+            }
+        }
+    }
+}
+
+void Game::update_diagnostics() {
+    if (std::getenv("DINO_DEBUG_CAMERA") != nullptr && (frame % 30) == 0) {
+        std::fprintf(stderr,
+                     "cam free=%d target=%.1f,%.1f,%.1f yaw=%.1f "
+                     "pitch=%.1f dist=%.1f p=%.3f r=%.1f h=%.1f "
+                     "yaw_goal=%.1f up=0,0,1\n",
+                     free_camera ? 1 : 0, center.x, center.y, center.z,
+                     yaw, pitch, distance,
+                     camera_retail_model ? camera_progress : -1.0f,
+                     camera_retail_model ? camera_radius() : -1.0f,
+                     camera_retail_model ? camera_height() : -1.0f,
+                     camera_yaw_goal);
+    }
+
+    if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
+        const int queued = SDL_GetAudioStreamQueued(audio);
+        if (queued < static_cast<int>(wav.data.size() / 2)) {
+            SDL_PutAudioStreamData(audio, wav.data.data(),
+                                   static_cast<int>(wav.data.size()));
+        }
+    }
+}
+
+void Game::set_background() {
+    const float pulse = 0.5f + 0.5f * SDL_sinf(static_cast<float>(elapsed) * 1.5f);
+    glClearColor(0.055f + 0.02f * pulse, 0.09f + 0.03f * pulse,
+                 0.14f + 0.04f * pulse, 1.0f);
+}
+
+void Game::update_simulation() {
+    if (skinned) {
+        double anim_time = opt.anim_time >= 0.0 ? opt.anim_time : 0.0;
+        if (opt.anim_time < 0.0 && anim.duration > 0) {
+            if (!opt.capture_dir.empty() && opt.frames > 0) {
+                anim_time = std::fmod(static_cast<double>(frame) *
+                                          static_cast<double>(anim.duration) /
+                                          static_cast<double>(opt.frames),
+                                      static_cast<double>(anim.duration));
+            } else {
+                anim_time = std::fmod(elapsed * 4800.0 * opt.anim_speed,
+                                      static_cast<double>(anim.duration));
+            }
+        }
+        const dino::Animation* anim_ptr = anim.bones.empty() ? nullptr : &anim;
+        dino::Mesh deformed = build_skinned_mesh(skin.mesh, skin, skeleton,
+                                                 anim_ptr, anim_time,
+                                                 vertex_bone, bone_skel,
+                                                 opt.skin_bind_from_skin);
+        if (mesh.colors.size() == deformed.positions.size()) {
+            deformed.colors = mesh.colors;
+        }
+        if (place_dino) {
+            deformed = place_on_terrain(std::move(deformed), terrain,
+                                        spawn_x, spawn_y, opt.dino_angle);
+            update_mesh(dino_gpu, deformed, glfns);
+        } else {
+            update_mesh(gpu, deformed, glfns);
+        }
+    }
+
+    // `FUN_00589CD0`: rebuild the 8-unit danger grid once per second, then
+    // recompute each dinosaur's SECU from the cell under its position.
+    if (!imported_dinos.empty() && terrain.world_size > 0.0f) {
+        danger_timer += frame_dt;
+        if (danger_timer >= 1.0) {
+            danger_timer = 0.0;
+            danger_grid.clear();
+            for (const ImportedDino& dinosaur : imported_dinos) {
+                const dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                // ImportedDino::x/y are raw `.wld`/`.raw` units (the
+                // terrain and placement code subtract world_size/2).
+                danger_grid.stamp(dinosaur.x, dinosaur.y,
+                                  needs.threat_radius, needs.threat);
+            }
+            // The grid is "live" when any dinosaur carries danger
+            // attributes. With every cache at 0 (the import default) the
+            // retail grid would pin SECU to 99, so the port keeps the
+            // configured value and `--dino-needs` fixtures stay useful.
+            bool any_live = false;
+            for (const ImportedDino& dinosaur : imported_dinos) {
+                const dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                if (needs.threat != 0 || needs.threat_radius != 0 ||
+                    needs.health != needs.max_health) {
+                    any_live = true;
+                    break;
+                }
+            }
+            for (ImportedDino& dinosaur : imported_dinos) {
+                dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                const float raw_x = dinosaur.x;
+                const float raw_y = dinosaur.y;
+                const int cell = danger_grid.at(raw_x, raw_y);
+                const int secu = dino::secu_from_grid(
+                    danger_grid, raw_x, raw_y, needs.threat, needs.health,
+                    needs.max_health);
+                // The port's need range is 0..99; retail stores the raw
+                // value but never exceeds 99 for in-grid, undamaged
+                // dinosaurs.
+                const int applied = std::max(0, std::min(99, secu));
+                if (any_live) {
+                    needs.value[2] = applied;
+                    if (dinosaur.action_loop) {
+                        dinosaur.action_loop->set_secu(applied);
+                    }
+                }
+                if (opt.secu_probe) {
+                    std::printf(
+                        "secu: %s x=%.1f y=%.1f threat=%d radius=%d "
+                        "cell=%d health=%d/%d secu=%d\n",
+                        dinosaur.species.c_str(), dinosaur.x, dinosaur.y,
+                        needs.threat, needs.threat_radius, cell,
+                        needs.health, needs.max_health, applied);
+                }
+            }
+        }
+    }
+
+    for (ImportedDino& dinosaur : imported_dinos) {
+        if (dinosaur.action_loop) {
+            // The `.bai` consume gate: Eat is only available when the
+            // dinosaur's paddock holds a matching food source.
+            const int pen = paddock_at(dinosaur.x, dinosaur.y);
+            dinosaur.action_loop->set_inventory(
+                paddock_food(pen, dinosaur.carnivore) != nullptr);
+            const int finished_before =
+                dinosaur.action_loop->finished_count();
+            const std::string previous =
+                dinosaur.action_loop->action_name();
+            dinosaur.action_loop->tick(frame_dt);
+            if (dinosaur.action_loop->finished_count() !=
+                finished_before) {
+                const std::string& finished =
+                    dinosaur.action_loop->last_finished_action();
+                if (finished == "Eat" || finished == "EatForSmallies") {
+                    dino::FoodSource* source =
+                        paddock_food(pen, dinosaur.carnivore);
+                    if (source != nullptr) {
+                        source->remaining =
+                            std::max(0.0f, source->remaining - 1.0f);
+                        const std::string& food_name =
+                            food_defs[static_cast<std::size_t>(
+                                          source->def)]
+                                .name;
+                        std::printf(
+                            "dino eat: %s <- %s remaining=%.2f\n",
+                            dinosaur.species.c_str(), food_name.c_str(),
+                            source->remaining);
+                        if (source->remaining <= 0.0f) {
+                            std::printf("food: %s depleted\n",
+                                        food_name.c_str());
+                            rebuild_extra_items();
+                        }
+                    }
+                }
+            }
+            const std::string& action =
+                dinosaur.action_loop->action_name();
+            if (action != previous) {
+                if (action != "idle") {
+                    const dino::BaiAction& definition =
+                        dino_action_table[static_cast<std::size_t>(
+                            dinosaur.action_loop->action_index())];
+                    const int score = dino::score_action(
+                        definition, dinosaur.action_loop->needs());
+                    const dino::DinoNeeds& needs =
+                        dinosaur.action_loop->needs();
+                    std::printf(
+                        "dino action: %s %s score=%d "
+                        "needs=%d/%d/%d/%d\n",
+                        dinosaur.species.c_str(), action.c_str(), score,
+                        needs.value[0], needs.value[1], needs.value[2],
+                        needs.value[3]);
+                }
+                const std::string clip =
+                    action == "idle" ? "Neutral"
+                                     : dino_clip_for_action(action);
+                if (clip != dinosaur.clip) {
+                    try {
+                        dinosaur.assets = load_imported_species(
+                            dinosaur.species, dinosaur.family, clip);
+                        dinosaur.clip = clip;
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "dino clip %s: %s\n",
+                                     clip.c_str(), e.what());
+                    }
+                }
+            }
+        }
+        const ImportedSpecies& assets = *dinosaur.assets;
+        if (assets.anim.bones.empty() || assets.anim.duration <= 0.0) {
+            continue;
+        }
+        double anim_time = opt.anim_time;
+        if (opt.anim_time < 0.0) {
+            anim_time = std::fmod(
+                elapsed * 4800.0 * opt.anim_speed + dinosaur.phase,
+                static_cast<double>(assets.anim.duration));
+        }
+        dino::Mesh deformed = build_skinned_mesh(
+            assets.skin.mesh, assets.skin, assets.skeleton, &assets.anim,
+            anim_time, assets.vertex_bone, assets.bone_skel, false);
+        if (assets.mesh.colors.size() == deformed.positions.size()) {
+            deformed.colors = assets.mesh.colors;
+        }
+        deformed = place_on_terrain(std::move(deformed), terrain,
+                                    dinosaur.x, dinosaur.y,
+                                    dinosaur.angle);
+        update_mesh(dinosaur.gpu, deformed, glfns);
+    }
+
+    if (!visitor_system.visitors.empty()) {
+        visitor_system.update(build_grid, terrain,
+                              static_cast<float>(frame_dt), attractions,
+                              entrance_cell_x, entrance_cell_y,
+                              visitor_profiles);
+        update_mesh(visitor_gpu,
+                    visitor_system.build_mesh(build_grid, terrain,
+                                              visitor_pose1, visitor_pose2),
+                    glfns);
+    }
+}
+
+void Game::update_camera_view() {
+    dino::Vec3 eye;
+    dino::Vec3 view_center;
+    if (free_camera) {
+        const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
+        const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+        const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
+                                 std::cos(pitch_rad) * std::sin(yaw_rad),
+                                 std::sin(pitch_rad)};
+        eye = free_pos;
+        view_center = {free_pos.x + forward.x * 10.0f,
+                       free_pos.y + forward.y * 10.0f,
+                       free_pos.z + forward.z * 10.0f};
+    } else {
+        eye = orbit_eye();
+        view_center = center;
+    }
+}
+
+void Game::update_placement() {
+    if (pending_fence_tool) {
+        ensure_build_ready();
+        build_tool = 6;
+        fence_corner_x = -1;
+        fence_corner_y = -1;
+        pending_construct_kind = -1;
+        pending_fence_tool = false;
+        std::printf("fence: tool armed (click two corners)\n");
+    }
+    if ((build_tool == 2 || build_tool == 6) && build_ready &&
+        !opt.no_input) {
+        float mxf = 0.0f;
+        float myf = 0.0f;
+        SDL_GetMouseState(&mxf, &myf);
+        if (!opt.fence_cursor.empty()) {
+            std::sscanf(opt.fence_cursor.c_str(), "%f,%f", &mxf, &myf);
+        }
+        dino::Vec3 hit;
+        int cx = 0;
+        int cy = 0;
+        bool visible = false;
+        bool ok = false;
+        if (pick_terrain(terrain, eye, view_center, mxf, myf,
+                         logical_width, logical_height, hit) &&
+            build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
+            const float cs = build_grid.cell_size;
+            const float wx =
+                build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
+            const float wy =
+                build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
+            // 0x5f8c70 -> 0x5faaa0: the helper snaps the picked point to
+            // the nearest 4-unit anchor (cell corner in map units); the
+            // disc/grid sphere sits at anchor + step/2 = the cell centre.
+            const int start_x = static_cast<int>(static_cast<float>(cx) * cs);
+            const int start_y = static_cast<int>(static_cast<float>(cy) * cs);
+            // 0x58a190 runs on the snapped helper position: scan
+            // `p .. p+margin-1` (margin 4) for a busy high nibble.
+            ok = build_grid.occupancy.free_rect(
+                start_x, start_y, start_x + 3, start_y + 3);
+            // Retail rejects a fence start strictly inside an existing
+            // paddock (`WARNING_INSIDE_PERIMETER`). Use the snapped point,
+            // the same point the first-click check uses.
+            const float rx = static_cast<float>(start_x);
+            const float ry = static_cast<float>(start_y);
+            for (const dino::WorldRect& rect : road_perimeters()) {
+                if (rx > std::min(rect.x0, rect.x1) &&
+                    rx < std::max(rect.x0, rect.x1) &&
+                    ry > std::min(rect.y0, rect.y1) &&
+                    ry < std::max(rect.y0, rect.y1)) {
+                    ok = false;
+                    break;
+                }
+            }
+            // Mode 1 shows the start disc; after the first corner the
+            // helper switches to mode 2 (the grid) and the disc is gone.
+            visible = build_tool != 6 || fence_corner_x < 0;
+            if (build_tool == 6 && fence_corner_x >= 0 &&
+                fence_corner_y >= 0) {
+                // 0x52ad00 shows &MESSAGE_FENCE_PERIMETER_COST while the
+                // opposite corner is pending; 0x581b90 uses the sorted
+                // max-1 rect and Fence.bwi's 4/30.
+                const int px = static_cast<int>(
+                    static_cast<float>(cx) * cs);
+                const int py = static_cast<int>(
+                    static_cast<float>(cy) * cs);
+                const int rx0 = std::min(fence_corner_x, px);
+                const int ry0 = std::min(fence_corner_y, py);
+                const int rx1 = std::max(fence_corner_x, px) - 1;
+                const int ry1 = std::max(fence_corner_y, py) - 1;
+                // The helper grid spans the two snapped corners (not the
+                // max-1 cost rect): (100,100)-(116,116) -> centres
+                // 102/106/110/114 with a 4-unit step.
+                const int tx0 = std::min(fence_corner_x, px);
+                const int ty0 = std::min(fence_corner_y, py);
+                const int tx1 = std::max(fence_corner_x, px);
+                const int ty1 = std::max(fence_corner_y, py);
+                const int cost =
+                    ((rx1 + ry1) - (rx0 + ry0)) * 2 / 4 * 30;
+                if (cost != fence_preview_cost) {
+                    fence_preview_cost = cost;
+                    if (park.loaded()) {
+                        park.show_message(
+                            dino::ui::resolve_loc_text(
+                                "&MESSAGE_FENCE_PERIMETER_COST",
+                                park.loc) +
+                            std::to_string(cost));
+                    }
+                }
+                // Pending-rectangle template: helper mode 2 fills the
+                // rectangle with helper_sphere dots on a 4-unit grid
+                // (diameter 4 interior, 2 on the border row/column),
+                // blue when the retail 0x58a4e0 checks pass, maroon
+                // otherwise.
+                bool template_ok =
+                    rx1 - rx0 >= 23 && ry1 - ry0 >= 23;
+                if (template_ok) {
+                    for (const dino::WorldRect& rect :
+                         road_perimeters()) {
+                        if (std::min(rect.x0, rect.x1) < rx0 &&
+                            std::min(rect.y0, rect.y1) < ry0 &&
+                            rx1 < std::max(rect.x0, rect.x1) &&
+                            ry1 < std::max(rect.y0, rect.y1)) {
+                            template_ok = false;
+                            break;
+                        }
+                    }
+                }
+                if (template_ok &&
+                    !build_grid.occupancy.free_rect(rx0 + 4, ry0 + 4,
+                                                    rx1 - 4, ry1 - 4)) {
+                    template_ok = false;
+                }
+                const std::array<int, 6> tkey = {
+                    tx0, ty0, tx1, ty1, template_ok ? 1 : 0, 1};
+                if (tkey != fence_template_key) {
+                    fence_template_key = tkey;
+                    fence_template_ok = template_ok;
+                    if (fence_sphere_source.positions.empty()) {
+                        try {
+                            fence_sphere_source = dino::load_mesh(
+                                resolve_asset(
+                                    opt.asset_root,
+                                    "Data/Graphics/focus/"
+                                    "helper_sphere.mesh"));
+                        } catch (const std::exception& e) {
+                            std::fprintf(stderr,
+                                         "fence template mesh: %s\n",
+                                         e.what());
+                        }
+                    }
+                    fence_template_gpu.destroy(glfns);
+                    if (!fence_sphere_source.positions.empty()) {
+                        fence_template_gpu = upload_mesh(
+                            dino::fence_template_mesh(
+                                fence_sphere_source,
+                                {tx0, ty0, tx1, ty1}, terrain, 4.0f),
+                            glfns);
+                    }
+                    fence_template_visible =
+                        fence_template_gpu.vao != 0;
+                    rebuild_extra_items();
+                }
+            } else if (fence_template_visible) {
+                fence_template_visible = false;
+                fence_template_key = {-1, -1, -1, -1, -1, -1};
+                rebuild_extra_items();
+            }
+            if (cx != fence_preview_cell_x ||
+                cy != fence_preview_cell_y ||
+                ok != fence_preview_ok ||
+                fence_preview_gpu.vao == 0) {
+                fence_preview_cell_x = cx;
+                fence_preview_cell_y = cy;
+                fence_preview_gpu.destroy(glfns);
+                // Mode 1 draws one helper_sphere of scale 8 on the unit
+                // mesh (helper step 8) at the cell centre: radius 4.
+                fence_preview_gpu = upload_mesh(
+                    dino::fence_preview_disc(
+                        wx, wy, terrain.height_at(wx, wy) + 0.15f, cs),
+                    glfns);
+                std::printf("fence preview: cell=%d,%d ok=%d\n", cx, cy,
+                            ok ? 1 : 0);
+            }
+        }
+        if (visible != fence_preview_visible ||
+            ok != fence_preview_ok) {
+            fence_preview_visible = visible;
+            fence_preview_ok = ok;
+            rebuild_extra_items();
+        }
+    } else if (fence_preview_visible || fence_template_visible) {
+        // After the first corner the disc is hidden but the mode-2 grid
+        // is still drawn; leaving the tool must clear both.
+        fence_preview_visible = false;
+        fence_preview_cell_x = -1;
+        fence_preview_cell_y = -1;
+        if (fence_template_visible) {
+            fence_template_visible = false;
+            fence_template_key = {-1, -1, -1, -1, -1, -1};
+        }
+        rebuild_extra_items();
+    }
+    if (pending_click) {
+        pending_click = false;
+        if (pending_store_index >= 0 && build_ready) {
+            // FENCE_INSERTION: the click picks the paddock; a full paddock
+            // keeps the insertion state and shows the retail warning.
+            dino::Vec3 hit;
+            if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                             logical_width, logical_height, hit)) {
+                const float half = terrain.world_size * 0.5f;
+                const float wx = hit.x + half;
+                const float wy = hit.y + half;
+                std::printf("store: pick world %.1f %.1f\n", wx, wy);
+                int paddock_index = -1;
+                for (std::size_t p = 0; p < paddocks.size(); ++p) {
+                    const dino::WorldRect& r = paddocks[p].rect;
+                    if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
+                        wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
+                        wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
+                        wy <= static_cast<float>(std::max(r.y0, r.y1))) {
+                        paddock_index = static_cast<int>(p);
+                        break;
+                    }
+                }
+                if (paddock_index < 0) {
+                    std::printf("store: click inside a paddock\n");
+                } else if (pending_store_index >=
+                           static_cast<int>(store_catalog.size())) {
+                    pending_store_index = -1;
+                    pending_store_price = 0;
+                } else {
+                    const dino::MarketEntry entry =
+                        store_catalog[static_cast<std::size_t>(
+                            pending_store_index)];
+                    std::string species;
+                    std::string family;
+                    int cost_class = 0;
+                    try {
+                        const std::string genotype_path = resolve_asset(
+                            opt.asset_root,
+                            "Data/Design/Scenario/Genotype/" +
+                                entry.genotype);
+                        const int head =
+                            dino::read_gen_head_type(genotype_path);
+                        dino::DinoGenotype genotype{};
+                        bool have_genotype = false;
+                        try {
+                            genotype =
+                                dino::read_gen_genotype(genotype_path);
+                            have_genotype = true;
+                        } catch (const std::exception&) {
+                        }
+                        const auto match = head_species.find(head);
+                        species = match != head_species.end()
+                                      ? match->second
+                                      : "allo";
+                        family = family_table.family_of(species);
+                        if (family.empty()) {
+                            family = "LightBiped";
+                        }
+                        cost_class =
+                            (have_genotype && phenotype_table.valid)
+                                ? phenotype_table.size_class(genotype)
+                                : (size_for_species
+                                       ? size_for_species(species)
+                                       : 1);
+                        const int dino_id =
+                            1000000 +
+                            static_cast<int>(imported_dinos.size());
+                        dino::Paddock& paddock =
+                            paddocks[static_cast<std::size_t>(
+                                paddock_index)];
+                        if (!dino::paddock_can_add(paddock, dino_id,
+                                                   cost_class)) {
+                            std::printf(
+                                "store: no room in paddock %d "
+                                "(WARNING_NO_ROOM_IN_FENCE)\n",
+                                paddock_index);
+                            park.show_message(
+                                dino::ui::resolve_loc_text(
+                                    "&WARNING_NO_ROOM_IN_FENCE",
+                                    park.loc));
+                        } else {
+                            const bool have_attributes =
+                                have_genotype && phenotype_table.valid;
+                            const dino::DinoAttributes store_attrs =
+                                have_attributes
+                                    ? phenotype_table.attributes(genotype)
+                                    : dino::DinoAttributes{};
+                            if (add_imported_dino(
+                                    species, family, opt.dino_clip, wx,
+                                    wy, 0.0f,
+                                    have_attributes ? &store_attrs
+                                                    : nullptr)) {
+                                dino::paddock_add(paddock, dino_id,
+                                                  cost_class);
+                                park_budget -= pending_store_price;
+                                budget_ledger.spend_dinoachat(
+                                    pending_store_price);
+                                store_catalog.erase(
+                                    store_catalog.begin() +
+                                    pending_store_index);
+                                refresh_store_rows();
+                                park_paddocks = paddocks;
+                                float total_used = 0.0f;
+                                for (const dino::Paddock& p : paddocks) {
+                                    total_used += p.used;
+                                }
+                                std::printf(
+                                    "store: bought %s price=%d budget=%d "
+                                    "paddock=%d dinos=%zu "
+                                    "dinoachat=%d/%d used=%.0f "
+                                    "total=%.0f\n",
+                                    entry.name.c_str(),
+                                    pending_store_price, park_budget,
+                                    paddock_index, imported_dinos.size(),
+                                    budget_ledger.dinoachat_count,
+                                    budget_ledger.dinoachat_total,
+                                    paddock.used, total_used);
+                                pending_store_index = -1;
+                                pending_store_price = 0;
+                                rebuild_extra_items();
+                            } else {
+                                std::printf(
+                                    "store: %s model load failed\n",
+                                    entry.name.c_str());
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "store: %s\n", e.what());
+                    }
+                }
+            }
+        } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
+            const bool picked = pick_terrain(terrain, eye, view_center, click_x,
+                                             click_y, logical_width, logical_height, hit);
+            if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
+                            click_y, picked ? 1 : 0, hit.x, hit.y);
+            }
+            if (picked) {
+                int cx = 0;
+                int cy = 0;
+                // The road cursor and the fence helper both snap to the
+                // nearest 4-unit anchor (0x5faaa0); the other build tools
+                // use the floored cell.
+                if ((build_tool == 4 || build_tool == 6
+                         ? build_grid.road_cells_for_world(hit.x, hit.y,
+                                                           cx, cy)
+                         : build_grid.cells_for_world(hit.x, hit.y, cx,
+                                                      cy))) {
+                    const int before = build_grid.path_count + build_grid.fence_count;
+                    const float cs = build_grid.cell_size;
+                    auto cell_buildable = [&](int gx, int gy) {
+                        return terrain.buildable(
+                            build_grid.origin_x +
+                                (static_cast<float>(gx) + 0.5f) * cs,
+                            build_grid.origin_y +
+                                (static_cast<float>(gy) + 0.5f) * cs);
+                    };
+                    if (build_tool == 4) {
+                        road_click(cx, cy);  // rebuilds the meshes itself
+                    } else if (build_tool == 1) {
+                        const bool removing = build_grid.path_at(cx, cy);
+                        if (!removing && !cell_buildable(cx, cy)) {
+                            std::printf("placement: blocked cell\n");
+                        } else {
+                            build_grid.set_path(cx, cy, !removing);
+                        }
+                    } else if (build_tool == 6) {
+                        // Retail FENCE_CONSTRUCTION: the helper snaps the
+                        // click to the nearest anchor (0x5f8c70) and
+                        // stores that corner; the second click builds the
+                        // sorted max-1 rectangle.
+                        const int px = static_cast<int>(
+                            static_cast<float>(cx) * cs);
+                        const int py = static_cast<int>(
+                            static_cast<float>(cy) * cs);
+                        auto inside_paddock = [&](float rx, float ry) {
+                            for (const dino::Paddock& paddock : paddocks) {
+                                const dino::WorldRect& rect =
+                                    paddock.rect;
+                                if (rx > std::min(rect.x0, rect.x1) &&
+                                    rx < std::max(rect.x0, rect.x1) &&
+                                    ry > std::min(rect.y0, rect.y1) &&
+                                    ry < std::max(rect.y0, rect.y1)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+                        if (fence_corner_x < 0) {
+                            // 0x58a190: scan `p .. p+margin-1` (margin 4
+                            // from Fence.bwi) for a busy high nibble and
+                            // the height-slope rule; point strictly
+                            // inside an existing perimeter -> code 3.
+                            const bool busy =
+                                !build_grid.occupancy.free_rect(
+                                    px, py, px + 3, py + 3);
+                            if (busy) {
+                                road_message("&WARNING_BUSY_SPACE");
+                            } else if (inside_paddock(
+                                           static_cast<float>(px),
+                                           static_cast<float>(py))) {
+                                road_message(
+                                    "&WARNING_INSIDE_PERIMETER");
+                            } else {
+                                fence_corner_x = px;
+                                fence_corner_y = py;
+                                std::printf(
+                                    "fence: corner %d,%d (click opposite "
+                                    "corner)\n",
+                                    px, py);
+                            }
+                        } else {
+                            // 0x52bbf0 sorts the two clicked points and
+                            // subtracts 1 from the high corner.
+                            const int x0 =
+                                std::min(fence_corner_x, px);
+                            const int y0 =
+                                std::min(fence_corner_y, py);
+                            const int x1 =
+                                std::max(fence_corner_x, px) - 1;
+                            const int y1 =
+                                std::max(fence_corner_y, py) - 1;
+                            std::string warning;
+                            int cost = 0;
+                            // 0x58a4e0: a side shorter than
+                            // 6*margin-1 (margin 4 -> 23 units) is
+                            // PERIMETER_TOO_SMALL, then the inside test,
+                            // then the inset margin scan.
+                            // (The `>= 16` check in 0x527150 is the
+                            // stFence LunchBox dish list, max 15 — not a
+                            // park enclosure cap; see
+                            // notes/fence-panel-sell-recon.md.)
+                            if (x1 - x0 < 23 || y1 - y0 < 23) {
+                                warning = "&WARNING_PERIMETER_TOO_SMALL";
+                            } else if (inside_paddock(
+                                           (static_cast<float>(x0) +
+                                            static_cast<float>(x1)) *
+                                               0.5f,
+                                           (static_cast<float>(y0) +
+                                            static_cast<float>(y1)) *
+                                               0.5f)) {
+                                warning = "&WARNING_INSIDE_PERIMETER";
+                            } else if (!build_grid.occupancy.free_rect(
+                                           x0 + 4, y0 + 4, x1 - 4,
+                                           y1 - 4)) {
+                                warning = "&WARNING_BUSY_SPACE";
+                            } else {
+                                // 0x581b90: ((x1+y1)-(x0+y0))*2/
+                                // cell*price; Fence.bwi cell 4, price 30.
+                                cost = ((x1 + y1) - (x0 + y0)) * 2 / 4 *
+                                       30;
+                                if (park_budget < cost) {
+                                    warning =
+                                        "&WARNING_NOT_ENOUGH_MONEY";
+                                }
+                            }
+                            if (!warning.empty()) {
+                                road_message(warning.c_str());
+                            } else {
+                                const int before =
+                                    build_grid.fence_count;
+                                const int cx0 = std::max(
+                                    0, static_cast<int>(
+                                           std::floor(x0 / cs)));
+                                const int cx1 = static_cast<int>(
+                                    std::floor(x1 / cs));
+                                const int cy0 = std::max(
+                                    0, static_cast<int>(
+                                           std::floor(y0 / cs)));
+                                const int cy1 = static_cast<int>(
+                                    std::floor(y1 / cs));
+                                for (int x = cx0; x <= cx1; ++x) {
+                                    build_grid.set_fence(x, cy0, 0, true);
+                                    build_grid.set_fence(x, cy1 + 1, 0,
+                                                         true);
+                                }
+                                for (int y = cy0; y <= cy1; ++y) {
+                                    build_grid.set_fence(cx0 - 1, y, 1,
+                                                         true);
+                                    build_grid.set_fence(cx1, y, 1,
+                                                         true);
+                                }
+                                // stPerimeter's four wall lines: 1 map
+                                // unit thick, inclusive min .. max-1.
+                                build_grid.occupancy.stamp_wall_rect(
+                                    x0, y0, x1, y1, true);
+                                dino::Paddock paddock;
+                                paddock.rect = {x0, y0, x1, y1};
+                                paddock.capacity = dino::paddock_capacity(
+                                    paddock.rect, cs);
+                                // 0x5ec7e0: rand() & 3 picks the ground
+                                // atlas quadrant per stFence.
+                                paddock.ground_variant = std::rand() & 3;
+                                paddock.name = "Enclosure" +
+                                               std::to_string(
+                                                   paddocks.size() + 1);
+                                paddocks.push_back(paddock);
+                                park_budget -= cost;
+                                budget_ledger.spend_construction(cost);
+                                std::printf(
+                                    "fence: built rect %d,%d-%d,%d "
+                                    "edges=%d paddock=%zu capacity=%.0f "
+                                    "cost=%d budget=%d "
+                                    "construction=%d/%d\n",
+                                    x0, y0, x1, y1,
+                                    build_grid.fence_count - before,
+                                    paddocks.size(),
+                                    static_cast<double>(paddock.capacity),
+                                    cost, park_budget,
+                                    budget_ledger.construction_count,
+                                    budget_ledger.construction_total);
+                                rebuild_build_meshes();
+                            }
+                            fence_corner_x = -1;
+                            fence_corner_y = -1;
+                        }
+                    } else if (build_tool == 3 &&
+                               pending_construct_kind >= 0) {
+                        const float half = terrain.world_size * 0.5f;
+                        try_construct(
+                            pending_construct_kind,
+                            static_cast<int>(std::floor(hit.x + half)),
+                            static_cast<int>(std::floor(hit.y + half)), 0);
+                    } else if (build_tool == 5 && pending_show_index >= 0) {
+                        // Grid cell -> show record coordinate (0..1024).
+                        place_show_at(
+                            static_cast<int>(std::lround(cx * cs)),
+                            static_cast<int>(std::lround(cy * cs)));
+                    } else {
+                        const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
+                        const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
+                        float best = 1e30f;
+                        int ex = cx;
+                        int ey = cy;
+                        int edge = 0;
+                        auto consider = [&](float distance, int gx, int gy, int e) {
+                            if (distance < best) {
+                                best = distance;
+                                ex = gx;
+                                ey = gy;
+                                edge = e;
+                            }
+                        };
+                        if (cx > 0) {
+                            consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
+                        }
+                        consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
+                        consider(std::fabs(hit.y - y0), cx, cy, 0);
+                        if (cy + 1 < build_grid.height) {
+                            consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
+                        }
+                        const bool removing =
+                            build_grid.fence_at(ex, ey, edge);
+                        bool allowed = removing;
+                        if (!allowed) {
+                            const bool inside = cell_buildable(ex, ey);
+                            bool neighbour = true;
+                            if (edge == 1) {
+                                if (ex + 1 < build_grid.width) {
+                                    neighbour = cell_buildable(ex + 1, ey);
+                                }
+                            } else if (ey > 0) {
+                                neighbour = cell_buildable(ex, ey - 1);
+                            }
+                            allowed = inside && neighbour;
+                        }
+                        if (!allowed) {
+                            std::printf("placement: blocked cell\n");
+                        } else {
+                            build_grid.set_fence(ex, ey, edge, !removing);
+                        }
+                    }
+                    if (build_tool != 4 &&
+                        build_grid.path_count + build_grid.fence_count != before) {
+                        rebuild_build_meshes();
+                    }
+                }
+            }
+        } else if (build_ready) {
+            // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
+            // selection (retail `gatFence` -> pass B). Clicking empty
+            // ground/right-click deselects; the Dino_SelectedWall pulse
+            // is pass B. The retail info panel is still a separate task.
+            dino::Vec3 hit;
+            if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                             logical_width, logical_height, hit)) {
+                const float half = terrain.world_size * 0.5f;
+                const float mx = hit.x + half;
+                const float my = hit.y + half;
+                const int index = paddock_at_map(mx, my);
+                if (park_sell_mode) {
+                    if (index < 0) {
+                        std::printf("sell: no enclosure under the cursor\n");
+                    } else {
+                        const dino::Paddock& pen =
+                            paddocks[static_cast<std::size_t>(index)];
+                        if (!pen.occupants.empty() || pen.used > 0.0f) {
+                            park.show_warning(
+                                dino::ui::resolve_loc_text(
+                                    "&WARNING_SELLING_NON_EMPTY_FENCE",
+                                    park.loc));
+                            std::printf(
+                                "sell: enclosure %d refused (occupied)\n",
+                                index);
+                        } else {
+                            const int value = dino::fence_sell_value(
+                                pen.rect, build_grid.cell_size, 30, 4,
+                                park_sellback);
+                            park_sell_paddock = index;
+                            park.show_request(
+                                dino::ui::resolve_loc_text(
+                                    "&REQUEST_SELL_FENCE", park.loc) +
+                                std::to_string(value));
+                            std::printf(
+                                "sell: enclosure %d value=%d\n", index,
+                                value);
+                        }
+                    }
+                } else if (index != selected_paddock) {
+                    selected_paddock = index;
+                    if (index >= 0) {
+                        std::printf("paddock: selected %d\n", index);
+                    } else {
+                        std::printf("paddock: deselected\n");
+                    }
+                    rebuild_build_meshes();
+                    refresh_fence_info_panel();
+                }
+            }
+        }
+    }
+
+    if (frame == 0 && !opt.pick_test.empty()) {
+        int mx = 0;
+        int my = 0;
+        if (std::sscanf(opt.pick_test.c_str(), "%d,%d", &mx, &my) == 2) {
+            dino::Vec3 hit;
+            if (pick_terrain(terrain, eye, view_center, static_cast<float>(mx),
+                             static_cast<float>(my), logical_width,
+                             logical_height, hit)) {
+                const float cs = build_ready ? build_grid.cell_size : 4.0f;
+                const float origin = build_ready ? build_grid.origin_x
+                                                 : -terrain.world_size * 0.5f;
+                const int cx = static_cast<int>(std::floor((hit.x - origin) / cs));
+                const int cy = static_cast<int>(std::floor((hit.y - origin) / cs));
+                std::printf("pick: %.2f %.2f %.2f cell %d %d\n", hit.x, hit.y,
+                            hit.z, cx, cy);
+            } else {
+                std::printf("pick: none\n");
+            }
+        }
+    }
+}
+
+void Game::update_preview() {
+    // Road tool preview: the pending run from the start cell to the
+    // axis-locked cursor cell, rebuilt only when it changes (0x52e750).
+    if (build_ready && build_tool == 4 && road_has_start) {
+        float mxf = 0.0f;
+        float myf = 0.0f;
+        SDL_GetMouseState(&mxf, &myf);
+        if (!opt.road_cursor.empty()) {
+            std::sscanf(opt.road_cursor.c_str(), "%f,%f", &mxf, &myf);
+        }
+        dino::Vec3 hit;
+        int cx = 0;
+        int cy = 0;
+        if (pick_terrain(terrain, eye, view_center, mxf, myf, logical_width,
+                         logical_height, hit) &&
+            build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
+            const dino::RoadSegment road =
+                dino::road_segment(road_start_x, road_start_y, cx, cy);
+            const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};
+            if (key != road_preview_key) {
+                road_preview_key = key;
+                if (road_helper_box.positions.empty()) {
+                    try {
+                        road_helper_box = dino::load_mesh(resolve_asset(
+                            opt.asset_root, "Data/Graphics/focus/helper_road.mesh"));
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "road helper mesh: %s\n", e.what());
+                    }
+                }
+                road_preview_gpu.destroy(glfns);
+                road_preview_gpu = upload_mesh(
+                    dino::road_helper_mesh(road_helper_box, road, build_grid, terrain),
+                    glfns);
+                const int cost = dino::road_cost(road, ensure_road_price());
+                road_preview_ok =
+                    dino::check_road(build_grid, road, road_perimeters(),
+                                     [this](int x, int y) { return road_cell_busy(x, y); }) == dino::RoadCheck::Ok &&
+                    park_budget >= cost;
+                if (road_preview_texture == 0) {
+                    try {
+                        road_helper_image = dino::load_tga(resolve_asset(
+                            opt.asset_root, "Data/Graphics/Textures/focus/road.tga"));
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "road helper texture: %s\n", e.what());
+                        road_helper_image.width = road_helper_image.height = 1;
+                        road_helper_image.rgba = {255, 255, 255, 255};
+                    }
+                    road_preview_texture = upload_texture(road_helper_image);
+                }
+                rebuild_extra_items();
+                if (cost != road_preview_cost) {
+                    road_preview_cost = cost;
+                    if (park.loaded()) {
+                        park.show_message(dino::ui::resolve_loc_text(
+                                              "&MESSAGE_ROAD_COST", park.loc) +
+                                          std::to_string(cost));
+                    }
+                }
+            }
+        }
+        // gscMaterialBank (0x600550): x = trunc((sin(6 t) + 1) * 0.5 * 127);
+        // material 2 (valid) = RGB(64, 64, 255 - x), material 3 (invalid)
+        // = RGB(255 - x, 64, 64).
+        if (road_preview_texture != 0 && road_helper_image.width > 0) {
+            const double t = static_cast<double>(SDL_GetTicks()) / 1000.0;
+            const int x = static_cast<int>((std::sin(6.0 * t) + 1.0) * 0.5 * 127.0);
+            const int color[3] = {road_preview_ok ? 64 : 255 - x, 64,
+                                  road_preview_ok ? 255 - x : 64};
+            dino::Image tinted = road_helper_image;
+            for (std::size_t i = 0; i + 3 < tinted.rgba.size(); i += 4) {
+                for (int c = 0; c < 3; ++c) {
+                    tinted.rgba[i + c] = static_cast<std::uint8_t>(
+                        tinted.rgba[i + c] * color[c] / 255);
+                }
+            }
+            glBindTexture(GL_TEXTURE_2D, road_preview_texture);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, tinted.width, tinted.height,
+                            GL_RGBA, GL_UNSIGNED_BYTE, tinted.rgba.data());
+        }
+    } else if (road_preview_gpu.vao != 0) {
+        road_preview_gpu.destroy(glfns);
+        road_preview_key = {-1, -1, -1, -1};
+        road_preview_cost = -1;
+        rebuild_extra_items();
+    }
+
+    if (park.loaded() && !park.hud_hidden()) {
+        const float heading =
+            std::atan2(view_center.y - eye.y, view_center.x - eye.x);
+        const bool moved =
+            std::abs(view_center.x - minimap_focus.x) > 0.5f ||
+            std::abs(view_center.y - minimap_focus.y) > 0.5f ||
+            std::abs(heading - minimap_heading) > 0.002f ||
+            std::abs(minimap_scale - minimap_rendered_scale) > 0.002f;
+        if (moved) {
+            render_minimap(view_center, heading);
+            minimap_focus = view_center;
+            minimap_heading = heading;
+            minimap_rendered_scale = minimap_scale;
+        }
+    }
+}
+
+void Game::draw_frame() {
+    // WaterSurface animation (FUN_00602fd0): +0x10 += dt*0.03,
+    // +0x14 += dt*0.01. Stage 0 uses (-u14,-u10), stage 1 (+u10,+u14),
+    // so the two layers drift in opposite directions.
+    water_scroll += std::min(static_cast<float>(frame_dt), 0.1f);
+    for (DrawItem& item : extra_items) {
+        if (item.modulate2x && item.texture2 != 0) {
+            item.uv_offset[0] = -0.01f * water_scroll;
+            item.uv_offset[1] = -0.03f * water_scroll;
+            item.uv2_offset[0] =
+                0.25f / 30.0f + 0.03f * water_scroll;
+            item.uv2_offset[1] = 0.01f * water_scroll;
+        }
+    }
+    // gpkLandscapeSector 0x609970: one camera distance per sector,
+    // then every object in it picks LOD1/LOD2/none (0x508c10).
+    for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+        const auto& group = vegetation.groups[i];
+        if (opt.no_lod) {
+            veg_visible[i] = group.lod == 0 ? 1 : 0;
+            continue;
+        }
+        const dino::Vec3& c = vegetation.sector_centres[group.sector];
+        const float dx = c.x - eye.x;
+        const float dy = c.y - eye.y;
+        const float dz = c.z - eye.z;
+        const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        veg_visible[i] =
+            dino::landscape_lod(distance, lod_quality) == group.lod ? 1 : 0;
+    }
+    const int culled =
+        draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
+                   view_center, width, height,
+                   terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull,
+                   opt.texture_path.empty() ? detail_texture : 0);
+    if (veg_stats) {
+        std::size_t drawn[2] = {0, 0};
+        std::size_t batches = 0;
+        for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+            if (veg_visible[i] != 0) {
+                drawn[vegetation.groups[i].lod] += vegetation.groups[i].instances;
+                ++batches;
+            }
+        }
+        std::printf("vegetation frame: lod1 %zu lod2 %zu hidden %zu, "
+                    "batches %zu culled %d\n",
+                    drawn[0], drawn[1],
+                    vegetation.instances - drawn[0] - drawn[1], batches,
+                    culled);
+        veg_stats = false;
+    }
+
+    auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
+                       int unlit) {
+        draw_ui_mesh(hud_gpu, mesh, texture_id, alpha, unlit, width, height);
+    };
+
+    if (start_screen) {
+        if (menu_loaded && opt.use_menu) {
+            draw_menu(width, height, logical_width, logical_height);
+        } else if (hud_font_texture != 0) {
+            draw_2d(build_screen_rect(0.0f, 0.0f, static_cast<float>(width),
+                                      static_cast<float>(height),
+                                      {8, 12, 18, 255}),
+                    0, 0.55f, 1);
+            const std::string title = "DINO ISLAND";
+            const float title_scale = 4.0f;
+            const float title_width = text_width(hud_font, title, title_scale);
+            draw_2d(build_text_mesh(hud_font, title,
+                                    (static_cast<float>(width) - title_width) * 0.5f,
+                                    static_cast<float>(height) * 0.30f,
+                                    title_scale, {240, 236, 220, 255}),
+                    hud_font_texture, 1.0f, 2);
+            const std::string subtitle = "Press ENTER to begin";
+            const float subtitle_scale = 1.6f;
+            const float subtitle_width =
+                text_width(hud_font, subtitle, subtitle_scale);
+            draw_2d(build_text_mesh(
+                        hud_font, subtitle,
+                        (static_cast<float>(width) - subtitle_width) * 0.5f,
+                        static_cast<float>(height) * 0.52f, subtitle_scale,
+                        {220, 228, 236, 255}),
+                    hud_font_texture, 1.0f, 2);
+            const std::string hint = "Esc quits    Tab help";
+            const float hint_width = text_width(hud_font, hint, 1.2f);
+            draw_2d(build_text_mesh(
+                        hud_font, hint,
+                        (static_cast<float>(width) - hint_width) * 0.5f,
+                        static_cast<float>(height) * 0.66f, 1.2f,
+                        {170, 185, 200, 255}),
+                    hud_font_texture, 1.0f, 2);
+        }
+    } else {
+        if (park.loaded()) {
+            draw_park_hud(width, height, logical_width, logical_height);
+            if (minimap_ready && !park.hud_hidden()) {
+                const float dpi =
+                    logical_width > 0
+                        ? static_cast<float>(width) /
+                              static_cast<float>(logical_width)
+                        : 1.0f;
+                const dino::ui::Widget* map_widget =
+                    park.overlay.get("MAP_RENDERVIEW");
+                const float map_x =
+                    static_cast<float>(map_widget ? map_widget->abs_x : 652) *
+                    dpi;
+                const float map_y =
+                    static_cast<float>(map_widget ? map_widget->abs_y : 451) *
+                    dpi;
+                const float map_w =
+                    static_cast<float>(map_widget ? map_widget->width : 136) *
+                    dpi;
+                const float map_h =
+                    static_cast<float>(map_widget ? map_widget->height : 136) *
+                    dpi;
+                // MAP_RENDERVIEW is a bottom-up FBO texture: flip V.
+                draw_ui_mesh(
+                    menu_gpu,
+                    build_ui_quad(map_x, map_y, map_w, map_h, 0.0f, 1.0f,
+                                  1.0f, 0.0f, {255, 255, 255, 255}),
+                    minimap.color, 1.0f, 1, width, height);
+
+                // Retail map marker: red block at the camera position
+                // with a short heading tick (FUN_005fb120 maps the camera
+                // position into the rotated, target-centred quad).
+                const float half = terrain.world_size * 2.0f * minimap_scale;
+                if (half > 0.5f) {
+                    const float angle = std::atan2(view_center.y - eye.y,
+                                                   view_center.x - eye.x);
+                    const float dx = eye.x - view_center.x;
+                    const float dy = eye.y - view_center.y;
+                    const float sx =
+                        dx * std::sin(angle) - dy * std::cos(angle);
+                    const float sy =
+                        dx * std::cos(angle) + dy * std::sin(angle);
+                    const float centre_x = map_x + map_w * 0.5f;
+                    const float centre_y = map_y + map_h * 0.5f;
+                    const float half_px = map_w * 0.5f;
+                    const float marker_x =
+                        centre_x + (sx / half) * half_px;
+                    const float marker_y =
+                        centre_y - (sy / half) * half_px;
+                    const float inset = 4.0f * dpi;
+                    if (marker_x > map_x + inset &&
+                        marker_x < map_x + map_w - inset &&
+                        marker_y > map_y + inset &&
+                        marker_y < map_y + map_h - inset) {
+                        draw_ui_mesh(
+                            menu_gpu,
+                            build_screen_rect(marker_x - 2.5f * dpi,
+                                              marker_y - 2.5f * dpi,
+                                              5.0f * dpi, 5.0f * dpi,
+                                              {220, 32, 32, 255}),
+                            0, 1.0f, 1, width, height);
+                        draw_ui_mesh(
+                            menu_gpu,
+                            build_screen_rect(marker_x - 0.75f * dpi,
+                                              marker_y - 7.0f * dpi,
+                                              1.5f * dpi, 4.5f * dpi,
+                                              {250, 224, 64, 255}),
+                            0, 1.0f, 1, width, height);
+                    }
+                }
+            }
+        }
+        if (hud_visible && hud_font_texture != 0) {
+            char line1[128];
+            char line2[192];
+            std::snprintf(line1, sizeof(line1), "Dino Island   FPS %.0f",
+                          frame_dt > 0.0 ? 1.0 / frame_dt : 0.0);
+            std::snprintf(line2, sizeof(line2),
+                          "visitors %zu   paths %d   fences %d",
+                          visitor_system.visitors.size(), build_grid.path_count,
+                          build_grid.fence_count);
+            std::string text = std::string(line1) + "\n" + line2;
+            if (opt.frames == 0 && elapsed < 12.0) {
+                text += "\nArrows pan   Shift+Arrows rotate   "
+                        "+/- or wheel zoom   C free-fly";
+            }
+            draw_2d(build_text_mesh(hud_font, text, 12.0f, 8.0f, 1.0f,
+                                    {235, 240, 245, 255}),
+                    hud_font_texture, 0.95f, 2);
+        }
+        if (show_help && hud_font_texture != 0) {
+            const float panel_w =
+                std::min(640.0f, static_cast<float>(width) - 80.0f);
+            draw_2d(build_screen_rect(40.0f, 60.0f, panel_w, 230.0f,
+                                      {10, 14, 20, 255}),
+                    0, 0.80f, 1);
+            draw_2d(build_text_mesh(
+                        hud_font,
+                        "CONTROLS\n\n"
+                        "Arrows pan target   Shift+Arrows rotate\n"
+                        "+/- or wheel zoom   C free-fly   R reset\n"
+                        "1 path    2 fence    0 off    U undo    click place\n"
+                        "F1 HUD    Tab close    Esc quit",
+                        64.0f, 78.0f, 1.4f, {235, 240, 245, 255}),
+                    hud_font_texture, 1.0f, 2);
+        }
+    }
+}
+
+void Game::present_frame() {
+    if (!opt.capture_dir.empty()) {
+        std::filesystem::create_directories(opt.capture_dir);
+        char path[1024];
+        std::snprintf(path, sizeof(path), "%s/%s_%04d.bmp",
+                      opt.capture_dir.c_str(), opt.capture_prefix.c_str(), frame);
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        write_bmp(path, width, height, pixels);
+    }
+
+    if (!opt.screenshot.empty() &&
+        (opt.frames <= 0 ? false : frame + 1 >= opt.frames)) {
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        write_bmp(opt.screenshot, width, height, pixels);
+    }
+
+    SDL_GL_SwapWindow(window);
+    ++frame;
+    if (opt.frames > 0 && frame >= opt.frames) {
+        running = false;
+    }
+    if (frame % 120 == 0) {
+        std::printf("frame %d | %.1f FPS | %dx%d | yaw %.1f pitch %.1f dist %.2f\n",
+                    frame, 1.0 / (frame_dt > 0.0 ? frame_dt : 1.0), width, height,
+                    yaw, pitch, distance);
+    }
+}
+
 
 std::array<int, 11> Game::store_row_attributes(const dino::MarketEntry& entry) {
         // Gauge order: ORIGINALITY/STAMINA/COURAGE/INTELLIGENCE/AGILITY/
