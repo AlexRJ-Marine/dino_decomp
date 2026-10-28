@@ -176,12 +176,79 @@ int Game::run() {
 }
 
 // ---------------------------------------------------------------------------
-// Boot: everything before the frame loop. Returns the process exit code when
-// the run is over (a headless print mode or a fatal load error), or nullopt
-// when the frame loop should start.
+// Boot: everything before the frame loop. Split into ordered phases; each
+// one returns the process exit code when the run is over (a headless print
+// mode or a fatal load error) and nullopt when boot should continue.
 // ---------------------------------------------------------------------------
 std::optional<int> Game::boot() {
+    if (std::optional<int> exit_code = boot_command_line()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_budgets_and_clock()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_campaign_and_saves()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_menu_state()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_menu_overlay()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_demo_defaults()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_load_assets()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_build_textures()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_print_modes()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_platform()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_scene_resources()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_park_objects()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_minimap_and_visitors()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_employee_profiles()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_import_dinos()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_food_definitions()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_camera_setup()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_park_session()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_employee_session()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_build_tools()) {
+        return exit_code;
+    }
+    if (std::optional<int> exit_code = boot_finalize()) {
+        return exit_code;
+    }
+    return std::nullopt;
+}
 
+// Headless report modes, keymap load/rebind, music default, --list-keys.
+std::optional<int> Game::boot_command_line() {
     if (std::optional<int> report = dino::app::run_cli_reports(opt)) {
         return *report;
     }
@@ -203,6 +270,11 @@ std::optional<int> Game::boot() {
         dino::print_keymap(keymap);
         return 0;
     }
+    return std::nullopt;
+}
+
+// Difficulty budgets and sellback, island list, park clock/time.
+std::optional<int> Game::boot_budgets_and_clock() {
     free_game_budgets = {75000, 50000, 25000};
     free_game_sellback = {1.0f, 0.5f, 0.2f};
     try {
@@ -257,6 +329,11 @@ std::optional<int> Game::boot() {
                 park_clock.time_scale, park_clock.base_hour,
                 park_clock.time_text(false).c_str(),
                 park_clock.day_text().c_str());
+    return std::nullopt;
+}
+
+// Campaign progress, save-slot discovery, --list-sounds.
+std::optional<int> Game::boot_campaign_and_saves() {
     campaign_progress_path = opt.campaign_progress_path.empty()
             ? "run/save/campaign-progress.txt"
             : opt.campaign_progress_path;
@@ -333,6 +410,11 @@ std::optional<int> Game::boot() {
         }
         return 0;
     }
+    return std::nullopt;
+}
+
+// Session flags, campaign unlock, initial menu screen, pending actions.
+std::optional<int> Game::boot_menu_state() {
     menu_loaded = false;
     park_return_to_menu = false;
     pending_sell_mode = false;
@@ -420,7 +502,11 @@ std::optional<int> Game::boot() {
     pending_fence_tool = false;
     fence_corner_x = -1;
     fence_corner_y = -1;
+    return std::nullopt;
+}
 
+// ParkInterface/ParkGraphicDB overlay, menu overlay, hover seeding.
+std::optional<int> Game::boot_menu_overlay() {
     if (opt.park_hud) {
         std::string park_error;
         const bool loaded = park.load(
@@ -567,7 +653,11 @@ std::optional<int> Game::boot() {
             }
         }
     }
+    return std::nullopt;
+}
 
+// Demo-path asset fallbacks, LOD quality, water and show specs.
+std::optional<int> Game::boot_demo_defaults() {
     if (opt.start_dino) {
         // Demo path: an allosaurus at the centre of the menu-started island,
         // using the same validated assets as the vertical slice.
@@ -613,6 +703,11 @@ std::optional<int> Game::boot() {
     port_shows = parse_show_specs(opt.show_specs, opt.asset_root);
     hud_font_ready = false;
     build_ready = false;
+    return std::nullopt;
+}
+
+// Load the optional mesh/landscape/skin/animation/texture/wav assets.
+std::optional<int> Game::boot_load_assets() {
     try {
         if (!opt.mesh_path.empty()) {
             mesh = dino::load_mesh(opt.mesh_path);
@@ -873,7 +968,11 @@ std::optional<int> Game::boot() {
         std::fprintf(stderr, "load error: %s\n", e.what());
         return 1;
     }
+    return std::nullopt;
+}
 
+// Build-tool textures and HUD font atlas when the build module is on.
+std::optional<int> Game::boot_build_textures() {
     if (build_ready) {
         const std::string path_texture =
             opt.path_texture_path.empty()
@@ -927,7 +1026,11 @@ std::optional<int> Game::boot() {
             std::fprintf(stderr, "hud font: %s\n", e.what());
         }
     }
+    return std::nullopt;
+}
 
+// Validate and print-only modes; returns the exit code when it reports.
+std::optional<int> Game::boot_print_modes() {
     if (opt.validate) {
         if (!island_names.empty()) {
             std::printf("islands: %zu %s..%s\n", island_names.size(),
@@ -1092,7 +1195,11 @@ std::optional<int> Game::boot() {
         }
         return 0;
     }
+    return std::nullopt;
+}
 
+// SDL init, window and GL context, shaders, audio device.
+std::optional<int> Game::boot_platform() {
     init_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
     if (!opt.wav_path.empty() || opt.ui_sounds) {
         init_flags |= SDL_INIT_AUDIO;
@@ -1208,7 +1315,11 @@ std::optional<int> Game::boot() {
             std::fprintf(stderr, "audio open failed: %s\n", SDL_GetError());
         }
     }
+    return std::nullopt;
+}
 
+// Upload scene textures/meshes, seed spawn and camera, vegetation.
+std::optional<int> Game::boot_scene_resources() {
     vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
     renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
     version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
@@ -1407,6 +1518,11 @@ std::optional<int> Game::boot() {
                                       visitor_pose2),
             glfns);
     }
+    return std::nullopt;
+}
+
+// Park building focus, .wld park load, entrance cells.
+std::optional<int> Game::boot_park_objects() {
     sav_ready = false;
     entrance_cell_x = -1;
     entrance_cell_y = -1;
@@ -1501,6 +1617,11 @@ std::optional<int> Game::boot() {
             std::fprintf(stderr, "wld: %s\n", e.what());
         }
     }
+    return std::nullopt;
+}
+
+// Minimap, navigation flags, extra items, visitor spawn.
+std::optional<int> Game::boot_minimap_and_visitors() {
     minimap_ready = minimap.create(glfns, 256);
     minimap_scale = std::clamp(opt.minimap_scale, 0.1f, 2.0f);
     minimap_zoom_in = false;
@@ -1559,6 +1680,11 @@ std::optional<int> Game::boot() {
                 glfns);
         }
     }
+    return std::nullopt;
+}
+
+// Employee profile list and camera.ini config.
+std::optional<int> Game::boot_employee_profiles() {
     try {
         employee_profiles = dino::load_employee_list(
             resolve_asset(opt.asset_root, "Data/Design/employees"));
@@ -1571,6 +1697,11 @@ std::optional<int> Game::boot() {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "camera config: %s\n", e.what());
     }
+    return std::nullopt;
+}
+
+// Import .wld dinosaurs, buy dinos, print paddock totals.
+std::optional<int> Game::boot_import_dinos() {
     pending_buy_price = 0;
 
     if (opt.import_dinos && !wld_dinosaurs.empty() &&
@@ -1721,7 +1852,11 @@ std::optional<int> Game::boot() {
         std::printf("park list: dinos=%zu paddocks=%zu\n",
                     imported_dinos.size(), park_paddocks.size());
     }
+    return std::nullopt;
+}
 
+// Food source definitions and --place-food.
+std::optional<int> Game::boot_food_definitions() {
     // Food sources (`--place-food`): the `.bsi` definition supplies the model,
     // texture and portion count; the position is a build-grid cell and
     // defaults to the first paddock centre.
@@ -1818,6 +1953,11 @@ std::optional<int> Game::boot() {
             std::fprintf(stderr, "food: %s\n", e.what());
         }
     }
+    return std::nullopt;
+}
+
+// Camera target/distance/yaw/pitch from the CLI, free-camera entry.
+std::optional<int> Game::boot_camera_setup() {
     if (opt.dino_action_loop) {
         log_dino_food();
     }
@@ -1893,7 +2033,11 @@ std::optional<int> Game::boot() {
     if (free_camera) {
         enter_free_camera();
     }
+    return std::nullopt;
+}
 
+// Park session defaults and the .sav park restore.
+std::optional<int> Game::boot_park_session() {
     park_hover_x = -1;
     park_hover_y = -1;
     park_active_index = -1;
@@ -2040,6 +2184,11 @@ std::optional<int> Game::boot() {
                     park_budget, park_clock.day, park_clock.elapsed,
                     wld_roads.size());
     }
+    return std::nullopt;
+}
+
+// Budget overrides, purchases, nutritionists, feeding, employee mesh.
+std::optional<int> Game::boot_employee_session() {
     if (opt.park_budget_override >= 0) {
         park_budget = opt.park_budget_override;
     }
@@ -2168,7 +2317,11 @@ std::optional<int> Game::boot() {
                     employee_pose.positions.size());
         rebuild_extra_items();
     }
+    return std::nullopt;
+}
 
+// Road tool, construct/store/show actions, HUD layout defaults.
+std::optional<int> Game::boot_build_tools() {
     road_price = 0;
     road_price_loaded = false;
     road_has_start = false;
@@ -2274,7 +2427,11 @@ std::optional<int> Game::boot() {
         handle_attraction_action(action);
     }
     pending_attraction_actions.clear();
+    return std::nullopt;
+}
 
+// Port save/load, hover probes, loop timing and window size.
+std::optional<int> Game::boot_finalize() {
     if (sav_ready) {
         dino::PortState state;
         state.island = current_island;
@@ -2436,9 +2593,9 @@ std::optional<int> Game::boot() {
 
     menu_hover_forced = !opt.menu_hover.empty();
     park_hover_forced = !opt.park_hover.empty();
-
     return std::nullopt;
 }
+
 
 // ---------------------------------------------------------------------------
 // Frame loop phases, in the order run() calls them.

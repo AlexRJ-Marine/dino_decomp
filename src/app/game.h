@@ -444,6 +444,28 @@ private:
 
     // --- boot ----------------------------------------------------------
     std::optional<int> boot();
+    // Boot phases, in the order boot() calls them.
+    std::optional<int> boot_command_line();
+    std::optional<int> boot_budgets_and_clock();
+    std::optional<int> boot_campaign_and_saves();
+    std::optional<int> boot_menu_state();
+    std::optional<int> boot_menu_overlay();
+    std::optional<int> boot_demo_defaults();
+    std::optional<int> boot_load_assets();
+    std::optional<int> boot_build_textures();
+    std::optional<int> boot_print_modes();
+    std::optional<int> boot_platform();
+    std::optional<int> boot_scene_resources();
+    std::optional<int> boot_park_objects();
+    std::optional<int> boot_minimap_and_visitors();
+    std::optional<int> boot_employee_profiles();
+    std::optional<int> boot_import_dinos();
+    std::optional<int> boot_food_definitions();
+    std::optional<int> boot_camera_setup();
+    std::optional<int> boot_park_session();
+    std::optional<int> boot_employee_session();
+    std::optional<int> boot_build_tools();
+    std::optional<int> boot_finalize();
 
     // --- frame loop ----------------------------------------------------
     // One call per phase, in frame order; see run().
