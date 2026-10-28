@@ -54,6 +54,9 @@ struct OccupancyGrid {
     void clear(int x0, int y0, int x1, int y1, std::uint16_t type);
     bool free_rect(int x0, int y0, int x1, int y1) const;
     bool road_free(int x0, int y0, int x1, int y1) const;
+    // stPerimeter's four sides: 1-unit wall lines on the rectangle border
+    // (`0x584200`: every map-unit point, no thickness). `add=false` removes.
+    void stamp_wall_rect(int x0, int y0, int x1, int y1, bool add);
 };
 
 // Grid-based path/fence placement in the same 1024-unit world as the terrain.
@@ -76,6 +79,8 @@ struct BuildGrid {
     int height = 0;
     std::vector<std::uint8_t> path;
     std::vector<std::uint8_t> fences;  // bit 0 = south, bit 1 = east
+    // Retail runtime occupant grid (spRoadNetwork/stWall, map units).
+    OccupancyGrid occupancy;
     std::vector<Change> undo_stack;
     // spRoadNetwork segment list (+0x08..+0x0c): start/end points in world
     // units (0..1024), x0 <= x1 and y0 <= y1, kept sorted by x0. A segment

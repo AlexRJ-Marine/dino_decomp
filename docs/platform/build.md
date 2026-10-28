@@ -58,11 +58,25 @@ corner, the second builds the sorted rectangle (four sides, canonical edges) and
 The cursor validity disc uses the captured retail colours (blue
 `(38,38,136)`, red `(80,38,38)`): blue when the cell passes the
 occupation/buildable mask and is not strictly inside an existing paddock, red
-otherwise (`fence_preview_disc`). The warning set, perimeter price, 16-edge
-limit and LunchBox/observation feature placement are not ported yet. See
-`docs/decomp/construction-validation.md`,
-`notes/fence-construction-recon.md` and
-`notes/road-enclosure-preview-capture.md`.
+otherwise (`fence_preview_disc`). Exact two-click rules are now ported:
+`0x52bbf0` sorts the two map-unit corners and subtracts 1 from the high
+corner; a side shorter than `6*margin-1` (margin 4 from `Fence.bwi`) is
+`PERIMETER_TOO_SMALL`; the inset interior is scanned for a busy occupancy
+class; cost is `((x1+y1)-(x0+y0))*2/4*30` (30 per perimeter cell, all 24
+`.bwi` files), charged to CONSTRUCTION, and the four wall lines are stamped
+into the occupancy grid as class 7. The pending corner shows
+`&MESSAGE_FENCE_PERIMETER_COST` ("Cost of enclosure: N"). Still open: the
+0.01 height-slope gate, LunchBox row, Observation Area (`PointOfView`
+building, 4x4, 500) and fence selling.
+
+Port approximations: wall lines are in the occupancy grid, but the port also
+keeps the edge model for rendering and paddock capacity, so edge-based
+crossings remain as a fallback; removing a fence is not gated on its
+occupants (retail refuses a non-empty paddock with
+`&WARNING_SELLING_NON_EMPTY_FENCE` and refunds `value * sellback` on the
+empty one). Road selling is decoded: the refund reuses the build formula
+`((x1-x0)+(y1-y0))*price/4`; the port does not implement the sell request
+yet. Evidence:
 
 Retail itself draws a **filled circular ground disc**, not a ring
 (`notes/road-enclosure-preview-capture.md`): solid blue ~RGB(38,38,136) when
@@ -137,10 +151,11 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
 - **CLI:** `--construct CONSTRUC_ROAD_BUTTON` (or the two panel clicks) plus
   `--road-click X,Y` (build cells, repeatable) drive the same code path.
 
-Port approximations: retail fences occupy pathmap cells while the port stores
-fence edges, so "crosses a fence edge" stands in for "fence cell busy";
-removing a fence is not gated on its occupants (retail refuses a non-empty
-paddock with `&WARNING_SELLING_NON_EMPTY_FENCE` and refunds
+Port approximations: the occupancy grid now carries roads (class 2), walls
+(class 7) and building footprints (class 1), and `check_road`/construction
+validate against it; the edge model remains for rendering and paddock
+capacity. Removing a fence is not gated on its occupants (retail refuses a
+non-empty paddock with `&WARNING_SELLING_NON_EMPTY_FENCE` and refunds
 `value * sellback` on the empty one). Road selling is decoded: the refund
 reuses the build formula `((x1-x0)+(y1-y0))*price/4`; the port does not
 implement the sell request yet. Evidence:

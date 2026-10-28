@@ -2973,7 +2973,7 @@ def test_cpp_road_tool():
             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
             "--no-entrance", "--park-click", "765,248",
             "--park-click", "645,86"]
-    clicks = ["120,130", "128,131", "128,135", "128,135", "128,139"]
+    clicks = ["120,130", "128,131", "128,134", "128,134", "128,138"]
     args = base + [a for c in clicks for a in ("--road-click", c)]
     result = subprocess.run(args, capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
@@ -2983,11 +2983,11 @@ def test_cpp_road_tool():
     assert "road: start 120,130" in out
     assert ("road: built 120,130 -> 128,130 cells=9 new=9 cost=80 "
             "budget=74920 construction=1/80") in out
-    assert ("road: built 128,130 -> 128,135 cells=6 new=5 cost=50 "
-            "budget=74870 construction=2/130") in out
-    assert ("road: 128,135 -> 128,135 rejected (WARNING_ROAD_TOO_SHORT)"
+    assert ("road: built 128,130 -> 128,134 cells=5 new=4 cost=40 "
+            "budget=74880 construction=2/120") in out
+    assert ("road: 128,134 -> 128,134 rejected (WARNING_ROAD_TOO_SHORT)"
             in out)
-    assert ("road: 128,135 -> 128,139 rejected (WARNING_BUSY_SPACE)" in out)
+    assert ("road: 128,134 -> 128,138 rejected (WARNING_BUSY_SPACE)" in out)
 
     poor = subprocess.run(
         base + ["--park-budget", "60", "--road-click", "120,125",
@@ -3032,11 +3032,12 @@ def test_cpp_enclosure_panel_arms_fence_tool():
         [str(EXE), "--frames", "15", "--no-menu", "--width", "800",
          "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
          str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
-         "--no-water", "--camera-target", "0,0", "--distance", "200",
-         "--park-click", "764,135", "--park-click", "618,145",
+         "--no-water", "--no-entrance", "--camera-target", "0,0",
+         "--distance", "200", "--park-click", "764,135",
+         "--park-click", "618,145",
          "--fence-cursor", "400,300",
-         "--inject-click", "5,400,300",
-         "--inject-click", "10,450,350"],
+         "--inject-click", "5,300,300",
+         "--inject-click", "10,350,400"],
         capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     assert "open FENCE_CONSTRUCTION_AND_INFO_PANEL" in result.stdout

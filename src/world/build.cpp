@@ -81,6 +81,8 @@ void BuildGrid::init(float new_cell_size, float world_size) {
     origin_y = -world_size * 0.5f;
     path.assign(static_cast<std::size_t>(width) * height, 0);
     fences.assign(static_cast<std::size_t>(width) * height, 0);
+    occupancy.init(static_cast<int>(std::lround(world_size)),
+                   static_cast<int>(std::lround(world_size)));
     undo_stack.clear();
     roads.clear();
     path_count = 0;
@@ -310,6 +312,20 @@ WorldRect road_units(const RoadSegment& road, int cell) {
     const int x1 = std::max(road.x0, road.x1) * cell + cell - 1;
     const int y1 = std::max(road.y0, road.y1) * cell + cell - 1;
     return {x0, y0, x1, y1};
+}
+
+void OccupancyGrid::stamp_wall_rect(int x0, int y0, int x1, int y1, bool add) {
+    auto line = [&](int ax, int ay, int bx, int by) {
+        if (add) {
+            stamp(ax, ay, bx, by, kWall);
+        } else {
+            clear(ax, ay, bx, by, kWall);
+        }
+    };
+    line(x0, y0, x1, y0);  // south
+    line(x0, y1, x1, y1);  // north
+    line(x0, y0, x0, y1);  // west
+    line(x1, y0, x1, y1);  // east
 }
 
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
@@ -591,6 +607,13 @@ void add_road(BuildGrid& grid, WorldRect road) {
     for (const WorldRect& segment : grid.roads) {
         mark_road_cells(grid, segment);
     }
+    // spRoadNetwork occupancy: the whole 4-unit strip of the committed
+    // segment, `[x0, x1+cell-1] x [y0, y1+cell-1]` (0x58d110/0x594810).
+    const int cell = static_cast<int>(grid.cell_size);
+    if (cell > 0) {
+        grid.occupancy.stamp(road.x0, road.y0, road.x1 + cell - 1,
+                             road.y1 + cell - 1, OccupancyGrid::kRoad);
+    }
 }
 
 void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
@@ -639,7 +662,8 @@ WorldRect entrance_access_road(const BuildingDef& def, int cell_x, int cell_y,
     }
 }
 
-void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
+void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {
+    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
         return;
     }
     const float cell = grid.cell_size;
@@ -664,6 +688,7 @@ void import_fences(BuildGrid& grid, const std::vector<WorldRect>& fences) {    i
             grid.set_fence(cx0 - 1, y, 1, true);      // west
             grid.set_fence(cx1, y, 1, true);          // east
         }
+        grid.occupancy.stamp_wall_rect(x0, y0, x1, y1, true);
     }
 }
 
@@ -777,6 +802,12 @@ RoadCheck check_road_start(const BuildGrid& grid, int x, int y,
     if (road_inside_perimeter(x, y, x, y, perimeters)) {
         return RoadCheck::InsidePerimeter;
     }
+    const int unit = static_cast<int>(grid.cell_size);
+    if (unit > 0 &&
+        !grid.occupancy.road_free(x * unit, y * unit, x * unit + unit - 1,
+                                  y * unit + unit - 1)) {
+        return RoadCheck::BusySpace;
+    }
     if (grid.in_bounds(x, y) && !grid.path_at(x, y) && busy && busy(x, y)) {
         return RoadCheck::BusySpace;
     }
@@ -791,6 +822,16 @@ RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
     }
     if (road.x0 == road.x1 && road.y0 == road.y1) {
         return RoadCheck::TooShort;
+    }
+    // Retail spRoadNetwork::Validate scans the run's occupancy strip and
+    // accepts only free cells and cells already stamped as roads.
+    const int unit = static_cast<int>(grid.cell_size);
+    if (unit > 0) {
+        const WorldRect units = road_units(road, unit);
+        if (!grid.occupancy.road_free(units.x0, units.y0, units.x1,
+                                      units.y1)) {
+            return RoadCheck::BusySpace;
+        }
     }
     const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
     const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
