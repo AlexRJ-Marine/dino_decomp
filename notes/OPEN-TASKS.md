@@ -1,16 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 12:34. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-Generated from `TASKS.md` on 2026-10-28 10:29. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-Generated from `TASKS.md` on 2026-10-28 11:04. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-Generated from `TASKS.md` on 2026-10-28 12:30. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-Generated from `TASKS.md` on 2026-10-28 12:35. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 12:48. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 36 open items.
-Generated from `TASKS.md` on 2026-10-28 10:04. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-34 open items.
-Generated from `TASKS.md` on 2026-10-28 10:35. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
-35 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
