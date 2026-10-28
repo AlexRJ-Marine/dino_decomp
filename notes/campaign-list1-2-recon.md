@@ -141,3 +141,24 @@ reserved block is nonzero and the parsed budget/sellback are 0, so it is the
 first record of the 57-element list, not the park block. The campaign park /
 economy offset therefore remains open until the 57-list (and any following
 lists) are walked.
+
+## 9. Save writer list order (`FUN_0058b200`)
+
+Ghidra decompilation shows the campaign autosave order after the roads:
+
+1. `+0x68` list0 `saDinosaur` (count, `[obj+4]`, vtable `+0x14`).
+2. `+0xcc` list1 `saFoodSource`.
+3. `+0xe4` list2 employees.
+4. If the campaign flag is clear: `+0x80` visitor list, then `FUN_00585780`
+   park economy, `FUN_00594cb0` schedule and the 12-byte `spPark+0x148` tail.
+5. `+0x90` attraction-family list (count, `[obj+4]`, vtable `+0x8`).
+6. `+0xa0` list (count, `[obj+0x70]`, vtable `+0x8`).
+7. `+0x40` list (count, `[obj+0x70]`, vtable `+0x24`).
+8. `FUN_0058ee50` (store/lab), then the AI/camera tail.
+
+This explains why the 53 KB campaign autosave has **no 0x293 park block**:
+the park/visitor branch is skipped, and the `57` at `0x6AA8` is the `+0x90`
+attraction list (57 records), not a park header. The first record at `0x6AAC`
+starts with `02 00 00 00 00 00 00 00 64 00 00 00 00 00 20 41`, i.e. a
+record-local header, not the park block. To reach the store/lab/camera tail,
+walk the 57-list; its record size/save function is the next decode target.
