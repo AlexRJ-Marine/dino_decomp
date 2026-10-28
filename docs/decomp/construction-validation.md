@@ -233,10 +233,12 @@ original construction flow:
 
 Both paths end in the `stPerimeter` / `stWall` model: `0x584090` builds the
 rectangle's four `stWall` segments (`0x582210`), each rasterised to grid cells
-(`0x584200`, `length/cell` 0x28-byte cell records, Bresenham walk). Show
-arenas use the same constructor (`0x580f00` with the `.shw` `Wall type`), so
-the enclosure tool and show placement share the wall model. The port stores
-fence edges instead of rasterised cells.
+(`0x584200`, `length/cell` 0x28-byte cell records, Bresenham walk). The
+occupancy grid is one `u16` per world unit; `0x5849a0` stamps the wall type
+into the high nibble (`u16 = (u16 & 0x0fff) | (type << 12)`) and clears it on
+removal. Show arenas use the same constructor (`0x580f00` with the `.shw`
+`Wall type`), so the enclosure tool and show placement share the wall model.
+The port stores fence edges instead of rasterised cells.
 
 Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
 `0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,

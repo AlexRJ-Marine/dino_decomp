@@ -226,7 +226,17 @@ consumed by the `stPerimeter` rasteriser:
 | `0x584090` | `stPerimeter` ctor: stores the rectangle at `+0x1c..+0x28`, the wall type at `+0x2c`, vtable `0x643530`, and calls `0x582210` four times for the four sides |
 | `0x582210` | `stPerimeter::AddSegment`: allocates a 0x24-byte `stWall`, calls `0x584200`, and appends the pointer to the vector at `+0x10..+0x18` (assert path `stPerimeter.cpp:0x5e`) |
 | `0x584200` | `stWall` rasteriser: stores corners `+0..+0xc`, wall type `+0x10`, vtable `0x64353c`, allocates `length/cell` 0x28-byte cell records at `+0x18` (`0x584700`), walks the line (Bresenham; `0x584520` axis case, `0x55d590`/`0x55d600` horizontal/vertical, generic loop for diagonals), and finalises each cell with `0x5849a0` |
+| `0x584700` | cell object ctor: vtable `0x642f74`, `+0x14` wall type, `+0x18` count, `+0x1c` add/remove flag, `+0x20` grid, `+0x24` owner; a vector of 8-byte `(x,y)` pairs at `+0x8` |
+| `0x584520` | axis-aligned callback: appends a cell every `cell_size` along the segment (`+0x10` index, `+0x14` count-1), then `0x5848c0` |
+| `0x5849a0` | occupancy commit: for flag 0/1 sets `u16 = (u16 & 0x0fff) \| (type << 12)`; otherwise clears the high nibble (`u16 &= 0x0fff`) |
 | `0x580f00` | show-arena ctor: calls `0x584090` with the arena corners, cell size and `.shw` `Wall type`, then `0x576860` zero-fills the show score vector to the profile count |
+
+The occupancy grid stores one `u16` per world unit; the **high nibble is the
+occupant type** (`DAT_006757b4` for walls, `DAT_00675a60` for roads per the
+road recon), the low 12 bits are flags. `0x5849a0` stamps or clears that
+nibble for every cell of the segment. This is why the road/fence validators
+test `u16 >> 12` and why a player-built wall blocks a road even though the
+port models fence edges separately.
 
 So a show arena and a player-built paddock share the same `stPerimeter` ->
 four `stWall` segments -> grid cells model. The port stores fence **edges**
