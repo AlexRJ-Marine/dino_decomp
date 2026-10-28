@@ -1633,6 +1633,11 @@ dino::Mesh make_water_plane(float half_size, float z, float tiles) {
     return mesh;
 }
 
+// The retail draw 0x00600df0 sets world = Scale(100) * Translate(camera) on a
+// unit cube from the builder, so the box is 200 units across and always
+// centred on the eye (draw_scene adds the translation).
+constexpr float kSkyboxHalfSize = 100.0f;
+
 dino::Mesh make_sky_face(int index, float half_size) {
     const float h = half_size;
     dino::Mesh mesh;
@@ -2116,6 +2121,13 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
 
     const GLint unlit_loc = gl.GetUniformLocation(program, "u_unlit");
     if (skybox.ready) {
+        dino::Mat4 follow;
+        follow.m[3] = eye.x;
+        follow.m[7] = eye.y;
+        follow.m[11] = eye.z;
+        const dino::Mat4 sky_mvp = dino::multiply(mvp, follow);
+        gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                            sky_mvp.m);
         gl.Uniform1i(unlit_loc, 1);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
@@ -2131,6 +2143,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         }
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
+        gl.UniformMatrix4fv(gl.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
+                            mvp.m);
         gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture"),
                      texture != 0 ? 1 : 0);
     }
@@ -6776,7 +6790,7 @@ int main(int argc, char** argv) {
         if (sky_images[i].width <= 0) {
             continue;
         }
-        skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
+        skybox.faces[i] = upload_mesh(make_sky_face(i, kSkyboxHalfSize), glfns);
         skybox.textures[i] = upload_texture(sky_images[i]);
         if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
             ++sky_faces;
@@ -8269,7 +8283,7 @@ int main(int argc, char** argv) {
             if (sky_images[i].width <= 0) {
                 continue;
             }
-            skybox.faces[i] = upload_mesh(make_sky_face(i, 8000.0f), glfns);
+            skybox.faces[i] = upload_mesh(make_sky_face(i, kSkyboxHalfSize), glfns);
             skybox.textures[i] = upload_texture(sky_images[i]);
             if (skybox.faces[i].vao != 0 && skybox.textures[i] != 0) {
                 ++loaded_faces;

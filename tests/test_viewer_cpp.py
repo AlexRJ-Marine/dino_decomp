@@ -606,6 +606,44 @@ def test_cpp_skybox_and_water():
     assert "water2 256x256" in result.stdout
 
 
+def test_cpp_skybox_follows_camera(tmp_path):
+    """Retail 0x00600df0 centres the sky cube on the eye (no bottom/side seam).
+
+    Looking 60 degrees down only the bottom face is visible, so no corner may
+    show the light-blue horizon band; looking up, the sky must not change with
+    the orbit distance. The old origin-centred cube failed both
+    (notes/skybox-seam-ab.png).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "320", "--height", "240",
+              "--no-vsync", "--no-save-config", "--camera-orbit", "--lnd",
+              str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+              "--yaw", "45"]
+
+    def shot(name, pitch, distance):
+        path = tmp_path / name
+        result = subprocess.run(
+            common + ["--pitch", pitch, "--distance", distance,
+                      "--screenshot", str(path)],
+            capture_output=True, text=True, timeout=180)
+        assert result.returncode == 0, result.stderr
+        return Image.open(path).convert("RGB")
+
+    down = shot("down.bmp", "60", "3000")
+    for corner in ((4, 4), (315, 4), (4, 235), (315, 235)):
+        r, g, _ = down.getpixel(corner)
+        assert r < 30 and g < 30, (corner, down.getpixel(corner))
+
+    near = shot("up-near.bmp", "-60", "1500")
+    far = shot("up-far.bmp", "-60", "3000")
+    strip = (0, 0, 320, 40)
+    diff = ImageStat.Stat(
+        ImageChops.difference(near.crop(strip), far.crop(strip))).mean
+    assert max(diff) < 2.0, diff
+
+
 def test_cpp_water_animation(tmp_path):
     """The two water layers scroll at the retail 0.03/0.01 UV/s rates."""
     if not EXE.exists() or not ISL01.exists():

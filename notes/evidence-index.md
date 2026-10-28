@@ -107,3 +107,4 @@ add a row when a claim becomes something later work depends on.
 | Enclosure preview: flat unlit disc, blue (38,38,136) outside a paddock / red (80,38,38) inside | `notes/road-enclosure-preview-capture.md`, `docs/platform/build.md` | `tests/test_viewer_cpp.py::test_cpp_enclosure_panel_arms_fence_tool`, `test_cpp_enclosure_preview_inside_paddock_red` |
 
 | Campaign show: drsShow waypoints are `.bfi` features (FeatureList order); 51/71 mesh-bearing Cpg04 features render | `notes/campaign-world-instantiation.md`, `notes/playtest-2026-10-27.md`, `notes/campaign-show.png` | `tests/test_campaign_cpp.py::test_cpp_menu_campaign_mission_start` |
+| Skybox is a ±100 cube centred on the camera (`0x00600df0`: Scale(100)·Translate(camera)) | `notes/skybox-seam-recon.md`, `docs/platform/environment.md`, `notes/skybox-seam-ab.png` | `tests/test_viewer_cpp.py::test_cpp_skybox_follows_camera` |

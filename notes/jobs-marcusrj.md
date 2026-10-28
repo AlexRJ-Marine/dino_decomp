@@ -26,7 +26,7 @@ file is the single place to claim work.
 
 | # | Job | Scope / files | Done when |
 | --- | --- | --- | --- |
-| R-1 | Skybox seam | `src/viewer/main.cpp` sky faces, `docs/platform/environment.md` | Bottom/side seam gone at pitch ±60; side-by-side shot in `notes/`; A/B test |
+| R-1 | Skybox seam — DONE — claude — 2026-10-28 (camera-centred cube, `notes/skybox-seam-recon.md`) | `src/viewer/main.cpp` sky faces, `docs/platform/environment.md` | Bottom/side seam gone at pitch ±60; side-by-side shot in `notes/`; A/B test |
 | R-2 | Frustum culling + LOD2 | `src/viewer/main.cpp` terrain draw | Off-screen chunks skipped, LOD2 at distance, `test_cpp_*` for both |
 | R-3 | UI-2 Phase C rest | `src/ui/*`, `src/viewer/main.cpp` list widgets | Slider + checkbox selection on store/lab lists; minimap water colour + partition lines; snapshot test |
 | R-4 | SIM-4 wages | `src/world/economy.*`, `docs/decomp/economy.md` | `0x585d80` wages + `0x585d50` EFFECTIFS_SECU wired once staff actors exist; ledger test |

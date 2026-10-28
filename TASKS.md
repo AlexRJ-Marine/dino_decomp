@@ -1266,6 +1266,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `0x00600f80` / draw `0x00600df0`: front=-X, left=+Y, back=+X, right=-Y,
   top=+Z, bottom=-Z, UVs (0,0),(1,0),(0,1),(1,1), v=0 at the PNG top.
   The previous mapping was rotated ~90 degrees.
+- [x] Skybox bottom/side seam (R-1): `0x00600df0` sets `world =
+  Scale(100) * Translate(camera)` on a unit cube, so the port now draws a
+  ±100 cube centred on the eye instead of an 8,000-unit cube at the origin.
+  Evidence: `notes/skybox-seam-recon.md`, `notes/skybox-seam-ab.png`,
+  `test_cpp_skybox_follows_camera`.
 - [x] Side-by-side at isl01 09:42, same camera (`notes/p5-side-by-side.png`):
   terrain, basemap, vegetation, HUD and warm fog match. Remaining polish:
   minimap rotation/detail and slightly smoother retail terrain shading.

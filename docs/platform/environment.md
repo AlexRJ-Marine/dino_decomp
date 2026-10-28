@@ -13,7 +13,9 @@ float, runtime-confirmed at 16.0 (isl01) and 20.0 (isl02); see
 (`src/third_party/stb_image.h`, public domain) behind
 `dino::load_image()`; TGA still goes through our validated reader.
 
-Rendering: six quads on a 5000-unit cube, one texture each, drawn unlit
+Rendering: six quads on a ±100-unit cube centred on the camera (retail
+`0x00600df0`: `world = Scale(100) * Translate(camera)` on a unit cube; see
+`notes/skybox-seam-recon.md`), one texture each, drawn unlit
 (`u_unlit = 1`) before the terrain with depth test off and depth writes
 disabled. `--skybox DIR` overrides the directory.
 
@@ -21,7 +23,9 @@ Face mapping matches the retail geometry builder `0x00600f80` / draw
 `0x00600df0`: **front = -X, left = +Y, back = +X, right = -Y, top = +Z,
 bottom = -Z**. Each quad's vertices are in UV order (0,0), (1,0), (0,1),
 (1,1); v=0 is the PNG top row (the port stores `v-1` because the shader adds
-1). The cube is camera-centred and world-axis aligned; retail renders the
+1). The cube is camera-centred and world-axis aligned (the port used to
+centre it on the world origin, which caused the bottom/side seam at steep
+pitches: `notes/skybox-seam-ab.png`); retail renders the
 inside of the cube (the port does not enable culling). The old mapping had
 front=+Y/left=-X, a ~90 degree rotation, now corrected. The current capture
 is `notes/p5-sky.png`.
@@ -92,6 +96,6 @@ Known differences in that frame:
 - The skybox face order/UVs are solved from the retail builder; a side-by-side
   screenshot against the original remains for final visual confirmation.
 - Water animation (the retail opposite scroll of the two `Modulate2x` layers)
-  is implemented from `FUN_00602fd0` (0.03/0.01 UV/s); the skybox bottom/side
-  seam is still visible at some angles.
+  is implemented from `FUN_00602fd0` (0.03/0.01 UV/s). The skybox bottom/side
+  seam is fixed (camera-centred cube, `test_cpp_skybox_follows_camera`).
 - Cloud layer (`cloud.ini`, `nuage*.tga` on isl04) is not implemented.
