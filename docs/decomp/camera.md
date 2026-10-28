@@ -118,6 +118,22 @@ controller state and writes one of the eight bytes through
 - Tests: `tests/test_viewer_cpp.py::test_cpp_camera_retail_progress_default`,
   `test_cpp_free_camera_start`, `tests/test_config.py::test_camera`.
 
+## Serialization
+
+The active camera's `vtable+0` / `+4` (`0x5e5f20` read, `0x5e5fb0` write)
+serialize exactly four floats:
+
+```text
+float progress        (+0x158)
+float yaw_goal[3]     (+0x124..+0x12c; only the z component is used)
+```
+
+The read is guarded by a stream version/size `>= 0xe`; after reading, yaw
+current `+0x118` is copied from yaw goal `+0x124` (no smoothing on load).
+The derived eye/target are not part of this block. The save tail's eye/target
+is a separate camera-switcher record; the port's `--sav-park` applies it to
+the orbit camera.
+
 ## Open
 
 - Exact placement of the `dt` factor in the pan block (the recovered
@@ -125,8 +141,6 @@ controller state and writes one of the eight bytes through
   the port uses world units per second).
 - `TargetHardness`/`PositionHardness` clamp and transition semantics beyond
   the first-order form above.
-- Camera save tail serialization (`vtable+0/+4` = `0x5e5f20`/`0x5e5fb0`);
-  `--sav-park` applies the saved eye/target through the port's orbit camera.
 
 ## Evidence
 

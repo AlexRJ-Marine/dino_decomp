@@ -280,3 +280,13 @@ log "yaw={d:[ecx+0x120]} yawgoal={d:[ecx+0x12c]} p={d:[ecx+0x158]} eye={d:[ecx+0
 - Pan units: 0x005e5ff0 adds `dir*lerp(1,20,p)` per update without an explicit dt, while the port note measured `MoveSpeed*4` units/s. Either the action dispatch rate or a scale outside this function converts the value; this does not affect the tilt/pitch result (the pan is rigid).
 - The reflection camera uses up (0,0,-1) (`0x006060b6`); that is a separate
   camera and not the park view.
+
+## Serialization (2026-10-28)
+
+The active camera vtable `+0`/`+4` (`0x5e5f20` read, `0x5e5fb0` write)
+serialize four floats: `progress` at `+0x158` and the yaw-goal vector at
+`+0x124..+0x12c` (only z is used). The read is guarded by a stream
+version/size `>= 0xe` and copies yaw current `+0x118` from the goal after
+loading, so a loaded camera starts at its saved yaw without smoothing. The
+derived eye/target are not serialized by the camera object; the `.sav` tail's
+eye/target belongs to the camera-switcher record.
