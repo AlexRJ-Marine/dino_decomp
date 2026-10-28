@@ -49,7 +49,9 @@ See `notes/lanes.md`. Default split:
 
 - MENU-1: **main-menu playtest.** Load Game is fixed (`9f58349`): page 4
   lists the port `.psav` slots and loads the selected one; retail `.sav`
-  still needs an island choice. Next: Campaign Info mission list (R-17).
+  still needs an island choice. Next: the Cinematics page still renders the
+  island-list fallback (R-17). Campaign Info has no retail mission list; use
+  `campaign-progress.txt` (or a port-only override) to pick a mission.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
   start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** on a fixed 60 Hz
@@ -115,10 +117,10 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MENU-1: Campaign Info mission list (R-17): show the campaign's missions
-   and start the chosen one instead of only the stored/first mission.
-   Load Game (R-16) is done: `LOAD_GAME_NAMES_LIST` lists `.psav` slots and
-   `LOAD_LOAD_BUTTON` loads them.
+1. MENU-1: Cinematics page (R-17) still lists island names; wire
+   `CINEMATICS_LIST` to `Data/Video/*.mpg` and `CINEMATICS_START_BUTTON` to
+   the MPEG player. Load Game (R-16) is done. Campaign Info has no retail
+   mission list; use `campaign-progress.txt` or a port-only override.
 2. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
    the retail alternates), Shift+Up/Down zoom. Pan is frame-rate dependent in
    retail; the port applies one step per rendered frame (vsync 60). If the
