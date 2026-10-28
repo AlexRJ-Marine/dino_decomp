@@ -53,19 +53,21 @@ fence feature (LunchBox / observation area) or draws a paddock perimeter:
   `PERIMETER_TOO_SMALL` / `ROAD_TOO_SHORT` come from `0x52c2e0`; `N`/`J`
   rotate the placement and Esc leaves.
 
-The port arms a simple edge tool and draws a cursor validity ring: blue when
-the cell passes the occupation/buildable mask, red when it does not
-(`fence_preview_ring`). The retail two-click perimeter, warning set,
+The port arms a simple edge tool and draws a cursor validity disc (retail
+samples: blue `(38,38,136)`, red `(80,38,38)`): blue when the cell passes the
+occupation/buildable mask and is not strictly inside an existing paddock, red
+otherwise (`fence_preview_disc`). The retail two-click perimeter, warning set,
 perimeter price, 16-edge limit and LunchBox/observation placement are not
-ported yet. See `docs/decomp/construction-validation.md` and
-`notes/fence-construction-recon.md`.
+ported yet. See `docs/decomp/construction-validation.md`,
+`notes/fence-construction-recon.md` and
+`notes/road-enclosure-preview-capture.md`.
 
 Retail itself draws a **filled circular ground disc**, not a ring
 (`notes/road-enclosure-preview-capture.md`): solid blue ~RGB(38,38,136) when
 placeable and dark maroon ~RGB(80,38,38) when not, with a hard edge, no rim,
 snapped to the build cell under the cursor (capture: cursor 350,450 -> disc
-centre ~407,455). The port's ring is a temporary stand-in until the disc mesh
-is added.
+centre ~407,455). The port's preview helper is being aligned to this shape;
+the earlier ring was a stand-in.
 
 ## Retail road tool (`ROAD_CONSTRUCTION`)
 
