@@ -16,68 +16,104 @@ or play the original.
 
 ## Project status
 
-> Last updated: 2026-10-26. The authoritative running log is
-> [`notes/STATE.md`](notes/STATE.md); the task queue is [`TASKS.md`](TASKS.md).
+> Last updated: 2026-10-28. The authoritative running log is
+> [`notes/STATE.md`](notes/STATE.md); the dashboard is
+> [`notes/NOW.md`](notes/NOW.md); the task queue is [`TASKS.md`](TASKS.md).
 
 | Track | Status | Summary |
 |---|---|---|
-| Retail formats | Solved | 30+ specs in `docs/formats/`; parsers validate the full retail sets. |
-| Asset tools | Working | Mesh/skeleton/animation/texture/audio/config readers plus CLI dumpers. |
-| Portable viewer | Working | 10 islands through the retail menu, vegetation, skinned dinosaurs, paths/fences, visitors, retail menu/HUD, minimap, live clock, music/clicks. |
-| Gameplay simulation | Early | Visitors only random-walk. Needs, economy, shows, labs and missions are researched but not ported. |
-| Decompilation | Research-heavy | 180+ function entries documented; **2 functions replaced live**. |
-| Test suite | Green | **291 tests pass**; `dino_viewer --selftest` passes 18 logic checks. |
+| Retail formats | Solved | 39 specs in `docs/formats/`; parsers round-trip the full retail sets (536 meshes, 299 animations, 64 skeletons, 104 skins, 649 TGA textures, 231 WAV files). Residual numeric semantics are listed in `notes/OPEN-TASKS.md`. |
+| Asset tools | Working | Mesh/skeleton/animation/texture/audio/config readers plus CLI dumpers and OBJ export. |
+| Portable viewer | Working | 10 islands through the retail menu, vegetation sector LOD, skinned dinosaurs, retail road network, visitors, retail menu/HUD, minimap, live clock, music/clicks, store and lab panels. |
+| Gameplay simulation | Partial | Visitor needs/attractions state machine, dinosaur chooser/needs/actions, danger grid, daily settlement, show scheduling, employees and campaign objectives are ported; lab gameplay, live show actors and the full visitor loop remain. |
+| Decompilation | Research-heavy | 232 function entries documented: 188 decompiled, 20 verified, **9 asset readers replaced live** in the retail exe. |
+| Test suite | Green | **492 tests** in the suite; the last full run passed all 492. `dino_viewer --selftest` passes 189 logic checks. |
 
 ### What works today
 
 - **Islands:** all 10 retail islands start from the Free Game menu with the
   recovered camera (`camera.ini`: target centre, distance 39, elevation 52.7,
   yaw 0; FOV 80). `isl01` renders a 512x512 heightmap (522,242 triangles),
-  basemap, 1,536 placed trees, skybox and water.
+  basemap, 1,536 placed trees with sector LOD and frustum culling, skybox and
+  two-stage animated water. The Entrance dock and free-game start road match
+  retail (`notes/entrance-dock-road-recon.md`).
 - **Actors:** `.mesh` + `.skel` + `.skin` + `.anim` load together; the
-  allosaurus is rigid-skinned with the corrected skeleton-rest bind (pachy
-  LOD2/LOD3 included) and plays walk/idle/run clips. `--start-dino` places it
-  in a menu-started island.
-- **Camera:** orbit and free-fly modes, terrain clamping, mouse look,
-  rebindable keys.
-- **Building:** 4-unit path/fence grid, terrain ray-picking, undo, save/load.
-- **Visitors:** spawn on the path network and walk with a two-pose flipbook.
-- **UI:** retail main menu (114 widgets, 9 pages), Free Game island selection,
-  park HUD (2,694 widgets, 38 roots), panel switching, hover/pressed states,
-  lab centres, minimap (2-D detail map, camera-relative, zoom/marker), live
-  park clock and budget, Options Save/Load tab listing real `.sav` slots, and
-  1024x768 HUD re-anchoring.
+  allosaurus is skinned with the corrected skeleton-rest bind (pachy LOD2/LOD3
+  included) and plays walk/idle/run clips. The same pipeline drives the store's
+  3D preview. `--start-dino` places it in a menu-started island.
+- **Camera:** the retail park camera is the interactive default (per-update pan
+  on a 60 Hz tick, 5/s yaw low-pass, `6 -> 2` target/eye lerp, mouse edge
+  scroll, no roll). `--camera-orbit` keeps the legacy orbit view; free-fly and
+  key rebinding remain available.
+- **Building:** retail road network (segments, junction merge, T-snap,
+  per-segment paint), 4-unit path/fence grid, terrain ray-picking, enclosure
+  preview, undo and save/load.
+- **Visitors:** spawn on the path network, choose attractions, travel, use them
+  and leave; visitor profiles and needs come from the retail `.bvi` data
+  (24 profiles).
+- **Park HUD:** 2,694 widgets / 38 roots, re-anchored (not scaled) to any
+  window size; budget/visitor/dino/show/paddock panels, store, lab centres,
+  minimap detail view, live clock and ledger. Window-space clicks now match the
+  drawn buttons at every window size.
+- **Menus:** nine-page retail main menu with exact `.fnt` glyph metrics and
+  list scrolling, Free Game island selection, Options sliders/indications that
+  apply live, Cinematics ending-video playback, Load Game for port `.psav`
+  slots, and the warning/request/campaign-end dialogs.
+- **Campaigns:** 7 campaigns / 39 missions / 89 objectives are read, all 33
+  objective verbs evaluate, `dino.dat` gates unlocks, mission progress resumes,
+  success advances and the last mission raises the unlock count.
+- **Saves:** the C++ `.sav` writer re-serializes the sample byte-identically
+  and a written park loads in the retail game. Campaign `list0`/`list1`/`list2`
+  are typed and byte-identical; manual/autosave loading restores the HUD bank.
 - **Media/QoL:** menu/park click sounds and island themes (chunk-streamed,
-  looped), WAV playback, windowed/fullscreen/borderless modes, persisted
-  window and key configuration, BMP screenshots.
+  looped), WAV playback, MPEG ending movies, windowed/fullscreen/borderless
+  modes, persisted window and key configuration, BMP screenshots.
 - **Stability:** repeated 60,000-frame (~10 minute) runs with a flat working
-  set; the latest retail-menu run (dino + music + clicks + minimap) stayed at
-  167.1 MB and finished at 10:30 day 1.
+  set.
 
 ### What is still missing
 
-- The full visitor loop: enter -> choose attraction -> travel -> use -> leave,
-  including visitor profiles, needs and the decompiled scoring function.
-- Dinosaur needs, action selection, eating/sleeping and reactions; employee
-  jobs, roles and wages.
-- Economy settlement, show scheduling and the show/lab/campaign gameplay in
-  the port (the original logic is decompiled).
-- Park-state save/load through the save panel; only the slot browser and the
-  path/fence file persistence exist today.
-- Warning/request/campaign-end dialogs, dynamic list snapshots/sliders, and
-  minimap detail-map water parity.
-- Objective field names/weighting, staff job kind `0xb`, populated lab records
-  and a few save semantics.
-- Culling/LOD2 and final skybox/water parity.
+- Exact object placement (PLACE-1): wire the occupancy grid into
+  roads/buildings/fences, then the exact fence flow (margin scan, `4*margin-1`,
+  cost, wall cells, sell gate/refund) and building/food/show placement.
+- The rest of the visitor loop: queueing, spending, show attendance, and the
+  five attraction-scoring weights (SIM-2b-W).
+- Dinosaur perception: the visitor/obstacle reaction lists have **no writer in
+  this build**, so the list-driven starters are inert; the element bone/event
+  overlay source remains open.
+- Live show simulation: `.bfi` arena/judge actors, per-show weight authoring
+  and name-suffix iteration.
+- Laboratory gameplay (breeding/cloning/fridge) is decoded but panel-only; the
+  employee hire panel, guard role and walking animation are incomplete.
+- Retail `.sav` slots in Load Game (island/mode headers are decoded, listing is
+  R-16b) and the Campaign Info mission list (retail has no mission list; use
+  `campaign-progress.txt` or a port-only override).
+- Terrain patch LOD, vegetation slope tilt, minimap water colour/partition,
+  skybox bottom/side seam and smoother retail shading.
+- MP2 audio and the intro movie; visitor travel and clip-playback phase in
+  saves.
+- Background-safe retail input (TOOL-4): the window stays behind the user's
+  work and screenshots are background-safe, but retail DirectInput is
+  foreground-only, so click tests need the game active.
 
 ### Current focus
 
-1. UI-2 Phase D rest: wire Save/Load to the port state and add the dialog
-   family.
-2. UI-2 Phase C rest: dynamic list snapshots/sliders and minimap water polish.
-3. SIM-2b: port the decompiled visitor choose -> travel -> use -> leave flow
-   and bind visitor profiles/needs.
-4. WORLD-3: capture a side-by-side comparison against the original game.
+1. **PLACE-1 — exact object placement.** The road cursor uses the retail
+   nearest 4-unit anchor snap (fixing the 45-degree direction flip), and the
+   occupancy-grid foundation is in. Next: the exact fence flow, then
+   building/food/show placement costs and validators.
+2. **MENU-1 — menu parity.** Retail `.sav` slots (R-16b) and the Campaign Info
+   mission list.
+3. **CAM-1 — camera feel.** Re-test the measured retail camera in hand; pan is
+   one step per rendered frame at vsync 60.
+4. **P3 perception.** Wire the direct `start_visitor`/`start_dino` entry points
+   in the show/attraction controller; do not invent a list producer.
+5. **CAMPAIGN population.** Feed `WldWorld.records` shows/animals/employees
+   into `load_campaign_park` and assert them on Cpg04.
+6. **SHOW-4 rest.** Live `.bfi` arena/judge actors and per-show weights.
+7. **SAVE-2 HUD.** Runtime-watch the remaining 26,000-cash restore difference
+   on manual/autosave load.
+8. **WORLD-3.** Capture the final retail/port side-by-side.
 
 ### Playable flow (retail menu -> park)
 
@@ -103,10 +139,11 @@ where the container is fully parsed.
 
 | Group | Formats / files |
 |---|---|
-| Geometry and animation | `.mesh`, `.skin`, `.skel`, `.anim`, `anim_trans.dic`, `proportion.dat` |
-| World and saves | `.lnd`, `.imp`, `.blf`, `.wld`, `.sav` (partial semantics) |
+| Geometry and animation | `.mesh`, `.skin`, `.skel`, `.anim`, `.seq`, `anim_trans.dic`, `proportion.dat` |
+| World and saves | `.lnd`, `.raw`, `.imp`, `.blf`, `.wld`, `.sav` (containers solved; some semantics open) |
 | Text and UI | `.fnt`, `.loc`, `MenuInterface.Ini`, `ParkInterface.Ini`, `MenuGraphicDB.ini`, `ParkGraphicDB.ini` |
-| Gameplay data | `.shw`, `.gen`, `.bvi`, `.bbi`, `.bsi`, `.bni`, `.bei`, `.seq`, campaigns/missions |
+| Gameplay data | `.shw`, `.gen`, `.bvi`, `.bbi`, `.bsi`, `.bni`, `.bei`, `.bai`, `.bwi`, `.bfi`, campaigns/missions |
+| Simulation parameters | `GeneralParams.bgd`, `Actions.bad`, `simu_trans.dic`, `TranslatorConstants.ini`, `Data/States` |
 | Media | `.tga`, `.wav`, `MenuSoundDB.ini`, `ParkSoundDB.ini` |
 
 Validated scale: 536 meshes, 299 animations, 64 skeletons, 104 skins,
@@ -117,30 +154,43 @@ Validated scale: 536 meshes, 299 animations, 64 skeletons, 104 skins,
 
 The retail executable has **7,273 functions** (725,709 instructions) in Ghidra.
 [`docs/decomp/function-status.md`](docs/decomp/function-status.md) currently
-tracks **167 entries** with address, purpose, status and evidence.
+tracks **232 entries** with address, purpose, status and evidence: 188
+decompiled, 20 verified and 9 replaced live.
 
 Solved or documented:
 
-- **Loaders:** `.mesh`, `.skin`, `.skel`, `.anim` and font readers.
+- **Loaders:** `.mesh`, `.skin`, `.skel`, `.anim`, `.sav`, `.wld` and font
+  readers, plus the hybrid reader contracts.
 - **UI:** `moWidget::Load`, anchoring/resize, event setters, the nine-page menu
-  state machine, park HUD binders and info-panel controller.
+  state machine, park HUD binders, list viewports/VSCROLL and info-panel
+  controllers.
 - **Runtime/save:** manager load/save order, world object class IDs `0x12`-`0x18`,
-  the `.sav`/`.wld` object graph, simulation prefix, AI/camera tail.
+  the `.sav`/`.wld` object graph, campaign list0/list1/list2, simulation
+  prefix, AI/camera tail and the retail `.sav` acceptance path.
 - **Simulation:** `lpScheduler` and the ten-task park frame order,
   `spSimuManager`, `apBehaviorManager`, dinosaur action IDs 0-63, need gauges,
   the `0x1f` idle sentinel, visitor attraction scoring, employee job AI,
-  park budget/daily settlement, park clock and show scheduler, and the
-  campaign objective evaluator (33 verbs/predicates).
-- **Presentation:** overlay INI semantics, sound database and DirectShow movie
-  playback paths.
+  park budget/daily settlement, park clock, show scheduler and judge score,
+  campaign objective evaluator (33 verbs/predicates), road network and
+  occupancy-grid wall rules.
+- **Presentation:** overlay INI semantics, sound database, DirectShow movie
+  paths, the retail park camera (pan/yaw/zoom/edge scroll) and the water
+  `Modulate2x` stage.
 
-Only **two functions are replaced live** so far, both via the 32-bit
-`DINPUT8.dll` proxy:
+Nine asset readers are **replaced live** in the retail executable through the
+32-bit `DINPUT8.dll` proxy (eight inline detours and one vtable patch):
 
-| Original | Purpose | Calls observed |
+| Original | Purpose | Evidence |
 |---|---|---|
-| `0x004663a0` | 64-byte (16-float) matrix reader | ~281,000 |
-| `0x004809a0` | 12-byte (3-float) normal reader | ~97,000 |
+| `0x004663a0` | 64-byte (16-float) matrix reader | ~281,000 calls |
+| `0x004809a0` | 12-byte (3-float) normal reader | ~97,000 calls |
+| `0x0047d460` | `u16` per-triangle array reader | 2,000+ calls on Cpg04 |
+| `0x0047cc90` | child-index vector reader (`.skel`) | 2,000+ calls on Cpg04 |
+| `0x0047d880` | skin bone-record reader | 2,221 bones |
+| `0x004839e0` | animation bone reader (`u64` key times) | 8,911+ keys |
+| `0x00477890` | skeleton reader | 21 skeletons |
+| `0x00477f30` | `.mesh` whole-file block reader (vtable `0x626abc`) | 121 meshes |
+| `0x00430fb0` | `mgFontDx8::LoadFile` | 5 fonts, 247 glyphs each |
 
 The portable port is the main deliverable; the hybrid layer keeps the original
 executable runnable while functions are recovered. See
@@ -153,7 +203,7 @@ executable runnable while functions are recovered. See
 | `original/` | Read-only ISO-derived files (installer, docs). Never edit. |
 | `game/%MAINDIR%/` | Extracted retail game tree. Read-only reference. |
 | `run/` | Local playable copy, patched exe and hook DLL. Gitignored. |
-| `notes/` | Findings, logs, evidence images, `STATE.md`. |
+| `notes/` | Findings, logs, evidence images, `NOW.md`/`STATE.md`, harness output. |
 | `docs/formats/` | Proven data-format specifications. |
 | `docs/decomp/` | Function map and subsystem research. |
 | `docs/platform/` | Viewer, terrain, UI, audio and QoL notes. |
@@ -162,7 +212,7 @@ executable runnable while functions are recovered. See
 | `src/` | Portable C++20 port and the hook DLL. |
 | `tests/` | Python and C++ integration tests. |
 | `scripts/` | Build, test, Ghidra, patch and play helpers. |
-| `.opencode/agents/` | Project-specific OpenCode agents. |
+| `.opencode/` | Project-specific OpenCode agents, skills and commands. |
 
 ## Building the portable port
 
@@ -213,6 +263,12 @@ cd "Dino decomp"
   (otherwise Ghidra refuses it with "Project is owned by …"). A copy turns the
   `Data` junction in `run-test/` and `run-window/` into a full copy of the
   game data; that still works, it just uses more disk.
+- **Zip bundles.** Some zip tools skip dot-directories, so a bundle built from
+  Explorer can silently omit `.opencode/` (agents, skills, commands). The
+  repository tracks it; if `git status` shows those files deleted, restore
+  them with `git restore --source=origin/main -- .opencode`. For a clean
+  bundle use `git archive --format=zip --output=dino-repo.zip HEAD` and keep
+  `game/` and `original/` in a separate archive.
 - **Ghidra settings.** `start-ghidra.ps1` keeps Ghidra's user settings in
   `analysis\ghidra-settings` (per checkout, gitignored) instead of
   `%APPDATA%`. Packaged apps such as the Claude desktop app redirect
@@ -280,10 +336,16 @@ from scripts or screenshots. Starting a game loads the selected island through
 | Option | Effect |
 |---|---|
 | `--validate` | Parse all inputs and print counts without opening a window. |
-| `--selftest` | Run the 18 grid/visitor/build logic checks and exit. |
+| `--selftest` | Run the 189 grid/visitor/build/gameplay logic checks and exit. |
 | `--free-camera` | Start in free-fly mode. |
+| `--camera-orbit` | Use the legacy orbit camera instead of the retail park camera. |
 | `--build` | Enable path/fence placement (`1` path, `2` fence, `0` off, `U` undo). |
 | `--visitors N` | Spawn visitors on the placed path network. |
+| `--place-show NAME[:X,Y]` | Place a scheduled show from the mission `[SHOWS]` catalog. |
+| `--hire-nutritionist N` | Hire N nutritionists (500 each). |
+| `--sav-write IN OUT` | Rebuild a `.sav` and write it to OUT; `--sav-roundtrip` validates the bytes. |
+| `--park-click X,Y` | Script a park HUD click in design coordinates. |
+| `--park-window-click X,Y` | Script a park HUD click in window coordinates (real mapping). |
 | `--skybox DIR` | Six `front/back/left/right/top/bottom` PNG faces. |
 | `--frames N --screenshot out.bmp` | Deterministic headless capture. |
 | `--wav FILE --mute` | Play a retail WAV; `M` mutes. |
@@ -296,9 +358,11 @@ Run `dino_viewer.exe --help` for the complete list.
 .\scripts\run-tests.ps1
 ```
 
-The suite covers the Python parsers, the C++ viewer via deterministic
-subprocess runs, screenshot checks, and the viewer selftest. Tests that need
-retail data skip automatically when `game/%MAINDIR%` is absent.
+The suite is **492 tests** covering the Python parsers, the C++ viewer via
+deterministic subprocess runs, screenshot checks, the campaign/gameplay logic
+and the viewer selftest. Use `.\scripts\run-tests.ps1 -Fast` for the quick
+subset during development. Tests that need retail data skip automatically when
+`game/%MAINDIR%` is absent.
 
 `scripts/verify.ps1` runs the environment check, the build and the tests in
 sequence.
@@ -401,24 +465,30 @@ stops polling DirectInput when inactive, so click tests need the game active.
 
 | Start here | Contents |
 |---|---|
+| [`notes/NOW.md`](notes/NOW.md) | Current dashboard: focus, lanes, next actions, blockers. |
 | [`notes/STATE.md`](notes/STATE.md) | Done, in progress, next action, blockers, decisions. |
 | [`TASKS.md`](TASKS.md) | Task queue with acceptance criteria and evidence. |
+| [`notes/evidence-index.md`](notes/evidence-index.md) | Claim -> evidence -> test index. |
 | [`notes/FINDINGS.md`](notes/FINDINGS.md) | Early inventory and evidence index. |
-| [`docs/formats/`](docs/formats/) | 25 byte-level format specifications. |
+| [`docs/formats/`](docs/formats/) | 39 byte-level format specifications. |
 | [`docs/decomp/`](docs/decomp/) | Function map, scheduler, AI, economy, save, media. |
-| [`docs/platform/`](docs/platform/) | Viewer, terrain, visitors, HUD, QoL and audio. |
+| [`docs/platform/`](docs/platform/) | Viewer, terrain, visitors, HUD, UI click map, QoL and audio. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Four-phase plan and exit criteria; task status lives in `notes/STATE.md`. |
 
 ## Working method
 
-Read `AGENTS.md`, `notes/STATE.md` and `TASKS.md` before starting. Pick one
-task, do the smallest experiment that resolves the unknown, run the relevant
-tests, and record the evidence path. Format and behavior claims need a hex
-dump, a decompiled function, a trace, or a parser that round-trips real data.
+Read `AGENTS.md`, `notes/NOW.md`, `notes/STATE.md` and `TASKS.md` before
+starting. Pick one task, do the smallest experiment that resolves the unknown,
+run the relevant tests, and record the evidence path. Format and behavior
+claims need a hex dump, a decompiled function, a trace, or a parser that
+round-trips real data.
 
 The repository is set up for OpenCode agents: `orchestrator` is the default
-primary agent, with `formats`, `port`, `recon`, `ghidra` and `reviewer`
-subagents. See `.opencode/agents/`.
+primary agent, with `archivist`, `formats`, `ghidra`, `harness`,
+`oracle-reviewer`, `port`, `recon`, `reviewer` and `triage` subagents. Skills
+(`dino-hook`, `dino-format`, `dino-verify`, `dino-retail-run`, `ghidra-query`)
+and commands (`/next`, `/verify`, `/handoff`, `/evidence`, `/compact-state`)
+are in `.opencode/`.
 
 ## Legal
 
