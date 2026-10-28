@@ -48,11 +48,17 @@ See `notes/lanes.md`. Default split:
 ## Focus
 
 - MENU-1: **main-menu playtest.** Load Game is fixed (`9f58349`): page 4
-  lists the port `.psav` slots and loads the selected one; retail `.sav`
-  still needs an island choice. Cinematics is fixed: page 6 lists the
+  lists the port `.psav` slots and loads the selected one. Retail `.sav`
+  slots are now unblocked: the header stores mode + island index
+  (`p=0x0c+name_len`, mode @p+0, island @p+8; mode 1 = campaign id;
+  `notes/sav-menu-load-recon.md`), so the next slice is `SavHeader` fields
+  and listing `.sav` (R-16b). Cinematics is fixed: page 6 lists the
   campaigns' ending videos and START plays them (R-17,
-  `notes/cinematics-recon.md`). Next: the Options page (R-18) and retail
-  `.sav` slots at runtime. Campaign Info has no retail mission list; use
+  `notes/cinematics-recon.md`). List layout/scrollbars are fixed: rows use
+  `LB_LINE_HEIGHT`, the viewport is 8 islands, and the exact retail VSCROLL
+  (arrows ±1, track ±3, absolute drag, wheel) reaches islands 9-10
+  (`notes/ui-scrollbar-recon.md`). Next: the Options page (R-18) and
+  R-16b. Campaign Info has no retail mission list; use
   `campaign-progress.txt` (or a port-only override) to pick a mission.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
@@ -145,6 +151,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - MENU-1: list viewport + exact retail VSCROLL; island row mapping fixed
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together

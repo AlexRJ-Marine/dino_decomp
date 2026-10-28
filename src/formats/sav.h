@@ -5,8 +5,10 @@
 
 namespace dino {
 
-// `.sav` header: version, slot, length-prefixed UTF-16LE name, 12 reserved
-// zeros. The world/simulation/AI/scenario managers follow.
+// `.sav` header: version, slot, length-prefixed UTF-16LE name, then a
+// 12-byte block: mode (0 free game/island, 1 campaign), unused, island
+// index (mode 0) / campaign id (mode 1). See `docs/formats/sav.md`
+// ("Save-header island"); the world managers follow at 0x18 + name_len.
 struct SavHeader {
     std::uint32_t version = 0;
     std::uint32_t slot = 0;

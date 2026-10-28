@@ -238,11 +238,15 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - **Port status (2026-10-28):** `LOAD_GAME_PAGE` lists the **port** `.psav`
   saves from `run/save` in `LOAD_GAME_NAMES_LIST`; `LOAD_LOAD_BUTTON` loads
   the selected one through `apply_port_state` (the state carries its island).
-  Retail `.sav` slots are intentionally not listed yet: the save has no
-  island id, so a runtime load needs an island choice (or the `--lzw` /
-  `--sav-park` path). Before the fix the page rendered the generic
-  `ISLAND_LIST` fallback, so it showed island names and OK did nothing.
-  Commit `9f58349`; test `test_cpp_retail_menu_load_game_page`.
+  Retail `.sav` slots are not listed yet, but the island **is** in the save:
+  `p = 0x0c + name_len`, `p+0x00` mode (`0` free/island, `1` campaign),
+  `p+0x08` island index into `IslandList.ini` (or campaign id). All shipped
+  saves are mode 0 / `isl01`. `notes/sav-menu-load-recon.md` has the load
+  path and disassembly, so the follow-up is just to expose the fields in
+  `SavHeader` and list `.sav` next to `.psav`. Before the Load Game fix the
+  page rendered the generic `ISLAND_LIST` fallback, so it showed island
+  names and OK did nothing. Commit `9f58349`; test
+  `test_cpp_retail_menu_load_game_page`.
 - Save files are `run/save/slotNNN.sav`; the original does not create
   `run/save` or `run/save/auto`, so the harness pre-creates them (RUN-2).
 - The in-park pause overlay is `OPTIONS_PANEL`, not a separate screen:
@@ -360,6 +364,27 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `tests/test_viewer_cpp.py::test_cpp_retail_menu_cinematics_page`.
 - Open: `CINEMATICS_INTRO_BUTTON` animation only; the row gate is the
   `dino.dat` count (`row < value-1`).
+
+### Phase B4 — list viewports and scrollbars (done)
+
+- [x] LIST rows use `LB_LINE_HEIGHT` and an 8-row viewport, not
+      `height/10`. `ISLAND_LIST` row 3 is isl04 and row 7 is isl08; rows
+      9-10 need the scrollbar. Click-to-line rejects rows past the viewport.
+- [x] VSCROLL is ported from `0x5c4720` (geometry) and `0x5c4650` (input):
+      arrows ±1, track ±3, thumb drag is absolute
+      (`pos = (y - (up.y+up.h)) * range / travel`), wheel one notch = one
+      line, `range == 1` fills the track between the arrows.
+      `thumbH = max(5, H-(U+D+5)-3*range)`; the thumb is not a fixed 32 px.
+- [x] A one-column list's container is `list.w - LB_VSCROLL_WIDTH`; retail
+      overwrites `LB_COLUMN0_WIDTH` with it (load list 212 px, scrollbar
+      centre 515).
+- [x] Page entry resets the list position (retail list rebuild).
+- Evidence: `notes/ui-scrollbar-recon.md`,
+  `notes/menu-layout-scroll-recon.md`; tests
+  `test_cpp_menu_start_loads_selected_island` (rows 0/3/7/9) and
+  `test_cpp_menu_start_all_islands` (all 10 with scroll).
+- Open: wrapped `CAMPAIGN_INFO_DESCRIPTION` scrolling, hold-to-repeat,
+  list-row hover frames.
 
 ### Phase C — park HUD (done at 800×600)
 

@@ -20,7 +20,10 @@ struct.
 0x04  u32   slot/index (0)
 0x08  u32   save-name byte length (NUL included)
 0x0c  ...   UTF-16LE save name
-...         12 reserved zero bytes
+...         u32 header mode (0 = free game/island, 1 = campaign)
+...         u32 unused (0 in every sample; not read by the load paths)
+...         u32 island index (mode 0, `IslandList.ini` order) /
+            campaign id (mode 1)
 ...         world manager: campaign ids, objectives, object lists,
             unlock arrays, show catalog
 ...         simulation manager: road network, visitors, park, stores
@@ -30,6 +33,23 @@ struct.
 
 The C++ header reader is `src/formats/sav.cpp` (`read_sav_header`); the
 viewer scans `run/save/*.sav` and prints/renders the names.
+
+### Save-header island / campaign
+
+The 12 bytes after the name are not reserved: they select what the save
+belongs to (`FUN_00506390`, called from the Load Game reader `FUN_00402f10`):
+
+| Offset from `p = 0x0c + name_len` | Type | Meaning |
+| ---: | --- | --- |
+| `p+0x00` | u32 | mode: `0` = free game/island, `1` = campaign |
+| `p+0x04` | u32 | unused (0 in the shipped saves) |
+| `p+0x08` | u32 | mode 0: island index into `IslandList.ini` (0 = `isl01`); mode 1: campaign id |
+| `p+0x0c` | — | world manager start (the old `0x18 + name_len`) |
+
+Retail derives `Data\Design\Landscape\islNN\islNN.lnd` from the island string
+(`FUN_0051dad0`), so the main-menu Load panel needs no island choice. All
+four shipped samples are mode 0 / index 0 (`isl01`). Full evidence:
+`notes/sav-menu-load-recon.md`.
 
 The world block starts at **`0x18 + name_len`**:
 
