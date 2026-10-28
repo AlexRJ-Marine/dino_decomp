@@ -102,6 +102,7 @@ add_executable(dino_port
     src/app/keymap.cpp
     src/app/camera_config.cpp
     src/app/capture.cpp
+    src/app/cli.cpp
     src/selftest.cpp
 )
 
