@@ -38,10 +38,10 @@ BANNED = {
 }
 
 # This file names the old identifiers by design; the config migration in
-# main.cpp reads the legacy file name once.
+# `src/app/cli.cpp` reads the legacy file name once (`load_config`).
 ALLOWED = {
     "tests/test_naming.py",
-    "src/app/main.cpp",
+    "src/app/cli.cpp",
 }
 
 # Compatibility shims that intentionally mention the old name for one cycle:
