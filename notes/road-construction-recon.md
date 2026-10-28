@@ -144,9 +144,30 @@ build (no sellback multiplier in this branch). The value is formatted into the
 localised `&REQUEST_SELL_ROAD` text with `%d`, then the removal callback runs.
 There is no slope or occupancy gate for selling.
 
+## Panel wiring (2026-10-28)
+
+`0x52de80` is the `ROAD_CONSTRUCTION` state ctor (`FUN_0052bd10(0x10,
+"ROAD_CONSTRUCTION", ...)`):
+
+```text
++0x70  CONSTRUCTION_ROAD_METRO_PANEL
++0x74  CONSTR_PRICE_SLOT
++0x78  PUTBACK_PANEL_BUTTON        -> LAB_0052fe10
+       CONSTRUC_ROAD_BUTTON        -> LAB_0052e100  (arms the road tool)
+       CONSTRUC_FARM_BUTTON        -> LAB_0052e210 / LAB_0052e1d0
+       CONSTRUC_METRO_BUTTON       -> LAB_0052e1f0 / LAB_0052e4d0
+```
+
+The ctor scans the scenario building list (0x500-byte stride) for kinds 8/9
+and stores their indices at `+0x64`/`+0x68` (Farm/Metro). `0x52e6b0` (enter)
+resets `+0x48/+0x49/+0x4a`, sets `+0x6c` from `tool+0xc+0x40`, shows the
+panel and calls `0x52c1f0`.
+
 ## Not yet decoded
 
-- The Road button handler body `0x52e100` (expected: `+0x48 = 1`, helper on).
+- The Road button handler body `0x52e100` is still a label inside the panel
+  owner, not a recovered function; the expected effect is `+0x48 = 1` and the
+  helper enabled.
 - Runtime confirmation of the price chain and the negative-direction quirk.
 
 ## Evidence
