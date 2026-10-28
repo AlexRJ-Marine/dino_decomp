@@ -47,6 +47,10 @@ void save_port_state(const PortState& state, const std::string& path) {
     for (const auto& cell : state.paths) {
         out << "path " << cell.first << " " << cell.second << "\n";
     }
+    for (const auto& road : state.roads) {
+        out << "road " << road[0] << " " << road[1] << " " << road[2] << " "
+            << road[3] << "\n";
+    }
     for (const PortFenceState& fence : state.fences) {
         out << "fence " << fence.x << " " << fence.y << " " << fence.edge
             << "\n";
@@ -178,6 +182,11 @@ PortState load_port_state(const std::string& path) {
             parts >> fence.x >> fence.y >> fence.edge;
             require(parts, key, path);
             state.fences.push_back(fence);
+        } else if (key == "road") {
+            std::array<int, 4> road{};
+            parts >> road[0] >> road[1] >> road[2] >> road[3];
+            require(parts, key, path);
+            state.roads.push_back(road);
         } else if (key == "visitor") {
             PortVisitorState visitor;
             parts >> visitor.x >> visitor.y >> visitor.angle >>

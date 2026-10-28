@@ -82,6 +82,7 @@ void BuildGrid::init(float new_cell_size, float world_size) {
     path.assign(static_cast<std::size_t>(width) * height, 0);
     fences.assign(static_cast<std::size_t>(width) * height, 0);
     undo_stack.clear();
+    roads.clear();
     path_count = 0;
     fence_count = 0;
 }
@@ -268,27 +269,189 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     return out;
 }
 
-void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
-    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
-        return;
-    }
+namespace {
+
+bool horizontal(const WorldRect& r) { return r.y0 == r.y1; }
+
+void mark_road_cells(BuildGrid& grid, const WorldRect& road) {
     const float cell = grid.cell_size;
     const int last_x = grid.width - 1;
     const int last_y = grid.height - 1;
-    for (const WorldRect& road : roads) {
-        const int x0 = std::min(road.x0, road.x1);
-        const int x1 = std::max(road.x0, road.x1);
-        const int y0 = std::min(road.y0, road.y1);
-        const int y1 = std::max(road.y0, road.y1);
-        const int cx0 = std::clamp(static_cast<int>(std::floor(x0 / cell)), 0, last_x);
-        const int cx1 = std::clamp(static_cast<int>(std::floor(x1 / cell)), 0, last_x);
-        const int cy0 = std::clamp(static_cast<int>(std::floor(y0 / cell)), 0, last_y);
-        const int cy1 = std::clamp(static_cast<int>(std::floor(y1 / cell)), 0, last_y);
-        for (int y = cy0; y <= cy1; ++y) {
-            for (int x = cx0; x <= cx1; ++x) {
+    const int cx0 = std::clamp(static_cast<int>(std::floor(road.x0 / cell)), 0, last_x);
+    const int cx1 = std::clamp(static_cast<int>(std::floor(road.x1 / cell)), 0, last_x);
+    const int cy0 = std::clamp(static_cast<int>(std::floor(road.y0 / cell)), 0, last_y);
+    const int cy1 = std::clamp(static_cast<int>(std::floor(road.y1 / cell)), 0, last_y);
+    for (int y = cy0; y <= cy1; ++y) {
+        for (int x = cx0; x <= cx1; ++x) {
+            if (!grid.path_at(x, y)) {
                 grid.set_path(x, y, true);
             }
         }
+    }
+}
+
+// 0x58dbd0: before the first segment whose x0 is greater.
+void insert_sorted(std::vector<WorldRect>& list, const WorldRect& road) {
+    auto at = std::upper_bound(
+        list.begin(), list.end(), road,
+        [](const WorldRect& a, const WorldRect& b) { return a.x0 < b.x0; });
+    list.insert(at, road);
+}
+
+// 0x58d890: absorb collinear segments that overlap or touch within 4 units.
+void merge_collinear(std::vector<WorldRect>& list, WorldRect& n) {
+    const bool nh = horizontal(n);
+    for (std::size_t i = 0; i < list.size();) {
+        const WorldRect e = list[i];
+        bool absorb = false;
+        if (!nh) {
+            if (!horizontal(e)) {
+                if (n.x0 < e.x0) {
+                    return;
+                }
+                if (e.x0 == n.x0) {
+                    if (e.y0 < n.y0) {
+                        if (n.y0 - 4 <= e.y1) {
+                            n.x0 = e.x0;
+                            n.y0 = e.y0;
+                            if (n.y1 < e.y1) {
+                                n.x1 = e.x1;
+                                n.y1 = e.y1;
+                            }
+                            absorb = true;
+                        }
+                    } else if (n.y1 < e.y1) {
+                        if (e.y0 <= n.y1 + 4) {
+                            n.x1 = e.x1;
+                            n.y1 = e.y1;
+                            absorb = true;
+                        }
+                    } else {
+                        absorb = true;  // contained
+                    }
+                }
+            }
+        } else if (horizontal(e)) {
+            if (n.x1 + 4 < e.x0) {
+                return;
+            }
+            if (e.y0 == n.y0) {
+                if (n.x0 <= e.x0) {
+                    if (n.x1 < e.x1) {
+                        n.x1 = e.x1;
+                        n.y1 = e.y1;
+                    }
+                    absorb = true;
+                } else if (n.x0 - 4 <= e.x1) {
+                    n.x0 = e.x0;
+                    n.y0 = e.y0;
+                    if (n.x1 < e.x1) {
+                        n.x1 = e.x1;
+                        n.y1 = e.y1;
+                    }
+                    absorb = true;
+                }
+            }
+        }
+        if (absorb) {
+            list.erase(list.begin() + static_cast<std::ptrdiff_t>(i));
+        } else {
+            ++i;
+        }
+    }
+}
+
+// 0x58d9d0: a segment whose end stops one cell short of another road's side
+// is extended onto it. Re-sorting a moved segment restarts the scan at the
+// second element, as retail does.
+void snap_junctions(std::vector<WorldRect>& list, WorldRect& n) {
+    auto moved = [&](std::size_t i) {
+        const WorldRect e = list[i];
+        list.erase(list.begin() + static_cast<std::ptrdiff_t>(i));
+        insert_sorted(list, e);
+    };
+    if (!horizontal(n)) {
+        for (std::size_t i = 0; i < list.size(); ++i) {
+            WorldRect& e = list[i];
+            if (n.x0 + 4 < e.x0) {
+                return;
+            }
+            if (!horizontal(e)) {
+                continue;
+            }
+            if (n.x0 < e.x0 || e.x1 < n.x0) {
+                if (n.y0 <= e.y0 && e.y0 <= n.y1) {
+                    if (e.x0 == n.x0 + 4) {
+                        e.x0 -= 4;
+                    } else if (e.x1 == n.x0 - 4) {
+                        e.x1 += 4;
+                    } else {
+                        continue;
+                    }
+                    moved(i);
+                    i = 0;
+                }
+            } else if (e.y0 == n.y1 + 4) {
+                n.y1 += 4;
+            } else if (e.y0 == n.y0 - 4) {
+                n.y0 -= 4;
+            }
+        }
+        return;
+    }
+    for (std::size_t i = 0; i < list.size(); ++i) {
+        WorldRect& e = list[i];
+        if (horizontal(e) || e.x0 < n.x0 - 4) {
+            continue;
+        }
+        if (n.x1 + 4 < e.x0) {
+            return;
+        }
+        if (e.x0 < n.x0 || n.x1 < e.x0) {
+            if (e.y0 <= n.y0 && n.y0 <= e.y1) {
+                if (e.x0 == n.x0 - 4) {
+                    n.x0 -= 4;
+                } else if (e.x0 == n.x1 + 4) {
+                    n.x1 += 4;
+                }
+            }
+        } else {
+            if (e.y0 == n.y0 + 4) {
+                e.y0 -= 4;
+            } else if (e.y1 == n.y0 - 4) {
+                e.y1 += 4;
+            } else {
+                continue;
+            }
+            moved(i);
+            i = 0;
+        }
+    }
+}
+
+}  // namespace
+
+void add_road(BuildGrid& grid, WorldRect road) {
+    if (grid.width <= 0 || grid.height <= 0 || grid.cell_size <= 0.0f) {
+        return;
+    }
+    if (road.x0 > road.x1) {
+        std::swap(road.x0, road.x1);
+    }
+    if (road.y0 > road.y1) {
+        std::swap(road.y0, road.y1);
+    }
+    merge_collinear(grid.roads, road);
+    snap_junctions(grid.roads, road);
+    insert_sorted(grid.roads, road);
+    for (const WorldRect& segment : grid.roads) {
+        mark_road_cells(grid, segment);
+    }
+}
+
+void import_roads(BuildGrid& grid, const std::vector<WorldRect>& roads) {
+    for (const WorldRect& road : roads) {
+        add_road(grid, road);
     }
 }
 
@@ -512,20 +675,12 @@ RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
 }
 
 int place_road(BuildGrid& grid, const RoadSegment& road) {
-    const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
-    const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
-    int added = 0;
-    int x = road.x0;
-    int y = road.y0;
-    for (int i = 0; i < road.cells(); ++i) {
-        if (grid.in_bounds(x, y) && !grid.path_at(x, y)) {
-            grid.set_path(x, y, true);
-            ++added;
-        }
-        x += sx;
-        y += sy;
-    }
-    return added;
+    const int before = grid.path_count;
+    // Cells -> retail world units: cell (x, y) starts at (x*cell, y*cell).
+    const int unit = static_cast<int>(grid.cell_size);
+    add_road(grid, {road.x0 * unit, road.y0 * unit, road.x1 * unit,
+                    road.y1 * unit});
+    return grid.path_count - before;
 }
 
 Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
@@ -611,9 +766,54 @@ void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
         p[2] = rgb[2];
         p[3] = 255;
     };
+    // FUN_004402d0 with its last flag set draws the quad (u0,v0)..(u1+1,v1+1):
+    // every texel whose centre falls inside it.
+    auto fill_rect = [&](float u0, float v0, float u1, float v1,
+                         const std::uint8_t* rgb) {
+        const int px0 = static_cast<int>(std::ceil(u0 - 0.5f));
+        const int px1 = static_cast<int>(std::ceil(u1 + 0.5f)) - 1;
+        const int py0 = static_cast<int>(std::ceil(v0 - 0.5f));
+        const int py1 = static_cast<int>(std::ceil(v1 + 0.5f)) - 1;
+        for (int py = py0; py <= py1; ++py) {
+            for (int px = px0; px <= px1; ++px) {
+                put(px, py, rgb);
+            }
+        }
+    };
+
+    // Cells under a segment whose cells are all still path are drawn by the
+    // segment; anything else (undo, --place-path) keeps the per-cell look.
+    std::vector<std::uint8_t> covered(grid.path.size(), 0);
+    std::vector<const WorldRect*> segments;
+    const float cell = grid.cell_size;
+    for (const WorldRect& road : grid.roads) {
+        const int cx0 = static_cast<int>(std::floor(road.x0 / cell));
+        const int cx1 = static_cast<int>(std::floor(road.x1 / cell));
+        const int cy0 = static_cast<int>(std::floor(road.y0 / cell));
+        const int cy1 = static_cast<int>(std::floor(road.y1 / cell));
+        bool whole = true;
+        for (int y = cy0; y <= cy1 && whole; ++y) {
+            for (int x = cx0; x <= cx1 && whole; ++x) {
+                whole = grid.path_at(x, y);
+            }
+        }
+        if (!whole) {
+            continue;
+        }
+        segments.push_back(&road);
+        for (int y = cy0; y <= cy1; ++y) {
+            for (int x = cx0; x <= cx1; ++x) {
+                covered[static_cast<std::size_t>(y) * grid.width + x] = 1;
+            }
+        }
+    }
+    auto loose = [&](int x, int y) {
+        return grid.path_at(x, y) &&
+               covered[static_cast<std::size_t>(y) * grid.width + x] == 0;
+    };
     for (int y = 0; y < grid.height; ++y) {
         for (int x = 0; x < grid.width; ++x) {
-            if (!grid.path_at(x, y)) {
+            if (!loose(x, y)) {
                 continue;
             }
             // Retail world units (0..world_size) of this cell.
@@ -638,6 +838,21 @@ void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
                     put(px, py, edge ? border : fill);
                 }
             }
+        }
+    }
+
+    // 0x602380: rectangle (x0, y0)..(x1+3, y1+3) from 0x594810, rows flipped.
+    const float last_row = static_cast<float>(image.height) - 1.0f;
+    for (const WorldRect* road : segments) {
+        const float u0 = road->x0 * sx;
+        const float v0 = last_row - static_cast<float>(road->y1 + 3) * sy;
+        const float u1 = std::floor(static_cast<float>(road->x1 + 3) * sx);
+        const float v1 = std::floor(last_row - static_cast<float>(road->y0) * sy);
+        if (outline) {
+            fill_rect(u0, v0, u1, v1, border);
+            fill_rect(u0 + 1.0f, v0 + 1.0f, u1 - 1.0f, v1 - 1.0f, fill);
+        } else {
+            fill_rect(u0, v0, u1, v1, fill);
         }
     }
 }

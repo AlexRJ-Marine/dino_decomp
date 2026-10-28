@@ -46,6 +46,7 @@ file is the single place to claim work.
 | R-17 | Menu: Cinematics list | `src/ui/menu.*`, `src/viewer/main.cpp` menu list/loading | Done: rows are the campaigns' `EndingVideoName` (basket/tennis/trampoline/Trappe/mixe; Cpg06/Cpg08 empty), START plays `Data/Video/<EndingVideo>`; the "seven clips" assumption was wrong (the list is campaign-driven, not the folder). Evidence `notes/cinematics-recon.md`; test `test_cpp_retail_menu_cinematics_page`. |
 | R-18 | Menu: Options page | `src/ui/menu.*`, `src/viewer/main.cpp` | The page is static (icons + empty sliders/OK). Decide which retail settings are playtest-relevant (music/SFX/resolution) and wire them to the existing config/audio; otherwise document it as deferred. |
 | R-16 | Entrance dock + starting road — DONE — claude — 2026-10-28 (all `.mesh` chunks; `FUN_0051dad0` road; `notes/entrance-dock-road-recon.md`) | `src/formats/mesh.*`, `src/world/build.*`, `src/viewer/main.cpp` | Dock/gangway render; free-game start lays (524,392)-(524,452) on isl01 |
+| R-17 | Road network + road/terrain look — DONE — claude — 2026-10-28 (retail segment merge/junction/paint, detail-map terrain; `notes/road-network-recon.md`) | `src/world/build.*`, `src/world/port_save.*`, `src/viewer/main.cpp` | Roads stored/painted as retail segments; terrain AddSigned detail map; selling still R-8 |
 
 ## Coordination
 

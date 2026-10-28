@@ -38,6 +38,18 @@ The `.lnd` `width`/`height` (520×376) are kept as metadata. The 1024-unit
 world is confirmed by `.imp`: every instance on every island lies in
 `0..1024` (`docs/formats/imp.md`).
 
+## Detail map (`detailmap.ini`)
+
+Retail draws the island with `DATA\states\detailmap.ini` (bound by
+`0x5f3f10` before `gpkLandscape`): unlit, no fog, stage 0 = the basemap with
+roads painted in, stage 1 = **AddSigned** of the `.lnd` detail map
+(`detail + basemap - 0.5`) on texture coordinates `world/16`
+(`0x61fa1f..0x61facf`, landscape parameter `1/16`). The port does the same in
+the terrain pass; the detail texture is mipmapped to avoid aliasing at park
+distance (retail requests none). `--terrain-lit` restores the old lit,
+fogged basemap. Evidence: `notes/road-network-recon.md`,
+`notes/terrain-detail-compare.png`, `test_cpp_terrain_detail_map`.
+
 ## Vegetation (`.imp` + `.blf`)
 
 `src/world/vegetation.cpp` follows the `.lnd` vegetation list:
@@ -180,6 +192,6 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
   regardless of these fields.
 - Water plane / shoreline animation; currently the basemap ocean is painted on
   the heightfield.
-- Detailmap blending and terrain material layers.
+- Terrain material layers beyond the detail map (detail map done).
 - `.raw` occupation mask (1024×1024) semantics.
 - Slope tilt for vegetation (LOD selection is done, see above).

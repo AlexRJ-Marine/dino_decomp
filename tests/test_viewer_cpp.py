@@ -874,7 +874,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (170 checks)" in result.stdout
+    assert "selftest: PASS (175 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -1036,6 +1036,61 @@ def test_cpp_entrance_dock_and_road_render(tmp_path):
     box = strong.getbbox()
     # The painted road starts at the dock gate (screen centre) and runs inland.
     assert box is not None and box[2] - box[0] > 100, box
+
+
+def test_cpp_road_network_retail_segments(tmp_path):
+    """Road tool runs join into retail spRoadNetwork segments in the save.
+
+    The chained vertical runs 121..125 and 125..129 merge into one segment
+    (0x58d890); the corner run east from 129 stays its own segment. The port
+    save keeps the segment rectangles as `road` lines (T-junction snapping,
+    0x58d9d0, is covered by --selftest).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    target = tmp_path / "net.dpsav"
+    clicks = ["108,121", "108,125", "108,129", "115,129"]
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
+         str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--no-entrance", "--park-click", "765,248",
+         "--park-click", "645,86"]
+        + [a for c in clicks for a in ("--road-click", c)]
+        + ["--save-port", str(target)],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    roads = [ln.split()[1:] for ln in target.read_text().splitlines()
+             if ln.startswith("road ")]
+    # Cells 108,121..129 = world (432,484)-(432,516); then x 432..460 at 516.
+    assert roads == [["432", "484", "432", "516"],
+                     ["432", "516", "460", "516"]], roads
+
+
+def test_cpp_terrain_detail_map(tmp_path):
+    """Retail detailmap.ini: unlit basemap AddSigned the .lnd detail map.
+
+    The default terrain differs from --terrain-lit, and the detail layer adds
+    texture (higher local variance) to an otherwise smooth basemap area.
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    common = [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+              "--no-park-hud", "--width", "400", "--height", "300",
+              "--no-vsync", "--no-save-config", "--lnd", str(ISL01),
+              "--asset-root", str(GAME), "--no-vegetation", "--camera-orbit",
+              "--distance", "40", "--pitch", "60", "--yaw", "0"]
+    shots = {}
+    for name, extra in (("detail", []), ("lit", ["--terrain-lit"])):
+        path = tmp_path / f"{name}.bmp"
+        run = subprocess.run(common + extra + ["--screenshot", str(path)],
+                             capture_output=True, text=True, timeout=120)
+        assert run.returncode == 0, run.stderr
+        shots[name] = Image.open(path).convert("L").crop((100, 100, 300, 250))
+    detail_var = ImageStat.Stat(shots["detail"]).var[0]
+    lit_var = ImageStat.Stat(shots["lit"]).var[0]
+    assert ImageChops.difference(shots["detail"], shots["lit"]).getbbox()
+    assert detail_var > lit_var, (detail_var, lit_var)
 
 
 def test_cpp_retail_menu_loading_handoff(tmp_path):

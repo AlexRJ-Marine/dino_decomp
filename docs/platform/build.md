@@ -97,14 +97,22 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
   `WARNING_BUSY_SPACE` when a cell is blocked ground (occupation mask), under
   a building footprint, or the run crosses a fence edge. Existing road cells
   never block, so runs can cross and extend roads. Roads have no slope rule.
+- **Network:** roads are `spRoadNetwork` segments, not cells. `AddRoad`
+  (`0x58d110`) merges collinear runs that overlap or touch within 4 units
+  (`0x58d890`), extends a run that stops one cell short of another road onto
+  it (`0x58d9d0`) and keeps the list sorted by `x0`. The port mirrors this in
+  `dino::add_road` (`BuildGrid::roads`); the road tool, `.wld`/`.sav` roads
+  and the Entrance road all go through it, and port saves keep `road` lines.
 - **Look:** retail draws no road geometry. Its landscape texture manager
-  paints roads into the island texture (road layer `0x602380`): a
-  RGB(253,198,137) sandy fill with a 1-texel RGB(170,130,90) border on
-  1024x1024 maps. The port does the same with `paint_roads` on a copy of the
-  basemap, re-uploaded whenever roads change; it borders only cell sides that
-  touch a non-road cell, so joined roads read as one surface (retail merges
-  overlapping road rectangles). A Cpg04 file trace confirms retail loads no
-  road texture at all.
+  paints each segment into the island texture (road layer `0x602380`) as the
+  rectangle `(x0,y0)..(x1+3,y1+3)`: on 1024x1024 maps a RGB(170,130,90)
+  rectangle with a RGB(253,198,137) rectangle inset by one texel (1 border,
+  2 fill, 1 border, ends outlined), later segments over earlier ones. The
+  port's `paint_roads` does the same per segment (cells no segment covers
+  keep the old per-cell look). The terrain then applies the `detailmap.ini`
+  AddSigned detail layer, which gives roads their grain
+  (`docs/platform/terrain.md`). A Cpg04 file trace confirms retail loads no
+  road texture at all. Evidence: `notes/road-network-recon.md`.
 - **Feedback:** failures show the retail toast text; while a run is pending a
   preview follows the cursor drawn like the retail helper (`Helper.ini`,
   One/One additive): `focus/road.tga` times the pulsing `gscMaterialBank`

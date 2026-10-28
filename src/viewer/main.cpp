@@ -113,6 +113,8 @@ struct Options {
     // Lay the FUN_0051dad0 access road for a --building Entrance at startup
     // (the Free Game start always lays it).
     bool entrance_road = false;
+    // Legacy terrain look: lit, fogged basemap without the detail map.
+    bool terrain_lit = false;
     bool skin_bind_from_skin = false;
     bool free_camera = false;
     bool build_mode = false;
@@ -376,6 +378,8 @@ Options parse_args(int argc, char** argv) {
             opt.no_cull = true;
         } else if (arg == "--entrance-road") {
             opt.entrance_road = true;
+        } else if (arg == "--terrain-lit") {
+            opt.terrain_lit = true;
         } else if (arg == "--skin-bind") {
             const std::string value = next("--skin-bind");
             if (value == "skin") {
@@ -768,6 +772,7 @@ Options parse_args(int argc, char** argv) {
                 "  --no-cull            draw vegetation batches outside the view too\n"
                 "  --entrance-road      with --build, lay the retail start road from a\n"
                 "                       --building Entrance (Free Game start does it)\n"
+                "  --terrain-lit        legacy lit terrain without the retail detail map\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --free-camera        start in free-fly camera mode (C toggles)\n"
                 "  --build              path/fence placement (1=path, 2=fence, 0=off, U=undo)\n"
@@ -1272,6 +1277,7 @@ struct MusicPlayer {
 
 struct GlFns {
     PFNGLGENVERTEXARRAYSPROC GenVertexArrays = nullptr;
+    PFNGLGENERATEMIPMAPPROC GenerateMipmap = nullptr;
     PFNGLBINDVERTEXARRAYPROC BindVertexArray = nullptr;
     PFNGLDELETEVERTEXARRAYSPROC DeleteVertexArrays = nullptr;
     PFNGLGENBUFFERSPROC GenBuffers = nullptr;
@@ -1349,6 +1355,7 @@ struct GlFns {
         LOAD(Uniform1f, "glUniform1f")
         LOAD(Uniform1i, "glUniform1i")
         LOAD(ActiveTexture, "glActiveTexture")
+        LOAD(GenerateMipmap, "glGenerateMipmap")
         LOAD(GenFramebuffers, "glGenFramebuffers")
         LOAD(BindFramebuffer, "glBindFramebuffer")
         LOAD(FramebufferTexture2D, "glFramebufferTexture2D")
@@ -1391,6 +1398,7 @@ layout(location = 3) in vec4 a_color;
 uniform mat4 u_mvp;
 uniform vec4 u_uv2_transform;
 uniform vec2 u_uv_offset;
+uniform float u_uv2_world;
 out vec3 v_normal;
 out vec2 v_uv;
 out vec2 v_uv2;
@@ -1405,6 +1413,10 @@ void main() {
     // WaterSurface stage 1 uses texture coordinate set 1: the same water
     // texture with a slightly different tiling and a small offset.
     v_uv2 = a_uv * u_uv2_transform.xy + u_uv2_transform.zw;
+    // DetailMap.ini stage 1 (coordinate set 1): world units / 16.
+    if (u_uv2_world > 0.0) {
+        v_uv2 = a_pos.xy * u_uv2_world;
+    }
     v_color = a_color;
     v_world = a_pos;
 }
@@ -1421,6 +1433,7 @@ uniform sampler2D u_texture2;
 uniform int u_use_texture;
 uniform int u_use_texture2;
 uniform int u_modulate2x;
+uniform int u_add_signed;
 uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
@@ -1446,7 +1459,12 @@ void main() {
     }
     // WaterSurface.ini: stage 1 Modulate2x (Texture x Current, doubled),
     // alpha SelectArg1(Texture), texture coordinate set 1.
-    if (u_use_texture2 != 0) {
+    if (u_use_texture2 != 0 && u_add_signed != 0) {
+        // DetailMap.ini: stage 0 SelectArg1(basemap), stage 1
+        // AddSigned(detail, current) = detail + current - 0.5.
+        vec4 detail = texture(u_texture2, v_uv2);
+        base = clamp(texel.rgb + detail.rgb - 0.5, 0.0, 1.0);
+    } else if (u_use_texture2 != 0) {
         vec4 texel2 = texture(u_texture2, v_uv2);
         if (u_modulate2x != 0) {
             texel2.rgb = clamp(texel2.rgb * 2.0, 0.0, 1.0);
@@ -1642,6 +1660,20 @@ GLuint upload_texture_wrapped(const dino::Image& image, GLint wrap) {
 
 GLuint upload_texture(const dino::Image& image) {
     return upload_texture_wrapped(image, GL_CLAMP_TO_EDGE);
+}
+
+// Terrain detail map: repeat-wrapped and mipmapped. Retail asks for no mip
+// maps (TextureParam_DetailMap.txt), but the world/16 tiling then aliases
+// into noise at park-camera distances; the dgVoodoo2 retail captures show a
+// filtered detail layer, which mipmaps reproduce.
+GLuint upload_detail_texture(const dino::Image& image, const GlFns& gl) {
+    const GLuint id = upload_texture_wrapped(image, GL_REPEAT);
+    if (gl.GenerateMipmap != nullptr) {
+        gl.GenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                        GL_LINEAR_MIPMAP_LINEAR);
+    }
+    return id;
 }
 
 dino::Mesh make_water_plane(float half_size, float z, float tiles) {
@@ -2143,7 +2175,7 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
                 GLuint program,
                 const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
                 int width, int height, float fov_deg = 33.0f,
-                bool cull = true) {
+                bool cull = true, GLuint detail_texture = 0) {
     const dino::Mat4 proj = perspective(fov_deg,
                                         static_cast<float>(width) / std::max(1, height),
                                         0.1f, 20000.0f);
@@ -2226,8 +2258,27 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
         gl.ActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
     }
+    // Retail terrain state DATA\states\detailmap.ini (bound by 0x5f3f10 before
+    // gpkLandscape 0x5fb8b0): unlit, no fog, basemap AddSigned detail map on
+    // texture coordinates world/16 (landscape parameter 1/16 at 0x5fb8b0).
+    const bool detail = detail_texture != 0 && texture != 0;
+    if (detail) {
+        gl.ActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, detail_texture);
+        gl.ActiveTexture(GL_TEXTURE0);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture2"), 1);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_add_signed"), 1);
+        gl.Uniform1f(gl.GetUniformLocation(program, "u_uv2_world"), 1.0f / 16.0f);
+        gl.Uniform1i(unlit_loc, 1);
+    }
     gl.BindVertexArray(mesh.vao);
     glDrawElements(GL_TRIANGLES, mesh.index_count, GL_UNSIGNED_INT, nullptr);
+    if (detail) {
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_use_texture2"), 0);
+        gl.Uniform1i(gl.GetUniformLocation(program, "u_add_signed"), 0);
+        gl.Uniform1f(gl.GetUniformLocation(program, "u_uv2_world"), 0.0f);
+        gl.Uniform1i(unlit_loc, 0);
+    }
 
     const GLint use_texture_loc = gl.GetUniformLocation(program, "u_use_texture");
     const GLint alpha_loc = gl.GetUniformLocation(program, "u_alpha");
@@ -2796,6 +2847,41 @@ int run_selftest() {
         dino::paint_roads(small, painted, 1024.0f);
         const std::uint8_t* sp = &small.rgba[(static_cast<std::size_t>(490) * 512 + 20) * 4];
         check(sp[0] == 253 && sp[1] == 198 && sp[2] == 137, "road paint small map fill only");
+
+        // spRoadNetwork (notes/road-network-recon.md).
+        dino::BuildGrid net;
+        net.init(4.0f, 1024.0f);
+        dino::add_road(net, {100, 100, 100, 140});
+        dino::add_road(net, {100, 144, 100, 160});
+        check(net.roads.size() == 1 && net.roads[0].y0 == 100 &&
+                  net.roads[0].y1 == 160,
+              "road network merges touching collinear roads (0x58d890)");
+        dino::add_road(net, {104, 120, 140, 120});
+        check(net.roads.size() == 2 && net.roads[0].x0 == 100 &&
+                  net.roads[1].x0 == 100 && net.roads[1].y0 == 120 &&
+                  net.roads[1].x1 == 140,
+              "road network snaps a T-junction onto the side road (0x58d9d0)");
+        dino::add_road(net, {120, 100, 120, 116});
+        check(net.roads.size() == 3 && net.roads[2].x0 == 120 &&
+                  net.roads[2].y1 == 120,
+              "road network extends a road that stops short of another");
+        dino::BuildGrid one;
+        one.init(4.0f, 1024.0f);
+        dino::add_road(one, {40, 40, 40, 44});
+        dino::Image rect_map;
+        rect_map.width = rect_map.height = 1024;
+        rect_map.rgba.assign(1024u * 1024u * 4u, 0);
+        dino::paint_roads(rect_map, one, 1024.0f);
+        auto texel = [&](int x, int row) {
+            return &rect_map.rgba[(static_cast<std::size_t>(row) * 1024 + x) * 4];
+        };
+        // (40,40)-(40,44) covers x 40..43, rows 1023-47..1023-40 = 976..983.
+        check(texel(40, 980)[0] == 170 && texel(43, 980)[0] == 170 &&
+                  texel(41, 976)[0] == 170 && texel(41, 983)[0] == 170,
+              "road segment painted with a full 1-texel border (0x602380)");
+        check(texel(41, 977)[0] == 253 && texel(42, 982)[0] == 253 &&
+                  texel(44, 980)[3] == 0 && texel(41, 975)[3] == 0,
+              "road segment fill is inset and ends at x1+3 / y1+3");
     }
 
     dino::Paddock paddock;
@@ -5012,6 +5098,7 @@ int main(int argc, char** argv) {
 
     dino::Mesh mesh;
     dino::Image image;
+    dino::Image detail_image;  // .lnd detail map (DetailMap.ini stage 1)
     dino::Image dino_image;
     dino::Skeleton skeleton;
     dino::Skin skin;
@@ -5086,6 +5173,14 @@ int main(int argc, char** argv) {
             }
             if (opt.texture_path.empty() && !lnd.basemap.empty()) {
                 image = dino::load_tga(resolve_asset(opt.asset_root, lnd.basemap));
+            }
+            if (!opt.terrain_lit && !lnd.detailmap.empty()) {
+                try {
+                    detail_image = dino::load_tga(
+                        resolve_asset(opt.asset_root, lnd.detailmap));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "detail map: %s\n", e.what());
+                }
             }
             if (!opt.no_vegetation) {
                 vegetation = dino::load_vegetation(opt.asset_root, lnd, terrain);
@@ -5647,6 +5742,8 @@ int main(int argc, char** argv) {
     }
 
     GLuint texture = image.width > 0 ? upload_texture(image) : 0;
+    GLuint detail_texture =
+        detail_image.width > 0 ? upload_detail_texture(detail_image, glfns) : 0;
     const GLuint dino_texture = dino_image.width > 0 ? upload_texture(dino_image) : 0;
     const GLuint hud_font_texture =
         (opt.hud && hud_font_ready) ? upload_font_atlas(hud_font) : 0;
@@ -8387,6 +8484,15 @@ int main(int argc, char** argv) {
             new_image =
                 dino::load_tga(resolve_asset(opt.asset_root, new_lnd.basemap));
         }
+        dino::Image new_detail;
+        if (!opt.terrain_lit && !new_lnd.detailmap.empty()) {
+            try {
+                new_detail = dino::load_tga(
+                    resolve_asset(opt.asset_root, new_lnd.detailmap));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "detail map: %s\n", e.what());
+            }
+        }
         std::array<dino::Image, 6> new_sky{};
         const std::string sky_dir =
             opt.skybox_dir.empty() ? resolve_asset(opt.asset_root, new_lnd.skybox)
@@ -8456,6 +8562,7 @@ int main(int argc, char** argv) {
                 texture = 0;
             }
             image = std::move(new_image);
+            detail_image = std::move(new_detail);
         }
 
         lnd = std::move(new_lnd);
@@ -8468,6 +8575,13 @@ int main(int argc, char** argv) {
 
         if (opt.texture_path.empty() && image.width > 0) {
             texture = upload_texture(image);
+        }
+        if (detail_texture != 0) {
+            glDeleteTextures(1, &detail_texture);
+            detail_texture = 0;
+        }
+        if (detail_image.width > 0) {
+            detail_texture = upload_detail_texture(detail_image, glfns);
         }
         display = terrain.mesh;
         gpu = upload_mesh(display, glfns);
@@ -9483,6 +9597,9 @@ int main(int argc, char** argv) {
         state.origin_y = build_grid.origin_y;
         state.width = build_grid.width;
         state.height = build_grid.height;
+        for (const dino::WorldRect& road : build_grid.roads) {
+            state.roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
         for (int cy = 0; cy < build_grid.height; ++cy) {
             for (int cx = 0; cx < build_grid.width; ++cx) {
                 if (build_grid.path_at(cx, cy)) {
@@ -10164,6 +10281,9 @@ int main(int argc, char** argv) {
         for (const auto& cell : state.paths) {
             build_grid.set_path(cell.first, cell.second, true);
         }
+        for (const auto& road : state.roads) {
+            dino::add_road(build_grid, {road[0], road[1], road[2], road[3]});
+        }
         for (const dino::PortFenceState& fence : state.fences) {
             build_grid.set_fence(fence.x, fence.y, fence.edge, true);
         }
@@ -10468,6 +10588,9 @@ int main(int argc, char** argv) {
         state.origin_y = import_grid.origin_y;
         state.width = import_grid.width;
         state.height = import_grid.height;
+        for (const dino::WorldRect& road : import_grid.roads) {
+            state.roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
         for (int y = 0; y < import_grid.height; ++y) {
             for (int x = 0; x < import_grid.width; ++x) {
                 if (import_grid.path_at(x, y)) {
@@ -13362,7 +13485,8 @@ int main(int argc, char** argv) {
         const int culled =
             draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
                        view_center, width, height,
-                       terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull);
+                       terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull,
+                       opt.texture_path.empty() ? detail_texture : 0);
         if (veg_stats) {
             std::size_t drawn[2] = {0, 0};
             std::size_t batches = 0;
