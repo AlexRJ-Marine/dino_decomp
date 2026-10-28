@@ -6567,9 +6567,21 @@ int main(int argc, char** argv) {
             } else {
                 placed = dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
             }
+            // `tail_strings` mostly holds the building's mesh/skeleton paths
+            // (e.g. `DATA\graphics\buildings\souvenirs\souv_construction_
+            // lod1.skel`). Only PointOfView declares a real texture directory
+            // (`DATA\graphics\TEXTURES\buildings`). Treating every `DATA\`
+            // string as a texture directory made most buildings look up their
+            // .tga inside a .skel path and render white.
             std::string texture_dir = "Data/Graphics/Textures/buildings";
             for (const auto& text : def.tail_strings) {
-                if (text.rfind("DATA\\", 0) == 0) {
+                std::string lower = text;
+                for (char& c : lower) {
+                    c = static_cast<char>(
+                        std::tolower(static_cast<unsigned char>(c)));
+                }
+                if (lower.find("textures") != std::string::npos &&
+                    lower.rfind("data\\", 0) == 0) {
                     texture_dir = text;
                     break;
                 }
@@ -6689,10 +6701,10 @@ int main(int argc, char** argv) {
             }
             std::printf(
                 "building: %s mesh=%s verts=%zu tris=%zu cell=%.1f,%.1f "
-                "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f\n",
+                "centre=%.1f,%.1f z=%.1f state=%d angle=%.0f texture=%s\n",
                 def.name.c_str(), mesh_rel.c_str(), placed.positions.size(),
                 placed.triangle_count(), cell_x, cell_y, centre_x, centre_y, wz,
-                orientation, angle_deg);
+                orientation, angle_deg, texture_name.c_str());
             return true;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "building: %s\n", e.what());

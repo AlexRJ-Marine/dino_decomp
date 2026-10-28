@@ -1562,6 +1562,14 @@ def test_cpp_wld_places_all_buildings():
     placed = [ln for ln in result.stdout.splitlines()
               if ln.startswith("building: ") and " mesh=" in ln]
     assert len(placed) == 57
+    # Every imported building must bind a texture from the retail texture
+    # directory; the old code looked inside a mesh/skeleton path and rendered
+    # most buildings white.
+    assert "building texture: cannot open" not in result.stderr
+    assert all("texture=" in ln and not ln.rstrip().endswith("texture=")
+               for ln in placed), [ln for ln in placed if "texture=" not in ln]
+    assert any("BarakKute" in ln and "texture=standkute.tga" in ln
+               for ln in placed)
     # The 12 skinned buildings (farm/souvenir/blackbox/park family) load from
     # their primary .skin; the rest are static meshes.
     assert sum(1 for ln in placed if ".skin" in ln) >= 12
