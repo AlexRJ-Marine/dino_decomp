@@ -2882,6 +2882,21 @@ int run_selftest() {
         check(texel(41, 977)[0] == 253 && texel(42, 982)[0] == 253 &&
                   texel(44, 980)[3] == 0 && texel(41, 975)[3] == 0,
               "road segment fill is inset and ends at x1+3 / y1+3");
+        // Crossing: vertical x 100..103 and horizontal y 120..123. The
+        // vertical road's border column x=100 inside the horizontal road's
+        // fill rows (y 121..122 -> rows 901..902) stays sand (fill z 0.996
+        // beats border z 0.997 under ShapeColor2D LessEqual).
+        dino::BuildGrid cross;
+        cross.init(4.0f, 1024.0f);
+        dino::add_road(cross, {80, 120, 140, 120});
+        dino::add_road(cross, {100, 100, 100, 140});
+        std::fill(rect_map.rgba.begin(), rect_map.rgba.end(), 0);
+        dino::paint_roads(rect_map, cross, 1024.0f);
+        check(texel(100, 901)[0] == 253 && texel(103, 902)[0] == 253 &&
+                  texel(101, 900)[0] == 253 && texel(99, 901)[0] == 253,
+              "road crossing joins without border lines (fill over border)");
+        check(texel(100, 890)[0] == 170 && texel(90, 900)[0] == 170,
+              "road crossing keeps the outer borders");
     }
 
     dino::Paddock paddock;

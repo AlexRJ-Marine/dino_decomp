@@ -756,11 +756,22 @@ void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
     const float sx = static_cast<float>(image.width) / world_size;
     const float sy = static_cast<float>(image.height) / world_size;
     const float half = world_size * 0.5f;
+    // The road quads go through ShapeColor2D (z-buffer, LessEqual, write):
+    // borders sit at z 0.997 and fills at z 0.996, so a fill always wins over
+    // a border wherever two roads overlap, whatever the draw order.
+    std::vector<std::uint8_t> filled(static_cast<std::size_t>(image.width) * image.height, 0);
     auto put = [&](int px, int py, const std::uint8_t* rgb) {
         if (px < 0 || py < 0 || px >= image.width || py >= image.height) {
             return;
         }
-        std::uint8_t* p = &image.rgba[(static_cast<std::size_t>(py) * image.width + px) * 4];
+        const std::size_t index = static_cast<std::size_t>(py) * image.width + px;
+        if (rgb == border && filled[index] != 0) {
+            return;
+        }
+        if (rgb == fill) {
+            filled[index] = 1;
+        }
+        std::uint8_t* p = &image.rgba[index * 4];
         p[0] = rgb[0];
         p[1] = rgb[1];
         p[2] = rgb[2];
@@ -841,7 +852,8 @@ void paint_roads(Image& image, const BuildGrid& grid, float world_size) {
         }
     }
 
-    // 0x602380: rectangle (x0, y0)..(x1+3, y1+3) from 0x594810, rows flipped.
+    // 0x602380: rectangle (x0, y0)..(x1+3, y1+3) from 0x594810, rows flipped;
+    // the depth rule above makes junctions and crossings join seamlessly.
     const float last_row = static_cast<float>(image.height) - 1.0f;
     for (const WorldRect* road : segments) {
         const float u0 = road->x0 * sx;

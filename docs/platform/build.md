@@ -107,8 +107,10 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
   paints each segment into the island texture (road layer `0x602380`) as the
   rectangle `(x0,y0)..(x1+3,y1+3)`: on 1024x1024 maps a RGB(170,130,90)
   rectangle with a RGB(253,198,137) rectangle inset by one texel (1 border,
-  2 fill, 1 border, ends outlined), later segments over earlier ones. The
-  port's `paint_roads` does the same per segment (cells no segment covers
+  2 fill, 1 border, ends outlined). The quads are depth-tested
+  (`ShapeColor2D`, LessEqual): fills at z 0.996 beat borders at z 0.997, so
+  junctions and crossings join without border lines. The port's
+  `paint_roads` does the same per segment (cells no segment covers
   keep the old per-cell look). The terrain then applies the `detailmap.ini`
   AddSigned detail layer, which gives roads their grain
   (`docs/platform/terrain.md`). A Cpg04 file trace confirms retail loads no

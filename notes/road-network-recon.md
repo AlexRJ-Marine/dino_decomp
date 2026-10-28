@@ -69,8 +69,19 @@ else:      FUN_004402d0(u0,v0 .. u1+1,v1+1, RGB(253,198,137))
 ```
 
 `FUN_004402d0` (last flag 1) adds 1 to the far corner. Each segment is a
-4-texel strip: 1 border, 2 fill, 1 border, with its ends outlined too. Later
-segments overwrite earlier ones where they overlap.
+4-texel strip: 1 border, 2 fill, 1 border, with its ends outlined too.
+
+**Junctions (corrected 2026-10-28).** The third argument of `FUN_004402d0`
+is the quad's depth: borders at `0x3f7f3b64` = 0.99700, fills at
+`0x3f7ef9db` = 0.99600. `FUN_00440000` draws them with the 2D colour state
+(`DAT_00674528+0x80` `+0x94`, opaque colour), and `ShapeColor2D.ini` has
+`ZBuffer Y`, `ZBufferWrite Y`, `ZBufferFunc LessEqual`. The compose pass
+`FUN_00603430` sets the viewport z range 0..1 and draws the basemap at
+z 1.0 first. So wherever two roads overlap, a fill beats a border
+regardless of draw order: junctions and crossings join seamlessly and only
+the outer edges keep the brown border. The first port of this pass let a
+later segment's border cut across earlier fills; `notes/road-junction-fix.png`
+shows both.
 
 The old port painted per cell and merged borders between neighbouring
 cells, so joins and ends looked different.
@@ -126,7 +137,9 @@ The old port lit and fogged the basemap and had no detail layer.
 - `notes/terrain-detail-compare.png`: retail / old port / new port at the
   entrance and the `p5-side-by-side` park camera.
 - `notes/road-network-before-after.png`: chained and junction roads, old
-  per-cell paint vs retail segments.
+  per-cell paint vs retail segments (its right column still shows the
+  junction border bug).
+- `notes/road-junction-fix.png`: that bug vs the depth-tested fix.
 - `--selftest`: merge, T-junction snap, end extension, rectangle paint.
 - `tests/test_viewer_cpp.py::test_cpp_road_network_retail_segments`,
   `test_cpp_terrain_detail_map`.
