@@ -104,6 +104,8 @@ add_executable(dino_port
     src/app/camera_config.cpp
     src/app/capture.cpp
     src/app/park_camera.cpp
+    src/audio/music.cpp
+    src/audio/ui_sound.cpp
     src/app/cli.cpp
     src/render/gl_api.cpp
     src/render/mesh_gpu.cpp
