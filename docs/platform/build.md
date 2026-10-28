@@ -110,11 +110,12 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
 
 Port approximations: retail fences occupy pathmap cells while the port stores
 fence edges, so "crosses a fence edge" stands in for "fence cell busy"; the
-retail signed-length cost quirk for runs toward -x/-y is not reproduced; road
-selling (`&REQUEST_SELL_ROAD`) is not decoded yet; removing a fence is not
-gated on its occupants (retail refuses a non-empty paddock with
-`&WARNING_SELLING_NON_EMPTY_FENCE` and refunds `value * sellback` on the
-empty one). Evidence:
+retail signed-length cost quirk for runs toward -x/-y is not reproduced;
+removing a fence is not gated on its occupants (retail refuses a non-empty
+paddock with `&WARNING_SELLING_NON_EMPTY_FENCE` and refunds
+`value * sellback` on the empty one). Road selling is decoded: the refund
+reuses the build formula `((x1-x0)+(y1-y0))*price/4`; the port does not
+implement the sell request yet. Evidence:
 `tests/test_viewer_cpp.py::test_cpp_road_tool`, `--selftest` road checks,
 `notes/road-tool.png`.
 

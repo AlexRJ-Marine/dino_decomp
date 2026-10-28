@@ -127,10 +127,25 @@ A road is a rectangle `[start .. end+3]` in world units (0..1024), a 4-wide
 strip. `spRoadNetwork::Save` (`0x58cd60`) writes the count plus 16-byte
 rectangles, matching `docs/formats/sav.md`.
 
+## Selling a road (2026-10-28)
+
+`&REQUEST_SELL_ROAD` (`0x663cfc`) is the road branch of the shared sell
+handler (`0x532d9c..0x533a70`, the same block as the fence/building/show/
+feature/dino branches). `0x58d4b0` resolves the road under the cursor; when it
+returns null the request is ignored. The refund reuses the build formula:
+
+```text
+length = (x1 - x0) + (y1 - y0)      // road rectangle at +0x0/+0x4/+0x8/+0xc
+refund = (length * GeneralParams[+0x1a4]) >> 2
+```
+
+`GeneralParams[+0x1a4] = 10`, so the refund is the same per-cell price as the
+build (no sellback multiplier in this branch). The value is formatted into the
+localised `&REQUEST_SELL_ROAD` text with `%d`, then the removal callback runs.
+There is no slope or occupancy gate for selling.
+
 ## Not yet decoded
 
-- `REQUEST_SELL_ROAD` (`0x5337e9..0x533820`): road selling/removal and any
-  refund.
 - The Road button handler body `0x52e100` (expected: `+0x48 = 1`, helper on).
 - Runtime confirmation of the price chain and the negative-direction quirk.
 
