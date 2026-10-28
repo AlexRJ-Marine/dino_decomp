@@ -1782,3 +1782,24 @@ Updated: 2026-10-26
   (`docs/community/xentax-post.md`, drafted; the user publishes it).
 - Use headless `pyghidra-mcp` over HTTP rather than GUI GhidraMCP; the agent
   environment must be reproducible and unattended.
+
+## Playtest fixes (2026-10-28)
+
+- **Camera**: retail has no roll; the park camera is one `progress`
+  (`r=10+290p`, `h=3+497p`, `pitch=atan2(h,r)`) plus a 10/s yaw low-pass.
+  Interactive camera uses it; explicit `--camera-target/--distance` views keep
+  the legacy spherical orbit. `notes/camera-motion-tilt-recon.md`.
+- **Road preview**: retail per-cell `helper_road.mesh` boxes, depth-written,
+  unlit opaque tint. Captured fills `RGB(64,64,255-x)` valid /
+  `RGB(255-x,64,64)` invalid match exactly; `test_cpp_road_preview_tint`.
+- **Enclosure**: `OPEN_CONSTRUCTION_FENCE` arms build tool 6; first ground
+  click stores a corner, second builds the sorted rectangle (canonical edges)
+  and registers a capacity-bearing `Paddock`. Cursor disc is the captured
+  retail flat blue `(38,38,136)` / red `(80,38,38)` with the
+  `INSIDE_PERIMETER` check. `notes/road-enclosure-preview-capture.md`.
+- **Buildings**: construction meshes (`construc`) are never selected as the
+  normal preview, and textures resolve from `Data/Graphics/Textures/buildings`;
+  all 57 Cpg04 buildings bind a texture.
+- **Campaign population**: `.wld` simulation lists are parsed in C++/Python;
+  campaign start spawns 6 Nutritionists, 2 food sources, and 51/71
+  mesh-bearing `.bfi` show waypoint features. `notes/campaign-show.png`.
