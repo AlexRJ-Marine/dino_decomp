@@ -78,8 +78,10 @@ yaw_goal += dir45 * dt * rot_speed(p);        // rot_speed = 1.570796
 progress += dir67 * dt * lerp(0.05f, 0.2f, p);
 clamp(progress, 0, 1);
 fwd = normalize((target_cur - eye_cur).xy);
-target_goal.xy += rotate(fwd, flag) * lerp(1, 20, p);
+delta = rotate(fwd, flag) * lerp(1, 20, p);
+target_goal.xy += delta;
 clamp(target_goal.xy, map_box);
+eye_goal.xy += (applied delta);               // rigid pan: same delta
 
 // 4. first-order smoothing (FUN_005e6960)
 cur += (goal - cur) * clamp(dt * lerp(min, max, p), 0, 1);
@@ -90,13 +92,14 @@ eye_cur    += ... PositionHardness 6..2 (X/Y), Z instant;
 out.eye = eye_cur; out.target = target_cur;
 ```
 
-Because the eye goal is built **before** the pan, a held pan leaves the eye
-one step behind: `eye - target = W - step`. At p=0.1 a forward pan stretches
-`r` 39 -> 41.9 (pitch 53.5 -> 51.5 deg) and a lateral pan swings the view by
-`atan(2.9/39) = 4.25 deg`. That one-update lag is the visible lean/tilt while
-moving; there is still no roll (the up vector is world +Z). The terrain under
-the moving eye adds up to +6.8 deg on isl01, and the 5/s yaw lag adds +2.4 deg
-while rotating. See `notes/camera-mouse-tilt-recon.md` §5.
+The live probe corrects the earlier "one-update lean" reading: during a plain
+Left/Right or forward pan, **`eye_goal` and `target_goal` move by the same
+delta** and `yaw` stays exactly `0.0000` (the eye-target offset stays at the
+progress radius, 39.0 at p=0.1). The pan is a **rigid translation**, not a
+yaw/roll lean. There is still no roll (the up vector is world +Z); the only
+visible pitch change comes from the terrain under the moving eye (up to
++6.8 deg on isl01), and the 5/s yaw lag (+2.4 deg) applies only while
+rotating. See `notes/camera-mouse-tilt-recon.md` §5 and the probe CSV.
 
 Runtime checks (isl01 Free Game, `run-test/dino_camera.csv`):
 
@@ -104,7 +107,7 @@ Runtime checks (isl01 Free Game, `run-test/dino_camera.csv`):
   target Z `= terrain(512,512) = 32`, eye goal `(551,512,84.7)`.
 - first update dt 0.021: eye X `128 -> 177.7449`; `k = 0.1176 = dt * 5.6`
   (`TargetHardness = PositionHardness = 6..2`, p=0.1).
-- pan at p=0.1: target goal `-2.9` per update, independent of dt
+- pan at p=0.1: target and eye goals `-2.9` per update, independent of dt
   (0.001..0.015 in the same run). Map clamp at record `-250`.
 - yaw: goal `+dt*1.570796`; measured `k/dt = 5.0` from consecutive samples;
   steady lag at 90 deg/s is 0.293 rad (16.8 deg).
@@ -160,10 +163,12 @@ of the eight bytes through `FUN_005e59b0`.
   loading it rebuilds the retail camera's eye/target/goals from that form so
   the session keeps its view. `--camera-retail` forces retail mode even for
   `--start-dino`/explicit views.
-- Pan is per update (`lerp(1,20,p)`, no dt), yaw is `dt*pi/2` with the 5/s
-  low-pass, progress is `dt*lerp(0.05,0.2,p)`; no roll. The eye goal is
-  computed **before** the pan (retail order) so the one-step lean is
-  reproduced; `--camera-selftest` asserts `lean_goal dx=41.9`.
+- Pan is per update (`lerp(1,20,p)`, no dt) and moves **both the target and
+  eye goals** by the same clamped delta (rigid translation). The live probe
+  shows yaw stays `0.0000` during a pan and the eye-target offset stays at
+  the progress radius. Yaw is `dt*pi/2` with the 5/s low-pass, progress is
+  `dt*lerp(0.05,0.2,p)`; no roll. `--camera-selftest` asserts
+  `rigid ... offset=39.0000` and `pan_yaw delta=0.000000`.
 - Mouse edge scroll: the last client-pixel cursor position (SDL mouse motion,
   persisted on focus loss) sets pan flags 2/3/0/1 within a 2 px band
   (`--edge-scroll N` widens it for windowed play), disabled while Shift is

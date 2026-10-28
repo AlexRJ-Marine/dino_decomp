@@ -3515,10 +3515,11 @@ struct RetailParkCamera {
             reset(terrain);
         }
         const float step_dt = std::max(0.0f, dt);
-        // Retail order (0x5e5ff0): target Z glue, then the eye goal built
-        // from the pre-input target, then input (rotate/progress/pan), then
-        // smoothing. Building the eye before the pan leaves it one pan step
-        // behind the target - the pitch/yaw lean seen while moving.
+        // Retail order (0x5e5ff0): target Z glue, then the eye goal, then
+        // input (rotate/progress/pan), then smoothing. The live camera probe
+        // shows the pan moves eye_goal and target_goal by the same delta and
+        // yaw stays 0.0000 throughout a Left/Right pan: the pan is a rigid
+        // translation, not a yaw/roll lean.
         target_goal.z +=
             std::max(terrain.height_at(target_cur.x, target_cur.y), altitude) -
             target_cur.z;
@@ -3560,26 +3561,36 @@ struct RetailParkCamera {
             fy = -std::sin(yaw_cur);
         }
         const float pan = config.move_speed(progress);
+        float pan_dx = 0.0f;
+        float pan_dy = 0.0f;
         if (flags[0]) {
-            target_goal.x += fx * pan;
-            target_goal.y += fy * pan;
+            pan_dx += fx * pan;
+            pan_dy += fy * pan;
         }
         if (flags[1]) {
-            target_goal.x -= fx * pan;
-            target_goal.y -= fy * pan;
+            pan_dx -= fx * pan;
+            pan_dy -= fy * pan;
         }
         if (flags[2]) {
-            target_goal.x += -fy * pan;
-            target_goal.y += fx * pan;
+            pan_dx += -fy * pan;
+            pan_dy += fx * pan;
         }
         if (flags[3]) {
-            target_goal.x += fy * pan;
-            target_goal.y += -fx * pan;
+            pan_dx += fy * pan;
+            pan_dy += -fx * pan;
         }
-        // The target may leave the heightfield by 250 world units.
+        // The target may leave the heightfield by 250 world units. Apply the
+        // clamped delta to both goals so the eye keeps its radius/offset and
+        // the view direction (yaw) is unchanged.
         const float pan_limit = terrain.world_size * 0.5f + 250.0f;
-        target_goal.x = std::clamp(target_goal.x, -pan_limit, pan_limit);
-        target_goal.y = std::clamp(target_goal.y, -pan_limit, pan_limit);
+        const float pan_old_x = target_goal.x;
+        const float pan_old_y = target_goal.y;
+        target_goal.x =
+            std::clamp(target_goal.x + pan_dx, -pan_limit, pan_limit);
+        target_goal.y =
+            std::clamp(target_goal.y + pan_dy, -pan_limit, pan_limit);
+        eye_goal.x += target_goal.x - pan_old_x;
+        eye_goal.y += target_goal.y - pan_old_y;
 
         // First-order filters. Z is instant (pair 1000,1000 -> k = 1).
         // The yaw pairs are 5.0/5.0 in the ctor (0x5e5d67..), not 10.
@@ -3613,6 +3624,7 @@ int camera_selftest(const dino::CameraConfig& config,
         cam.eye_cur.x, cam.eye_cur.y, cam.eye_cur.z, cam.progress,
         cam.yaw_cur);
     const dino::Vec3 before = cam.target_goal;
+    const dino::Vec3 eye_before = cam.eye_goal;
     bool up[8] = {};
     up[0] = true;
     for (int i = 0; i < 10; ++i) {
@@ -3621,11 +3633,22 @@ int camera_selftest(const dino::CameraConfig& config,
     std::printf("camera selftest pan dx=%.4f dy=%.4f step=%.4f\n",
                 cam.target_goal.x - before.x, cam.target_goal.y - before.y,
                 config.move_speed(cam.progress));
-    // Pre-pan eye goal: the offset must be r + step = 41.9 at p=0.1 for a
-    // forward pan (retail eye goal is built before the target moves).
-    std::printf("camera selftest lean_goal dx=%.4f dy=%.4f\n",
-                cam.eye_goal.x - cam.target_goal.x,
-                cam.eye_goal.y - cam.target_goal.y);
+    // Rigid pan (live probe): the eye goal moves with the target goal, the
+    // eye-target offset stays at the progress radius (39.0 at p=0.1), and
+    // yaw does not change.
+    const float pan_offset = std::hypot(cam.eye_goal.x - cam.target_goal.x,
+                                        cam.eye_goal.y - cam.target_goal.y);
+    std::printf("camera selftest rigid eye_dx=%.4f eye_dy=%.4f offset=%.4f\n",
+                cam.eye_goal.x - eye_before.x,
+                cam.eye_goal.y - eye_before.y, pan_offset);
+    const float pan_yaw_before = cam.yaw_cur;
+    bool pan_left[8] = {};
+    pan_left[2] = true;
+    for (int i = 0; i < 10; ++i) {
+        cam.update(config, terrain, 1.0f / 60.0f, pan_left);
+    }
+    std::printf("camera selftest pan_yaw delta=%.6f\n",
+                cam.yaw_cur - pan_yaw_before);
     const float yaw_before = cam.yaw_goal;
     bool left[8] = {};
     left[4] = true;

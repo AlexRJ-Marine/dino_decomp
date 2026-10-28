@@ -500,5 +500,19 @@ default 2, for windowed comfort).
 This also explains the playtest note "the harness mouse only works for right
 and down": it was the frame offset, not the retail path.
 
-The playtest's "no tilt" is covered by §5: the port now builds the eye goal
-before the pan, and `--camera-selftest` asserts `lean_goal dx=41.9` at p=0.1.
+The earlier "one-update lean" conclusion in §5 is superseded by the 2026-10-28
+probe correction below: the pan moves both goals rigidly and does not change
+yaw.
+
+## Correction (2026-10-28): rigid pan, no eye lag
+
+The live probe (`run-test/dino_camera.csv`, `scripts/x32dbg/camera-probe.ps1`)
+disproves the one-update lean in section 5.2. During plain Left/Right and
+Up/Down pans, `eye_goal` and `target_goal` move by the **same delta** and
+`yaw` stays exactly `0.0000` (e.g. Left: eye_goal/target_goal y
+`1274 -> 943.4/940.5 -> ... -> -250`; `eye_goal - target_goal` stays
+`38.9991` in x and `2.8992` in y). The pan is a rigid translation; there is no
+4.25 deg yaw lean. That figure came from assuming the eye goal stays while
+the target moves; the retail update moves both goals. The port now applies
+the clamped pan delta to both `target_goal` and `eye_goal`; the camera
+selftest asserts `rigid ... offset=39.0000` and `pan_yaw delta=0.000000`.
