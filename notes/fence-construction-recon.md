@@ -242,6 +242,32 @@ So a show arena and a player-built paddock share the same `stPerimeter` ->
 four `stWall` segments -> grid cells model. The port stores fence **edges**
 instead of rasterised wall cells, which is the documented approximation.
 
+## Selling a fence
+
+`&REQUEST_SELL_FENCE` (`0x663d4c`) is one branch of the shared sell handler
+(`0x532d9c..0x533a70`, which also serves `REQUEST_SELL_DINO`,
+`REQUEST_SELL_FEATURE`, `REQUEST_SELL_SHOW`, `REQUEST_SELL_BUILDING` and
+`REQUEST_SELL_ROAD`). The fence branch:
+
+```text
+object = 0x53c2d0(first selected row)
+occupants = [object+0x4c]+0x98 .. +0x9c
+if occupants is not empty:
+    show &WARNING_SELLING_NON_EMPTY_FENCE (0x663d28)
+    return without removing
+
+value = 0x58acc0(park, object)
+        object->vtable+0x14()                       // base value
+      + sum(entry[+0x40]+0x18 for park+0xb0.. entries whose +0xc4 == object)
+refund = int(value * *(float*)(park+0x94 + 0x98))   // park sellback factor
+format "&REQUEST_SELL_FENCE" + "%d" (0x64c6cc)
+0x533a70(...)                                       // remove the object
+```
+
+So a paddock with a dinosaur cannot be sold, and an empty one refunds
+`base value * sellback`. The port currently removes fences without either
+gate or refund.
+
 ## Open
 
 - What the selected UI row `0x17` (23) means in `0x526930`; the feature list

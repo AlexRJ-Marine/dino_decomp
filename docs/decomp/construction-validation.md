@@ -243,7 +243,14 @@ The port stores fence edges instead of rasterised cells.
 Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
 `0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,
 `&WARNING_INSIDE_PERIMETER`, `&WARNING_PERIMETER_TOO_SMALL` and
-`&WARNING_ROAD_TOO_SHORT`. The panel title/price come from `0x5269e0`, the
+`&WARNING_ROAD_TOO_SHORT`.
+
+Selling (`&REQUEST_SELL_FENCE`, `0x663d4c`) is part of the shared sell
+handler. It refuses a paddock whose occupant vector
+(`[fence+0x4c]+0x98`) is non-empty with
+`&WARNING_SELLING_NON_EMPTY_FENCE`, otherwise refunds
+`int(0x58acc0(park, fence) * park_sellback)` and removes it. The port
+currently removes fences without the occupant gate or the refund. The panel title/price come from `0x5269e0`, the
 `FENCE_STATS_*` values from `0x52c1f0`, and the feature list from
 `0x526d70`. `N`/`J` rotate the placement (`+0x3c`); Esc leaves.
 
