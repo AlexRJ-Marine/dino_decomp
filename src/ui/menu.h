@@ -35,7 +35,7 @@ struct Menu {
     int hover = -1;
     int island = 0;       // selected island index 0..9
     int island_first = 0; // first visible ISLAND_LIST row
-    int campaign = 0;     // selected campaign row (CampaignList.ini order)
+    int campaign = -1;    // selected campaign row; -1 = none (retail list starts unselected)
     int campaign_first = 0;
     int save_slot = 0;    // selected LOAD_GAME_NAMES_LIST row
     int save_first = 0;
@@ -43,6 +43,9 @@ struct Menu {
     bool load_requested = false;  // LOAD_LOAD_BUTTON pressed
     int cinematic = 0;    // selected CINEMATICS_LIST row (campaign order)
     int cinematic_first = 0;
+    int campaign_info_first = 0;   // wrapped briefing viewport
+    int campaign_info_lines = 0;   // wrapped line count (set by the viewer)
+    void refresh_campaign_info();
     bool cinematic_requested = false;  // CINEMATICS_START_BUTTON pressed
     int difficulty = 1;   // 0 easy, 1 middle, 2 hard
     bool loading = false;

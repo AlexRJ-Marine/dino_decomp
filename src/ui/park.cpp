@@ -676,6 +676,13 @@ bool ParkHud::click(int x, int y, std::string& action) {
         action = "options tab";
         return true;
     }
+    if (name == "OPTIONS_MENU_EXIT_ICON") {
+        // In-park options `&QuitGame` (ConstructionInterface.Ini). The main
+        // menu QUIT exits the application directly; do the same here.
+        quit_requested_ = true;
+        action = "quit game";
+        return true;
+    }
     if (name == "OPTIONS_NAME_SLOT") {
         if (options_tab_ == "save") {
             name_edit_ = true;

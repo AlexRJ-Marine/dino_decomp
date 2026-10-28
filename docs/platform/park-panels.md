@@ -209,6 +209,11 @@ Expect `open OPTIONS_PANEL`, `options save tab`, `save port`, and a
 `port save:` line. The load tab uses `378,73`, selects a row at
 `300,{131 + row*12}`, then `334,436` (`load port`).
 
+`--park-click 765,348 --park-click 447,74` opens the panel and hits
+`OPTIONS_MENU_EXIT_ICON` (parent `OPTIONS_MENU_EXIT_GAME`,
+`ConstructionInterface.Ini`, hint `&QuitGame`); the viewer exits exactly like
+the main-menu Quit. Evidence: `test_cpp_park_options_quit`.
+
 ### Dialogs
 
 ```powershell

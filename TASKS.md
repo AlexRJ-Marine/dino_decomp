@@ -1704,8 +1704,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   extra). `notes/video-exit-recon.md`.
 - [ ] Phase B5 rest: apply LOD/texture quality/depth/TNL at startup; the
   screen mode is next-launch only (retail restart).
-- [ ] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION`, verify
-  hold-to-repeat, and map the list-row hover frame.
+- [x] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION` with the
+  same VSCROLL. The wrap is pixel-based at the list column (213 px) and the
+  row pitch is `LB_LINE_HEIGHT` (17 px); the thumb is proportional. The menu
+  text advance is retail's `glyph width - 1`, widget TEXT needs `TEXT_HEIGHT`,
+  the VSCROLL hides when `range == 1`, and the campaign list starts unselected
+  with a disabled START frame. Tests
+  `test_cpp_campaign_info_description_scroll`,
+  `test_cpp_campaign_list_starts_unselected`,
+  `test_cpp_campaign_list_fits_has_no_scrollbar`.
+- [x] In-park Quit: `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`) exits the viewer
+  (`ParkHud::quit_requested`, `test_cpp_park_options_quit`).
+- [ ] List-row hover frame and hold-to-repeat remain cosmetic.
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live
   3D thumbnails in the list slots.
 - [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park

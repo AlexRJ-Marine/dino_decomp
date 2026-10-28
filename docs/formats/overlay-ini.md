@@ -173,6 +173,33 @@ HUD/menu string sets it equal to the font's `font_size` (12, 14 or 19), so the
 scale is 1.0 at 800×600. A renderer should compute
 `scale = TEXT_HEIGHT / font.font_size` to support other values.
 
+**No `TEXT_HEIGHT` means no text.** The scale is therefore 0, so the retail
+renderer draws nothing for sections that carry `TEXT` but omit the height.
+Every such section in `MenuInterface.Ini`/`ConstructionInterface.Ini` is an
+icon button (`*_START_BUTTON`, `*_CANCEL_BUTTON`, `*_OK_BUTTON` with
+`START_BUTTON`/`CANCEL_BUTTON`/`OPTION_PAN_OK_BUTTON` art) plus the
+`DUMMY_*` template widgets. Retail screenshots show bare icon art with no
+label, e.g. the campaign page START/CANCEL buttons and the Free Game page
+Start/Cancel captured in `notes/ui-atlas-outcome4-full.png`.
+
+## Glyph advance
+
+Retail advances the pen one pixel **less** than the glyph's ink width:
+`advance = x1 - x0` while the drawn quad is `x1 - x0 + 1` wide, so adjacent
+glyphs touch. Measured on the retail 800×600 menu captures (FONT14 unless
+noted):
+
+| string | retail pixels | `sum(width) - (n-1)` |
+| --- | ---: | ---: |
+| `PANIC IN THE SAVANNA` | 135 | 137 |
+| `dozens of dino parks are opening` | 180 | 182 |
+| `being that his park has become a living` | 213 | 213 |
+| `CAMPAIGNS` (FONT19) | 100 | 100 |
+
+Using the full ink width makes every string ~10 % too wide and breaks the
+line wrapping of the campaign briefing (which is wrapped at the list column,
+213 px). `text_width()` must subtract `(n-1)` for the same reason.
+
 ## Text resolution
 
 `TEXT` and `HINT` values starting with `&` are `.loc` field IDs

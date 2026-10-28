@@ -90,13 +90,58 @@ campaign 8 (8 rows), load 14 at 20 px (as many as save slots), cinematics 8.
 
 ## 4. Open
 
-* `CAMPAIGN_INFO_DESCRIPTION` (wrapped briefing) does not scroll yet; the
-  retail listbox has a VSCROLL for it.
 * Hold-to-repeat is unverified in the trace (`0x5cb9f0`); the port currently
   scrolls once per click.
 * List-row hover frame and the separator/colour keys are cosmetic and not
   mapped yet.
-* Options page (R-18) and retail `.sav` slots are separate menu items.
+* Retail `.sav` slots are a separate menu item (R-16b).
+
+## 5. Campaign briefing scrollbar, text metrics and in-park Quit
+
+* `CAMPAIGN_INFO_DESCRIPTION` is a wrapped LINE list: 17 px rows
+  (`LB_LINE_HEIGHT`), 16 visible rows (280/17), wrapped at the list column
+  width `235 - 22 = 213 px` — **not** a character count. A greedy pixel wrap
+  with the FONT14 advances reproduces every retail line break at 213:
+  "Walt Dino has led the way, and now", "considerable flow of visitors. All
+  of", "being that his park has become a living", "You are therefore urgently
+  requested", ... (retail capture `notes/harness/campaign-info.png`). The port
+  drew 14 px font line spacing before; the line pitch is now 17.
+* Glyph advance: retail moves the pen one pixel **less** than the glyph's ink
+  width (`advance = x1 - x0`), so neighbouring glyphs touch. Measured on the
+  retail captures: "PANIC IN THE SAVANNA" = 135 px and
+  `sum(width) - (n-1)` = 137; "being that his park has become a living"
+  = 213 px; "CAMPAIGNS" (FONT19) = 100 px, `sum(width) - (n-1)` = 100. The
+  port used the full ink width, which made every menu/HUD string ~10% too
+  wide and overflowed the 213 px briefing column (clipped last words).
+* Widget `TEXT` is only drawn when the section sets `TEXT_HEIGHT`: the glyph
+  scale is `TEXT_HEIGHT / font_size`, so an absent height is a zero scale.
+  Icon buttons (`CAMPAIGN_START_BUTTON`, `*_OK_BUTTON`, ...) carry `TEXT` but
+  no `TEXT_HEIGHT`; retail shows bare icon art.
+* Scrollbar graphics `CAMPAIGN_TEXT_SCROLLUP/SCROLLDOWN/THUMB` have
+  `SKIP_LIST = 1 2 3`. `SKIP_LIST` is a mask of unused *animation* frames and
+  the state frames are universal: 0 = disabled, 4 = normal, 5 = hover,
+  6 = pressed, 7 = selected. The port draws frame 4 (red arrows, metal
+  thumb); frame 0 is the black-triangle disabled art.
+* The auto-created VSCROLL is hidden when the list fits (`range == 1`): the
+  retail campaign list (7 rows in 8) shows bare panel metal, while the island
+  list (10 rows) shows the bar. The port drew a full-track thumb and arrows on
+  the campaign list; it now skips the bar for `range <= 1`.
+* Retail starts the campaign list with **no row selected**: all rows use the
+  normal frame and `CAMPAIGN_START_BUTTON` is disabled (frame 0). Clicking a
+  row selects it and enables START (`notes/harness/campaign-list.png` vs
+  `campaign-selected.png`). The port defaults `Menu::campaign = -1` and draws
+  the disabled START frame until an unlocked campaign is selected.
+* In-park options `OPTIONS_MENU_EXIT_ICON` (`ConstructionInterface.Ini`,
+  `&QuitGame`) was unhandled; `ParkHud::quit_requested()` now makes the
+  viewer exit, matching the main-menu Quit. Test
+  `test_cpp_park_options_quit`.
+* Evidence: `test_cpp_campaign_info_description_scroll` (text viewport and
+  thumb differ after three down-arrow clicks), screenshots
+  `build/campaign-info-port8`, `build/campaign-select-port6`,
+  `build/campaign-selected-port` (build dir, not tracked) diffed against
+  `notes/harness/campaign-info.png`, `campaign-list.png`,
+  `campaign-selected.png` (retail dgVoodoo captures); the text-region diff is
+  only glyph rasterisation.
 
 ## Evidence
 

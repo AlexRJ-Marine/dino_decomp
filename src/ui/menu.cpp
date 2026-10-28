@@ -49,10 +49,11 @@ bool Menu::load_campaigns(const std::string& scenario_root,
         campaign_error = e.what();
         return false;
     }
-    campaign = std::clamp(campaign, 0,
-                          campaigns.empty()
-                              ? 0
-                              : static_cast<int>(campaigns.size()) - 1);
+    campaign = campaigns.empty()
+                   ? -1
+                   : std::clamp(campaign, -1,
+                                static_cast<int>(campaigns.size()) - 1);
+    refresh_campaign_info();
     return true;
 }
 
@@ -157,6 +158,9 @@ int Menu::list_total_rows(const std::string& name) const {
     if (name == "LOAD_GAME_NAMES_LIST") {
         return save_count;
     }
+    if (name == "CAMPAIGN_INFO_DESCRIPTION") {
+        return campaign_info_lines;
+    }
     return 0;
 }
 
@@ -173,6 +177,9 @@ int Menu::list_first_row(const std::string& name) const {
     if (name == "CINEMATICS_LIST") {
         return cinematic_first;
     }
+    if (name == "CAMPAIGN_INFO_DESCRIPTION") {
+        return campaign_info_first;
+    }
     return 0;
 }
 
@@ -188,6 +195,8 @@ void Menu::list_set_first_row(const std::string& name, int first) {
         save_first = first;
     } else if (name == "CINEMATICS_LIST") {
         cinematic_first = first;
+    } else if (name == "CAMPAIGN_INFO_DESCRIPTION") {
+        campaign_info_first = first;
     }
 }
 
@@ -243,6 +252,13 @@ void Menu::list_drag_to(const std::string& name, int y) {
     }
     int pos = (y - (g.y + g.arrow)) * g.range / g.travel;
     list_set_first_row(name, std::clamp(pos, 0, g.range - 1));
+}
+
+void Menu::refresh_campaign_info() {
+    // Reset the briefing viewport; the viewer recomputes the wrapped line
+    // count (pixel wrap at the list column) before the first draw.
+    campaign_info_first = 0;
+    campaign_info_lines = 0;
 }
 
 void Menu::options_sync_positions() {
@@ -491,10 +507,12 @@ void Menu::click(int x, int y) {
                     : std::clamp(selected, 0,
                                  static_cast<int>(campaigns.size()) - 1);
             list_ensure_visible("CAMPAIGN_LIST", campaign);
+            refresh_campaign_info();
         }
     } else if (name == "CAMPAIGN_START_BUTTON") {
         if (selected_campaign() != nullptr && campaign_unlocked(campaign)) {
             page = 3;
+            refresh_campaign_info();
         }
     } else if (name == "CAMPAIGN_INFO_START_BUTTON") {
         if (selected_mission() != nullptr && campaign_unlocked(campaign)) {

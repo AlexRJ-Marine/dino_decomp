@@ -1779,13 +1779,18 @@ dino::Mesh build_text_mesh(const dino::Fnt& font, const std::string& text,
         mesh.indices.push_back(base + 0);
         mesh.indices.push_back(base + 2);
         mesh.indices.push_back(base + 3);
-        pen_x += w;
+        // Retail advances one pixel less than the glyph's ink width, so
+        // neighbouring glyphs touch. Measured on the retail menu captures:
+        // "PANIC IN THE SAVANNA" = 135 px and FONT14 sum(width)-(n-1) = 137,
+        // "CAMPAIGNS" (FONT19) = 100 px and sum(width)-(n-1) = 100.
+        pen_x += static_cast<float>(glyph->width() - 1) * scale;
     }
     return mesh;
 }
 
 float text_width(const dino::Fnt& font, const std::string& text, float scale) {
     float width = 0.0f;
+    int glyphs = 0;
     for (const unsigned char ch : text) {
         if (ch == '\n') {
             continue;
@@ -1793,6 +1798,13 @@ float text_width(const dino::Fnt& font, const std::string& text, float scale) {
         const dino::FntGlyph* glyph = font.glyph(ch);
         width += glyph != nullptr ? static_cast<float>(glyph->width()) * scale
                                   : static_cast<float>(font.font_size) * 0.5f * scale;
+        if (glyph != nullptr) {
+            ++glyphs;
+        }
+    }
+    // Same one-pixel tightening as build_text_mesh.
+    if (glyphs > 1) {
+        width -= static_cast<float>(glyphs - 1) * scale;
     }
     return width;
 }
@@ -1888,7 +1900,8 @@ void append_mesh(dino::Mesh& dst, const dino::Mesh& src) {
 
 dino::Mesh build_text_block(const dino::Fnt& font, const std::string& text,
                             float x, float y, float scale, dino::Color color,
-                            const std::string& justify, float box_w, float box_h) {
+                            const std::string& justify, float box_w, float box_h,
+                            float line_pitch = 0.0f) {
     dino::Mesh out;
     out.name = "ui_text";
     std::vector<std::string> lines;
@@ -1902,7 +1915,9 @@ dino::Mesh build_text_block(const dino::Fnt& font, const std::string& text,
         }
     }
     lines.push_back(line);
-    const float line_height = static_cast<float>(font.line_height) * scale;
+    const float line_height =
+        line_pitch > 0.0f ? line_pitch
+                          : static_cast<float>(font.line_height) * scale;
     const float total_height = line_height * static_cast<float>(lines.size());
     float start_y = y;
     if (justify.find("DOWN") != std::string::npos) {
@@ -1966,6 +1981,69 @@ std::string wrap_text(const std::string& text, std::size_t width) {
     }
     flush();
     return out;
+}
+
+// Pixel-accurate word wrap for list paragraphs. Retail wraps the campaign
+// briefing at the list column width (CAMPAIGN_INFO_DESCRIPTION: 235 - 22 =
+// 213 px), not at a fixed character count; the simulation with the FONT14
+// advances reproduces the retail line breaks exactly at 213.
+std::vector<std::string> wrap_lines_pixels(const dino::Fnt& font, float scale,
+                                           const std::string& text,
+                                           float width) {
+    std::vector<std::string> lines;
+    std::string paragraph;
+    std::string word;
+    auto flush_paragraph = [&]() {
+        std::string current;
+        for (const char ch : paragraph) {
+            if (ch == ' ' || ch == '\t' || ch == '\r') {
+                if (word.empty()) {
+                    continue;
+                }
+                const std::string candidate =
+                    current.empty() ? word : current + " " + word;
+                if (!current.empty() &&
+                    text_width(font, candidate, scale) > width) {
+                    lines.push_back(current);
+                    current = word;
+                } else {
+                    current = candidate;
+                }
+                word.clear();
+            } else {
+                word.push_back(ch);
+            }
+        }
+        if (!word.empty()) {
+            const std::string candidate =
+                current.empty() ? word : current + " " + word;
+            if (!current.empty() &&
+                text_width(font, candidate, scale) > width) {
+                lines.push_back(current);
+                current = word;
+            } else {
+                current = candidate;
+            }
+            word.clear();
+        }
+        lines.push_back(current);
+        paragraph.clear();
+    };
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char ch = text[i];
+        if (ch == '\\' && i + 1 < text.size() && text[i + 1] == 'n') {
+            // The .loc records store paragraph breaks as the two characters
+            // `\` `n`; resolve_loc_text keeps them literal.
+            flush_paragraph();
+            ++i;
+        } else if (ch == '\n') {
+            flush_paragraph();
+        } else {
+            paragraph.push_back(ch);
+        }
+    }
+    flush_paragraph();
+    return lines;
 }
 
 std::string limit_lines(const std::string& text, std::size_t max_lines) {
@@ -4548,6 +4626,7 @@ int main(int argc, char** argv) {
 
     dino::ui::Menu menu;
     bool menu_loaded = false;
+    bool park_quit_requested = false;
     dino::ui::ParkHud park;
     dino::ShowRuntime show_runtime;
     std::vector<dino::ShowCatalogEntry> show_catalog;
@@ -4875,6 +4954,10 @@ int main(int argc, char** argv) {
                 if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                     std::string action;
                     park.click(x, y, action);
+                    if (park.quit_requested()) {
+                        park.clear_quit_request();
+                        park_quit_requested = true;
+                    }
                     apply_park_action(x, y, action, "park click");
                 }
             }
@@ -4892,6 +4975,10 @@ int main(int argc, char** argv) {
                                          static_cast<float>(wy), x, y);
                         std::string action;
                         park.click(x, y, action);
+                        if (park.quit_requested()) {
+                            park.clear_quit_request();
+                            park_quit_requested = true;
+                        }
                         apply_park_action(x, y, action, "park window click");
                     }
                 }
@@ -4927,17 +5014,50 @@ int main(int argc, char** argv) {
                 resolve_asset(opt.asset_root, "Data/Video/" + video);
         }
     };
+    // The briefing LIST wraps at its column width; scroll clicks applied
+    // below need the line count before the first draw.
+    auto update_campaign_info_lines = [&]() {
+        menu.campaign_info_lines = 0;
+        const dino::Campaign* selected = menu.selected_campaign();
+        const dino::ui::Widget* list =
+            menu.overlay.get("CAMPAIGN_INFO_DESCRIPTION");
+        if (selected == nullptr || list == nullptr) {
+            return;
+        }
+        const int row_w =
+            std::max(0, list->width - list->list_scroll_width);
+        try {
+            const std::string font_path = list->font.empty()
+                                              ? "Data/Fonte/FONT14.fnt"
+                                              : list->font;
+            const dino::Fnt font =
+                dino::load_fnt(resolve_asset(opt.asset_root, font_path));
+            const float scale =
+                list->text_height > 0 && font.font_size > 0
+                    ? static_cast<float>(list->text_height) /
+                          static_cast<float>(font.font_size)
+                    : 1.0f;
+            menu.campaign_info_lines = static_cast<int>(wrap_lines_pixels(
+                font, scale,
+                dino::ui::resolve_loc_text(selected->description_id, menu.loc),
+                static_cast<float>(row_w)).size());
+        } catch (const std::exception&) {
+            menu.campaign_info_lines = 0;
+        }
+    };
     if (menu_loaded) {
         menu.loading_time = opt.menu_loading_time;
         menu.save_count = static_cast<int>(menu_save_slots.size());
         if (opt.menu_page >= 0) {
             menu.page = std::clamp(opt.menu_page, 0, 8);
         }
+        update_campaign_info_lines();
         for (const auto& value : opt.menu_clicks) {
             int x = 0;
             int y = 0;
             if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                 menu.click(x, y);
+                update_campaign_info_lines();
                 queue_menu_load();
                 queue_menu_cinematic();
             }
@@ -5968,6 +6088,13 @@ int main(int argc, char** argv) {
                 (widget.name == "FREE_HARD_BUTTON" && menu.difficulty == 2)) {
                 frame = 7;
             }
+            // Retail starts the campaign list with no row selected; START is
+            // disabled (frame 0) until an unlocked campaign is chosen.
+            if (widget.name == "CAMPAIGN_START_BUTTON" &&
+                (menu.selected_campaign() == nullptr ||
+                 !menu.campaign_unlocked(menu.campaign))) {
+                frame = 0;
+            }
 
             if (!widget.texture.empty()) {
                 if (const dino::ui::Graphic* graphic =
@@ -6123,24 +6250,39 @@ int main(int argc, char** argv) {
                 const std::string list_justify =
                     widget.justify.empty() ? "CENTER" : widget.justify;
                 if (campaign_info) {
-                    // Page 3 is the campaign briefing: the LIST holds wrapped
-                    // paragraphs (literal `\n` separators in the .loc record),
-                    // not one row per item like the island/campaign lists.
+                    // Page 3 is the campaign briefing: the LIST holds the
+                    // selected campaign's description wrapped at the list
+                    // column (235 - 22 = 213 px). The retail break positions
+                    // match a pixel wrap, not a character count; the VSCROLL
+                    // scrolls the wrapped lines with a proportional thumb.
                     const dino::Campaign* selected = menu.selected_campaign();
                     if (selected != nullptr && list_font != nullptr) {
-                        const std::string briefing = limit_lines(
-                            wrap_text(dino::ui::resolve_loc_text(
-                                          selected->description_id, menu.loc),
-                                      34),
-                            static_cast<std::size_t>(
-                                std::max(1, visible_rows)));
+                        const std::vector<std::string> lines =
+                            wrap_lines_pixels(
+                                *list_font, list_scale * dpi,
+                                dino::ui::resolve_loc_text(
+                                    selected->description_id, menu.loc),
+                                static_cast<float>(row_w) * dpi);
+                        menu.campaign_info_lines =
+                            static_cast<int>(lines.size());
+                        const int first = menu.list_first_row(
+                            "CAMPAIGN_INFO_DESCRIPTION");
+                        std::string visible;
+                        for (int i = first;
+                             i < static_cast<int>(lines.size()) &&
+                             i < first + visible_rows;
+                             ++i) {
+                            visible += lines[static_cast<std::size_t>(i)];
+                            visible += '\n';
+                        }
                         const dino::Mesh block = build_text_block(
-                            *list_font, briefing,
+                            *list_font, visible,
                             px(widget.abs_x) + 4.0f * dpi,
                             py(widget.abs_y) + 2.0f * dpi, list_scale * dpi,
                             widget.text_color, "LEFT",
                             static_cast<float>(row_w - 4) * dpi,
-                            static_cast<float>(widget.height) * dpi);
+                            static_cast<float>(widget.height) * dpi,
+                            static_cast<float>(line_h) * dpi);
                         draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
                                      view_w, view_h);
                     }
@@ -6235,7 +6377,11 @@ int main(int argc, char** argv) {
                 if (widget.list_scroll_width > 0) {
                     const dino::ui::ListScrollGeometry scroll =
                         menu.list_scroll_geometry(widget.name);
-                    if (scroll.width > 0) {
+                    // Retail hides the auto-created VSCROLL when the list
+                    // fits (range == 1): the campaign list (7 rows in an
+                    // 8-row viewport) shows bare panel metal, while the
+                    // island list (10 rows) shows the bar.
+                    if (scroll.width > 0 && scroll.range > 1) {
                         const float scroll_x = px(scroll.x);
                         const float scroll_y = py(scroll.y);
                         const float scroll_w =
@@ -6244,6 +6390,11 @@ int main(int argc, char** argv) {
                             static_cast<float>(scroll.height) * dpi;
                         const float arrow =
                             static_cast<float>(scroll.arrow) * dpi;
+                        // State frames are universal (docs/formats/overlay-ini.md):
+                        // 0 = disabled, 4 = normal, 5 = hover, 6 = pressed,
+                        // 7 = selected. SKIP_LIST only removes animation
+                        // frames 1-3, so normal is frame 4 even though the
+                        // art skips 1 2 3.
                         draw_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
                                     scroll_w, scroll_h, 0);
                         draw_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
@@ -6260,7 +6411,11 @@ int main(int argc, char** argv) {
             }
 
             const std::string text = menu.text_for(widget);
-            if (!text.empty()) {
+            // Retail only draws widget text when TEXT_HEIGHT is set (the
+            // glyph scale is TEXT_HEIGHT / font_size, so an absent height is
+            // a zero scale). Icon buttons such as START_BUTTON/CANCEL_BUTTON
+            // carry a TEXT key but no TEXT_HEIGHT and render as bare art.
+            if (!text.empty() && widget.text_height > 0) {
                 float scale = 1.0f;
                 GLuint atlas = 0;
                 if (const dino::Fnt* font =
@@ -11351,6 +11506,9 @@ int main(int argc, char** argv) {
     };
 
     bool running = true;
+    if (park_quit_requested) {
+        running = false;
+    }
     bool start_screen = opt.force_menu ||
         (opt.frames == 0 && opt.screenshot.empty() && !opt.no_menu);
     if (menu_loaded && opt.use_menu && !menu.active) {
@@ -11622,6 +11780,10 @@ int main(int argc, char** argv) {
                     const int hit = park.overlay.hit_test(dx, dy);
                     std::string action;
                     if (park.click(dx, dy, action)) {
+                        if (park.quit_requested()) {
+                            park.clear_quit_request();
+                            running = false;
+                        }
                         if (hit >= 0) {
                             park_active_index = hit;
                         }

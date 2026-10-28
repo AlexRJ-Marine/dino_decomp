@@ -112,6 +112,9 @@ public:
     void show_mission_panel();
     void set_mission_verdicts(const std::vector<int>& verdicts);
     void clear_mission();
+    // In-park `OPTIONS_MENU_EXIT_ICON` (`&QuitGame`): the viewer exits.
+    bool quit_requested() const { return quit_requested_; }
+    void clear_quit_request() { quit_requested_ = false; }
 
     // Show construction (`PREDEFINED_SHOW_PANEL`): the mission `[SHOWS]`
     // catalog fills `PREDEFINED_SHOW_LIST`; VALIDATE arms the viewer's show
@@ -150,6 +153,7 @@ private:
     int save_selected_ = -1;
     std::string save_name_ = "quicksave";
     bool name_edit_ = false;
+    bool quit_requested_ = false;
     std::vector<StoreRow> store_rows_;
     int store_selected_ = -1;
     int store_scroll_ = 0;

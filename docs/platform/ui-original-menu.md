@@ -383,8 +383,26 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `notes/menu-layout-scroll-recon.md`; tests
   `test_cpp_menu_start_loads_selected_island` (rows 0/3/7/9) and
   `test_cpp_menu_start_all_islands` (all 10 with scroll).
-- Open: wrapped `CAMPAIGN_INFO_DESCRIPTION` scrolling, hold-to-repeat,
-  list-row hover frames.
+- [x] `CAMPAIGN_INFO_DESCRIPTION` is a wrapped LINE list: 17 px rows, 16
+      visible, pixel-wrapped at `235 - 22 = 213` px. The wrap + FONT14
+      advances reproduce the retail line breaks exactly; the line pitch was
+      14 (font line height) and is now `LB_LINE_HEIGHT` = 17.
+- [x] Glyph advance is `glyph.width - 1` (retail: "PANIC IN THE SAVANNA" 135
+      px vs `sum(width)-(n-1)` 137; "CAMPAIGNS" FONT19 100 px). The port used
+      the full ink width, stretching every string ~10%.
+- [x] Widget `TEXT` only renders when `TEXT_HEIGHT` is set (scale is
+      `TEXT_HEIGHT/font_size`); icon buttons have `TEXT` but no height and
+      show bare art.
+- [x] The VSCROLL is hidden when `range == 1` (campaign list 7 rows in 8 has
+      no bar; island list still does).
+- [x] The campaign list starts with no selection (`Menu::campaign = -1`);
+      `CAMPAIGN_START_BUTTON` draws the disabled frame (0) until an unlocked
+      campaign is picked.
+- Evidence: retail `notes/harness/campaign-{list,selected,info}.png` diffed
+  against `build/campaign-select-port6`, `build/campaign-selected-port`,
+  `build/campaign-info-port8`; test
+  `test_cpp_campaign_info_description_scroll`.
+- Open: hold-to-repeat, list-row hover frames.
 
 ### Phase B5 — Options page and video exit (done)
 

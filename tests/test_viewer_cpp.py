@@ -1081,6 +1081,130 @@ def test_cpp_menu_options_page(tmp_path):
     assert "width=1024" in text and "height=768" in text
 
 
+def test_cpp_campaign_info_description_scroll(tmp_path):
+    """The wrapped briefing is a real LIST viewport: the scrollbar moves it."""
+    if not EXE.exists() or not (GAME / "Data/Overlay/MenuInterface.Ini").exists():
+        pytest.skip("viewer or retail data missing")
+    base = tmp_path / "info-base.bmp"
+    scrolled = tmp_path / "info-scrolled.bmp"
+    common = [
+        str(EXE), "--frames", "3", "--no-vsync", "--no-save-config",
+        "--width", "800", "--height", "600", "--asset-root", str(GAME),
+        "--menu", "--menu-page", "0",
+        "--menu-click", "395,189",   # Campaigns
+        "--menu-click", "409,285",   # Cpg04
+        "--menu-click", "364,530",   # briefing
+    ]
+    a = subprocess.run(common + ["--screenshot", str(base)],
+                       capture_output=True, text=True, timeout=120)
+    assert a.returncode == 0, a.stderr
+    b = subprocess.run(
+        common + ["--menu-click", "373,411", "--menu-click", "373,411",
+                  "--menu-click", "373,411", "--screenshot", str(scrolled)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert b.returncode == 0, b.stderr
+    first = Image.open(base).convert("RGB")
+    second = Image.open(scrolled).convert("RGB")
+    # The text viewport and the thumb change; the rest of the page does not.
+    diff = ImageChops.difference(first, second)
+    assert diff.getbbox() is not None
+    text_area = (140, 140, 390, 430)
+    assert ImageChops.difference(first.crop(text_area),
+                                 second.crop(text_area)).getbbox() is not None
+
+
+def test_cpp_campaign_list_starts_unselected(tmp_path):
+    """Retail campaigns page: no row selected, START disabled until a click.
+
+    Probes the START icon plate brightness: the disabled art (frame 0) is
+    dark (median 46 on the retail capture), the enabled art (frame 4) is
+    bright (median 151).
+    """
+    if not EXE.exists() or not (GAME / "Data/Overlay/MenuInterface.Ini").exists():
+        pytest.skip("viewer or retail data missing")
+    common = [
+        str(EXE), "--frames", "3", "--no-vsync", "--no-save-config",
+        "--width", "800", "--height", "600", "--asset-root", str(GAME),
+        "--menu", "--menu-page", "2",
+    ]
+    base = tmp_path / "list.bmp"
+    selected = tmp_path / "selected.bmp"
+    a = subprocess.run(common + ["--screenshot", str(base)],
+                       capture_output=True, text=True, timeout=120)
+    assert a.returncode == 0, a.stderr
+    b = subprocess.run(
+        common + ["--menu-click", "409,285", "--screenshot", str(selected)],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert b.returncode == 0, b.stderr
+
+    def plate(path):
+        im = Image.open(path).convert("RGB")
+        values = []
+        for x in range(350, 380):
+            for y in range(514, 546):
+                values.append(max(im.getpixel((x, y))))
+        values.sort()
+        return values[len(values) // 2]
+
+    assert plate(base) < 80 < plate(selected), (plate(base), plate(selected))
+
+
+def test_cpp_campaign_list_fits_has_no_scrollbar(tmp_path):
+    """7 campaign rows fit the 8-row viewport: retail hides the VSCROLL.
+
+    The briefing page (range > 1) shows the red arrows in the same column.
+    """
+    if not EXE.exists() or not (GAME / "Data/Overlay/MenuInterface.Ini").exists():
+        pytest.skip("viewer or retail data missing")
+    shots = {}
+    for name, clicks in (
+        ("list", ["--menu-page", "2"]),
+        ("info", ["--menu-page", "0", "--menu-click", "395,189",
+                  "--menu-click", "409,285", "--menu-click", "364,530"]),
+    ):
+        path = tmp_path / f"{name}.bmp"
+        result = subprocess.run(
+            [str(EXE), "--frames", "3", "--no-vsync", "--no-save-config",
+             "--width", "800", "--height", "600", "--asset-root", str(GAME),
+             "--menu", *clicks, "--screenshot", str(path)],
+            capture_output=True, text=True, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        shots[name] = path
+
+    def red_pixels(path):
+        im = Image.open(path).convert("RGB")
+        return sum(
+            1 for x in range(362, 385) for y in range(166, 440)
+            if (lambda p: p[0] > 180 and p[1] < 110 and p[2] < 110)(
+                im.getpixel((x, y)))
+        )
+
+    assert red_pixels(shots["list"]) == 0
+    assert red_pixels(shots["info"]) > 10
+
+
+def test_cpp_park_options_quit(tmp_path):
+    """In-park OPTIONS_MENU_EXIT_ICON (`&QuitGame`) exits the viewer."""
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not EXE.exists() or not isl04.exists() or not wld.exists():
+        pytest.skip("viewer or retail Cpg04 data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "5", "--no-menu", "--no-vsync",
+         "--no-save-config", "--width", "800", "--height", "600",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--park-click", "765,348",   # open OPTIONS_PANEL
+         "--park-click", "447,74"],   # quit icon
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "park click 447,74 -> quit game" in result.stdout, result.stdout
+
+
 def test_cpp_park_hud_load():
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
