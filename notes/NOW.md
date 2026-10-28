@@ -172,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - PLACE-1: fence palette pulse ported from the binary - bank 4 additive laser sin4 (1.571 s), bank 1 Dino_SelectedWall sin10 (0.628 s, 1.0-2.0x); click-select enclosure with right-click deselect; HUD/minimap tint reset; full suite 493
 - 2026-10-28 - PLACE-1: exact retail enclosure visuals - gatAttraction sandy ground quad (boue_pad x ground_occup_pad, rand quadrant, Wrap), additive cyan-white laser2 post lamps, mode-2 4-unit helper grid with exact colours, fence nearest-anchor snap; full suite 492
 - 2026-10-28 - PLACE-1: ground pick now uses the terrain render FOV (80 deg), fixing the road/fence cursor offset; enclosure pending template draws helper_sphere dots every 8 units along the sides (blue/maroon), start validation matches the disc; full suite 492
 - 2026-10-28 - PLACE-1: map-unit occupancy grid wired into roads/buildings/fences (classes 1/2/7/0xF); exact two-click enclosure (margin 4, side >= 23, 30/cell from Fence.bwi, class-7 wall lines, cost toast); full suite 492
@@ -179,7 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - PARK-QUIT: exact retail flow (REQUEST dialog &REQUEST_RETURN_MENU, validate -> main menu with menu music, cancel stays, no save warning/autosave; binary listener 0x524180/callback 0x5242e0, retail harness test-quit-flow.ps1); full suite 483
 - 2026-10-28 - MENU-1: point-sampled .fnt atlas, whole-pixel text origins, cell-height centring; campaign row/title glyphs now pixel-identical to retail (full suite 483)
 - 2026-10-28 - MENU-1: retail glyph advance (width-1), campaign briefing pixel wrap at 213 px/17 px rows, TEXT_HEIGHT gate, VSCROLL hidden at range 1, campaign list starts unselected (disabled START), in-park Quit wired; full suite 482
-- 2026-10-28 - MENU-1: Options page live and cinematics click-to-skip
 
 ## Blockers
 
