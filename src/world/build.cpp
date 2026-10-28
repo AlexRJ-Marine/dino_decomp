@@ -39,6 +39,38 @@ void append_mesh(Mesh& dst, const Mesh& src, const Vec3& offset, float angle,
     }
 }
 
+void append_mesh_scaled(Mesh& dst, const Mesh& src, const Vec3& offset,
+                        float angle, const Vec3& scale) {
+    const bool has_normals = src.normals.size() == src.positions.size();
+    const bool has_uvs = src.uvs.size() == src.positions.size();
+    const auto base = static_cast<std::uint32_t>(dst.positions.size());
+    const float cs = std::cos(angle);
+    const float sn = std::sin(angle);
+    for (std::size_t i = 0; i < src.positions.size(); ++i) {
+        const Vec3& p = src.positions[i];
+        const float sx = p.x * scale.x;
+        const float sy = p.y * scale.y;
+        dst.positions.push_back({offset.x + cs * sx - sn * sy,
+                                 offset.y + sn * sx + cs * sy,
+                                 offset.z + p.z * scale.z});
+        if (has_normals) {
+            const Vec3& n = src.normals[i];
+            dst.normals.push_back(normalize(
+                {cs * (n.x / (scale.x != 0.0f ? scale.x : 1.0f)) -
+                     sn * (n.y / (scale.y != 0.0f ? scale.y : 1.0f)),
+                 sn * (n.x / (scale.x != 0.0f ? scale.x : 1.0f)) +
+                     cs * (n.y / (scale.y != 0.0f ? scale.y : 1.0f)),
+                 n.z / (scale.z != 0.0f ? scale.z : 1.0f)}));
+        }
+        if (has_uvs) {
+            dst.uvs.push_back(src.uvs[i]);
+        }
+    }
+    for (const std::uint32_t index : src.indices) {
+        dst.indices.push_back(base + index);
+    }
+}
+
 }  // namespace
 
 void BuildGrid::init(float new_cell_size, float world_size) {
@@ -460,20 +492,41 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
                       const BuildGrid& grid, const Terrain& terrain) {
     Mesh out;
     out.name = "road_helper";
+    const int cells = road.cells();
+    if (cells <= 0 || helper_box.positions.empty()) {
+        return out;
+    }
     const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
     const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
-    // Retail centres each box 1.5 units into the 4-unit cell ((step - 1) / 2).
+    // One helper box spans the whole straight run. The old per-cell boxes
+    // overlapped and additive-blended to white; retail shows one solid blue
+    // (or red) preview strip.
     const float inset = (grid.cell_size - 1.0f) * 0.5f;
-    int x = road.x0;
-    int y = road.y0;
-    for (int i = 0; i < road.cells(); ++i) {
-        const float wx = grid.origin_x + static_cast<float>(x) * grid.cell_size + inset;
-        const float wy = grid.origin_y + static_cast<float>(y) * grid.cell_size + inset;
-        append_mesh(out, helper_box, {wx, wy, terrain.height_at(wx, wy)}, 0.0f,
-                    grid.cell_size);
-        x += sx;
-        y += sy;
+    const float mid_x =
+        static_cast<float>(road.x0) +
+        static_cast<float>(sx) * static_cast<float>(cells - 1) * 0.5f;
+    const float mid_y =
+        static_cast<float>(road.y0) +
+        static_cast<float>(sy) * static_cast<float>(cells - 1) * 0.5f;
+    const float wx =
+        grid.origin_x + mid_x * grid.cell_size + inset;
+    const float wy =
+        grid.origin_y + mid_y * grid.cell_size + inset;
+    Vec3 scale{static_cast<float>(cells) * grid.cell_size, grid.cell_size,
+               grid.cell_size};
+    float angle = 0.0f;
+    if (sx == 0) {
+        scale = {grid.cell_size, static_cast<float>(cells) * grid.cell_size,
+                 grid.cell_size};
+    } else if (sy != 0) {
+        const float dx = static_cast<float>(road.x1 - road.x0);
+        const float dy = static_cast<float>(road.y1 - road.y0);
+        angle = std::atan2(dy, dx);
+        scale.x = std::sqrt(dx * dx + dy * dy) * grid.cell_size +
+                  grid.cell_size;
     }
+    append_mesh_scaled(out, helper_box, {wx, wy, terrain.height_at(wx, wy)},
+                       angle, scale);
     return out;
 }
 

@@ -1954,6 +1954,10 @@ struct DrawItem {
     float alpha = 1.0f;
     // Water: Data/States/WaterSurface.ini uses src One / dest One / Add.
     bool additive = false;
+    // Additive items normally leave the depth buffer alone; a solid preview
+    // box needs the nearest face to win so back/side faces do not add a
+    // second layer and saturate to white.
+    bool depth_write = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
     int fog = 0;
     // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
@@ -2151,7 +2155,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
             } else {
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             }
-            glDepthMask(GL_FALSE);
+            glDepthMask(item.depth_write ? GL_TRUE : GL_FALSE);
         }
         if (item.texture != 0) {
             glBindTexture(GL_TEXTURE_2D, item.texture);
@@ -6955,6 +6959,7 @@ int main(int argc, char** argv) {
             // the pulsing gscMaterialBank colour, blended One/One.
             DrawItem item{&road_preview_gpu, road_preview_texture};
             item.additive = true;
+            item.depth_write = true;
             extra_items.push_back(item);
         }
         if (fence_gpu.vao != 0) {
