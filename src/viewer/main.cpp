@@ -9416,6 +9416,20 @@ int main(int argc, char** argv) {
             std::printf("campaign show features: spawned=%zu/%zu features=%zu\n",
                         show_features_spawned, show_waypoints,
                         show_features.size());
+            if (!opt.camera_target.empty()) {
+                // Scripted campaign screenshots need a view independent of
+                // the park's default start camera.
+                float tx = 0.0f;
+                float ty = 0.0f;
+                if (std::sscanf(opt.camera_target.c_str(), "%f,%f", &tx,
+                                &ty) == 2) {
+                    center = {tx, ty, terrain.height_at(tx, ty) + 2.5f};
+                    distance = opt.distance > 0.0f ? opt.distance : 12.0f;
+                    yaw = opt.yaw;
+                    pitch = opt.pitch;
+                    camera_retail_model = false;
+                }
+            }
             rebuild_extra_items();
             wld_dinosaurs = world.dinosaurs;
             for (const dino::RoadRect& road : world.roads) {
