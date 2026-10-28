@@ -154,7 +154,10 @@ void Menu::click(int x, int y) {
     } else if (name == "FREE_HARD_BUTTON") {
         difficulty = 2;
     } else if (name == "ISLAND_LIST") {
-        const int line = widget.height > 0 ? widget.height / 10 : 28;
+        // Retail rows are LB_LINE_HEIGHT (34 px), not height/10: the list is
+        // an 8-row viewport over 10 islands (MenuInterface.Ini).
+        const int line =
+            widget.list_line_height > 0 ? widget.list_line_height : 34;
         const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
         island = std::clamp(selected, 0, 9);
     } else if (name == "CAMPAIGN_LIST") {
