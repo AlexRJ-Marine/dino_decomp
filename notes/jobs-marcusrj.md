@@ -40,7 +40,7 @@ file is the single place to claim work.
 | R-12 | Camera parity | `src/viewer/main.cpp` camera | Mouse orbit/pivot/zoom/limits match a retail side-by-side trace |
 | R-13 | Building preview texture | `src/viewer/main.cpp` placement render | Placed/preview building uses its real texture, not a white model |
 | R-14 | Enclosure placement | `src/ui/park.cpp`, `src/viewer/main.cpp` | Panel now arms the fence tool and ground clicks place edges; remaining: blue/red validity circles and perimeter rules |
-| R-15 | Campaign world population | `src/viewer/main.cpp` campaign start | Import shows/animals/employees from `CpgNN_Save.wld`; campaign start test asserts them |
+| R-15 | Campaign world population | `src/viewer/main.cpp` campaign start | Done: `.wld` simulation lists parsed; 6 employees + 2 food sources spawn/render; 51/71 show waypoint features render; Cpg04 tests assert them |
 
 ## Coordination
 
