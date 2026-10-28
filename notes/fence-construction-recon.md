@@ -92,7 +92,11 @@ compares it with `0x17` (23). On a match it calls `0x5269e0` (title/price),
 - `0x52c1f0` walks the park paddock list (`+0x8c..+0x90`, 0x1f4-stride) and
   updates the dino-quantity/occupation stat widgets.
 - `0x526d70` walks the 62 `.bfi` records (`gdt+0x7c`, 0x1d8 stride) and adds
-  the names whose `+0x1d4` flag is set to the fence feature list.
+  the names whose `+0x1d4` byte is set to the fence feature list. That byte is
+  **not** the final `tail_flag` (last byte `+0x1d7`, only LunchBox); it sits
+  just before the switch-key/name tail and is likely the construction-kit
+  availability flag (60/62 features have a `SWITCH_*` key). The exact
+  vocabulary is open.
 
 Selecting a feature calls `0x52bbb0`: reads the UI selection into `+0x78`,
 sets `+0x48 = 1` (feature mode) and prepares the preview.
@@ -270,9 +274,10 @@ gate or refund.
 
 ## Open
 
-- What the selected UI row `0x17` (23) means in `0x526930`; the feature list
-  is filtered by the `.bfi` tail flag `+0x1d4` (only LunchBox in retail data),
-  so the row vocabulary is not the 62-entry FeatureList index.
+- What the selected UI row `0x17` (23) means in `0x526930`. The feature list
+  is the `+0x1d4`-filtered `.bfi` set (likely the ~60 features with a
+  construction-kit switch key), so the row is not a raw 62-entry FeatureList
+  index; the list order vs FeatureList order is not yet mapped.
 - Exact decomposition of the `0x581b90` cost magic.
 - `0x527030` / `0x526e70` extended hooks.
 - `0x584700` cell-record field layout and `0x5849a0` finalisation.
