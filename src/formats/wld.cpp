@@ -35,6 +35,19 @@ public:
         return static_cast<std::int32_t>(u32(what));
     }
 
+    std::uint16_t u16(const char* what) {
+        need(2, what);
+        const std::uint16_t value = static_cast<std::uint16_t>(
+            data_[off_] | (static_cast<std::uint16_t>(data_[off_ + 1]) << 8));
+        off_ += 2;
+        return value;
+    }
+
+    std::uint8_t u8(const char* what) {
+        need(1, what);
+        return data_[off_++];
+    }
+
     void skip(std::size_t size, const char* what) {
         need(size, what);
         off_ += size;
@@ -507,6 +520,11 @@ void check_version(std::uint32_t version, const std::string& path) {
 
 }  // namespace
 
+namespace {
+std::size_t campaign_dino_end(const std::vector<std::uint8_t>& data,
+                              std::size_t pos, const std::string& path);
+}
+
 WldWorld read_wld(const std::string& path) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
     if (data.size() < 8) {
@@ -545,8 +563,68 @@ WldWorld read_wld(const std::string& path) {
     }
 
     // The simulation object lists follow the road rectangles; the camera is
-    // the last 40 bytes of the file. The intermediate lists are not decoded
-    // yet, so do not require the roads to end at the camera.
+    // the last 40 bytes of the file. Parse the lists that carry the live
+    // actor positions/state (see notes/campaign-world-instantiation.md).
+    const std::uint32_t dino_count = r.count("simulation dino count", 10000);
+    for (std::uint32_t i = 0; i < dino_count; ++i) {
+        const std::size_t pos = campaign_dino_end(data, r.offset(), path);
+        if (pos > body_end || pos < r.offset()) {
+            throw std::runtime_error("wld: campaign dino record past body");
+        }
+        r.skip(pos - r.offset(), "campaign dino record");
+    }
+
+    const std::uint32_t food_count = r.count("food source count", 10000);
+    out.food_sources.reserve(food_count);
+    for (std::uint32_t i = 0; i < food_count; ++i) {
+        WldFoodSource source;
+        source.id = r.u32("food source id");
+        source.cell_x = r.u32("food source cell x");
+        source.cell_y = r.u32("food source cell y");
+        const std::vector<std::uint8_t> state =
+            r.bytes(4, "food source state");
+        for (std::size_t b = 0; b < state.size(); ++b) {
+            source.state[b] = state[b];
+        }
+        source.field_10 = r.u16("food source field 10");
+        source.field_12 = r.u16("food source field 12");
+        source.x = read_f32(data, r.offset(), "food source x");
+        source.y = read_f32(data, r.offset() + 4, "food source y");
+        source.dx = read_f32(data, r.offset() + 8, "food source dx");
+        source.dy = read_f32(data, r.offset() + 12, "food source dy");
+        r.skip(16, "food source position");
+        source.field_4c = r.u32("food source field 4c");
+        source.field_44 = r.u32("food source field 44");
+        out.food_sources.push_back(source);
+    }
+
+    const std::uint32_t employee_count =
+        r.count("employee count", 10000);
+    out.employees_sim.reserve(employee_count);
+    for (std::uint32_t i = 0; i < employee_count; ++i) {
+        WldEmployeeState employee;
+        employee.id = r.u32("employee id");
+        employee.cell_x = r.u32("employee cell x");
+        employee.cell_y = r.u32("employee cell y");
+        const std::vector<std::uint8_t> state =
+            r.bytes(4, "employee state bytes");
+        for (std::size_t b = 0; b < state.size(); ++b) {
+            employee.state_bytes[b] = state[b];
+        }
+        employee.field_10 = r.u16("employee field 10");
+        employee.field_12 = r.u16("employee field 12");
+        employee.state = r.u32("employee state");
+        employee.x = read_f32(data, r.offset(), "employee x");
+        employee.y = read_f32(data, r.offset() + 4, "employee y");
+        employee.dx = read_f32(data, r.offset() + 8, "employee dx");
+        employee.dy = read_f32(data, r.offset() + 12, "employee dy");
+        r.skip(16, "employee position");
+        employee.field_44 = r.u8("employee field 44");
+        employee.field_45 = r.u8("employee field 45");
+        employee.field_4c = r.u8("employee field 4c");
+        out.employees_sim.push_back(employee);
+    }
+    out.has_simulation_lists = true;
     return out;
 }
 

@@ -3667,6 +3667,32 @@ int main(int argc, char** argv) {
                 std::printf("employee: obj=%u field1c=%u\n", employee.object_id,
                             employee.field_1c);
             }
+            if (world.has_simulation_lists) {
+                std::printf("sim lists: food_sources=%zu employees=%zu\n",
+                            world.food_sources.size(),
+                            world.employees_sim.size());
+                for (const dino::WldFoodSource& source : world.food_sources) {
+                    std::printf(
+                        "food source: id=%u cell=%u,%u pos=%.3f,%.3f "
+                        "dir=%.3f,%.3f\n",
+                        source.id, source.cell_x, source.cell_y,
+                        static_cast<double>(source.x),
+                        static_cast<double>(source.y),
+                        static_cast<double>(source.dx),
+                        static_cast<double>(source.dy));
+                }
+                for (const dino::WldEmployeeState& employee :
+                     world.employees_sim) {
+                    std::printf(
+                        "sim employee: id=%u cell=%u,%u pos=%.3f,%.3f "
+                        "dir=%.3f,%.3f state=%u\n",
+                        employee.id, employee.cell_x, employee.cell_y,
+                        static_cast<double>(employee.x),
+                        static_cast<double>(employee.y),
+                        static_cast<double>(employee.dx),
+                        static_cast<double>(employee.dy), employee.state);
+                }
+            }
             if (world.has_camera) {
                 std::printf("camera:");
                 for (const float value : world.camera) {
@@ -9201,6 +9227,8 @@ int main(int argc, char** argv) {
     // building/road/dinosaur import path as `--wld-park`.
     auto load_campaign_park = [&](const std::string& world_path) {
         clear_imported_dinos();
+        food_sources.clear();
+        employee_system.employees.clear();
         wld_roads.clear();
         wld_fences.clear();
         wld_dinosaurs.clear();
@@ -9220,6 +9248,35 @@ int main(int argc, char** argv) {
             import_park_layout();
             load_dino_family_tables();
             spawn_world_dinos();
+            // Campaign employees: the .wld simulation list stores the live
+            // positions; the world record only carries the actor id. Retail
+            // assigns profile index 0 (Nutritionist) because drsEmployee's
+            // +0x20 profile field is never written on the load path.
+            int spawned_employees = 0;
+            const float half = terrain.world_size * 0.5f;
+            if (!employee_profiles.empty()) {
+                for (const dino::WldEmployeeState& saved :
+                     world.employees_sim) {
+                    if (employee_system.hire(employee_profiles, 0,
+                                             saved.x - half,
+                                             saved.y - half)) {
+                        ++spawned_employees;
+                    }
+                }
+            }
+            std::printf(
+                "campaign employees: spawned=%d/%zu profile=Nutritionist\n",
+                spawned_employees, world.employees_sim.size());
+            if (spawned_employees > 0 && !employee_pose.positions.empty()) {
+                if (employee_image.width > 0 && employee_texture_id == 0) {
+                    employee_texture_id = upload_texture(employee_image);
+                }
+                employee_gpu = upload_mesh(
+                    employee_system.build_mesh(terrain, employee_pose), glfns);
+                rebuild_extra_items();
+                std::printf("campaign employees: rendered=%zu\n",
+                            employee_system.employees.size());
+            }
             print_paddock_totals();
             std::printf(
                 "campaign park: %s buildings=%zu roads=%zu fences=%zu "

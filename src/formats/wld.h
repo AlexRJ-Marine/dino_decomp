@@ -232,6 +232,26 @@ struct SavWorldRecords {
         misc_flags;
 };
 
+// Campaign `.wld` simulation lists after the road rectangles. The records
+// are the runtime actors created by the world-block commit; positions/state
+// live here, keyed by the drs record's field_1c id.
+struct WldFoodSource {
+    std::uint32_t id = 0, cell_x = 0, cell_y = 0;
+    std::array<std::uint8_t, 4> state{};
+    std::uint16_t field_10 = 0, field_12 = 0;
+    float x = 0.0f, y = 0.0f, dx = 0.0f, dy = 0.0f;
+    std::uint32_t field_4c = 0, field_44 = 0;
+};
+
+struct WldEmployeeState {
+    std::uint32_t id = 0, cell_x = 0, cell_y = 0;
+    std::array<std::uint8_t, 4> state_bytes{};
+    std::uint16_t field_10 = 0, field_12 = 0;
+    std::uint32_t state = 0;
+    float x = 0.0f, y = 0.0f, dx = 0.0f, dy = 0.0f;
+    std::uint8_t field_44 = 0, field_45 = 0, field_4c = 0;
+};
+
 struct WldWorld {
     std::uint32_t version = 0;
     std::uint32_t mode = 0;
@@ -248,6 +268,11 @@ struct WldWorld {
     std::vector<WorldDinosaur> dinosaurs;
     std::vector<WorldVisitor> visitors;
     std::vector<RoadRect> roads;
+    // Campaign `.wld` simulation lists after the roads (positions/state of
+    // the actors created from records.animals/employees).
+    bool has_simulation_lists = false;
+    std::vector<WldFoodSource> food_sources;
+    std::vector<WldEmployeeState> employees_sim;
     std::array<float, 10> camera{};
     bool has_camera = false;
     std::size_t world_end = 0;  // first byte after the parsed world block

@@ -121,6 +121,13 @@ waypoint_count x {
 Below version 3 the first waypoint dword is synthesised (0); below `0x25` the
 second field is stored as `key - 0x1e61`.
 
+For `drsShow`, `field_14` is the **`WallList.ini` index** (0 = `Fence.bwi`,
+1 = `Show.bwi`), not a show index. For fences it is the fence style. The
+show's content is its waypoint list: one placed `.bfi` feature per waypoint
+(`x` = FeatureList index, `y` = rotation, `z`/`extra` = cell offset from
+`start`). Cpg04's show has 71 waypoints and is an authored layout, not a copy
+of any `.shw`.
+
 ### Simple base (`drsVisitor`, `drsEmployee`, `drsAnimal`, `drsDinosaur`)
 
 ```text
@@ -149,18 +156,35 @@ u32 field_44
 u32 field_48                    # version >= 0x25
 ```
 
+`drsShow.field_44`/`field_48` are **cached runtime registry ids**
+(`arena+0x70`, `behaviour+0x34`) re-derived by `drsShow::Set`
+(`0x005e7630`) on load; `field_44` is normally `object_id + 1`. They are not
+a show-catalog index and not a `.shw` reference. The same pattern applies to
+fences (`field_44 = object_id + 1`).
+
 ### `drsAnimal` (0x15)
 
 ```text
 simple base
-u32 field_20                    # version > 0x32
+u32 field_20                    # version > 0x32; animal profile index
 ```
+
+`drsAnimal.field_20` indexes the `animallist.ini` table and becomes the
+`saFoodSource` profile; `field_1c` is the actor's pre-assigned registry id
+(Cpg04: 263 -> 264, 266 -> 267). The actor's position/state is not in this
+record; it is in the `.wld` simulation list1 (below).
 
 ### `drsEmployee` (0x14)
 
 ```text
 simple base
 ```
+
+The employee's profile index (`+0x20` at runtime) is **not serialized** and is
+zeroed by the ctor on the load path, so every campaign employee starts as
+profile 0 = `Nutritionist`. The actor id is `field_1c` (Cpg04:
+12/14/336/374/410/63784 -> 13/15/337/375/411/63785); position/state is in
+simulation list2.
 
 ### `drsBuilding` (0x18)
 
@@ -259,8 +283,29 @@ u32 road_count
 road_count x (s32 x0, s32 y0, s32 x1, s32 y1)
 ```
 
-Cpg04 has 14 road rectangles; Cpg01 has one `(524,392)-(524,452)`. The
-remaining simulation object lists are not decoded.
+Cpg04 has 14 road rectangles; Cpg01 has one `(524,392)-(524,452)`.
+
+After the roads, a campaign `.wld` carries the **live simulation lists**
+(`FUN_00586ad0` -> `FUN_0058aed0`, campaign flag 1), in this order:
+
+```text
+u32 dino_count      ; dino_count x saDinosaur record (same 0x19+name+... rule)
+u32 food_count      ; food_count x 0x2C saFoodSource record
+u32 employee_count  ; employee_count x 0x2B employee record
+u32 building_attraction_count ; one record per building (not decoded)
+...                 ; further lists, store/lab, camera
+```
+
+`saFoodSource` (0x2C): `id, cell_x, cell_y, state[4], u16, u16, x, y, dx, dy,
+f4c, f44`.
+Employee (0x2B): `id, cell_x, cell_y, state[4], u16, u16, state, x, y, dx, dy,
+f44, f45, f4c`.
+
+Cpg04: list0 20 dinos, list1 2 food sources (ids 264/267 at 461.5,421.5 and
+461.5,445.5), list2 6 employees, then a 57-record list (one per building).
+The list1/list2 bytes are identical to the corresponding blocks of
+`build/campaign-autosave.sav`. Full evidence and the runtime actor mapping:
+`notes/campaign-world-instantiation.md`.
 
 ## Reader
 
@@ -278,10 +323,13 @@ Returns a `WldFile` with `version`, `mode`, a `WorldBlock`, `roads`,
 `src/formats/wld.{h,cpp}` mirrors the Python reader for versions 50–53 and
 exposes the subset the port needs:
 
-- `read_wld(path)` — campaign file: header, world block, road rectangles and
-  the 40-byte camera tail. The intermediate simulation object lists between
-  the roads and the camera are not decoded yet, so the reader does not require
-  the roads to end at the camera (Cpg04 has ~33 KB of simulation state there).
+- `read_wld(path)` — campaign file: header, world block, road rectangles,
+  simulation list0/list1/list2 (`food_sources`, `employees_sim`) and the
+  40-byte camera tail. The later lists (one per building, store/lab) are not
+  decoded, so the reader does not require the roads to end at the camera
+  (Cpg04 has ~33 KB of simulation state there). `tools/formats/sav_campaign.py`
+  can parse the same records from a raw blob; `tools/formats/wld.py` still
+  stops after the roads.
 - `read_sav_world(path)` — save file: skips the header
   (`0x18 + name_len`) and parses the same world block with the campaign flag
   clear. It stops before the show catalog count.

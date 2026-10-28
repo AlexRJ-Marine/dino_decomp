@@ -1491,6 +1491,11 @@ def test_cpp_wld_reader_matches_retail():
             "field44=195 field48=63526") in text
     assert "animal: obj=263 field1c=264 field20=0" in text
     assert "employee: obj=12 field1c=13" in text
+    assert "sim lists: food_sources=2 employees=6" in text
+    assert ("food source: id=264 cell=461,461 pos=461.500,421.500 "
+            "dir=-1.000,0.000") in text
+    assert ("sim employee: id=13 cell=475,340 pos=474.575,340.001 "
+            "dir=1.000,-0.002 state=2") in text
 
 
 def test_cpp_wld_reads_save_world():
