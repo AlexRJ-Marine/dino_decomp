@@ -41,6 +41,8 @@ file is the single place to claim work.
 | R-13 | Building preview texture | `src/viewer/main.cpp` placement render | Placed/preview building uses its real texture, not a white model |
 | R-14 | Enclosure placement | `src/ui/park.cpp`, `src/viewer/main.cpp` | Done: two-click rectangle + capacity paddock; red/blue disc; size/inside/busy/16 checks. Remaining: perimeter price, warning text, LunchBox/observation feature mode |
 | R-15 | Campaign world population | `src/viewer/main.cpp` campaign start | Done: `.wld` simulation lists parsed; 6 employees + 2 food sources spawn/render; 51/71 show waypoint features render; Cpg04 tests assert them |
+| R-16 | Menu: Load Game page | `src/ui/menu.*`, `src/viewer/main.cpp` menu list/loading | Done (`9f58349`): page 4 lists the `run/save` port `.psav` slots and `LOAD_LOAD_BUTTON` loads the selected one; test `test_cpp_retail_menu_load_game_page`. Retail `.sav` at runtime still needs an island choice (follow-up). |
+| R-17 | Menu: campaign mission select | `src/ui/menu.*`, `src/viewer/main.cpp` campaign info list | Campaign Info shows the mission list and starts the chosen mission, not only the stored/first mission; test with a temp campaign. |
 
 ## Coordination
 

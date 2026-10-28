@@ -235,6 +235,14 @@ dispatch by widget name (or by a small enum assigned by the page builder).
   `OPTIONS_VALIDATE_BUTTON`/`OPTIONS_UNVALIDATE_BUTTON` pair. The
   `DINO_ACHAT_SAVE_*` sections are the dinosaur **purchase** panel
   (`achat`), not save/load.
+- **Port status (2026-10-28):** `LOAD_GAME_PAGE` lists the **port** `.psav`
+  saves from `run/save` in `LOAD_GAME_NAMES_LIST`; `LOAD_LOAD_BUTTON` loads
+  the selected one through `apply_port_state` (the state carries its island).
+  Retail `.sav` slots are intentionally not listed yet: the save has no
+  island id, so a runtime load needs an island choice (or the `--lzw` /
+  `--sav-park` path). Before the fix the page rendered the generic
+  `ISLAND_LIST` fallback, so it showed island names and OK did nothing.
+  Commit `9f58349`; test `test_cpp_retail_menu_load_game_page`.
 - Save files are `run/save/slotNNN.sav`; the original does not create
   `run/save` or `run/save/auto`, so the harness pre-creates them (RUN-2).
 - The in-park pause overlay is `OPTIONS_PANEL`, not a separate screen:

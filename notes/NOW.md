@@ -47,14 +47,18 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- MENU-1: **main-menu playtest.** Load Game is fixed (`9f58349`): page 4
+  lists the port `.psav` slots and loads the selected one; retail `.sav`
+  still needs an island choice. Next: Campaign Info mission list (R-17).
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
   start p=0.1/yaw 0, pan `lerp(1,20,p)` **per update** on a fixed 60 Hz
   tick (`--camera-hz`), yaw 90 deg/s
   with a **5/s** low-pass (16.8 deg lag, not the old 10/s), zoom
   `lerp(0.05,0.2,p)`/s, target/eye XY `lerp(6,2,p)` with instant Z, no roll,
-  mouse edge scroll (2 px; Shift disables; `--edge-scroll`). The eye goal is
-  built **before** the pan (retail order), which is the visible lean.
+  mouse edge scroll (2 px; Shift disables; `--edge-scroll`). The pan moves
+  the eye and target goals by the same delta (rigid; no yaw lean, confirmed
+  by the live probe).
   `--camera-orbit` keeps the legacy view; `--camera-selftest`
   asserts the measured equations. `notes/camera-mouse-tilt-recon.md`,
   `notes/camera-controls-binary-recon.md` §12. Re-test the in-hand feel.
@@ -111,27 +115,32 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
+1. MENU-1: Campaign Info mission list (R-17): show the campaign's missions
+   and start the chosen one instead of only the stored/first mission.
+   Load Game (R-16) is done: `LOAD_GAME_NAMES_LIST` lists `.psav` slots and
+   `LOAD_LOAD_BUTTON` loads them.
+2. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
    the retail alternates), Shift+Up/Down zoom. Pan is frame-rate dependent in
    retail; the port applies one step per rendered frame (vsync 60). If the
    user reports a speed mismatch, measure their display rate before changing
    the step, not the formula.
-2. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
+3. P3 perception: wire the direct `start_visitor`/`start_dino` entry points
    in the show/attraction controller (Cpg04 is the test park; Free Game has 0
    dinos). Do not invent a list producer; the lists stay empty.
-3. CAMPAIGN population: `WldWorld.records` now retains campaign shows/
+4. CAMPAIGN population: `WldWorld.records` now retains campaign shows/
    animals/employees; wire them into `load_campaign_park` and assert
    shows=1/animals=2/employees=6 on Cpg04 (`notes/playtest-2026-10-27.md`).
-4. SHOW-4 rest: live `.bfi` arena/judge actors and per-show weight
+5. SHOW-4 rest: live `.bfi` arena/judge actors and per-show weight
    authoring; the construction panel and attraction-list actions are in.
-5. SAVE-2 HUD: cash is `economy+0x08` = park `+0x30`. Manual/autosave `.sav`
+6. SAVE-2 HUD: cash is `economy+0x08` = park `+0x30`. Manual/autosave `.sav`
    LOAD has `BL=0` and restores it; the `0x58b1b0` skip is only the campaign
    `.wld` path (`BL=1`, no park block). The port matches; the 26000 mystery
    needs a runtime watch (`notes/hud-budget-restore-flag-recon.md` §8).
-6. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
+7. WORLD-3: fix the skybox bottom/side seam and capture the final side-by-side.
 
 ## Recent
 
+- 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 - 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
 - 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
