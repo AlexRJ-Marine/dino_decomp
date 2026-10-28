@@ -35,6 +35,39 @@ of the original architecture.
    The no-CD startup patch is `docs/patches/no-cd.md`.
 7. Build portable C++20 for the port (CMake + SDL3 + bgfx/OpenGL), not MSVC 6.
 
+## Working philosophy (recon loop)
+
+The project advances by **small, evidence-first steps**, not by guesses or
+big rewrites. The loop that works:
+
+1. **Frame one question.** Example: "does the park camera roll?", "which
+   field holds the fence perimeter price?". One question per pass.
+2. **Find the oracle in the binary and data.** Search strings and xrefs, read
+   the vtable, decompile or disassemble the exact function, and correlate
+   with the retail files (`.ini`, `.wld`, `.bfi`, `.shw`, ...). UI labels,
+   names and memory of the game are not evidence.
+3. **Write raw evidence first.** Append addresses, offsets, raw bytes,
+   decompiled snippets and confidence to `notes/<topic>.md`. Then distil the
+   proven part into `docs/formats/` or `docs/decomp/`, with an explicit
+   "Open" list for what is still uncertain.
+4. **Name semantics from data.** Use the INI `HINT`/localisation ids, the
+   serialized values and runtime captures to name fields (for example
+   `&HerbiFoodSufficiency` is food sufficiency, not a count; `0x17` is the
+   wall element type). If a name cannot be proven, keep the offset.
+5. **Prefer a negative result to a guess.** "No roll; the up vector is
+   constant +Z" and "no wheel binding" are useful, testable conclusions.
+   Record how they were tested (store census, xrefs, probe).
+6. **Verify on real retail data.** A parser must round-trip a real sample; a
+   rendering claim needs a retail capture or a probe; a gameplay claim needs
+   a test on a real park. Synthetic samples are scaffolding only.
+7. **Leave the next agent a map.** Separate proven facts, port implications
+   and open questions. Put every load-bearing claim in
+   `notes/evidence-index.md` with its test or artifact.
+8. **Protect the shared tree.** Edit only your lane's files, stage explicit
+   paths, commit immediately after a verified slice, and never sweep another
+   agent's dirty files into your commit. If a file is being edited elsewhere,
+   work on the adjacent module or docs and record the collision.
+
 ## Known architecture (from assert strings)
 
 - Platform: `mcLib` (core, graph `mg*`, input `mi*`, overlay `mo*`, sound `ms*`,

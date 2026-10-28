@@ -35,6 +35,20 @@ claimed task.
   snippet (or a short paraphrase) in `notes/<topic>.md`.
 - Never edit `original/`, `game/`, `src/`, or `tools/`.
 
+## Evidence philosophy
+
+- One question per pass; find the exact function/data before naming anything.
+- Raw note first, distilled doc second; mark inferred vs proven and keep an
+  "Open" list.
+- A negative result ("no roll", "no wheel binding") is evidence when you say
+  how it was tested (store census, xrefs, runtime probe).
+- Cross-check the binary against the retail INI/format data and runtime
+  captures; use INI `HINT`/localisation ids to name fields.
+- Leave exact addresses, offsets, formulas and confidence; do not paraphrase
+  the evidence away.
+- Do not edit another lane's dirty files; work on adjacent docs/modules and
+  record the collision.
+
 ## Runtime harness
 
 Use the windowed, background-safe harness by default:

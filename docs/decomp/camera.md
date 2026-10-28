@@ -137,9 +137,13 @@ pan flags 2/3/0/1. It is suppressed while Shift is held, has a hard 2 px
 band (no ramp), and persists when the window stops receiving moves. A
 `MAP_RENDERVIEW` click is a separate path that snaps the target to the
 clicked world point (`0x529a40` -> `0x5e5cb0`); the port's minimap click is
-not wired yet. No drag and no wheel. `FUN_005257a0` registers the callbacks;
-`FUN_00527b80` gates them on the controller state and writes one of the eight
-bytes through `FUN_005e59b0`.
+not wired yet. No drag and no wheel: the wheel goes to
+`ViewManager::OnMouseWheel` (`0x5bb540`), which stores the signed delta at
+`+0x28`, clears its dx/dy and forwards `&+0x18` to the UI input manager
+(`vtable+0x40`); the eight camera action callbacks
+(`0x525e00`..`0x525e70`) are keyboard-only. `FUN_005257a0` registers those
+callbacks; `FUN_00527b80` gates them on the controller state and writes one
+of the eight bytes through `FUN_005e59b0`.
 
 ## Port
 
