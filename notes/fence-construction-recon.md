@@ -296,8 +296,17 @@ allocates `count * 0x30` row records at `+0x1c`. `FUN_005e36e0(row, a, b, c)`
 fills one row's three widgets at `+0x14/+0x18/+0x1c/+0x20` (the fence panel
 passes `FENCE_BACKGROUND_SLOT`, `FENCE_NAME_SLOT`, `FENCE_SNAPSHOT_SLOT`), and
 `FUN_005e38c0` toggles a row's visibility and installs the selection callback
-`LAB_005e3930` on `[row+0x18]`. The snapshot is therefore a normal row widget;
-its texture/render source is not isolated yet.
+`LAB_005e3930` on `[row+0x18]`.
+
+The per-frame fill is `0x511890` (vtable `+0xc`): it calls the base
+`0x5e39c0`, computes the visible range from the paddock count
+(`[panel+0xc]`) and scroll (`[panel+0x10]`), then for each visible row takes
+the paddock from `[panel+0x44]+4`, calls `0x57e720(paddock, ...)` and fills
+`FENCE_NAME_SLOT` through `0x5bb940`, followed by `%u` strings for the
+quantity/percent/carni/herbi widgets. `0x511d50` (vtable `+8`) is the dirty
+check: it returns whether the selected row (`[panel+0xc]`) differs from the
+paddock count. The snapshot is a normal row widget; its texture/render source
+is not isolated yet.
 
 ### Preview look (retail capture, 2026-10-28)
 
