@@ -274,3 +274,28 @@ port keeps it in the separate `ITERATION_INDIC` cell. Tests:
 `tests/test_campaign_cpp.py::test_cpp_campaign_show_panel_ui`,
 `test_cpp_campaign_show_list_scroll`,
 `test_cpp_campaign_attraction_list_actions`.
+
+## Renderer contract (port)
+
+Derived from the `.shw`/`.bfi` data and a Cpg4_Derby_2 probe (22 features:
+1 judge, 4 cages, 17 mesh props; every mesh path exists):
+
+- **Origin:** the placed show record is the min corner in the 0..1024 record
+  space; `world = record - terrain.world_size/2`.
+- **Feature position:** `.shw` `(x, y)` is the min corner in world units from
+  the show origin. The footprint `(w, h)` comes from the `.bfi`; rotation 0/2
+  keeps `(w, h)`, 1/3 swaps it. The model pivot is the footprint centre:
+  `centre = (x + span_x/2, y + span_y/2)`, yaw = `rotation * 90` (CCW).
+- **Mesh:** state 0 LOD1 is the first non-empty `mesh_slots[0..5]` (slot 6 is
+  the ground/effect texture, not a mesh). Judges also carry the whole arena
+  floor in `effects[5]` (`course`/`derby`/`boxe`/`foot`/`capture.mesh`) and
+  the texture directory in `effects[6]`.
+- **Scale:** `model_scale` (1.0 props/judges, 0.25 cages) multiplies the
+  `.mesh`; `.mesh` coordinates are metres.
+- **Texture:** mesh features use the embedded `.mesh` texture name under
+  `texture_dir`; texture-only features (cages/tiles/baits/waypoints) use
+  slot 6 directly.
+- **Z:** sample the terrain at the instance centre; `vertical` is the `.bfi`
+  height for walls/cages.
+- **Arena perimeter:** retail builds four `stWall` segments from the show
+  rectangle and `Wall type` (`0x584090`); the port does not render them yet.

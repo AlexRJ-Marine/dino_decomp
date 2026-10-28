@@ -206,3 +206,12 @@ the lock, `show+0x100` the hour slot (1..10).
 Tests: `tests/test_campaign_cpp.py::test_cpp_campaign_show_panel_ui`,
 `test_cpp_campaign_show_list_scroll`,
 `test_cpp_campaign_attraction_list_actions`.
+
+## Feature instance probe (2026-10-28)
+
+A throwaway C++ probe using the same `shw.cpp`/`bfi.cpp` parsers produced 22
+instances for `Cpg4_Derby_2`: JudgeDestruction (arena `derby.mesh`), 4
+CageMedium (texture-only, `cages.tga`), 4 ObstacleMiniCar, 4 ObstacleCar, 4
+ObstacleBusSchool, 4 more ObstacleCar and 1 ObstacleRock. All 22 `.bfi`
+files resolved and every mesh path exists. The instance formula is in
+`docs/formats/shw.md` "Renderer contract (port)".
