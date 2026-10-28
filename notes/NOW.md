@@ -116,6 +116,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
 - 2026-10-28 - Full suite green: 473 passed after enclosure rectangle/paddock and campaign show features
 - 2026-10-28 - Full suite green: 473 passed after camera/preview/enclosure/campaign-population work
 - 2026-10-28 - Playtest fixes: CAM-1 retail progress camera (no roll), enclosure UI arms fence, path preview one box, campaign .wld employees/food spawn
@@ -123,7 +124,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-27 - SHOW-4: interactive show construction panel + attraction list actions
 - 2026-10-27 - SAVE-2: campaign list0 typed + byte-identical Python/C++ round-trip (list1/2 open)
 - 2026-10-27 - SHOW-4: show catalog + placement + 10-slot hourly scheduler + live runtime (fast 334)
-- 2026-10-27 - SAVE-2: --sav-park applies the saved camera tail (eye/target -> orbit camera)
 
 ## Blockers
 
