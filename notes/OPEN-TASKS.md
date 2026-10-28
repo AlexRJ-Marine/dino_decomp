@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 00:24. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 01:26. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 35 open items.
 
