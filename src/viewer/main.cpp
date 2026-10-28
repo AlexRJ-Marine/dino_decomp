@@ -4477,6 +4477,7 @@ int main(int argc, char** argv) {
     bool pending_port_save = false;
     bool pending_port_load = false;
     std::string pending_construct_widget;
+    bool pending_fence_tool = false;
     std::string pending_store_action;
     std::string pending_show_action;
     std::vector<std::string> pending_attraction_actions;
@@ -4546,6 +4547,9 @@ int main(int argc, char** argv) {
                     pending_port_load = true;
                 } else if (action.rfind("construct ", 0) == 0) {
                     pending_construct_widget = action.substr(10);
+                } else if (action ==
+                           "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                    pending_fence_tool = true;
                 } else if (action.rfind("store buy ", 0) == 0) {
                     pending_store_action = action;
                 } else if (action.rfind("show place ", 0) == 0) {
@@ -10874,6 +10878,17 @@ int main(int argc, char** argv) {
                             if (action.rfind("construct ", 0) == 0) {
                                 ensure_build_ready();
                             }
+                            if (action ==
+                                "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                                // Retail arms the enclosure tool when the
+                                // Enclosure panel opens; the ground clicks
+                                // then add fence edges.
+                                ensure_build_ready();
+                                build_tool = 2;
+                                pending_construct_kind = -1;
+                                std::printf(
+                                    "fence: tool armed (click the ground)\n");
+                            }
                             if (action == "construct CONSTRUC_ROAD_BUTTON") {
                                 arm_road_tool();
                             } else if (action.rfind("construct ", 0) == 0) {
@@ -11916,6 +11931,13 @@ int main(int argc, char** argv) {
             view_center = center;
         }
 
+        if (pending_fence_tool) {
+            ensure_build_ready();
+            build_tool = 2;
+            pending_construct_kind = -1;
+            pending_fence_tool = false;
+            std::printf("fence: tool armed (click the ground)\n");
+        }
         if (pending_click) {
             pending_click = false;
             if (pending_store_index >= 0 && build_ready) {

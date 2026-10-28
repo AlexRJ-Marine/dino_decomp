@@ -2366,6 +2366,24 @@ def test_cpp_road_tool_menu_started_park():
     assert "road: built " in out
 
 
+def test_cpp_enclosure_panel_arms_fence_tool():
+    """OPEN_CONSTRUCTION_FENCE arms the enclosure tool; a ground click adds a fence."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "5", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
+         str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--camera-target", "0,0", "--distance", "200",
+         "--park-click", "764,135", "--park-click", "618,145",
+         "--ground-click", "400,300"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "open FENCE_CONSTRUCTION_AND_INFO_PANEL" in result.stdout
+    assert "fence: tool armed (click the ground)" in result.stdout
+    assert "build: 0 path cells, 1 fences" in result.stdout
+
+
 def test_cpp_road_preview_tint(tmp_path):
     """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
     (0x600550): blue when buildable, red when not (here: unaffordable).
