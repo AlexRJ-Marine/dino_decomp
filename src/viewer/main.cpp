@@ -6054,11 +6054,13 @@ int main(int argc, char** argv) {
     };
     // One row of the retail attraction list (`ATTRACTION_LIST_PANEL`).
     // `FUN_00516dd0` writes the show name into `ATTRACTION_LIST_NAME<n>`;
-    // an empty slot keeps the INI hour label. `iterations` is `show+0x8c`,
-    // `locked` is `show+0xd3`.
+    // an empty slot is cleared to the zero-filled scratch string
+    // `DAT_006743c8`, not the INI template text. The hour labels are the
+    // separate `ATTRACTION_LIST_TIME1..10` widgets (`&Schedule10AM` ..).
+    // `iterations` is `show+0x8c`, `locked` is `show+0xd3`.
     auto attraction_row_text = [&](int slot, std::string& name, int& iterations,
                                    int& locked) {
-        name = show_slot_text(slot);
+        name.clear();
         iterations = 0;
         locked = 0;
         for (const dino::ParkShow& show : show_runtime.shows()) {
@@ -9277,6 +9279,63 @@ int main(int argc, char** argv) {
                 std::printf("campaign employees: rendered=%zu\n",
                             employee_system.employees.size());
             }
+            // Food sources: list1 stores the live position and the profile's
+            // nutrition constant (+0x12). Match that constant against the
+            // .bsi nutrition to recover the FoodSourceList index.
+            if (food_defs.empty()) {
+                try {
+                    food_defs = dino::load_food_defs(
+                        opt.asset_root,
+                        resolve_asset(opt.asset_root,
+                                      "Data/Design/foodsource"));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "campaign food defs: %s\n", e.what());
+                }
+            }
+            int spawned_food = 0;
+            for (const dino::WldFoodSource& saved : world.food_sources) {
+                int def_index = -1;
+                for (std::size_t i = 0; i < food_defs.size(); ++i) {
+                    if (std::fabs(food_defs[i].nutrition -
+                                  static_cast<float>(saved.field_12)) < 0.5f) {
+                        def_index = static_cast<int>(i);
+                        break;
+                    }
+                }
+                if (def_index < 0) {
+                    std::fprintf(stderr,
+                                 "campaign food: no def for nutrition %u\n",
+                                 saved.field_12);
+                    continue;
+                }
+                const float fx = saved.x - half;
+                const float fy = saved.y - half;
+                food_sources.push_back(
+                    {def_index, fx, fy, food_defs[def_index].quantity});
+                ++spawned_food;
+            }
+            std::printf("campaign food sources: spawned=%d/%zu\n",
+                        spawned_food, world.food_sources.size());
+            if (spawned_food > 0 && food_gpu.vao == 0 &&
+                !food_sources.empty()) {
+                const dino::FoodSource& first = food_sources.front();
+                const dino::FoodDef& def =
+                    food_defs[static_cast<std::size_t>(first.def)];
+                try {
+                    dino::Mesh mesh = dino::load_mesh(
+                        resolve_asset(opt.asset_root, def.mesh));
+                    mesh = place_on_terrain(std::move(mesh), terrain, first.x,
+                                            first.y, 0.0f);
+                    food_gpu = upload_mesh(mesh, glfns);
+                    if (!def.texture.empty()) {
+                        food_texture = upload_texture(dino::load_tga(
+                            resolve_asset(opt.asset_root, def.texture)));
+                    }
+                    rebuild_extra_items();
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "campaign food mesh: %s\n", e.what());
+                }
+            }
             print_paddock_totals();
             std::printf(
                 "campaign park: %s buildings=%zu roads=%zu fences=%zu "
@@ -10430,6 +10489,14 @@ int main(int argc, char** argv) {
 
             std::string text = runtime_text(widget.name);
             if (text.empty()) {
+                // `FUN_00516dd0` clears an empty attraction row to the
+                // zero-filled `DAT_006743c8`; the INI `TEXT` ("10:00 AM") is
+                // only the pre-refresh template. The hour itself is drawn by
+                // the separate `ATTRACTION_LIST_TIME<n>` widget.
+                if (widget.name.rfind("ATTRACTION_LIST_NAME", 0) == 0 ||
+                    widget.name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
+                    continue;
+                }
                 text = dino::ui::resolve_loc_text(widget.text, park.loc);
             }
             if (text.empty()) {

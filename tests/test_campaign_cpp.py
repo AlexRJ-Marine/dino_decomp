@@ -281,9 +281,10 @@ def test_cpp_campaign_show_panel_ui(tmp_path):
         "attraction list: slot=1 name=Total Destruction iterations=1 "
         "locked=0" in result.stdout
     )
-    # An empty slot keeps the hour label (`ATTRACTION_LIST_NAME` default).
+    # An empty slot is cleared (`FUN_00516dd0` -> `DAT_006743c8`); the hour
+    # label is the separate `ATTRACTION_LIST_TIME2` widget, not the name row.
     assert (
-        "attraction list: slot=2 name=11:00 AM iterations=0 locked=0"
+        "attraction list: slot=2 name= iterations=0 locked=0"
         in result.stdout
     )
 
@@ -571,6 +572,7 @@ def test_cpp_menu_campaign_mission_start(tmp_path):
     assert "shows=1 animals=2 employees=6" in result.stdout
     assert "campaign employees: spawned=6/6 profile=Nutritionist" in result.stdout
     assert "campaign employees: rendered=6" in result.stdout
+    assert "campaign food sources: spawned=2/2" in result.stdout
     assert "wld: placed 57/57 buildings" in result.stdout
     assert (
         "dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
