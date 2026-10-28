@@ -172,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - PLACE-1: map-unit occupancy grid wired into roads/buildings/fences (classes 1/2/7/0xF); exact two-click enclosure (margin 4, side >= 23, 30/cell from Fence.bwi, class-7 wall lines, cost toast); full suite 492
 - 2026-10-28 - PLACE-1: merged marcusrj portable-setup (road segments/merge/T-snap/paint, Entrance road, detail map, vegetation LOD); road cursor now retail nearest-cell snap (0x5faaa0) fixing the 45-degree direction flip; signed cost quirk disproven by retail probe; OccupancyGrid foundation with retail classes (walls 7, buildings 1) + wall-raster/validators decoded (1-unit line, 0.01 slope). Full suite 492
 - 2026-10-28 - PARK-QUIT: exact retail flow (REQUEST dialog &REQUEST_RETURN_MENU, validate -> main menu with menu music, cancel stays, no save warning/autosave; binary listener 0x524180/callback 0x5242e0, retail harness test-quit-flow.ps1); full suite 483
 - 2026-10-28 - MENU-1: point-sampled .fnt atlas, whole-pixel text origins, cell-height centring; campaign row/title glyphs now pixel-identical to retail (full suite 483)
@@ -179,7 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - MENU-1: Options page live and cinematics click-to-skip
 - 2026-10-28 - MENU-1: list viewport + exact retail VSCROLL; island row mapping fixed
 - 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
-- 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 
 ## Blockers
 
