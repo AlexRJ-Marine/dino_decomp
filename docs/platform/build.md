@@ -53,9 +53,11 @@ fence feature (LunchBox / observation area) or draws a paddock perimeter:
   `PERIMETER_TOO_SMALL` / `ROAD_TOO_SHORT` come from `0x52c2e0`; `N`/`J`
   rotate the placement and Esc leaves.
 
-The port currently arms a simple two-click edge tool; the retail warning
-set, perimeter price, 16-edge limit and LunchBox/observation placement are
-not ported yet. See `docs/decomp/construction-validation.md` and
+The port arms a simple edge tool and draws a cursor validity ring: blue when
+the cell passes the occupation/buildable mask, red when it does not
+(`fence_preview_ring`). The retail two-click perimeter, warning set,
+perimeter price, 16-edge limit and LunchBox/observation placement are not
+ported yet. See `docs/decomp/construction-validation.md` and
 `notes/fence-construction-recon.md`.
 
 ## Retail road tool (`ROAD_CONSTRUCTION`)

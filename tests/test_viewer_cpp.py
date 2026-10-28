@@ -2376,11 +2376,14 @@ def test_cpp_enclosure_panel_arms_fence_tool():
          str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
          "--no-water", "--camera-target", "0,0", "--distance", "200",
          "--park-click", "764,135", "--park-click", "618,145",
+         "--fence-cursor", "400,300",
          "--ground-click", "400,300"],
         capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     assert "open FENCE_CONSTRUCTION_AND_INFO_PANEL" in result.stdout
     assert "fence: tool armed (click the ground)" in result.stdout
+    assert "fence preview: cell=" in result.stdout
+    assert "ok=1" in result.stdout
     assert "build: 0 path cells, 1 fences" in result.stdout
 
 

@@ -498,35 +498,57 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
     }
     const int sx = road.x1 > road.x0 ? 1 : (road.x1 < road.x0 ? -1 : 0);
     const int sy = road.y1 > road.y0 ? 1 : (road.y1 < road.y0 ? -1 : 0);
-    // One helper box spans the whole straight run. The old per-cell boxes
-    // overlapped and additive-blended to white; retail shows one solid blue
-    // (or red) preview strip.
+    // Retail draws one helper box per 4-unit step (0x5fa708..0x5fa891).
+    // Keep that shape; the preview item writes depth so the box's back/side
+    // faces do not add a second layer and saturate to white.
     const float inset = (grid.cell_size - 1.0f) * 0.5f;
-    const float mid_x =
-        static_cast<float>(road.x0) +
-        static_cast<float>(sx) * static_cast<float>(cells - 1) * 0.5f;
-    const float mid_y =
-        static_cast<float>(road.y0) +
-        static_cast<float>(sy) * static_cast<float>(cells - 1) * 0.5f;
-    const float wx =
-        grid.origin_x + mid_x * grid.cell_size + inset;
-    const float wy =
-        grid.origin_y + mid_y * grid.cell_size + inset;
-    Vec3 scale{static_cast<float>(cells) * grid.cell_size, grid.cell_size,
-               grid.cell_size};
-    float angle = 0.0f;
-    if (sx == 0) {
-        scale = {grid.cell_size, static_cast<float>(cells) * grid.cell_size,
-                 grid.cell_size};
-    } else if (sy != 0) {
-        const float dx = static_cast<float>(road.x1 - road.x0);
-        const float dy = static_cast<float>(road.y1 - road.y0);
-        angle = std::atan2(dy, dx);
-        scale.x = std::sqrt(dx * dx + dy * dy) * grid.cell_size +
-                  grid.cell_size;
+    int x = road.x0;
+    int y = road.y0;
+    for (int i = 0; i < cells; ++i) {
+        const float wx =
+            grid.origin_x + static_cast<float>(x) * grid.cell_size + inset;
+        const float wy =
+            grid.origin_y + static_cast<float>(y) * grid.cell_size + inset;
+        append_mesh_scaled(
+            out, helper_box, {wx, wy, terrain.height_at(wx, wy)}, 0.0f,
+            {grid.cell_size, grid.cell_size, grid.cell_size});
+        x += sx;
+        y += sy;
     }
-    append_mesh_scaled(out, helper_box, {wx, wy, terrain.height_at(wx, wy)},
-                       angle, scale);
+    return out;
+}
+
+Mesh fence_preview_ring(float x, float y, float z, float outer, float inner,
+                        int segments) {
+    Mesh out;
+    out.name = "fence_preview";
+    if (segments < 3) {
+        segments = 3;
+    }
+    const float step = 2.0f * kPi / static_cast<float>(segments);
+    for (int i = 0; i <= segments; ++i) {
+        const float a = static_cast<float>(i) * step;
+        const float c = std::cos(a);
+        const float s = std::sin(a);
+        out.positions.push_back({x + outer * c, y + outer * s, z});
+        out.positions.push_back({x + inner * c, y + inner * s, z});
+        out.normals.push_back({0.0f, 0.0f, 1.0f});
+        out.normals.push_back({0.0f, 0.0f, 1.0f});
+        out.uvs.push_back({0.0f, 0.0f});
+        out.uvs.push_back({0.0f, 0.0f});
+    }
+    for (int i = 0; i < segments; ++i) {
+        const auto a = static_cast<std::uint32_t>(i * 2);
+        const auto b = static_cast<std::uint32_t>(i * 2 + 1);
+        const auto c = a + 2;
+        const auto d = b + 2;
+        out.indices.push_back(a);
+        out.indices.push_back(c);
+        out.indices.push_back(b);
+        out.indices.push_back(b);
+        out.indices.push_back(c);
+        out.indices.push_back(d);
+    }
     return out;
 }
 

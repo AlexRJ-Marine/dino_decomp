@@ -232,6 +232,7 @@ struct Options {
     std::string ground_click;  // scripted scene click, "x,y" window pixels
     std::vector<std::string> inject_clicks;  // "frame,x,y[,right]"
     std::string road_cursor;  // fixed road preview cursor "x,y" (tests)
+    std::string fence_cursor;  // fixed enclosure preview cursor "x,y" (tests)
     std::string skybox_dir;
     bool water = true;
     bool water2 = true;  // WaterSurface stage 1 Modulate2x
@@ -646,6 +647,8 @@ Options parse_args(int argc, char** argv) {
             opt.park_window_clicks.push_back(next("--park-window-click"));
         } else if (arg == "--road-cursor") {
             opt.road_cursor = next("--road-cursor");
+        } else if (arg == "--fence-cursor") {
+            opt.fence_cursor = next("--fence-cursor");
         } else if (arg == "--inject-click") {
             opt.inject_clicks.push_back(next("--inject-click"));
         } else if (arg == "--ground-click") {
@@ -757,6 +760,7 @@ Options parse_args(int argc, char** argv) {
                 "                       arm it with --construct CONSTRUC_ROAD_BUTTON or the\n"
                 "                       panel's Road button)\n"
                 "  --road-cursor X,Y    pin the road preview cursor (window pixels; tests)\n"
+                "  --fence-cursor X,Y   pin the enclosure preview cursor (window pixels; tests)\n"
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --buy-dino NAME      buy a Market.ini dinosaur into a paddock\n"
                 "  --buy-paddock N      paddock index for --buy-dino (default first with room)\n"
@@ -6446,6 +6450,25 @@ int main(int argc, char** argv) {
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
     }
+    GpuMesh fence_preview_gpu;
+    bool fence_preview_visible = false;
+    bool fence_preview_ok = true;
+    int fence_preview_cell_x = -1;
+    int fence_preview_cell_y = -1;
+    GLuint fence_preview_ok_texture = 0;
+    GLuint fence_preview_bad_texture = 0;
+    {
+        auto solid_texture = [](std::uint8_t r, std::uint8_t g,
+                                std::uint8_t b) {
+            dino::Image image;
+            image.width = 1;
+            image.height = 1;
+            image.rgba = {r, g, b, 255};
+            return upload_texture(image);
+        };
+        fence_preview_ok_texture = solid_texture(64, 64, 255);
+        fence_preview_bad_texture = solid_texture(255, 64, 64);
+    }
 
     SkyboxGL skybox;
     int sky_faces = 0;
@@ -6969,6 +6992,13 @@ int main(int argc, char** argv) {
             item.additive = false;
             item.alpha = 0.6f;
             item.depth_write = true;
+            extra_items.push_back(item);
+        }
+        if (fence_preview_visible && fence_preview_gpu.vao != 0) {
+            DrawItem item{&fence_preview_gpu,
+                          fence_preview_ok ? fence_preview_ok_texture
+                                           : fence_preview_bad_texture};
+            item.alpha = 0.7f;
             extra_items.push_back(item);
         }
         if (fence_gpu.vao != 0) {
@@ -11969,6 +11999,56 @@ int main(int argc, char** argv) {
             pending_construct_kind = -1;
             pending_fence_tool = false;
             std::printf("fence: tool armed (click the ground)\n");
+        }
+        if (build_tool == 2 && build_ready && !opt.no_input) {
+            float mxf = 0.0f;
+            float myf = 0.0f;
+            SDL_GetMouseState(&mxf, &myf);
+            if (!opt.fence_cursor.empty()) {
+                std::sscanf(opt.fence_cursor.c_str(), "%f,%f", &mxf, &myf);
+            }
+            dino::Vec3 hit;
+            int cx = 0;
+            int cy = 0;
+            bool visible = false;
+            bool ok = false;
+            if (pick_terrain(terrain, eye, view_center, mxf, myf,
+                             logical_width, logical_height, hit) &&
+                build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                const float cs = build_grid.cell_size;
+                const float wx =
+                    build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
+                const float wy =
+                    build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
+                ok = terrain.buildable(wx, wy);
+                visible = true;
+                if (cx != fence_preview_cell_x ||
+                    cy != fence_preview_cell_y ||
+                    ok != fence_preview_ok ||
+                    fence_preview_gpu.vao == 0) {
+                    fence_preview_cell_x = cx;
+                    fence_preview_cell_y = cy;
+                    fence_preview_gpu.destroy(glfns);
+                    fence_preview_gpu = upload_mesh(
+                        dino::fence_preview_ring(
+                            wx, wy, terrain.height_at(wx, wy) + 0.15f,
+                            cs * 1.2f, cs * 0.8f),
+                        glfns);
+                    std::printf("fence preview: cell=%d,%d ok=%d\n", cx, cy,
+                                ok ? 1 : 0);
+                }
+            }
+            if (visible != fence_preview_visible ||
+                ok != fence_preview_ok) {
+                fence_preview_visible = visible;
+                fence_preview_ok = ok;
+                rebuild_extra_items();
+            }
+        } else if (fence_preview_visible) {
+            fence_preview_visible = false;
+            fence_preview_cell_x = -1;
+            fence_preview_cell_y = -1;
+            rebuild_extra_items();
         }
         if (pending_click) {
             pending_click = false;
