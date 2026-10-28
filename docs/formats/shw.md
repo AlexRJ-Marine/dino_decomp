@@ -260,7 +260,10 @@ cage/team pairs. `tests/test_viewer_cpp.py::test_cpp_show_info` checks
 `PREDEFINED_SHOW_PANEL` fills `PREDEFINED_SHOW_LIST` with seven columns
 (name, judge, price, cage 1..4; `LB_NB_COLUMNS` / `LB_COLUMN0..6_WIDTH`).
 `PREDEFINED_SHOW_VALIDATE` (`0x0052d1e0`) arms the placement tool, and the
-next ground click places the arena at record coordinates 0..1024. The
+next ground click places the arena at record coordinates 0..1024. Retail
+then builds the arena perimeter from the `.shw` `Wall type` through
+`stPerimeter` (`0x584090` -> four `stWall` segments, `0x582210`/`0x584200`);
+the port does not render the arena walls yet. The
 `ATTRACTION_LIST_PANEL` rows show the scheduled show, its iteration count
 (`show+0x8c`) and lock state (`show+0xd3`). Empty rows are blank: retail
 clears `ATTRACTION_LIST_NAME<n>` to the zero-filled scratch string

@@ -231,6 +231,13 @@ original construction flow:
   `0x5812b0` + `0x527150`, checks the budget, then spawns the `.bfi` actor
   (`0x53acd0`) and, for `AnimalBait`, the animal actor (`0x53b0d0`).
 
+Both paths end in the `stPerimeter` / `stWall` model: `0x584090` builds the
+rectangle's four `stWall` segments (`0x582210`), each rasterised to grid cells
+(`0x584200`, `length/cell` 0x28-byte cell records, Bresenham walk). Show
+arenas use the same constructor (`0x580f00` with the `.shw` `Wall type`), so
+the enclosure tool and show placement share the wall model. The port stores
+fence edges instead of rasterised cells.
+
 Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
 `0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,
 `&WARNING_INSIDE_PERIMETER`, `&WARNING_PERIMETER_TOO_SMALL` and

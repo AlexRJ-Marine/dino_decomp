@@ -216,16 +216,30 @@ the `FENCE_FEATURE_PRICE` widget.
 - `Esc` (0x01) -> state 5 + `vtable+8` (leave); if already 5, `tool+0x1c`
   `0x50be00(8)`.
 
+## Wall perimeter (`stPerimeter` / `stWall`)
+
+The wall record created by `0x526f20` (`0x53ac60`, type 0x17, two corners) is
+consumed by the `stPerimeter` rasteriser:
+
+| Function | Role |
+| --- | --- |
+| `0x584090` | `stPerimeter` ctor: stores the rectangle at `+0x1c..+0x28`, the wall type at `+0x2c`, vtable `0x643530`, and calls `0x582210` four times for the four sides |
+| `0x582210` | `stPerimeter::AddSegment`: allocates a 0x24-byte `stWall`, calls `0x584200`, and appends the pointer to the vector at `+0x10..+0x18` (assert path `stPerimeter.cpp:0x5e`) |
+| `0x584200` | `stWall` rasteriser: stores corners `+0..+0xc`, wall type `+0x10`, vtable `0x64353c`, allocates `length/cell` 0x28-byte cell records at `+0x18` (`0x584700`), walks the line (Bresenham; `0x584520` axis case, `0x55d590`/`0x55d600` horizontal/vertical, generic loop for diagonals), and finalises each cell with `0x5849a0` |
+| `0x580f00` | show-arena ctor: calls `0x584090` with the arena corners, cell size and `.shw` `Wall type`, then `0x576860` zero-fills the show score vector to the profile count |
+
+So a show arena and a player-built paddock share the same `stPerimeter` ->
+four `stWall` segments -> grid cells model. The port stores fence **edges**
+instead of rasterised wall cells, which is the documented approximation.
+
 ## Open
 
 - What the selected UI row `0x17` (23) means in `0x526930`; the feature list
   is filtered by the `.bfi` tail flag `+0x1d4` (only LunchBox in retail data),
   so the row vocabulary is not the 62-entry FeatureList index.
-- The wall rasteriser: `stWall.cpp` `FUN_00584200` and
-  `stPerimeter::AddSegment` (`0x582210`) turn the `0x53ac60` record into the
-  visible wall.
 - Exact decomposition of the `0x581b90` cost magic.
 - `0x527030` / `0x526e70` extended hooks.
+- `0x584700` cell-record field layout and `0x5849a0` finalisation.
 
 ## Evidence
 
