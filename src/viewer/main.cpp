@@ -6962,7 +6962,12 @@ int main(int argc, char** argv) {
             // Retail helper (Data/States/Helper.ini): focus/road.tga times
             // the pulsing gscMaterialBank colour, blended One/One.
             DrawItem item{&road_preview_gpu, road_preview_texture};
-            item.additive = true;
+            // Helper.ini says One/One additive, but additive blue over bright
+            // grass washes out to white; the retail read is a darker blue.
+            // Alpha-blend the tinted glow instead, with depth so only the
+            // nearest box face contributes.
+            item.additive = false;
+            item.alpha = 0.6f;
             item.depth_write = true;
             extra_items.push_back(item);
         }

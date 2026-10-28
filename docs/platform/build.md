@@ -101,9 +101,10 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
   4-unit step, scaled 4x4x4 and centred at (cell + 1.5, cell + 1.5, ground
   height) (`0x5fa708..0x5fa891`). The port keeps that per-cell shape
   (`road_helper_mesh`/`append_mesh_scaled`) and writes depth for the preview
-  item, so the box's back/side faces do not add a second layer and saturate
-  to white; the tint/validity logic is unchanged. The final blue/alpha match
-  still needs a retail capture. The toast shows `Cost of road: N`.
+  item, so the box's back/side faces do not add a second layer. It
+  alpha-blends the tinted glow at 0.6 (rather than One/One additive) because
+  additive blue over bright grass washed out to white; this gives the retail
+  dark-blue/red read. The toast shows `Cost of road: N`.
 - **CLI:** `--construct CONSTRUC_ROAD_BUTTON` (or the two panel clicks) plus
   `--road-click X,Y` (build cells, repeatable) drive the same code path.
 
