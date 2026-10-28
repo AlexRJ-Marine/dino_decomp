@@ -175,11 +175,11 @@ Viewer pages (count `8` unlocks every row):
 
 ```powershell
 [IO.File]::WriteAllBytes("$env:TEMP\dino-8.dat", [byte[]](8,0,0,0))
-.\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
   --dino-dat "$env:TEMP\dino-8.dat" --menu-click 404,285 `
   --screenshot notes\harness\campaign-select.bmp
-.\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
   --dino-dat "$env:TEMP\dino-8.dat" --menu-click 404,285 --menu-click 364,530 `
   --screenshot notes\harness\campaign-info.bmp
@@ -188,7 +188,7 @@ Viewer pages (count `8` unlocks every row):
 Starting Cpg04_Mission1 through the menu (no `--lnd`/`--wld-park` needed):
 
 ```powershell
-.\build\port\dino_viewer.exe --frames 4 --menu-page 2 --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 4 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
   --dino-dat "$env:TEMP\dino-8.dat" `
   --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
@@ -205,7 +205,7 @@ Resume a stored mission:
 
 ```powershell
 Set-Content "$env:TEMP\campaign-progress.txt" "Cpg04 Cpg04_Mission2"
-.\build\port\dino_viewer.exe --frames 3 --menu-page 2 `
+.\build\port\dino_port.exe --frames 3 --menu-page 2 `
   --dino-dat "$env:TEMP\dino-0f.dat" `
   --campaign-progress "$env:TEMP\campaign-progress.txt" `
   --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
@@ -219,7 +219,7 @@ Expect `start: campaign=Cpg04 mission=Cpg04_Mission2 island=Isl04 budget=0`
 Sandbox park:
 
 ```powershell
-.\build\port\dino_viewer.exe --frames 2 --no-menu --no-hud --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 2 --no-menu --no-hud --width 800 --height 600 `
   --no-vsync --no-save-config `
   --lnd "game\%MAINDIR%\Data\Design\landscape\isl04\isl04.lnd" `
   --asset-root "game\%MAINDIR%" --no-vegetation --no-water `
@@ -233,8 +233,8 @@ rectangle and connected flag each mission tick.
 Reader:
 
 ```powershell
-.\build\port\dino_viewer.exe --campaign-info "game\%MAINDIR%\Data\Design\Scenario"
-.\build\port\dino_viewer.exe --campaign-mission "...\Cpg04\Cpg04_Mission1.ini"
+.\build\port\dino_port.exe --campaign-info "game\%MAINDIR%\Data\Design\Scenario"
+.\build\port\dino_port.exe --campaign-mission "...\Cpg04\Cpg04_Mission1.ini"
 ```
 
 Expect `campaigns: 7 missions: 39 objectives: 89 unknown: 0 verbs: 33`, the
@@ -245,7 +245,7 @@ Cpg04_Mission1 objectives (`isolateddinos 71` id 18, `treasury 25000 1` id 0,
 Coverage:
 
 ```powershell
-.\build\port\dino_viewer.exe --campaign-coverage "...\Data\Design\Scenario"
+.\build\port\dino_port.exe --campaign-coverage "...\Data\Design\Scenario"
 ```
 
 Expect `campaign coverage: 89 objectives, 81 implemented, 8 pending, 0
@@ -255,7 +255,7 @@ unknown` and the four show verbs (2 lines each) marked pending;
 Mission run (Cpg04/isl04, treasury satisfied, isolation pending):
 
 ```powershell
-.\build\port\dino_viewer.exe --frames 2 --no-menu --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 2 --no-menu --width 800 --height 600 `
   --no-vsync --no-save-config --lnd "...\isl04.lnd" --asset-root game\%MAINDIR% `
   --no-vegetation --no-water --wld-park "...\Cpg04_Save.wld" `
   --park-budget 25000 --start-mission "...\Cpg04_Mission1.ini"
@@ -283,7 +283,7 @@ Campaign completion (Cpg02's last mission, unlock count `2` in a temp file):
 
 ```powershell
 [IO.File]::WriteAllBytes("$env:TEMP\dino-02.dat", [byte[]](0x02,0,0,0))
-.\build\port\dino_viewer.exe --frames 2 --no-menu --width 320 --height 240 `
+.\build\port\dino_port.exe --frames 2 --no-menu --width 320 --height 240 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
   --lnd "...\isl04.lnd" --no-vegetation --no-water `
   --wld-park "...\Cpg04_Save.wld" --visitors 100 --visitor-satisfaction 99 `
@@ -321,12 +321,12 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 - `../decomp/function-status.md` — evaluator addresses and status.
 - `notes/campaign-recon.md`, `notes/objectives-recon.md`.
 - `docs/platform/world-import.md` — `--wld-park` / `--sav-park`.
-- `src/ui/menu.cpp` — page mapping; `src/viewer/main.cpp` — page rendering,
+- `src/ui/menu.cpp` — page mapping; `src/app/main.cpp` — page rendering,
   `--menu-page`, `--wld-park`.
 - `src/formats/campaign.{h,cpp}` — C++ `CampaignList`/`CampaignBase`/
   `MissionBase` reader and 33-verb table; `--campaign-info`/
   `--campaign-mission`.
-- Tests: `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`,
+- Tests: `tests/test_app_cpp.py::test_cpp_retail_menu_pages`,
   `test_cpp_wld_park_import`, `tests/test_campaign.py`,
   `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_value`,
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,

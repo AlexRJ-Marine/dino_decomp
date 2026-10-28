@@ -346,7 +346,7 @@ exposes the subset the port needs:
 - `WldWorld.buildings` carries `object_id`, `linked_id`, `class_tag`, `kind`,
   `cell_x`, `cell_y`, `state` and the per-object `link`.
 
-`dino_viewer --wld FILE --wld-info --asset-root GAME` prints the counts and
+`dino_port --wld FILE --wld-info --asset-root GAME` prints the counts and
 every building record without opening a window; this is the comparison oracle
 for the C++ reader. Output matches the Python parser on all seven version
 50–53 files and on `slot001.sav`:
@@ -356,7 +356,7 @@ Cpg04_Save.wld version=53 ... fences=9 shows=1 ... buildings=57 ... dinosaurs=20
 building: kind=9 name=Entrance x=440 y=200 state=1 obj=1 linked=2 link=0 class=24
 ```
 
-Tests: `tests/test_viewer_cpp.py::test_cpp_wld_reader_matches_retail`,
+Tests: `tests/test_app_cpp.py::test_cpp_wld_reader_matches_retail`,
 `test_cpp_wld_reads_save_world`.
 
 

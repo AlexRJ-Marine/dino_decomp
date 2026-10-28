@@ -248,9 +248,9 @@ around the footprint centre, via `FUN_00586b80` / jump table `0x586d0c` and
 ## C++ reader (port)
 
 `src/formats/shw.{h,cpp}` parses the same sections and is exposed by
-`dino_viewer --show-info <file.shw|show-dir> --asset-root <game>`. A single
+`dino_port --show-info <file.shw|show-dir> --asset-root <game>`. A single
 file also lists every feature tuple with its `FeatureList.ini` name and the
-cage/team pairs. `tests/test_viewer_cpp.py::test_cpp_show_info` checks
+cage/team pairs. `tests/test_app_cpp.py::test_cpp_show_info` checks
 `Cpg1_Race_1` and the 43-show scan.
 
 ## Construction (port)

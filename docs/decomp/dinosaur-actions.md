@@ -231,7 +231,7 @@ action. This is confirmed by the two independent checks.
   9009; `70,90,90,20` gives 20 Sleep 7060; `99,99,99,99` stays idle. The
   default `50,99,99,99` selects Eat/EatForSmallies 450 (one Eat per dino).
 - Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests),
-  `tests/test_viewer_cpp.py::test_cpp_dino_action_chooser` and
+  `tests/test_app_cpp.py::test_cpp_dino_action_chooser` and
   `test_cpp_dino_action_loop`.
 - Open for the next increment: calibrate the decay rates and wire the SECU
   danger grid into the chooser. The feeding interaction is ported

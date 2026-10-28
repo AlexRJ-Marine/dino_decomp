@@ -84,25 +84,25 @@ several later missions = 0). Each switch prints
 `store catalog: <source> entries=N`.
 
 ```text
-dino_viewer.exe --market-info --asset-root game/%MAINDIR%
+dino_port.exe --market-info --asset-root game/%MAINDIR%
 market: entries=54 stores=6 prices=3200..42000
 market stores: 0=10 2=14 3=14 4=9 5=5 6=2
 first=Allosaurus 9000 allo.gen last=Zarbosaurus 4900 zarbo.gen
 ```
 
-Tests: `tests/test_viewer_cpp.py::test_cpp_market_info`.
+Tests: `tests/test_app_cpp.py::test_cpp_market_info`.
 
 The same parser handles the free-game subset in `FreeGame.ini` (20 entries in
 the same six store keys, prices 4,000..42,000):
 
 ```text
-dino_viewer.exe --store-info Data/Design/Scenario/FreeGame.ini --asset-root game/%MAINDIR%
+dino_port.exe --store-info Data/Design/Scenario/FreeGame.ini --asset-root game/%MAINDIR%
 store: entries=20 stores=6 prices=4000..42000
 store stores: 0=3 2=4 3=4 4=4 5=4 6=1
 first=Allosaurus 9000 allo.gen last=Velociraptor 15000 velo.gen
 ```
 
-Tests: `tests/test_viewer_cpp.py::test_cpp_freegame_store`.
+Tests: `tests/test_app_cpp.py::test_cpp_freegame_store`.
 
 ## Evidence
 

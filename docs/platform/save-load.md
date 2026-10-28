@@ -4,7 +4,7 @@ Status: **working** for the port's own park state. This is not the retail
 `.sav` layout (that parser is documented in `docs/formats/sav.md`); the port
 writes a small text file so the Options Save/Load panel can round-trip the
 scene between sessions. A retail `.sav` writer exists as a tool
-(`dino_viewer --sav-write IN OUT`), but the Options panel still uses `.psav`.
+(`dino_port --sav-write IN OUT`), but the Options panel still uses `.psav`.
 
 ## What is stored
 
@@ -92,14 +92,14 @@ are queued and executed once the terrain, grid and camera exist.
 ```powershell
 $G = "game/%MAINDIR%"
 # write a state from isl03 with two paths, one fence and three visitors
-.\build\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+.\build\mingw\dino_port.exe --frames 2 --no-menu --no-hud --no-vsync `
   --lnd "$G/Data/Design/landscape/isl03/isl03.lnd" --asset-root $G `
   --no-vegetation --place-path 100,100 --place-path 100,101 `
   --place-fence 100,100,0 --visitors 3 --park-time 10:30 `
   --park-time-scale 30 --save-port run\save\test.psav
 
 # load it over isl01 and print the restored counts
-.\build\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+.\build\mingw\dino_port.exe --frames 2 --no-menu --no-hud --no-vsync `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G `
   --no-vegetation --load-port run\save\test.psav
 ```
@@ -110,14 +110,14 @@ fences=1 buildings=0 dinos=0` and `build: 2 path cells, 1 fences`.
 Dinosaur state round trip (Cpg04, 20 imported dinosaurs):
 
 ```powershell
-.\build\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+.\build\mingw\dino_port.exe --frames 2 --no-menu --no-hud --no-vsync `
   --lnd "$G/Data/Design/landscape/isl04/isl04.lnd" --asset-root $G `
   --no-vegetation --no-water `
   --wld-park "$G/Data/Design/Scenario/Cpg04/Cpg04_Save.wld" `
   --dino-action-loop --dino-needs 20,90,50,20 `
   --save-port run\save\dinos.psav
 
-.\build\mingw\dino_viewer.exe --frames 4 --no-menu --no-hud --no-vsync `
+.\build\mingw\dino_port.exe --frames 4 --no-menu --no-hud --no-vsync `
   --asset-root $G --load-port run\save\dinos.psav --dino-action-loop
 ```
 
@@ -129,7 +129,7 @@ action seconds.
 - `notes/port-ui-save.png` - Options Save tab with the port save rows.
 - `notes/port-ui-load2.png` - Options Load tab after selecting `[port] test`;
   the HUD shows isl03, 10:30 day 1.
-- `tests/test_viewer_cpp.py::test_cpp_port_save_roundtrip`,
+- `tests/test_app_cpp.py::test_cpp_port_save_roundtrip`,
   `test_cpp_port_save_dino_state`, `test_cpp_options_save_and_load_buttons`.
 
 ## Open

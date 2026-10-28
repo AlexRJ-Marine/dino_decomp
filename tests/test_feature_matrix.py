@@ -178,7 +178,7 @@ def test_park_panel_dossier_controls_and_tests():
     # park panels that need a mission catalog (the show construction list).
     viewer_tests = "\n".join(
         (ROOT / "tests" / name).read_text(encoding="utf-8")
-        for name in ("test_viewer_cpp.py", "test_campaign_cpp.py")
+        for name in ("test_app_cpp.py", "test_campaign_cpp.py")
     )
 
     rows = 0
@@ -200,7 +200,7 @@ def test_park_panel_dossier_controls_and_tests():
         for test_name in re.findall(r"test_cpp_\w+", line):
             assert re.search(
                 rf"^def {re.escape(test_name)}\b", viewer_tests, re.M
-            ), (test_name, "not in tests/test_viewer_cpp.py")
+            ), (test_name, "not in tests/test_app_cpp.py")
     assert rows >= 20, rows
 
 

@@ -641,14 +641,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ### VIEW-1: CMake + SDL3 + OpenGL window
 - [x] SDL3 3.4.18 MinGW package + `scripts/setup-sdl3.ps1`.
-- [x] `dino_viewer` target: 1280×720 resizable window, OpenGL context,
+- [x] `dino_port` target: 1280×720 resizable window, OpenGL context,
   input, delta time, clean shutdown.
 - [x] BMP screenshot path and 2-frame smoke test.
 - **Acceptance:** `scripts/build.ps1` builds; window opens for 5 seconds in a
   headless screenshot test or manual run.
 - **Depends on:** ENV-1.
-- **Evidence:** `src/viewer/main.cpp`, `docs/platform/sdl3-viewer.md`,
-  `tests/test_viewer_cpp.py`, `notes/viewer-window.png`.
+- **Evidence:** `src/app/main.cpp`, `docs/platform/app-shell.md`,
+  `tests/test_app_cpp.py`, `notes/viewer-window.png`.
 
 ### VIEW-2: Load one mesh + texture
 - [x] C++ `.mesh` reader (positions, indices, UVs, normals, colors).
@@ -658,7 +658,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** `cow_lod1.mesh` + its TGA renders; screenshot in `notes/`.
 - **Depends on:** FMT-2, FMT-6, VIEW-1.
 - **Evidence:** `src/formats/mesh.cpp`, `src/formats/tga.cpp`,
-  `src/viewer/main.cpp`, `tests/test_viewer_cpp.py`,
+  `src/app/main.cpp`, `tests/test_app_cpp.py`,
   `notes/viewer-allo.png`; 317 vertices / 382 triangles, 256×256 RGBA.
 
 ### VIEW-3: Skinned animation playback
@@ -668,8 +668,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Playable loop plus deterministic 25-frame capture.
 - **Acceptance:** `allo` walk/idle plays smoothly; screenshot/gif in `notes/`.
 - **Depends on:** FMT-3, FMT-4, FMT-5, VIEW-2.
-- **Evidence:** `src/formats/{skel,skin,anim}.cpp`, `src/viewer/main.cpp`,
-  `tests/test_viewer_cpp.py`, `notes/viewer-anim-1600.png`,
+- **Evidence:** `src/formats/{skel,skin,anim}.cpp`, `src/app/main.cpp`,
+  `tests/test_app_cpp.py`, `notes/viewer-anim-1600.png`,
   `notes/viewer-anim-sheet.png`, `notes/viewer-anim-cpp.gif`.
 
 ### AUDIO-1: SDL3 WAV playback
@@ -679,15 +679,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   device is available.
 - **Depends on:** FMT-6, VIEW-1.
 - **Evidence:** `src/formats/wav.cpp`, `docs/platform/audio.md`,
-  `tests/test_viewer_cpp.py`, `notes/audio-smoke.txt`.
+  `tests/test_app_cpp.py`, `notes/audio-smoke.txt`.
 
 ### QOL-1: Resolution, widescreen, borderless
 - [x] Windowed / fullscreen / borderless modes; F10/F11 toggles.
-- [x] Persisted `dino_viewer.cfg` (size, mode, vsync); CLI overrides.
+- [x] Persisted `dino_port.cfg` (size, mode, vsync); CLI overrides.
 - [x] Widescreen framing via actual drawable size + fixed vertical FOV.
 - **Acceptance:** config persists; 16:9 and 4:3 screenshots match expected framing.
 - **Depends on:** VIEW-1.
-- **Evidence:** `docs/platform/qol.md`, `tests/test_viewer_cpp.py`,
+- **Evidence:** `docs/platform/qol.md`, `tests/test_app_cpp.py`,
   `notes/qol-16x9.png`, `notes/qol-4x3.png`.
 
 ### QOL-2: UI scaling
@@ -700,8 +700,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] `--rebind`, `--list-keys`, `--keys`, `--no-save-keys`; persists.
 - **Acceptance:** rebind one camera and one reset action; persists.
 - **Depends on:** VIEW-1.
-- **Evidence:** `src/viewer/keymap.cpp`, `docs/platform/qol.md`,
-  `tests/test_viewer_cpp.py`.
+- **Evidence:** `src/app/keymap.cpp`, `docs/platform/qol.md`,
+  `tests/test_app_cpp.py`.
 
 ### QOL-4: Ground-target camera movement
 - [x] `W/A/S/D` pan the default orbit target over the island; `Q/E`
@@ -711,7 +711,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** WASD moves the park camera without entering free-fly;
   the free-fly toggle still works.
 - **Depends on:** VIEW-1, QOL-3.
-- **Evidence:** `src/viewer/main.cpp`, `docs/platform/qol.md`,
+- **Evidence:** `src/app/main.cpp`, `docs/platform/qol.md`,
   `docs/platform/vertical-slice.md`, `notes/orbit-before.png`,
   `notes/orbit-after.png`, `notes/camera-before.png`,
   `notes/camera-after.png`.
@@ -758,7 +758,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.
 - [x] Read `Data/Config/camera.ini` `[Config1]` and drive the pan, rotation,
   zoom, elevation/distance limits and height smoothing from it
-  (`src/viewer/camera_config.*`).
+  (`src/app/camera_config.*`).
 - [x] Port the target-height smoothing using `PositionHardness`; the exact
   retail 6..2 filters are implemented for target and eye (XY), with instant Z.
 - [x] Verify with synthetic input and `DINO_DEBUG_CAMERA=1`; the live retail
@@ -1030,7 +1030,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/terrain.md`, `docs/formats/imp.md`,
   `docs/formats/blf.md`, `src/world/{terrain,vegetation}.cpp`,
   `notes/isl01-terrain.png`, `notes/isl01-vegetation.png`,
-  `tests/test_viewer_cpp.py`, `tests/test_imp.py`, `tests/test_blf.py`.
+  `tests/test_app_cpp.py`, `tests/test_imp.py`, `tests/test_blf.py`.
 
 ### WORLD-1b: Engine raw orientation
 - [x] Prove both raw loaders flip rows: `mgHeightmap::Load` `0x5c06b0`
@@ -1069,7 +1069,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/entrance-retail-reference.png`, `notes/entrance-model-default.png`,
   `notes/entrance-model-skin.png`, `notes/entrance-model-mesh.png`,
   `docs/platform/buildings.md`,
-  `tests/test_viewer_cpp.py::test_cpp_building_placement_transform`.
+  `tests/test_app_cpp.py::test_cpp_building_placement_transform`.
 
 ### WORLD-2: Object placement and frustum culling
 - [x] `.bbi` building definition loader (`src/formats/bbi.cpp`): header, ten
@@ -1102,7 +1102,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/buildings.md`,
   `notes/building-placement-recon.md`, `notes/cpg04-buildings.png`,
   `notes/entrance-center2.png`,
-  `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
+  `tests/test_app_cpp.py::test_cpp_building_bbi_place`,
   `test_cpp_building_placement_transform`,
   `test_cpp_wld_places_all_buildings`,
   `test_cpp_wld_reader_matches_retail`.
@@ -1252,7 +1252,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `notes/fence-insertion-recon.md`,
   `docs/decomp/construction-validation.md`,
   `notes/construction-validation.md`, `docs/platform/build.md`,
-  `tests/test_viewer_cpp.py::test_cpp_construction_placement`,
+  `tests/test_app_cpp.py::test_cpp_construction_placement`,
   `tests/test_bbi.py::test_construction_cost_is_file_offset_21`.
 
 ### WORLD-3: Skybox, water, lighting
@@ -1296,7 +1296,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `src/formats/image.cpp`, `src/third_party/stb_image.h`,
   `notes/world3-sky2.png`, `notes/world3-hero.png`, `notes/p5-sky.png`,
   `notes/p5-water-additive.png`,
-  `tests/test_viewer_cpp.py::test_cpp_skybox_and_water`.
+  `tests/test_app_cpp.py::test_cpp_skybox_and_water`.
 
 ### SLICE-1: Island + dinosaur scene
 - [x] Combine `--lnd` terrain/vegetation with `--mesh/--skel/--skin/--anim`.
@@ -1308,7 +1308,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Reach the same scene through the retail menu: `--start-dino` preloads
   the allo assets, then the Free Game Start handoff loads the selected island
   and places it at the centre. Evidence: `notes/menu-start-dino.png`,
-  `tests/test_viewer_cpp.py::test_cpp_menu_start_with_dino`.
+  `tests/test_app_cpp.py::test_cpp_menu_start_with_dino`.
 - [x] Free-fly camera (`--free-camera` / `C`, WASD + mouse look, terrain clamp);
   all movement actions are rebindable.
 - **Acceptance:** one scene shows island, trees, an animated dinosaur, and the
@@ -1316,7 +1316,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** WORLD-1, VIEW-3.
 - **Evidence:** `docs/platform/vertical-slice.md`,
   `notes/isl01-dino-meshbind.png`, `notes/isl01-dino-walk.png`,
-  `tests/test_viewer_cpp.py` (`test_cpp_island_dino_*`,
+  `tests/test_app_cpp.py` (`test_cpp_island_dino_*`,
   `test_cpp_free_camera_start`).
 
 ## Phase 3 verification targets — simulation
@@ -1339,7 +1339,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** WORLD-1.
 - **Evidence:** `docs/platform/build.md`, `src/world/build.cpp`,
   `src/world/terrain.cpp`, `notes/build-preview.png`,
-  `notes/build-preview2.png`, `tests/test_viewer_cpp.py`
+  `notes/build-preview2.png`, `tests/test_app_cpp.py`
   (`test_cpp_build_save_load`, `test_cpp_pick_terrain`,
   `test_cpp_occupation_mask_blocks_placement`).
 
@@ -1360,7 +1360,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** SIM-1.
 - **Evidence:** `docs/platform/visitors.md`, `src/world/visitors.cpp`,
   `src/formats/bvi.cpp`, `notes/visitors.png`,
-  `tests/test_viewer_cpp.py::test_cpp_visitors_validate`,
+  `tests/test_app_cpp.py::test_cpp_visitors_validate`,
   `test_cpp_sim2b_visitor_state_machine`, `notes/visitor-ai-recon.md`,
   `docs/decomp/visitor-ai.md`.
 
@@ -1440,7 +1440,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/decomp/function-status.md`,
   `notes/p3-dino-eat.png`, `notes/secu-grid-validation.txt`,
   `tools/recon/secu_grid_check.py`,
-  `tests/test_viewer_cpp.py::test_cpp_dino_action_loop`,
+  `tests/test_app_cpp.py::test_cpp_dino_action_loop`,
   `test_cpp_danger_grid_secu`, `test_cpp_food_feeding`;
   `docs/platform/feeding.md`, `notes/food-pig-close.png`,
   `notes/perception-reaction-recon.md`,
@@ -1619,7 +1619,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** `arial12.fnt` renders readable text over the island.
 - **Depends on:** FMT-7, VIEW-1.
 - **Evidence:** `docs/platform/hud.md`, `src/formats/fnt.cpp`,
-  `notes/hud.png`, `tests/test_viewer_cpp.py::test_cpp_hud`.
+  `notes/hud.png`, `tests/test_app_cpp.py::test_cpp_hud`.
 
 ### UI-RECON: Retail overlay and menu research
 - [x] Inventory the overlay INIs: `MenuInterface.Ini` (114 widgets, 9 pages),
@@ -1648,7 +1648,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** start a new game, open/close panels, save.
 - **Depends on:** SIM-4.
 - **Evidence:** `docs/platform/hud.md`, `notes/menu.png`,
-  `notes/menu-help.png`, `tests/test_viewer_cpp.py::test_cpp_start_menu`,
+  `notes/menu-help.png`, `tests/test_app_cpp.py::test_cpp_start_menu`,
   `test_cpp_help_panel`.
 
 ### UI-2: Original menu parity
@@ -1787,7 +1787,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `notes/port-ui-save.png`, `notes/port-ui-load2.png`,
   `docs/platform/save-load.md`,
   `notes/park-construction-kit.png`, `notes/park-lab-breed.png`,
-  `tests/test_viewer_cpp.py` (`test_cpp_retail_menu_*`,
+  `tests/test_app_cpp.py` (`test_cpp_retail_menu_*`,
   `test_cpp_park_hud_*`, `test_cpp_park_panel*`, `test_cpp_park_lab_shot`,
   `test_cpp_park_hover_shot`, `test_cpp_menu_start_loads_selected_island`,
   `test_cpp_island_list_and_free_game_budgets`,
@@ -1860,7 +1860,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/world-import.md`,
   `notes/world-import-mapping.md`, `notes/cpg04-park-import.png`,
   `notes/p2-dinos.png`, `src/formats/dino_data.cpp`,
-  `tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
+  `tests/test_app_cpp.py::test_cpp_wld_park_import`,
   `test_cpp_wld_park_import_single_road`, `test_cpp_sav_park_import`,
   `test_cpp_wld_park_dinosaurs`, `test_cpp_wld_park_no_import_dinos`,
   `tests/test_anim_trans.py::test_base_species_head_types_are_unique`.
@@ -1915,7 +1915,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`
   (`tests/test_sav_manual.py`) does the patch and the output round-trips.
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
-  `src/viewer/main.cpp` is owned by the SHOW-4 UI work.
+  `src/app/main.cpp` is owned by the SHOW-4 UI work.
 - **Acceptance:** save, restart, load, state matches.
 - **Depends on:** SIM-4.
 
@@ -1963,7 +1963,7 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Evidence:** `docs/platform/campaign-flow.md`,
   `docs/formats/campaign.md`, `notes/campaign-recon.md`,
   `scripts/x32dbg/start-campaign.ps1`,
-  `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`.
+  `tests/test_app_cpp.py::test_cpp_retail_menu_pages`.
 
 ### DOCS-4: Decoded feature port contracts
 - [x] Add `docs/platform/decoded-features.md`: shows/judges/schedule,

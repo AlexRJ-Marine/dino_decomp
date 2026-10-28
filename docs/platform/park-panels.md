@@ -21,7 +21,7 @@ Scripted viewer on the docked Cpg04 park:
 
 ```powershell
 $game = "game\%MAINDIR%"
-.\build\port\dino_viewer.exe --frames 2 --no-menu --no-hud `
+.\build\port\dino_port.exe --frames 2 --no-menu --no-hud `
   --width 800 --height 600 --no-vsync --no-save-config `
   --lnd "$game\Data\Design\landscape\isl04\isl04.lnd" --asset-root $game `
   --no-vegetation --no-water `
@@ -142,7 +142,7 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 ### Budget
 
 ```powershell
-.\build\port\dino_viewer.exe --frames 2 --no-menu --no-hud --width 800 --height 600 `
+.\build\port\dino_port.exe --frames 2 --no-menu --no-hud --width 800 --height 600 `
   --no-vsync --no-save-config --lnd "...\isl04.lnd" --asset-root game\%MAINDIR% `
   --no-vegetation --no-water --wld-park "...\Cpg04_Save.wld" `
   --park-click 97,584 --park-click 429,482 --budget-info
@@ -225,7 +225,7 @@ the menu?" — not an immediate exit:
 
 Port: `ParkHud::return_to_menu_requested()` + `activate_main_menu()` (which
 also calls `ParkHud::end_session()` and restores the menu music).
-Evidence: `tests/test_viewer_cpp.py::test_cpp_park_quit_confirmation_and_menu`,
+Evidence: `tests/test_app_cpp.py::test_cpp_park_quit_confirmation_and_menu`,
 retail captures `notes/harness/quit-confirm.png`,
 `quit-after-confirm.png`, `quit-cancel.png` and the timelines
 `quit-confirm-timeline.txt` / `quit-cancel-timeline.txt`.
@@ -273,7 +273,7 @@ evidence/test links.
 - `../decomp/park-time.md` — clock and show scheduler.
 - `../../notes/store-panel-recon.md` — store panel research.
 - `../../notes/park-budget.png`, `park-fence-list.png`, `park-dino-list.png`.
-- Tests: `tests/test_viewer_cpp.py::test_cpp_park_panels`,
+- Tests: `tests/test_app_cpp.py::test_cpp_park_panels`,
   `test_cpp_park_panel_shot`, `test_cpp_park_lab_shot`,
   `test_cpp_park_fence_and_dino_lists`, `test_cpp_budget_panel_ledger`,
   `test_cpp_store_panel_purchase`, `test_cpp_options_save_panel`.

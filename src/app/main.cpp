@@ -81,7 +81,7 @@ struct Options {
     std::string screenshot;
     std::string capture_dir;
     std::string capture_prefix = "frame";
-    std::string config_path = "dino_viewer.cfg";
+    std::string config_path = "dino_port.cfg";
     std::string keys_path = "dino_keys.cfg";
     std::vector<std::string> rebinds;
     bool list_keys = false;
@@ -348,6 +348,14 @@ Options parse_args(int argc, char** argv) {
         }
     }
     load_config(opt.config_path, opt);
+    // Pre-rename config name: read the old file once; the next save writes
+    // `dino_port.cfg`. Keeps an existing local setup (window, volumes, LOD).
+    if (opt.config_path == "dino_port.cfg") {
+        std::ifstream current(opt.config_path);
+        if (!current) {
+            load_config("dino_viewer.cfg", opt);
+        }
+    }
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         auto next = [&](const char* what) -> const char* {
@@ -793,7 +801,7 @@ Options parse_args(int argc, char** argv) {
             opt.vsync = false;
         } else if (arg == "--help" || arg == "-h") {
             std::printf(
-                "usage: dino_viewer [options]\n"
+                "usage: dino_port [options]\n"
                 "  --mesh FILE          retail .mesh to draw\n"
                 "  --texture FILE       retail .tga texture\n"
                 "  --skel FILE          retail .skel skeleton\n"
@@ -971,7 +979,7 @@ Options parse_args(int argc, char** argv) {
                 "  --fullscreen         start fullscreen\n"
                 "  --borderless         borderless window\n"
                 "  --windowed           force windowed mode\n"
-                "  --config FILE        config file (default dino_viewer.cfg)\n"
+                "  --config FILE        config file (default dino_port.cfg)\n"
                 "  --keys FILE          key map (default dino_keys.cfg)\n"
                 "  --rebind A=KEY       rebind one action (repeatable)\n"
                 "  --list-keys          print the key map and exit\n"

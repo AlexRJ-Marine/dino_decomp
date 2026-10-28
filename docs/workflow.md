@@ -37,14 +37,14 @@ history.
 | harness | none | `run-test/`, `run-window/` |
 
 See `notes/lanes.md` for ownership. Never build into another lane's directory
-and never kill all `DinoIsland`/`dino_viewer` processes; stop the exact PID.
+and never kill all `DinoIsland`/`dino_port` processes; stop the exact PID.
 
 ## Verification
 
 ```powershell
 .\scripts\verify.ps1 -Fast     # quick: env + read-only check + build + non-slow tests
-.\scripts\verify.ps1           # full: includes tests/test_viewer_cpp.py (slow)
-.\scripts\test.ps1 -Exe build\port\dino_viewer.exe -Pattern phenotype
+.\scripts\verify.ps1           # full: includes tests/test_app_cpp.py (slow)
+.\scripts\test.ps1 -Exe build\port\dino_port.exe -Pattern phenotype
 ```
 
 `verify.ps1` fails when `original/` or `game/` has local changes and runs

@@ -16,13 +16,13 @@ against Python's `wave` module; the C++ reader uses the same rules.
 
 ## Playback
 
-`dino_viewer` opens an SDL3 audio device stream with the WAV's channel count
+`dino_port` opens an SDL3 audio device stream with the WAV's channel count
 and sample rate, queues the PCM data, and loops by appending when the queued
 buffer drops below half the clip. Audio is optional: if no device is
 available, the viewer prints a warning and continues.
 
 ```powershell
-.\build\mingw\dino_viewer.exe `
+.\build\mingw\dino_port.exe `
   --wav "game/%MAINDIR%/Data/Sound/Actors/Dinos/avoidance.wav"
 ```
 
@@ -67,7 +67,7 @@ sound music: data/Sound/Musics/musLabo.wav
 sound mixer: data/Sound/Interface/mixer.wav
 ```
 
-Evidence: `tests/test_viewer_cpp.py::test_cpp_menu_sounds`.
+Evidence: `tests/test_app_cpp.py::test_cpp_menu_sounds`.
 
 ## Island music
 
@@ -89,7 +89,7 @@ The music starts on the initial `--lnd` load and again after a menu-started
 island swap. The menu plays the `MenuSoundDB` `music` entry (the same
 `musLabo.wav`) until Start; entering a lab centre switches to `musLabo`, and
 leaving the lab restores the island theme. `M` mutes both music and clicks.
-Evidence: `tests/test_viewer_cpp.py::test_cpp_park_music`,
+Evidence: `tests/test_app_cpp.py::test_cpp_park_music`,
 `test_cpp_menu_and_island_music_switch`.
 
 ## Evidence
@@ -102,7 +102,7 @@ audio: ...avoidance.wav, 44100 Hz, 1 ch, 0.100s (loop)
 Files:
 
 - `notes/audio-smoke.txt` — validate + playback output.
-- `tests/test_viewer_cpp.py`:
+- `tests/test_app_cpp.py`:
   - `test_cpp_wav_validate`
   - `test_cpp_wav_window` (muted 2-frame window smoke test)
 

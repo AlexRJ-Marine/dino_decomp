@@ -35,9 +35,9 @@ if (-not $SkipBuild) {
 }
 
 $exe = if ([System.IO.Path]::IsPathRooted($BuildDir)) {
-    Join-Path $BuildDir "dino_viewer.exe"
+    Join-Path $BuildDir "dino_port.exe"
 } else {
-    Join-Path $root (Join-Path $BuildDir "dino_viewer.exe")
+    Join-Path $root (Join-Path $BuildDir "dino_port.exe")
 }
 & (Join-Path $PSScriptRoot "run-tests.ps1") -Fast:$Fast -Exe $exe
 exit $LASTEXITCODE

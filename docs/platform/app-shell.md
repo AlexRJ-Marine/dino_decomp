@@ -1,8 +1,10 @@
-# SDL3 + OpenGL viewer
+# SDL3 + OpenGL app shell
 
 Status: **VIEW-1 + VIEW-2 + VIEW-3 complete** — the window opens, loads a
 retail `.mesh` + `.tga`, and draws a textured, lit, **rigid-skinned animated**
-allosaurus with an orbit camera.
+allosaurus with an orbit camera. The interactive mode is now the retail park
+camera (`docs/decomp/camera.md`); `--camera-orbit` keeps the view described
+here. This is the port's application layer (`src/app`, target `dino_port`).
 
 ## Toolchain
 
@@ -16,14 +18,14 @@ allosaurus with an orbit camera.
 
 - `scripts/build.ps1` finds the newest `C:\Tools\SDL3\SDL3-*` prefix (or uses
   `$env:SDL3_ROOT`) and passes it to CMake as `-DSDL3_ROOT=...`.
-- CMake target `dino_viewer` links `SDL3::SDL3` + `opengl32` and copies
+- CMake target `dino_port` links `SDL3::SDL3` + `opengl32` and copies
   `SDL3.dll` next to the executable.
 
 ## Build/run
 
 ```powershell
 .\scripts\build.ps1
-.\build\mingw\dino_viewer.exe --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
+.\build\mingw\dino_port.exe --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
   --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga"
 ```
 
@@ -55,7 +57,7 @@ Controls: **left-drag** orbit, **wheel** zoom, **arrows** orbit, **R** reset,
 Example animated run:
 
 ```powershell
-.\build\mingw\dino_viewer.exe `
+.\build\mingw\dino_port.exe `
   --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
   --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga" `
   --skel "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo.skel" `
@@ -66,7 +68,7 @@ Example animated run:
 Deterministic 25-frame capture:
 
 ```powershell
-.\build\mingw\dino_viewer.exe --frames 25 `
+.\build\mingw\dino_port.exe --frames 25 `
   --capture-dir notes\anim-cpp --capture-prefix allo `
   --width 600 --height 400 --no-vsync --distance 16 `
   --mesh ... --texture ... --skel ... --skin ... --anim ...
@@ -82,7 +84,7 @@ Result: `notes/viewer-anim-1600.png`, `notes/viewer-anim-sheet.png`,
   same counts as the Python parser.
 - `src/formats/tga.cpp` reads uncompressed/RLE 24/32-bit and 8-bit grayscale
   TGA, returning top-left RGBA8.
-- `src/viewer/main.cpp`:
+- `src/app/main.cpp`:
   - SDL3 window/events/timing; GL 3.3 core context.
   - GLSL 3.3 vertex/fragment shaders with per-vertex normal, UV, color,
     texture modulation, key + fill lighting and a small gamma lift.
@@ -99,7 +101,7 @@ Result: `notes/viewer-anim-1600.png`, `notes/viewer-anim-sheet.png`,
   `v_cm @ inverse_bind @ W_raw_anim`, then `× 0.01` for metres. Normals are
   transformed by the same 3×3 and renormalised. The 317-vertex VBO is updated
   with `glBufferData` each frame.
-- `tests/test_viewer_cpp.py` checks the window smoke test, `.mesh`/`.tga`
+- `tests/test_app_cpp.py` checks the window smoke test, `.mesh`/`.tga`
   validation, skinned validation, a fixed animation pose, and frame capture.
 
 ## Next

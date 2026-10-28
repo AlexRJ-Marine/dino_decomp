@@ -10,8 +10,9 @@ import pytest
 from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = Path(os.environ.get("DINO_VIEWER_EXE",
-                          ROOT / "build" / "mingw" / "dino_viewer.exe"))
+EXE = Path(os.environ.get("DINO_EXE")
+           or os.environ.get("DINO_VIEWER_EXE")
+           or ROOT / "build" / "mingw" / "dino_port.exe")
 GAME = ROOT / "game" / "%MAINDIR%"
 ALLO_MESH = GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "allo" / "allo_lod1.mesh"
 ALLO_TEX = GAME / "Data" / "Graphics" / "Textures" / "actors" / "dinos" / "allo.tga"
@@ -28,7 +29,7 @@ pytestmark = pytest.mark.slow
 
 def test_viewer_window_smoke(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     shot = tmp_path / "window.bmp"
     result = subprocess.run(
         [str(EXE), "--frames", "2", "--screenshot", str(shot),
@@ -44,7 +45,7 @@ def test_viewer_window_smoke(tmp_path):
 
 def test_cpp_mesh_validate():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ALLO_MESH.exists() or not ALLO_TEX.exists():
         pytest.skip("retail samples not present")
     result = subprocess.run(
@@ -61,7 +62,7 @@ def test_cpp_mesh_validate():
 
 def test_cpp_mesh_window(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ALLO_MESH.exists() or not ALLO_TEX.exists():
         pytest.skip("retail samples not present")
     shot = tmp_path / "allo.bmp"
@@ -102,7 +103,7 @@ def _dino_geometry_args():
 
 def test_cpp_skin_bind_modes():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not all(p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
     default = subprocess.run(
@@ -121,7 +122,7 @@ def test_cpp_skin_bind_modes():
 
 def test_cpp_island_dino_validate():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists() or not all(
             p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
@@ -139,7 +140,7 @@ def test_cpp_island_dino_validate():
 
 def test_cpp_island_dino_window(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists() or not all(
             p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
@@ -169,7 +170,7 @@ def test_cpp_island_dino_window(tmp_path):
 
 def test_cpp_free_camera_start(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists() or not all(
             p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
@@ -192,7 +193,7 @@ def test_cpp_camera_retail_progress_default():
     """The park camera defaults to the retail ctor state: p=0.1, yaw=0,
     target (0,0,terrain), r=39, h=52.7, pitch=53.5, no roll."""
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail isl01 missing")
     env = os.environ.copy()
@@ -218,7 +219,7 @@ def test_cpp_camera_retail_selftest():
     yaw 90 deg/s with a 10/s low-pass (lag a*(1-k)/k = 0.1309 rad);
     progress speed lerp(0.05,0.2,p)."""
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail isl01 missing")
     result = subprocess.run(
@@ -246,7 +247,7 @@ def test_cpp_camera_retail_selftest():
 
 def test_cpp_camera_orbit_option_keeps_legacy_view():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail isl01 missing")
     env = os.environ.copy()
@@ -265,7 +266,7 @@ def test_cpp_camera_orbit_option_keeps_legacy_view():
 
 def test_cpp_keymap_has_free_camera_actions():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     result = subprocess.run(
         [str(EXE), "--list-keys"], capture_output=True, text=True, timeout=60,
     )
@@ -277,7 +278,7 @@ def test_cpp_keymap_has_free_camera_actions():
 
 def test_cpp_build_save_load(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     save = tmp_path / "park.txt"
@@ -306,7 +307,7 @@ def test_cpp_build_save_load(tmp_path):
 
 def test_cpp_occupation_mask_blocks_placement():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     # isl01 `_occupation.raw` (1024x1024) is stored bottom-up, like the
@@ -339,7 +340,7 @@ def test_cpp_occupation_mask_blocks_placement():
 
 def test_cpp_pick_terrain(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists() or not all(
             p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN)):
         pytest.skip("retail samples not present")
@@ -361,7 +362,7 @@ def test_cpp_pick_terrain(tmp_path):
 
 def test_cpp_skinned_validate():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not all(p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
     result = subprocess.run(
@@ -380,7 +381,7 @@ def test_cpp_skinned_validate():
 
 def test_cpp_skinned_window(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not all(p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
     shot = tmp_path / "skin.bmp"
@@ -406,7 +407,7 @@ def test_cpp_skinned_window(tmp_path):
 
 def test_cpp_frame_capture(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not all(p.exists() for p in (ALLO_MESH, ALLO_SKEL, ALLO_SKIN, ALLO_ANIM)):
         pytest.skip("retail samples not present")
     out_dir = tmp_path / "frames"
@@ -424,7 +425,7 @@ def test_cpp_frame_capture(tmp_path):
 
 def test_cpp_config_persist(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     cfg = tmp_path / "viewer.cfg"
     first = tmp_path / "first.bmp"
     result = subprocess.run(
@@ -447,7 +448,7 @@ def test_cpp_config_persist(tmp_path):
 
 def test_cpp_widescreen_and_4x3(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     wide = tmp_path / "wide.bmp"
     tall = tmp_path / "tall.bmp"
     for out, width, height in ((wide, 480, 270), (tall, 480, 360)):
@@ -465,7 +466,7 @@ def test_cpp_widescreen_and_4x3(tmp_path):
 
 def test_cpp_keymap_persist(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     keys = tmp_path / "keys.cfg"
     result = subprocess.run(
         [str(EXE), "--keys", str(keys),
@@ -488,7 +489,7 @@ def test_cpp_keymap_persist(tmp_path):
 
 def test_cpp_keymap_rejects_unknown_action():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     result = subprocess.run(
         [str(EXE), "--rebind", "no_such_action=J", "--list-keys"],
         capture_output=True, text=True, timeout=60,
@@ -500,7 +501,7 @@ def test_cpp_keymap_rejects_unknown_action():
 def test_cpp_wav_validate():
     wav = GAME / "Data" / "Sound" / "Actors" / "Dinos" / "avoidance.wav"
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not wav.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -518,7 +519,7 @@ def test_cpp_wav_validate():
 def test_cpp_wav_window(tmp_path):
     wav = GAME / "Data" / "Sound" / "Actors" / "Dinos" / "avoidance.wav"
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not wav.exists():
         pytest.skip("retail sample not present")
     shot = tmp_path / "audio.bmp"
@@ -535,7 +536,7 @@ def test_cpp_wav_window(tmp_path):
 
 def test_cpp_lnd_validate():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -553,7 +554,7 @@ def test_cpp_lnd_validate():
 
 def test_cpp_lnd_no_vegetation():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -567,7 +568,7 @@ def test_cpp_lnd_no_vegetation():
 
 def test_cpp_terrain_window(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     shot = tmp_path / "isl01.bmp"
@@ -592,7 +593,7 @@ def test_cpp_terrain_window(tmp_path):
 
 def test_cpp_skybox_and_water():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -794,7 +795,7 @@ def _path_loop_args():
 
 def test_cpp_visitors_validate():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -810,7 +811,7 @@ def test_cpp_visitors_validate():
 
 def test_cpp_daily_settlement():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     result = subprocess.run(
@@ -832,7 +833,7 @@ def test_cpp_daily_settlement():
 
 def test_cpp_sim2b_visitor_state_machine(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     bbi = GAME / "Data" / "Design" / "buildings" / "RestCirc.bbi"
@@ -870,7 +871,7 @@ def test_cpp_sim2b_visitor_state_machine(tmp_path):
 
 def test_cpp_selftest():
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     result = subprocess.run(
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
@@ -879,7 +880,7 @@ def test_cpp_selftest():
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
-        pytest.skip("dino_viewer not built (run scripts/build.ps1)")
+        pytest.skip("dino_port not built (run scripts/build.ps1)")
     if not ISL01.exists():
         pytest.skip("retail sample not present")
     validate = subprocess.run(

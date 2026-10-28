@@ -254,7 +254,7 @@ Renders: `notes/allo-skin-bind.png` (bind pose from the skin table) and
   exposes them as `trailing`); the C++ reader previously rejected them.
 
 Evidence: `notes/building-placement-recon.md`;
-`tests/test_viewer_cpp.py::test_cpp_wld_places_all_buildings` loads the 12
+`tests/test_app_cpp.py::test_cpp_wld_places_all_buildings` loads the 12
 skinned Cpg04 buildings from their primary `.skin`.
 
 ## Open questions

@@ -199,7 +199,7 @@ after their parent's art. The previous flat ascending-Z sort hid the list
 indicator strips under the snapshot buttons.
 
 Evidence: `notes/park-fence-list.png`, `notes/park-dino-list.png`,
-`tests/test_viewer_cpp.py::test_cpp_park_fence_and_dino_lists`.
+`tests/test_app_cpp.py::test_cpp_park_fence_and_dino_lists`.
 
 The five slot thumbnails are still the generic `DINO_SNAPSHOT_SLOT1` frame;
 live 3D snapshots per dinosaur remain open.
@@ -226,11 +226,11 @@ live 3D snapshots per dinosaur remain open.
 - `notes/warning.png` / `notes/warning-detail.png` - modal warning dialog.
 - `notes/request.png` / `notes/campaign-end.png` - request and campaign-end
   dialogs with their text zones.
-- `tests/test_viewer_cpp.py::test_cpp_request_dialog`,
+- `tests/test_app_cpp.py::test_cpp_request_dialog`,
   `test_cpp_campaign_end_dialog`.
 - `notes/retail-minimap-crop.png` - retail 800×600 map for comparison.
 - `notes/hud-preview.png` - Python oracle for the park HUD.
-- `tests/test_viewer_cpp.py`:
+- `tests/test_app_cpp.py`:
   - `test_cpp_hud` checks the font load line and bright glyph pixels.
   - `test_cpp_park_hud_load` / `test_cpp_park_hud_shot` check the park HUD.
   - `test_cpp_park_panels` / `_panel_shot` / `_lab_shot` / `_hover_shot`

@@ -8,7 +8,9 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = Path(
-    os.environ.get("DINO_VIEWER_EXE", ROOT / "build" / "mingw" / "dino_viewer.exe")
+    os.environ.get("DINO_EXE")
+    or os.environ.get("DINO_VIEWER_EXE")
+    or ROOT / "build" / "mingw" / "dino_port.exe"
 )
 GAME = ROOT / "game" / "%MAINDIR%"
 VIDEO = GAME / "Data" / "Video" / "tennis.mpg"

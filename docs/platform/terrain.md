@@ -113,7 +113,7 @@ Options:
 
 ## Render
 
-`dino_viewer --lnd <isl01.lnd> --asset-root game/%MAINDIR%` builds the mesh,
+`dino_port --lnd <isl01.lnd> --asset-root game/%MAINDIR%` builds the mesh,
 loads the basemap TGA, and draws it with the existing GLSL pipeline.
 
 Options:
@@ -128,7 +128,7 @@ Options:
 Example:
 
 ```powershell
-.\build\mingw\dino_viewer.exe --frames 3 `
+.\build\mingw\dino_port.exe --frames 3 `
   --screenshot notes\isl01-terrain.bmp --width 1200 --height 760 --no-vsync `
   --lnd "game/%MAINDIR%/Data/Design/landscape/isl01/isl01.lnd" `
   --asset-root "game/%MAINDIR%" --yaw 35 --pitch 35
@@ -165,7 +165,7 @@ islands validate:
 
 Evidence: `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
 `notes/menu-start-isl10.png`; `notes/ui-recon.md` ("Free Game start -> park
-handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`.
+handoff"); `tests/test_app_cpp.py::test_cpp_menu_start_loads_selected_island`.
 
 ## Evidence
 
@@ -177,7 +177,7 @@ handoff"); `tests/test_viewer_cpp.py::test_cpp_menu_start_loads_selected_island`
   68.5/76.0).
 - `notes/isl01-heightmap.png`, `notes/isl01-basemap_01.png`.
 - `notes/isl01-terrain.png`, `notes/isl01-vegetation.png`.
-- `tests/test_viewer_cpp.py`:
+- `tests/test_app_cpp.py`:
   - `test_cpp_lnd_validate` (terrain + vegetation counts)
   - `test_cpp_lnd_no_vegetation`
   - `test_cpp_terrain_window`

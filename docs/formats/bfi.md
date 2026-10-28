@@ -225,4 +225,4 @@ files.
 
 ## C++ reader (port)
 
-`src/formats/bfi.{h,cpp}` parses all 62 files to an exact EOF (header, class tag, judge kind, category, footprint, 8 mesh slots, arena `effects[5]`, switch key). `dino_viewer --show-info` joins every `.shw` tuple with its BFI footprint and tiles the show: Cpg1_Race_1 is 224 cells / 0 overlaps and **43/43 shows tile with 0 overlaps** (29,500 cells). Test: `test_cpp_show_info`.
+`src/formats/bfi.{h,cpp}` parses all 62 files to an exact EOF (header, class tag, judge kind, category, footprint, 8 mesh slots, arena `effects[5]`, switch key). `dino_port --show-info` joins every `.shw` tuple with its BFI footprint and tiles the show: Cpg1_Race_1 is 224 cells / 0 overlaps and **43/43 shows tile with 0 overlaps** (29,500 cells). Test: `test_cpp_show_info`.

@@ -564,11 +564,11 @@ typed records:
 CLI:
 
 ```text
-dino_viewer --sav-info run/save/slot001.sav        # header/world/simulation summary
-dino_viewer --sav-roundtrip run/save/slot001.sav   # whole file identical
-dino_viewer --sav-write IN.sav OUT.sav             # rebuild and emit
-dino_viewer --sav-write IN.sav OUT.sav --sav-name renamed --sav-slot 3
-dino_viewer --sav-write IN.sav OUT.sav --sav-budget 12345
+dino_port --sav-info run/save/slot001.sav        # header/world/simulation summary
+dino_port --sav-roundtrip run/save/slot001.sav   # whole file identical
+dino_port --sav-write IN.sav OUT.sav             # rebuild and emit
+dino_port --sav-write IN.sav OUT.sav --sav-name renamed --sav-slot 3
+dino_port --sav-write IN.sav OUT.sav --sav-budget 12345
 ```
 
 The header (version, slot, UTF-16 name, 12 reserved bytes) is retained and

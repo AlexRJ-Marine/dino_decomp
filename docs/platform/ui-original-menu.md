@@ -18,7 +18,7 @@ Research details: `notes/ui-recon.md` (evidence) and
   the recovered transitions (Free/Campaign/Load/Options/Cinematics/Credits/
   Quit, island/difficulty, Start/Cancel).
 - `src/formats/loc.cpp` resolves `&` strings through `MenuEng.loc`.
-- Rendering in `src/viewer/main.cpp`: 800×600 design space centred in the
+- Rendering in `src/app/main.cpp`: 800×600 design space centred in the
   window (pixels, not scaled); background from `BACKGROUND_*`; sprite frames
   packed per `NB_OBJECTS`/`SKIP_LIST` (compactly, horizontal or vertical);
   `.fnt` text with `TEXT_HEIGHT/font_size` scaling and `TEXT_JUSTIFY`.
@@ -40,7 +40,7 @@ and loads the selected world; pages 4–8 are display-only.
 
 Evidence: `notes/menu-retail.png` (main), `notes/menu-free.png` (Free Game),
 `notes/menu-pages-sheet.png` (pages 2–8), `notes/menu-preview.png` (Python
-parser cross-check), `tests/test_viewer_cpp.py` (menu load/pages/clicks/shot).
+parser cross-check), `tests/test_app_cpp.py` (menu load/pages/clicks/shot).
 
 ## Placeholder fallback
 
@@ -301,7 +301,7 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - [x] On timer expiry the viewer loads the selected island at runtime:
       `IslandList.ini` order → `Data/Design/Landscape/<name>/<name>.lnd` →
       terrain, basemap, vegetation, skybox, water and GPU resources are
-      rebuilt (`load_island` in `src/viewer/main.cpp`). This mirrors
+      rebuilt (`load_island` in `src/app/main.cpp`). This mirrors
       `FUN_0051dad0`/`FUN_00403e10`; the loading page itself is display-only
       in the original.
 - [x] Free-game budget from `Data/Design/Scenario/FreeGame.ini`
@@ -314,7 +314,7 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       places the allosaurus at the island centre (vertical-slice demo).
 - Evidence: `notes/ui-recon.md` ("Free Game start -> park handoff"),
   `notes/menu-start-isl01.png`, `notes/menu-start-isl03.png`,
-  `notes/menu-start-isl10.png`, `tests/test_viewer_cpp.py`
+  `notes/menu-start-isl10.png`, `tests/test_app_cpp.py`
   (`test_cpp_menu_start_loads_selected_island`).
 - Open: the original park camera's initial framing is not yet recovered.
 
@@ -361,7 +361,7 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       ctor hooks only PAGE/LIST/START/CANCEL. `intro.mpg` plays once at
       startup from `[DINO] UseIntroVideo`.
 - Evidence: `notes/cinematics-recon.md`,
-  `tests/test_viewer_cpp.py::test_cpp_retail_menu_cinematics_page`.
+  `tests/test_app_cpp.py::test_cpp_retail_menu_cinematics_page`.
 - Open: `CINEMATICS_INTRO_BUTTON` animation only; the row gate is the
   `dino.dat` count (`row < value-1`).
 
@@ -418,7 +418,7 @@ dispatch by widget name (or by a small enum assigned by the page builder).
       (`0x518080`), no apply/revert.
 - [x] Port: `Menu` option state + HSCROLL geometry/draw/input; live music/SFX
       gain and GameSpeed (retail 10 → the port's 60x clock); values saved in
-      `dino_viewer.cfg`; the selected screen mode is applied at the next
+      `dino_port.cfg`; the selected screen mode is applied at the next
       launch (retail's `&Restart`). Test `test_cpp_menu_options_page`.
 - [x] Cinematics/video exit: retail skips on **any mouse button**, not a key
       (`0x517930` polls DIMOUSESTATE L/R/M); the launching click is ignored;

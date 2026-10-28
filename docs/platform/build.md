@@ -359,7 +359,7 @@ non-empty paddock with `&WARNING_SELLING_NON_EMPTY_FENCE` and refunds
 `value * sellback` on the empty one). Road selling is decoded: the refund
 reuses the build formula `((x1-x0)+(y1-y0))*price/4`; the port does not
 implement the sell request yet. Evidence:
-`tests/test_viewer_cpp.py::test_cpp_road_tool`, `--selftest` road checks,
+`tests/test_app_cpp.py::test_cpp_road_tool`, `--selftest` road checks,
 `notes/road-tool.png`.
 
 ## Buildability mask
@@ -548,7 +548,7 @@ build: cell 4.0, grid 256x256, 2 path cells, 1 fences; mesh 2 tiles, 1 segments
 - `notes/build-preview.png` — L-shaped path + fence line, allosaurus on the
   path.
 - `notes/build-preview2.png` — wider view of the same layout.
-- `tests/test_viewer_cpp.py`:
+- `tests/test_app_cpp.py`:
   - `test_cpp_build_save_load` (counts, file contents, reload)
   - `test_cpp_pick_terrain` (ray pick returns a cell)
   - `test_cpp_occupation_mask_blocks_placement` (blocked isl01 cell rejected)

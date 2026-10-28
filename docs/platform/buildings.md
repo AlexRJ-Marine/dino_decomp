@@ -159,7 +159,7 @@ skinned ones loaded from their primary `.skin` (zero skin bones are allowed;
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe --frames 3 --no-menu --width 800 --height 600 `
+.\build\mingw\dino_port.exe --frames 3 --no-menu --width 800 --height 600 `
   --no-vsync --no-save-config --no-hud --no-vegetation --no-water `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G `
   --building "$G/Data/Design/buildings/Entrance.bbi" `
@@ -178,7 +178,7 @@ $G = "game/%MAINDIR%"
   height sampler; `FUN_004664C0/E0/500` basis-axis setters.
 - `notes/calibration-2026-10-26.md` - runtime Entrance cells/states and water
   Z (isl01/isl02), plus the visitor need ctor.
-- `tests/test_viewer_cpp.py::test_cpp_building_bbi_place`,
+- `tests/test_app_cpp.py::test_cpp_building_bbi_place`,
   `test_cpp_building_placement_transform`,
   `test_cpp_wld_reader_matches_retail`.
 

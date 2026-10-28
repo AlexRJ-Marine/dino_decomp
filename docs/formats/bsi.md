@@ -61,7 +61,7 @@ The portable reader is src/formats/bsi.{h,cpp}; the same values are printed
 by the viewer (compare against the Python oracle):
 
 `	ext
-dino_viewer --asset-root <game> --food-info Data/Design/foodsource
+dino_port --asset-root <game> --food-info Data/Design/foodsource
 food: FlowerFood nutrition=100 quantity=0.25 price=100 kind=0 flags=256 ...
 food sources: 10
 `

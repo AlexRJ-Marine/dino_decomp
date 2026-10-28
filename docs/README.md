@@ -49,7 +49,7 @@ page is the map for the `docs/` tree.
 ```powershell
 # build and test a lane
 .\scripts\build.ps1 -BuildDir build\port
-.\scripts\test.ps1 -Exe build\port\dino_viewer.exe -Fast
+.\scripts\test.ps1 -Exe build\port\dino_port.exe -Fast
 
 # quick/full verification
 .\scripts\verify.ps1 -Fast

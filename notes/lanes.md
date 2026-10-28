@@ -12,6 +12,7 @@ is building it; build into your own directory instead.
 | --- | --- | --- | --- |
 | AlexRJ-Marine | hybrid/TOOL-4 + P3 runtime (`src/hook`, harness probes) | `main` | `build/port` |
 | marcusrj | port/viewer UI, world and formats (`src/viewer`, `src/ui`, `src/world`, `tools/formats`) | `portable-setup` -> `main` | `build/marcus` |
+| opencode | refactor: naming + app-shell split (`src/app`, `src/render`, `src/audio`) | `main` | `build/refactor` |
 
 The queued jobs for marcusrj are in `notes/jobs-marcusrj.md`. Do not start a
 row there without claiming it here, and do not touch another lane's files.
@@ -30,6 +31,7 @@ row there without claiming it here, and do not touch another lane's files.
 | --- | --- | --- | --- | --- |
 | hybrid | hybrid agent | `src/hook/**`, `docs/decomp/**`, `notes/hybrid-*`, `run-test/DINPUT8.dll` | n/a (32-bit DLL) | `run-test/` via `scripts/x32dbg/*` |
 | port | port/viewer agent | `src/viewer/**`, `src/world/**`, `src/ui/**`, `src/formats/**`, `CMakeLists.txt`, `tests/test_viewer_cpp.py` | `build/port` | `run-window/` |
+| refactor | opencode refactor lane | `src/app/**`, `src/render/**`, `src/audio/**`, `src/selftest.cpp`, `CMakeLists.txt`, `docs/platform/naming.md`, `docs/platform/app-shell.md` | `build/refactor` | none |
 | formats | formats agent | `tools/formats/**`, `docs/formats/**`, `tests/test_*.py` (except viewer) | n/a | none |
 | recon | recon agent | `notes/**`, `docs/decomp/**` (read-only code) | n/a | `run-test/` |
 | harness | harness agent | `scripts/**`, `run-test/**`, `run-window/**`, `docs/platform/windowed-testing.md` | n/a | both |

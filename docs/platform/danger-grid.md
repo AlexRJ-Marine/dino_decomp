@@ -44,7 +44,7 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
 - `src/world/danger_grid.{h,cpp}`: `DangerGrid` (`clear`, `stamp`, `at`,
   cell access) and `secu_from_grid`. The port uses the same 8-unit cells,
   the same radius box and the same truncating arithmetic.
-- `src/viewer/main.cpp`: once per second it clears the grid, stamps every
+- `src/app/main.cpp`: once per second it clears the grid, stamps every
   imported dinosaur from `DinoNeeds::threat` / `threat_radius`, and pushes
   the recomputed value through `DinoActionLoop::set_secu`. Positions are
   raw units (`ImportedDino::x/y`; the renderer subtracts
@@ -71,7 +71,7 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
   port guard (retail would divide by zero) covered by the selftest.
 - `--selftest` covers stamping/radius and the formula (full health,
   threat, damage, clamp, `max_health = 0`).
-- `tests/test_viewer_cpp.py::test_cpp_danger_grid_secu` runs Cpg04 with 20
+- `tests/test_app_cpp.py::test_cpp_danger_grid_secu` runs Cpg04 with 20
   dinosaurs and checks every probe line against the formula, the raw
   0..1024 coordinates (`x > 512`), the half-health offset, health-only
   activation, a non-exact 70/169 ratio and the 0 clamp.
@@ -79,7 +79,7 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
   danger caches (`threat`, `threat_radius`) and their phenotype sources
   (`combined_attack`, `obstacle_radius`) as an optional tail. Older saves
   omit the tail and reload with the caches at 0.
-- `tests/test_viewer_cpp.py::test_cpp_port_save_danger_cache` covers the
+- `tests/test_app_cpp.py::test_cpp_port_save_danger_cache` covers the
   save/load round-trip.
 
 ## Remaining

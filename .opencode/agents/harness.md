@@ -37,7 +37,7 @@ build directories, or retail saves.
 - Build directories are per lane (`build/port`, `build/hybrid`, ...). Never
   delete or rebuild another lane's directory unless asked.
 - Stop only the exact PID that holds a lock; never kill all `DinoIsland` or
-  `dino_viewer` processes.
+  `dino_port` processes.
 - Runtime harnesses are windowed and background-safe: no `SetCursorPos`,
   `mouse_event`, `SetForegroundWindow`, or focus stealing in new scripts.
   `-PhysicalInput` is the documented legacy exception.

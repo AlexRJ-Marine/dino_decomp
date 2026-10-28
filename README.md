@@ -5,7 +5,7 @@ Reverse-engineering and interoperability project for **Dino Island**
 This repository contains:
 
 - tested parsers and format specifications for the retail data;
-- a portable C++20 + SDL3/OpenGL viewer and port in `src/`;
+- a portable C++20 + SDL3/OpenGL port in `src/`;
 - Ghidra research and a live hybrid-decompilation harness (`DINPUT8.dll`);
 - the evidence trail in `notes/` and `docs/`.
 
@@ -24,10 +24,10 @@ or play the original.
 |---|---|---|
 | Retail formats | Solved | 39 specs in `docs/formats/`; parsers round-trip the full retail sets (536 meshes, 299 animations, 64 skeletons, 104 skins, 649 TGA textures, 231 WAV files). Residual numeric semantics are listed in `notes/OPEN-TASKS.md`. |
 | Asset tools | Working | Mesh/skeleton/animation/texture/audio/config readers plus CLI dumpers and OBJ export. |
-| Portable viewer | Working | 10 islands through the retail menu, vegetation sector LOD, skinned dinosaurs, retail road network, visitors, retail menu/HUD, minimap, live clock, music/clicks, store and lab panels. |
+| Portable game | Working | 10 islands through the retail menu, vegetation sector LOD, skinned dinosaurs, retail road network, visitors, retail menu/HUD, minimap, live clock, music/clicks, store and lab panels. |
 | Gameplay simulation | Partial | Visitor needs/attractions state machine, dinosaur chooser/needs/actions, danger grid, daily settlement, show scheduling, employees and campaign objectives are ported; lab gameplay, live show actors and the full visitor loop remain. |
 | Decompilation | Research-heavy | 232 function entries documented: 188 decompiled, 20 verified, **9 asset readers replaced live** in the retail exe. |
-| Test suite | Green | **492 tests** in the suite; the last full run passed all 492. `dino_viewer --selftest` passes 189 logic checks. |
+| Test suite | Green | **492 tests** in the suite; the last full run passed all 492. `dino_port --selftest` passes 189 logic checks. |
 
 ### What works today
 
@@ -119,7 +119,7 @@ or play the original.
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe --asset-root $G `
+.\build\mingw\dino_port.exe --asset-root $G `
   --menu-page 1 --menu-click 200,180 --menu-click 494,451 `
   --menu-click 526,531 --menu-loading-time 0 `
   --start-dino --music
@@ -217,7 +217,7 @@ executable runnable while functions are recovered. See
 ## Building the portable port
 
 This builds our port, **not the retail game**. The output is
-`build/mingw/dino_viewer.exe` plus `dino_tools.exe`. `run/DinoIsland.exe` is a
+`build/mingw/dino_port.exe` plus `dino_tools.exe`. `run/DinoIsland.exe` is a
 copy of the retail executable used as an oracle; it is never built here.
 
 ### Prerequisites
@@ -283,7 +283,7 @@ cd "Dino decomp"
 
 `check-env.ps1` validates the full reverse-engineering environment. It expects
 the retail executable and a running Ghidra MCP server, so start Ghidra first,
-then run `.\scripts\check-env.ps1`. If you only want to build the viewer,
+then run `.\scripts\check-env.ps1`. If you only want to build the game,
 `scripts\build.ps1` needs just the venv, w64devkit and SDL3.
 
 ### Build
@@ -294,16 +294,16 @@ then run `.\scripts\check-env.ps1`. If you only want to build the viewer,
 
 The script configures `build/mingw` with Ninja and w64devkit, then builds:
 
-- `build/mingw/dino_viewer.exe` - SDL3/OpenGL viewer
+- `build/mingw/dino_port.exe` - SDL3/OpenGL game shell
 - `build/mingw/dino_tools.exe` - small CLI skeleton
-- `build/mingw/SDL3.dll` - copied next to the viewer
+- `build/mingw/SDL3.dll` - copied next to the executable
 
 ### Run the island + dinosaur scene
 
 ```powershell
 $G = "game/%MAINDIR%"
 
-.\build\mingw\dino_viewer.exe `
+.\build\mingw\dino_port.exe `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G `
   --mesh "$G/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
   --skel "$G/Data/Graphics/Actors/Dinos/allo/allo.skel" `
@@ -323,7 +323,7 @@ window mode.
 ```powershell
 $G = "game/%MAINDIR%"
 
-.\build\mingw\dino_viewer.exe --menu `
+.\build\mingw\dino_port.exe --menu `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G
 ```
 
@@ -350,7 +350,7 @@ from scripts or screenshots. Starting a game loads the selected island through
 | `--frames N --screenshot out.bmp` | Deterministic headless capture. |
 | `--wav FILE --mute` | Play a retail WAV; `M` mutes. |
 
-Run `dino_viewer.exe --help` for the complete list.
+Run `dino_port.exe --help` for the complete list.
 
 ### Tests
 

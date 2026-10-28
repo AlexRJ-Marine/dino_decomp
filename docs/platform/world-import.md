@@ -69,7 +69,7 @@ Run:
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+.\build\mingw\dino_port.exe --frames 2 --no-menu --no-hud --no-vsync `
   --lnd "$G/Data/Design/landscape/isl04/isl04.lnd" --asset-root $G `
   --no-vegetation --no-water `
   --wld-park "$G/Data/Design/Scenario/Cpg04/Cpg04_Save.wld"
@@ -92,7 +92,7 @@ individual (see `docs/decomp/construction-validation.md`).
 
 Evidence: `notes/cpg04-port-close.png` (port Cpg04 import at distance 70),
 `notes/cpg04-park-import.png`, `notes/p2-dinos.png`,
-`tests/test_viewer_cpp.py::test_cpp_wld_park_import`,
+`tests/test_app_cpp.py::test_cpp_wld_park_import`,
 `test_cpp_wld_park_import_single_road`,
 `test_cpp_wld_park_dinosaurs`, `test_cpp_wld_park_no_import_dinos`.
 
@@ -126,7 +126,7 @@ the first three needs are restored after `apply_port_state`.
 Run:
 
 ```powershell
-.uild\mingw\dino_viewer.exe --frames 2 --no-menu --no-hud --no-vsync `
+.uild\mingw\dino_port.exe --frames 2 --no-menu --no-hud --no-vsync `
   --lnd game/%MAINDIR%/Data/Design/landscape/isl01/isl01.lnd `
   --asset-root game/%MAINDIR% --no-vegetation --no-water `
   --sav-park run/save/slot001.sav
@@ -139,7 +139,7 @@ sav park: visitors=2 roads=1 budget=75125 day=0 elapsed=23.214 fences=0 building
 sav import: budget=75125 day=0 elapsed=23.214 visitors=2 paths=16 fences=0 buildings=1
 ```
 
-Evidence: `tests/test_viewer_cpp.py::test_cpp_sav_park_import`.
+Evidence: `tests/test_app_cpp.py::test_cpp_sav_park_import`.
 
 ## Dinosaurs (working)
 

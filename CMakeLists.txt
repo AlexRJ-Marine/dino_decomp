@@ -16,7 +16,7 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Portable viewer (Phase 2): SDL3 + OpenGL
+# Portable game shell: SDL3 + OpenGL
 # ---------------------------------------------------------------------------
 
 set(SDL3_ROOT "" CACHE PATH "SDL3 MinGW prefix (contains include/SDL3 and lib)")
@@ -28,10 +28,10 @@ endif()
 
 find_package(SDL3 CONFIG REQUIRED PATHS "${SDL3_ROOT}" NO_DEFAULT_PATH)
 
-add_executable(dino_viewer
-    src/viewer/main.cpp
-    src/viewer/keymap.cpp
-    src/viewer/camera_config.cpp
+add_executable(dino_port
+    src/app/main.cpp
+    src/app/keymap.cpp
+    src/app/camera_config.cpp
     src/formats/mesh.cpp
     src/formats/tga.cpp
     src/formats/image.cpp
@@ -77,19 +77,19 @@ add_executable(dino_viewer
     src/world/economy.cpp
 )
 
-target_compile_features(dino_viewer PRIVATE cxx_std_20)
-target_compile_definitions(dino_viewer PRIVATE SDL_MAIN_HANDLED)
-target_link_libraries(dino_viewer PRIVATE SDL3::SDL3 opengl32)
+target_compile_features(dino_port PRIVATE cxx_std_20)
+target_compile_definitions(dino_port PRIVATE SDL_MAIN_HANDLED)
+target_link_libraries(dino_port PRIVATE SDL3::SDL3 opengl32)
 
 if(MSVC)
-    target_compile_options(dino_viewer PRIVATE /W4)
+    target_compile_options(dino_port PRIVATE /W4)
 else()
-    target_compile_options(dino_viewer PRIVATE -Wall -Wextra)
+    target_compile_options(dino_port PRIVATE -Wall -Wextra)
 endif()
 
-add_custom_command(TARGET dino_viewer POST_BUILD
+add_custom_command(TARGET dino_port POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:SDL3::SDL3>
-        $<TARGET_FILE_DIR:dino_viewer>
-    COMMENT "Copying SDL3 runtime next to dino_viewer"
+        $<TARGET_FILE_DIR:dino_port>
+    COMMENT "Copying SDL3 runtime next to dino_port"
 )

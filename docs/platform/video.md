@@ -37,7 +37,7 @@ All seven movies carry exactly one MPEG-1 Audio Layer II track at 44.1 kHz
   - `MpgStream` → one `next(MpgFrame&)` per video frame for playback, plus
     `has_audio()`, `audio_samplerate()` and `take_audio()` (interleaved
     stereo float decoded since the previous call).
-- `src/viewer/main.cpp`:
+- `src/app/main.cpp`:
   - `--video-info FILE` prints the probe and exits;
   - `--video-frame FILE --video-frame-index N --video-out OUT.bmp` decodes
     frame N, flips it to top-down and writes a 24-bit BMP;
@@ -62,8 +62,8 @@ output paths. `notes/video-tennis-frame.png` is frame 300 of `tennis.mpg`.
 ## Verification
 
 ```powershell
-.\build\port\dino_viewer.exe --video-info "game\%MAINDIR%\Data\Video\tennis.mpg"
-.\build\port\dino_viewer.exe --video-frame "game\%MAINDIR%\Data\Video\tennis.mpg" `
+.\build\port\dino_port.exe --video-info "game\%MAINDIR%\Data\Video\tennis.mpg"
+.\build\port\dino_port.exe --video-frame "game\%MAINDIR%\Data\Video\tennis.mpg" `
   --video-frame-index 300 --video-out notes\harness\tennis-300.bmp
 ```
 
@@ -74,7 +74,7 @@ Expect `width=640 height=480 duration=34.417 fps=24.000` and a 640×480 BMP.
 Playback:
 
 ```powershell
-.\build\port\dino_viewer.exe --play-video "game\%MAINDIR%\Data\Video\tennis.mpg" `
+.\build\port\dino_port.exe --play-video "game\%MAINDIR%\Data\Video\tennis.mpg" `
   --video-play-start 300 --video-play-frames 1 --screenshot notes\harness\play.bmp
 ```
 
@@ -94,9 +94,9 @@ screenshot. The campaign completion path (`Cpg02_Mission5`) prints
 ## Evidence
 
 - `third_party/pl_mpeg.h`, `third_party/README.md`.
-- `src/formats/mpg.{h,cpp}`, `src/viewer/main.cpp`.
+- `src/formats/mpg.{h,cpp}`, `src/app/main.cpp`.
 - `tests/test_video.py` (probe, frame export, playback),
   `tests/test_campaign_cpp.py::test_cpp_campaign_completion_video`,
-  `tests/test_viewer_cpp.py::test_cpp_mpg_cinematic_audio_probe`,
+  `tests/test_app_cpp.py::test_cpp_mpg_cinematic_audio_probe`,
   `test_cpp_retail_menu_cinematics` (audio stream assertion),
   `notes/video-tennis-frame.png`.

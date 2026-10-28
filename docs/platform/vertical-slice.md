@@ -8,7 +8,7 @@ free-fly cameras.
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe `
+.\build\mingw\dino_port.exe `
   --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" --asset-root $G `
   --mesh "$G/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
   --skel "$G/Data/Graphics/Actors/Dinos/allo/allo.skel" `
@@ -36,7 +36,7 @@ the centre of the selected island after loading it.
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe --asset-root $G `
+.\build\mingw\dino_port.exe --asset-root $G `
   --menu-page 1 --menu-click 200,180 --menu-click 494,451 `
   --menu-click 526,531 --menu-loading-time 0 --start-dino
 ```
@@ -111,6 +111,6 @@ skin` reproduces the crouched bind for comparison. Details and evidence:
 
 - `notes/isl01-dino-meshbind.png` — standing allosaurus on isl01.
 - `notes/isl01-dino-walk.png` — `HeavyBiped_Walk` at t=1200.
-- `tests/test_viewer_cpp.py`:
+- `tests/test_app_cpp.py`:
   `test_cpp_skin_bind_modes`, `test_cpp_island_dino_validate`,
   `test_cpp_island_dino_window`.

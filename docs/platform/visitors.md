@@ -78,7 +78,7 @@ Example (path loop around the dinosaur):
 
 ```powershell
 $G = "game/%MAINDIR%"
-.\build\mingw\dino_viewer.exe --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" `
+.\build\mingw\dino_port.exe --lnd "$G/Data/Design/landscape/isl01/isl01.lnd" `
   --asset-root $G --visitors 8 --build --dino-pos 512,512 `
   --place-path 126,126 ... --place-path 132,132 ...
 ```
@@ -87,7 +87,7 @@ $G = "game/%MAINDIR%"
 
 - `notes/visitors.png` — 8 visitors walking a 24-cell loop around the
   allosaurus.
-- `tests/test_viewer_cpp.py::test_cpp_visitors_validate` asserts
+- `tests/test_app_cpp.py::test_cpp_visitors_validate` asserts
   `visitors: 8 spawned on 24 path cells`.
 - `src/world/visitors.cpp`, `src/world/visitors.h`.
 

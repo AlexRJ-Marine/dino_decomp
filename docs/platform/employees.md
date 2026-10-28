@@ -62,7 +62,7 @@ source capacity.
 
 ## Evidence
 
-- Tests: `tests/test_viewer_cpp.py::test_cpp_employee_info`,
+- Tests: `tests/test_app_cpp.py::test_cpp_employee_info`,
   `test_cpp_employee_feeding_and_wages`.
 - Cpg04 + `PigFood`: hire 2 = budget 74,000; one feed assigned/completed;
   settlement wages 1,000 -> budget 73,000.

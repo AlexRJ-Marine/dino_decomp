@@ -72,7 +72,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0051bb30` | difficulty setter — writes `Y+0x44` (0/1/2) | decompiled | same |
 | `0x00517e90` / `0x00517ef0` | `LOADING_PAGE` ctor / Activate — sets the start request; no loader | decompiled | same |
 | `0x00402460` | `daMainApplication::Update` — consumes start request, tears down the menu, calls new-game/load | decompiled | same |
-| `0x00403e10` | new-game start — park init + island load; free game calls `FUN_0051dad0` | decompiled, verified | `src/viewer/main.cpp` (`load_island`) |
+| `0x00403e10` | new-game start — park init + island load; free game calls `FUN_0051dad0` | decompiled, verified | `src/app/main.cpp` (`load_island`) |
 | `0x0051dad0` | builds `Data\Design\Landscape\<isl>\<isl>.lnd` and opens the park | decompiled, verified | same |
 | `0x00506530` | `gdtIslandDataBase` — reads `IslandList.ini` | decompiled, verified | `IslandList.ini`, 10 records |
 | `0x0055dab0` | free-game/campaign scenario setup (`FreeGame.ini`) | decompiled | same |
@@ -80,7 +80,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x005c5bf0` | `moWidget::Draw` — self then child list (priority/insertion order) | decompiled | `notes/ui-recon.md` |
 | `0x005c5d60` | child draw thunk (`Draw` + `+0x3c`) | identified | same |
 | `0x005bae40` | widget manager add-child (priority-ordered list) | decompiled | same |
-| `0x00529880` | minimap controller (`MAP_PANEL`, `MAP_RENDERVIEW`, zoom buttons) | decompiled, verified | `src/viewer/main.cpp` (minimap) |
+| `0x00529880` | minimap controller (`MAP_PANEL`, `MAP_RENDERVIEW`, zoom buttons) | decompiled, verified | `src/app/main.cpp` (minimap) |
 | `0x00529a90` / `0x00529b60` | minimap zoom-in/out press — set held flags `+0x24`/`+0x25` | decompiled, verified | `notes/ui-recon.md` ("Minimap implementation") |
 | `0x005fb7e0` | minimap zoom integration — scale `+0x38` ±0.15/s, clamp 0.1..2.0 | decompiled, verified | same |
 | `0x005fb120` | detail-map quad — target centre (x/1024, 1-y/1024), angle 90° + camera heading | decompiled, verified | same |
@@ -248,7 +248,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0052c2e0` | construction warning helper: 1 `BUSY_SPACE`, 2 `UNEVEN_FLOOR`, 3 `INSIDE_PERIMETER`, 4 `PERIMETER_TOO_SMALL`, 5 `ROAD_TOO_SHORT` | decompiled | `notes/road-construction-recon.md` |
 | `0x0052de80` | `ROAD_CONSTRUCTION` state ctor (state `0x10`, vtable `0x642c60`); binds Road/Farm/Metro buttons | decompiled | same |
 | `0x0052e750` | road state per-frame update: cost `(len * gdt+0x1a4) >> 2`, `&MESSAGE_ROAD_COST`, preview validity (not a Ghidra function) | decompiled | same |
-| `0x0052e9e0` | road state mouse button: start / commit + chain / right-click cancel (not a Ghidra function) | decompiled, ported | same; `src/world/build.cpp` (`road_*`), `tests/test_viewer_cpp.py::test_cpp_road_tool` |
+| `0x0052e9e0` | road state mouse button: start / commit + chain / right-click cancel (not a Ghidra function) | decompiled, ported | same; `src/world/build.cpp` (`road_*`), `tests/test_app_cpp.py::test_cpp_road_tool` |
 | `0x0052ee40` | road state mouse move (preview end / farm-metro ghost) | decompiled | same |
 | `0x0058ce80` / `0x0058cfd0` | `spRoadNetwork` start / run validation → codes 3, 5, 1 | decompiled, ported | same |
 | `0x0058d110` | `spRoadNetwork` add road rectangle (split/merge, sorted insert) | decompiled | same |
@@ -284,15 +284,15 @@ the original exe (Phase 3 `HYB-1..7`).
 | `0x477f30` mesh block reader | `src/hook/dinput8_proxy.cpp` | **replaced live**, 121 mesh files |
 | `.mesh` body reader | `src/formats/mesh.cpp` | reimplemented, `--validate` |
 | `.tga` reader | `src/formats/tga.cpp` | reimplemented, 24/32/8-bit + RLE |
-| `.skel`/`.skin`/`.anim` CPU skinning | `src/viewer/main.cpp` | reimplemented, VIEW-3 |
+| `.skel`/`.skin`/`.anim` CPU skinning | `src/app/main.cpp` | reimplemented, VIEW-3 |
 | park HUD panel switching | `src/ui/park.cpp` | reimplemented, 12 HUD buttons + info pages + lab centres |
-| menu start -> selected island | `src/viewer/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
-| minimap detail view | `src/viewer/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
+| menu start -> selected island | `src/app/main.cpp` (`load_island`) | reimplemented, IslandList + `.lnd` rebuild, budgets |
+| minimap detail view | `src/app/main.cpp` (FBO) | reimplemented, 256² top-down map, camera-centred, zoom + marker |
 | HUD resize anchoring | `src/ui/overlay.cpp` (`layout_for_size`) | reimplemented, 800→1024 rects verified |
-| park clock | `src/viewer/main.cpp` (`ParkClock`) | reimplemented, base 9 + scale 60, 12 h day + HUD time/day |
-| free-game start camera | `src/viewer/main.cpp` (`RetailParkCamera`) | reimplemented, retail ctor target (512,512,50)/eye (128,128,250) p=0.1 yaw 0, fly-in, 5/s yaw filter + FOV 80 |
+| park clock | `src/app/main.cpp` (`ParkClock`) | reimplemented, base 9 + scale 60, 12 h day + HUD time/day |
+| free-game start camera | `src/app/main.cpp` (`RetailParkCamera`) | reimplemented, retail ctor target (512,512,50)/eye (128,128,250) p=0.1 yaw 0, fly-in, 5/s yaw filter + FOV 80 |
 | `.sav` header + slot list | `src/formats/sav.cpp` | reimplemented, version/slot/UTF-16 name |
-| island music | `src/viewer/main.cpp` (`MusicPlayer`) | reimplemented, chunk-streamed/looped theme |
+| island music | `src/app/main.cpp` (`MusicPlayer`) | reimplemented, chunk-streamed/looped theme |
 | overlay INI/GraphicDB + frame strips | `src/ui/overlay.cpp`, `src/ui/menu.cpp` | reimplemented, UI-2 |
 
 ## Open items

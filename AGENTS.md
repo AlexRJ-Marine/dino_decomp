@@ -161,7 +161,7 @@ active for a click test until the proxy shims activation.
    `build/port`); write the task under "Focus" in `notes/NOW.md`.
 3. Do the smallest experiment that resolves the unknown.
 4. Run the relevant tests/build: `scripts/build.ps1 -BuildDir build/<lane>`
-   and `scripts/test.ps1 -Exe build/<lane>/dino_viewer.exe -Fast`.
+   and `scripts/test.ps1 -Exe build/<lane>/dino_port.exe -Fast`.
 5. Record evidence in `notes/` and `docs/formats/`; add a row to
    `notes/evidence-index.md` when the claim becomes load-bearing.
 6. Mark the task done in `TASKS.md`; run

@@ -102,7 +102,7 @@ time) and then `0x0058ad00`. The clock itself is documented in
 
 ## Port settlement (P4c)
 
-`src/viewer/main.cpp` runs `run_daily_settlement()` when `ParkClock` sets
+`src/app/main.cpp` runs `run_daily_settlement()` when `ParkClock` sets
 `end_of_day`, before `next_day()`:
 
 ```text

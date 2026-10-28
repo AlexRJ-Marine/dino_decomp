@@ -20,6 +20,7 @@
 # Local tool state
 *.log
 *.tmp
+dino_port.cfg
 dino_viewer.cfg
 dino_keys.cfg
 __pycache__/

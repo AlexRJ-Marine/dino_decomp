@@ -141,7 +141,7 @@ viewer loads the six free-game easy profiles (`OldMan`, `SurferMan`,
 
 Tests: `tests/test_bvi.py` (FanMan/Surfer values, 24-file scan, 624 mesh
 paths, and the constant scoring block); the C++ path is covered by
-`tests/test_viewer_cpp.py::test_cpp_sim2b_visitor_state_machine`.
+`tests/test_app_cpp.py::test_cpp_sim2b_visitor_state_machine`.
 
 ## Evidence
 

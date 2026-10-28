@@ -85,7 +85,7 @@ Known differences in that frame:
   blend).
 - `notes/p5-water-additive.png` — additive blend without fog.
 - `notes/p5-water-fog3.png` — additive water + per-material fog (current).
-- `tests/test_viewer_cpp.py::test_cpp_skybox_and_water` asserts
+- `tests/test_app_cpp.py::test_cpp_skybox_and_water` asserts
   `environment: skybox 6/6 faces, water yes at z=16.0 (256x256) water2
   256x256`; `test_cpp_water_modulate2x` compares the sea with and without
   `--no-water2` (`notes/water-modulate2x.png`); `test_cpp_water_animation`

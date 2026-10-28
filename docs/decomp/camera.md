@@ -150,8 +150,8 @@ of the eight bytes through `FUN_005e59b0`.
 
 ## Port
 
-- `src/viewer/camera_config.{h,cpp}` reads `camera.ini [Config1]`.
-- `src/viewer/main.cpp` has `RetailParkCamera` with the exact state:
+- `src/app/camera_config.{h,cpp}` reads `camera.ini [Config1]`.
+- `src/app/main.cpp` has `RetailParkCamera` with the exact state:
   target/eye current+goal, yaw current+goal, progress, altitude. It is the
   **default** interactive park camera; `--camera-orbit` restores the legacy
   spherical orbit, and explicit `--camera-target` / `--distance` /
@@ -173,7 +173,7 @@ of the eight bytes through `FUN_005e59b0`.
   persisted on focus loss) sets pan flags 2/3/0/1 within a 2 px band
   (`--edge-scroll N` widens it for windowed play), disabled while Shift is
   held. No drag and no wheel.
-- Tests: `tests/test_viewer_cpp.py::test_cpp_camera_retail_progress_default`,
+- Tests: `tests/test_app_cpp.py::test_cpp_camera_retail_progress_default`,
   `test_cpp_camera_retail_selftest`, `test_cpp_camera_orbit_option_keeps_legacy_view`.
 
 ## Serialization

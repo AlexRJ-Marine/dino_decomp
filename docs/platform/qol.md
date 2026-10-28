@@ -16,7 +16,7 @@ The viewport always uses the actual drawable size; the camera keeps a vertical
 
 ## Config persistence
 
-Default config: `dino_viewer.cfg` in the working directory (gitignored).
+Default config: `dino_port.cfg` in the working directory (gitignored).
 
 ```ini
 width=1280
@@ -78,7 +78,7 @@ toggle_camera=C
 Example:
 
 ```powershell
-.\build\mingw\dino_viewer.exe --keys dino_keys.cfg `
+.\build\mingw\dino_port.exe --keys dino_keys.cfg `
   --rebind orbit_left=J --rebind reset=H --list-keys
 ```
 
@@ -92,7 +92,7 @@ port actions as game actions are ported.
 | `notes/qol-16x9.png` | 640×360 (16:9) |
 | `notes/qol-4x3.png` | 640×480 (4:3) |
 
-Tests (`tests/test_viewer_cpp.py`):
+Tests (`tests/test_app_cpp.py`):
 
 - `test_cpp_config_persist`: writes `width=400`/`height=300`, relaunches
   without size flags, checks the persisted 400×300 screenshot.
