@@ -145,15 +145,13 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
-- 2026-10-28 - MENU-1: Cinematics page lists ending videos; dino.dat is a count
+- 2026-10-28 - MENU-1: Cinematics page plays campaign ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 - 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
 - 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
 - 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
-- 2026-10-28 - Full suite green: 473 passed after enclosure rectangle/paddock and campaign show features
-- 2026-10-28 - Full suite green: 473 passed after camera/preview/enclosure/campaign-population work
 
 ## Blockers
 
