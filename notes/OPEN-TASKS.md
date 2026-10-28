@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 13:14. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 14:02. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 37 open items.
 
@@ -88,7 +88,7 @@ Generated from `TASKS.md` on 2026-10-28 13:14. Do not edit; regenerate with `scr
 
 ## UI-2: Original menu parity
 - [ ] Phase B5 rest: apply LOD/texture quality/depth/TNL at startup; the
-- [ ] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION`, verify
+- [ ] List-row hover frame and hold-to-repeat remain cosmetic.
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live
 
 ## MEDIA-1: Audio and video
