@@ -325,6 +325,11 @@ class WldFile:
     camera: tuple[float, ...] | None = None
     size: int = 0
     simulation_offset: int = 0
+    simulation_dinos: list = field(default_factory=list)
+    food_sources: list = field(default_factory=list)
+    employees: list = field(default_factory=list)
+    attraction_count: int = 0
+    simulation_end: int = 0
 
     def summary(self) -> dict:
         return {
@@ -335,6 +340,11 @@ class WldFile:
             "world": self.world.summary(),
             "roads": len(self.roads),
             "simulation_offset": self.simulation_offset,
+            "simulation_dinos": len(self.simulation_dinos),
+            "food_sources": len(self.food_sources),
+            "employees": len(self.employees),
+            "attraction_count": self.attraction_count,
+            "simulation_end": self.simulation_end,
             "camera": list(self.camera) if self.camera else None,
         }
 
@@ -638,6 +648,29 @@ def read_wld(path: Path) -> WldFile:
     road_count = r.count(100_000)
     for _ in range(road_count):
         roads.append(RoadRect(r.i32(), r.i32(), r.i32(), r.i32()))
+    simulation_offset = r.off
+    dinos: list = []
+    food: list = []
+    employees: list = []
+    attraction_count = 0
+    simulation_end = simulation_offset
+    if version > 2:
+        from sav_campaign import (  # local import keeps wld.py standalone
+            read_campaign_list0,
+            read_campaign_list1,
+            read_campaign_list2,
+        )
+
+        dino_count = r.count(10_000)
+        dinos, end = read_campaign_list0(data, r.off, dino_count)
+        food_count = struct.unpack_from("<I", data, end)[0]
+        food, end = read_campaign_list1(data, end + 4, food_count)
+        employee_count = struct.unpack_from("<I", data, end)[0]
+        employees, simulation_end = read_campaign_list2(
+            data, end + 4, employee_count)
+        if simulation_end + 4 <= body_end:
+            attraction_count = struct.unpack_from(
+                "<I", data, simulation_end)[0]
     return WldFile(
         str(path),
         version,
@@ -646,7 +679,12 @@ def read_wld(path: Path) -> WldFile:
         roads,
         camera,
         size=len(data),
-        simulation_offset=r.off,
+        simulation_offset=simulation_offset,
+        simulation_dinos=dinos,
+        food_sources=food,
+        employees=employees,
+        attraction_count=attraction_count,
+        simulation_end=simulation_end,
     )
 
 

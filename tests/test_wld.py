@@ -80,6 +80,16 @@ def test_cpg04_populated_world():
     assert len(w.dinosaurs[0].genotype) == 18
     assert wld.roads[0].to_dict() == {"x0": 380, "y0": 408, "x1": 656, "y1": 408}
     assert wld.simulation_offset == 0x2010
+    # The .wld carries the live simulation lists, not just the placement graph.
+    assert len(wld.simulation_dinos) == 20
+    assert [(f.object_id, f.position) for f in wld.food_sources] == [
+        (264, (461.5, 421.5)), (267, (461.5, 445.5))]
+    assert [(e.object_id, e.cell_x, e.cell_y, e.state)
+            for e in wld.employees] == [
+        (13, 475, 340, 2), (15, 475, 340, 2), (337, 504, 364, 2),
+        (375, 406, 411, 2), (411, 504, 364, 2), (63785, 450, 595, 2)]
+    assert wld.attraction_count == 57
+    assert wld.simulation_end == 0x6482
 
 
 def test_cpg02_03_05_versions():

@@ -316,7 +316,9 @@ python tools/formats/wld.py --sav <file.sav>
 ```
 
 Returns a `WldFile` with `version`, `mode`, a `WorldBlock`, `roads`,
-`simulation_offset` and `camera`.
+`simulation_offset`, the simulation lists (`simulation_dinos`,
+`food_sources`, `employees`, `attraction_count`, `simulation_end`) and
+`camera`.
 
 ### C++ reader
 
@@ -327,9 +329,10 @@ exposes the subset the port needs:
   simulation list0/list1/list2 (`food_sources`, `employees_sim`) and the
   40-byte camera tail. The later lists (one per building, store/lab) are not
   decoded, so the reader does not require the roads to end at the camera
-  (Cpg04 has ~33 KB of simulation state there). `tools/formats/sav_campaign.py`
-  can parse the same records from a raw blob; `tools/formats/wld.py` still
-  stops after the roads.
+  (Cpg04 has ~33 KB of simulation state there). `tools/formats/wld.py` now
+  exposes the same lists as `simulation_dinos`, `food_sources`, `employees`,
+  `attraction_count` and `simulation_end`; it reuses
+  `tools/formats/sav_campaign.py` for the record layouts.
 - `read_sav_world(path)` — save file: skips the header
   (`0x18 + name_len`) and parses the same world block with the campaign flag
   clear. It stops before the show catalog count.
