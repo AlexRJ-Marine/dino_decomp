@@ -725,6 +725,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Replace the placeholder orbit/WASD path with the target-orbit camera:
   arrows pan, Shift+arrows rotate at 90 deg/s, `+/-`/wheel zoom 10..300,
   terrain-follow target, `C` free-fly as debug.
+- [x] Motion tilt: there is **no roll**. Retail's park camera is one
+  `progress` p (`r=10+290p`, `h=3+497p`, `pitch=atan2(h,r)`) plus a 10/s yaw
+  low-pass; the lean is a pitch transient. The port now uses p for the
+  interactive camera (zoom == tilt), saved tails use their progress, and
+  explicit CLI views keep the legacy orbit (`notes/camera-motion-tilt-recon.md`,
+  `test_cpp_camera_retail_progress_default`).
 - [x] Wire the `NAVIGATION_PANEL` buttons to the same actions
   (`GOTOP/GOBOTTOM/GOLEFT/GORIGHT`, `TURNLEFT/TURNRIGHT`,
   `ZOOM/DEZOOM`); `MAP_PANEL_ZOOM*` stays minimap-only.
