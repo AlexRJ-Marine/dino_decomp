@@ -4486,6 +4486,8 @@ int main(int argc, char** argv) {
     bool pending_port_load = false;
     std::string pending_construct_widget;
     bool pending_fence_tool = false;
+    int fence_corner_x = -1;
+    int fence_corner_y = -1;
     std::string pending_store_action;
     std::string pending_show_action;
     std::vector<std::string> pending_attraction_actions;
@@ -11065,10 +11067,12 @@ int main(int argc, char** argv) {
                                 // Enclosure panel opens; the ground clicks
                                 // then add fence edges.
                                 ensure_build_ready();
-                                build_tool = 2;
+                                build_tool = 6;
+                                fence_corner_x = -1;
+                                fence_corner_y = -1;
                                 pending_construct_kind = -1;
                                 std::printf(
-                                    "fence: tool armed (click the ground)\n");
+                                    "fence: tool armed (click two corners)\n");
                             }
                             if (action == "construct CONSTRUC_ROAD_BUTTON") {
                                 arm_road_tool();
@@ -12114,12 +12118,15 @@ int main(int argc, char** argv) {
 
         if (pending_fence_tool) {
             ensure_build_ready();
-            build_tool = 2;
+            build_tool = 6;
+            fence_corner_x = -1;
+            fence_corner_y = -1;
             pending_construct_kind = -1;
             pending_fence_tool = false;
-            std::printf("fence: tool armed (click the ground)\n");
+            std::printf("fence: tool armed (click two corners)\n");
         }
-        if (build_tool == 2 && build_ready && !opt.no_input) {
+        if ((build_tool == 2 || build_tool == 6) && build_ready &&
+            !opt.no_input) {
             float mxf = 0.0f;
             float myf = 0.0f;
             SDL_GetMouseState(&mxf, &myf);
@@ -12345,6 +12352,51 @@ int main(int argc, char** argv) {
                                 std::printf("placement: blocked cell\n");
                             } else {
                                 build_grid.set_path(cx, cy, !removing);
+                            }
+                        } else if (build_tool == 6) {
+                            // Retail FENCE_CONSTRUCTION: first click stores a
+                            // corner, second click builds the sorted rectangle.
+                            if (fence_corner_x < 0) {
+                                fence_corner_x = cx;
+                                fence_corner_y = cy;
+                                std::printf(
+                                    "fence: corner %d,%d (click opposite "
+                                    "corner)\n",
+                                    cx, cy);
+                            } else {
+                                const int x0 =
+                                    std::min(fence_corner_x, cx);
+                                const int x1 =
+                                    std::max(fence_corner_x, cx);
+                                const int y0 =
+                                    std::min(fence_corner_y, cy);
+                                const int y1 =
+                                    std::max(fence_corner_y, cy);
+                                if (x1 - x0 < 1 || y1 - y0 < 1) {
+                                    std::printf(
+                                        "fence: perimeter too small\n");
+                                } else {
+                                    const int before =
+                                        build_grid.fence_count;
+                                    for (int x = x0; x <= x1; ++x) {
+                                        build_grid.set_fence(x, y0, 0, true);
+                                        build_grid.set_fence(x, y1 + 1, 0,
+                                                             true);
+                                    }
+                                    for (int y = y0; y <= y1; ++y) {
+                                        build_grid.set_fence(x0 - 1, y, 1,
+                                                             true);
+                                        build_grid.set_fence(x1, y, 1, true);
+                                    }
+                                    std::printf(
+                                        "fence: built rect %d,%d-%d,%d "
+                                        "edges=%d\n",
+                                        x0, y0, x1, y1,
+                                        build_grid.fence_count - before);
+                                    rebuild_build_meshes();
+                                }
+                                fence_corner_x = -1;
+                                fence_corner_y = -1;
                             }
                         } else if (build_tool == 3 &&
                                    pending_construct_kind >= 0) {
