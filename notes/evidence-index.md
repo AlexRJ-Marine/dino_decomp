@@ -98,3 +98,5 @@ add a row when a claim becomes something later work depends on.
 | Enclosure panel arms the fence tool and the next ground click places an edge | `notes/playtest-2026-10-27.md` | `tests/test_viewer_cpp.py::test_cpp_enclosure_panel_arms_fence_tool` |
 | Road preview: per-cell helper boxes, depth write, unlit opaque material colour (valid RGB(64,64,255-x), invalid RGB(255-x,64,64)) | `notes/road-enclosure-preview-capture.md`, `notes/road-construction-recon.md`, `docs/platform/build.md` | `tests/test_viewer_cpp.py::test_cpp_road_preview_tint` |
 | Enclosure preview: flat unlit disc, blue (38,38,136) outside a paddock / red (80,38,38) inside | `notes/road-enclosure-preview-capture.md`, `docs/platform/build.md` | `tests/test_viewer_cpp.py::test_cpp_enclosure_panel_arms_fence_tool`, `test_cpp_enclosure_preview_inside_paddock_red` |
+
+| Campaign show: drsShow waypoints are `.bfi` features (FeatureList order); 51/71 mesh-bearing Cpg04 features render | `notes/campaign-world-instantiation.md`, `notes/playtest-2026-10-27.md`, `notes/campaign-show.png` | `tests/test_campaign_cpp.py::test_cpp_menu_campaign_mission_start` |
