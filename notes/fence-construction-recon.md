@@ -267,6 +267,26 @@ So a show arena and a player-built paddock share the same `stPerimeter` ->
 four `stWall` segments -> grid cells model. The port stores fence **edges**
 instead of rasterised wall cells, which is the documented approximation.
 
+### Paddock list panel
+
+`FUN_00511270` is the `FENCE_LIST_PANEL` ctor:
+
+- `FUN_005e3240(5, FENCE_LIST_PANEL, FENCE_LIST_SCROLL_UP/DOWN)` -> five
+  visible rows.
+- It resolves `FENCE_BACKGROUND_SLOT`, `FENCE_NAME_SLOT`,
+  `FENCE_SNAPSHOT_SLOT` per row and a 0x14-byte row record array, then fills
+  each row's `FENCE_LIST_DINO_INDICATEURS_PANEL_SLOT`,
+  `FENCE_LIST_QUANTITY_SLOT`, `FENCE_LIST_POURCENT_SLOT`,
+  `FENCE_LIST_HERBIQUANTITY_SLOT` and `FENCE_LIST_CARNIQUANTITY_SLOT`.
+- `param_1[0x11] = park+0x14+0x9c` is the paddock vector; `0x5e36e0(row,0,0,0)`
+  initialises the row state.
+
+Panel vtable `0x642874`: `+0` dtor `0x511740`, `+4` show/hide `0x511860`
+(calls base `0x5e38c0` + `0x5bbeb0`), `+8` `0x511d50`, `+0xc` `0x511890`,
+`+0x10` `0x587340`, `+0x14` `0x511d40`. `0x511d50` returns whether the
+selected row differs from the paddock count. The per-row name/snapshot fill
+is not isolated yet.
+
 ### Preview look (retail capture, 2026-10-28)
 
 The enclosure tool draws a **filled circular ground disc**, not a ring:
