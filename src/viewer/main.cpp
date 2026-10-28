@@ -2784,7 +2784,11 @@ bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
                                                 target.z - eye.z});
     const dino::Vec3 right = dino::normalize(cross(forward, {0.0f, 0.0f, 1.0f}));
     const dino::Vec3 up = cross(right, forward);
-    const float tan_half = std::tan(33.0f * 3.14159265f / 360.0f);
+    // The park terrain is rendered with draw_scene's 80-degree FOV
+    // (`terrain.world_size > 0`), so the pick ray must use the same value;
+    // the old 33-degree value was the single-dino viewer and made the ground
+    // point drift away from the cursor toward the screen edges.
+    const float tan_half = std::tan(80.0f * 3.14159265f / 360.0f);
     const float aspect = static_cast<float>(width) / static_cast<float>(std::max(1, height));
     const float ndc_x = (2.0f * mouse_x / static_cast<float>(width) - 1.0f) *
                         tan_half * aspect;
@@ -7489,6 +7493,11 @@ int main(int argc, char** argv) {
     int fence_preview_cell_x = -1;
     int fence_preview_cell_y = -1;
     int fence_preview_cost = -1;  // &MESSAGE_FENCE_PERIMETER_COST value
+    GpuMesh fence_template_gpu;
+    dino::Mesh fence_sphere_source;
+    bool fence_template_visible = false;
+    bool fence_template_ok = true;
+    std::array<int, 6> fence_template_key = {-1, -1, -1, -1, -1, -1};
     GLuint fence_preview_ok_texture = 0;
     GLuint fence_preview_bad_texture = 0;
     {
@@ -8098,6 +8107,15 @@ int main(int argc, char** argv) {
                                            : fence_preview_bad_texture};
             item.unlit = true;       // exact retail disc colour
             item.depth_write = true; // occluded by fence posts
+            extra_items.push_back(item);
+        }
+        if (fence_template_visible && fence_template_gpu.vao != 0) {
+            // helper_sphere dots along the pending enclosure rectangle.
+            DrawItem item{&fence_template_gpu,
+                          fence_template_ok ? fence_preview_ok_texture
+                                            : fence_preview_bad_texture};
+            item.unlit = true;
+            item.depth_write = true;
             extra_items.push_back(item);
         }
         if (fence_gpu.vao != 0) {
@@ -13453,14 +13471,20 @@ int main(int argc, char** argv) {
                     build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
                 const float wy =
                     build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
-                ok = terrain.buildable(wx, wy);
-                // Retail rejects a fence start strictly inside an existing
-                // paddock (`WARNING_INSIDE_PERIMETER`). Paddock rects are in
-                // record coordinates (0..world_size); the build cell centre is
-                // in centred world coordinates.
                 const float half_world = terrain.world_size * 0.5f;
-                const float rx = wx + half_world;
-                const float ry = wy + half_world;
+                const int start_x = static_cast<int>(
+                    std::floor(hit.x + half_world));
+                const int start_y = static_cast<int>(
+                    std::floor(hit.y + half_world));
+                // 0x58a190: the start point must pass the margin-4 occupancy
+                // scan (`p .. p+margin-1`), so the disc matches the click.
+                ok = build_grid.occupancy.free_rect(
+                    start_x, start_y, start_x + 3, start_y + 3);
+                // Retail rejects a fence start strictly inside an existing
+                // paddock (`WARNING_INSIDE_PERIMETER`). Use the clicked map
+                // point, the same point the first-click check uses.
+                const float rx = static_cast<float>(start_x);
+                const float ry = static_cast<float>(start_y);
                 for (const dino::WorldRect& rect : road_perimeters()) {
                     if (rx > std::min(rect.x0, rect.x1) &&
                         rx < std::max(rect.x0, rect.x1) &&
@@ -13496,6 +13520,63 @@ int main(int argc, char** argv) {
                                 std::to_string(cost));
                         }
                     }
+                    // Pending-rectangle template: helper_sphere dots every
+                    // 8 units along the four sides (helper mode 1), blue when
+                    // the retail 0x58a4e0 checks pass, red otherwise.
+                    bool template_ok =
+                        rx1 - rx0 >= 23 && ry1 - ry0 >= 23;
+                    if (template_ok) {
+                        for (const dino::WorldRect& rect :
+                             road_perimeters()) {
+                            if (std::min(rect.x0, rect.x1) < rx0 &&
+                                std::min(rect.y0, rect.y1) < ry0 &&
+                                rx1 < std::max(rect.x0, rect.x1) &&
+                                ry1 < std::max(rect.y0, rect.y1)) {
+                                template_ok = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (template_ok &&
+                        !build_grid.occupancy.free_rect(rx0 + 4, ry0 + 4,
+                                                        rx1 - 4, ry1 - 4)) {
+                        template_ok = false;
+                    }
+                    const std::array<int, 6> tkey = {
+                        rx0, ry0, rx1, ry1, template_ok ? 1 : 0, 1};
+                    if (tkey != fence_template_key) {
+                        fence_template_key = tkey;
+                        fence_template_ok = template_ok;
+                        if (fence_sphere_source.positions.empty()) {
+                            try {
+                                fence_sphere_source = dino::load_mesh(
+                                    resolve_asset(
+                                        opt.asset_root,
+                                        "Data/Graphics/focus/"
+                                        "helper_sphere.mesh"));
+                            } catch (const std::exception& e) {
+                                std::fprintf(stderr,
+                                             "fence template mesh: %s\n",
+                                             e.what());
+                            }
+                        }
+                        fence_template_gpu.destroy(glfns);
+                        if (!fence_sphere_source.positions.empty()) {
+                            fence_template_gpu = upload_mesh(
+                                dino::fence_template_mesh(
+                                    fence_sphere_source,
+                                    {rx0, ry0, rx1, ry1}, terrain, 8.0f,
+                                    1.5f, 0.35f),
+                                glfns);
+                        }
+                        fence_template_visible =
+                            fence_template_gpu.vao != 0;
+                        rebuild_extra_items();
+                    }
+                } else if (fence_template_visible) {
+                    fence_template_visible = false;
+                    fence_template_key = {-1, -1, -1, -1, -1, -1};
+                    rebuild_extra_items();
                 }
                 if (cx != fence_preview_cell_x ||
                     cy != fence_preview_cell_y ||
@@ -13523,6 +13604,10 @@ int main(int argc, char** argv) {
             fence_preview_visible = false;
             fence_preview_cell_x = -1;
             fence_preview_cell_y = -1;
+            if (fence_template_visible) {
+                fence_template_visible = false;
+                fence_template_key = {-1, -1, -1, -1, -1, -1};
+            }
             rebuild_extra_items();
         }
         if (pending_click) {
@@ -13718,8 +13803,7 @@ int main(int argc, char** argv) {
                                 // inside an existing perimeter -> code 3.
                                 const bool busy =
                                     !build_grid.occupancy.free_rect(
-                                        px, py, px + 3, py + 3) ||
-                                    !cell_buildable(cx, cy);
+                                        px, py, px + 3, py + 3);
                                 if (busy) {
                                     road_message("&WARNING_BUSY_SPACE");
                                 } else if (inside_paddock(

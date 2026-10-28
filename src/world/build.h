@@ -218,6 +218,13 @@ Mesh fence_preview_disc(float x, float y, float z, float radius,
 Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
                       const BuildGrid& grid, const Terrain& terrain);
 
+// Retail enclosure template preview (`helper_sphere.mesh`, helper mode 1):
+// small spheres every `step` units along the four sides of the pending
+// rectangle. `rect` is in engine map units (0..1024).
+Mesh fence_template_mesh(const Mesh& sphere, const WorldRect& rect,
+                         const Terrain& terrain, float step, float scale,
+                         float z_offset);
+
 // Retail draws no road geometry: gpkLandscapeTextureManager's road layer
 // (0x602380) paints the roads into the island texture. On a 1024x1024 map
 // each road is a RGB(253,198,137) fill with a 1-texel RGB(170,130,90) border;

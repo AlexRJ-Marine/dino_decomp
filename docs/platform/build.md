@@ -30,7 +30,10 @@ click    place/remove at the terrain point under the cursor
 A click is a left press/release with less than 5 px of drag, so orbit/pan
 still works. Placement picks the terrain by ray-marching the heightfield from
 the camera through the mouse pixel and bisecting the last step (24 iterations);
-the hit must be inside the island bounds. The fence tool chooses the nearest
+the hit must be inside the island bounds. The pick ray uses the **same 80°
+vertical FOV as the terrain renderer** (`draw_scene`); the old 33° value was
+the single-dino viewer and made placements drift away from the cursor toward
+the screen edges. The fence tool chooses the nearest
 cell edge (west/east/south/north) and toggles its canonical edge.
 
 The `1` key tool above is the port's original per-cell toggle. The retail
@@ -82,7 +85,11 @@ Retail itself draws a **filled circular ground disc**, not a ring
 (`notes/road-enclosure-preview-capture.md`): solid blue ~RGB(38,38,136) when
 placeable and dark maroon ~RGB(80,38,38) when not, with a hard edge, no rim,
 snapped to the build cell under the cursor (capture: cursor 350,450 -> disc
-centre ~407,455). The port's preview helper is being aligned to this shape;
+centre ~407,455). After the first corner the pending rectangle is outlined
+with small `helper_sphere` dots every 8 units along its four sides (retail
+helper mode 1), the same blue/maroon colours, turning maroon when the retail
+`0x58a4e0` checks fail (side < 23, inside a paddock, inset busy scan). The
+port's preview helper is being aligned to this shape;
 the earlier ring was a stand-in.
 
 ## Retail road tool (`ROAD_CONSTRUCTION`)

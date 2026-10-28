@@ -901,6 +901,35 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
     return out;
 }
 
+Mesh fence_template_mesh(const Mesh& sphere, const WorldRect& rect,
+                         const Terrain& terrain, float step, float scale,
+                         float z_offset) {
+    Mesh out;
+    out.name = "fence_template";
+    if (sphere.positions.empty() || rect.x1 < rect.x0 || rect.y1 < rect.y0 ||
+        step <= 0.0f) {
+        return out;
+    }
+    const float half = terrain.world_size * 0.5f;
+    auto add = [&](int mx, int my) {
+        const float wx = static_cast<float>(mx) - half;
+        const float wy = static_cast<float>(my) - half;
+        append_mesh_scaled(out, sphere,
+                           {wx, wy, terrain.height_at(wx, wy) + z_offset},
+                           0.0f, {scale, scale, scale});
+    };
+    for (int x = rect.x0; x <= rect.x1; x += static_cast<int>(step)) {
+        add(x, rect.y0);
+        add(x, rect.y1);
+    }
+    for (int y = rect.y0; y <= rect.y1; y += static_cast<int>(step)) {
+        add(rect.x0, y);
+        add(rect.x1, y);
+    }
+    out.colors.assign(out.positions.size(), Color{});
+    return out;
+}
+
 Mesh fence_preview_disc(float x, float y, float z, float radius,
                         int segments) {
     Mesh out;

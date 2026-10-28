@@ -3032,9 +3032,9 @@ def test_cpp_enclosure_panel_arms_fence_tool():
         [str(EXE), "--frames", "15", "--no-menu", "--width", "800",
          "--height", "600", "--no-vsync", "--no-save-config", "--lnd",
          str(ISL01), "--asset-root", str(GAME), "--no-vegetation",
-         "--no-water", "--no-entrance", "--camera-target", "0,0",
-         "--distance", "200", "--park-click", "764,135",
-         "--park-click", "618,145",
+         "--no-water", "--no-entrance", "--camera-orbit",
+         "--camera-target", "0,0", "--distance", "200",
+         "--park-click", "764,135", "--park-click", "618,145",
          "--fence-cursor", "400,300",
          "--inject-click", "5,300,300",
          "--inject-click", "10,350,400"],
@@ -3064,10 +3064,11 @@ def test_cpp_enclosure_preview_inside_paddock_red():
          "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
          "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
-         "--camera-target", "-44,-36", "--distance", "300", "--pitch", "20",
+         "--camera-orbit", "--camera-target", "-44,-36",
+         "--distance", "300", "--pitch", "20",
          "--park-click", "764,135", "--park-click", "618,145",
          "--fence-cursor", "400,300",
-         "--inject-click", "5,400,300", "--inject-click", "10,410,310"],
+         "--inject-click", "5,400,300"],
         capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     assert "fence preview: cell=115,118 ok=0" in result.stdout
