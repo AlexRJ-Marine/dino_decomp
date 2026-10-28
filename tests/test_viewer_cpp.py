@@ -606,6 +606,83 @@ def test_cpp_skybox_and_water():
     assert "water2 256x256" in result.stdout
 
 
+_VEG_FRAME = re.compile(
+    r"vegetation frame: lod1 (\d+) lod2 (\d+) hidden (\d+), "
+    r"batches (\d+) culled (\d+)")
+
+
+def _vegetation_frame(tmp_path, name, *extra):
+    shot = tmp_path / f"{name}.bmp"
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--no-park-hud",
+         "--width", "400", "--height", "300", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME), "--camera-orbit",
+         *extra, "--screenshot", str(shot)],
+        capture_output=True, text=True, timeout=180)
+    assert result.returncode == 0, result.stderr
+    match = _VEG_FRAME.search(result.stdout)
+    assert match, result.stdout
+    return tuple(int(v) for v in match.groups()), Image.open(shot).convert("RGB")
+
+
+def test_cpp_vegetation_sector_lod(tmp_path):
+    """Retail gpkLandscape LOD: 15x15 sectors, LOD1 <= 200, LOD2 <= 400.
+
+    0x603ad0 registers the .blf LODs at 200/400 units, 0x609970 measures one
+    camera distance per sector and 0x508c10 picks the first level with
+    quality*distance >= d, else nothing (notes/landscape-lod-recon.md).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    result = subprocess.run(
+        [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "vegetation: 9 groups, 1536 instances, 52291 triangles" in result.stdout
+    # Dino.ini ships LODQuality=AUTO, which retail maps to 1.0 (0x51d1d0).
+    assert ("vegetation lod: 422 sector batches, lod2 14576 triangles, "
+            "quality 1.0") in result.stdout
+
+    far = ["--distance", "300", "--pitch", "30", "--yaw", "30"]
+    (l1, l2, hidden, _, _), lod_img = _vegetation_frame(tmp_path, "auto", *far)
+    assert l1 + l2 + hidden == 1536
+    assert l1 > 0 and l2 > 0 and hidden > 0
+    (n1, n2, nh, _, _), full_img = _vegetation_frame(
+        tmp_path, "nolod", *far, "--no-lod")
+    assert (n1, n2, nh) == (1536, 0, 0)
+    assert ImageChops.difference(lod_img, full_img).getbbox() is not None
+    # HIGH doubles the ranges (2.0), LOW halves them (0.5).
+    (h1, _, hh, _, _), _ = _vegetation_frame(
+        tmp_path, "high", *far, "--lod-quality", "HIGH")
+    (w1, _, wh, _, _), _ = _vegetation_frame(
+        tmp_path, "low", *far, "--lod-quality", "LOW")
+    assert h1 > l1 > w1
+    assert hh < hidden < wh
+
+    # The retail park camera distance keeps nearby trees at LOD1.
+    (c1, _, _, _, _), _ = _vegetation_frame(
+        tmp_path, "near", "--distance", "65.6", "--pitch", "53.4", "--yaw", "0")
+    assert c1 > 0
+
+
+def test_cpp_vegetation_frustum_cull(tmp_path):
+    """Port-only frustum test skips off-screen batches without changing pixels."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail isl01 missing")
+    near = ["--distance", "65.6", "--pitch", "53.4", "--yaw", "0",
+            "--park-time", "09:42"]
+    (a1, a2, ah, batches, culled), culled_img = _vegetation_frame(
+        tmp_path, "cull", *near)
+    (b1, b2, bh, _, none), full_img = _vegetation_frame(
+        tmp_path, "nocull", *near, "--no-cull")
+    assert (a1, a2, ah) == (b1, b2, bh)
+    assert none == 0
+    assert 0 < culled < batches
+    # Frames differ run to run only by low-amplitude animation noise.
+    diff = ImageChops.difference(culled_img, full_img).convert("L")
+    assert max(diff.getextrema()) <= 8
+
+
 def test_cpp_skybox_follows_camera(tmp_path):
     """Retail 0x00600df0 centres the sky cube on the eye (no bottom/side seam).
 

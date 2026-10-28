@@ -1087,8 +1087,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   selftest covers the flat (yaw-equivalent) and tilted cases. Construction-UI
   placement is live (`--construct`). `model[1]` is 0.0 at `.bbi` offset 113 in
   all 39 files, so there is no Z offset.
+- [x] Vegetation LOD + culling (R-2): retail gpkLandscape files objects in
+  15x15 64-unit sectors and picks `.blf` LOD1 <= 200, LOD2 <= 400 (x
+  `LODQuality`), else hidden; the port matches and adds a frustum test.
+  Evidence: `notes/landscape-lod-recon.md`, `notes/vegetation-lod-ab.png`,
+  `test_cpp_vegetation_sector_lod`, `test_cpp_vegetation_frustum_cull`.
 - [ ] Read scenario/landscape placement data beyond buildings; instance
-  meshes; cull.
+  meshes.
 - **Acceptance:** 1,000+ instances render at interactive FPS.
 - **Depends on:** WORLD-1.
 - **Status:** vegetation placement and batching done (1,536 instances in 9

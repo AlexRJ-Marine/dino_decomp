@@ -106,6 +106,10 @@ struct Options {
     bool loop_audio = true;
     bool muted = false;
     bool no_vegetation = false;
+    // Dino.ini [GRAPHIC] LODQuality; empty = read it from the asset root.
+    std::string lod_quality;
+    bool no_lod = false;  // draw every vegetation sector at LOD1 (A/B)
+    bool no_cull = false;  // disable the port-only frustum test (A/B)
     bool skin_bind_from_skin = false;
     bool free_camera = false;
     bool build_mode = false;
@@ -361,6 +365,12 @@ Options parse_args(int argc, char** argv) {
             opt.height_scale = static_cast<float>(std::atof(next("--height-scale")));
         } else if (arg == "--no-vegetation") {
             opt.no_vegetation = true;
+        } else if (arg == "--lod-quality") {
+            opt.lod_quality = next("--lod-quality");
+        } else if (arg == "--no-lod") {
+            opt.no_lod = true;
+        } else if (arg == "--no-cull") {
+            opt.no_cull = true;
         } else if (arg == "--skin-bind") {
             const std::string value = next("--skin-bind");
             if (value == "skin") {
@@ -747,6 +757,10 @@ Options parse_args(int argc, char** argv) {
                 "  --terrain-size N     terrain world size (default 1024)\n"
                 "  --height-scale N     heightmap multiplier (default 1)\n"
                 "  --no-vegetation      skip the .imp/.blf placed objects\n"
+                "  --lod-quality Q      HIGH/MEDIUM/LOW/AUTO vegetation LOD range\n"
+                "                       (default: Dino.ini [GRAPHIC] LODQuality)\n"
+                "  --no-lod             draw all vegetation at LOD1, no distance cut\n"
+                "  --no-cull            draw vegetation batches outside the view too\n"
                 "  --skin-bind MODE     mesh (default, .mesh rest pose) or skin\n"
                 "  --free-camera        start in free-fly camera mode (C toggles)\n"
                 "  --build              path/fence placement (1=path, 2=fence, 0=off, U=undo)\n"
@@ -1404,6 +1418,7 @@ uniform vec3 u_light_dir;
 uniform vec3 u_light_color;
 uniform vec3 u_ambient;
 uniform float u_alpha;
+uniform float u_alpha_ref;
 uniform int u_unlit;
 uniform vec3 u_camera;
 uniform vec3 u_fog_color;
@@ -1431,6 +1446,10 @@ void main() {
         }
         base *= texel2.rgb;
         texel.a *= texel2.a;
+    }
+    // mgStateAlphaTest Ref 128 Func Greater (TextureAlpha*.ini).
+    if (u_alpha_ref >= 0.0 && u_use_texture != 0 && texel.a <= u_alpha_ref) {
+        discard;
     }
     if (u_unlit == 2) {
         frag_color = vec4(v_color.rgb, texel.r * u_alpha * v_color.a);
@@ -1989,6 +2008,8 @@ struct DrawItem {
     // Skip lighting for flat preview quads whose sampled colour must match
     // retail exactly (enclosure disc).
     bool unlit = false;
+    // Cut-out textures (trees): discard texels with alpha <= 128/255.
+    bool alpha_test = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
     int fog = 0;
     // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
@@ -1997,6 +2018,44 @@ struct DrawItem {
     float uv_offset[2] = {0.0f, 0.0f};
     float uv2_scale[2] = {1.0f, 1.0f};
     float uv2_offset[2] = {0.0f, 0.0f};
+    // Vegetation sector batches: drawn only while the flag is non-zero.
+    const unsigned char* visible = nullptr;
+    // World bounding sphere (x, y, z, radius); radius < 0 = never culled.
+    float bound[4] = {0.0f, 0.0f, 0.0f, -1.0f};
+};
+
+// Port-only view-frustum test (retail landscape objects have none; they are
+// cut by LOD distance only). Planes come from rows of the column-vector
+// clip matrix: w +/- x, w +/- y, w +/- z.
+struct Frustum {
+    float planes[6][4];
+    explicit Frustum(const dino::Mat4& clip) {
+        const float* m = clip.m;
+        for (int i = 0; i < 3; ++i) {
+            for (int s = 0; s < 2; ++s) {
+                float* plane = planes[i * 2 + s];
+                const float sign = s == 0 ? 1.0f : -1.0f;
+                for (int k = 0; k < 4; ++k) {
+                    plane[k] = m[12 + k] + sign * m[i * 4 + k];
+                }
+                const float len = std::sqrt(plane[0] * plane[0] +
+                                            plane[1] * plane[1] +
+                                            plane[2] * plane[2]);
+                for (int k = 0; k < 4; ++k) {
+                    plane[k] /= len;
+                }
+            }
+        }
+    }
+    bool outside(const float sphere[4]) const {
+        for (const auto& plane : planes) {
+            if (plane[0] * sphere[0] + plane[1] * sphere[1] +
+                    plane[2] * sphere[2] + plane[3] < -sphere[3]) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 dino::Mat4 ortho(float left, float right, float bottom, float top,
@@ -2070,17 +2129,21 @@ struct MinimapTarget {
     }
 };
 
-void draw_scene(const GpuMesh& mesh, GLuint texture,
+// Returns how many bounded extras the frustum test skipped.
+int draw_scene(const GpuMesh& mesh, GLuint texture,
                 const std::vector<DrawItem>& extras,
                 const SkyboxGL& skybox,
                 GLuint program,
                 const GlFns& gl, const dino::Vec3& eye, const dino::Vec3& center,
-                int width, int height, float fov_deg = 33.0f) {
+                int width, int height, float fov_deg = 33.0f,
+                bool cull = true) {
     const dino::Mat4 proj = perspective(fov_deg,
                                         static_cast<float>(width) / std::max(1, height),
                                         0.1f, 20000.0f);
     const dino::Mat4 view = look_at(eye, center, {0.0f, 0.0f, 1.0f});
     const dino::Mat4 mvp = dino::multiply(proj, view);
+    const Frustum frustum(mvp);
+    int culled = 0;
 
     glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2104,6 +2167,8 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
                  0.0f, 0.0f);
     gl.Uniform2f(gl.GetUniformLocation(program, "u_uv_offset"), 0.0f, 0.0f);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
+    const GLint alpha_ref_loc = gl.GetUniformLocation(program, "u_alpha_ref");
+    gl.Uniform1f(alpha_ref_loc, -1.0f);
 
     // Data/States/FogParam.txt: linear 1500..2000, colour (255,220,165).
     const GLint camera_loc = gl.GetUniformLocation(program, "u_camera");
@@ -2169,9 +2234,19 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
         if (item.mesh == nullptr || item.mesh->vao == 0) {
             continue;
         }
+        if (item.visible != nullptr && *item.visible == 0) {
+            continue;
+        }
+        if (item.bound[3] >= 0.0f && frustum.outside(item.bound)) {
+            if (cull) {
+                ++culled;
+                continue;
+            }
+        }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1i(unlit_loc, item.unlit ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
+        gl.Uniform1f(alpha_ref_loc, item.alpha_test ? 128.0f / 255.0f : -1.0f);
         gl.Uniform1i(use_texture2_loc, item.texture2 != 0 ? 1 : 0);
         gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
         gl.Uniform4f(uv2_loc, item.uv2_scale[0], item.uv2_scale[1],
@@ -2217,7 +2292,9 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
     gl.Uniform1i(use_texture2_loc, 0);
     gl.Uniform1i(modulate2x_loc, 0);
     gl.Uniform2f(uv_offset_loc, 0.0f, 0.0f);
+    gl.Uniform1f(alpha_ref_loc, -1.0f);
     gl.UseProgram(0);
+    return culled;
 }
 
 void build_skin_mapping(const dino::Skin& skin, const dino::Skeleton& skeleton,
@@ -4929,6 +5006,27 @@ int main(int argc, char** argv) {
     dino::Lnd lnd;
     dino::Terrain terrain;
     dino::Vegetation vegetation;
+    // Retail reads LODQuality from Data/Config/Dino.ini (default AUTO = 1.0).
+    float lod_quality = 1.0f;
+    {
+        std::string setting = opt.lod_quality;
+        if (setting.empty()) {
+            const std::string ini_path =
+                resolve_asset(opt.asset_root, "Data/Config/Dino.ini");
+            if (std::filesystem::exists(ini_path)) {
+                try {
+                    const auto ini = dino::ui::load_ini(ini_path);
+                    if (const auto* graphic = ini.find("GRAPHIC")) {
+                        setting = graphic->get("LODQuality");
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "Dino.ini: %s\n", e.what());
+                }
+            }
+        }
+        lod_quality = dino::landscape_lod_quality(setting);
+    }
+    bool veg_stats = true;  // print the first frame's LOD split
     dino::BuildGrid build_grid;
     dino::Mesh fence_source;
     dino::Image path_image;
@@ -5334,8 +5432,12 @@ int main(int argc, char** argv) {
                         terrain.mesh.triangle_count());
             if (!opt.no_vegetation) {
                 std::printf("vegetation: %zu groups, %zu instances, %zu triangles\n",
-                            vegetation.groups.size(), vegetation.instances,
+                            vegetation.entries, vegetation.instances,
                             vegetation.triangles);
+                std::printf("vegetation lod: %zu sector batches, lod2 %zu "
+                            "triangles, quality %.1f\n",
+                            vegetation.groups.size(), vegetation.lod2_triangles,
+                            lod_quality);
                 for (const auto& warning : vegetation.warnings) {
                     std::printf("vegetation warning: %s\n", warning.c_str());
                 }
@@ -5481,6 +5583,10 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return 1;
     }
+    // Alpha test is off unless a draw item asks for it (uniforms start at 0).
+    glfns.UseProgram(program);
+    glfns.Uniform1f(glfns.GetUniformLocation(program, "u_alpha_ref"), -1.0f);
+    glfns.UseProgram(0);
 
     SDL_AudioStream* audio = nullptr;
     if (!wav.data.empty()) {
@@ -6727,20 +6833,69 @@ int main(int argc, char** argv) {
     }
 
     std::vector<GpuMesh> veg_gpu;
-    std::vector<GLuint> veg_textures;
-    veg_gpu.reserve(vegetation.groups.size());
-    veg_textures.reserve(vegetation.groups.size());
-    for (const auto& group : vegetation.groups) {
-        veg_gpu.push_back(upload_mesh(group.mesh, glfns));
-        GLuint group_texture = 0;
-        if (!group.texture_path.empty() && std::filesystem::exists(group.texture_path)) {
-            try {
-                group_texture = upload_texture(dino::load_tga(group.texture_path));
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+    std::vector<GLuint> veg_textures;          // one per group (shared ids)
+    std::vector<unsigned char> veg_visible;    // per group, set every frame
+    std::vector<std::array<float, 4>> veg_bounds;  // per group, world sphere
+    // Uploads each sector/LOD batch; a texture is uploaded once per path.
+    auto upload_vegetation = [&]() {
+        std::map<std::string, GLuint> cache;
+        veg_gpu.reserve(vegetation.groups.size());
+        veg_textures.reserve(vegetation.groups.size());
+        for (const auto& group : vegetation.groups) {
+            veg_gpu.push_back(upload_mesh(group.mesh, glfns));
+            GLuint group_texture = 0;
+            const auto cached = cache.find(group.texture_path);
+            if (cached != cache.end()) {
+                group_texture = cached->second;
+            } else if (!group.texture_path.empty() &&
+                       std::filesystem::exists(group.texture_path)) {
+                try {
+                    group_texture = upload_texture(dino::load_tga(group.texture_path));
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "vegetation texture: %s\n", e.what());
+                }
+                cache[group.texture_path] = group_texture;
+            }
+            veg_textures.push_back(group_texture);
+        }
+        veg_visible.assign(vegetation.groups.size(), 1);
+        veg_bounds.clear();
+        for (const auto& group : vegetation.groups) {
+            Bounds box;
+            for (const auto& p : group.mesh.positions) {
+                box.add(p);
+            }
+            const float cx = (box.min.x + box.max.x) * 0.5f;
+            const float cy = (box.min.y + box.max.y) * 0.5f;
+            const float cz = (box.min.z + box.max.z) * 0.5f;
+            const float rx = box.max.x - cx;
+            const float ry = box.max.y - cy;
+            const float rz = box.max.z - cz;
+            veg_bounds.push_back({cx, cy, cz, std::sqrt(rx * rx + ry * ry + rz * rz)});
+        }
+    };
+    auto release_vegetation = [&]() {
+        for (auto& mesh : veg_gpu) {
+            mesh.destroy(glfns);
+        }
+        std::vector<GLuint> ids = veg_textures;
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+        for (const GLuint id : ids) {
+            if (id != 0) {
+                glDeleteTextures(1, &id);
             }
         }
-        veg_textures.push_back(group_texture);
+        veg_gpu.clear();
+        veg_textures.clear();
+        veg_visible.clear();
+        veg_bounds.clear();
+    };
+    upload_vegetation();
+    for (const auto& group : vegetation.groups) {
+        if (group.lod != 0) {
+            continue;
+        }
         for (const auto& p : group.mesh.positions) {
             bounds.add(p);
         }
@@ -7293,7 +7448,12 @@ int main(int argc, char** argv) {
     auto rebuild_extra_items = [&]() {
         extra_items.clear();
         for (std::size_t i = 0; i < veg_gpu.size(); ++i) {
-            extra_items.push_back({&veg_gpu[i], veg_textures[i]});
+            DrawItem item{&veg_gpu[i], veg_textures[i]};
+            item.visible = &veg_visible[i];
+            item.alpha_test = true;
+            std::copy(std::begin(veg_bounds[i]), std::end(veg_bounds[i]),
+                      std::begin(item.bound));
+            extra_items.push_back(item);
         }
         // Roads are painted into the terrain texture when the island has a
         // basemap; the tile mesh is only the fallback for bare terrain.
@@ -8204,16 +8364,7 @@ int main(int argc, char** argv) {
 
         // Release the previous island's GPU resources before replacing them.
         gpu.destroy(glfns);
-        for (auto& mesh : veg_gpu) {
-            mesh.destroy(glfns);
-        }
-        for (const GLuint id : veg_textures) {
-            if (id != 0) {
-                glDeleteTextures(1, &id);
-            }
-        }
-        veg_gpu.clear();
-        veg_textures.clear();
+        release_vegetation();
         for (int i = 0; i < 6; ++i) {
             skybox.faces[i].destroy(glfns);
             if (skybox.textures[i] != 0) {
@@ -8261,22 +8412,7 @@ int main(int argc, char** argv) {
         display = terrain.mesh;
         gpu = upload_mesh(display, glfns);
 
-        veg_gpu.reserve(vegetation.groups.size());
-        veg_textures.reserve(vegetation.groups.size());
-        for (const auto& group : vegetation.groups) {
-            veg_gpu.push_back(upload_mesh(group.mesh, glfns));
-            GLuint group_texture = 0;
-            if (!group.texture_path.empty() &&
-                std::filesystem::exists(group.texture_path)) {
-                try {
-                    group_texture =
-                        upload_texture(dino::load_tga(group.texture_path));
-                } catch (const std::exception& e) {
-                    std::fprintf(stderr, "vegetation texture: %s\n", e.what());
-                }
-            }
-            veg_textures.push_back(group_texture);
-        }
+        upload_vegetation();
 
         int loaded_faces = 0;
         for (int i = 0; i < 6; ++i) {
@@ -8403,6 +8539,9 @@ int main(int argc, char** argv) {
             bounds.add(p);
         }
         for (const auto& group : vegetation.groups) {
+            if (group.lod != 0) {
+                continue;
+            }
             for (const auto& p : group.mesh.positions) {
                 bounds.add(p);
             }
@@ -13132,9 +13271,42 @@ int main(int argc, char** argv) {
                 item.uv2_offset[1] = 0.01f * water_scroll;
             }
         }
-        draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
-                   view_center, width, height,
-                   terrain.world_size > 0.0f ? 80.0f : 33.0f);
+        // gpkLandscapeSector 0x609970: one camera distance per sector,
+        // then every object in it picks LOD1/LOD2/none (0x508c10).
+        for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+            const auto& group = vegetation.groups[i];
+            if (opt.no_lod) {
+                veg_visible[i] = group.lod == 0 ? 1 : 0;
+                continue;
+            }
+            const dino::Vec3& c = vegetation.sector_centres[group.sector];
+            const float dx = c.x - eye.x;
+            const float dy = c.y - eye.y;
+            const float dz = c.z - eye.z;
+            const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+            veg_visible[i] =
+                dino::landscape_lod(distance, lod_quality) == group.lod ? 1 : 0;
+        }
+        const int culled =
+            draw_scene(gpu, texture, extra_items, skybox, program, glfns, eye,
+                       view_center, width, height,
+                       terrain.world_size > 0.0f ? 80.0f : 33.0f, !opt.no_cull);
+        if (veg_stats) {
+            std::size_t drawn[2] = {0, 0};
+            std::size_t batches = 0;
+            for (std::size_t i = 0; i < veg_visible.size(); ++i) {
+                if (veg_visible[i] != 0) {
+                    drawn[vegetation.groups[i].lod] += vegetation.groups[i].instances;
+                    ++batches;
+                }
+            }
+            std::printf("vegetation frame: lod1 %zu lod2 %zu hidden %zu, "
+                        "batches %zu culled %d\n",
+                        drawn[0], drawn[1],
+                        vegetation.instances - drawn[0] - drawn[1], batches,
+                        culled);
+            veg_stats = false;
+        }
 
         auto draw_2d = [&](const dino::Mesh& mesh, GLuint texture_id, float alpha,
                            int unlit) {
