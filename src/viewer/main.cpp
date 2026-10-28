@@ -9356,20 +9356,47 @@ int main(int argc, char** argv) {
                         spawned_food, world.food_sources.size());
             if (spawned_food > 0 && food_gpu.vao == 0 &&
                 !food_sources.empty()) {
-                const dino::FoodSource& first = food_sources.front();
-                const dino::FoodDef& def =
-                    food_defs[static_cast<std::size_t>(first.def)];
-                try {
-                    dino::Mesh mesh = dino::load_mesh(
-                        resolve_asset(opt.asset_root, def.mesh));
-                    mesh = place_on_terrain(std::move(mesh), terrain, first.x,
-                                            first.y, 0.0f);
-                    food_gpu = upload_mesh(mesh, glfns);
-                    if (!def.texture.empty()) {
-                        food_texture = upload_texture(dino::load_tga(
-                            resolve_asset(opt.asset_root, def.texture)));
+                // The renderer has one food draw item, so merge every
+                // campaign source into a single mesh at its saved position.
+                dino::Mesh combined;
+                auto append = [&](const dino::Mesh& src) {
+                    const auto base = static_cast<std::uint32_t>(
+                        combined.positions.size());
+                    combined.positions.insert(combined.positions.end(),
+                                              src.positions.begin(),
+                                              src.positions.end());
+                    if (src.normals.size() == src.positions.size()) {
+                        combined.normals.insert(combined.normals.end(),
+                                                src.normals.begin(),
+                                                src.normals.end());
                     }
+                    if (src.uvs.size() == src.positions.size()) {
+                        combined.uvs.insert(combined.uvs.end(),
+                                            src.uvs.begin(), src.uvs.end());
+                    }
+                    for (const std::uint32_t index : src.indices) {
+                        combined.indices.push_back(base + index);
+                    }
+                };
+                try {
+                    for (const dino::FoodSource& source : food_sources) {
+                        const dino::FoodDef& def =
+                            food_defs[static_cast<std::size_t>(source.def)];
+                        dino::Mesh mesh = dino::load_mesh(
+                            resolve_asset(opt.asset_root, def.mesh));
+                        mesh = place_on_terrain(std::move(mesh), terrain,
+                                                source.x, source.y, 0.0f);
+                        append(mesh);
+                        if (food_texture == 0 && !def.texture.empty()) {
+                            food_texture = upload_texture(dino::load_tga(
+                                resolve_asset(opt.asset_root, def.texture)));
+                        }
+                    }
+                    food_gpu = upload_mesh(combined, glfns);
                     rebuild_extra_items();
+                    std::printf(
+                        "campaign food sources: rendered=%zu vertices=%zu\n",
+                        food_sources.size(), combined.positions.size());
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "campaign food mesh: %s\n", e.what());
                 }
