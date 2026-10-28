@@ -54,7 +54,7 @@ fence feature (LunchBox / observation area) or draws a paddock perimeter:
   rotate the placement and Esc leaves.
 
 The port matches the retail click flow: the first ground click stores a
-corner, the second builds the sorted rectangle (four sides, canonical edges).
+corner, the second builds the sorted rectangle (four sides, canonical edges) and registers a `Paddock` with its capacity.
 The cursor validity disc uses the captured retail colours (blue
 `(38,38,136)`, red `(80,38,38)`): blue when the cell passes the
 occupation/buildable mask and is not strictly inside an existing paddock, red

@@ -2387,6 +2387,7 @@ def test_cpp_enclosure_panel_arms_fence_tool():
     assert "ok=1" in result.stdout
     assert "fence: corner " in result.stdout
     assert "fence: built rect " in result.stdout
+    assert "paddock=1 capacity=" in result.stdout
     match = re.search(r"build: \d+ path cells, (\d+) fences", result.stdout)
     assert match is not None and int(match.group(1)) > 0
 

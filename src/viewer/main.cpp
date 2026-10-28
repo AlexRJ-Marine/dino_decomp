@@ -12388,11 +12388,21 @@ int main(int argc, char** argv) {
                                                              true);
                                         build_grid.set_fence(x1, y, 1, true);
                                     }
+                                    dino::Paddock paddock;
+                                    paddock.rect = {
+                                        x0 * cs, y0 * cs,
+                                        static_cast<float>(x1 + 1) * cs,
+                                        static_cast<float>(y1 + 1) * cs};
+                                    paddock.capacity = dino::paddock_capacity(
+                                        paddock.rect, cs);
+                                    paddocks.push_back(paddock);
                                     std::printf(
                                         "fence: built rect %d,%d-%d,%d "
-                                        "edges=%d\n",
+                                        "edges=%d paddock=%zu capacity=%.0f\n",
                                         x0, y0, x1, y1,
-                                        build_grid.fence_count - before);
+                                        build_grid.fence_count - before,
+                                        paddocks.size(),
+                                        static_cast<double>(paddock.capacity));
                                     rebuild_build_meshes();
                                 }
                                 fence_corner_x = -1;
