@@ -57,7 +57,7 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 | `park-budget` | `OPEN_BUDGET_PANEL` (97,584) | `BUDGET_OUTCOME_OK` (429,482) | 30 `BUDGET_*_NUMBER` fields, categories and totals | ported partial | `test_cpp_budget_panel_ledger` |
 | `park-visitors` | `OPEN_VISITOR_PANEL` (207,584) | `VISITEURS_STATS_OUTCOME_OK` (195,400) | static art; no visitor-stat fields | partial | `test_cpp_park_panels` |
 | `park-dino-list` | `OPEN_DINO_LIST_PANEL` (302,584) | same opener | five name slots, `DINO_AMOUNT` | partial | `test_cpp_park_fence_and_dino_lists` |
-| `park-paddock-list` | `OPEN_PADDOCK_LIST_PANEL` (492,584) | same opener | five name/count/percent slots, `PADDOCK_AMOUNT` | partial | `test_cpp_park_fence_and_dino_lists` |
+| `park-paddock-list` | `OPEN_PADDOCK_LIST_PANEL` (492,584) | same opener | five rows: snapshot, name, dino-indicator panel, quantity, percent, herbivore/carnivore counts, `PADDOCK_AMOUNT`; port fills name/count/percent | partial | `test_cpp_park_fence_and_dino_lists` |
 | `park-show-list` | `OPEN_SHOW_LIST_PANEL` (397,584) | `ATTRACTION_LIST_OUTCOME_CANCEL` (543,381) | ten hour rows: show name, iteration count, lock icon, permutation/selection; lock/unlock, iteration up/down and selection act on the placed show | ported partial | `test_cpp_campaign_show_panel_ui`, `test_cpp_campaign_attraction_list_actions` |
 | `park-dino-purchase` | `OPEN_PURCHASE` (765,298) | `DINO_ACHAT_SAVE_OUTCOME_CANCEL` (502,521) | six-row store viewport, selection, scroll, charge and paddock placement | ported partial | `test_cpp_store_panel_purchase`, `test_cpp_store_panel_no_money`, `test_cpp_store_panel_scroll` |
 | `park-options` | `OPEN_OPTIONS` (765,348) | `OPTIONS_OPTIONS_VALIDATE_BUTTON` (355,432) / `OPTIONS_UNVALIDATE_BUTTON` (364,436) | save/load tabs, real save names, name entry | ported partial | `test_cpp_options_save_panel`, `test_cpp_options_save_and_load_buttons`, `test_cpp_options_name_entry` |
@@ -95,7 +95,13 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
   retail art; live portraits are not rendered.
 - **Paddock list:** `FENCE_NAME_SLOT1..5`, `FENCE_LIST_QUANTITY_SLOT1..5`,
   `FENCE_LIST_POURCENT_SLOT1..5`, `PADDOCK_AMOUNT`. Only the first five
-  paddocks are shown; scrolling is not wired yet.
+  paddocks are shown; scrolling is not wired yet. Retail (`FUN_00511270`,
+  `FUN_005e3240(5, ...)`) also fills `FENCE_SNAPSHOT_SLOT1..5`, the
+  `FENCE_LIST_DINO_INDICATEURS_PANEL_SLOT` and the
+  `FENCE_LIST_HERBIQUANTITY_SLOT`/`FENCE_LIST_CARNIQUANTITY_SLOT` pair.
+  Clicking a snapshot selects that paddock and moves the camera
+  (`notes/road-enclosure-preview-capture.md`, step 7); the snapshot render,
+  indicator panel and herbivore/carnivore split are not ported.
 - **Store:** six visible rows (`DINO_ACHAT_SAVE_NAMES_LIST`), selection,
   scroll strip (`COMBOBOX1_LB_VS_BTN_UP/DOWN`), SAVE charges through the
   budget and places the dinosaur into the clicked paddock; no money shows
