@@ -255,7 +255,7 @@ consumed by the `stPerimeter` rasteriser:
 | `0x584090` | `stPerimeter` ctor: stores the rectangle at `+0x1c..+0x28`, the wall type at `+0x2c`, vtable `0x643530`, and calls `0x582210` four times for the four sides |
 | `0x582210` | `stPerimeter::AddSegment`: allocates a 0x24-byte `stWall`, calls `0x584200`, and appends the pointer to the vector at `+0x10..+0x18` (assert path `stPerimeter.cpp:0x5e`) |
 | `0x584200` | `stWall` rasteriser: stores corners `+0..+0xc`, wall type `+0x10`, vtable `0x64353c`, allocates `length/cell` 0x28-byte cell records at `+0x18` (`0x584700`), walks the line (Bresenham; `0x584520` axis case, `0x55d590`/`0x55d600` horizontal/vertical, generic loop for diagonals), and finalises each cell with `0x5849a0` |
-| `0x584700` | cell object ctor: vtable `0x642f74`, `+0x14` wall type, `+0x18` count, `+0x1c` add/remove flag, `+0x20` grid, `+0x24` owner; a vector of 8-byte `(x,y)` pairs at `+0x8` |
+| `0x584700` | cell object ctor: `+0x00` owner id (`*(param_2+8)`), `+0x04` vtable `0x642f74`, `+0x08/+0x0c/+0x10` vector begin/end/cap of 8-byte `(x,y)` pairs, `+0x14` wall type (`param_5`), `+0x18` zero at ctor (not read by `0x5849a0`), `+0x1c` add/remove flag, `+0x20` grid, `+0x24` source object (`param_2`) |
 | `0x584520` | axis-aligned callback: appends a cell every `cell_size` along the segment (`+0x10` index, `+0x14` count-1), then `0x5848c0` |
 | `0x5849a0` | occupancy commit: for flag 0/1 sets `u16 = (u16 & 0x0fff) \| (type << 12)`; otherwise clears the high nibble (`u16 &= 0x0fff`) |
 | `0x580f00` | show-arena ctor: calls `0x584090` with the arena corners, cell size and `.shw` `Wall type`, then `0x576860` zero-fills the show score vector to the profile count |
@@ -349,7 +349,7 @@ gate or refund.
 - ~~`0x527030` / `0x526e70` extended hooks~~ **resolved:** `0x527030` is the
   LunchBox 16-entry cap (`&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE`), and
   `0x526e70` is the feature preview update.
-- `0x584700` cell-record field layout and `0x5849a0` finalisation.
+- `0x584700` `+0x18` / `0x5849a0` finalisation beyond the mapped fields.
 
 ## Evidence
 
