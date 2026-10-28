@@ -42,6 +42,9 @@ claimed task.
 
 - Never write into `game/` or `original/`; load assets read-only at runtime.
 - No hard-coded absolute paths. Use a configurable asset root.
+- Implement from `docs/decomp/` and `docs/formats/`. If a behavior is not
+  proven there, add the probe/note/test first; do not tune a retail formula
+  to match a screenshot or a feel without a binary/probe check.
 - Every new subsystem gets a headless test where possible (parsers, math,
   simulation) and a screenshot or log for rendering.
 - Build with `scripts/build.ps1`; run `scripts/run-tests.ps1` before reporting.

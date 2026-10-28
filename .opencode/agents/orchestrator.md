@@ -36,6 +36,9 @@ compaction to `archivist`, and binary-contract changes to `oracle-reviewer`.
   a decompiled function, a trace, or a test that parses a real sample.
 - Prefer small, shippable increments. A parser that handles all 536 `.mesh`
   files is better than a grand architecture that handles none.
+- Enforce the evidence-first loop in `AGENTS.md` "Working philosophy": one
+  question, binary/data oracle, raw note then distilled doc, negative results
+  count, and commit only small verified slices.
 - Never edit `original/` or `game/`, and never copy retail assets into `src/`.
 - If a task is ambiguous, write the ambiguity into `notes/STATE.md` and pick the
   smallest experiment that resolves it.
