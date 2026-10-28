@@ -305,8 +305,20 @@ the paddock from `[panel+0x44]+4`, calls `0x57e720(paddock, ...)` and fills
 `FENCE_NAME_SLOT` through `0x5bb940`, followed by `%u` strings for the
 quantity/percent/carni/herbi widgets. `0x511d50` (vtable `+8`) is the dirty
 check: it returns whether the selected row (`[panel+0xc]`) differs from the
-paddock count. The snapshot is a normal row widget; its texture/render source
-is not isolated yet.
+paddock count.
+
+`0x57e720(paddock, scale, out)` produces the row stats:
+
+```text
+out[0] = occupant count            ([paddock+0x9c] - [paddock+0x98]) / 4
+out[1] = count scaled by the passed factor
+out[2]/out[3] = herbivore/carnivore percentages
+    each occupant contributes scale * [dino+0x6c]; occupants with
+    [dino+0x200] == 1 go to the first bucket; an empty bucket is 100%
+```
+
+The snapshot is a normal row widget; its texture/render source is not
+isolated yet.
 
 ### Preview look (retail capture, 2026-10-28)
 
