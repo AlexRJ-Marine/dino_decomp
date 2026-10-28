@@ -2,11 +2,11 @@
 
 Status: **menu campaign flow and the campaign runtime are ported.** The port
 renders the campaign select/briefing pages from `CampaignList.ini`, reads the
-`run/save/dino.dat` unlock mask, starts the selected unlocked campaign's
+`run/save/dino.dat` unlock count, starts the selected unlocked campaign's
 stored mission from the menu, imports `CpgNN_Save.wld`, and evaluates
 objectives. Completing a campaign's last mission shows its ending text and
-writes the next unlock bit. The `MISSION_PANEL_TITLE` shows the campaign
-mission index/count (`1/4`). Ending-video playback remains open.
+raises the unlock count. The `MISSION_PANEL_TITLE` shows the campaign
+mission index/count (`1/4`).
 
 This is the runtime companion to `../formats/campaign.md` (the INI contract)
 and `../decomp/function-status.md` (the evaluator addresses).
@@ -28,9 +28,13 @@ Main menu
     -> live objective evaluation; CPGEND_PANEL on success/failure
 ```
 
-- Campaign progression is `run/save/dino.dat`, a 4-byte dword: `1` = first
-  campaign only, `0x0F` = campaigns 1-4 unlocked. Reader `0x5612d0`, writer
-  `0x5617a0`. The harness backs up/restores it.
+- Campaign progression is `run/save/dino.dat`, a 4-byte dword **count**:
+  `1` = Cpg01 only, `8` = every listed campaign. The campaign-select page
+  enables `row < value` (`FUN_0051b090`); the cinematics page enables
+  `row < value-1` (ending videos lag one campaign). After an ending the app
+  stores `max(value, campaignNumber+1)` with a plain `MOV` (`0x40285d`), and
+  `FUN_005617a0` writes the same field. Reader `0x5612d0`. The harness
+  backs up/restores it.
 - Difficulty is `mission+0x50` (0/1/2) and selects the `Budget`,
   `SellBackFactor` and `VisProfiles` variants (`FUN_00561bb0`). No retail
   mission overrides the `Medium`/`Hard` keys, so difficulty 1/2 would inherit
@@ -124,12 +128,11 @@ CpgNN/CpgNN_Save.wld    initial park
   `notes/campaign-menu-start.png`, `tests/test_campaign_cpp.py`
   (`test_cpp_menu_campaign_mission_start`).
 - The retail campaign list is gated by `run/save/dino.dat`; the port reads the
-  4-byte mask (`1` = Cpg01 only, `0x0F` = Cpg01–Cpg04; missing/short defaults
+  4-byte count (`1` = Cpg01 only, `8` = all seven rows; missing/short defaults
   to 1) and renders locked rows disabled (frame 0 + grey text). Start refuses
   a locked row; `--dino-dat FILE` overrides the file for tests. The exact
   retail locked-row art is still unproven. Evidence:
-  `notes/campaign-menu-unlock.png` (mask `0x0F`, row 3 selected; rows 5–7
-  locked).
+  `notes/campaign-menu-unlock.png` (rows 5-7 locked).
 - The menu resumes the campaign's stored mission from
   `run/save/campaign-progress.txt` (port-owned `CpgNN CpgNN_MissionM` lines;
   `--campaign-progress FILE` overrides for tests). Every mission start or
@@ -137,11 +140,11 @@ CpgNN/CpgNN_Save.wld    initial park
   the same campaign (`MissionN+1`), applies its `CONTEXT.Budget` delta and
   reopens `MISSION_PANEL`; `--auto-continue` is the headless test hook.
 - Completing a campaign's **last** mission resolves its `ending_text_id` into
-  `CPGEND`, logs the ending video name and writes the next campaign's unlock
-  bit to `dino.dat` (Cpg02 -> `0x02 | 0x04 = 0x06`). Cpg02_Mission5 reaches
+  `CPGEND`, logs the ending video name and raises the `dino.dat` unlock count
+  to `max(value, campaignNumber+1)` (Cpg02: `2 -> 3`). Cpg02_Mission5 reaches
   this path with 100 visitors and `--visitor-satisfaction 99`; the `.wld` park
   now spawns `--visitors` after its roads are imported. The completed
-  campaign's progress entry is removed. Ending-video playback is still open.
+  campaign's progress entry is removed.
 - `MISSION_PANEL_TITLE` shows the campaign mission index/count (`1/4` for
   Cpg04_Mission1), matching the retail panel; the title is set when the
   mission starts. Evidence: `notes/mission-panel-index.png`.
@@ -149,7 +152,7 @@ CpgNN/CpgNN_Save.wld    initial park
   `--load-port`/the Load tab resumes the mission. Objective verdicts are
   recomputed by the first runtime tick, not stored. Mission progression,
   completion text and the trait fields (except scarcity) are wired;
-  the show verbs and ending videos are open.
+  the show verbs remain open.
 
 ## Verification recipes
 
@@ -160,24 +163,25 @@ Retail (virtual input; keep the game active for clicks):
 # defaults: -CampaignRow 3 (Cpg04) -MissionRow 0
 ```
 
-The script writes `run/save/dino.dat = 0F`, clicks
-`395,189` -> `409,285` -> `364,530` -> `521,449`, dismisses the briefing at
+The script writes `run/save/dino.dat = 8` (all seven campaigns; count
+semantics), clicks `395,189` -> `409,285` -> `364,530` -> `521,449`,
+dismisses the briefing at
 `322,402` (inside `MISSION_PANEL_OUTCOME_OK`), and restores `dino.dat` on
 exit. Trace switches: `-NoTrace`, `-GenotypeTrace`, `-SecuTrace`. Logs go to
 `notes/x32dbg-campaign.out.log` by default; screenshots to
 `notes/harness/`.
 
-Viewer pages (mask 0F unlocks Cpg01–Cpg04):
+Viewer pages (count `8` unlocks every row):
 
 ```powershell
-[IO.File]::WriteAllBytes("$env:TEMP\dino-0f.dat", [byte[]](0x0F,0,0,0))
+[IO.File]::WriteAllBytes("$env:TEMP\dino-8.dat", [byte[]](8,0,0,0))
 .\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
-  --dino-dat "$env:TEMP\dino-0f.dat" --menu-click 404,285 `
+  --dino-dat "$env:TEMP\dino-8.dat" --menu-click 404,285 `
   --screenshot notes\harness\campaign-select.bmp
 .\build\port\dino_viewer.exe --frames 2 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
-  --dino-dat "$env:TEMP\dino-0f.dat" --menu-click 404,285 --menu-click 364,530 `
+  --dino-dat "$env:TEMP\dino-8.dat" --menu-click 404,285 --menu-click 364,530 `
   --screenshot notes\harness\campaign-info.bmp
 ```
 
@@ -186,15 +190,15 @@ Starting Cpg04_Mission1 through the menu (no `--lnd`/`--wld-park` needed):
 ```powershell
 .\build\port\dino_viewer.exe --frames 4 --menu-page 2 --width 800 --height 600 `
   --no-vsync --no-save-config --asset-root "game\%MAINDIR%" `
-  --dino-dat "$env:TEMP\dino-0f.dat" `
+  --dino-dat "$env:TEMP\dino-8.dat" `
   --menu-click 404,285 --menu-click 364,530 --menu-click 521,449 `
   --menu-loading-time 0 --screenshot notes\harness\campaign-start.bmp
 ```
 
-Expect `menu campaigns: 7 unlocked=0xF`, `wld: placed 57/57 buildings`,
+Expect `menu campaigns: 7 unlocked=8`, `wld: placed 57/57 buildings`,
 `dinos: 20/20 spawned`, `start: campaign=Cpg04 mission=Cpg04_Mission1
 island=Isl04 budget=20000`, and the three Cpg04_Mission1 objective lines.
-With a fresh mask (`01`) the same row click stays on page 2 because Cpg04 is
+With a fresh count (`01`) the same row click stays on page 2 because Cpg04 is
 locked.
 
 Resume a stored mission:
@@ -275,7 +279,7 @@ Mission advance: the Cpg01_Mission11 run above with `--auto-continue` prints
 Cpg01_Mission12 budget=75000` and `mission: Cpg01_Mission12 objectives=2`.
 Without the flag, click `CPGEND_OUTCOME_ICON` (401,447) to advance.
 
-Campaign completion (Cpg02's last mission, mask `0x02` in a temp file):
+Campaign completion (Cpg02's last mission, unlock count `2` in a temp file):
 
 ```powershell
 [IO.File]::WriteAllBytes("$env:TEMP\dino-02.dat", [byte[]](0x02,0,0,0))
@@ -288,8 +292,8 @@ Campaign completion (Cpg02's last mission, mask `0x02` in a temp file):
 ```
 
 Expect `mission Cpg02_Mission5: success`, `campaign complete: Cpg02
-ending=... video=tennis.mpg`, `campaign unlock: mask=0x6`, and
-`dino-02.dat` becomes `06 00 00 00`.
+ending=... video=tennis.mpg`, `campaign unlock: value=3`, and
+`dino-02.dat` becomes `03 00 00 00`.
 
 A mission that completes: `Cpg01_Mission11` (`visitors all 30`) on isl01 with
 a 24-cell path loop and `--visitors 30` prints `mission objective 0 visitors
@@ -301,14 +305,14 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 
 - Ending-video playback: the MPEG-1 decoder, frame export and windowed
   playback are ported (`video.md`); the final mission's `CPGEND` close plays
-  its `EndingVideo`. MP2 audio is still open.
+  its `EndingVideo`, and the main-menu Cinematics page replays any unlocked
+  ending. MP2 audio is still open.
 - Populate `MISSION_PANEL` objective text and the objective-light HUD (done
   for the started mission; campaign-tier row gating remains).
 - Decide the difficulty source (`mission+0x50`) and the cut `Cpg07` policy.
   The captured retail Cpg04 briefing showed 17,000 while `Cpg04.ini` says
   `Budget=20000` and `Cpg04_Mission1` inherits `Budget=0`; the retail
   starting-budget source is still open (the port uses 20,000).
-- Ending videos (`mvVideo`/DirectShow) are decoded but not ported.
 
 ## Evidence
 
@@ -324,7 +328,7 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
   `--campaign-mission`.
 - Tests: `tests/test_viewer_cpp.py::test_cpp_retail_menu_pages`,
   `test_cpp_wld_park_import`, `tests/test_campaign.py`,
-  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
+  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_value`,
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`,
   `test_cpp_campaign_mission_port_save`,

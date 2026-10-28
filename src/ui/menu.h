@@ -24,6 +24,8 @@ struct Menu {
     int save_slot = 0;    // selected LOAD_GAME_NAMES_LIST row
     int save_count = 0;   // number of save slots (set by the viewer)
     bool load_requested = false;  // LOAD_LOAD_BUTTON pressed
+    int cinematic = 0;    // selected CINEMATICS_LIST row (campaign order)
+    bool cinematic_requested = false;  // CINEMATICS_START_BUTTON pressed
     int difficulty = 1;   // 0 easy, 1 middle, 2 hard
     bool loading = false;
     bool start_campaign = false;  // CAMPAIGN_INFO_START_BUTTON was pressed
@@ -34,12 +36,13 @@ struct Menu {
     std::vector<dino::Campaign> campaigns;
     // campaign folder -> current mission name (port-owned progress file).
     std::map<std::string, std::string> campaign_progress;
-    // `run/save/dino.dat` unlock mask (bit 0 = Cpg01). Missing file = 1.
-    std::uint32_t unlock_mask = 1;
+    // `run/save/dino.dat` unlock value (campaign count; 1 = Cpg01 only).
+    // Missing file = 1.
+    std::uint32_t unlock_value = 1;
 
     bool load(const std::string& asset_root);
     bool load_campaigns(const std::string& scenario_root,
-                        std::uint32_t unlock_mask = 1);
+                        std::uint32_t unlock_value = 1);
     int hit_test(int x, int y) const;
     void move(int x, int y);
     void click(int x, int y);
@@ -48,6 +51,12 @@ struct Menu {
     const dino::Campaign* selected_campaign() const;
     const dino::CampaignMission* selected_mission() const;
     bool campaign_unlocked(int index) const;
+    // Cinematics rows are ending videos: `row < unlock_value - 1` (retail
+    // FUN_00518790) and the campaign must have an `EndingVideo`.
+    bool cinematic_unlocked(int index) const;
+    // `[BRIEFING] EndingVideo` of the selected cinematics row ("" when the
+    // campaign has no ending clip, e.g. Cpg06/Cpg08).
+    std::string cinematic_video() const;
 
     std::string text_for(const Widget& widget) const;
     const char* background() const;

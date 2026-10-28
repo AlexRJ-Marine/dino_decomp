@@ -276,16 +276,16 @@ std::optional<CampaignMission> next_campaign_mission(
     return std::nullopt;
 }
 
-void write_campaign_unlock(const std::string& path, std::uint32_t mask) {
+void write_campaign_unlock(const std::string& path, std::uint32_t value) {
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out) {
         throw std::runtime_error("cannot write campaign unlock " + path);
     }
     const unsigned char bytes[4] = {
-        static_cast<unsigned char>(mask & 0xFF),
-        static_cast<unsigned char>((mask >> 8) & 0xFF),
-        static_cast<unsigned char>((mask >> 16) & 0xFF),
-        static_cast<unsigned char>((mask >> 24) & 0xFF),
+        static_cast<unsigned char>(value & 0xFF),
+        static_cast<unsigned char>((value >> 8) & 0xFF),
+        static_cast<unsigned char>((value >> 16) & 0xFF),
+        static_cast<unsigned char>((value >> 24) & 0xFF),
     };
     out.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
     if (!out) {
@@ -369,12 +369,21 @@ unsigned campaign_number(const std::string& name) {
     return digits ? number : 0;
 }
 
-bool campaign_unlocked(const Campaign& campaign, std::uint32_t mask) {
+bool campaign_unlocked(const Campaign& campaign, std::uint32_t value) {
     const unsigned number = campaign_number(campaign.name);
-    if (number == 0 || number > 32) {
+    if (number == 0) {
         return true;
     }
-    return (mask & (1u << (number - 1))) != 0;
+    return number <= value;
+}
+
+bool campaign_ending_unlocked(const Campaign& campaign,
+                              std::uint32_t value) {
+    const unsigned number = campaign_number(campaign.name);
+    if (number == 0) {
+        return true;
+    }
+    return number < value;
 }
 
 std::map<std::string, std::string> load_campaign_progress(

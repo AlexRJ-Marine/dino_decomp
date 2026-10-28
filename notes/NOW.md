@@ -49,8 +49,10 @@ See `notes/lanes.md`. Default split:
 
 - MENU-1: **main-menu playtest.** Load Game is fixed (`9f58349`): page 4
   lists the port `.psav` slots and loads the selected one; retail `.sav`
-  still needs an island choice. Next: the Cinematics page still renders the
-  island-list fallback (R-17). Campaign Info has no retail mission list; use
+  still needs an island choice. Cinematics is fixed: page 6 lists the
+  campaigns' ending videos and START plays them (R-17,
+  `notes/cinematics-recon.md`). Next: the Options page (R-18) and retail
+  `.sav` slots at runtime. Campaign Info has no retail mission list; use
   `campaign-progress.txt` (or a port-only override) to pick a mission.
 - CAM-1: **retail park camera solved and now the interactive default.**
   Verified from `0x5e5ff0` plus a live object probe (`DINO_CAMERA_PROBE`):
@@ -117,10 +119,11 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MENU-1: Cinematics page (R-17) still lists island names; wire
-   `CINEMATICS_LIST` to `Data/Video/*.mpg` and `CINEMATICS_START_BUTTON` to
-   the MPEG player. Load Game (R-16) is done. Campaign Info has no retail
-   mission list; use `campaign-progress.txt` or a port-only override.
+1. MENU-1: Cinematics page (R-17) is done — the list is the campaigns'
+   ending videos and START plays them. Next: the Options page (R-18) and
+   retail `.sav` slots at runtime (needs an island choice). Campaign Info has
+   no retail mission list; use `campaign-progress.txt` or a port-only
+   override.
 2. CAM-1 feel retest: arrows pan, Shift+arrows rotate (Del/PgDn/Home/End are
    the retail alternates), Shift+Up/Down zoom. Pan is frame-rate dependent in
    retail; the port applies one step per rendered frame (vsync 60). If the
@@ -142,6 +145,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - MENU-1: Cinematics page lists ending videos; dino.dat is a count
 - 2026-10-28 - MENU-1: Load Game page lists port saves and loads them
 - 2026-10-28 - CAM-1: rigid pan fix (probe CSV); eye/target move together
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)

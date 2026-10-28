@@ -464,26 +464,28 @@ def test_cpp_campaign_happyshow_retail_threshold():
     assert "mission objective 0 happyshow -> success" not in result.stdout
 
 
-def _unlock_file(tmp_path: Path, mask: int = 0x0F) -> Path:
+def _unlock_file(tmp_path: Path, value: int = 8) -> Path:
+    # `dino.dat` is an unlocked-campaign count (retail range 1..8 for the 7
+    # campaigns); 8 unlocks every row.
     path = tmp_path / "dino.dat"
-    path.write_bytes(mask.to_bytes(4, "little"))
+    path.write_bytes(value.to_bytes(4, "little"))
     return path
 
 
-def test_cpp_campaign_unlock_mask(tmp_path):
+def test_cpp_campaign_unlock_value(tmp_path):
     missing = tmp_path / "missing.dat"
     result = _run(
         "--validate", "--asset-root", str(GAME), "--dino-dat", str(missing)
     )
     assert result.returncode == 0, result.stderr
-    assert "menu campaigns: 7 unlocked=0x1" in result.stdout
+    assert "menu campaigns: 7 unlocked=1" in result.stdout
 
     unlock = _unlock_file(tmp_path)
     result = _run(
         "--validate", "--asset-root", str(GAME), "--dino-dat", str(unlock)
     )
     assert result.returncode == 0, result.stderr
-    assert "menu campaigns: 7 unlocked=0xF" in result.stdout
+    assert "menu campaigns: 7 unlocked=8" in result.stdout
 
 
 def test_cpp_menu_campaign_select(tmp_path):
@@ -496,7 +498,7 @@ def test_cpp_menu_campaign_select(tmp_path):
         "--menu-click", "364,530",   # CAMPAIGN_START_BUTTON
     )
     assert result.returncode == 0, result.stderr
-    assert "menu campaigns: 7 unlocked=0xF" in result.stdout
+    assert "menu campaigns: 7 unlocked=8" in result.stdout
     assert "menu page=3 active=1" in result.stdout
 
 
@@ -531,7 +533,7 @@ def test_cpp_campaign_progress_resume(tmp_path):
 
 
 def test_cpp_menu_campaign_locked(tmp_path):
-    # A fresh profile (mask 1) only unlocks Cpg01. Selecting row 3 (Cpg04)
+    # A fresh profile (value 1) only unlocks Cpg01. Selecting row 3 (Cpg04)
     # must not advance to the briefing page.
     unlock = _unlock_file(tmp_path, 0x01)
     result = _run(
@@ -542,7 +544,7 @@ def test_cpp_menu_campaign_locked(tmp_path):
         "--menu-click", "364,530",
     )
     assert result.returncode == 0, result.stderr
-    assert "menu campaigns: 7 unlocked=0x1" in result.stdout
+    assert "menu campaigns: 7 unlocked=1" in result.stdout
     assert "menu page=2 active=1" in result.stdout
 
 
@@ -756,7 +758,7 @@ def test_cpp_campaign_hungry_objective():
 def test_cpp_campaign_completion_unlock(tmp_path):
     # Cpg02_Mission5 is the last Cpg02 mission. 100 visitors with need0=99
     # satisfy `happyvisitors parent 60`; completing it shows the campaign
-    # ending and writes the next campaign bit to dino.dat (0x02 -> 0x06).
+    # ending and raises the `dino.dat` unlock count to 3 (Cpg01..Cpg03).
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
     mission = SCENARIO / "Cpg02" / "Cpg02_Mission5.ini"
@@ -779,9 +781,9 @@ def test_cpp_campaign_completion_unlock(tmp_path):
     assert "mission objective 0 happyvisitors -> success" in result.stdout
     assert "mission Cpg02_Mission5: success" in result.stdout
     assert "campaign complete: Cpg02 ending=" in result.stdout
-    assert "campaign unlock: mask=0x6" in result.stdout
+    assert "campaign unlock: value=3" in result.stdout
     assert "campaign progress: Cpg02 complete" in result.stdout
-    assert unlock.read_bytes() == b"\x06\x00\x00\x00"
+    assert unlock.read_bytes() == b"\x03\x00\x00\x00"
     # The finished campaign is removed from the progress file.
     assert "Cpg02" not in progress.read_text(encoding="utf-8")
 
@@ -891,7 +893,7 @@ def test_cpp_campaign_completion_video(tmp_path):
     assert "campaign video:" in result.stdout
     assert "tennis.mpg" in result.stdout
     assert "video played: 1 frames" in result.stdout
-    assert unlock.read_bytes() == b"\x06\x00\x00\x00"
+    assert unlock.read_bytes() == b"\x03\x00\x00\x00"
 
 
 def test_cpp_campaign_mission_success():

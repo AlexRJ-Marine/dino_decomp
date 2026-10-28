@@ -199,7 +199,7 @@ Scrollbar width 22 px: up **352,177**, down **352,440**.
 
 ### Campaign select — `menu-campaign-select`
 
-Eight campaign rows. Rows 1-4 are unlocked by `save/dino.dat`; the harness writes 0x0F for them.
+Eight campaign rows. `save/dino.dat` is an unlocked-campaign count (1 = Cpg01 only); the harness writes 8 (all rows).
 
 Open path: `CAMPAIGN_BUTTON` (395,189)
 

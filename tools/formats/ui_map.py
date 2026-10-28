@@ -79,8 +79,8 @@ SCREENS: list[ScreenDef] = [
     ScreenDef(
         "menu-campaign-select", "Campaign select", "menu", "menu",
         ["CAMPAIGN_SELECT_PAGE"], ["CAMPAIGN_BUTTON"],
-        note="Eight campaign rows. Rows 1-4 are unlocked by `save/dino.dat`; "
-             "the harness writes 0x0F for them.",
+        note="Eight campaign rows. `save/dino.dat` is an unlocked-campaign "
+             "count (1 = Cpg01 only); the harness writes 8 (all rows).",
     ),
     ScreenDef(
         "menu-campaign-info", "Campaign briefing / mission list", "menu", "menu",

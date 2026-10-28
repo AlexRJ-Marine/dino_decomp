@@ -318,8 +318,10 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 
 - [x] `CampaignList.ini` rows in `CAMPAIGN_LIST` (7 campaigns, `title_id` from
       each `CpgNN.ini`); declared 34-px list rows.
-- [x] `run/save/dino.dat` unlock mask (missing = 1): locked rows use frame 0 +
+- [x] `run/save/dino.dat` unlock count (missing = 1): locked rows use frame 0 +
       grey text and cannot advance; `--dino-dat FILE` overrides for tests.
+      Campaign select enables `row < value`; the Cinematics page enables
+      `row < value-1` (endings lag one campaign).
 - [x] `CAMPAIGN_START_BUTTON` -> page 3 with the campaign title, wrapped
       `description_id` briefing (16 lines, literal `\n` paragraphs) and the
       matching `CAMPAIGN_INFO_ISLAND_PIC_islNN`.
@@ -331,11 +333,33 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - Evidence: `notes/campaign-menu-select.png`,
   `notes/campaign-menu-briefing.png`, `notes/campaign-menu-start.png`,
   `notes/campaign-menu-unlock.png`,
-  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_mask`,
+  `tests/test_campaign_cpp.py` (`test_cpp_campaign_unlock_value`,
   `test_cpp_menu_campaign_select`, `test_cpp_menu_campaign_locked`,
   `test_cpp_menu_campaign_mission_start`).
 - Open: ending-video playback and Cpg07's cut row. Mission index/count is
   shown in `MISSION_PANEL_TITLE` (`1/4`).
+
+### Phase B3 — Cinematics page (done)
+
+- [x] `CINEMATICS_LIST` rows are the campaigns' ending videos, not files in
+      `Data/Video`: one row per campaign, text = `[BRIEFING] EndingVideoName`
+      (loc), file = `[BRIEFING] EndingVideo`. Filled by the page enter
+      virtual `FUN_00518400` from the campaign DB; `FUN_00518210` only
+      resolves widgets. Retail rows: basket / tennis / trampoline / Trappe /
+      mixe, then two empty rows (Cpg06, Cpg08).
+- [x] `CINEMATICS_START_BUTTON` publishes the selected row (`0x518360`);
+      the app builds `data/video/<EndingVideo>` and plays it (`0x4026fa`,
+      `mvVideo::play` `0x517a40`). The port calls its existing MPEG player and
+      returns to the page.
+- [x] Rows with an empty `EndingVideo` are inert and render no label.
+- [x] `CINEMATICS_INTRO_BUTTON` is inert in retail: `TYPE = "WIDGET"` (static
+      `INTRO_BUTTON` art), its name is absent from the executable, and the
+      ctor hooks only PAGE/LIST/START/CANCEL. `intro.mpg` plays once at
+      startup from `[DINO] UseIntroVideo`.
+- Evidence: `notes/cinematics-recon.md`,
+  `tests/test_viewer_cpp.py::test_cpp_retail_menu_cinematics_page`.
+- Open: `CINEMATICS_INTRO_BUTTON` animation only; the row gate is the
+  `dino.dat` count (`row < value-1`).
 
 ### Phase C — park HUD (done at 800×600)
 

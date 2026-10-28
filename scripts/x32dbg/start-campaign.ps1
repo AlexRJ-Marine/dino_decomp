@@ -26,8 +26,9 @@ param(
 #     0x5714a5 (validate with tools/recon/secu_grid_check.py)
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
-# -UnlockCampaigns backs up run/save/dino.dat, writes 0F (campaigns 1-4) and
-# restores it after the run; without it the campaign must already be unlocked.
+# -UnlockCampaigns backs up run/save/dino.dat, writes 8 (all campaigns; the
+# dword is an unlocked-campaign count) and restores it after the run; without
+# it the campaign must already be unlocked.
 #
 # Background safety: the retail app stops its frame loop and DirectInput
 # polling once it is no longer the active window; its WndProc resumes both only
@@ -72,8 +73,8 @@ if ($VirtualMouse) {
 }
 if ($UnlockCampaigns -and (Test-Path $dinoDat)) {
     $dinoDatBackup = [System.IO.File]::ReadAllBytes($dinoDat)
-    [System.IO.File]::WriteAllBytes($dinoDat, [byte[]](0x0F, 0, 0, 0))
-    Write-Host "unlocked campaigns 1-4 (dino.dat backed up)"
+    [System.IO.File]::WriteAllBytes($dinoDat, [byte[]](8, 0, 0, 0))
+    Write-Host "unlocked all campaigns (dino.dat = 8, backed up)"
 }
 
 Add-Type @"

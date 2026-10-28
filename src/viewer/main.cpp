@@ -146,7 +146,7 @@ struct Options {
     int video_play_frames = 0;
     int video_play_start = 0;
     std::string campaign_mission_path;
-    std::string dino_dat_path;  // campaign unlock mask (default run/save/dino.dat)
+    std::string dino_dat_path;  // campaign unlock count (default run/save/dino.dat)
     std::string campaign_progress_path;  // current mission per campaign
     bool auto_continue = false;  // test hook: advance past CPGEND automatically
     std::string start_mission_path;
@@ -807,7 +807,7 @@ Options parse_args(int argc, char** argv) {
                 "  --video-play-start N  skip N frames before playback\n"
                 "  --campaign-mission F print one mission's objectives and verb ids\n"
                 "  --start-mission FILE run a campaign mission in the loaded park\n"
-                "  --dino-dat FILE      campaign unlock mask (default run/save/dino.dat)\n"
+                "  --dino-dat FILE      campaign unlock count (default run/save/dino.dat)\n"
                 "  --campaign-progress FILE  current mission per campaign\n"
                 "  --auto-continue      advance past CPGEND without a click (test hook)\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
@@ -4528,7 +4528,7 @@ int main(int argc, char** argv) {
                        campaign_unlock)) {
             menu.campaign_progress = campaign_progress;
             std::printf(
-                "menu campaigns: %zu unlocked=0x%X (%s)\n",
+                "menu campaigns: %zu unlocked=%u (%s)\n",
                 menu.campaigns.size(),
                 static_cast<unsigned>(campaign_unlock),
                 campaign_dino_dat.c_str());
@@ -4713,6 +4713,7 @@ int main(int argc, char** argv) {
     bool pending_port_save = false;
     bool pending_port_load = false;
     std::string pending_menu_load_path;
+    std::string pending_menu_cinematic;
     std::string pending_construct_widget;
     bool pending_fence_tool = false;
     int fence_corner_x = -1;
@@ -4845,6 +4846,20 @@ int main(int argc, char** argv) {
         pending_menu_load_path =
             menu_save_slots[static_cast<std::size_t>(slot)].first;
     };
+    // CINEMATICS_START_BUTTON: retail plays `data/video/<EndingVideo>` of the
+    // selected campaign row (FUN_00518360 publishes the row index; the app
+    // frame handler builds the path and calls mvVideo::play).
+    auto queue_menu_cinematic = [&]() {
+        if (!menu.cinematic_requested) {
+            return;
+        }
+        menu.cinematic_requested = false;
+        const std::string video = menu.cinematic_video();
+        if (!video.empty()) {
+            pending_menu_cinematic =
+                resolve_asset(opt.asset_root, "Data/Video/" + video);
+        }
+    };
     if (menu_loaded) {
         menu.loading_time = opt.menu_loading_time;
         menu.save_count = static_cast<int>(menu_save_slots.size());
@@ -4857,6 +4872,7 @@ int main(int argc, char** argv) {
             if (std::sscanf(value.c_str(), "%d,%d", &x, &y) == 2) {
                 menu.click(x, y);
                 queue_menu_load();
+                queue_menu_cinematic();
             }
         }
         if (!opt.menu_hover.empty()) {
@@ -5718,6 +5734,16 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    auto play_pending_cinematic = [&]() {
+        if (pending_menu_cinematic.empty()) {
+            return;
+        }
+        std::printf("menu cinematic: %s\n", pending_menu_cinematic.c_str());
+        play_video(pending_menu_cinematic, 0, opt.video_play_frames);
+        pending_menu_cinematic.clear();
+    };
+    play_pending_cinematic();
+
     auto draw_menu = [&](int view_w, int view_h, int logical_w, int logical_h) {
         (void)logical_h;
         if (!menu_loaded) {
@@ -5853,6 +5879,8 @@ int main(int argc, char** argv) {
                     widget.name == "CAMPAIGN_INFO_DESCRIPTION";
                 const bool load_list =
                     widget.name == "LOAD_GAME_NAMES_LIST";
+                const bool cinematics_list =
+                    widget.name == "CINEMATICS_LIST";
                 int selected_row = menu.island;
                 int scroll_rows = 10;
                 if (load_list) {
@@ -5861,12 +5889,15 @@ int main(int argc, char** argv) {
                 } else if (campaign_list) {
                     selected_row = menu.campaign;
                     scroll_rows = static_cast<int>(menu.campaigns.size());
+                } else if (cinematics_list) {
+                    selected_row = menu.cinematic;
+                    scroll_rows = static_cast<int>(menu.campaigns.size());
                 } else if (campaign_info) {
                     selected_row = 0;
                     scroll_rows = 1;
                 }
                 const int row_count =
-                    campaign_list
+                    campaign_list || cinematics_list
                         ? std::min(rows,
                                    static_cast<int>(menu.campaigns.size()))
                         : (load_list ? std::min(rows, menu.save_count) : rows);
@@ -5910,7 +5941,8 @@ int main(int argc, char** argv) {
                         const float row_y = py(widget.abs_y) +
                                             static_cast<float>(row) * line_h * dpi;
                         const bool locked =
-                            campaign_list && !menu.campaign_unlocked(row);
+                            (campaign_list && !menu.campaign_unlocked(row)) ||
+                            (cinematics_list && !menu.cinematic_unlocked(row));
                         if (row_texture != nullptr && row_graphic != nullptr) {
                             const int frame =
                                 locked ? 0
@@ -5957,6 +5989,15 @@ int main(int argc, char** argv) {
                                         menu.campaigns[static_cast<std::size_t>(
                                                            row)]
                                             .title_id,
+                                        menu.loc);
+                                }
+                            } else if (cinematics_list) {
+                                if (row < static_cast<int>(
+                                              menu.campaigns.size())) {
+                                    name = dino::ui::resolve_loc_text(
+                                        menu.campaigns[static_cast<std::size_t>(
+                                                           row)]
+                                            .ending_video_name,
                                         menu.loc);
                                 }
                             } else {
@@ -11223,6 +11264,8 @@ int main(int argc, char** argv) {
                             menu.loading = false;
                             menu.active = false;
                         }
+                        queue_menu_cinematic();
+                        play_pending_cinematic();
                         if (menu.quit) {
                             running = false;
                         }
@@ -11960,20 +12003,17 @@ int main(int argc, char** argv) {
                             }
                             const unsigned number =
                                 dino::campaign_number(campaign->name);
-                            std::uint32_t next_mask = campaign_unlock;
-                            if (number > 0 && number <= 32) {
-                                next_mask |= 1u << (number - 1);
-                                if (number < 32) {
-                                    next_mask |= 1u << number;
-                                }
+                            std::uint32_t next_value = campaign_unlock;
+                            if (number > 0) {
+                                next_value = std::max(next_value, number + 1);
                             }
-                            if (next_mask != campaign_unlock) {
-                                campaign_unlock = next_mask;
+                            if (next_value != campaign_unlock) {
+                                campaign_unlock = next_value;
                                 try {
                                     dino::write_campaign_unlock(
                                         campaign_dino_dat, campaign_unlock);
                                     std::printf(
-                                        "campaign unlock: mask=0x%X\n",
+                                        "campaign unlock: value=%u\n",
                                         static_cast<unsigned>(
                                             campaign_unlock));
                                 } catch (const std::exception& e) {

@@ -57,9 +57,9 @@ row there without claiming it here, and do not touch another lane's files.
 ## Recent integration
 
 - 2026-10-28: camera pan corrected to the retail rigid translation (live
-  probe; eye and target goals move together). Menu playtest R-16 is done:
-  the Load Game page lists port `.psav` slots and loads them (`9f58349`);
-  R-17 (Campaign Info mission list) remains.
+  probe; eye and target goals move together). Menu playtest R-16 (Load Game)
+  and R-17 (Cinematics) are done; `dino.dat` is an unlocked-campaign count,
+  not a mask. Next menu lane: R-18 Options page and retail `.sav` slots.
 - 2026-10-27: SHOW-3 (four show objective verbs) was committed on the local
   `f16ded1` line and rebased onto `main` as `3e0ada5`. SAVE-2, the P3
   action-target policy and the SHOW work are now on one line; `p3-target`

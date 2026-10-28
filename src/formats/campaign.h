@@ -66,8 +66,9 @@ std::optional<CampaignMission> next_campaign_mission(
 // Parent campaign of a mission, loaded from the mission path's folder.
 std::optional<Campaign> load_parent_campaign(const CampaignMission& mission);
 
-// Writes `run/save/dino.dat` as a 4-byte little-endian unlock mask.
-void write_campaign_unlock(const std::string& path, std::uint32_t mask);
+// Writes `run/save/dino.dat` as a 4-byte little-endian unlocked-campaign
+// count (retail 1..campaigns+1).
+void write_campaign_unlock(const std::string& path, std::uint32_t value);
 
 // Port-owned campaign progress: campaign folder -> current mission name.
 // Text lines `Cpg04 Cpg04_Mission2`; `#`/blank lines are ignored. A missing
@@ -98,16 +99,23 @@ const char* objective_verb_name(int objective_id);
 // the unused verbs return false.
 bool objective_verb_implemented(int objective_id);
 
-// `run/save/dino.dat`: the 4-byte little-endian campaign unlock mask read by
-// `FUN_005612d0` into `campaign_db+0x1c` (bit 0 = Cpg01). A missing or short
-// file defaults to 1, matching retail.
+// `run/save/dino.dat`: the 4-byte little-endian count of unlocked campaigns
+// read by `FUN_005612d0` into `campaign_db+0x1c` (`1` = Cpg01 only). Retail
+// raises it with a plain `MOV` to `max(value, campaignNumber+1)` after a
+// campaign ending (0x40285d-0x40286a) and writes the same field back. A
+// missing or short file defaults to 1, matching retail. There is no bit test
+// on the value anywhere in the executable.
 std::uint32_t read_campaign_unlock(const std::string& path);
 
 // `Cpg04` -> 4; 0 when the name has no numeric suffix.
 unsigned campaign_number(const std::string& name);
 
-// Bit `number-1` of the mask. Unknown names stay unlocked so a data change
-// cannot silently hide them.
-bool campaign_unlocked(const Campaign& campaign, std::uint32_t mask);
+// `campaign_number <= value` (campaign-select gating is `row < value`).
+// Unknown names stay unlocked so a data change cannot silently hide them.
+bool campaign_unlocked(const Campaign& campaign, std::uint32_t value);
+
+// Campaign-ending videos lag one campaign: the cinematics page enables
+// `row < value-1` (FUN_00518790), i.e. only endings already watched.
+bool campaign_ending_unlocked(const Campaign& campaign, std::uint32_t value);
 
 }  // namespace dino

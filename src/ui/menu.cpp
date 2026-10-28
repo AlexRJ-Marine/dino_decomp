@@ -39,10 +39,10 @@ bool Menu::load(const std::string& asset_root) {
 }
 
 bool Menu::load_campaigns(const std::string& scenario_root,
-                          std::uint32_t unlock_mask) {
+                          std::uint32_t unlock_value) {
     campaigns.clear();
     campaign_error.clear();
-    this->unlock_mask = unlock_mask;
+    this->unlock_value = unlock_value;
     try {
         campaigns = dino::load_campaigns(scenario_root);
     } catch (const std::exception& e) {
@@ -61,7 +61,24 @@ bool Menu::campaign_unlocked(int index) const {
         return false;
     }
     return dino::campaign_unlocked(campaigns[static_cast<std::size_t>(index)],
-                                   unlock_mask);
+                                   unlock_value);
+}
+
+bool Menu::cinematic_unlocked(int index) const {
+    if (index < 0 || index >= static_cast<int>(campaigns.size())) {
+        return false;
+    }
+    const dino::Campaign& campaign =
+        campaigns[static_cast<std::size_t>(index)];
+    return dino::campaign_ending_unlocked(campaign, unlock_value) &&
+           !campaign.ending_video.empty();
+}
+
+std::string Menu::cinematic_video() const {
+    if (cinematic < 0 || cinematic >= static_cast<int>(campaigns.size())) {
+        return std::string();
+    }
+    return campaigns[static_cast<std::size_t>(cinematic)].ending_video;
 }
 
 const dino::Campaign* Menu::selected_campaign() const {
@@ -189,6 +206,18 @@ void Menu::click(int x, int y) {
     } else if (name == "LOAD_LOAD_BUTTON") {
         if (save_count > 0 && save_slot >= 0 && save_slot < save_count) {
             load_requested = true;
+        }
+    } else if (name == "CINEMATICS_LIST") {
+        const int line =
+            widget.list_line_height > 0 ? widget.list_line_height : 34;
+        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
+        cinematic = campaigns.empty()
+                        ? 0
+                        : std::clamp(selected, 0,
+                                     static_cast<int>(campaigns.size()) - 1);
+    } else if (name == "CINEMATICS_START_BUTTON") {
+        if (cinematic_unlocked(cinematic) && !cinematic_video().empty()) {
+            cinematic_requested = true;
         }
     } else if (ends_with(name, "_CANCEL_BUTTON") ||
                ends_with(name, "_BACK_BUTTON")) {

@@ -957,6 +957,72 @@ def test_cpp_retail_menu_load_game_page(tmp_path):
             target.unlink()
 
 
+def test_cpp_retail_menu_cinematics_page(tmp_path):
+    """CINEMATICS_LIST lists campaign ending videos; START plays the clip.
+
+    Retail fills the list from the campaign database (`FUN_00518400`): one row
+    per campaign, row text = `[BRIEFING] EndingVideoName`, and
+    `CINEMATICS_START_BUTTON` hands the row to the app, which plays
+    `data/video/` + `[BRIEFING] EndingVideo` (`FUN_00518360`, `0x4026fa`).
+    The port used to render the island-list fallback on page 6.
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    dino_dat = tmp_path / "dino.dat"
+    # `dino.dat` is an unlocked-campaign count; 8 = every listed campaign.
+    dino_dat.write_bytes((8).to_bytes(4, "little"))
+
+    def run(extra, dat=None):
+        return subprocess.run(
+            [str(EXE), "--frames", "4", "--menu", "--menu-page", "6",
+             "--dino-dat", str(dat or dino_dat), "--width", "800",
+             "--height", "600", "--no-vsync", "--no-save-config",
+             "--lnd", str(ISL01), "--asset-root", str(GAME),
+             "--no-vegetation", "--no-water", *extra],
+            capture_output=True, text=True, timeout=180,
+        )
+
+    shot = tmp_path / "cinematics.bmp"
+    page = run(["--screenshot", str(shot)])
+    assert page.returncode == 0, page.stderr
+    image = Image.open(shot).convert("RGB")
+
+    def bright(row):
+        top = 167 + 34 * row + 3
+        band = image.crop((327, top, 503, top + 28))
+        return sum(1 for r, g, b in band.get_flattened_data()
+                   if r > 170 and g > 170 and b > 170)
+
+    # Cpg05 ends with mixe.mpg and its loc name is "TCHERNOPIG"; the two
+    # campaigns without an ending clip (Cpg06/Cpg08) must render no label.
+    assert bright(4) > 200, [bright(i) for i in range(7)]
+    assert bright(5) < 100, [bright(i) for i in range(7)]
+    assert bright(6) < 100, [bright(i) for i in range(7)]
+
+    cases = [(0, "basket.mpg"), (2, "trampoline.mpg"), (4, "mixe.mpg")]
+    for row, clip in cases:
+        played = run(["--menu-click", f"400,{184 + 34 * row}",
+                      "--menu-click", "369,530", "--video-play-frames", "1"])
+        assert played.returncode == 0, played.stderr
+        assert f"Data/Video/{clip}" in played.stdout, played.stdout
+        assert "video played: 1 frames" in played.stdout, played.stdout
+
+    # Row 5 (Cpg06) has an empty EndingVideo: START must do nothing.
+    empty = run(["--menu-click", "400,354", "--menu-click", "369,530",
+                 "--video-play-frames", "1"])
+    assert empty.returncode == 0, empty.stderr
+    assert "menu cinematic:" not in empty.stdout, empty.stdout
+
+    # A fresh profile (unlock value 1) has no watched ending yet: retail
+    # enables `row < value-1`, so row 0 START must also do nothing.
+    fresh = tmp_path / "fresh.dat"
+    fresh.write_bytes((1).to_bytes(4, "little"))
+    locked = run(["--menu-click", "400,184", "--menu-click", "369,530",
+                  "--video-play-frames", "1"], dat=fresh)
+    assert locked.returncode == 0, locked.stderr
+    assert "menu cinematic:" not in locked.stdout, locked.stdout
+
+
 def test_cpp_retail_menu_hover(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")

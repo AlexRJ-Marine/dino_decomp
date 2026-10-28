@@ -128,6 +128,39 @@ free capacity) to exercise `stFence::AddActor` (`0x57e8a0`) and the
 `0x535c97` 64-byte-record loop. The `-BuyDino` harness tries several paddock
 points; the first attempt hit a full paddock (`96/96`).
 
+## Correction (2026-10-28): the dword is a **count**, not a bitmask
+
+The value at `campaign_db+0x1c` is an unlocked-campaign **count**
+(`value = max(value, campaignIndex+2)`, min 1), not a mask. The original
+"first four campaigns" reading of `0x0F` was a coincidence: `0x0F` = 15 also
+unlocks every row under count semantics, so Cpg04 started either way. The
+port's `0x61` in `run/save/dino.dat` was written by the old OR-based port
+writer, not by retail.
+
+Instruction evidence:
+
+```text
+0040285d  MOV ECX,[EAX+0x1c]   ; old value
+00402860  LEA EDX,[ESI+0x1]    ; index+1
+00402863  CMP EDX,ECX
+00402865  JC  0x40287c         ; old is larger -> no write
+00402867  LEA ECX,[ESI+0x2]    ; index+2
+0040286a  MOV [EAX+0x1c],ECX   ; plain MOV = max(old, index+2)
+```
+
+- Campaign select `FUN_0051b090`: `MOV ECX,[EAX+0x1c]` then
+  `CMP EDI,EAX / JC` -> enable when `row < value` (no shift, no bit test).
+- Cinematics `FUN_00518790`: `MOV ECX,[EAX+0x1c] / DEC ECX` -> enable when
+  `row < value-1` (ending videos lag one campaign).
+- `FUN_005617a0` persists the same `+0x1c` dword unchanged.
+- No `BT`/`BTS`/`BTR`/`BTC` and no `1<<i` on the field exists in the menu,
+  app or campaign modules. Retail's range is 1..8 for the 7 campaigns.
+
+Port action (done): `read/write_campaign_unlock` store the count,
+`campaign_unlocked` is `campaignNumber <= value`, and
+`campaign_ending_unlocked` is `campaignNumber < value`. After a campaign
+ending the writer stores `max(old, campaignNumber+1)`.
+
 ## Harness
 
 `scripts/x32dbg/start-campaign.ps1` starts a chosen campaign/mission through
@@ -139,8 +172,9 @@ the retail menu and logs:
 - `0x56c0c0` state-id registration (vtable + args),
 - `0x57eb50` `stFence::CanAddActor` (occupant, cost index, capacity/used).
 
-Use `-UnlockCampaigns` to back up `run/save/dino.dat`, write `0F 00 00 00`
-(campaigns 1-4), and restore it automatically after the run. `-NoTrace` skips
+Use `-UnlockCampaigns` to back up `run/save/dino.dat`, write `08 00 00 00`
+(all seven campaigns under count semantics), and restore it automatically
+after the run. `-NoTrace` skips
 all breakpoints for a screenshot-only run. The trace is timing-sensitive under
 x32dbg: it now waits for a rendered window and dismisses the briefing before
 expecting sim hits. The run also overwrites `run/save/auto/auto.sav`; restore
