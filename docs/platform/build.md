@@ -239,6 +239,38 @@ Note: the old "16-edge limit" was a misreading — the `>= 16` check in
 `0x527150` is the `stFence` **LunchBox dish list** (max 15 dishes), not a
 park enclosure cap. The port's 16-paddock gate is removed.
 
+### Paddock info panel (selection)
+
+Selecting a fence (the same pick as the highlight) enters the retail
+FENCE_CONSTRUCTION state 15 and shows the **same**
+`FENCE_CONSTRUCTION_AND_INFO_PANEL` root; the info half is
+`FENCE_STATS_PANEL`. `opvFenceInfoFill` (`0x5269e0`) is a **snapshot** — its
+only callers are the state enter and the successful perimeter apply, so the
+numbers do not refresh per frame.
+
+`stFence::GetStats` (`0x57e720`):
+
+- `out[0]` = `(+0x9c - +0x98)/4` occupant count;
+- `out[1]` = `(int)(fill[+0x78] * 100)` percent of capacity units;
+- per-diet demand `scale * dino[+0x6c]`, carnivore when `dino[+0x200] == 1`;
+- per-diet food = sum over the `stFence+0xd8` LunchBox dishes of
+  `available_slots * quantity(.bsi+0x04) * nutrition(.bsi+0x00)`, kind `< 5`
+  herbivore / `>= 5` carnivore;
+- `out[2]/out[3] = food*100/demand`, or **100%** when that diet has no
+  animals; `scale = 39616 * [[spPark+0xc4]+4]+0x14` (exact schedule value
+  still open).
+
+The port fills the four `..._CHIFFRE` widgets and the name field on
+selection (`refresh_fence_info_panel`), with `EnclosureN` regenerated in
+creation order (retail never saves the name). No LunchBox dishes are ported
+yet, so a diet with animals reads 0% and an empty diet 100%; the dish ratio
+waits for the schedule scale. Screenshot: `build/info-panel-zoom.png`
+(matches the retail empty-paddock capture).
+
+**Open (noted from playtest):** retail changes the mouse cursor/icon while
+the sell state is armed; the port still uses the normal park cursor. This is
+tracked as SELL-1 in `TASKS.md`.
+
 Evidence:
 
 Retail itself draws a **filled circular ground disc**, not a ring

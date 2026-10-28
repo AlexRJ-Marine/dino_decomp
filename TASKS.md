@@ -2009,6 +2009,58 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Open:** interactive `EFFECTIFS_NUTRI_*` buttons, save round-trip, guard
   role, walking animation.
 
+### SELL-1: Shared object sell (port)
+- [x] Fence branch: HUD `OPEN_SELLING` state, fence click, `&REQUEST_SELL_FENCE`,
+  `GetSellValue` on the 4-unit-inset perimeter × `SellBackFactor`, non-empty
+  gate, edge/wall/ground removal. `test_cpp_fence_sell_empty`,
+  `test_cpp_fence_sell_refuses_occupied`.
+- [x] Paddock info panel on selection: name/count/fill and the per-diet
+  empty-bucket sufficiency (`0x5269e0`/`0x57e720`); `test_cpp_fence_info_panel`.
+- [ ] **Cursor:** retail changes the mouse icon in the sell state (0x14); the
+  port keeps the normal park cursor. Reverse the cursor texture/state from
+  `ParkGraphicDB`/the park interface and draw it while sell mode is armed.
+- [ ] Occupied info panel: the dish ratio uses `scale = 39616/3 = 13205.333`
+  (`GeneralParams.bgd` grid[0] = 3.0; resolved in
+  `notes/dino-stats-economy-gap-audit.md`). The port still treats the
+  LunchBox list as empty (0 % with animals, 100 % empty), which is exact until
+  the LunchBox feature is ported.
+- [ ] Extend the sell click to roads, buildings, dinosaurs, features and shows
+  (`0x533a00` dino branch et al.) with their values/removal order.
+- **Evidence:** `notes/fence-panel-sell-recon.md`,
+  `notes/harness/fence-info-sell-summary.txt`, `docs/platform/build.md`.
+- **Depends on:** P3/economic object ownership, dino stats.
+
+### DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
+- [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
+  eleven live gauges from `+0x280/+0x90/+0x29c/5/+0xbc/+0x270/
+  ftol(+0x268*20)/+0x98/+0x284/+0x2a4/+0xc0/(100-+0x1e4)`, caps from
+  `AttributeRange.ini`.
+- [ ] Per-tick needs/health: `0x5869e0` (5 s regen, 10 s food/violence/state),
+  `0x571370` (`99*food/max`, starvation damage), `0x5724d0` (health bands),
+  `food_consumption = weight*0.001/s`, `regen = maxHP*stamina/1000+1`.
+- [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
+  the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
+  called (the fence sell credits the budget directly and leaves VENTES flat).
+- [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
+  `ftol(dino+0x1ec * SellBackFactor)`, where `+0x1ec` is the 18-gene
+  genotype-rarity value (allele prices 500/100/50), independent of the Market
+  price.
+- [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
+- **Evidence:** `notes/dino-stats-economy-gap-audit.md`.
+- **Depends on:** store/dino spawn, economy buckets, info panel.
+
+### P3-MOTION-1: Dinosaur mover and action execution
+- [ ] New `src/world/dino_motion.*`: `saDinosaur+0x2c8` mover, 0x18-byte
+  command queue, `FUN_00574350`/`00574450` integrator, walk/run `+0x268/+0x26c`,
+  45° turn snaps (`0x575410`/`0x5758f0`), footprint/paddock clamp (`0x55af70`).
+- [ ] `FUN_00569660` element→move emitter; `emit_move_script()` on action start.
+- [ ] Retail applies element **events** (`0x569a00`→`0x5727b0`), not the `.bai`
+  need deltas; remove the port's delta application. No eating→food restore.
+- [ ] Perception-list producer (`beh+0xb8`): the P3 "no writer" claim is
+  disproven by the live trace; keep the direct start entry points.
+- **Evidence:** `notes/dino-ai-gap-audit.md`.
+- **Depends on:** DINO-STATS-1, food sources, animation clips.
+
 ## Backlog / research
 
 - DEC-1: Map loader functions for `.mesh`, `.skin`, `.skel`, `.anim`, `.fnt`.

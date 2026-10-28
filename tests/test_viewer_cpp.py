@@ -3196,6 +3196,30 @@ def test_cpp_escape_default_and_options(tmp_path):
     assert "options: closed (Esc)" in options.stdout
 
 
+def test_cpp_fence_info_panel():
+    """Selecting an enclosure opens FENCE_CONSTRUCTION_AND_INFO_PANEL and
+    fills the stFence::GetStats snapshot: name, dino count, fill % and the
+    per-diet sufficiency (a diet with no animals reads 100%)."""
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "32", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(ISL01), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--no-entrance", "--camera-orbit",
+         "--camera-target", "0,0", "--distance", "200",
+         "--park-click", "764,135", "--park-click", "618,145",
+         "--inject-click", "5,300,300", "--inject-click", "15,350,400",
+         "--inject-key", "20,27",
+         "--inject-click", "25,300,320"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "fence: built rect 540,460-595,547" in result.stdout
+    assert "paddock: selected 0" in result.stdout
+    assert ("fence info: paddock=0 name=Enclosure1 dinos=0 fill=0% "
+            "carn=100% herb=100%") in result.stdout
+
+
 def test_cpp_fence_sell_empty():
     """HUD Sell -> click enclosure -> REQUEST -> validate credits the
     stFence::GetSellValue refund (build 2130 -> sell 1890) and removes the

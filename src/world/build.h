@@ -153,6 +153,9 @@ struct Paddock {
     WorldRect rect;
     float capacity = 0.0f;
     float used = 0.0f;
+    // `stFence+0x00` mcString: "EnclosureN" (FUN_00590ac0 from the name bank).
+    // Retail regenerates unique names on load and does not save the string.
+    std::string name;
     // gatAttraction picks one of the four 128x128 quadrants of the ground
     // atlases with `rand() & 3` on creation (0x5ec7e0).
     int ground_variant = 0;

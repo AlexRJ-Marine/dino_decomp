@@ -8647,6 +8647,9 @@ int main(int argc, char** argv) {
                 dino::paddock_capacity(rect, build_grid.cell_size);
             // 0x5ec7e0 picks the ground atlas quadrant at creation time.
             paddock.ground_variant = std::rand() & 3;
+            // FUN_00590ac0 names the stFence "EnclosureN" from the bank; the
+            // name is regenerated on load and never saved.
+            paddock.name = "Enclosure" + std::to_string(paddocks.size() + 1);
             paddocks.push_back(paddock);
         }
         // `import_park_layout` runs before the paddock list exists, so its
@@ -9127,6 +9130,72 @@ int main(int argc, char** argv) {
     }
 
     int build_tool = opt.build_mode ? 1 : 0;
+    // `opvFenceInfoFill` (0x5269e0): the selection click opens the same
+    // FENCE_CONSTRUCTION_AND_INFO_PANEL root (state 15) and takes a snapshot
+    // of the four stFence::GetStats values (0x57e720). Retail has no
+    // per-frame refresh — the values update when the panel is (re)entered or
+    // a perimeter is applied.
+    auto refresh_fence_info_panel = [&]() {
+        const bool selected =
+            selected_paddock >= 0 &&
+            selected_paddock < static_cast<int>(paddocks.size());
+        if (!selected) {
+            if (build_tool != 6) {
+                park.overlay.set_visible("FENCE_CONSTRUCTION_AND_INFO_PANEL",
+                                         false);
+            }
+            return;
+        }
+        const dino::Paddock& pen =
+            paddocks[static_cast<std::size_t>(selected_paddock)];
+        park.overlay.set_visible("FENCE_CONSTRUCTION_AND_INFO_PANEL", true);
+        auto set_text = [&](const char* widget_name, const std::string& text) {
+            dino::ui::Widget* widget = park.overlay.get(widget_name);
+            if (widget == nullptr) {
+                return;
+            }
+            widget->text = text;
+            widget->font = "DATA/FONTE/FONT.FNT";
+            widget->text_height = 12;
+            widget->justify = "CENTER";
+            widget->text_color = dino::Color{255, 255, 255, 255};
+        };
+        const std::string name =
+            pen.name.empty()
+                ? "Enclosure" + std::to_string(selected_paddock + 1)
+                : pen.name;
+        set_text("FENCE_NAME_INDICS", name);
+        set_text("FENCE_STATS_DINO_QUANTITY_INDICS_BACK_CHIFFRE",
+                 std::to_string(pen.occupants.size()));
+        set_text("FENCE_STATS_OCCUPATION_INDICS_BACK_CHIFFRE",
+                 std::to_string(static_cast<int>(pen.fill() * 100.0f)) + "%");
+        // 0x57e720 per-diet demand: imported dinos are carnivores or
+        // herbivores; a diet with no animals reads 100 % (retail rule).
+        // With animals and no LunchBox dish the food side is 0; the dish
+        // ratio additionally needs the schedule scale (stats audit).
+        int carn = 0;
+        int herb = 0;
+        for (const int id : pen.occupants) {
+            if (id < 0 || id >= static_cast<int>(imported_dinos.size())) {
+                continue;
+            }
+            if (imported_dinos[static_cast<std::size_t>(id)].carnivore) {
+                ++carn;
+            } else {
+                ++herb;
+            }
+        }
+        set_text("FENCE_STATS_CARNI_DISTRIBUTION_INDICS_BACK_CHIFFRE",
+                 std::to_string(carn == 0 ? 100 : 0) + "%");
+        set_text("FENCE_STATS_HERBI_DISTRIBUTION_INDICS_BACK_CHIFFRE",
+                 std::to_string(herb == 0 ? 100 : 0) + "%");
+        std::printf(
+            "fence info: paddock=%d name=%s dinos=%zu fill=%d%% carn=%d%% "
+            "herb=%d%%\n",
+            selected_paddock, name.c_str(), pen.occupants.size(),
+            static_cast<int>(pen.fill() * 100.0f), carn == 0 ? 100 : 0,
+            herb == 0 ? 100 : 0);
+    };
     int pending_construct_kind = -1;
     bool pending_click = false;
     float click_x = 0.0f;
@@ -9683,6 +9752,7 @@ int main(int argc, char** argv) {
         park_budget += value;
         park_sell_paddock = -1;
         rebuild_build_meshes();
+        refresh_fence_info_panel();
         std::printf(
             "sell: sold enclosure %d refund=%d budget=%d sellback=%.2f\n",
             index, value, park_budget,
@@ -11334,8 +11404,10 @@ int main(int argc, char** argv) {
                 paddock.used = saved.used;
                 paddock.occupants = saved.occupants;
                 // Retail rebuilds stFence on load, so the ground quadrant is
-                // drawn again from rand() & 3.
+                // drawn again from rand() & 3 and the name regenerated.
                 paddock.ground_variant = std::rand() & 3;
+                paddock.name =
+                    "Enclosure" + std::to_string(paddocks.size() + 1);
                 paddocks.push_back(std::move(paddock));
             }
             park_paddocks = paddocks;
@@ -12682,6 +12754,7 @@ int main(int argc, char** argv) {
                         selected_paddock = -1;
                         std::printf("paddock: deselected (Esc)\n");
                         rebuild_build_meshes();
+                        refresh_fence_info_panel();
                     }
                     if (park_sell_mode || park_sell_paddock >= 0) {
                         park_sell_mode = false;
@@ -13005,6 +13078,7 @@ int main(int argc, char** argv) {
                 selected_paddock = -1;
                 std::printf("paddock: deselected\n");
                 rebuild_build_meshes();
+                refresh_fence_info_panel();
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_RIGHT &&
                        build_tool == 4) {
@@ -13117,6 +13191,7 @@ int main(int argc, char** argv) {
             selected_paddock != opt.select_paddock) {
             selected_paddock = opt.select_paddock;
             rebuild_build_meshes();
+            refresh_fence_info_panel();
         }
         if (pending_sell_mode) {
             pending_sell_mode = false;
@@ -14570,6 +14645,9 @@ int main(int argc, char** argv) {
                                     // 0x5ec7e0: rand() & 3 picks the ground
                                     // atlas quadrant per stFence.
                                     paddock.ground_variant = std::rand() & 3;
+                                    paddock.name = "Enclosure" +
+                                                   std::to_string(
+                                                       paddocks.size() + 1);
                                     paddocks.push_back(paddock);
                                     park_budget -= cost;
                                     budget_ledger.spend_construction(cost);
@@ -14700,6 +14778,7 @@ int main(int argc, char** argv) {
                             std::printf("paddock: deselected\n");
                         }
                         rebuild_build_meshes();
+                        refresh_fence_info_panel();
                     }
                 }
             }

@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-28 22:09. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-28 22:18. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-37 open items.
+49 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -98,3 +98,21 @@ Generated from `TASKS.md` on 2026-10-28 22:09. Do not edit; regenerate with `scr
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
+
+## SELL-1: Shared object sell (port)
+- [ ] **Cursor:** retail changes the mouse icon in the sell state (0x14); the
+- [ ] Occupied info panel: the dish ratio uses `scale = 39616/3 = 13205.333`
+- [ ] Extend the sell click to roads, buildings, dinosaurs, features and shows
+
+## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
+- [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
+- [ ] Per-tick needs/health: `0x5869e0` (5 s regen, 10 s food/violence/state),
+- [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
+- [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
+- [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
+
+## P3-MOTION-1: Dinosaur mover and action execution
+- [ ] New `src/world/dino_motion.*`: `saDinosaur+0x2c8` mover, 0x18-byte
+- [ ] `FUN_00569660` element→move emitter; `emit_move_script()` on action start.
+- [ ] Retail applies element **events** (`0x569a00`→`0x5727b0`), not the `.bai`
+- [ ] Perception-list producer (`beh+0xb8`): the P3 "no writer" claim is
