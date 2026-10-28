@@ -172,6 +172,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-28 - ECONOMY: fence sell flow - HUD Sell state, REQUEST dialog, inset-perimeter GetSellValue x SellBackFactor (live 870->630, port 2130->1890), non-empty gate, fence/ground/wall removal; removed the disproven 16-paddock gate; full suite 497
 - 2026-10-28 - VIDEO: cinematic MP2 audio wired - PL_MPEG audio decode, SDL float stereo stream, frame-PTS pacing, menu/island music paused; all retail movies probe 44.1 kHz/1 stream; full suite 497
 - 2026-10-28 - PLACE-1: Esc now clears the pending mode-2 enclosure grid (was leaving the blue dots); loaded/campaign paddocks build their gatAttraction sandy floors at load (rebuild after the paddock list); full suite 496
 - 2026-10-28 - INPUT: retail Escape behavior - default park no-op, construction strip stays, Esc closes OPTIONS_PANEL, placement/selection states leave; park Esc never quits; full suite 494
@@ -179,7 +180,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - PLACE-1: fence palette pulse ported from the binary - bank 4 additive laser sin4 (1.571 s), bank 1 Dino_SelectedWall sin10 (0.628 s, 1.0-2.0x); click-select enclosure with right-click deselect; HUD/minimap tint reset; full suite 493
 - 2026-10-28 - PLACE-1: exact retail enclosure visuals - gatAttraction sandy ground quad (boue_pad x ground_occup_pad, rand quadrant, Wrap), additive cyan-white laser2 post lamps, mode-2 4-unit helper grid with exact colours, fence nearest-anchor snap; full suite 492
 - 2026-10-28 - PLACE-1: ground pick now uses the terrain render FOV (80 deg), fixing the road/fence cursor offset; enclosure pending template draws helper_sphere dots every 8 units along the sides (blue/maroon), start validation matches the disc; full suite 492
-- 2026-10-28 - PLACE-1: map-unit occupancy grid wired into roads/buildings/fences (classes 1/2/7/0xF); exact two-click enclosure (margin 4, side >= 23, 30/cell from Fence.bwi, class-7 wall lines, cost toast); full suite 492
 
 ## Blockers
 
