@@ -2792,6 +2792,9 @@ def test_cpp_store_panel_purchase():
          "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
          "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         # Pin the legacy spherical camera so the paddock pick is deterministic;
+         # the interactive camera now starts at retail progress 0.1.
+         "--distance", "300", "--pitch", "20",
          "--park-click", "765,298", "--park-click", "160,88",
          "--park-click", "470,520", "--ground-click", "400,300"],
         capture_output=True, text=True, timeout=300,
@@ -3034,6 +3037,7 @@ def test_cpp_store_panel_scroll():
          "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
          "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--distance", "300", "--pitch", "20",
          "--park-click", "765,298", "--park-click", "232,200",
          "--park-click", "160,88", "--park-click", "470,520",
          "--ground-click", "400,300"],

@@ -112,12 +112,13 @@ Full viewer suite: 394 passed.
 
 ## Remaining open items
 
-The height smoothing is now ported from `FUN_00529d00`, but the
-active-camera rotation/transition object (`camSwitcher+0x20/+0x24`, vtable
-update) and the exact `TargetHardness` clamp/transition semantics remain;
-the current rotation is linear at the recovered speed. Evidence addresses:
-`0x005257a0`, `0x00527b80`, `0x005e59b0`, `0x005e5960`, `0x005e5bc0`,
-`0x00529d00`, `0x005e5560`.
+Resolved 2026-10-28: the active camera is the 0x164-byte object at
+`camSwitcher+0x30` (vtable `0x006481a4`, update `0x005e5ff0`), and
+`camSwitcher+0x20/+0x24` is a pose proxy, not a vtable. There is no roll; the
+motion feel is the `progress` pitch model plus the 10/s yaw low-pass. The port
+now uses that model. See `notes/camera-motion-tilt-recon.md`. Evidence
+addresses: `0x005257a0`, `0x00527b80`, `0x005e59b0`, `0x005e5960`,
+`0x005e5bc0`, `0x005e5ff0`, `0x005e5ff0`, `0x005e5560`.
 
 ## Resolution (2026-10-28)
 
