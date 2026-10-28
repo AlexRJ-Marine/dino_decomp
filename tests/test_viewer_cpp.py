@@ -2367,7 +2367,7 @@ def test_cpp_road_tool_menu_started_park():
 
 
 def test_cpp_enclosure_panel_arms_fence_tool():
-    """OPEN_CONSTRUCTION_FENCE arms the enclosure tool; a ground click adds a fence."""
+    """OPEN_CONSTRUCTION_FENCE arms the tool; two ground clicks build a paddock."""
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
     result = subprocess.run(
