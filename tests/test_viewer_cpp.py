@@ -3071,7 +3071,7 @@ def test_cpp_enclosure_preview_inside_paddock_red():
          "--inject-click", "5,400,300"],
         capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
-    assert "fence preview: cell=115,118 ok=0" in result.stdout
+    assert "fence preview: cell=116,118 ok=0" in result.stdout
     # The red disc means the corner is rejected: no rectangle is built.
     assert "fence: corner " not in result.stdout
     assert "fence: built rect " not in result.stdout

@@ -110,6 +110,7 @@ struct BuildGrid {
 struct BuildMeshes {
     Mesh paths;
     Mesh fences;
+    Mesh fence_beams;  // material 1 (`laser2.tga`), empty when absent
     int path_tiles = 0;
     int fence_segments = 0;
 };
@@ -149,6 +150,9 @@ struct Paddock {
     WorldRect rect;
     float capacity = 0.0f;
     float used = 0.0f;
+    // gatAttraction picks one of the four 128x128 quadrants of the ground
+    // atlases with `rand() & 3` on creation (0x5ec7e0).
+    int ground_variant = 0;
     std::vector<int> occupants;  // dinosaur ids/indices
 
     float fill() const {
@@ -218,12 +222,19 @@ Mesh fence_preview_disc(float x, float y, float z, float radius,
 Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
                       const BuildGrid& grid, const Terrain& terrain);
 
-// Retail enclosure template preview (`helper_sphere.mesh`, helper mode 1):
-// small spheres every `step` units along the four sides of the pending
-// rectangle. `rect` is in engine map units (0..1024).
+// Retail enclosure template preview (`helper_sphere.mesh`, helper mode 2):
+// the grid strictly between the two corners at `step` units, sphere diameter
+// `step` in the interior and half-size on the first/last row and column,
+// z = terrain at the cell corner. `rect` is the two clicked map-unit points.
 Mesh fence_template_mesh(const Mesh& sphere, const WorldRect& rect,
-                         const Terrain& terrain, float step, float scale,
-                         float z_offset);
+                         const Terrain& terrain, float step);
+
+// `gatAttraction` paddock ground (`0x5ec7e0`): one flat quad per stFence
+// rect at z = centre height + 0.01, sampling one 128x128 quadrant chosen by
+// `Paddock::ground_variant` (retail `rand() & 3`). The caller draws it with
+// `boue_pad.tga` x `ground_occup_pad.tga` (second stage offset by 0.5).
+Mesh fence_ground_mesh(const std::vector<Paddock>& paddocks,
+                       const Terrain& terrain);
 
 // Retail draws no road geometry: gpkLandscapeTextureManager's road layer
 // (0x602380) paints the roads into the island texture. On a 1024x1024 map

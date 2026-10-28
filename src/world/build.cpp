@@ -381,11 +381,17 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     if (fence_source.positions.empty()) {
         return out;
     }
-    float min_y = fence_source.positions.front().y;
+    // The fence mesh carries two materials: 0 = fence_paddock.tga (27 tris),
+    // 1 = laser2.tga (8 tris, the two cross billboards per segment). Split
+    // them; material 1 is drawn additively with the material's red emissive.
+    const std::vector<Mesh> fence_parts = split_by_material(fence_source);
+    const Mesh& fence_body = fence_parts.empty() ? fence_source : fence_parts[0];
+    const Mesh* fence_laser = fence_parts.size() > 1 ? &fence_parts[1] : nullptr;
+    float min_y = fence_body.positions.front().y;
     float max_y = min_y;
     float mid_x = 0.0f;
     float mid_y = 0.0f;
-    for (const auto& p : fence_source.positions) {
+    for (const auto& p : fence_body.positions) {
         min_y = std::min(min_y, p.y);
         max_y = std::max(max_y, p.y);
     }
@@ -421,7 +427,17 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
                 Vec3 offset{cx - (std::cos(angle) * mid_x - std::sin(angle) * mid_y) * scale,
                             cy - (std::sin(angle) * mid_x + std::cos(angle) * mid_y) * scale,
                             base_z};
-                append_mesh(out.fences, fence_source, offset, angle, scale);
+                append_mesh(out.fences, fence_body, offset, angle, scale);
+                if (fence_laser != nullptr) {
+                    append_mesh(out.fence_beams, *fence_laser, offset, angle,
+                                scale);
+                    // Material 1 (`laser2.tga`) is drawn additively over the
+                    // dark posts; the lit retail lamps read cyan-white
+                    // (214,255,255). The glow texture supplies the colour,
+                    // so keep the vertices white.
+                    out.fence_beams.colors.assign(
+                        out.fence_beams.positions.size(), Color{});
+                }
                 ++out.fence_segments;
             }
         }
@@ -902,31 +918,98 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
 }
 
 Mesh fence_template_mesh(const Mesh& sphere, const WorldRect& rect,
-                         const Terrain& terrain, float step, float scale,
-                         float z_offset) {
+                         const Terrain& terrain, float step) {
     Mesh out;
     out.name = "fence_template";
     if (sphere.positions.empty() || rect.x1 < rect.x0 || rect.y1 < rect.y0 ||
         step <= 0.0f) {
         return out;
     }
+    // `0x5f9b00` mode 2: grid strictly between the two corners at `step`
+    // units; the first/last row and column are half-size. Example
+    // (100,100)-(116,116): centres (102,106,110,114) squared.
     const float half = terrain.world_size * 0.5f;
-    auto add = [&](int mx, int my) {
-        const float wx = static_cast<float>(mx) - half;
-        const float wy = static_cast<float>(my) - half;
-        append_mesh_scaled(out, sphere,
-                           {wx, wy, terrain.height_at(wx, wy) + z_offset},
-                           0.0f, {scale, scale, scale});
-    };
-    for (int x = rect.x0; x <= rect.x1; x += static_cast<int>(step)) {
-        add(x, rect.y0);
-        add(x, rect.y1);
+    const int unit = static_cast<int>(step);
+    std::vector<int> xs;
+    std::vector<int> ys;
+    for (int c = rect.x0 + unit / 2; c <= rect.x1 - unit / 2; c += unit) {
+        xs.push_back(c);
     }
-    for (int y = rect.y0; y <= rect.y1; y += static_cast<int>(step)) {
-        add(rect.x0, y);
-        add(rect.x1, y);
+    for (int c = rect.y0 + unit / 2; c <= rect.y1 - unit / 2; c += unit) {
+        ys.push_back(c);
+    }
+    for (std::size_t j = 0; j < ys.size(); ++j) {
+        for (std::size_t i = 0; i < xs.size(); ++i) {
+            const bool border = i == 0 || i + 1 == xs.size() || j == 0 ||
+                                j + 1 == ys.size();
+            const float diameter = border ? step * 0.5f : step;
+            const float wx = static_cast<float>(xs[i]) - half;
+            const float wy = static_cast<float>(ys[j]) - half;
+            // z is the terrain height at the cell corner.
+            const float cz = terrain.height_at(
+                static_cast<float>(xs[i] - unit / 2) - half,
+                static_cast<float>(ys[j] - unit / 2) - half);
+            append_mesh_scaled(out, sphere, {wx, wy, cz}, 0.0f,
+                               {diameter, diameter, diameter});
+        }
     }
     out.colors.assign(out.positions.size(), Color{});
+    return out;
+}
+
+Mesh fence_ground_mesh(const std::vector<Paddock>& paddocks,
+                       const Terrain& terrain) {
+    Mesh out;
+    out.name = "fence_ground";
+    if (terrain.world_size <= 0.0f) {
+        return out;
+    }
+    const float half = terrain.world_size * 0.5f;
+    for (const Paddock& paddock : paddocks) {
+        const WorldRect& rect = paddock.rect;
+        const int x0 = std::min(rect.x0, rect.x1);
+        const int x1 = std::max(rect.x0, rect.x1);
+        const int y0 = std::min(rect.y0, rect.y1);
+        const int y1 = std::max(rect.y0, rect.y1);
+        const float wx0 = static_cast<float>(x0) - half;
+        const float wx1 = static_cast<float>(x1) - half;
+        const float wy0 = static_cast<float>(y0) - half;
+        const float wy1 = static_cast<float>(y1) - half;
+        const float cx = (wx0 + wx1) * 0.5f;
+        const float cy = (wy0 + wy1) * 0.5f;
+        // 0x5ec7e0: flat quad at the centre height + 0.01 (ZWrite off), so
+        // it does not follow the terrain inside the perimeter.
+        const float z = terrain.height_at(cx, cy) + 0.01f;
+        // `rand() & 3` chooses one 128x128 quadrant of both 256x256 atlases;
+        // the draw offsets stage 1's coordinates by 0.5 to the next quadrant.
+        const unsigned quadrant =
+            static_cast<unsigned>(paddock.ground_variant) & 3u;
+        const float u0 = (quadrant & 1u) != 0 ? 0.5f : 0.0f;
+        const float v0 = (quadrant & 2u) != 0 ? 0.5f : 0.0f;
+        const auto base =
+            static_cast<std::uint32_t>(out.positions.size());
+        out.positions.push_back({wx0, wy0, z});
+        out.positions.push_back({wx1, wy0, z});
+        out.positions.push_back({wx1, wy1, z});
+        out.positions.push_back({wx0, wy1, z});
+        out.normals.insert(out.normals.end(), 4, {0.0f, 0.0f, 1.0f});
+        // upload_mesh adds +1 to V (engine textures are bottom-left), so
+        // store v-1 to sample the intended 0/0.5 quadrant. Retail sets
+        // `mgStateTextureWrapV Wrap`, which the caller enables; stage 1 is
+        // offset by +0.5 into the next quadrant.
+        out.uvs.push_back({u0, v0 - 1.0f});
+        out.uvs.push_back({u0 + 0.5f, v0 - 1.0f});
+        out.uvs.push_back({u0 + 0.5f, v0 - 0.5f});
+        out.uvs.push_back({u0, v0 - 0.5f});
+        // Fence.bwi material diffuse is grey; the textures supply the colour.
+        out.colors.insert(out.colors.end(), 4, Color{});
+        out.indices.push_back(base + 0);
+        out.indices.push_back(base + 1);
+        out.indices.push_back(base + 2);
+        out.indices.push_back(base + 0);
+        out.indices.push_back(base + 2);
+        out.indices.push_back(base + 3);
+    }
     return out;
 }
 

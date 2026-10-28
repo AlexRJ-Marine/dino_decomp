@@ -593,6 +593,38 @@ later by the order executor `0x53d0b0` (via `stFence` → `stPerimeter`
    `boue_pad.tga` + `ground_occup_pad.tga`; implement preview mode 1 (8-unit
    sphere) and mode 2 (4-unit grid, half-size border).
 
+# Retail-capture cross-check (2026-10-28, later harness run)
+
+This resolves several Open items above; it does not rewrite them.
+
+1. **Ground stage binding.** `ground_occup_pad.tga` is **not** nearly all
+   black: each 128x128 quadrant is mostly white with grey mottling and a
+   ragged transparent border (whole-atlas mean RGB 186.8, alpha 186.8; 48-70%
+   of each quadrant is opaque white). The built interior reads
+   (160.9,129.0,62.0), which is `boue_pad` (168.4,131.4,59.5) x the mostly
+   white mottle, so stage 0 = `boue_pad` and stage 1 = `ground_occup_pad`
+   Modulate. The black pixels are only the quadrant borders. Capture:
+   `notes/harness/fence-rev-ground-after.png`; port check
+   `build/paddock-ground4.png` (samples 126..195, 115..156, 53..75).
+2. **Preview colours.** `fence-rev-template-valid.png` measures the dot grid
+   RGB **(38,38,151)**; `-invalid.png` measures **(148,38,38)**. The
+   pre-first-click start disc measures **(38,38,82)** in the same run, darker
+   than the road-tool disc (38,38,136); whether that is a different material
+   bank or a blend is still open. The grid is the load-bearing shape.
+3. **No disc after the first click.** The pre-click cell disc disappears when
+   the corner is stored; only the mode-2 grid remains.
+4. **Lamps, not beams.** Close-up: the `laser2` billboards read as static
+   cyan-white lamps **on the posts** (top peak 214,255,255; lower lamp at
+   ~2/3 post height), not a beam between posts and not a glowing rail. No
+   scroll. The ~5% luminance fade over 0.75 s is not proven to be a time
+   pulse; the only known per-frame term is `0x5ed130`'s distance factor.
+   Capture: `notes/harness/fence-rev-beams-post.png`.
+5. **Port quirks needed for the quad.** `upload_mesh` adds +1 to V (engine
+   bottom-left UVs), so the ground stores `v-1`; the ground atlases use
+   `mgStateTextureWrapV Wrap` and are uploaded `GL_REPEAT`; the terrain detail
+   pass leaves `u_uv2_world = 1/16`, so the extras loop resets it per item.
+   Without all three the quad samples the transparent atlas border.
+
 # Evidence
 
 * Binary: `0x5ec7e0` gatAttraction ctor (ground quad + textures),

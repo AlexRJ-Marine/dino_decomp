@@ -56,13 +56,15 @@ fence feature (LunchBox / observation area) or draws a paddock perimeter:
   `PERIMETER_TOO_SMALL` / `ROAD_TOO_SHORT` come from `0x52c2e0`; `N`/`J`
   rotate the placement and Esc leaves.
 
-The port matches the retail click flow: the first ground click stores a
-corner, the second builds the sorted rectangle (four sides, canonical edges) and registers a `Paddock` with its capacity.
+The port matches the retail click flow: both clicks snap to the nearest
+4-unit anchor (`0x5f8c70` -> `0x5faaa0`, round-half-down) and the first click
+stores that anchor; the second builds the sorted rectangle (four sides,
+canonical edges) and registers a `Paddock` with its capacity.
 The cursor validity disc uses the captured retail colours (blue
-`(38,38,136)`, red `(80,38,38)`): blue when the cell passes the
-occupation/buildable mask and is not strictly inside an existing paddock, red
-otherwise (`fence_preview_disc`). Exact two-click rules are now ported:
-`0x52bbf0` sorts the two map-unit corners and subtracts 1 from the high
+`(38,38,136)`, red `(80,38,38)`): blue when the 4x4 cell at the snapped
+anchor passes the occupancy scan and is not strictly inside an existing
+paddock, red otherwise (`fence_preview_disc`). Exact two-click rules are now
+ported: `0x52bbf0` sorts the two anchors and subtracts 1 from the high
 corner; a side shorter than `6*margin-1` (margin 4 from `Fence.bwi`) is
 `PERIMETER_TOO_SMALL`; the inset interior is scanned for a busy occupancy
 class; cost is `((x1+y1)-(x0+y0))*2/4*30` (30 per perimeter cell, all 24
@@ -71,6 +73,72 @@ into the occupancy grid as class 7. The pending corner shows
 `&MESSAGE_FENCE_PERIMETER_COST` ("Cost of enclosure: N"). Still open: the
 0.01 height-slope gate, LunchBox row, Observation Area (`PointOfView`
 building, 4x4, 500) and fence selling.
+
+### Enclosure preview (helper modes 1 and 2)
+
+`0x5f8770`/`0x5f8700` set the helper mode; `0x5f8850` draws it
+(`notes/fence-ground-beam-preview-recon.md` §3):
+
+- **Before the first click (mode 1, `0x5f98e0`):** one `helper_sphere` of
+  scale 8 (diameter 8, a disc from above) at the snapped anchor + step/2,
+  i.e. the cell centre. Blue `(38,38,136)` or maroon `(80,38,38)`. The disc
+  disappears once the corner is set.
+- **After the first click (mode 2, `0x5f9b00`):** a filled grid of
+  `helper_sphere` dots on a **4-unit** grid strictly between the two snapped
+  anchors. The first/last row and column are half-size (diameter 2), the
+  interior is diameter 4; z is the terrain height at each cell corner. Valid
+  `(38,38,151)`, invalid `(148,38,38)` (retail captures
+  `notes/harness/fence-rev-template-valid.png` / `-invalid.png`). The grid
+  turns maroon on the same `0x58a4e0` failures as the cost rect (side < 23,
+  inside a paddock, inset occupancy scan). Implemented in
+  `fence_template_mesh`, drawn only after the first corner.
+
+### Paddock ground
+
+A built paddock gets its sandy interior from a **`gatAttraction` ground quad**
+created with the `stFence` (`0x53d0b0` -> `0x5f4e70` -> `0x5ec7e0`), not from
+a landscape texture-manager layer (`notes/fence-ground-beam-preview-recon.md`
+§1):
+
+- rect = the `stPerimeter` rectangle itself (no inset), z = terrain height at
+  the centre + 0.01, flat (does not follow the terrain);
+- stage 0 `boue_pad.tga` (sand) x stage 1 `ground_occup_pad.tga` (mostly-white
+  mottle, ragged alpha border), both **Wrap** and sampled from one of the four
+  128x128 quadrants (`rand() & 3` at creation; stage 1 uses the next quadrant,
+  UV+0.5);
+- state `dino_attractionground.ini`: unlit, fog Y, ZWrite N,
+  SrcAlpha/InvSrcAlpha, dual texture. Repainted immediately because
+  `AddAttraction` sets `scene+0xec` and the scene render recomposes.
+- Capture: interior mean RGB (160.9,129.0,62.0) 0.5 s after the build
+  (`notes/harness/fence-rev-ground-after.png`); the port reproduces it in
+  `build/paddock-ground4.png`.
+- Port pitfall fixed: `upload_mesh` adds +1 to V (engine bottom-left UVs) and
+  the terrain detail pass leaves `u_uv2_world = 1/16`; the ground V is stored
+  as `v-1`, the ground textures are uploaded repeat-wrapped, and the extra
+  draw resets `u_uv2_world` per item. Without all three the quad samples the
+  atlas border (transparent) and is invisible.
+- Open: show arenas use `Show.bwi` with `boue_att.tga` /
+  `ground_occup_att.tga` (`boue_pad`/`ground_occup_pad` for the other 23 wall
+  styles). The port's `Paddock` does not yet carry the wall style, so every
+  perimeter currently uses the `Fence.bwi` pair; the show tool's arena fences
+  are the remaining case to split.
+
+### Fence lamps (`laser2.tga`)
+
+`fence_paddock_lod1.mesh` material 1 (`laser2.tga`, 8 triangles) is two
+cross-shaped additive billboards per 4-unit segment, at **79%** and **28%** of
+the post height (`notes/fence-ground-beam-preview-recon.md` §2). Retail draws
+them as the same fence mesh's material 1 with per-material state selection
+(`0x5f3250`: `dino_additif`, One/One, ZWrite N, fog N). The retail capture
+shows static **cyan-white lamps on the posts** — top tip brightest (peak
+`214,255,255`), a lower lamp at ~2/3 post height, no beam along the rail, no
+scroll (`notes/harness/fence-rev-beams-post.png`). The port splits the fence
+mesh by material (`split_by_material`) and draws material 1 with white
+vertices over `laser2.tga`, additive, no depth write; compare
+`notes/harness/fence-rev2-beams-2.png` with `build/fence-lamps.png`. The slow
+brightness fade
+seen in retail (~5% over 0.75 s) has no proven time source yet (state says no
+scroll; only a distance fog factor `0x5ed130` is known).
 
 Port approximations: wall lines are in the occupancy grid, but the port also
 keeps the edge model for rendering and paddock capacity, so edge-based
@@ -109,8 +177,9 @@ implemented in `src/world/build.cpp` (`road_segment`, `road_cost`,
 - **Shape:** the run keeps the longer axis of start -> cursor (`0x5fa5b0`),
   so roads are straight, one cell (4 units) wide. The cursor is snapped to
   the **nearest** 4-unit anchor (`0x5faaa0`, round-half-down) before the axis
-  lock; the port's floored build cell is only used by the other tools. This
-  snapped cell decides where the direction flips between the two axes.
+  lock; the road and fence tools both use it, the other build tools use the
+  floored cell. This snapped cell decides where the direction flips between
+  the two axes.
 - **Cost:** `(|run| world units * price) >> 2`, i.e. `price` per cell beyond
   the first; `price` is `GeneralParams.bgd` `+0x1a4` = **10**
   (`src/formats/general_params.*`). Charged to `CONSTRUCTION` like

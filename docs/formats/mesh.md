@@ -59,7 +59,37 @@ For `allo_lod1.mesh`: flag `1`, count `317`, 1,268 bytes of colors, all alpha
 present) comes the material block; for `allo_lod1` it contains the strings
 `allo.tga` and `Material #1` and the triangle count `0x17e` (382).
 
-The material tail grammar is still open.
+## Tail: material table (decoded 2026-10-28)
+
+After the optional color table (the flag byte is always present in the retail
+chunks, `0` or `1`) comes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| +0 | 4 | material count (1..64) |
+| +4 | 21 × count | per-material header (see below) |
+| ... | var | per-material texture name and material name (NUL-terminated) |
+| ... | 4 | triangle count (must equal `indices.size()/3`) |
+| ... | 2 × triangles | material index per triangle (u16) |
+| ... | 16 | reserved, zero in every retail chunk |
+
+Per-material 21-byte header (D3D colour order, bytes B,G,R,A):
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| +0x00 | 4 | diffuse (`fence_paddock` `0xff969696` = 150,150,150) |
+| +0x04 | 4 | ambient (`0xffffffff` white) |
+| +0x08 | 4 | power (`0x3dcccccd` = 0.1f) |
+| +0x0c | 4 | colour (`0xe6e6e6ff` fence, `0xffff0000` laser) |
+| +0x10 | 4 | specular (`0x000000ff` black) |
+| +0x14 | 1 | flag (0 fence body, 1 laser) |
+
+Example `fence_paddock_lod1.mesh`: 67 vertices, 35 triangles, 2 materials —
+`fence_paddock.tga` (`2 - Default`, 27 tris) and `laser2.tga`
+(`9 - Default`, 8 tris). `load_mesh_chunks` keeps both the material table and
+the per-triangle indices; `split_by_material` uses them to draw the additive
+lamp billboards separately. `load_mesh` keeps only the first material's
+texture name (the single-material callers do not need the table).
 
 ## Rendering notes
 
@@ -81,8 +111,9 @@ The material tail grammar is still open.
 ## Open questions
 
 - What is the `hash`? Test against candidate payload ranges.
-- Tail layout: material colors, texture name, material name, triangle count.
-  `cow_lod1` tail contains `cow_lod1.tga`, `15 - Default`, and `0x42` (66).
+- `cow_lod1` tail follows the decoded grammar: `cow_lod1.tga`,
+  `15 - Default`, triangle count `0x42` (66), one u16 material index per
+  triangle, 16 reserved bytes.
 - Are indices ever 16-bit or triangle strips? All retail files use u32 lists.
 - Second chunks: **yes** (corrected 2026-10-28). 20 retail meshes have
   2..4 chunks, e.g. `entrance_lod1.mesh` = boat, radar, ponton2, ponton

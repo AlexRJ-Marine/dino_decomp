@@ -2180,6 +2180,9 @@ struct DrawItem {
     // Skip lighting for flat preview quads whose sampled colour must match
     // retail exactly (enclosure disc).
     bool unlit = false;
+    // SrcAlpha/InvSrcAlpha even when alpha is 1 (gatAttraction ground with a
+    // ragged cut-out edge and ZWrite off).
+    bool alpha_blend = false;
     // Cut-out textures (trees): discard texels with alpha <= 128/255.
     bool alpha_test = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
@@ -2442,6 +2445,10 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
         gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
         gl.Uniform4f(uv2_loc, item.uv2_scale[0], item.uv2_scale[1],
                      item.uv2_offset[0], item.uv2_offset[1]);
+        // The terrain's detail pass leaves `u_uv2_world` at 1/16; without
+        // this reset every later texture2 item (paddock ground) samples
+        // world/16 instead of its UVs.
+        gl.Uniform1f(gl.GetUniformLocation(program, "u_uv2_world"), 0.0f);
         gl.Uniform2f(uv_offset_loc, item.uv_offset[0], item.uv_offset[1]);
         if (item.fog == 1) {
             // Data/States/FogParam_WaterSurface.txt: 100..700, black.
@@ -2454,7 +2461,8 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
             gl.Uniform1f(fog_near_loc, 1500.0f);
             gl.Uniform1f(fog_far_loc, 2000.0f);
         }
-        const bool blend = item.alpha < 1.0f || item.additive;
+        const bool blend =
+            item.alpha < 1.0f || item.additive || item.alpha_blend;
         if (blend) {
             glEnable(GL_BLEND);
             if (item.additive) {
@@ -2580,6 +2588,16 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
 
 std::string resolve_asset(const std::string& root, const std::string& path) {
     return dino::asset_path(root, path);
+}
+
+// Optional texture load shared by the standalone and park build paths.
+void load_asset_tga(const std::string& root, const char* relative,
+                    dino::Image& image, const char* what) {
+    try {
+        image = dino::load_tga(dino::asset_path(root, relative));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "%s: %s\n", what, e.what());
+    }
 }
 
 // Action -> animation clip. The retail link is still open (the `.bai` files
@@ -5405,6 +5423,12 @@ int main(int argc, char** argv) {
     dino::Mesh fence_source;
     dino::Image path_image;
     dino::Image fence_image;
+    // Fence.bwi material textures: material 0 fence_paddock.tga (already
+    // fence_image), material 1 laser2.tga (the lamp billboards), and the two
+    // gatAttraction ground atlases boue_pad.tga x ground_occup_pad.tga.
+    dino::Image fence_laser_image;
+    dino::Image paddock_dirt_image;
+    dino::Image paddock_occup_image;
     std::array<dino::Image, 6> sky_images;
     dino::Image water_image;
     dino::Image water2_image;
@@ -5528,7 +5552,14 @@ int main(int argc, char** argv) {
                                         "Data/Graphics/paddock/fences/"
                                         "fence_paddock_lod1.mesh")
                         : opt.fence_mesh_path;
-                fence_source = dino::load_mesh(fence_mesh);
+                // Chunk loader keeps the material table and per-triangle
+                // material ids: material 1 is the laser2 lamp billboards.
+                const std::vector<dino::Mesh> fence_chunks =
+                    dino::load_mesh_chunks(fence_mesh);
+                if (fence_chunks.empty()) {
+                    throw std::runtime_error("fence mesh has no chunks");
+                }
+                fence_source = fence_chunks.front();
                 build_ready = true;
 
                 if (opt.visitors > 0 || !opt.load_port_path.empty()) {
@@ -5700,6 +5731,19 @@ int main(int argc, char** argv) {
                 std::fprintf(stderr, "fence texture: %s\n", e.what());
             }
         }
+        // Fence.bwi texture slots (verified in the .bwi string table):
+        // material 0 wall textures, mesh slot 1 fence_paddock_lod1.mesh,
+        // material 1 laser2.tga, ground slot 1 boue_pad.tga and slot 2
+        // ground_occup_pad.tga (0x53d0b0/0x5ec7e0 bind them as stages 0/1).
+        load_asset_tga(opt.asset_root,
+                       "Data/Graphics/Textures/buildings/laser2.tga",
+                       fence_laser_image, "fence laser texture");
+        load_asset_tga(opt.asset_root,
+                       "Data/Graphics/Textures/buildings/boue_pad.tga",
+                       paddock_dirt_image, "paddock ground texture");
+        load_asset_tga(opt.asset_root,
+                       "Data/Graphics/Textures/buildings/ground_occup_pad.tga",
+                       paddock_occup_image, "paddock occupancy texture");
     }
 
     if (opt.hud) {
@@ -7479,13 +7523,33 @@ int main(int argc, char** argv) {
     dino::Mesh road_helper_box;       // focus/helper_road.mesh
     GLuint path_texture = 0;
     GLuint fence_texture = 0;
+    GLuint fence_laser_texture = 0;
+    GLuint paddock_dirt_texture = 0;
+    GLuint paddock_occup_texture = 0;
+    GpuMesh fence_beams_gpu;
+    GpuMesh fence_ground_gpu;
     if (build_ready) {
         path_texture = path_image.width > 0 ? upload_texture(path_image) : 0;
         fence_texture = fence_image.width > 0 ? upload_texture(fence_image) : 0;
+        fence_laser_texture =
+            fence_laser_image.width > 0 ? upload_texture(fence_laser_image) : 0;
+        // dino_attractionground.ini sets Wrap U/V; stage 1 samples the next
+        // 128x128 quadrant, which needs wrapping at 1.0.
+        paddock_dirt_texture =
+            paddock_dirt_image.width > 0
+                ? upload_texture_wrapped(paddock_dirt_image, GL_REPEAT)
+                : 0;
+        paddock_occup_texture =
+            paddock_occup_image.width > 0
+                ? upload_texture_wrapped(paddock_occup_image, GL_REPEAT)
+                : 0;
         const dino::BuildMeshes meshes =
             dino::build_placement_meshes(build_grid, terrain, fence_source);
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
+        fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
+        fence_ground_gpu =
+            upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
     }
     GpuMesh fence_preview_gpu;
     bool fence_preview_visible = false;
@@ -7500,6 +7564,8 @@ int main(int argc, char** argv) {
     std::array<int, 6> fence_template_key = {-1, -1, -1, -1, -1, -1};
     GLuint fence_preview_ok_texture = 0;
     GLuint fence_preview_bad_texture = 0;
+    GLuint fence_template_ok_texture = 0;
+    GLuint fence_template_bad_texture = 0;
     {
         auto solid_texture = [](std::uint8_t r, std::uint8_t g,
                                 std::uint8_t b) {
@@ -7509,9 +7575,12 @@ int main(int argc, char** argv) {
             image.rgba = {r, g, b, 255};
             return upload_texture(image);
         };
-        // Retail enclosure disc samples: blue (38,38,136), red (80,38,38).
+        // Retail captures: start disc blue (38,38,136) / maroon (80,38,38);
+        // the pending grid is (38,38,151) / (148,38,38).
         fence_preview_ok_texture = solid_texture(38, 38, 136);
         fence_preview_bad_texture = solid_texture(80, 38, 38);
+        fence_template_ok_texture = solid_texture(38, 38, 151);
+        fence_template_bad_texture = solid_texture(148, 38, 38);
     }
 
     SkyboxGL skybox;
@@ -8110,16 +8179,41 @@ int main(int argc, char** argv) {
             extra_items.push_back(item);
         }
         if (fence_template_visible && fence_template_gpu.vao != 0) {
-            // helper_sphere dots along the pending enclosure rectangle.
+            // helper_sphere grid between the pending corners (mode 2).
             DrawItem item{&fence_template_gpu,
-                          fence_template_ok ? fence_preview_ok_texture
-                                            : fence_preview_bad_texture};
+                          fence_template_ok ? fence_template_ok_texture
+                                            : fence_template_bad_texture};
             item.unlit = true;
             item.depth_write = true;
             extra_items.push_back(item);
         }
+        if (fence_ground_gpu.vao != 0 && paddock_dirt_texture != 0) {
+            // gatAttraction ground: stage 0 boue_pad, stage 1 the occupancy
+            // mottle sampled from the next 128x128 quadrant. ZWrite off and
+            // SrcAlpha/InvSrcAlpha, so the ragged texture edge blends.
+            DrawItem item{&fence_ground_gpu, paddock_dirt_texture};
+            item.texture2 = paddock_occup_texture;
+            item.uv2_scale[0] = 1.0f;
+            item.uv2_scale[1] = 1.0f;
+            item.uv2_offset[0] = 0.5f;
+            item.uv2_offset[1] = 0.5f;
+            item.unlit = true;
+            item.alpha_blend = true;
+            item.depth_write = false;
+            extra_items.push_back(item);
+        }
         if (fence_gpu.vao != 0) {
             extra_items.push_back({&fence_gpu, fence_texture});
+        }
+        if (fence_beams_gpu.vao != 0 && fence_laser_texture != 0) {
+            // Material 1: laser2.tga lamp billboards, dino_additif (One/One,
+            // ZWrite off, fog off). Static; the retail capture shows a slow
+            // brightness pulse whose source is not proven.
+            DrawItem item{&fence_beams_gpu, fence_laser_texture};
+            item.unlit = true;
+            item.additive = true;
+            item.depth_write = false;
+            extra_items.push_back(item);
         }
         if (visitor_gpu.vao != 0) {
             extra_items.push_back({&visitor_gpu, visitor_texture_id});
@@ -8203,8 +8297,13 @@ int main(int argc, char** argv) {
             dino::build_placement_meshes(build_grid, terrain, fence_source);
         path_gpu.destroy(glfns);
         fence_gpu.destroy(glfns);
+        fence_beams_gpu.destroy(glfns);
+        fence_ground_gpu.destroy(glfns);
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
+        fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
+        fence_ground_gpu =
+            upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
         rebuild_extra_items();
         std::printf("build: %d path cells, %d fences\n", build_grid.path_count,
                     build_grid.fence_count);
@@ -8339,6 +8438,8 @@ int main(int argc, char** argv) {
             paddock.rect = rect;
             paddock.capacity =
                 dino::paddock_capacity(rect, build_grid.cell_size);
+            // 0x5ec7e0 picks the ground atlas quadrant at creation time.
+            paddock.ground_variant = std::rand() & 3;
             paddocks.push_back(paddock);
         }
         // `dinosaur+0x1e0` is a size class (8/16/32/64). The exact class comes
@@ -9873,8 +9974,17 @@ int main(int argc, char** argv) {
             road.x0, road.y0, road.x1, road.y1, road.cells(), added, cost,
             park_budget, budget_ledger.construction_count,
             budget_ledger.construction_total);
-        road_start_x = road.x1;  // FUN_005f8830: chain from the end point
-        road_start_y = road.y1;
+        // FUN_005f8830: chain from the run's endpoint nearest the click, in
+        // the direction the run was dragged. `road_segment` stores x0<=x1 /
+        // y0<=y1, so using the ordered max corner restarts at the wrong end
+        // for a -x/-y drag and re-commits an overlapping segment.
+        if (road.y0 == road.y1) {  // horizontal run
+            road_start_x = cx > road_start_x ? road.x1 : road.x0;
+            road_start_y = road.y0;
+        } else {  // vertical run
+            road_start_y = cy > road_start_y ? road.y1 : road.y0;
+            road_start_x = road.x0;
+        }
     };
 
     const std::string selected_construct =
@@ -10214,7 +10324,14 @@ int main(int argc, char** argv) {
                                         "Data/Graphics/paddock/fences/"
                                         "fence_paddock_lod1.mesh")
                         : opt.fence_mesh_path;
-                fence_source = dino::load_mesh(fence_mesh);
+                // Chunk loader keeps the material table and per-triangle
+                // material ids: material 1 is the laser2 lamp billboards.
+                const std::vector<dino::Mesh> fence_chunks =
+                    dino::load_mesh_chunks(fence_mesh);
+                if (fence_chunks.empty()) {
+                    throw std::runtime_error("fence mesh has no chunks");
+                }
+                fence_source = fence_chunks.front();
                 build_ready = true;
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "build enable: %s\n", e.what());
@@ -10252,6 +10369,34 @@ int main(int argc, char** argv) {
             }
             if (fence_texture == 0 && fence_image.width > 0) {
                 fence_texture = upload_texture(fence_image);
+            }
+            // Fence.bwi material 1 and the gatAttraction ground atlases.
+            if (fence_laser_image.width == 0) {
+                load_asset_tga(opt.asset_root,
+                               "Data/Graphics/Textures/buildings/laser2.tga",
+                               fence_laser_image, "fence laser texture");
+            }
+            if (paddock_dirt_image.width == 0) {
+                load_asset_tga(opt.asset_root,
+                               "Data/Graphics/Textures/buildings/boue_pad.tga",
+                               paddock_dirt_image, "paddock ground texture");
+            }
+            if (paddock_occup_image.width == 0) {
+                load_asset_tga(
+                    opt.asset_root,
+                    "Data/Graphics/Textures/buildings/ground_occup_pad.tga",
+                    paddock_occup_image, "paddock occupancy texture");
+            }
+            if (fence_laser_texture == 0 && fence_laser_image.width > 0) {
+                fence_laser_texture = upload_texture(fence_laser_image);
+            }
+            if (paddock_dirt_texture == 0 && paddock_dirt_image.width > 0) {
+                paddock_dirt_texture =
+                    upload_texture_wrapped(paddock_dirt_image, GL_REPEAT);
+            }
+            if (paddock_occup_texture == 0 && paddock_occup_image.width > 0) {
+                paddock_occup_texture =
+                    upload_texture_wrapped(paddock_occup_image, GL_REPEAT);
             }
         }
         if (visitor_profiles.empty()) {
@@ -10922,6 +11067,9 @@ int main(int argc, char** argv) {
                 paddock.capacity = saved.capacity;
                 paddock.used = saved.used;
                 paddock.occupants = saved.occupants;
+                // Retail rebuilds stFence on load, so the ground quadrant is
+                // drawn again from rand() & 3.
+                paddock.ground_variant = std::rand() & 3;
                 paddocks.push_back(std::move(paddock));
             }
             park_paddocks = paddocks;
@@ -13465,24 +13613,24 @@ int main(int argc, char** argv) {
             bool ok = false;
             if (pick_terrain(terrain, eye, view_center, mxf, myf,
                              logical_width, logical_height, hit) &&
-                build_grid.cells_for_world(hit.x, hit.y, cx, cy)) {
+                build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
                 const float cs = build_grid.cell_size;
                 const float wx =
                     build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
                 const float wy =
                     build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
-                const float half_world = terrain.world_size * 0.5f;
-                const int start_x = static_cast<int>(
-                    std::floor(hit.x + half_world));
-                const int start_y = static_cast<int>(
-                    std::floor(hit.y + half_world));
-                // 0x58a190: the start point must pass the margin-4 occupancy
-                // scan (`p .. p+margin-1`), so the disc matches the click.
+                // 0x5f8c70 -> 0x5faaa0: the helper snaps the picked point to
+                // the nearest 4-unit anchor (cell corner in map units); the
+                // disc/grid sphere sits at anchor + step/2 = the cell centre.
+                const int start_x = static_cast<int>(static_cast<float>(cx) * cs);
+                const int start_y = static_cast<int>(static_cast<float>(cy) * cs);
+                // 0x58a190 runs on the snapped helper position: scan
+                // `p .. p+margin-1` (margin 4) for a busy high nibble.
                 ok = build_grid.occupancy.free_rect(
                     start_x, start_y, start_x + 3, start_y + 3);
                 // Retail rejects a fence start strictly inside an existing
-                // paddock (`WARNING_INSIDE_PERIMETER`). Use the clicked map
-                // point, the same point the first-click check uses.
+                // paddock (`WARNING_INSIDE_PERIMETER`). Use the snapped point,
+                // the same point the first-click check uses.
                 const float rx = static_cast<float>(start_x);
                 const float ry = static_cast<float>(start_y);
                 for (const dino::WorldRect& rect : road_perimeters()) {
@@ -13494,20 +13642,29 @@ int main(int argc, char** argv) {
                         break;
                     }
                 }
-                visible = true;
+                // Mode 1 shows the start disc; after the first corner the
+                // helper switches to mode 2 (the grid) and the disc is gone.
+                visible = build_tool != 6 || fence_corner_x < 0;
                 if (build_tool == 6 && fence_corner_x >= 0 &&
                     fence_corner_y >= 0) {
                     // 0x52ad00 shows &MESSAGE_FENCE_PERIMETER_COST while the
                     // opposite corner is pending; 0x581b90 uses the sorted
                     // max-1 rect and Fence.bwi's 4/30.
                     const int px = static_cast<int>(
-                        std::floor(hit.x + half_world));
+                        static_cast<float>(cx) * cs);
                     const int py = static_cast<int>(
-                        std::floor(hit.y + half_world));
+                        static_cast<float>(cy) * cs);
                     const int rx0 = std::min(fence_corner_x, px);
                     const int ry0 = std::min(fence_corner_y, py);
                     const int rx1 = std::max(fence_corner_x, px) - 1;
                     const int ry1 = std::max(fence_corner_y, py) - 1;
+                    // The helper grid spans the two snapped corners (not the
+                    // max-1 cost rect): (100,100)-(116,116) -> centres
+                    // 102/106/110/114 with a 4-unit step.
+                    const int tx0 = std::min(fence_corner_x, px);
+                    const int ty0 = std::min(fence_corner_y, py);
+                    const int tx1 = std::max(fence_corner_x, px);
+                    const int ty1 = std::max(fence_corner_y, py);
                     const int cost =
                         ((rx1 + ry1) - (rx0 + ry0)) * 2 / 4 * 30;
                     if (cost != fence_preview_cost) {
@@ -13520,9 +13677,11 @@ int main(int argc, char** argv) {
                                 std::to_string(cost));
                         }
                     }
-                    // Pending-rectangle template: helper_sphere dots every
-                    // 8 units along the four sides (helper mode 1), blue when
-                    // the retail 0x58a4e0 checks pass, red otherwise.
+                    // Pending-rectangle template: helper mode 2 fills the
+                    // rectangle with helper_sphere dots on a 4-unit grid
+                    // (diameter 4 interior, 2 on the border row/column),
+                    // blue when the retail 0x58a4e0 checks pass, maroon
+                    // otherwise.
                     bool template_ok =
                         rx1 - rx0 >= 23 && ry1 - ry0 >= 23;
                     if (template_ok) {
@@ -13543,7 +13702,7 @@ int main(int argc, char** argv) {
                         template_ok = false;
                     }
                     const std::array<int, 6> tkey = {
-                        rx0, ry0, rx1, ry1, template_ok ? 1 : 0, 1};
+                        tx0, ty0, tx1, ty1, template_ok ? 1 : 0, 1};
                     if (tkey != fence_template_key) {
                         fence_template_key = tkey;
                         fence_template_ok = template_ok;
@@ -13565,8 +13724,7 @@ int main(int argc, char** argv) {
                             fence_template_gpu = upload_mesh(
                                 dino::fence_template_mesh(
                                     fence_sphere_source,
-                                    {rx0, ry0, rx1, ry1}, terrain, 8.0f,
-                                    1.5f, 0.35f),
+                                    {tx0, ty0, tx1, ty1}, terrain, 4.0f),
                                 glfns);
                         }
                         fence_template_visible =
@@ -13585,10 +13743,11 @@ int main(int argc, char** argv) {
                     fence_preview_cell_x = cx;
                     fence_preview_cell_y = cy;
                     fence_preview_gpu.destroy(glfns);
+                    // Mode 1 draws one helper_sphere of scale 8 on the unit
+                    // mesh (helper step 8) at the cell centre: radius 4.
                     fence_preview_gpu = upload_mesh(
                         dino::fence_preview_disc(
-                            wx, wy, terrain.height_at(wx, wy) + 0.15f,
-                            cs * 0.75f),
+                            wx, wy, terrain.height_at(wx, wy) + 0.15f, cs),
                         glfns);
                     std::printf("fence preview: cell=%d,%d ok=%d\n", cx, cy,
                                 ok ? 1 : 0);
@@ -13752,10 +13911,14 @@ int main(int argc, char** argv) {
                 if (picked) {
                     int cx = 0;
                     int cy = 0;
-                    if ((build_tool == 4 ? build_grid.road_cells_for_world(
-                                              hit.x, hit.y, cx, cy)
-                                         : build_grid.cells_for_world(
-                                               hit.x, hit.y, cx, cy))) {
+                    // The road cursor and the fence helper both snap to the
+                    // nearest 4-unit anchor (0x5faaa0); the other build tools
+                    // use the floored cell.
+                    if ((build_tool == 4 || build_tool == 6
+                             ? build_grid.road_cells_for_world(hit.x, hit.y,
+                                                               cx, cy)
+                             : build_grid.cells_for_world(hit.x, hit.y, cx,
+                                                          cy))) {
                         const int before = build_grid.path_count + build_grid.fence_count;
                         const float cs = build_grid.cell_size;
                         auto cell_buildable = [&](int gx, int gy) {
@@ -13775,14 +13938,14 @@ int main(int argc, char** argv) {
                                 build_grid.set_path(cx, cy, !removing);
                             }
                         } else if (build_tool == 6) {
-                            // Retail FENCE_CONSTRUCTION: first click stores a
-                            // corner, second click builds the sorted rectangle.
-                            const float half_world =
-                                terrain.world_size * 0.5f;
+                            // Retail FENCE_CONSTRUCTION: the helper snaps the
+                            // click to the nearest anchor (0x5f8c70) and
+                            // stores that corner; the second click builds the
+                            // sorted max-1 rectangle.
                             const int px = static_cast<int>(
-                                std::floor(hit.x + half_world));
+                                static_cast<float>(cx) * cs);
                             const int py = static_cast<int>(
-                                std::floor(hit.y + half_world));
+                                static_cast<float>(cy) * cs);
                             auto inside_paddock = [&](float rx, float ry) {
                                 for (const dino::Paddock& paddock : paddocks) {
                                     const dino::WorldRect& rect =
@@ -13901,6 +14064,9 @@ int main(int argc, char** argv) {
                                     paddock.rect = {x0, y0, x1, y1};
                                     paddock.capacity = dino::paddock_capacity(
                                         paddock.rect, cs);
+                                    // 0x5ec7e0: rand() & 3 picks the ground
+                                    // atlas quadrant per stFence.
+                                    paddock.ground_variant = std::rand() & 3;
                                     paddocks.push_back(paddock);
                                     park_budget -= cost;
                                     budget_ledger.spend_construction(cost);
