@@ -442,6 +442,9 @@ private:
     dino::Vec3 eye;
     dino::Vec3 view_center;
 
+    // --- boot ----------------------------------------------------------
+    std::optional<int> boot();
+
     // --- frame loop ----------------------------------------------------
     // One call per phase, in frame order; see run().
     void handle_input();

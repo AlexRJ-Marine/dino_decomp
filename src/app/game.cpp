@@ -13,6 +13,174 @@ Game::Game(int argc, char** argv) : opt(parse_args(argc, argv)) {}
 Game::~Game() = default;
 
 int Game::run() {
+    if (std::optional<int> exit_code = boot()) {
+        return *exit_code;
+    }
+
+    while (running) {
+        handle_input();
+        if (!running) {
+            break;
+        }
+        begin_frame();
+        if (opt.camera_selftest && terrain.world_size > 0.0f) {
+            return camera_selftest(camera_config, terrain);
+        }
+        if (width <= 0 || height <= 0) {
+            SDL_Delay(10);
+            continue;
+        }
+        advance_time();
+        update_session();
+        update_audio();
+        update_camera();
+        update_diagnostics();
+        set_background();
+        update_simulation();
+        update_camera_view();
+        update_placement();
+        update_preview();
+        draw_frame();
+        present_frame();
+    }
+
+    if (opt.save_config) {
+        int final_width = 0, final_height = 0;
+        SDL_GetWindowSize(window, &final_width, &final_height);
+        if (!menu.screen_mode_changed && !opt.fullscreen &&
+            final_width >= 64 && final_height >= 64) {
+            opt.width = final_width;
+            opt.height = final_height;
+        }
+        save_config(opt.config_path, opt);
+    }
+
+    if (build_ready && !opt.build_save_path.empty()) {
+        try {
+            dino::save_build(build_grid, opt.build_save_path);
+            std::printf("build saved: %s (%d paths, %d fences)\n",
+                        opt.build_save_path.c_str(), build_grid.path_count,
+                        build_grid.fence_count);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "build save: %s\n", e.what());
+        }
+    }
+
+    if (audio != nullptr) {
+        SDL_DestroyAudioStream(audio);
+    }
+    ui_sound.destroy();
+    music.destroy();
+    for (auto& group : veg_gpu) {
+        group.destroy(glfns);
+    }
+    dino_gpu.destroy(glfns);
+    shadow_gpu.destroy(glfns);
+    clear_imported_dinos();
+    for (auto& entry : imported_species) {
+        if (entry.second->texture != 0) {
+            glDeleteTextures(1, &entry.second->texture);
+            entry.second->texture = 0;
+        }
+    }
+    imported_species.clear();
+    for (BuildingDraw& building : building_draws) {
+        building.gpu.destroy(glfns);
+        if (building.texture != 0) {
+            glDeleteTextures(1, &building.texture);
+        }
+    }
+    path_gpu.destroy(glfns);
+    road_preview_gpu.destroy(glfns);
+    fence_gpu.destroy(glfns);
+    water_gpu.destroy(glfns);
+    visitor_gpu.destroy(glfns);
+    employee_gpu.destroy(glfns);
+    if (employee_texture_id != 0) {
+        glDeleteTextures(1, &employee_texture_id);
+        employee_texture_id = 0;
+    }
+    hud_gpu.destroy(glfns);
+    menu_gpu.destroy(glfns);
+    for (auto& entry : ui_textures) {
+        if (entry.second.id != 0) {
+            glDeleteTextures(1, &entry.second.id);
+        }
+    }
+    for (auto& entry : ui_font_atlases) {
+        if (entry.second != 0) {
+            glDeleteTextures(1, &entry.second);
+        }
+    }
+    if (hud_font_texture != 0) {
+        glDeleteTextures(1, &hud_font_texture);
+    }
+    if (visitor_texture_id != 0) {
+        glDeleteTextures(1, &visitor_texture_id);
+    }
+    for (int i = 0; i < 6; ++i) {
+        skybox.faces[i].destroy(glfns);
+        if (skybox.textures[i] != 0) {
+            glDeleteTextures(1, &skybox.textures[i]);
+        }
+    }
+    if (water_texture != 0) {
+        glDeleteTextures(1, &water_texture);
+    }
+    if (water_texture2 != 0) {
+        glDeleteTextures(1, &water_texture2);
+    }
+    if (path_texture != 0) {
+        glDeleteTextures(1, &path_texture);
+    }
+    if (fence_texture != 0) {
+        glDeleteTextures(1, &fence_texture);
+    }
+    for (const GLuint id : veg_textures) {
+        if (id != 0) {
+            glDeleteTextures(1, &id);
+        }
+    }
+    if (dino_texture != 0) {
+        glDeleteTextures(1, &dino_texture);
+    }
+    gpu.destroy(glfns);
+    if (texture != 0) {
+        glDeleteTextures(1, &texture);
+    }
+    glfns.DeleteProgram(program);
+    SDL_GL_DestroyContext(context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+    if (opt.visitor_stats && !visitor_system.visitors.empty()) {
+        int states[4] = {0, 0, 0, 0};
+        double needs[3] = {0.0, 0.0, 0.0};
+        for (const dino::Visitor& visitor : visitor_system.visitors) {
+            const int state = static_cast<int>(visitor.state);
+            if (state >= 0 && state < 4) {
+                ++states[state];
+            }
+            needs[0] += visitor.need0;
+            needs[1] += visitor.need1;
+            needs[2] += visitor.need2;
+        }
+        const double count =
+            static_cast<double>(visitor_system.visitors.size());
+        std::printf(
+            "visitor stats: count=%zu states=%d/%d/%d/%d "
+            "needs=%.1f/%.1f/%.1f\n",
+            visitor_system.visitors.size(), states[0], states[1], states[2],
+            states[3], needs[0] / count, needs[1] / count, needs[2] / count);
+    }
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Boot: everything before the frame loop. Returns the process exit code when
+// the run is over (a headless print mode or a fatal load error), or nullopt
+// when the frame loop should start.
+// ---------------------------------------------------------------------------
+std::optional<int> Game::boot() {
 
     if (std::optional<int> report = dino::app::run_cli_reports(opt)) {
         return *report;
@@ -2269,162 +2437,7 @@ int Game::run() {
     menu_hover_forced = !opt.menu_hover.empty();
     park_hover_forced = !opt.park_hover.empty();
 
-    while (running) {
-        handle_input();
-        if (!running) {
-            break;
-        }
-        begin_frame();
-        if (opt.camera_selftest && terrain.world_size > 0.0f) {
-            return camera_selftest(camera_config, terrain);
-        }
-        if (width <= 0 || height <= 0) {
-            SDL_Delay(10);
-            continue;
-        }
-        advance_time();
-        update_session();
-        update_audio();
-        update_camera();
-        update_diagnostics();
-        set_background();
-        update_simulation();
-        update_camera_view();
-        update_placement();
-        update_preview();
-        draw_frame();
-        present_frame();
-    }
-
-    if (opt.save_config) {
-        int final_width = 0, final_height = 0;
-        SDL_GetWindowSize(window, &final_width, &final_height);
-        if (!menu.screen_mode_changed && !opt.fullscreen &&
-            final_width >= 64 && final_height >= 64) {
-            opt.width = final_width;
-            opt.height = final_height;
-        }
-        save_config(opt.config_path, opt);
-    }
-
-    if (build_ready && !opt.build_save_path.empty()) {
-        try {
-            dino::save_build(build_grid, opt.build_save_path);
-            std::printf("build saved: %s (%d paths, %d fences)\n",
-                        opt.build_save_path.c_str(), build_grid.path_count,
-                        build_grid.fence_count);
-        } catch (const std::exception& e) {
-            std::fprintf(stderr, "build save: %s\n", e.what());
-        }
-    }
-
-    if (audio != nullptr) {
-        SDL_DestroyAudioStream(audio);
-    }
-    ui_sound.destroy();
-    music.destroy();
-    for (auto& group : veg_gpu) {
-        group.destroy(glfns);
-    }
-    dino_gpu.destroy(glfns);
-    shadow_gpu.destroy(glfns);
-    clear_imported_dinos();
-    for (auto& entry : imported_species) {
-        if (entry.second->texture != 0) {
-            glDeleteTextures(1, &entry.second->texture);
-            entry.second->texture = 0;
-        }
-    }
-    imported_species.clear();
-    for (BuildingDraw& building : building_draws) {
-        building.gpu.destroy(glfns);
-        if (building.texture != 0) {
-            glDeleteTextures(1, &building.texture);
-        }
-    }
-    path_gpu.destroy(glfns);
-    road_preview_gpu.destroy(glfns);
-    fence_gpu.destroy(glfns);
-    water_gpu.destroy(glfns);
-    visitor_gpu.destroy(glfns);
-    employee_gpu.destroy(glfns);
-    if (employee_texture_id != 0) {
-        glDeleteTextures(1, &employee_texture_id);
-        employee_texture_id = 0;
-    }
-    hud_gpu.destroy(glfns);
-    menu_gpu.destroy(glfns);
-    for (auto& entry : ui_textures) {
-        if (entry.second.id != 0) {
-            glDeleteTextures(1, &entry.second.id);
-        }
-    }
-    for (auto& entry : ui_font_atlases) {
-        if (entry.second != 0) {
-            glDeleteTextures(1, &entry.second);
-        }
-    }
-    if (hud_font_texture != 0) {
-        glDeleteTextures(1, &hud_font_texture);
-    }
-    if (visitor_texture_id != 0) {
-        glDeleteTextures(1, &visitor_texture_id);
-    }
-    for (int i = 0; i < 6; ++i) {
-        skybox.faces[i].destroy(glfns);
-        if (skybox.textures[i] != 0) {
-            glDeleteTextures(1, &skybox.textures[i]);
-        }
-    }
-    if (water_texture != 0) {
-        glDeleteTextures(1, &water_texture);
-    }
-    if (water_texture2 != 0) {
-        glDeleteTextures(1, &water_texture2);
-    }
-    if (path_texture != 0) {
-        glDeleteTextures(1, &path_texture);
-    }
-    if (fence_texture != 0) {
-        glDeleteTextures(1, &fence_texture);
-    }
-    for (const GLuint id : veg_textures) {
-        if (id != 0) {
-            glDeleteTextures(1, &id);
-        }
-    }
-    if (dino_texture != 0) {
-        glDeleteTextures(1, &dino_texture);
-    }
-    gpu.destroy(glfns);
-    if (texture != 0) {
-        glDeleteTextures(1, &texture);
-    }
-    glfns.DeleteProgram(program);
-    SDL_GL_DestroyContext(context);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    if (opt.visitor_stats && !visitor_system.visitors.empty()) {
-        int states[4] = {0, 0, 0, 0};
-        double needs[3] = {0.0, 0.0, 0.0};
-        for (const dino::Visitor& visitor : visitor_system.visitors) {
-            const int state = static_cast<int>(visitor.state);
-            if (state >= 0 && state < 4) {
-                ++states[state];
-            }
-            needs[0] += visitor.need0;
-            needs[1] += visitor.need1;
-            needs[2] += visitor.need2;
-        }
-        const double count =
-            static_cast<double>(visitor_system.visitors.size());
-        std::printf(
-            "visitor stats: count=%zu states=%d/%d/%d/%d "
-            "needs=%.1f/%.1f/%.1f\n",
-            visitor_system.visitors.size(), states[0], states[1], states[2],
-            states[3], needs[0] / count, needs[1] / count, needs[2] / count);
-    }
-    return 0;
+    return std::nullopt;
 }
 
 // ---------------------------------------------------------------------------
