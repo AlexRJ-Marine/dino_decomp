@@ -117,6 +117,8 @@ Free Game start (and, opt-in, for a `--building` Entrance with `--build
 
 ## Evidence
 
+- `notes/entrance-before-after.png`: pre-R-16 build (`7ae3e8f`) vs R-16
+  (`d4c55d2`) from two matching cameras.
 - `notes/entrance-dock-road.png`: retail reference / port before / port
   after at a matching camera.
 - `tests/test_mesh.py::test_entrance_mesh_chunks`,
