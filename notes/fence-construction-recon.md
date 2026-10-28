@@ -267,6 +267,19 @@ So a show arena and a player-built paddock share the same `stPerimeter` ->
 four `stWall` segments -> grid cells model. The port stores fence **edges**
 instead of rasterised wall cells, which is the documented approximation.
 
+### Preview look (retail capture, 2026-10-28)
+
+The enclosure tool draws a **filled circular ground disc**, not a ring:
+solid blue ~RGB(38,38,136) when placeable and dark maroon ~RGB(80,38,38)
+when not (inside the selected paddock), hard edge, no bright rim, z-tested
+on the ground. It snaps to the build cell under the cursor (capture: cursor
+350,450, disc centre ~407,455 after two zoom-out clicks). The disc is darker
+than the road helper blue (64,64,249 at a different pulse phase), so the two
+previews do not share a colour. Evidence:
+`notes/road-enclosure-preview-capture.md`,
+`notes/harness/enclosure-preview-valid.png`,
+`notes/harness/enclosure-preview-invalid.png`.
+
 ## Selling a fence
 
 `&REQUEST_SELL_FENCE` (`0x663d4c`) is one branch of the shared sell handler

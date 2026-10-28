@@ -60,6 +60,13 @@ perimeter price, 16-edge limit and LunchBox/observation placement are not
 ported yet. See `docs/decomp/construction-validation.md` and
 `notes/fence-construction-recon.md`.
 
+Retail itself draws a **filled circular ground disc**, not a ring
+(`notes/road-enclosure-preview-capture.md`): solid blue ~RGB(38,38,136) when
+placeable and dark maroon ~RGB(80,38,38) when not, with a hard edge, no rim,
+snapped to the build cell under the cursor (capture: cursor 350,450 -> disc
+centre ~407,455). The port's ring is a temporary stand-in until the disc mesh
+is added.
+
 ## Retail road tool (`ROAD_CONSTRUCTION`)
 
 ```text
