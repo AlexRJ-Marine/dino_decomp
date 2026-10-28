@@ -2445,6 +2445,14 @@ def test_cpp_road_preview_tint(tmp_path):
             assert blue > 200 and red == 0, (name, blue, red)
         else:
             assert red > 200 and blue == 0, (name, blue, red)
+        # Retail fill is exactly the pulsing material colour:
+        # RGB(64,64,255-x) valid, RGB(255-x,64,64) invalid.
+        from collections import Counter
+        dominant = Counter(changed).most_common(1)[0][0]
+        if want_blue:
+            assert dominant[:2] == (64, 64) and dominant[2] > 120, dominant
+        else:
+            assert dominant[1:] == (64, 64) and dominant[0] > 120, dominant
 
 
 def test_cpp_road_panel_buttons_visible(tmp_path):

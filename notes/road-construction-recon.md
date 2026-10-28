@@ -252,6 +252,7 @@ the run; the current source keeps retail's one `helper_road.mesh` per 4-unit
 step (`0x5fa708..0x5fa891`) and adds `DrawItem::depth_write` for the preview.
 The per-cell boxes saturate to white in the additive One/One pass when the
 box's back/side faces also write; depth-writing the nearest face keeps the
-retail shape, and alpha-blending the tint at 0.6 gives the dark-blue/red read
-(observed samples: valid ~RGB 75,80,143; invalid ~137,80,76). The exact retail
-alpha still wants a capture, but the port no longer washes to white.
+retail shape. The port draws the tinted helper unlit and opaque, which
+reproduces the captured retail fills exactly: valid `RGB(64,64,255-x)`
+(capture `(64,64,135)`), invalid `RGB(255-x,64,64)` (capture `(134,64,64)`).
+`notes/road-enclosure-preview-capture.md` has the full capture.

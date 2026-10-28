@@ -515,6 +515,9 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
         x += sx;
         y += sy;
     }
+    // White vertex colours keep the unlit helper at the exact material
+    // colour (default mesh vertices would scale it by 220/255).
+    out.colors.assign(out.positions.size(), Color{});
     return out;
 }
 
