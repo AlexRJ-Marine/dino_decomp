@@ -1,9 +1,10 @@
 # Construction validation and the `FENCE_INSERTION` state
 
-Status: **research decoded; paddock-capacity model ported; purchase/warning
-path pending.** This is the game-logic companion to `docs/platform/build.md`
-(port grid) and `docs/decomp/economy.md` (budget API). Raw evidence:
-`notes/fence-insertion-recon.md`, `notes/construction-validation.md`.
+Status: **research decoded; paddock-capacity model ported; enclosure tool
+decoded; purchase/warning UI pending.** This is the game-logic companion to
+`docs/platform/build.md` (port grid) and `docs/decomp/economy.md` (budget
+API). Raw evidence: `notes/fence-insertion-recon.md`,
+`notes/fence-construction-recon.md`, `notes/construction-validation.md`.
 
 Method names are descriptive; the binary has no symbols. Only
 `FENCE_INSERTION` and the `stFence.cpp` / `spDinosaurStore.cpp` assert paths
@@ -213,6 +214,36 @@ original construction flow:
   store-row removal (`FUN_00594270`), the `WARNING_NO_ROOM_IN_FENCE` panel
   path and the player pickup point.
 
+## `FENCE_CONSTRUCTION` (enclosure / wall tool)
+
+`OPEN_CONSTRUCTION_FENCE` opens the `FENCE_CONSTRUCTION` state
+(`0x5265b0`, vtable `0x642b4c`, panel
+`FENCE_CONSTRUCTION_AND_INFO_PANEL`). It has two modes:
+
+- **two-click perimeter** (`+0x4a`): the first click stores the corner after
+  the `0x58a190` busy/inside check; the second builds the sorted rectangle
+  (`0x52bbf0`), previews it (`0x527150`, 16-edge limit) and applies it
+  through `0x526f20`: `0x58a4e0` perimeter validation with margin `+0x50`,
+  `0x581b90` cost, `0x52bed0` affordability, `0x585d20` CONSTRUCTION charge,
+  and `0x53ac60` wall record (type 0x17, two corners at `+0x18..+0x24`).
+- **feature placement** (`+0x48`): a feature selected in the fence list
+  (`LunchBox` and the observation-area toggle). The click validates through
+  `0x5812b0` + `0x527150`, checks the budget, then spawns the `.bfi` actor
+  (`0x53acd0`) and, for `AnimalBait`, the animal actor (`0x53b0d0`).
+
+Validation codes from `0x58a190`/`0x58a4e0`/`0x5812b0` are shown by
+`0x52c2e0` as `&WARNING_BUSY_SPACE`, `&WARNING_UNEVEN_FLOOR`,
+`&WARNING_INSIDE_PERIMETER`, `&WARNING_PERIMETER_TOO_SMALL` and
+`&WARNING_ROAD_TOO_SHORT`. The panel title/price come from `0x5269e0`, the
+`FENCE_STATS_*` values from `0x52c1f0`, and the feature list from
+`0x526d70`. `N`/`J` rotate the placement (`+0x3c`); Esc leaves.
+
+Port status: the port arms a two-click fence tool when the enclosure panel
+opens and checks the cell, but it does not yet model the retail warning
+codes, the perimeter price, the 16-edge preview limit, or the
+LunchBox/observation feature path. Raw evidence:
+`notes/fence-construction-recon.md`.
+
 ## Open
 
 - ~~Runtime-dump `[dinosaur+0x1e0]`~~ **resolved:** size/cost class 0..3;
@@ -238,6 +269,8 @@ original construction flow:
 ## Evidence
 
 - `notes/fence-insertion-recon.md` — full disassembly/decompilation log.
+- `notes/fence-construction-recon.md` — `FENCE_CONSTRUCTION` state,
+  validators, warning table, cost and wall-record path.
 - `notes/campaign-unlock-runtime.md` — live Cpg04 trace: `cell=4`, the 20
   dinosaur size classes, and the campaign/progression `dino.dat`.
 - `scripts/x32dbg/start-campaign.ps1` — reproducible campaign trace harness.

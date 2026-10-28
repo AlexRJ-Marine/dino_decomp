@@ -1,0 +1,246 @@
+# `FENCE_CONSTRUCTION` — enclosure/wall tool (2026-10-28)
+
+Status: **state machine, validators, warning table and cost path decoded.**
+The selected-list row semantics, the wall rasteriser and two extended vtable
+hooks remain open.
+
+Complements `notes/fence-insertion-recon.md` (paddock capacity / dinosaur
+insertion) and `docs/decomp/construction-validation.md`. This is the tool that
+opens from `OPEN_CONSTRUCTION_FENCE`, draws a paddock perimeter in two clicks
+and places the fence-page feature (LunchBox / observation area).
+
+## State class
+
+| Item | Address |
+| --- | --- |
+| constructor | `0x5265b0` |
+| state name | `FENCE_CONSTRUCTION` (`0x663024`) |
+| panel | `FENCE_CONSTRUCTION_AND_INFO_PANEL` (`0x663000`) |
+| vtable | `0x642b4c` |
+
+The vtable has 16 slots. The first eight are the common `pvwState` interface;
+the rest are the fence-tool hooks:
+
+| Slot | Address | Role |
+| --- | --- | --- |
+| +0x00 | `0x526900` | dtor |
+| +0x04 | `0x526930` | enter |
+| +0x08 | `0x5269c0` | leave (hides the panel) |
+| +0x0c | `0x52ad00` | update/preview |
+| +0x10 | `0x52b590` | mouse move/notification (cursor point, preview) |
+| +0x14 | `0x52b0d0` | click/apply |
+| +0x18 | `0x608100` | no-op |
+| +0x1c | `0x52be60` | key handler (`N`/`J` rotate, Esc leaves) |
+| +0x20 | `0x508d30` | base no-op |
+| +0x24 | `0x52bfc0` | rotate: `+0x3c = (+0x3c +/- 1) & 3` |
+| +0x28 | `0x527030` | feature-list row check (LunchBox) |
+| +0x2c | `0x40c1d0` | helper |
+| +0x30 | `0x527150` | perimeter preview/validate (orientation, 16-edge limit) |
+| +0x34 | `0x526e70` | helper |
+| +0x38 | `0x526f20` | perimeter apply (validate, cost, budget, wall record) |
+| +0x3c | `0x608100` | no-op |
+| +0x40 | `0x527370` | wall-record builder / orientation |
+
+### Bound panel widgets
+
+`0x5265b0` resolves the panel and its stats widgets:
+
+```text
++0x84  FENCE_FEATURE_PRICE
++0x8c  FENCE_CONSTRUCTION_AND_INFO_PANEL
++0x90  FENCE_STATS_DINO_QUANTITY_INDICS_BACK_CHIFFRE
++0x94  FENCE_STATS_OCCUPATION_INDICS_BACK_CHIFFRE
++0x98  FENCE_STATS_CARNI_DISTRIBUTION_INDICS_BACK_CHIFFRE
++0x9c  FENCE_STATS_HERBI_DISTRIBUTION_INDICS_BACK_CHIFFRE
++0xa0  FENCE_NAME_INDICS
+```
+
+`SWITCH_OBSERVATION_AREA` gets callbacks `LAB_00531b60` / `LAB_00531b80`.
+
+### Fields
+
+| Offset | Meaning |
+| ---: | --- |
+| `+0x38` | click-consumed flag |
+| `+0x3c` | feature orientation 0..3 (rotated by `0x52bfc0`) |
+| `+0x40` | preview/helper collection (cleared by `0x52caa0`) |
+| `+0x44` | shared construction tool: `+0x8` park scene, `+0x10` park, `+0x14` scene/terrain |
+| `+0x48` | feature-placement mode (set by `0x52bbb0` on list selection) |
+| `+0x4a` | two-click perimeter mode; first corner at `+0x64/+0x68` |
+| `+0x4c` | selected feature index |
+| `+0x50` | selected feature footprint size (passed as the margin) |
+| `+0x54` | feature preview visible |
+| `+0x5c` | wall preview visible |
+| `+0x64/+0x68` | first perimeter corner |
+| `+0x78` | selected feature record / terrain origin |
+| `+0x7c` | park scene grid |
+| `+0x88` | selected feature object (`+0x4c` = class-tag string) |
+
+## Flow
+
+### Enter / refresh
+
+`0x526930` reads the current UI list selection (`0x447b90`/`0x447c30`) and
+compares it with `0x17` (23). On a match it calls `0x5269e0` (title/price),
+`0x52c1f0` (paddock dino stats) and `0x526d70` (feature list); otherwise
+`0x52bb70` resets the preview (`+0x48 = +0x4a = 0`, `0x5f8590(8.0f)`,
+`0x5f6a10(1)`).
+
+- `0x5269e0` formats the panel title from the selected feature name,
+  appends `%u` (`0x64d894`) and `"%"` (`0x663038`), and copies the result
+  into the name/price widgets.
+- `0x52c1f0` walks the park paddock list (`+0x8c..+0x90`, 0x1f4-stride) and
+  updates the dino-quantity/occupation stat widgets.
+- `0x526d70` walks the 62 `.bfi` records (`gdt+0x7c`, 0x1d8 stride) and adds
+  the names whose `+0x1d4` flag is set to the fence feature list.
+
+Selecting a feature calls `0x52bbb0`: reads the UI selection into `+0x78`,
+sets `+0x48 = 1` (feature mode) and prepares the preview.
+
+### Mouse move
+
+`0x52b590` stores the ground point into `+0x64/+0x68` and calls
+`0x5f8700`/`0x5f8790` to move the feature preview; when the notification's
+`+0x10` is non-zero it toggles the preview through `vtable+0x24` (rotate).
+
+### Click (`0x52b0d0`)
+
+```text
+arg != 0:
+    close preview / leave (0x52b501 -> 0x52b562 -> state 5 + vtable+8)
+
++0x48 (feature mode):
+    0x52b242:
+        ground = 0x5f8b20(scene)
+        rect   = 0x52bcb0(ground)
+        if 0x5812b0(scene, rect, orientation, size) != 0 -> warn
+        if vtable+0x30() != 0 -> warn                    // 0x527150
+        if 0x52bed0(cost) == 0 -> WARNING_NOT_ENOUGH_MONEY
+        vtable+0x3c()                                    // no-op
+        0x53acd0(...)   // create .bfi feature actor
+        0x53b0d0(...)   // animal-bait actor (AnimalBait only)
+        vtable+0x40()
+
++0x4a == 0 (first perimeter corner):
+    ground = 0x5f8a80(scene)
+    point  = floor(ground)
+    code   = 0x58a190(scene, point, margin)
+    if code != 0: 0x52c2e0(code) -> warn
+    +0x64/+0x68 = point
+    0x5f85c0(...); 0x5f8700(...)
+    +0x4a = 1
+
+else (second corner):
+    0x52bbf0(&rect)          // sort the two corners, max-1
+    if vtable+0x38() != 0:   // 0x526f20 -> apply perimeter
+        0x5f8830(); tool+0xc->0x5f6a10(0); +0x48 = 1; 0x52cc20()
+    else:
+        reset preview (+0x78/+0x48/+0x4a = 0, 0x5f8590(8.0f))
+```
+
+The two modes are exclusive: `+0x48` is set by feature selection, `+0x4a`
+is the first-corner state for the wall perimeter.
+
+## Perimeter apply (`0x526f20`)
+
+```text
+if 0x58a4e0(scene, rect, margin) != 0:
+    0x52c2e0(code) -> warn, return 0
+
+cost = 0x581b90(p1, p2, config)          // perimeter length -> price
+if 0x52bed0(cost) == 0:                  // WARNING_NOT_ENOUGH_MONEY
+    return 0
+0x585d20(park_budget, cost)              // CONSTRUCTION: budget -= cost,
+                                         // count++, total += cost
+wall = 0x53ac60(tool+0x8, p1, p2)        // type 0x17 record with the two
+                                         // corners at +0x18..+0x24
+select(wall); 0x5269e0()                 // refresh the panel
+return 1
+```
+
+`0x585d20` is the same CONSTRUCTION budget setter used by the road commit
+(`+4 = 1`, `+0xa4++`, `+0xa8 += cost`, `+8 -= cost`).
+
+## Perimeter preview (`0x527150`)
+
+- If the park wall/segment vector (`park+0xd8 .. +0xdc`) has 16 or more
+  entries, returns **6** (no warning string is defined for 6 in `0x52c2e0`).
+- Reads the two points, calls `0x581610` (edge vector) and `0x581520`
+  (orientation), then sets `+0x14` to 0..3:
+  `-4` -> 2, x == width-3 -> 0, `-4` on y -> 3, y == height-3 -> 1.
+- `0x527370` is the record/orientation builder for the same wall list and
+  checks the `"Lunchbox"` class tag (`0x6630d0`).
+
+## Validators
+
+| Function | Test | Result |
+| --- | --- | --- |
+| `0x58a190(scene, point, margin)` | point-rect inside an obstacle at `scene+0x50..+0x54` (rect `+0x1c..+0x28`) | 3 |
+| | cell scan `0x58a390` | 0 free |
+| `0x58a4e0(scene, rect, margin)` | width/height smaller than `4*margin - 1` | 4 |
+| | rect inside an obstacle | 3 |
+| | cell scan `0x58a390` | 0 free |
+| `0x5812b0(scene, point, orientation, size)` | overlap against `scene+0x34..+0x38` rects (`+4/+8/+0xc/+0x10`) | 1 |
+
+`0x52c2e0(code)` maps the codes to the retail messages:
+
+| Code | String |
+| ---: | --- |
+| 1 | `&WARNING_BUSY_SPACE` (`0x66350c`) |
+| 2 | `&WARNING_UNEVEN_FLOOR` (`0x6634f4`) |
+| 3 | `&WARNING_INSIDE_PERIMETER` (`0x6634d8`) |
+| 4 | `&WARNING_PERIMETER_TOO_SMALL` (`0x6634b8`) |
+| 5 | `&WARNING_ROAD_TOO_SHORT` (`0x6634a0`) |
+| 6 | none |
+
+Failure keeps the panel open; the warning is displayed through `0x5e3d70`.
+
+## Cost
+
+`0x581b90(p1, p2, config)`:
+
+```text
+(((p1.x + p1.y) * 0x7fffffff + (p2.x + p2.y)) * 2 / config[0]) * config[4]
+```
+
+The `0x7fffffff` multiplier is the compiler's magic for the integer
+perimeter/division sequence; the effective result is the perimeter length in
+cells times `config[4]` (the per-cell wall price). The exact decomposition is
+open, but the caller (`0x526f20`) uses it only as the CONSTRUCTION charge and
+the `FENCE_FEATURE_PRICE` widget.
+
+## Key handler (`0x52be60`)
+
+- `N` (0x4e) -> `vtable+0x24(1)` (rotate clockwise)
+- `J` (0x4a) -> `vtable+0x24(0)` (rotate counter-clockwise)
+- `Esc` (0x01) -> state 5 + `vtable+8` (leave); if already 5, `tool+0x1c`
+  `0x50be00(8)`.
+
+## Open
+
+- What the selected UI row `0x17` (23) means in `0x526930`; the feature list
+  is filtered by the `.bfi` tail flag `+0x1d4` (only LunchBox in retail data),
+  so the row vocabulary is not the 62-entry FeatureList index.
+- The wall rasteriser: `stWall.cpp` `FUN_00584200` and
+  `stPerimeter::AddSegment` (`0x582210`) turn the `0x53ac60` record into the
+  visible wall.
+- Exact decomposition of the `0x581b90` cost magic.
+- `0x527030` / `0x526e70` extended hooks.
+
+## Evidence
+
+- Ghidra: `0x5265b0` ctor; vtable `0x642b4c` slots through `0x642bac`;
+  `0x526930` enter, `0x5269c0` leave, `0x52ad00` update, `0x52b590` move,
+  `0x52b0d0` click, `0x52be60` keys; `0x52bfc0` rotate; `0x526f20` apply;
+  `0x527150` preview; `0x527370` wall builder; `0x52c2e0` warnings;
+  `0x58a190`/`0x58a4e0`/`0x5812b0` validators; `0x581b90` cost;
+  `0x585d20` CONSTRUCTION budget; `0x53ac60` wall record; `0x53acd0`
+  feature actor; `0x53b0d0` animal bait; `0x5269e0` title; `0x52c1f0`
+  stats; `0x526d70` feature list.
+- Strings: `FENCE_CONSTRUCTION` `0x663024`,
+  `FENCE_CONSTRUCTION_AND_INFO_PANEL` `0x663000`,
+  `FENCE_FEATURE_PRICE` `0x662fec`, `FENCE_NAME_INDICS` `0x662fd8`,
+  `FENCE_STATS_*` `0x662f7c`/`0x662fa8`/`0x662f14`/`0x662f48`,
+  `SWITCH_OBSERVATION_AREA` `0x662efc`, `WARNING_*` `0x6634a0..0x66350c`,
+  `LunchBox` `0x66303c`, `Lunchbox` `0x6630d0`.
+- `docs/decomp/construction-validation.md`, `notes/fence-insertion-recon.md`.

@@ -36,6 +36,28 @@ cell edge (west/east/south/north) and toggles its canonical edge.
 The `1` key tool above is the port's original per-cell toggle. The retail
 way to build paths is the road tool below.
 
+## Retail fence tool (`FENCE_CONSTRUCTION`)
+
+`OPEN_CONSTRUCTION_FENCE` opens the `FENCE_CONSTRUCTION` state
+(`0x5265b0`, panel `FENCE_CONSTRUCTION_AND_INFO_PANEL`). The player selects a
+fence feature (LunchBox / observation area) or draws a paddock perimeter:
+
+- first click stores a corner after the busy/inside check (`0x58a190`);
+- second click builds the sorted rectangle (`0x52bbf0`), previews it
+  (`0x527150`, 16-edge limit), validates with the selected feature's margin
+  (`0x58a4e0`), charges `CONSTRUCTION` (`0x581b90` cost, `0x52bed0` gate,
+  `0x585d20` deduction) and records the wall (`0x53ac60`, type 0x17);
+- feature mode (selected list row) spawns the `.bfi` actor (`0x53acd0`) and
+  the animal-bait actor (`0x53b0d0`);
+- warnings `BUSY_SPACE` / `UNEVEN_FLOOR` / `INSIDE_PERIMETER` /
+  `PERIMETER_TOO_SMALL` / `ROAD_TOO_SHORT` come from `0x52c2e0`; `N`/`J`
+  rotate the placement and Esc leaves.
+
+The port currently arms a simple two-click edge tool; the retail warning
+set, perimeter price, 16-edge limit and LunchBox/observation placement are
+not ported yet. See `docs/decomp/construction-validation.md` and
+`notes/fence-construction-recon.md`.
+
 ## Retail road tool (`ROAD_CONSTRUCTION`)
 
 ```text
@@ -291,5 +313,7 @@ build: cell 4.0, grid 256x256, 2 path cells, 1 fences; mesh 2 tiles, 1 segments
 - Costs/limits and a HUD (needs the overlay/UI layer).
 - Path connectivity / visitors (SIM-2).
 - Per-triangle fence material split (material 1 is `laser2.tga`, 8 triangles).
+- Retail fence warning codes, perimeter price and the LunchBox/observation
+  feature path (decoded; `docs/decomp/construction-validation.md`).
 - The paddock fence is 8.8 m tall; other wall types (`.bwi`: LowWood,
   HighSteel, …) need their own mesh generation.
