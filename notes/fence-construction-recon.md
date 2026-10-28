@@ -398,6 +398,16 @@ gate or refund.
   `0x526e70` is the feature preview update.
 - `0x584700` `+0x18` / `0x5849a0` finalisation beyond the mapped fields.
 
+## Wall parameters resolved (2026-10-28)
+
+`+0x4c` and `+0x50` are written **only in the ctor**: `+0x4c` = 0 (WallList
+style index, `Fence.bwi`), `+0x50` = 4 (the wall definition's cell size /
+margin). `0x581b90` uses that `Fence.bwi` record: cell 4, price multiplier 30
+per perimeter cell (`file 0x10`), so a 16x16-unit enclosure costs 450. The
+`SWITCH_OBSERVATION_AREA` button is a single-click `PointOfView` building
+placement (4x4, construction cost 500), not a wall style. Full evidence:
+`notes/fence-wall-params-recon.md`.
+
 ## Evidence
 
 - Ghidra: `0x5265b0` ctor; vtable `0x642b4c` slots through `0x642bac`;
