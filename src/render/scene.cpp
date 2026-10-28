@@ -76,14 +76,6 @@ dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_
     return out;
 }
 
-dino::Vec3 cross(const dino::Vec3& a, const dino::Vec3& b) {
-    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
-}
-
-float dot(const dino::Vec3& a, const dino::Vec3& b) {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
-
 dino::Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::Vec3& up) {
     const dino::Vec3 f = dino::normalize({target.x - eye.x, target.y - eye.y, target.z - eye.z});
     const dino::Vec3 s = dino::normalize(cross(f, up));

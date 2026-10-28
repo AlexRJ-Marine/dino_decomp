@@ -45,6 +45,7 @@ add_library(dino_core STATIC
     src/ui/menu.cpp
     src/ui/park.cpp
     src/world/terrain.cpp
+    src/world/terrain_query.cpp
     src/world/vegetation.cpp
     src/world/build.cpp
     src/world/food.cpp

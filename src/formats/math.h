@@ -55,6 +55,14 @@ inline Vec3 normalize(const Vec3& v) {
     return n > 0.0f ? Vec3{v.x / n, v.y / n, v.z / n} : Vec3{0.0f, 0.0f, 0.0f};
 }
 
+inline float dot(const Vec3& a, const Vec3& b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline Vec3 cross(const Vec3& a, const Vec3& b) {
+    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
 // Affine inverse of [A 0; t 1] (row-vector convention, translation in row 3).
 inline Mat4 inverse(const Mat4& m) {
     const float a00 = m.m[0], a01 = m.m[1], a02 = m.m[2];

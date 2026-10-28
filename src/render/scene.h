@@ -103,8 +103,6 @@ dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_
 dino::Mat4 ortho(float left, float right, float bottom, float top,
                  float near_plane, float far_plane);
 dino::Mat4 look_at(const dino::Vec3& eye, const dino::Vec3& target, const dino::Vec3& up);
-dino::Vec3 cross(const dino::Vec3& a, const dino::Vec3& b);
-float dot(const dino::Vec3& a, const dino::Vec3& b);
 
 // Returns how many bounded extras the frustum test skipped.
 int draw_scene(const GpuMesh& mesh, GLuint texture,
