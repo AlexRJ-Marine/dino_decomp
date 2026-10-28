@@ -131,3 +131,13 @@ Loads mirror the order; `0x576f70` gates on version > 3, `0x576660` on > 3 /
   creation sites `FUN_00588860` (list1) and `FUN_00588600` (list2).
 - Data: `build/campaign-autosave.sav` offsets above; list1 records
   `264 @461,461` and `267 @461,461`, list2 ids 13/15/337/375/411/63785.
+
+## 8. Park-block search status (after list1/list2)
+
+A scan of the whole 53,338-byte file for a strict 0x293 park header
+(`class=2`, `header_b=0x64`, `header_c` 0.0 or 10.0, 32 zero reserved bytes)
+finds **no hit**. The candidate at `0x6AAC` has the class/header dwords but its
+reserved block is nonzero and the parsed budget/sellback are 0, so it is the
+first record of the 57-element list, not the park block. The campaign park /
+economy offset therefore remains open until the 57-list (and any following
+lists) are walked.
