@@ -2387,6 +2387,27 @@ def test_cpp_enclosure_panel_arms_fence_tool():
     assert "build: 0 path cells, 1 fences" in result.stdout
 
 
+def test_cpp_enclosure_preview_inside_paddock_red():
+    """A fence cursor inside an existing Cpg04 paddock previews red."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    cpg04 = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    if not cpg04.exists() or not isl04.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "5", "--no-menu", "--width", "800",
+         "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
+         "--camera-target", "-44,-36", "--distance", "300", "--pitch", "20",
+         "--park-click", "764,135", "--park-click", "618,145",
+         "--fence-cursor", "400,300"],
+        capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
+    assert "fence preview: cell=115,118 ok=0" in result.stdout
+
+
 def test_cpp_road_preview_tint(tmp_path):
     """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
     (0x600550): blue when buildable, red when not (here: unaffordable).

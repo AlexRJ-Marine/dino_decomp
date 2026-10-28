@@ -128,10 +128,10 @@ RoadCheck check_road(const BuildGrid& grid, const RoadSegment& road,
 // Marks the run as path cells; returns how many cells were new.
 int place_road(BuildGrid& grid, const RoadSegment& road);
 
-// Flat validity ring for the enclosure tool, centred at (x, y) on the
+// Flat validity disc for the enclosure tool, centred at (x, y) on the
 // terrain. The caller draws it blue when the cell is buildable and red when
-// not. `outer`/`inner` are world-unit radii.
-Mesh fence_preview_ring(float x, float y, float z, float outer, float inner,
+// not. Retail samples: blue (38,38,136), red (80,38,38).
+Mesh fence_preview_disc(float x, float y, float z, float radius,
                         int segments = 48);
 
 // Retail placement preview (0x5fa5b0..0x5fa891): one helper_road.mesh (a

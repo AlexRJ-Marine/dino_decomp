@@ -518,37 +518,32 @@ Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,
     return out;
 }
 
-Mesh fence_preview_ring(float x, float y, float z, float outer, float inner,
+Mesh fence_preview_disc(float x, float y, float z, float radius,
                         int segments) {
     Mesh out;
     out.name = "fence_preview";
     if (segments < 3) {
         segments = 3;
     }
+    out.positions.push_back({x, y, z});
+    out.normals.push_back({0.0f, 0.0f, 1.0f});
+    out.uvs.push_back({0.0f, 0.0f});
     const float step = 2.0f * kPi / static_cast<float>(segments);
     for (int i = 0; i <= segments; ++i) {
         const float a = static_cast<float>(i) * step;
-        const float c = std::cos(a);
-        const float s = std::sin(a);
-        out.positions.push_back({x + outer * c, y + outer * s, z});
-        out.positions.push_back({x + inner * c, y + inner * s, z});
-        out.normals.push_back({0.0f, 0.0f, 1.0f});
+        out.positions.push_back(
+            {x + radius * std::cos(a), y + radius * std::sin(a), z});
         out.normals.push_back({0.0f, 0.0f, 1.0f});
         out.uvs.push_back({0.0f, 0.0f});
-        out.uvs.push_back({0.0f, 0.0f});
     }
-    for (int i = 0; i < segments; ++i) {
-        const auto a = static_cast<std::uint32_t>(i * 2);
-        const auto b = static_cast<std::uint32_t>(i * 2 + 1);
-        const auto c = a + 2;
-        const auto d = b + 2;
-        out.indices.push_back(a);
-        out.indices.push_back(c);
-        out.indices.push_back(b);
-        out.indices.push_back(b);
-        out.indices.push_back(c);
-        out.indices.push_back(d);
+    for (int i = 1; i <= segments; ++i) {
+        out.indices.push_back(0);
+        out.indices.push_back(static_cast<std::uint32_t>(i));
+        out.indices.push_back(static_cast<std::uint32_t>(i + 1));
     }
+    // Default mesh vertices build with a 220/255 grey; a white colour array
+    // keeps the unlit disc at the exact retail texture colour.
+    out.colors.assign(out.positions.size(), Color{});
     return out;
 }
 

@@ -1962,6 +1962,9 @@ struct DrawItem {
     // box needs the nearest face to win so back/side faces do not add a
     // second layer and saturate to white.
     bool depth_write = false;
+    // Skip lighting for flat preview quads whose sampled colour must match
+    // retail exactly (enclosure disc).
+    bool unlit = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
     int fog = 0;
     // WaterSurface stage 1: same texture on coordinate set 1, Modulate2x.
@@ -2134,6 +2137,7 @@ void draw_scene(const GpuMesh& mesh, GLuint texture,
             continue;
         }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
+        gl.Uniform1i(unlit_loc, item.unlit ? 1 : 0);
         gl.Uniform1f(alpha_loc, item.alpha);
         gl.Uniform1i(use_texture2_loc, item.texture2 != 0 ? 1 : 0);
         gl.Uniform1i(modulate2x_loc, item.modulate2x ? 1 : 0);
@@ -6466,8 +6470,9 @@ int main(int argc, char** argv) {
             image.rgba = {r, g, b, 255};
             return upload_texture(image);
         };
-        fence_preview_ok_texture = solid_texture(64, 64, 255);
-        fence_preview_bad_texture = solid_texture(255, 64, 64);
+        // Retail enclosure disc samples: blue (38,38,136), red (80,38,38).
+        fence_preview_ok_texture = solid_texture(38, 38, 136);
+        fence_preview_bad_texture = solid_texture(80, 38, 38);
     }
 
     SkyboxGL skybox;
@@ -6998,7 +7003,8 @@ int main(int argc, char** argv) {
             DrawItem item{&fence_preview_gpu,
                           fence_preview_ok ? fence_preview_ok_texture
                                            : fence_preview_bad_texture};
-            item.alpha = 0.7f;
+            item.unlit = true;       // exact retail disc colour
+            item.depth_write = true; // occluded by fence posts
             extra_items.push_back(item);
         }
         if (fence_gpu.vao != 0) {
@@ -12021,6 +12027,22 @@ int main(int argc, char** argv) {
                 const float wy =
                     build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
                 ok = terrain.buildable(wx, wy);
+                // Retail rejects a fence start strictly inside an existing
+                // paddock (`WARNING_INSIDE_PERIMETER`). Paddock rects are in
+                // record coordinates (0..world_size); the build cell centre is
+                // in centred world coordinates.
+                const float half_world = terrain.world_size * 0.5f;
+                const float rx = wx + half_world;
+                const float ry = wy + half_world;
+                for (const dino::WorldRect& rect : road_perimeters()) {
+                    if (rx > std::min(rect.x0, rect.x1) &&
+                        rx < std::max(rect.x0, rect.x1) &&
+                        ry > std::min(rect.y0, rect.y1) &&
+                        ry < std::max(rect.y0, rect.y1)) {
+                        ok = false;
+                        break;
+                    }
+                }
                 visible = true;
                 if (cx != fence_preview_cell_x ||
                     cy != fence_preview_cell_y ||
@@ -12030,9 +12052,9 @@ int main(int argc, char** argv) {
                     fence_preview_cell_y = cy;
                     fence_preview_gpu.destroy(glfns);
                     fence_preview_gpu = upload_mesh(
-                        dino::fence_preview_ring(
+                        dino::fence_preview_disc(
                             wx, wy, terrain.height_at(wx, wy) + 0.15f,
-                            cs * 1.2f, cs * 0.8f),
+                            cs * 0.75f),
                         glfns);
                     std::printf("fence preview: cell=%d,%d ok=%d\n", cx, cy,
                                 ok ? 1 : 0);
