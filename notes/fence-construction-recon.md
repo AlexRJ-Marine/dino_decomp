@@ -359,6 +359,22 @@ previews do not share a colour. Evidence:
 `notes/harness/enclosure-preview-valid.png`,
 `notes/harness/enclosure-preview-invalid.png`.
 
+**Resolved 2026-10-28:** the disc is one `helper_sphere.mesh` instance drawn
+by mode 1 of the `gpkHelperInterface` (draw switch `0x5f8850`), snapped with
+`0x5faaa0` and sized by `+0x14` (8 world units before the first click, 4 after
+an apply), and coloured by `gscMaterialBank` ids 2/3 (valid/invalid). The
+preview after the first click is mode 2: a 4-unit grid of spheres (half-size
+on the border rows/columns), not a ring or a circle. Full evidence:
+`notes/fence-ground-beam-preview-recon.md` (Q3).
+
+**Paddock ground**: the interior dirt is *not* a landscape basemap layer.
+It is a static `gatAttraction` ground quad created with the `stFence`
+(`gpkParkScene::AddAttraction 0x5f4e70`, state 5
+`dino_attractionground.ini`) using the wall definition's `textures[2]` /
+`textures[3]` (`boue_pad.tga` + `ground_occup_pad.tga` for `Fence.bwi`), over
+the `stPerimeter` rect with `z = terrain(centre)+0.01`. See
+`notes/fence-ground-beam-preview-recon.md` (Q1).
+
 ## Selling a fence
 
 `&REQUEST_SELL_FENCE` (`0x663d4c`) is one branch of the shared sell handler

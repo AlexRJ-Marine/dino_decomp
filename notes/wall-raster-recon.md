@@ -452,6 +452,10 @@ area/id marker vs. preview) is **not** proven yet.
 
 ## Open
 
+- Paddock interior ground: **not** a basemap layer and not the type-6 marker;
+  it is a static `gatAttraction` quad created with the `stFence` from
+  `Fence.bwi` textures[2]/[3], state 5 `dino_attractionground.ini`
+  (`notes/fence-ground-beam-preview-recon.md` Q1, 2026-10-28).
 - `cell+0x00` owner id = `*(int*)(cellSizeSource+0x08)`; the cell-size source
   is the pointer passed through `0x580f00`/`0x584090`; its `+8` meaning is
   unknown.
