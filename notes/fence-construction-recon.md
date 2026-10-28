@@ -298,6 +298,20 @@ passes `FENCE_BACKGROUND_SLOT`, `FENCE_NAME_SLOT`, `FENCE_SNAPSHOT_SLOT`), and
 `FUN_005e38c0` toggles a row's visibility and installs the selection callback
 `LAB_005e3930` on `[row+0x18]`.
 
+The scroll model is in `0x511890`:
+
+```text
++0x04 visible rows (5)
++0x08 page count = ceil(item_count / 5)
++0x0c item count (paddock vector length)
++0x10 current page / scroll offset (clamped to page_count - 1)
++0x14 selected item index (clamped to item_count - 1, -1 when empty)
++0x1c array of 0x30-byte row records
+```
+
+The visible rows are `min(item_count - page*5, 5)`; an empty list resets
+page/selection to 0/-1.
+
 The per-frame fill is `0x511890` (vtable `+0xc`): it calls the base
 `0x5e39c0`, computes the visible range from the paddock count
 (`[panel+0xc]`) and scroll (`[panel+0x10]`), then for each visible row takes
