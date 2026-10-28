@@ -158,7 +158,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - CAM-1: mouse edge scroll + pre-pan eye-goal lean (full suite 475)
 - 2026-10-28 - CAM-1: mouse edge scroll ported; eye goal moved before the pan (retail lean), minimap click snap open
 - 2026-10-28 - CAM-1: retail park camera re-verified live (5/s yaw, per-update pan) and made the default
-- 2026-10-28 - Full suite green: 473 passed after enclosure validation/cost-rule work
 
 ## Blockers
 

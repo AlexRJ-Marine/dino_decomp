@@ -1860,3 +1860,22 @@ Updated: 2026-10-28
   flags (`--edge-scroll`, default 2); fixed 60 Hz tick retained. Selftest now
   asserts `lean_goal dx=41.9`. The minimap `MAP_RENDERVIEW` click snap is still
   open.
+
+## 2026-10-28 - MENU-1 list viewports and VSCROLL
+
+- Retail listbox: `visible = height / LB_LINE_HEIGHT`, `first = VSCROLL pos`,
+  `range = max(1, n - visible + 1)`. The port used `height/10` (28 px) for the
+  island list and always drew rows 0..: row 3 loaded isl05 and row 7 isl10.
+  Fixed to 34 px + first-visible offset: row 3 isl04, row 7 isl08, rows 9-10
+  via the scrollbar.
+- VSCROLL exact from `notes/ui-scrollbar-recon.md` (`0x5c4720` geometry,
+  `0x5c4650` input): arrows -1/+1, track -3/+3, absolute thumb drag
+  `pos=(y-(up.y+up.h))*range/travel`, wheel one line per notch, range==1
+  fills the track, `thumbH=max(5,H-(U+D+5)-3*range)`. One-column width is
+  `list.w - scroll.w` (load list 212, scrollbar centre 515).
+- Port: `Menu` keeps first row per list; `list_scroll_geometry`/`list_drag_to`;
+  main.cpp draws the viewport and handles arrows/track/thumb/wheel.
+  Tests: `test_cpp_menu_start_loads_selected_island` (rows 0/3/7/9) and
+  `test_cpp_menu_start_all_islands` (all 10 with scroll).
+- Open: wrapped Campaign Info description scroll, hold-to-repeat, list-row
+  hover frame, Options page, retail `.sav` island choice.

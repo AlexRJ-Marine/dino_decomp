@@ -136,6 +136,114 @@ void Menu::escape() {
     }
 }
 
+int Menu::list_visible_rows(const std::string& name) const {
+    const Widget* widget = overlay.get(name);
+    if (widget == nullptr) {
+        return 0;
+    }
+    const int line =
+        widget->list_line_height > 0 ? widget->list_line_height : 34;
+    return line > 0 ? widget->height / line : 0;
+}
+
+int Menu::list_total_rows(const std::string& name) const {
+    if (name == "ISLAND_LIST") {
+        return 10;
+    }
+    if (name == "CAMPAIGN_LIST" || name == "CINEMATICS_LIST") {
+        return static_cast<int>(campaigns.size());
+    }
+    if (name == "LOAD_GAME_NAMES_LIST") {
+        return save_count;
+    }
+    return 0;
+}
+
+int Menu::list_first_row(const std::string& name) const {
+    if (name == "ISLAND_LIST") {
+        return island_first;
+    }
+    if (name == "CAMPAIGN_LIST") {
+        return campaign_first;
+    }
+    if (name == "LOAD_GAME_NAMES_LIST") {
+        return save_first;
+    }
+    if (name == "CINEMATICS_LIST") {
+        return cinematic_first;
+    }
+    return 0;
+}
+
+void Menu::list_set_first_row(const std::string& name, int first) {
+    const int visible = list_visible_rows(name);
+    const int total = list_total_rows(name);
+    first = std::clamp(first, 0, std::max(0, total - visible));
+    if (name == "ISLAND_LIST") {
+        island_first = first;
+    } else if (name == "CAMPAIGN_LIST") {
+        campaign_first = first;
+    } else if (name == "LOAD_GAME_NAMES_LIST") {
+        save_first = first;
+    } else if (name == "CINEMATICS_LIST") {
+        cinematic_first = first;
+    }
+}
+
+void Menu::list_scroll(const std::string& name, int delta) {
+    list_set_first_row(name, list_first_row(name) + delta);
+}
+
+void Menu::list_ensure_visible(const std::string& name, int row) {
+    const int visible = list_visible_rows(name);
+    if (visible <= 0) {
+        return;
+    }
+    const int first = list_first_row(name);
+    if (row < first) {
+        list_set_first_row(name, row);
+    } else if (row >= first + visible) {
+        list_set_first_row(name, row - visible + 1);
+    }
+}
+
+ListScrollGeometry Menu::list_scroll_geometry(const std::string& name) const {
+    ListScrollGeometry g;
+    const Widget* widget = overlay.get(name);
+    if (widget == nullptr || widget->list_scroll_width <= 0) {
+        return g;
+    }
+    g.width = widget->list_scroll_width;
+    g.x = widget->abs_x + widget->width - g.width;
+    g.y = widget->abs_y;
+    g.height = widget->height;
+    g.arrow = g.width;
+    const int visible = list_visible_rows(name);
+    const int total = list_total_rows(name);
+    g.range = std::max(1, total - visible + 1);
+    if (g.range <= 1) {
+        g.thumb_y = g.y + g.arrow;
+        g.thumb_h = std::max(0, g.height - 2 * g.arrow);
+        g.travel = 0;
+    } else {
+        // Retail 0x5c4720: max(5, H - (U + D + 5) - 3*range).
+        g.thumb_h = std::max(5, g.height - (2 * g.arrow + 5) - 3 * g.range);
+        g.travel = std::max(0, g.height - 2 * g.arrow - g.thumb_h);
+        g.thumb_y = g.y + g.arrow +
+                    list_first_row(name) * g.travel / (g.range - 1);
+    }
+    return g;
+}
+
+void Menu::list_drag_to(const std::string& name, int y) {
+    const ListScrollGeometry g = list_scroll_geometry(name);
+    if (g.range <= 1 || g.travel <= 0) {
+        return;
+    }
+    int pos = (y - (g.y + g.arrow)) * g.range / g.travel;
+    list_set_first_row(name, std::clamp(pos, 0, g.range - 1));
+}
+
 void Menu::click(int x, int y) {
     const int hit = hit_test(x, y);
     if (hit < 0) {
@@ -144,16 +252,61 @@ void Menu::click(int x, int y) {
     const Widget& widget = overlay.widgets[static_cast<std::size_t>(hit)];
     const std::string& name = widget.name;
 
+    // Retail VSCROLL (0x5c4650): the list's right strip. Up/down = 1 line,
+    // track above/below the thumb = 3, thumb press starts a drag (the viewer
+    // feeds motion/up), wheel = 1 line per notch.
+    if (widget.type == "LIST" && widget.list_scroll_width > 0) {
+        const ListScrollGeometry scroll = list_scroll_geometry(name);
+        if (x >= scroll.x && x < scroll.x + scroll.width &&
+            y >= scroll.y && y < scroll.y + scroll.height) {
+            if (y < scroll.y + scroll.arrow) {
+                list_scroll(name, -1);
+            } else if (y >= scroll.y + scroll.height - scroll.arrow) {
+                list_scroll(name, 1);
+            } else if (y >= scroll.thumb_y &&
+                       y < scroll.thumb_y + scroll.thumb_h) {
+                scroll_drag_active = true;
+                scroll_drag_list = name;
+            } else if (y < scroll.thumb_y) {
+                list_scroll(name, -3);
+            } else {
+                list_scroll(name, 3);
+            }
+            hover = -1;
+            return;
+        }
+    }
+
+    // `firstLine + (y - list.y) / lineHeight`, rejected past the visible rows
+    // (0x5bdb10).
+    auto pick_row = [&](const char* list_name, int fallback_line) {
+        const int line = widget.list_line_height > 0
+                             ? widget.list_line_height
+                             : fallback_line;
+        const int first = list_first_row(list_name);
+        const int visible = list_visible_rows(list_name);
+        const int row =
+            line > 0 ? first + (y - widget.abs_y) / line : first;
+        if (row < first || row >= first + visible) {
+            return -1;
+        }
+        return row;
+    };
+
     if (name == "FREE_GAME_BUTTON") {
         page = 1;
+        island_first = 0;
     } else if (name == "CAMPAIGN_BUTTON") {
         page = 2;
+        campaign_first = 0;
     } else if (name == "LOAD_GAME_BUTTON") {
         page = 4;
+        save_first = 0;
     } else if (name == "OPTIONS_BUTTON") {
         page = 5;
     } else if (name == "CINEMATICS_BUTTON") {
         page = 6;
+        cinematic_first = 0;
     } else if (name == "CREDITS_BUTTON") {
         page = 7;
     } else if (name == "QUIT_BUTTON") {
@@ -171,20 +324,21 @@ void Menu::click(int x, int y) {
     } else if (name == "FREE_HARD_BUTTON") {
         difficulty = 2;
     } else if (name == "ISLAND_LIST") {
-        // Retail rows are LB_LINE_HEIGHT (34 px), not height/10: the list is
-        // an 8-row viewport over 10 islands (MenuInterface.Ini).
-        const int line =
-            widget.list_line_height > 0 ? widget.list_line_height : 34;
-        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
-        island = std::clamp(selected, 0, 9);
+        const int selected = pick_row("ISLAND_LIST", 34);
+        if (selected >= 0) {
+            island = std::clamp(selected, 0, 9);
+            list_ensure_visible("ISLAND_LIST", island);
+        }
     } else if (name == "CAMPAIGN_LIST") {
-        const int line =
-            widget.list_line_height > 0 ? widget.list_line_height : 34;
-        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
-        campaign = campaigns.empty()
-                       ? 0
-                       : std::clamp(selected, 0,
-                                    static_cast<int>(campaigns.size()) - 1);
+        const int selected = pick_row("CAMPAIGN_LIST", 34);
+        if (selected >= 0) {
+            campaign =
+                campaigns.empty()
+                    ? 0
+                    : std::clamp(selected, 0,
+                                 static_cast<int>(campaigns.size()) - 1);
+            list_ensure_visible("CAMPAIGN_LIST", campaign);
+        }
     } else if (name == "CAMPAIGN_START_BUTTON") {
         if (selected_campaign() != nullptr && campaign_unlocked(campaign)) {
             page = 3;
@@ -197,24 +351,25 @@ void Menu::click(int x, int y) {
             loading_timer = loading_time;
         }
     } else if (name == "LOAD_GAME_NAMES_LIST") {
-        const int line =
-            widget.list_line_height > 0 ? widget.list_line_height : 28;
-        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
-        save_slot = save_count > 0
-                        ? std::clamp(selected, 0, save_count - 1)
-                        : 0;
+        const int selected = pick_row("LOAD_GAME_NAMES_LIST", 20);
+        if (selected >= 0 && save_count > 0) {
+            save_slot = std::clamp(selected, 0, save_count - 1);
+            list_ensure_visible("LOAD_GAME_NAMES_LIST", save_slot);
+        }
     } else if (name == "LOAD_LOAD_BUTTON") {
         if (save_count > 0 && save_slot >= 0 && save_slot < save_count) {
             load_requested = true;
         }
     } else if (name == "CINEMATICS_LIST") {
-        const int line =
-            widget.list_line_height > 0 ? widget.list_line_height : 34;
-        const int selected = line > 0 ? (y - widget.abs_y) / line : 0;
-        cinematic = campaigns.empty()
-                        ? 0
-                        : std::clamp(selected, 0,
-                                     static_cast<int>(campaigns.size()) - 1);
+        const int selected = pick_row("CINEMATICS_LIST", 34);
+        if (selected >= 0) {
+            cinematic =
+                campaigns.empty()
+                    ? 0
+                    : std::clamp(selected, 0,
+                                 static_cast<int>(campaigns.size()) - 1);
+            list_ensure_visible("CINEMATICS_LIST", cinematic);
+        }
     } else if (name == "CINEMATICS_START_BUTTON") {
         if (cinematic_unlocked(cinematic) && !cinematic_video().empty()) {
             cinematic_requested = true;

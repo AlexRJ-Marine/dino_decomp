@@ -1261,15 +1261,22 @@ def test_cpp_island_list_and_free_game_budgets():
 
 
 def _menu_start(shot, row, difficulty):
-    # ISLAND_LIST is 188x285 at 175,166 -> 28-px rows; difficulty buttons are
-    # 52 px wide at x = 494/568/642, y = 451.
-    island_y = 166 + row * 28 + 14
+    # ISLAND_LIST is an 8-row viewport over 10 islands with 34-px rows
+    # (LB_LINE_HEIGHT); rows 8-9 need the VSCROLL down arrow. The arrow click
+    # is at 352,440 (22-px strip on the list's right edge).
+    first = max(0, row - 7)
+    clicks = []
+    for _ in range(first):
+        clicks += ["--menu-click", "352,440"]
+    slot = row - first
+    island_y = 166 + slot * 34 + 17
     difficulty_x = 494 + difficulty * 74
     return subprocess.run(
         [str(EXE), "--frames", "4", "--screenshot", str(shot),
          "--width", "800", "--height", "600", "--no-vsync", "--no-save-config",
          "--no-hud", "--asset-root", str(GAME),
          "--menu-page", "1",
+         *clicks,
          "--menu-click", f"200,{island_y}",
          "--menu-click", f"{difficulty_x},451",
          "--menu-click", "526,531",
@@ -1301,6 +1308,17 @@ def test_cpp_menu_start_loads_selected_island(tmp_path):
     b = Image.open(last).convert("RGB")
     # Different island: the rendered scene must change.
     assert ImageChops.difference(a, b).getbbox() is not None
+
+    # Middle rows use LB_LINE_HEIGHT (34), not height/10: row 3 is isl04 and
+    # row 7 is isl08 (the last row before the viewport scrolls).
+    mid = tmp_path / "isl04.bmp"
+    result = _menu_start(mid, row=3, difficulty=0)
+    assert result.returncode == 0, result.stderr
+    assert "island: isl04" in result.stdout
+    edge = tmp_path / "isl08.bmp"
+    result = _menu_start(edge, row=7, difficulty=0)
+    assert result.returncode == 0, result.stderr
+    assert "island: isl08" in result.stdout
 
 def test_cpp_minimap_detail_view(tmp_path):
     if not EXE.exists() or not ISL01.exists():
@@ -1533,12 +1551,20 @@ def test_cpp_menu_start_all_islands(tmp_path, row):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
     shot = tmp_path / f"isl{row + 1:02d}.bmp"
-    island_y = 166 + row * 28 + 14
+    # ISLAND_LIST rows are 34 px; rows 8-9 need the VSCROLL down arrow
+    # (352,440) because only 8 of 10 fit.
+    first = max(0, row - 7)
+    clicks = []
+    for _ in range(first):
+        clicks += ["--menu-click", "352,440"]
+    slot = row - first
+    island_y = 166 + slot * 34 + 17
     result = subprocess.run(
         [str(EXE), "--frames", "3", "--screenshot", str(shot),
          "--width", "320", "--height", "200", "--no-vsync", "--no-save-config",
          "--no-hud", "--asset-root", str(GAME), "--no-vegetation",
-         "--menu-page", "1", "--menu-click", f"200,{island_y}",
+         "--menu-page", "1", *clicks,
+         "--menu-click", f"200,{island_y}",
          "--menu-click", "494,451", "--menu-click", "526,531",
          "--menu-loading-time", "0"],
         capture_output=True, text=True, timeout=180,

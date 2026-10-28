@@ -1686,6 +1686,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (parent-first, descending `ZPRIORITY`) so list indicator strips are not
   covered by the snapshot art (`notes/park-fence-list.png`,
   `notes/park-dino-list.png`, `test_cpp_park_fence_and_dino_lists`).
+- [x] Phase B4 (list viewports/scrollbars): island/campaign/load/cinematics
+  rows use `LB_LINE_HEIGHT` and a first-visible index; row 3 is isl04 and
+  row 7 is isl08 (rows 9-10 via the scrollbar). The VSCROLL is exact from
+  `0x5c4720`/`0x5c4650`: arrows ±1, track ±3, absolute thumb drag, wheel one
+  line, `thumbH=max(5,H-(U+D+5)-3*range)`, one-column width
+  `list.w - scroll.w` (`notes/ui-scrollbar-recon.md`,
+  `notes/menu-layout-scroll-recon.md`).
+- [ ] Phase B4 rest: scroll the wrapped `CAMPAIGN_INFO_DESCRIPTION`, verify
+  hold-to-repeat, and map the list-row hover frame.
 - [ ] Phase C rest: sliders and minimap water colour/partition polish; live
   3D thumbnails in the list slots.
 - [x] Phase D (menu sounds): `MenuSoundDB.ini` click sounds on menu and park
@@ -1731,7 +1740,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Acceptance:** startup shows the original main menu; Free Mode → island →
   Start reaches a park through the real screens.
 - **Depends on:** UI-1, UI-0, `docs/platform/ui-original-menu.md`.
-- **Evidence:** `docs/platform/ui-original-menu.md`,
+- **Evidence:** `notes/ui-scrollbar-recon.md`,
+  `notes/menu-layout-scroll-recon.md`, `docs/platform/ui-original-menu.md`,
   `notes/menu-retail.png`, `notes/menu-free.png`, `notes/menu-loading.png`,
   `notes/menu-pages-sheet.png`, `notes/menu-start-isl01.png`,
   `notes/menu-start-isl03.png`, `notes/menu-start-isl10.png`,

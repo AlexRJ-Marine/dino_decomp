@@ -5868,12 +5868,14 @@ int main(int argc, char** argv) {
                 const int line_h =
                     widget.list_line_height > 0 ? widget.list_line_height : 34;
                 const int row_w =
-                    widget.list_column0_width > 0
-                        ? widget.list_column0_width
-                        : widget.width - widget.list_scroll_width;
+                    std::max(0, widget.width - widget.list_scroll_width);
                 const int visible_rows =
                     line_h > 0 ? widget.height / line_h : 0;
-                const int rows = std::min(10, visible_rows);
+                // Retail overwrites LB_COLUMN0_WIDTH with (list.w - vs.w) for
+                // one-column lists (0x5bda70); the first visible row is the
+                // VSCROLL position.
+                const int first_row = menu.list_first_row(widget.name);
+                const int total_rows = menu.list_total_rows(widget.name);
                 const bool campaign_list = widget.name == "CAMPAIGN_LIST";
                 const bool campaign_info =
                     widget.name == "CAMPAIGN_INFO_DESCRIPTION";
@@ -5882,25 +5884,17 @@ int main(int argc, char** argv) {
                 const bool cinematics_list =
                     widget.name == "CINEMATICS_LIST";
                 int selected_row = menu.island;
-                int scroll_rows = 10;
                 if (load_list) {
                     selected_row = menu.save_slot;
-                    scroll_rows = std::max(1, menu.save_count);
                 } else if (campaign_list) {
                     selected_row = menu.campaign;
-                    scroll_rows = static_cast<int>(menu.campaigns.size());
                 } else if (cinematics_list) {
                     selected_row = menu.cinematic;
-                    scroll_rows = static_cast<int>(menu.campaigns.size());
                 } else if (campaign_info) {
                     selected_row = 0;
-                    scroll_rows = 1;
                 }
-                const int row_count =
-                    campaign_list || cinematics_list
-                        ? std::min(rows,
-                                   static_cast<int>(menu.campaigns.size()))
-                        : (load_list ? std::min(rows, menu.save_count) : rows);
+                const int row_count = std::max(
+                    0, std::min(visible_rows, total_rows - first_row));
                 const dino::ui::Graphic* row_graphic =
                     menu.overlay.graphic("ISLAND_LIST_BUTTON");
                 UiTexture* row_texture =
@@ -5937,9 +5931,10 @@ int main(int argc, char** argv) {
                                      view_w, view_h);
                     }
                 } else {
-                    for (int row = 0; row < row_count; ++row) {
+                    for (int slot = 0; slot < row_count; ++slot) {
+                        const int row = first_row + slot;
                         const float row_y = py(widget.abs_y) +
-                                            static_cast<float>(row) * line_h * dpi;
+                                            static_cast<float>(slot) * line_h * dpi;
                         const bool locked =
                             (campaign_list && !menu.campaign_unlocked(row)) ||
                             (cinematics_list && !menu.cinematic_unlocked(row));
@@ -6024,27 +6019,29 @@ int main(int argc, char** argv) {
                     }
                 }
                 if (widget.list_scroll_width > 0) {
-                    const float scroll_x = px(widget.abs_x + row_w);
-                    const float scroll_y = py(widget.abs_y);
-                    const float scroll_w =
-                        static_cast<float>(widget.list_scroll_width) * dpi;
-                    const float scroll_h = static_cast<float>(widget.height) * dpi;
-                    draw_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y, scroll_w,
-                                scroll_h, 0);
-                    draw_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x, scroll_y,
-                                scroll_w, 22.0f * dpi, 4);
-                    draw_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
-                                scroll_y + scroll_h - 22.0f * dpi, scroll_w,
-                                22.0f * dpi, 4);
-                    const float free_height =
-                        std::max(0.0f, scroll_h - 76.0f * dpi);
-                    const float thumb_y =
-                        scroll_y + 22.0f * dpi +
-                        free_height *
-                            (static_cast<float>(selected_row) /
-                             static_cast<float>(std::max(1, scroll_rows - 1)));
-                    draw_sprite("CAMPAIGN_TEXT_THUMB", scroll_x, thumb_y, scroll_w,
-                                32.0f * dpi, 4);
+                    const dino::ui::ListScrollGeometry scroll =
+                        menu.list_scroll_geometry(widget.name);
+                    if (scroll.width > 0) {
+                        const float scroll_x = px(scroll.x);
+                        const float scroll_y = py(scroll.y);
+                        const float scroll_w =
+                            static_cast<float>(scroll.width) * dpi;
+                        const float scroll_h =
+                            static_cast<float>(scroll.height) * dpi;
+                        const float arrow =
+                            static_cast<float>(scroll.arrow) * dpi;
+                        draw_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
+                                    scroll_w, scroll_h, 0);
+                        draw_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
+                                    scroll_y, scroll_w, arrow, 4);
+                        draw_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
+                                    scroll_y + scroll_h - arrow, scroll_w,
+                                    arrow, 4);
+                        draw_sprite(
+                            "CAMPAIGN_TEXT_THUMB", scroll_x,
+                            py(scroll.thumb_y), scroll_w,
+                            static_cast<float>(scroll.thumb_h) * dpi, 4);
+                    }
                 }
             }
 
@@ -11237,6 +11234,38 @@ int main(int argc, char** argv) {
                         if (!menu_hover_forced) {
                             menu.move(static_cast<int>(event.motion.x - off_x),
                                       static_cast<int>(event.motion.y - off_y));
+                        }
+                        if (menu.scroll_drag_active &&
+                            !menu.scroll_drag_list.empty()) {
+                            menu.list_drag_to(
+                                menu.scroll_drag_list,
+                                static_cast<int>(event.motion.y - off_y));
+                        }
+                    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                               event.button.button == SDL_BUTTON_LEFT) {
+                        menu.scroll_drag_active = false;
+                        menu.scroll_drag_list.clear();
+                    } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                        // Retail VSCROLL wheel: one notch = one line
+                        // (0x5cbb7f, pos -= delta / 120).
+                        const int mx = static_cast<int>(
+                            event.wheel.mouse_x - off_x);
+                        const int my = static_cast<int>(
+                            event.wheel.mouse_y - off_y);
+                        const int hit = menu.hit_test(mx, my);
+                        if (hit >= 0) {
+                            const dino::ui::Widget& list =
+                                menu.overlay.widgets[static_cast<std::size_t>(
+                                    hit)];
+                            if (list.type == "LIST" &&
+                                list.list_scroll_width > 0) {
+                                int notches =
+                                    static_cast<int>(event.wheel.y);
+                                if (notches == 0) {
+                                    notches = event.wheel.y > 0.0f ? 1 : -1;
+                                }
+                                menu.list_scroll(list.name, -notches);
+                            }
                         }
                     } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                                event.button.button == SDL_BUTTON_LEFT) {
