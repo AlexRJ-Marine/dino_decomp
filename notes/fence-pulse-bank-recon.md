@@ -1,8 +1,8 @@
 # Fence/helper pulse banks — raw binary evidence (2026-10-28)
 
-Status: **formulas proven; the per-material branch used by the fence laser is
-still open** (the recon pass `notes/fence-selected-state-recon.md` is resolving
-it). Binary `/DinoIsland.exe-ebea17`, VAs.
+Status: **formulas proven; the id↔block table in this note is superseded by
+the Correction at the end** (the per-material branch is resolved there too).
+Binary `/DinoIsland.exe-ebea17`, VAs.
 
 The user confirms the fence lighting **pulses**, so these constants are the
 source of truth (a single screenshot cannot show them).
@@ -126,6 +126,23 @@ Modulate2x) and the pulse period (1.047 s vs 1.571 s) will distinguish them:
 the fixed-camera time series in `notes/harness/fence-pulse-summary.txt` and the
 selection recon will settle it.
 
+## Branch hypothesis (texture alpha/depth) — not yet proven
+
+The two fence materials differ in texture depth:
+
+| material | texture | TGA header |
+| --- | --- | --- |
+| 0 | `fence_paddock.tga` | 24-bit, descriptor `0x00` |
+| 1 | `laser2.tga` | 32-bit, descriptor `0x08` (8 alpha bits) |
+
+`FUN_00443be0` reads the material's texture object and the branch tests
+`byte[texture+2]`. A plausible reading is an alpha/depth flag: `0x00` for the
+24-bit body (default branch -> bank 1, state 8 `dino_selectedwall`,
+Modulate2x) and `0xff` for the 32-bit laser (additive branch -> bank 4,
+state 7 `dino_additif`, blue pulse). This is consistent with the captures
+(opaque stone/blue body, additive glow lamp) but needs the runtime byte to be
+confirmed.
+
 ## Evidence
 
 * `FUN_00600440` (manager ctor, registrations), `FUN_00600550` (per-frame
@@ -136,3 +153,35 @@ selection recon will settle it.
 * Floats read from the PE image at the VAs above.
 * Capture cross-check: `notes/harness/fence-rev-beams-post.png`,
   `notes/harness/fence-rev2-beams-2.png`.
+
+# Correction (later recon, `notes/fence-selected-state-recon.md` §1.2/§7/§2.1)
+
+The ctor's registration order is **ids 2,3,4,1 against slots +0x14,+0x0c,
++0x1c,+0x04**, so the correct table is:
+
+| bank id | manager slot | update block | colour / period |
+| ---: | ---: | ---: | --- |
+| 1 | `+0x04` | block 4 | grey 128..255, sin 10 t, **0.628 s** |
+| 2 | `+0x14` | block 2 | `(64,64,255-c)`, sin 6 t, 1.047 s |
+| 3 | `+0x0c` | block 1 | `(255-c,64,64)`, sin 6 t, 1.047 s |
+| 4 | `+0x1c` | block 3 | `(80-c2,80-c2,255-c3)`, sin 4 t, **1.571 s** |
+
+Consequences that replace the open text above:
+
+* The **laser** (additive branch, bank 4) is the **blue-white sin 4 t**
+  material (period 1.571 s), not the blue sin 6 t one.
+* The **selected body** (default branch, bank 1) is the **grey→white sin 10 t**
+  material (period 0.628 s) + `Dino_SelectedWall` stage-1 Modulate2x, i.e.
+  factor 1.0..2.0.
+* The branch test is `byte 2 of material_data+8 == 0xFF`, where `+8` is the
+  runtime copy of the `.mesh` header's 4th dword. All 416 retail materials
+  were censused: 414 are `0xFFE6E6E6` and exactly two (the laser materials of
+  `fence_paddock_lod1`/`fence_lunchdoor`) are `0xFFFF0000` (byte 2 = `0xFF`).
+  The texture-alpha hypothesis above is **disproved**.
+* Retail capture cross-check (fixed-camera time series): unselected body
+  static, selected body 204→399 at 0.628 s; the additive lamps read
+  near-white at both phases because the mesh's white ambient dominates the
+  blue diffuse (`notes/harness/fence-pulse-summary.txt`, when written).
+* The recon found no static caller for pass B, but the live retail click on a
+  fence post produces it (measured). The reachable trigger is a paddock click;
+  the port implements that selection.

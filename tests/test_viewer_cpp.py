@@ -875,7 +875,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (189 checks)" in result.stdout
+    assert "selftest: PASS (192 checks)" in result.stdout
 
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
@@ -3075,6 +3075,51 @@ def test_cpp_enclosure_preview_inside_paddock_red():
     # The red disc means the corner is rejected: no rectangle is built.
     assert "fence: corner " not in result.stdout
     assert "fence: built rect " not in result.stdout
+
+
+def test_cpp_fence_selected_wall_pulse(tmp_path):
+    """Closing the fence panel leaves the tool; clicking the paddock selects
+    it and the `Dino_SelectedWall` pass doubles the fence body.
+
+    Evidence: notes/fence-selected-state-recon.md (bank 1 grey 128..255,
+    sin 10 t, stage-1 Modulate2x = 1.0..2.0x) and the live retail time series
+    in notes/harness/fence-pulse-run1-frames.tsv (body 204 -> 399 at 0.63 s).
+    """
+    if not EXE.exists() or not ISL01.exists():
+        pytest.skip("viewer or retail data missing")
+    base = [str(EXE), "--frames", "32", "--no-menu", "--width", "800",
+            "--height", "600", "--no-vsync", "--no-save-config",
+            "--lnd", str(ISL01), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--no-entrance",
+            "--camera-orbit", "--camera-target", "0,0", "--distance", "200",
+            "--park-click", "764,135", "--park-click", "618,145",
+            "--inject-click", "5,300,300", "--inject-click", "15,350,400",
+            "--pulse-time", "0.1570796"]  # sin(10t) = 1 -> 2x
+    unsel_path = tmp_path / "unsel.bmp"
+    sel_path = tmp_path / "sel.bmp"
+    unsel = subprocess.run(base + ["--screenshot", str(unsel_path)],
+                           capture_output=True, text=True, timeout=120)
+    assert unsel.returncode == 0, unsel.stderr
+    sel = subprocess.run(
+        base + ["--inject-click", "20,679,278",
+                "--inject-click", "25,300,320",
+                "--screenshot", str(sel_path)],
+        capture_output=True, text=True, timeout=120)
+    assert sel.returncode == 0, sel.stderr
+    assert "fence: tool off (panel close)" in sel.stdout
+    assert "paddock: selected 0" in sel.stdout
+    a = Image.open(unsel_path).convert("RGB")
+    b = Image.open(sel_path).convert("RGB")
+
+    def band_mean(im):
+        values = [sum(im.getpixel((x, y))) for y in range(326, 340)
+                  for x in range(206, 210)]
+        return sum(values) / len(values)
+
+    # Left-wall posts; same camera and pulse phase, only the selection pass
+    # differs. Retail-measured body ratio is ~1.9-2.0; allow 1.3 for the
+    # grass between posts.
+    assert band_mean(b) > band_mean(a) * 1.3, (band_mean(a), band_mean(b))
 
 
 def test_cpp_road_preview_tint(tmp_path):

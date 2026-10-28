@@ -329,7 +329,8 @@ void OccupancyGrid::stamp_wall_rect(int x0, int y0, int x1, int y1, bool add) {
 }
 
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
-                                   const Mesh& fence_source) {
+                                   const Mesh& fence_source,
+                                   const WorldRect* selected_paddock) {
     BuildMeshes out;
     if (grid.width <= 0 || grid.height <= 0 || terrain.world_size <= 0.0f) {
         return out;
@@ -383,7 +384,7 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     }
     // The fence mesh carries two materials: 0 = fence_paddock.tga (27 tris),
     // 1 = laser2.tga (8 tris, the two cross billboards per segment). Split
-    // them; material 1 is drawn additively with the material's red emissive.
+    // them; material 1 is drawn additively with the pulsing bank-4 colour.
     const std::vector<Mesh> fence_parts = split_by_material(fence_source);
     const Mesh& fence_body = fence_parts.empty() ? fence_source : fence_parts[0];
     const Mesh* fence_laser = fence_parts.size() > 1 ? &fence_parts[1] : nullptr;
@@ -401,10 +402,41 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
     const float scale = cs / source_length;
 
     out.fences.name = "build_fences";
+    out.fences_selected.name = "build_fences_selected";
     const std::size_t per_segment = fence_source.positions.size();
     out.fences.positions.reserve(static_cast<std::size_t>(grid.fence_count) * per_segment);
     out.fences.indices.reserve(static_cast<std::size_t>(grid.fence_count) *
                                fence_source.indices.size());
+    // Retail pass B (`0x5ed240` -> `gatWall+0x14`): the selected paddock's
+    // body edges are drawn with bank 1 + `Dino_SelectedWall`; keep them in a
+    // separate mesh so only that enclosure breathes.
+    const int unit = std::max(1, static_cast<int>(cs));
+    const int sel_x0 = selected_paddock
+                           ? std::min(selected_paddock->x0, selected_paddock->x1)
+                           : 0;
+    const int sel_y0 = selected_paddock
+                           ? std::min(selected_paddock->y0, selected_paddock->y1)
+                           : 0;
+    const int sel_x1 = selected_paddock
+                           ? std::max(selected_paddock->x0, selected_paddock->x1)
+                           : 0;
+    const int sel_y1 = selected_paddock
+                           ? std::max(selected_paddock->y0, selected_paddock->y1)
+                           : 0;
+    auto on_selected = [&](int x, int y, int edge) {
+        if (selected_paddock == nullptr) {
+            return false;
+        }
+        // The wall raster sets south edges on cell row y0/unit, north on
+        // y1/unit + 1, west on x0/unit - 1 and east on x1/unit (1-unit
+        // wall lines inclusive x0..x1).
+        if (edge == 0) {
+            return (y == sel_y0 / unit || y == sel_y1 / unit + 1) &&
+                   x >= sel_x0 / unit && x <= sel_x1 / unit;
+        }
+        return (x == sel_x0 / unit - 1 || x == sel_x1 / unit) &&
+               y >= sel_y0 / unit && y <= sel_y1 / unit;
+    };
 
     for (int y = 0; y < grid.height; ++y) {
         for (int x = 0; x < grid.width; ++x) {
@@ -427,7 +459,9 @@ BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain
                 Vec3 offset{cx - (std::cos(angle) * mid_x - std::sin(angle) * mid_y) * scale,
                             cy - (std::sin(angle) * mid_x + std::cos(angle) * mid_y) * scale,
                             base_z};
-                append_mesh(out.fences, fence_body, offset, angle, scale);
+                Mesh& target =
+                    on_selected(x, y, edge) ? out.fences_selected : out.fences;
+                append_mesh(target, fence_body, offset, angle, scale);
                 if (fence_laser != nullptr) {
                     append_mesh(out.fence_beams, *fence_laser, offset, angle,
                                 scale);
@@ -882,6 +916,23 @@ int place_road(BuildGrid& grid, const RoadSegment& road) {
     add_road(grid, {road.x0 * unit, road.y0 * unit, road.x1 * unit,
                     road.y1 * unit});
     return grid.path_count - before;
+}
+
+void fence_pulse_colors(double t, float lamp[3], float selected[3]) {
+    // Bank 4 (id 4, additive laser): x4 = (sin(4t)+1)/2;
+    // RGB = (80 - trunc(54*x4), 80 - trunc(54*x4), 255 - trunc(170*x4)).
+    const double x4 = (std::sin(4.0 * t) + 1.0) * 0.5;
+    const int c2 = static_cast<int>(54.0 * x4);
+    const int c3 = static_cast<int>(170.0 * x4);
+    lamp[0] = static_cast<float>(80 - c2) / 255.0f;
+    lamp[1] = static_cast<float>(80 - c2) / 255.0f;
+    lamp[2] = static_cast<float>(255 - c3) / 255.0f;
+    // Bank 1 (id 1, selected wall): grey = 128 + trunc(127*(sin(10t)+1)/2);
+    // `Dino_SelectedWall` stage 1 Modulate2x doubles the diffuse.
+    const double x10 = (std::sin(10.0 * t) + 1.0) * 0.5;
+    const int grey = 128 + static_cast<int>(127.0 * x10);
+    const float factor = 2.0f * static_cast<float>(grey) / 255.0f;
+    selected[0] = selected[1] = selected[2] = factor;
 }
 
 Mesh road_helper_mesh(const Mesh& helper_box, const RoadSegment& road,

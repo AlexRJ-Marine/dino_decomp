@@ -110,6 +110,9 @@ struct BuildGrid {
 struct BuildMeshes {
     Mesh paths;
     Mesh fences;
+    // Body segments of the selected paddock (pass B): drawn with the
+    // pulsing `dino_selectedwall` 1..2x tint, separate from the static ones.
+    Mesh fences_selected;
     Mesh fence_beams;  // material 1 (`laser2.tga`), empty when absent
     int path_tiles = 0;
     int fence_segments = 0;
@@ -159,6 +162,12 @@ struct Paddock {
         return capacity > 0.0f ? used / capacity : 0.0f;
     }
 };
+
+// gscMaterialBank palette pulse (`FUN_00600550`). `t` is the park scene
+// time in seconds. Returns the bank-4 additive laser colour in [0,1] and the
+// bank-1 selected-wall `Dino_SelectedWall` factor for stage-1 Modulate2x
+// (1.0..2.0). Exposure: notes/fence-selected-state-recon.md §1.3/§1.4.
+void fence_pulse_colors(double t, float lamp[3], float selected[3]);
 
 float paddock_capacity(const WorldRect& rect, float cell_size);
 float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
@@ -250,8 +259,12 @@ Mesh fence_ground_mesh(const std::vector<Paddock>& paddocks,
 void paint_roads(Image& image, const BuildGrid& grid, float world_size);
 
 // `fence_source` is the retail fence segment (long axis = local +Y).
+// `selected_paddock` (optional) splits that paddock's body edges into
+// `fences_selected`; retail pass B (`0x5ed240` -> `gatWall+0x14`) then draws
+// them with bank 1 + `Dino_SelectedWall`.
 BuildMeshes build_placement_meshes(const BuildGrid& grid, const Terrain& terrain,
-                                   const Mesh& fence_source);
+                                   const Mesh& fence_source,
+                                   const WorldRect* selected_paddock = nullptr);
 
 void save_build(const BuildGrid& grid, const std::string& path);
 void load_build(BuildGrid& grid, const std::string& path, float world_size);

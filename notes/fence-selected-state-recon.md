@@ -437,6 +437,33 @@ reverse. Its per-block formulas and float constants are correct.
   material's `Ambient` (0xFFFFFFFF from the mesh header) to dominate; that is
   consistent but not proven.
 
+---
+
+# Retail capture cross-check (live game, 2026-10-28)
+
+The fixed-camera time series (`notes/harness/fence-pulse-run1-frames.tsv`,
+12 frames over 547/562 ms at the same pose) **proves pass B is reachable in
+this build**:
+
+* **Unselected:** the fence body, rail, stone base and the sampled lamp
+  pixels are static (body `(65,57,79)` constant; rail `(158,161,13)`
+  constant; stone `(137,129,112)` constant). The lamp tip's blue channel
+  varies by ~1/255, consistent with the additive bank-4 ramp under the
+  dominant white ambient.
+* **Selected** by a left click on the fence post at view `(321,130)`: an
+  info panel opens and the **whole fence** starts pulsing at
+  `w ≈ 10 rad/s` (period **0.63 s**): body `204 → 399`, stone
+  `384 → 733`, rail `336 → 535`, lamps saturate to `(255,255,255)`; the sand
+  inside/outside the fence is unchanged (`(173,137,67)` constant).
+* Esc closed the panel and the fence returned to static.
+
+So the paddock-click -> `gatWall+0x14` -> pass B path exists at runtime; the
+static xref scan in §4.2 missed the caller (likely the park interface ->
+`drsShow` activate path). The port implements the selection click.
+
+Screenshots: `notes/harness/fence-pulse-unsel-01..12-client.png`,
+`fence-pulse-sel-01..12-client.png`, `fence-pulse-sel1-panel.png`.
+
 # 9. Follow-up experiments
 
 1. x32dbg: breakpoint `0x5f3339` on the first fence draw; read the `0xFF`

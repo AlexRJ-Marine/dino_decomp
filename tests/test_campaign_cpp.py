@@ -66,7 +66,7 @@ def test_cpp_campaign_coverage():
 def test_cpp_campaign_objective_selftest():
     result = _run("--selftest")
     assert result.returncode == 0, result.stderr
-    assert "selftest: PASS (189 checks)" in result.stdout
+    assert "selftest: PASS (192 checks)" in result.stdout
 
 
 def test_cpp_campaign_mission_objectives():

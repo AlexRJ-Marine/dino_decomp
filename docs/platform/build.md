@@ -129,16 +129,39 @@ a landscape texture-manager layer (`notes/fence-ground-beam-preview-recon.md`
 cross-shaped additive billboards per 4-unit segment, at **79%** and **28%** of
 the post height (`notes/fence-ground-beam-preview-recon.md` §2). Retail draws
 them as the same fence mesh's material 1 with per-material state selection
-(`0x5f3250`: `dino_additif`, One/One, ZWrite N, fog N). The retail capture
-shows static **cyan-white lamps on the posts** — top tip brightest (peak
-`214,255,255`), a lower lamp at ~2/3 post height, no beam along the rail, no
-scroll (`notes/harness/fence-rev-beams-post.png`). The port splits the fence
-mesh by material (`split_by_material`) and draws material 1 with white
-vertices over `laser2.tga`, additive, no depth write; compare
-`notes/harness/fence-rev2-beams-2.png` with `build/fence-lamps.png`. The slow
-brightness fade
-seen in retail (~5% over 0.75 s) has no proven time source yet (state says no
-scroll; only a distance fog factor `0x5ed130` is known).
+(`0x5f3250`: `dino_additif`, One/One, ZWrite N, fog N). There are **no beams
+along the rail**; the two billboard heights are the post lamps (top tip and
+~2/3 post height), captured as near-white cyan (capture
+`notes/harness/fence-rev-beams-post.png`, peak `214,255,255`). The port splits the fence
+mesh by material (`split_by_material`) and draws material 1 additively with
+no depth write.
+
+The colour is a **time pulse**, not a static tint (`FUN_00600550`, called
+from the scene render `0x5f553b`; `notes/fence-pulse-bank-recon.md` and
+`notes/fence-selected-state-recon.md`):
+
+- **Laser (bank 4, id 4):** `x4 = (sin(4t)+1)/2`, RGB
+  `(80-54*x4, 80-54*x4, 255-170*x4)` in 0..255, additive, period
+  **1.571 s**. The mesh material's white ambient dominates, so the retail
+  lamps read near-white with a subtle blue pulse. The port adds the scene
+  ambient to the bank colour (`1.62/1.64/1.68` peak-ish after diffuse) and
+  applies it with the `u_tint` uniform.
+- **Selected paddock (bank 1, id 1):** clicking the fence (after leaving the
+  construction tool) selects the paddock; its body switches to
+  `Dino_SelectedWall` (state 8, stage 1 `Modulate2x`) with the grey
+  `128..255` sin 10 t ramp, so the body brightens **1.0x..2.0x** at period
+  **0.628 s**. The lamps themselves stay additive but saturate against the
+  brighter posts. Right-click or a click on empty ground deselects.
+  `--select-paddock N` and `--pulse-time SEC` freeze/select for tests.
+- Retail measurements: unselected body static; selected body `204 -> 399`
+  (stone `384 -> 733`, rail `336 -> 535`) at 0.63 s, sand unchanged
+  (`notes/harness/fence-pulse-run1-frames.tsv`). The port's selected pass is
+  split into `BuildMeshes::fences_selected` so only that enclosure pulses.
+
+Still open: the retail paddock **info panel** opened by the selection click
+(as opposed to the pulse) is not ported, and the selection trigger path
+(`0x5ed240`, no static caller found) is implemented from the live retail
+behaviour rather than the static xref scan.
 
 Port approximations: wall lines are in the occupancy grid, but the port also
 keeps the edge model for rendering and paddock capacity, so edge-based

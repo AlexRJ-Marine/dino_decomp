@@ -201,6 +201,7 @@ struct Options {
     std::vector<std::string> road_clicks;
     std::string buy_dino;
     int buy_paddock = -1;
+    int select_paddock = -1;
     int park_budget_override = -1;
     bool settle_day = false;
     std::string type_text;
@@ -256,6 +257,7 @@ struct Options {
     bool water2 = true;  // WaterSurface stage 1 Modulate2x
     float water_level = -1.0f;
     float water_time = -1.0f;  // initial scroll time (debug/A-B)
+    float pulse_time = -1.0f;  // freeze the gscMaterialBank pulse (debug)
     int visitors = 0;
     int visitor_satisfaction = -1;  // test/debug initial need0 override
     bool visitor_stats = false;
@@ -626,6 +628,8 @@ Options parse_args(int argc, char** argv) {
             opt.buy_dino = next("--buy-dino");
         } else if (arg == "--buy-paddock") {
             opt.buy_paddock = std::atoi(next("--buy-paddock"));
+        } else if (arg == "--select-paddock") {
+            opt.select_paddock = std::atoi(next("--select-paddock"));
         } else if (arg == "--settle-day") {
             opt.settle_day = true;
         } else if (arg == "--type-text") {
@@ -726,6 +730,8 @@ Options parse_args(int argc, char** argv) {
             opt.water2 = false;
         } else if (arg == "--water-time") {
             opt.water_time = static_cast<float>(std::atof(next("--water-time")));
+        } else if (arg == "--pulse-time") {
+            opt.pulse_time = static_cast<float>(std::atof(next("--pulse-time")));
         } else if (arg == "--water-level") {
             opt.water_level = static_cast<float>(std::atof(next("--water-level")));
         } else if (arg == "--skybox") {
@@ -838,6 +844,7 @@ Options parse_args(int argc, char** argv) {
                 "  --park-budget N      override the starting park budget (tests/debug)\n"
                 "  --buy-dino NAME      buy a Market.ini dinosaur into a paddock\n"
                 "  --buy-paddock N      paddock index for --buy-dino (default first with room)\n"
+                "  --select-paddock N   select paddock N (Dino_SelectedWall pulse)\n"
                 "  --settle-day         run one daily settlement at startup (tests/debug)\n"
                 "  --type-text TEXT     append TEXT to the Options save name (tests)\n"
                 "  --wld FILE           read a .wld/.sav world block\n"
@@ -938,6 +945,7 @@ Options parse_args(int argc, char** argv) {
                 "  --no-water           skip the water plane\n"
                 "  --no-water2          skip the WaterSurface Modulate2x stage 1\n"
                 "  --water-time SEC     initial water scroll time (debug/A-B)\n"
+                "  --pulse-time SEC     freeze the fence/selection pulse (debug)\n"
                 "  --water-level N      override the .lnd water level\n"
                 "  --skybox DIR         skybox face directory (front/back/left/right/top/bottom.PNG)\n"
                 "  --visitors N         spawn N visitors on the placed path network\n"
@@ -1481,6 +1489,8 @@ uniform vec3 u_ambient;
 uniform float u_alpha;
 uniform float u_alpha_ref;
 uniform int u_unlit;
+// gscMaterialBank pulse colour (bank 4 additive lamps, bank 1 selected wall).
+uniform vec3 u_tint;
 uniform vec3 u_camera;
 uniform vec3 u_fog_color;
 uniform float u_fog_near;
@@ -1513,6 +1523,9 @@ void main() {
         base *= texel2.rgb;
         texel.a *= texel2.a;
     }
+    // Palette material colour: additive lamps (bank 4) and the selected
+    // wall's bank 1 diffuse (stage 1 Modulate2x, factor 1..2).
+    base *= u_tint;
     // mgStateAlphaTest Ref 128 Func Greater (TextureAlpha*.ini).
     if (u_alpha_ref >= 0.0 && u_use_texture != 0 && texel.a <= u_alpha_ref) {
         discard;
@@ -2183,6 +2196,8 @@ struct DrawItem {
     // SrcAlpha/InvSrcAlpha even when alpha is 1 (gatAttraction ground with a
     // ragged cut-out edge and ZWrite off).
     bool alpha_blend = false;
+    // Live RGB multiplier for the gscMaterialBank pulse (null = white).
+    const float* tint = nullptr;
     // Cut-out textures (trees): discard texels with alpha <= 128/255.
     bool alpha_test = false;
     // 0 = scene fog (FogParam.txt), 1 = water fog (FogParam_WaterSurface.txt).
@@ -2342,6 +2357,10 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
                  0.0f, 0.0f);
     gl.Uniform2f(gl.GetUniformLocation(program, "u_uv_offset"), 0.0f, 0.0f);
     gl.Uniform1f(gl.GetUniformLocation(program, "u_alpha"), 1.0f);
+    {
+        const float white[3] = {1.0f, 1.0f, 1.0f};
+        gl.Uniform3fv(gl.GetUniformLocation(program, "u_tint"), 1, white);
+    }
     const GLint alpha_ref_loc = gl.GetUniformLocation(program, "u_alpha_ref");
     gl.Uniform1f(alpha_ref_loc, -1.0f);
 
@@ -2424,6 +2443,8 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
         gl.GetUniformLocation(program, "u_modulate2x");
     const GLint uv2_loc = gl.GetUniformLocation(program, "u_uv2_transform");
     const GLint uv_offset_loc = gl.GetUniformLocation(program, "u_uv_offset");
+    const GLint tint_loc = gl.GetUniformLocation(program, "u_tint");
+    const float white_tint[3] = {1.0f, 1.0f, 1.0f};
     for (const DrawItem& item : extras) {
         if (item.mesh == nullptr || item.mesh->vao == 0) {
             continue;
@@ -2439,6 +2460,7 @@ int draw_scene(const GpuMesh& mesh, GLuint texture,
         }
         gl.Uniform1i(use_texture_loc, item.texture != 0 ? 1 : 0);
         gl.Uniform1i(unlit_loc, item.unlit ? 1 : 0);
+        gl.Uniform3fv(tint_loc, 1, item.tint != nullptr ? item.tint : white_tint);
         gl.Uniform1f(alpha_loc, item.alpha);
         gl.Uniform1f(alpha_ref_loc, item.alpha_test ? 128.0f / 255.0f : -1.0f);
         gl.Uniform1i(use_texture2_loc, item.texture2 != 0 ? 1 : 0);
@@ -3113,6 +3135,27 @@ int run_selftest() {
     }
     check(paddock.used == 64.0f && paddock.fill() == 1.0f, "paddock full");
     check(!dino::paddock_add(paddock, 9, 0), "paddock no room");
+
+    // gscMaterialBank pulse (`FUN_00600550`) worked values from
+    // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit
+    // units: the lamp colour *255, the selected-wall factor *255 (= 2*grey).
+    auto near8 = [](float value, int expected) {
+        return std::abs(value * 255.0f - static_cast<float>(expected)) < 1.0f;
+    };
+    float pulse_lamp[3] = {};
+    float pulse_selected[3] = {};
+    dino::fence_pulse_colors(0.0, pulse_lamp, pulse_selected);
+    check(near8(pulse_lamp[0], 53) && near8(pulse_lamp[1], 53) &&
+              near8(pulse_lamp[2], 170) && near8(pulse_selected[0], 382),
+          "fence pulse t=0");
+    dino::fence_pulse_colors(0.25, pulse_lamp, pulse_selected);
+    check(near8(pulse_lamp[0], 31) && near8(pulse_lamp[1], 31) &&
+              near8(pulse_lamp[2], 99) && near8(pulse_selected[0], 458),
+          "fence pulse t=0.25");
+    dino::fence_pulse_colors(0.5, pulse_lamp, pulse_selected);
+    check(near8(pulse_lamp[0], 29) && near8(pulse_lamp[1], 29) &&
+              near8(pulse_lamp[2], 93) && near8(pulse_selected[0], 260),
+          "fence pulse t=0.5");
 
     dino::Terrain basis_terrain;
     basis_terrain.width = 16;
@@ -6192,6 +6235,13 @@ int main(int argc, char** argv) {
         ortho.m[3] = -1.0f;
         ortho.m[7] = 1.0f;
         glfns.UseProgram(program);
+        {
+            // 2D overlays do not use the 3D pulse tint; reset it so the last
+            // fence/selection item cannot darken the HUD.
+            const float white[3] = {1.0f, 1.0f, 1.0f};
+            glfns.Uniform3fv(glfns.GetUniformLocation(program, "u_tint"), 1,
+                             white);
+        }
         glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1, GL_TRUE,
                                ortho.m);
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), unlit);
@@ -7528,6 +7578,23 @@ int main(int argc, char** argv) {
     GLuint paddock_occup_texture = 0;
     GpuMesh fence_beams_gpu;
     GpuMesh fence_ground_gpu;
+    GpuMesh fence_selected_gpu;
+    // gscMaterialBank pulse (`FUN_00600550`, 0x5f553b): the park palette's
+    // time starts at 0 with the scene. Bank 4 (additive laser) is the
+    // blue-white sin 4t ramp; bank 1 (selected wall) is the grey sin 10t
+    // ramp used by `Dino_SelectedWall`'s stage-1 Modulate2x.
+    double park_pulse_time = 0.0;
+    bool park_pulse_started = false;
+    float lamp_tint[3] = {1.0f, 1.0f, 1.0f};
+    float selected_tint[3] = {1.0f, 1.0f, 1.0f};
+    int selected_paddock = -1;
+    auto selected_paddock_rect = [&]() -> const dino::WorldRect* {
+        if (selected_paddock < 0 ||
+            selected_paddock >= static_cast<int>(paddocks.size())) {
+            return nullptr;
+        }
+        return &paddocks[static_cast<std::size_t>(selected_paddock)].rect;
+    };
     if (build_ready) {
         path_texture = path_image.width > 0 ? upload_texture(path_image) : 0;
         fence_texture = fence_image.width > 0 ? upload_texture(fence_image) : 0;
@@ -7544,9 +7611,11 @@ int main(int argc, char** argv) {
                 ? upload_texture_wrapped(paddock_occup_image, GL_REPEAT)
                 : 0;
         const dino::BuildMeshes meshes =
-            dino::build_placement_meshes(build_grid, terrain, fence_source);
+            dino::build_placement_meshes(build_grid, terrain, fence_source,
+                                         selected_paddock_rect());
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
+        fence_selected_gpu = upload_mesh(meshes.fences_selected, glfns);
         fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
         fence_ground_gpu =
             upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
@@ -8112,6 +8181,11 @@ int main(int argc, char** argv) {
         const dino::Mat4 mvp = dino::multiply(proj, view);
 
         glfns.UseProgram(program);
+        {
+            const float white[3] = {1.0f, 1.0f, 1.0f};
+            glfns.Uniform3fv(glfns.GetUniformLocation(program, "u_tint"), 1,
+                             white);
+        }
         glfns.UniformMatrix4fv(glfns.GetUniformLocation(program, "u_mvp"), 1,
                                GL_TRUE, mvp.m);
         glfns.Uniform1i(glfns.GetUniformLocation(program, "u_unlit"), 1);
@@ -8205,6 +8279,13 @@ int main(int argc, char** argv) {
         if (fence_gpu.vao != 0) {
             extra_items.push_back({&fence_gpu, fence_texture});
         }
+        if (fence_selected_gpu.vao != 0) {
+            // Selected paddock body: bank 1 + Dino_SelectedWall (stage 1
+            // Modulate2x), so the texture brightens 1.0x..2.0x at 0.628 s.
+            DrawItem item{&fence_selected_gpu, fence_texture};
+            item.tint = selected_tint;
+            extra_items.push_back(item);
+        }
         if (fence_beams_gpu.vao != 0 && fence_laser_texture != 0) {
             // Material 1: laser2.tga lamp billboards, dino_additif (One/One,
             // ZWrite off, fog off). Static; the retail capture shows a slow
@@ -8213,6 +8294,8 @@ int main(int argc, char** argv) {
             item.unlit = true;
             item.additive = true;
             item.depth_write = false;
+            // Bank 4 (sin 4t): blue-white additive ramp 1.571 s.
+            item.tint = lamp_tint;
             extra_items.push_back(item);
         }
         if (visitor_gpu.vao != 0) {
@@ -8294,13 +8377,16 @@ int main(int argc, char** argv) {
         }
         refresh_terrain_texture();
         const dino::BuildMeshes meshes =
-            dino::build_placement_meshes(build_grid, terrain, fence_source);
+            dino::build_placement_meshes(build_grid, terrain, fence_source,
+                                         selected_paddock_rect());
         path_gpu.destroy(glfns);
         fence_gpu.destroy(glfns);
+        fence_selected_gpu.destroy(glfns);
         fence_beams_gpu.destroy(glfns);
         fence_ground_gpu.destroy(glfns);
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
+        fence_selected_gpu = upload_mesh(meshes.fences_selected, glfns);
         fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
         fence_ground_gpu =
             upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
@@ -8313,6 +8399,8 @@ int main(int argc, char** argv) {
         if (wld_roads.empty() && wld_fences.empty()) {
             return;
         }
+        // A new park invalidates the selected paddock index.
+        selected_paddock = -1;
         dino::import_roads(build_grid, wld_roads);
         dino::import_fences(build_grid, wld_fences);
         rebuild_build_meshes();
@@ -11737,6 +11825,12 @@ int main(int argc, char** argv) {
                         glDisable(GL_CULL_FACE);
                         glClear(GL_DEPTH_BUFFER_BIT);
                         glfns.UseProgram(program);
+                        {
+                            const float white[3] = {1.0f, 1.0f, 1.0f};
+                            glfns.Uniform3fv(
+                                glfns.GetUniformLocation(program, "u_tint"), 1,
+                                white);
+                        }
                         glfns.UniformMatrix4fv(
                             glfns.GetUniformLocation(program, "u_mvp"), 1,
                             GL_TRUE, mvp.m);
@@ -12431,6 +12525,17 @@ int main(int argc, char** argv) {
                                                  : "?");
                         }
                         ui_click_consumed = true;
+                        // Clicking the construction panel's background/close
+                        // (consumed with no widget action) leaves the retail
+                        // FENCE_CONSTRUCTION state, so the next ground click
+                        // can select an enclosure.
+                        if (hit < 0 && action.empty() && build_tool == 6) {
+                            build_tool = 0;
+                            fence_corner_x = -1;
+                            fence_corner_y = -1;
+                            pending_construct_kind = -1;
+                            std::printf("fence: tool off (panel close)\n");
+                        }
                         if (action == "minimap zoom in") {
                             minimap_zoom_in = true;
                         } else if (action == "minimap zoom out") {
@@ -12565,6 +12670,13 @@ int main(int argc, char** argv) {
                 last_my = event.button.y;
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                        event.button.button == SDL_BUTTON_RIGHT &&
+                       build_tool == 0 && selected_paddock >= 0) {
+                // Retail leaves the selected-object state on a right click.
+                selected_paddock = -1;
+                std::printf("paddock: deselected\n");
+                rebuild_build_meshes();
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                       event.button.button == SDL_BUTTON_RIGHT &&
                        build_tool == 4) {
                 // 0x52ed6a: cancel the run in progress, else disarm the tool.
                 if (road_has_start) {
@@ -12597,7 +12709,8 @@ int main(int argc, char** argv) {
                                 event.button.x, event.button.y, drag_distance,
                                 build_tool, build_ready ? 1 : 0);
                 }
-                if ((build_tool != 0 || pending_store_index >= 0) &&
+                if ((build_tool != 0 || pending_store_index >= 0 ||
+                     build_ready) &&
                     drag_distance < 5.0f) {
                     pending_click = true;
                     click_x = event.button.x;
@@ -12669,6 +12782,12 @@ int main(int argc, char** argv) {
 
         SDL_GetWindowSizeInPixels(window, &width, &height);
         sync_park_layout();
+        if (build_ready && opt.select_paddock >= 0 &&
+            opt.select_paddock < static_cast<int>(paddocks.size()) &&
+            selected_paddock != opt.select_paddock) {
+            selected_paddock = opt.select_paddock;
+            rebuild_build_meshes();
+        }
         if (opt.camera_selftest && terrain.world_size > 0.0f) {
             return camera_selftest(camera_config, terrain);
         }
@@ -12681,6 +12800,33 @@ int main(int argc, char** argv) {
         const double dt = static_cast<double>(now - last) / static_cast<double>(freq);
         last = now;
         elapsed += dt;
+
+        // Retail palette time: starts at 0 when the park scene is created and
+        // accumulates the park frame dt (FUN_00600550).
+        if (park.loaded() && !park_pulse_started) {
+            park_pulse_time = 0.0;
+            park_pulse_started = true;
+        } else if (!park.loaded()) {
+            park_pulse_started = false;
+            park_pulse_time = 0.0;
+        }
+        if (opt.pulse_time >= 0.0f) {
+            park_pulse_time = opt.pulse_time;
+        } else {
+            park_pulse_time += dt;
+        }
+        {
+            float lamp_raw[3] = {1.0f, 1.0f, 1.0f};
+            dino::fence_pulse_colors(park_pulse_time, lamp_raw,
+                                     selected_tint);
+            // State 7 lights the material (Light Y, AmbientMatSource
+            // Material): the mesh header's white ambient dominates the blue
+            // diffuse, which is why the retail lamps read near-white with a
+            // subtle blue pulse. Scene ambient from dino_additif's lit path.
+            lamp_tint[0] = 0.62f + lamp_raw[0];
+            lamp_tint[1] = 0.64f + lamp_raw[1];
+            lamp_tint[2] = 0.68f + lamp_raw[2];
+        }
 
         if (menu_loaded && opt.use_menu && menu.loading) {
             menu.loading_timer -= static_cast<float>(dt);
@@ -14147,6 +14293,48 @@ int main(int argc, char** argv) {
                             build_grid.path_count + build_grid.fence_count != before) {
                             rebuild_build_meshes();
                         }
+                    }
+                }
+            } else if (build_ready) {
+                // Paddock selection: clicking in or near a perimeter selects
+                // it (retail `gatFence` -> pass B). Clicking empty ground or
+                // right-click deselects; pass B is the Dino_SelectedWall
+                // pulse. The retail info panel is still a separate task.
+                dino::Vec3 hit;
+                if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                                 logical_width, logical_height, hit)) {
+                    const float half = terrain.world_size * 0.5f;
+                    const float mx = hit.x + half;
+                    const float my = hit.y + half;
+                    int best = -1;
+                    float best_d = 1e30f;
+                    for (std::size_t p = 0; p < paddocks.size(); ++p) {
+                        const dino::WorldRect& r = paddocks[p].rect;
+                        const float x0 = static_cast<float>(std::min(r.x0, r.x1));
+                        const float x1 = static_cast<float>(std::max(r.x0, r.x1));
+                        const float y0 = static_cast<float>(std::min(r.y0, r.y1));
+                        const float y1 = static_cast<float>(std::max(r.y0, r.y1));
+                        const float margin = 3.0f;  // fence wall + post width
+                        if (mx < x0 - margin || mx > x1 + margin ||
+                            my < y0 - margin || my > y1 + margin) {
+                            continue;
+                        }
+                        const float dx = mx - (x0 + x1) * 0.5f;
+                        const float dy = my - (y0 + y1) * 0.5f;
+                        const float d = dx * dx + dy * dy;
+                        if (d < best_d) {
+                            best_d = d;
+                            best = static_cast<int>(p);
+                        }
+                    }
+                    if (best != selected_paddock) {
+                        selected_paddock = best;
+                        if (best >= 0) {
+                            std::printf("paddock: selected %d\n", best);
+                        } else {
+                            std::printf("paddock: deselected\n");
+                        }
+                        rebuild_build_meshes();
                     }
                 }
             }
