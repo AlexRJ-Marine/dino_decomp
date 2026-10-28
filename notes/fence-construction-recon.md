@@ -288,8 +288,16 @@ instead of rasterised wall cells, which is the documented approximation.
 Panel vtable `0x642874`: `+0` dtor `0x511740`, `+4` show/hide `0x511860`
 (calls base `0x5e38c0` + `0x5bbeb0`), `+8` `0x511d50`, `+0xc` `0x511890`,
 `+0x10` `0x587340`, `+0x14` `0x511d40`. `0x511d50` returns whether the
-selected row differs from the paddock count. The per-row name/snapshot fill
-is not isolated yet.
+selected row differs from the paddock count.
+
+The list base is `FUN_005e3240(count, panel, scroll_up, scroll_down)`: it
+stores the visible-row count (`5`), resolves the list/scroll widgets, and
+allocates `count * 0x30` row records at `+0x1c`. `FUN_005e36e0(row, a, b, c)`
+fills one row's three widgets at `+0x14/+0x18/+0x1c/+0x20` (the fence panel
+passes `FENCE_BACKGROUND_SLOT`, `FENCE_NAME_SLOT`, `FENCE_SNAPSHOT_SLOT`), and
+`FUN_005e38c0` toggles a row's visibility and installs the selection callback
+`LAB_005e3930` on `[row+0x18]`. The snapshot is therefore a normal row widget;
+its texture/render source is not isolated yet.
 
 ### Preview look (retail capture, 2026-10-28)
 
