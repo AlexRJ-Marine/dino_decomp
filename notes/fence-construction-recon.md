@@ -317,8 +317,11 @@ out[2]/out[3] = herbivore/carnivore percentages
     [dino+0x200] == 1 go to the first bucket; an empty bucket is 100%
 ```
 
-The snapshot is a normal row widget; its texture/render source is not
-isolated yet.
+The snapshot is a normal row **button**, not a render target:
+`FENCE_SNAPSHOT_SLOT1` has `TEXTURE = DINO_SNAPSHOT_SLOT1`, which
+`ParkGraphicDB.ini` maps to `pann_list4.tga` at (0,176), 64x64, with
+`NB_OBJECTS = 8`. Clicking it selects the paddock and moves the camera; no
+live 3D thumbnail is involved.
 
 ### Preview look (retail capture, 2026-10-28)
 

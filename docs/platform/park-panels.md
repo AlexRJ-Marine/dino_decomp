@@ -100,8 +100,11 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
   `FENCE_LIST_DINO_INDICATEURS_PANEL_SLOT` and the
   `FENCE_LIST_HERBIQUANTITY_SLOT`/`FENCE_LIST_CARNIQUANTITY_SLOT` pair.
   Clicking a snapshot selects that paddock and moves the camera
-  (`notes/road-enclosure-preview-capture.md`, step 7); the snapshot render,
-  indicator panel and herbivore/carnivore split are not ported.
+  (`notes/road-enclosure-preview-capture.md`, step 7). The snapshot is a
+  static 64x64 button graphic, not a live thumbnail: `FENCE_SNAPSHOT_SLOT1`
+  has `TEXTURE = DINO_SNAPSHOT_SLOT1`, mapped by `ParkGraphicDB.ini` to
+  `pann_list4.tga` (0,176, 64x64, 8 objects). The indicator panel and
+  herbivore/carnivore split are also not ported.
 - **Store:** six visible rows (`DINO_ACHAT_SAVE_NAMES_LIST`), selection,
   scroll strip (`COMBOBOX1_LB_VS_BTN_UP/DOWN`), SAVE charges through the
   budget and places the dinosaur into the clicked paddock; no money shows
