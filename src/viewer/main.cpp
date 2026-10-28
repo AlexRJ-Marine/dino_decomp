@@ -9223,9 +9223,11 @@ int main(int argc, char** argv) {
             print_paddock_totals();
             std::printf(
                 "campaign park: %s buildings=%zu roads=%zu fences=%zu "
-                "dinos=%zu\n",
+                "dinos=%zu shows=%zu animals=%zu employees=%zu\n",
                 world_path.c_str(), world.buildings.size(), wld_roads.size(),
-                wld_fences.size(), imported_dinos.size());
+                wld_fences.size(), imported_dinos.size(),
+                world.records.shows.size(), world.records.animals.size(),
+                world.records.employees.size());
         } catch (const std::exception& e) {
             std::fprintf(stderr, "campaign park: %s\n", e.what());
         }

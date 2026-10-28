@@ -568,6 +568,7 @@ def test_cpp_menu_campaign_mission_start(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "campaign park:" in result.stdout and "dinos=20" in result.stdout
+    assert "shows=1 animals=2 employees=6" in result.stdout
     assert "wld: placed 57/57 buildings" in result.stdout
     assert (
         "dinos: 20/20 spawned allo=7 anky=2 coelo=4 deino=5 trood=2"
