@@ -12356,13 +12356,42 @@ int main(int argc, char** argv) {
                         } else if (build_tool == 6) {
                             // Retail FENCE_CONSTRUCTION: first click stores a
                             // corner, second click builds the sorted rectangle.
+                            const float half_world =
+                                terrain.world_size * 0.5f;
+                            auto inside_paddock = [&](float rx, float ry) {
+                                for (const dino::Paddock& paddock : paddocks) {
+                                    const dino::WorldRect& rect =
+                                        paddock.rect;
+                                    if (rx > std::min(rect.x0, rect.x1) &&
+                                        rx < std::max(rect.x0, rect.x1) &&
+                                        ry > std::min(rect.y0, rect.y1) &&
+                                        ry < std::max(rect.y0, rect.y1)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            };
                             if (fence_corner_x < 0) {
-                                fence_corner_x = cx;
-                                fence_corner_y = cy;
-                                std::printf(
-                                    "fence: corner %d,%d (click opposite "
-                                    "corner)\n",
-                                    cx, cy);
+                                const float wx =
+                                    build_grid.origin_x +
+                                    (static_cast<float>(cx) + 0.5f) * cs;
+                                const float wy =
+                                    build_grid.origin_y +
+                                    (static_cast<float>(cy) + 0.5f) * cs;
+                                if (!cell_buildable(cx, cy)) {
+                                    road_message("&WARNING_BUSY_SPACE");
+                                } else if (inside_paddock(wx + half_world,
+                                                           wy + half_world)) {
+                                    road_message(
+                                        "&WARNING_INSIDE_PERIMETER");
+                                } else {
+                                    fence_corner_x = cx;
+                                    fence_corner_y = cy;
+                                    std::printf(
+                                        "fence: corner %d,%d (click opposite "
+                                        "corner)\n",
+                                        cx, cy);
+                                }
                             } else {
                                 const int x0 =
                                     std::min(fence_corner_x, cx);
@@ -12372,9 +12401,50 @@ int main(int argc, char** argv) {
                                     std::min(fence_corner_y, cy);
                                 const int y1 =
                                     std::max(fence_corner_y, cy);
+                                std::string warning;
+                                bool limit = false;
                                 if (x1 - x0 < 1 || y1 - y0 < 1) {
+                                    warning = "&WARNING_PERIMETER_TOO_SMALL";
+                                } else if (paddocks.size() >= 16) {
+                                    limit = true;
+                                } else {
+                                    const float rx =
+                                        (static_cast<float>(x0 + x1 + 1) *
+                                         0.5f) * cs;
+                                    const float ry =
+                                        (static_cast<float>(y0 + y1 + 1) *
+                                         0.5f) * cs;
+                                    if (inside_paddock(rx, ry)) {
+                                        warning =
+                                            "&WARNING_INSIDE_PERIMETER";
+                                    } else {
+                                        bool busy = false;
+                                        for (int y = y0; y <= y1 && !busy;
+                                             ++y) {
+                                            for (int x = x0; x <= x1;
+                                                 ++x) {
+                                                if (build_grid.path_at(x, y)) {
+                                                    busy = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (!cell_buildable(x0, y0) ||
+                                            !cell_buildable(x1, y1)) {
+                                            busy = true;
+                                        }
+                                        if (busy) {
+                                            warning =
+                                                "&WARNING_BUSY_SPACE";
+                                        }
+                                    }
+                                }
+                                if (!warning.empty()) {
+                                    road_message(warning.c_str());
+                                } else if (limit) {
                                     std::printf(
-                                        "fence: perimeter too small\n");
+                                        "fence: enclosure limit reached "
+                                        "(16)\n");
                                 } else {
                                     const int before =
                                         build_grid.fence_count;

@@ -2401,16 +2401,20 @@ def test_cpp_enclosure_preview_inside_paddock_red():
     if not cpg04.exists() or not isl04.exists():
         pytest.skip("retail Cpg04/isl04 missing")
     result = subprocess.run(
-        [str(EXE), "--frames", "5", "--no-menu", "--width", "800",
+        [str(EXE), "--frames", "15", "--no-menu", "--width", "800",
          "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
          "--no-vegetation", "--no-water", "--wld-park", str(cpg04),
          "--camera-target", "-44,-36", "--distance", "300", "--pitch", "20",
          "--park-click", "764,135", "--park-click", "618,145",
-         "--fence-cursor", "400,300"],
+         "--fence-cursor", "400,300",
+         "--inject-click", "5,400,300", "--inject-click", "10,410,310"],
         capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     assert "fence preview: cell=115,118 ok=0" in result.stdout
+    # The red disc means the corner is rejected: no rectangle is built.
+    assert "fence: corner " not in result.stdout
+    assert "fence: built rect " not in result.stdout
 
 
 def test_cpp_road_preview_tint(tmp_path):
