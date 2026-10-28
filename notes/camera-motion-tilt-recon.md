@@ -1,6 +1,6 @@
 # Retail park camera - the "tilt when the camera moves" (motion feel)
 
-Status: **negative result on roll.** The retail park camera has no roll/tilt
+Status: **HYPOTHESIS ONLY — rejected by playtest 2026-10-28.** The field/no-roll analysis may be correct, but the action mapping, initial progress and port implementation do not reproduce the controls. The default camera has been reverted to the previous orbit; `notes/camera-controls-binary-recon.md` is the authoritative redo. Original static finding: the retail park camera has no roll/tilt
 state and never rotates the view up vector. The lean that a playtest reports is
 a *pitch* effect produced by the single `progress` parameter plus the yaw
 low-pass. Details, addresses and the port contract below.
@@ -299,3 +299,10 @@ therefore has no time factor: retail speed depends on the update/frame rate.
 The port's `* 4` world-units-per-second factor is a feel approximation, not a
 recovered constant. The yaw block does use `dt`: `FLD [esp+0xb4]; FMUL
 [ESI+0x114]` at `0x5e64fc`.
+
+- 2026-10-28 correction: the port's first implementation of this note did not
+  match the retail controls (playtest: "nothing like the original"). The
+  action mapping (`FUN_00527b80` indices -> pan/yaw/progress), the initial
+  `progress`, and the active-camera selection all need binary verification.
+  The default `src/viewer/main.cpp` camera is back on the previous orbit;
+  `--camera-retail` keeps the experimental model for A/B comparison only.

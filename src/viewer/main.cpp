@@ -249,6 +249,7 @@ struct Options {
     float yaw = 35.0f;
     float pitch = 20.0f;
     float distance = 0.0f;
+    bool camera_retail = false;  // experimental progress model; not retail-verified
 };
 
 void load_config(const std::string& path, Options& opt) {
@@ -501,6 +502,8 @@ Options parse_args(int argc, char** argv) {
             opt.show_status = true;
         } else if (arg == "--camera-target") {
             opt.camera_target = next("--camera-target");
+        } else if (arg == "--camera-retail") {
+            opt.camera_retail = true;
         } else if (arg == "--budget-info") {
             opt.budget_info = true;
         } else if (arg == "--dino-actions") {
@@ -811,6 +814,7 @@ Options parse_args(int argc, char** argv) {
                 "  --show-locked        place shows closed to the public\n"
                 "  --show-status        print the attraction list rows after the first tick\n"
                 "  --camera-target X,Y  screen-shot camera target in world units\n"
+                "  --camera-retail      experimental retail progress camera (unverified)\n"
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
@@ -7738,8 +7742,11 @@ int main(int argc, char** argv) {
     // spherical orbit for deterministic screenshots/tests.
     float camera_progress = 0.1f;
     float camera_yaw_goal = yaw;
+    // Experimental progress model; the default stays on the previous orbit
+    // camera until the binary input mapping is verified.
     bool camera_retail_model =
-        opt.camera_target.empty() && opt.distance <= 0.0f;
+        opt.camera_retail && opt.camera_target.empty() &&
+        opt.distance <= 0.0f;
     if (opt.focus_building && building_center.x < 1e29f) {
         center = building_center;
         distance = 60.0f;
@@ -8233,7 +8240,7 @@ int main(int argc, char** argv) {
                 // preserves the saved eye exactly (radius/height are derived).
                 camera_progress = std::clamp(cam[6], 0.0f, 1.0f);
                 camera_yaw_goal = yaw;
-                camera_retail_model = true;
+                camera_retail_model = opt.camera_retail;
                 if (free_camera) {
                     enter_free_camera();
                 }
@@ -12460,9 +12467,14 @@ int main(int argc, char** argv) {
                                     }
                                     dino::Paddock paddock;
                                     paddock.rect = {
-                                        x0 * cs, y0 * cs,
-                                        static_cast<float>(x1 + 1) * cs,
-                                        static_cast<float>(y1 + 1) * cs};
+                                        static_cast<int>(
+                                            static_cast<float>(x0) * cs),
+                                        static_cast<int>(
+                                            static_cast<float>(y0) * cs),
+                                        static_cast<int>(
+                                            static_cast<float>(x1 + 1) * cs),
+                                        static_cast<int>(
+                                            static_cast<float>(y1 + 1) * cs)};
                                     paddock.capacity = dino::paddock_capacity(
                                         paddock.rect, cs);
                                     paddocks.push_back(paddock);

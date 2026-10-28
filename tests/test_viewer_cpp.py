@@ -200,7 +200,7 @@ def test_cpp_camera_retail_progress_default():
         [str(EXE), "--frames", "31", "--no-menu", "--width", "320",
          "--height", "240", "--no-vsync", "--no-save-config",
          "--lnd", str(ISL01), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water"],
+         "--no-vegetation", "--no-water", "--camera-retail"],
         capture_output=True, text=True, timeout=120, env=env,
     )
     assert result.returncode == 0, result.stderr

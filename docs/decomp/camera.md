@@ -1,10 +1,15 @@
 # Park camera (CAM-1)
 
-Status: **solved and ported.** The retail park camera is one 0x164-byte object
-(vtable `0x6481a4`, update `0x5e5ff0`) driven by a single `progress`
-parameter. It has no roll state and its up vector is always world +Z. Raw
-evidence: `notes/camera-motion-tilt-recon.md`,
-`notes/camera-rotation-recon.md`.
+Status: **static hypothesis; port rejected by playtest 2026-10-28.** The
+object/no-roll fields below may be correct, but the action mapping, initial
+`progress` and port implementation do not reproduce the retail controls. The
+default viewer camera is back on the previous orbit; `--camera-retail` is
+A/B only. Re-verification: `notes/camera-controls-binary-recon.md`. Do not use
+the `camera-retail-*.png` files as retail evidence (they are port captures).
+The retail park camera is one 0x164-byte object (vtable `0x6481a4`, update
+`0x5e5ff0`) driven by a single `progress` parameter. It has no roll state and
+its up vector is always world +Z. Raw static evidence:
+`notes/camera-motion-tilt-recon.md`, `notes/camera-rotation-recon.md`.
 
 ## Object and update chain
 

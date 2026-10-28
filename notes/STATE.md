@@ -1803,3 +1803,9 @@ Updated: 2026-10-26
 - **Campaign population**: `.wld` simulation lists are parsed in C++/Python;
   campaign start spawns 6 Nutritionists, 2 food sources, and 51/71
   mesh-bearing `.bfi` show waypoint features. `notes/campaign-show.png`.
+
+- Camera: the first `--camera-retail` progress implementation was **rejected
+  by playtest**. Default restored to the previous orbit; the flag is A/B only.
+  `docs/decomp/camera.md` is marked static-hypothesis until the binary input
+  mapping/start state is re-verified. The prior `camera-retail-*.png` files
+  are port captures, not retail.
