@@ -104,6 +104,34 @@ void Game::draw_ui_mesh(GpuMesh& target, const dino::Mesh& geometry,
 
 }
 
+void Game::draw_menu_sprite(const std::string& name, float x, float y, float w,
+                            float h, int sprite_frame, int view_w,
+                            int view_h) {
+    const dino::ui::Graphic* graphic = menu.overlay.graphic(name);
+    if (graphic == nullptr) {
+        return;
+    }
+    UiTexture* sprite_texture = ui_texture(graphic->filename);
+    if (sprite_texture == nullptr) {
+        return;
+    }
+    const UiSourceRect source =
+        ui_frame_rect(*sprite_texture, *graphic, sprite_frame);
+    if (!source.valid) {
+        return;
+    }
+    const float u0 = static_cast<float>(source.x) / sprite_texture->width;
+    const float v0 = static_cast<float>(source.y) / sprite_texture->height;
+    const float u1 =
+        static_cast<float>(source.x + source.w) / sprite_texture->width;
+    const float v1 =
+        static_cast<float>(source.y + source.h) / sprite_texture->height;
+    draw_ui_mesh(menu_gpu,
+                 build_ui_quad(x, y, w, h, u0, v0, u1, v1,
+                               {255, 255, 255, 255}),
+                 sprite_texture->id, 1.0f, 1, view_w, view_h);
+}
+
 void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
     (void)logical_h;
     if (!menu_loaded) {
@@ -126,30 +154,6 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
                          texture->id, 1.0f, 1, view_w, view_h);
         }
     }
-
-    auto draw_sprite = [&](const char* name, float x, float y, float w, float h,
-                           int frame) {
-        const dino::ui::Graphic* graphic = menu.overlay.graphic(name);
-        if (graphic == nullptr) {
-            return;
-        }
-        UiTexture* texture = ui_texture(graphic->filename);
-        if (texture == nullptr) {
-            return;
-        }
-        const UiSourceRect source = ui_frame_rect(*texture, *graphic, frame);
-        if (!source.valid) {
-            return;
-        }
-        const float u0 = static_cast<float>(source.x) / texture->width;
-        const float v0 = static_cast<float>(source.y) / texture->height;
-        const float u1 = static_cast<float>(source.x + source.w) / texture->width;
-        const float v1 = static_cast<float>(source.y + source.h) / texture->height;
-        draw_ui_mesh(menu_gpu,
-                     build_ui_quad(x, y, w, h, u0, v0, u1, v1,
-                                   {255, 255, 255, 255}),
-                     texture->id, 1.0f, 1, view_w, view_h);
-    };
 
     for (int i = 0; i < static_cast<int>(menu.overlay.widgets.size()); ++i) {
         const dino::ui::Widget& widget =
@@ -286,11 +290,11 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
                                     }
                                 }
                             }
-                            draw_sprite(
+                            draw_menu_sprite(
                                 child.texture.c_str(), x,
                                 py(widget.abs_y), w,
                                 static_cast<float>(widget.height) * dpi,
-                                child_frame);
+                                child_frame, view_w, view_h);
                         }
                         return;
                     }
@@ -496,17 +500,19 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
                     // 7 = selected. SKIP_LIST only removes animation
                     // frames 1-3, so normal is frame 4 even though the
                     // art skips 1 2 3.
-                    draw_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
-                                scroll_w, scroll_h, 0);
-                    draw_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
-                                scroll_y, scroll_w, arrow, 4);
-                    draw_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
-                                scroll_y + scroll_h - arrow, scroll_w,
-                                arrow, 4);
-                    draw_sprite(
+                    draw_menu_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
+                                     scroll_w, scroll_h, 0, view_w, view_h);
+                    draw_menu_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
+                                     scroll_y, scroll_w, arrow, 4, view_w,
+                                     view_h);
+                    draw_menu_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
+                                     scroll_y + scroll_h - arrow, scroll_w,
+                                     arrow, 4, view_w, view_h);
+                    draw_menu_sprite(
                         "CAMPAIGN_TEXT_THUMB", scroll_x,
                         py(scroll.thumb_y), scroll_w,
-                        static_cast<float>(scroll.thumb_h) * dpi, 4);
+                        static_cast<float>(scroll.thumb_h) * dpi, 4, view_w,
+                        view_h);
                 }
             }
         }

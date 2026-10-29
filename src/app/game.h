@@ -500,6 +500,8 @@ private:
                       GLuint texture_id, float alpha, int unlit, int view_w,
                       int view_h);
     void draw_menu(int view_w, int view_h, int logical_w, int logical_h);
+    void draw_menu_sprite(const std::string& name, float x, float y, float w,
+                          float h, int sprite_frame, int view_w, int view_h);
     void attraction_row_text(int slot, std::string& name, int& iterations,
                              int& locked);
     void refresh_fence_info_panel();
