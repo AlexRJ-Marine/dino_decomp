@@ -205,6 +205,217 @@ void Game::draw_menu_hscroll_widget(const dino::ui::Widget& widget, float dpi,
                       static_cast<float>(thumb_w) * dpi);
 }
 
+void Game::draw_menu_list_widget(const dino::ui::Widget& widget, float dpi,
+                                 float ox, float oy, int view_w,
+                                 int view_h) {
+    auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+    const int line_h =
+        widget.list_line_height > 0 ? widget.list_line_height : 34;
+    const int row_w =
+        std::max(0, widget.width - widget.list_scroll_width);
+    const int visible_rows =
+        line_h > 0 ? widget.height / line_h : 0;
+    // Retail overwrites LB_COLUMN0_WIDTH with (list.w - vs.w) for
+    // one-column lists (0x5bda70); the first visible row is the
+    // VSCROLL position.
+    const int first_row = menu.list_first_row(widget.name);
+    const int total_rows = menu.list_total_rows(widget.name);
+    const bool campaign_list = widget.name == "CAMPAIGN_LIST";
+    const bool campaign_info =
+        widget.name == "CAMPAIGN_INFO_DESCRIPTION";
+    const bool load_list =
+        widget.name == "LOAD_GAME_NAMES_LIST";
+    const bool cinematics_list =
+        widget.name == "CINEMATICS_LIST";
+    int selected_row = menu.island;
+    if (load_list) {
+        selected_row = menu.save_slot;
+    } else if (campaign_list) {
+        selected_row = menu.campaign;
+    } else if (cinematics_list) {
+        selected_row = menu.cinematic;
+    } else if (campaign_info) {
+        selected_row = 0;
+    }
+    const int row_count = std::max(
+        0, std::min(visible_rows, total_rows - first_row));
+    const dino::ui::Graphic* row_graphic =
+        menu.overlay.graphic("ISLAND_LIST_BUTTON");
+    UiTexture* row_texture =
+        row_graphic != nullptr ? ui_texture(row_graphic->filename)
+                               : nullptr;
+    const int selected_frame = 7;
+    const int normal_frame = 4;
+    float list_scale = 1.0f;
+    GLuint list_atlas = 0;
+    const dino::Fnt* list_font = ui_font(
+        widget.font, widget.text_height, list_scale, list_atlas);
+    const std::string list_justify =
+        widget.justify.empty() ? "CENTER" : widget.justify;
+    if (campaign_info) {
+        // Page 3 is the campaign briefing: the LIST holds the
+        // selected campaign's description wrapped at the list
+        // column (235 - 22 = 213 px). The retail break positions
+        // match a pixel wrap, not a character count; the VSCROLL
+        // scrolls the wrapped lines with a proportional thumb.
+        const dino::Campaign* selected = menu.selected_campaign();
+        if (selected != nullptr && list_font != nullptr) {
+            const std::vector<std::string> lines =
+                wrap_lines_pixels(
+                    *list_font, list_scale * dpi,
+                    dino::ui::resolve_loc_text(
+                        selected->description_id, menu.loc),
+                    static_cast<float>(row_w) * dpi);
+            menu.campaign_info_lines =
+                static_cast<int>(lines.size());
+            const int first = menu.list_first_row(
+                "CAMPAIGN_INFO_DESCRIPTION");
+            std::string visible;
+            for (int i = first;
+                 i < static_cast<int>(lines.size()) &&
+                 i < first + visible_rows;
+                 ++i) {
+                visible += lines[static_cast<std::size_t>(i)];
+                visible += '\n';
+            }
+            const dino::Mesh block = build_text_block(
+                *list_font, visible,
+                px(widget.abs_x),
+                py(widget.abs_y) + 2.0f * dpi, list_scale * dpi,
+                widget.text_color, "LEFT",
+                static_cast<float>(row_w - 4) * dpi,
+                static_cast<float>(widget.height) * dpi,
+                static_cast<float>(line_h) * dpi);
+            draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
+                         view_w, view_h);
+        }
+    } else {
+        for (int slot = 0; slot < row_count; ++slot) {
+            const int row = first_row + slot;
+            const float row_y = py(widget.abs_y) +
+                                static_cast<float>(slot) * line_h * dpi;
+            const bool locked =
+                (campaign_list && !menu.campaign_unlocked(row)) ||
+                (cinematics_list && !menu.cinematic_unlocked(row));
+            if (row_texture != nullptr && row_graphic != nullptr) {
+                const int frame =
+                    locked ? 0
+                           : (row == selected_row ? selected_frame
+                                                  : normal_frame);
+                const UiSourceRect source =
+                    ui_frame_rect(*row_texture, *row_graphic, frame);
+                if (source.valid) {
+                    const float u0 =
+                        static_cast<float>(source.x) /
+                        row_texture->width;
+                    const float v0 =
+                        static_cast<float>(source.y) /
+                        row_texture->height;
+                    const float u1 =
+                        static_cast<float>(source.x + source.w) /
+                        row_texture->width;
+                    const float v1 =
+                        static_cast<float>(source.y + source.h) /
+                        row_texture->height;
+                    draw_ui_mesh(
+                        menu_gpu,
+                        build_ui_quad(
+                            px(widget.abs_x), row_y,
+                            static_cast<float>(row_w) * dpi,
+                            static_cast<float>(line_h) * dpi, u0,
+                            v0, u1, v1, {255, 255, 255, 255}),
+                        row_texture->id, 1.0f, 1, view_w, view_h);
+                }
+            }
+            if (list_font != nullptr) {
+                std::string name;
+                if (load_list) {
+                    if (row < static_cast<int>(
+                                  menu_save_slots.size())) {
+                        name = menu_save_slots
+                                   [static_cast<std::size_t>(row)]
+                                       .second;
+                    }
+                } else if (campaign_list) {
+                    if (row < static_cast<int>(
+                                  menu.campaigns.size())) {
+                        name = dino::ui::resolve_loc_text(
+                            menu.campaigns[static_cast<std::size_t>(
+                                               row)]
+                                .title_id,
+                            menu.loc);
+                    }
+                } else if (cinematics_list) {
+                    if (row < static_cast<int>(
+                                  menu.campaigns.size())) {
+                        name = dino::ui::resolve_loc_text(
+                            menu.campaigns[static_cast<std::size_t>(
+                                               row)]
+                                .ending_video_name,
+                            menu.loc);
+                    }
+                } else {
+                    char field[32];
+                    std::snprintf(field, sizeof(field),
+                                  "&Isl%02d_Name", row + 1);
+                    name = dino::ui::resolve_loc_text(field,
+                                                     menu.loc);
+                }
+                if (!name.empty()) {
+                    const dino::Color text_color =
+                        locked ? dino::Color{120, 120, 120, 255}
+                               : widget.text_color;
+                    const dino::Mesh block = build_text_block(
+                        *list_font, name, px(widget.abs_x), row_y,
+                        list_scale * dpi, text_color,
+                        list_justify,
+                        static_cast<float>(row_w) * dpi,
+                        static_cast<float>(line_h) * dpi);
+                    draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f,
+                                 2, view_w, view_h);
+                }
+            }
+        }
+    }
+    if (widget.list_scroll_width > 0) {
+        const dino::ui::ListScrollGeometry scroll =
+            menu.list_scroll_geometry(widget.name);
+        // Retail hides the auto-created VSCROLL when the list
+        // fits (range == 1): the campaign list (7 rows in an
+        // 8-row viewport) shows bare panel metal, while the
+        // island list (10 rows) shows the bar.
+        if (scroll.width > 0 && scroll.range > 1) {
+            const float scroll_x = px(scroll.x);
+            const float scroll_y = py(scroll.y);
+            const float scroll_w =
+                static_cast<float>(scroll.width) * dpi;
+            const float scroll_h =
+                static_cast<float>(scroll.height) * dpi;
+            const float arrow =
+                static_cast<float>(scroll.arrow) * dpi;
+            // State frames are universal (docs/formats/overlay-ini.md):
+            // 0 = disabled, 4 = normal, 5 = hover, 6 = pressed,
+            // 7 = selected. SKIP_LIST only removes animation
+            // frames 1-3, so normal is frame 4 even though the
+            // art skips 1 2 3.
+            draw_menu_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
+                             scroll_w, scroll_h, 0, view_w, view_h);
+            draw_menu_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
+                             scroll_y, scroll_w, arrow, 4, view_w,
+                             view_h);
+            draw_menu_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
+                             scroll_y + scroll_h - arrow, scroll_w,
+                             arrow, 4, view_w, view_h);
+            draw_menu_sprite(
+                "CAMPAIGN_TEXT_THUMB", scroll_x,
+                py(scroll.thumb_y), scroll_w,
+                static_cast<float>(scroll.thumb_h) * dpi, 4, view_w,
+                view_h);
+        }
+    }
+}
+
 void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
     (void)logical_h;
     if (!menu_loaded) {
@@ -313,210 +524,7 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
         }
 
         if (widget.type == "LIST") {
-            const int line_h =
-                widget.list_line_height > 0 ? widget.list_line_height : 34;
-            const int row_w =
-                std::max(0, widget.width - widget.list_scroll_width);
-            const int visible_rows =
-                line_h > 0 ? widget.height / line_h : 0;
-            // Retail overwrites LB_COLUMN0_WIDTH with (list.w - vs.w) for
-            // one-column lists (0x5bda70); the first visible row is the
-            // VSCROLL position.
-            const int first_row = menu.list_first_row(widget.name);
-            const int total_rows = menu.list_total_rows(widget.name);
-            const bool campaign_list = widget.name == "CAMPAIGN_LIST";
-            const bool campaign_info =
-                widget.name == "CAMPAIGN_INFO_DESCRIPTION";
-            const bool load_list =
-                widget.name == "LOAD_GAME_NAMES_LIST";
-            const bool cinematics_list =
-                widget.name == "CINEMATICS_LIST";
-            int selected_row = menu.island;
-            if (load_list) {
-                selected_row = menu.save_slot;
-            } else if (campaign_list) {
-                selected_row = menu.campaign;
-            } else if (cinematics_list) {
-                selected_row = menu.cinematic;
-            } else if (campaign_info) {
-                selected_row = 0;
-            }
-            const int row_count = std::max(
-                0, std::min(visible_rows, total_rows - first_row));
-            const dino::ui::Graphic* row_graphic =
-                menu.overlay.graphic("ISLAND_LIST_BUTTON");
-            UiTexture* row_texture =
-                row_graphic != nullptr ? ui_texture(row_graphic->filename)
-                                       : nullptr;
-            const int selected_frame = 7;
-            const int normal_frame = 4;
-            float list_scale = 1.0f;
-            GLuint list_atlas = 0;
-            const dino::Fnt* list_font = ui_font(
-                widget.font, widget.text_height, list_scale, list_atlas);
-            const std::string list_justify =
-                widget.justify.empty() ? "CENTER" : widget.justify;
-            if (campaign_info) {
-                // Page 3 is the campaign briefing: the LIST holds the
-                // selected campaign's description wrapped at the list
-                // column (235 - 22 = 213 px). The retail break positions
-                // match a pixel wrap, not a character count; the VSCROLL
-                // scrolls the wrapped lines with a proportional thumb.
-                const dino::Campaign* selected = menu.selected_campaign();
-                if (selected != nullptr && list_font != nullptr) {
-                    const std::vector<std::string> lines =
-                        wrap_lines_pixels(
-                            *list_font, list_scale * dpi,
-                            dino::ui::resolve_loc_text(
-                                selected->description_id, menu.loc),
-                            static_cast<float>(row_w) * dpi);
-                    menu.campaign_info_lines =
-                        static_cast<int>(lines.size());
-                    const int first = menu.list_first_row(
-                        "CAMPAIGN_INFO_DESCRIPTION");
-                    std::string visible;
-                    for (int i = first;
-                         i < static_cast<int>(lines.size()) &&
-                         i < first + visible_rows;
-                         ++i) {
-                        visible += lines[static_cast<std::size_t>(i)];
-                        visible += '\n';
-                    }
-                    const dino::Mesh block = build_text_block(
-                        *list_font, visible,
-                        px(widget.abs_x),
-                        py(widget.abs_y) + 2.0f * dpi, list_scale * dpi,
-                        widget.text_color, "LEFT",
-                        static_cast<float>(row_w - 4) * dpi,
-                        static_cast<float>(widget.height) * dpi,
-                        static_cast<float>(line_h) * dpi);
-                    draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
-                                 view_w, view_h);
-                }
-            } else {
-                for (int slot = 0; slot < row_count; ++slot) {
-                    const int row = first_row + slot;
-                    const float row_y = py(widget.abs_y) +
-                                        static_cast<float>(slot) * line_h * dpi;
-                    const bool locked =
-                        (campaign_list && !menu.campaign_unlocked(row)) ||
-                        (cinematics_list && !menu.cinematic_unlocked(row));
-                    if (row_texture != nullptr && row_graphic != nullptr) {
-                        const int frame =
-                            locked ? 0
-                                   : (row == selected_row ? selected_frame
-                                                          : normal_frame);
-                        const UiSourceRect source =
-                            ui_frame_rect(*row_texture, *row_graphic, frame);
-                        if (source.valid) {
-                            const float u0 =
-                                static_cast<float>(source.x) /
-                                row_texture->width;
-                            const float v0 =
-                                static_cast<float>(source.y) /
-                                row_texture->height;
-                            const float u1 =
-                                static_cast<float>(source.x + source.w) /
-                                row_texture->width;
-                            const float v1 =
-                                static_cast<float>(source.y + source.h) /
-                                row_texture->height;
-                            draw_ui_mesh(
-                                menu_gpu,
-                                build_ui_quad(
-                                    px(widget.abs_x), row_y,
-                                    static_cast<float>(row_w) * dpi,
-                                    static_cast<float>(line_h) * dpi, u0,
-                                    v0, u1, v1, {255, 255, 255, 255}),
-                                row_texture->id, 1.0f, 1, view_w, view_h);
-                        }
-                    }
-                    if (list_font != nullptr) {
-                        std::string name;
-                        if (load_list) {
-                            if (row < static_cast<int>(
-                                          menu_save_slots.size())) {
-                                name = menu_save_slots
-                                           [static_cast<std::size_t>(row)]
-                                               .second;
-                            }
-                        } else if (campaign_list) {
-                            if (row < static_cast<int>(
-                                          menu.campaigns.size())) {
-                                name = dino::ui::resolve_loc_text(
-                                    menu.campaigns[static_cast<std::size_t>(
-                                                       row)]
-                                        .title_id,
-                                    menu.loc);
-                            }
-                        } else if (cinematics_list) {
-                            if (row < static_cast<int>(
-                                          menu.campaigns.size())) {
-                                name = dino::ui::resolve_loc_text(
-                                    menu.campaigns[static_cast<std::size_t>(
-                                                       row)]
-                                        .ending_video_name,
-                                    menu.loc);
-                            }
-                        } else {
-                            char field[32];
-                            std::snprintf(field, sizeof(field),
-                                          "&Isl%02d_Name", row + 1);
-                            name = dino::ui::resolve_loc_text(field,
-                                                             menu.loc);
-                        }
-                        if (!name.empty()) {
-                            const dino::Color text_color =
-                                locked ? dino::Color{120, 120, 120, 255}
-                                       : widget.text_color;
-                            const dino::Mesh block = build_text_block(
-                                *list_font, name, px(widget.abs_x), row_y,
-                                list_scale * dpi, text_color,
-                                list_justify,
-                                static_cast<float>(row_w) * dpi,
-                                static_cast<float>(line_h) * dpi);
-                            draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f,
-                                         2, view_w, view_h);
-                        }
-                    }
-                }
-            }
-            if (widget.list_scroll_width > 0) {
-                const dino::ui::ListScrollGeometry scroll =
-                    menu.list_scroll_geometry(widget.name);
-                // Retail hides the auto-created VSCROLL when the list
-                // fits (range == 1): the campaign list (7 rows in an
-                // 8-row viewport) shows bare panel metal, while the
-                // island list (10 rows) shows the bar.
-                if (scroll.width > 0 && scroll.range > 1) {
-                    const float scroll_x = px(scroll.x);
-                    const float scroll_y = py(scroll.y);
-                    const float scroll_w =
-                        static_cast<float>(scroll.width) * dpi;
-                    const float scroll_h =
-                        static_cast<float>(scroll.height) * dpi;
-                    const float arrow =
-                        static_cast<float>(scroll.arrow) * dpi;
-                    // State frames are universal (docs/formats/overlay-ini.md):
-                    // 0 = disabled, 4 = normal, 5 = hover, 6 = pressed,
-                    // 7 = selected. SKIP_LIST only removes animation
-                    // frames 1-3, so normal is frame 4 even though the
-                    // art skips 1 2 3.
-                    draw_menu_sprite("CAMPAIGN_TEXT_LIFT", scroll_x, scroll_y,
-                                     scroll_w, scroll_h, 0, view_w, view_h);
-                    draw_menu_sprite("CAMPAIGN_TEXT_SCROLLUP", scroll_x,
-                                     scroll_y, scroll_w, arrow, 4, view_w,
-                                     view_h);
-                    draw_menu_sprite("CAMPAIGN_TEXT_SCROLLDOWN", scroll_x,
-                                     scroll_y + scroll_h - arrow, scroll_w,
-                                     arrow, 4, view_w, view_h);
-                    draw_menu_sprite(
-                        "CAMPAIGN_TEXT_THUMB", scroll_x,
-                        py(scroll.thumb_y), scroll_w,
-                        static_cast<float>(scroll.thumb_h) * dpi, 4, view_w,
-                        view_h);
-                }
-            }
+            draw_menu_list_widget(widget, dpi, ox, oy, view_w, view_h);
         }
 
         const std::string text = menu.text_for(widget);
