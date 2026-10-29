@@ -165,6 +165,122 @@ void Game::handle_menu_input(const SDL_Event& event) {
     }
 }
 
+void Game::handle_key_input(const SDL_Event& event) {
+    const SDL_Keycode key = event.key.key;
+    if (park.name_edit_active() && key == SDLK_BACKSPACE) {
+        park.backspace_name();
+        opt.save_name = park.save_name();
+    } else if (key == SDLK_ESCAPE && park.loaded() &&
+               park.is_visible("OPTIONS_PANEL")) {
+        // Retail: Esc is the overlay-close key. With no tool it
+        // is a no-op in the park, but it closes OPTIONS_PANEL
+        // (PauseGame is P, not Esc).
+        park.overlay.set_visible("OPTIONS_PANEL", false);
+        std::printf("options: closed (Esc)\n");
+    } else if (key == SDLK_ESCAPE &&
+               (build_tool != 0 || pending_store_index >= 0 ||
+                fence_corner_x >= 0 || road_has_start ||
+                selected_paddock >= 0 || park_sell_mode ||
+                park_sell_paddock >= 0)) {
+        // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
+        // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
+        // The road/building/show states use the same common leave.
+        if (build_tool == 6 || build_tool == 2) {
+            std::printf("fence: tool off (Esc)\n");
+        } else if (build_tool == 4) {
+            std::printf("road: tool off (Esc)\n");
+        } else if (build_tool == 3) {
+            std::printf("construction: tool off (Esc)\n");
+        } else if (build_tool == 5) {
+            std::printf("show: tool off (Esc)\n");
+        }
+        if (pending_store_index >= 0) {
+            std::printf("store: selection off (Esc)\n");
+        }
+        if (selected_paddock >= 0) {
+            selected_paddock = -1;
+            std::printf("paddock: deselected (Esc)\n");
+            rebuild_build_meshes();
+            refresh_fence_info_panel();
+        }
+        if (park_sell_mode || park_sell_paddock >= 0) {
+            park_sell_mode = false;
+            park_sell_paddock = -1;
+            if (park.dialog_open()) {
+                park.close_dialog();
+            }
+            std::printf("sell: mode off (Esc)\n");
+        }
+        build_tool = 0;
+        fence_corner_x = -1;
+        fence_corner_y = -1;
+        pending_construct_kind = -1;
+        pending_show_index = -1;
+        pending_store_index = -1;
+        road_has_start = false;
+        park.overlay.set_visible(
+            "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
+        park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
+                                 false);
+        park.overlay.set_visible(
+            "CONSTRUCTION_ROAD_METRO_PANEL", false);
+        park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
+        park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
+    } else if (key == keymap[dino::KeyAction::Quit]) {
+        // Retail has no Escape binding in the default park state
+        // (the state manager binds it only on the construction /
+        // purchase / selected states, which handle it above).
+        // Never quit the viewer from the park; quitting goes
+        // through the menu's Quit Game / return-to-menu flow.
+        if (!park.loaded()) {
+            running = false;
+        }
+    } else if (key == keymap[dino::KeyAction::Reset]) {
+        yaw = opt.yaw;
+        pitch = opt.pitch;
+        distance = auto_distance;
+    } else if (key == keymap[dino::KeyAction::Fullscreen]) {
+        opt.fullscreen = !opt.fullscreen;
+        SDL_SetWindowFullscreen(window, opt.fullscreen);
+    } else if (key == keymap[dino::KeyAction::Borderless]) {
+        opt.borderless = !opt.borderless;
+        SDL_SetWindowBordered(window, !opt.borderless);
+    } else if (key == keymap[dino::KeyAction::Mute]) {
+        opt.muted = !opt.muted;
+        if (audio != nullptr) {
+            SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
+        }
+        ui_sound.set_muted(opt.muted);
+        music.set_gain(opt.muted
+                           ? 0.0f
+                           : std::clamp(opt.music_volume / 100.0f,
+                                        0.0f, 1.0f));
+    } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
+        free_camera = !free_camera;
+        if (free_camera) {
+            enter_free_camera();
+        }
+    } else if (key == SDLK_F1) {
+        hud_visible = !hud_visible;
+    } else if (key == SDLK_TAB) {
+        show_help = !show_help;
+    } else if (key == SDLK_1) {
+        build_tool = 1;
+        std::printf("build tool: path\n");
+    } else if (key == SDLK_2) {
+        build_tool = 2;
+        std::printf("build tool: fence\n");
+    } else if (key == SDLK_0) {
+        build_tool = 0;
+        pending_construct_kind = -1;
+        std::printf("build tool: off\n");
+    } else if (key == SDLK_U) {
+        if (build_grid.undo()) {
+            rebuild_build_meshes();
+        }
+    }
+}
+
 void Game::handle_input() {
     sync_park_layout();
     apply_injected_input();
@@ -188,119 +304,7 @@ void Game::handle_input() {
                 opt.save_name = park.save_name();
             }
         } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-            const SDL_Keycode key = event.key.key;
-            if (park.name_edit_active() && key == SDLK_BACKSPACE) {
-                park.backspace_name();
-                opt.save_name = park.save_name();
-            } else if (key == SDLK_ESCAPE && park.loaded() &&
-                       park.is_visible("OPTIONS_PANEL")) {
-                // Retail: Esc is the overlay-close key. With no tool it
-                // is a no-op in the park, but it closes OPTIONS_PANEL
-                // (PauseGame is P, not Esc).
-                park.overlay.set_visible("OPTIONS_PANEL", false);
-                std::printf("options: closed (Esc)\n");
-            } else if (key == SDLK_ESCAPE &&
-                       (build_tool != 0 || pending_store_index >= 0 ||
-                        fence_corner_x >= 0 || road_has_start ||
-                        selected_paddock >= 0 || park_sell_mode ||
-                        park_sell_paddock >= 0)) {
-                // `pvwStateFenceConstruction` vtable +0x1c = 0x52be60:
-                // Esc leaves the state; +0x08 = 0x5269c0 hides its panel.
-                // The road/building/show states use the same common leave.
-                if (build_tool == 6 || build_tool == 2) {
-                    std::printf("fence: tool off (Esc)\n");
-                } else if (build_tool == 4) {
-                    std::printf("road: tool off (Esc)\n");
-                } else if (build_tool == 3) {
-                    std::printf("construction: tool off (Esc)\n");
-                } else if (build_tool == 5) {
-                    std::printf("show: tool off (Esc)\n");
-                }
-                if (pending_store_index >= 0) {
-                    std::printf("store: selection off (Esc)\n");
-                }
-                if (selected_paddock >= 0) {
-                    selected_paddock = -1;
-                    std::printf("paddock: deselected (Esc)\n");
-                    rebuild_build_meshes();
-                    refresh_fence_info_panel();
-                }
-                if (park_sell_mode || park_sell_paddock >= 0) {
-                    park_sell_mode = false;
-                    park_sell_paddock = -1;
-                    if (park.dialog_open()) {
-                        park.close_dialog();
-                    }
-                    std::printf("sell: mode off (Esc)\n");
-                }
-                build_tool = 0;
-                fence_corner_x = -1;
-                fence_corner_y = -1;
-                pending_construct_kind = -1;
-                pending_show_index = -1;
-                pending_store_index = -1;
-                road_has_start = false;
-                park.overlay.set_visible(
-                    "FENCE_CONSTRUCTION_AND_INFO_PANEL", false);
-                park.overlay.set_visible("CONSTRUCTION_BUILDINGS_PANEL",
-                                         false);
-                park.overlay.set_visible(
-                    "CONSTRUCTION_ROAD_METRO_PANEL", false);
-                park.overlay.set_visible("PREDEFINED_SHOW_PANEL", false);
-                park.overlay.set_visible("DINO_ACHAT_SAVE_PANEL", false);
-            } else if (key == keymap[dino::KeyAction::Quit]) {
-                // Retail has no Escape binding in the default park state
-                // (the state manager binds it only on the construction /
-                // purchase / selected states, which handle it above).
-                // Never quit the viewer from the park; quitting goes
-                // through the menu's Quit Game / return-to-menu flow.
-                if (!park.loaded()) {
-                    running = false;
-                }
-            } else if (key == keymap[dino::KeyAction::Reset]) {
-                yaw = opt.yaw;
-                pitch = opt.pitch;
-                distance = auto_distance;
-            } else if (key == keymap[dino::KeyAction::Fullscreen]) {
-                opt.fullscreen = !opt.fullscreen;
-                SDL_SetWindowFullscreen(window, opt.fullscreen);
-            } else if (key == keymap[dino::KeyAction::Borderless]) {
-                opt.borderless = !opt.borderless;
-                SDL_SetWindowBordered(window, !opt.borderless);
-            } else if (key == keymap[dino::KeyAction::Mute]) {
-                opt.muted = !opt.muted;
-                if (audio != nullptr) {
-                    SDL_SetAudioStreamGain(audio, opt.muted ? 0.0f : 1.0f);
-                }
-                ui_sound.set_muted(opt.muted);
-                music.set_gain(opt.muted
-                                   ? 0.0f
-                                   : std::clamp(opt.music_volume / 100.0f,
-                                                0.0f, 1.0f));
-            } else if (key == keymap[dino::KeyAction::ToggleCamera]) {
-                free_camera = !free_camera;
-                if (free_camera) {
-                    enter_free_camera();
-                }
-            } else if (key == SDLK_F1) {
-                hud_visible = !hud_visible;
-            } else if (key == SDLK_TAB) {
-                show_help = !show_help;
-            } else if (key == SDLK_1) {
-                build_tool = 1;
-                std::printf("build tool: path\n");
-            } else if (key == SDLK_2) {
-                build_tool = 2;
-                std::printf("build tool: fence\n");
-            } else if (key == SDLK_0) {
-                build_tool = 0;
-                pending_construct_kind = -1;
-                std::printf("build tool: off\n");
-            } else if (key == SDLK_U) {
-                if (build_grid.undo()) {
-                    rebuild_build_meshes();
-                }
-            }
+            handle_key_input(event);
         } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                    event.button.button == SDL_BUTTON_LEFT) {
             if (park.loaded()) {
