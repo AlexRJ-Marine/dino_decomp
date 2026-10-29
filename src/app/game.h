@@ -483,6 +483,7 @@ private:
     void update_simulation();
     void update_camera_view();
     void update_placement();
+    void update_fence_cursor();
     void update_preview();
     void draw_frame();
     void present_frame();

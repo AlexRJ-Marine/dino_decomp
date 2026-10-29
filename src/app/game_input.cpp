@@ -643,16 +643,7 @@ void Game::handle_input() {
     }
 }
 
-void Game::update_placement() {
-    if (pending_fence_tool) {
-        ensure_build_ready();
-        build_tool = 6;
-        fence_corner_x = -1;
-        fence_corner_y = -1;
-        pending_construct_kind = -1;
-        pending_fence_tool = false;
-        std::printf("fence: tool armed (click two corners)\n");
-    }
+void Game::update_fence_cursor() {
     if ((build_tool == 2 || build_tool == 6) && build_ready &&
         !opt.no_input) {
         float mxf = 0.0f;
@@ -826,6 +817,19 @@ void Game::update_placement() {
         }
         rebuild_extra_items();
     }
+}
+
+void Game::update_placement() {
+    if (pending_fence_tool) {
+        ensure_build_ready();
+        build_tool = 6;
+        fence_corner_x = -1;
+        fence_corner_y = -1;
+        pending_construct_kind = -1;
+        pending_fence_tool = false;
+        std::printf("fence: tool armed (click two corners)\n");
+    }
+    update_fence_cursor();
     if (pending_click) {
         pending_click = false;
         if (pending_store_index >= 0 && build_ready) {
