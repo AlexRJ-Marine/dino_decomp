@@ -78,6 +78,7 @@
 #include "../world/employees.h"
 #include "../world/food.h"
 #include "../world/park_clock.h"
+#include "../world/park_session.h"
 #include "../world/port_save.h"
 #include "../world/show_runtime.h"
 #include "../world/terrain.h"
@@ -168,7 +169,7 @@ private:
     std::vector<std::string> island_names;
     std::array<int, 3> free_game_budgets;
     std::array<float, 3> free_game_sellback;
-    ParkClock park_clock;
+    dino::ParkSession park_session;
     std::optional<dino::CampaignRuntime> campaign_runtime;
     std::vector<dino::ObjectiveVerdict> last_mission_verdicts;
     std::optional<dino::CampaignMission> pending_next_mission;
@@ -380,7 +381,6 @@ private:
     std::vector<ShowFeatureDraw> show_feature_draws;
     std::vector<dino::EmployeeProfile> employee_profiles;
     dino::CameraConfig camera_config;
-    dino::BudgetLedger budget_ledger;
     int pending_buy_price;
     int build_tool;
     int pending_construct_kind;
@@ -409,8 +409,6 @@ private:
     int park_hover_x;
     int park_hover_y;
     int park_active_index;
-    int park_budget;
-    float park_sellback;
     dino::EmployeeSystem employee_system;
     std::vector<std::string> construction_names;
     std::vector<dino::BuildingDef> construction_defs;

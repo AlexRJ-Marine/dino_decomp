@@ -230,10 +230,10 @@ void Game::handle_show_place(int catalog_index) {
     }
     const dino::ShowCatalogEntry& entry =
         show_catalog[static_cast<std::size_t>(catalog_index)];
-    if (park_budget < entry.cost) {
+    if (park_session.budget < entry.cost) {
         std::printf(
             "show: %s needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
-            entry.stem.c_str(), entry.cost, park_budget);
+            entry.stem.c_str(), entry.cost, park_session.budget);
         park.show_message(dino::ui::resolve_loc_text(
             "&WARNING_NOT_ENOUGH_MONEY", park.loc));
         return;
@@ -286,10 +286,10 @@ void Game::place_show_at(int rx, int ry) {
         std::printf("show: %s footprint blocked\n", entry.stem.c_str());
         return;
     }
-    if (park_budget < entry.cost) {
+    if (park_session.budget < entry.cost) {
         std::printf(
             "show: %s needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
-            entry.stem.c_str(), entry.cost, park_budget);
+            entry.stem.c_str(), entry.cost, park_session.budget);
         return;
     }
     const std::vector<int> profile_ids = show_profile_ids();
@@ -299,15 +299,15 @@ void Game::place_show_at(int rx, int ry) {
                     entry.stem.c_str());
         return;
     }
-    park_budget -= entry.cost;
-    budget_ledger.spend_construction(entry.cost);
+    park_session.budget -= entry.cost;
+    park_session.ledger.spend_construction(entry.cost);
     auto_assign_show_participants(index);
     const dino::ParkShow* show = show_runtime.at(index);
     std::printf(
         "show: placed %s at %d,%d slot=%d (%s) size=%dx%d budget=%d\n",
         show->entry.stem.c_str(), show->cell_x, show->cell_y, show->slot,
         show_slot_text(show->slot).c_str(), show->entry.width,
-        show->entry.height, park_budget);
+        show->entry.height, park_session.budget);
     build_tool = 0;
     pending_show_index = -1;
 

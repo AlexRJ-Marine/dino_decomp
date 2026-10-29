@@ -25,7 +25,7 @@ void Game::apply_menu_options() {
                           : std::clamp(menu.sfx_volume / 100.0f, 0.0f,
                                        1.0f));
     if (menu.game_speed_dirty && opt.park_time_scale <= 0.0f) {
-        park_clock.time_scale = 6.0 * static_cast<double>(
+        park_session.clock.time_scale = 6.0 * static_cast<double>(
                                           std::max(1, menu.game_speed));
         menu.game_speed_dirty = false;
     }
@@ -311,7 +311,7 @@ void Game::play_pending_cinematic() {
 
 void Game::start_campaign_mission(const dino::CampaignMission& mission) {
     campaign_runtime.emplace();
-    campaign_runtime->start(mission, park_clock.minutes());
+    campaign_runtime->start(mission, park_session.clock.minutes());
     show_runtime.clear();
     show_runtime.set_duration_minutes(opt.show_duration_minutes);
     show_catalog.clear();
@@ -414,11 +414,11 @@ void Game::advance_campaign() {
     pending_next_mission.reset();
     const auto delta = next.values.find("CONTEXT.BUDGET");
     if (delta != next.values.end()) {
-        park_budget += std::atoi(delta->second.c_str());
+        park_session.budget += std::atoi(delta->second.c_str());
     }
     park.close_dialog();
     std::printf("campaign: next mission %s budget=%d\n",
-                next.name.c_str(), park_budget);
+                next.name.c_str(), park_session.budget);
     start_campaign_mission(next);
 
 }

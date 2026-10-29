@@ -1116,7 +1116,7 @@ std::string Game::hud_widget_text(const std::string& name) {
         }
     }
     if (name == "BUDGET_AMOUNT") {
-        return std::to_string(park_budget);
+        return std::to_string(park_session.budget);
     }
     if (name == "OPTIONS_NAME_SLOT") {
         return park.save_name();
@@ -1199,10 +1199,10 @@ std::string Game::hud_widget_text(const std::string& name) {
         return iterations > 0 ? std::to_string(iterations) : "";
     }
     if (name == "PARK_CURRENT_TIME") {
-        return park_clock.time_text(false);
+        return park_session.clock.time_text(false);
     }
     if (name == "PARK_CURRENT_DAY") {
-        return park_clock.day_text();
+        return park_session.clock.day_text();
     }
     // Budget-panel fields are separate number widgets refreshed by
     // 0x510430. The panel shows the yesterday block (docs/decomp/
@@ -1212,53 +1212,53 @@ std::string Game::hud_widget_text(const std::string& name) {
         name.size() > 7 &&
         name.compare(name.size() - 7, 7, "_NUMBER") == 0) {
         if (name == "BUDGET_DINOACHAT_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_dinoachat_count);
+            return std::to_string(park_session.ledger.y_dinoachat_count);
         }
         if (name == "BUDGET_DINOACHAT_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_dinoachat_total);
+            return std::to_string(park_session.ledger.y_dinoachat_total);
         }
         if (name == "BUDGET_CONSTRUCTION_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_construction_count);
+            return std::to_string(park_session.ledger.y_construction_count);
         }
         if (name == "BUDGET_CONSTRUCTION_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_construction_total);
+            return std::to_string(park_session.ledger.y_construction_total);
         }
         if (name == "BUDGET_LABOACTION_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_laboaction_count);
+            return std::to_string(park_session.ledger.y_laboaction_count);
         }
         if (name == "BUDGET_LABOACTION_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_laboaction_total);
+            return std::to_string(park_session.ledger.y_laboaction_total);
         }
         if (name == "BUDGET_ENTREES_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_ticket_count);
+            return std::to_string(park_session.ledger.y_ticket_count);
         }
         if (name == "BUDGET_ENTREES_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_ticket_total);
+            return std::to_string(park_session.ledger.y_ticket_total);
         }
         if (name == "BUDGET_VENTES_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_ventes_count);
+            return std::to_string(park_session.ledger.y_ventes_count);
         }
         if (name == "BUDGET_VENTES_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_ventes_total);
+            return std::to_string(park_session.ledger.y_ventes_total);
         }
         if (name == "BUDGET_FOOD_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_food_count);
+            return std::to_string(park_session.ledger.y_food_count);
         }
         if (name == "BUDGET_FOOD_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_food_total);
+            return std::to_string(park_session.ledger.y_food_total);
         }
         if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_NUMBER") {
-            return std::to_string(budget_ledger.y_secu_count);
+            return std::to_string(park_session.ledger.y_secu_count);
         }
         if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_secu_total);
+            return std::to_string(park_session.ledger.y_secu_total);
         }
         if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
             return std::to_string(
                 employee_system.count_role(employee_profiles, 0));
         }
         if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
-            return std::to_string(budget_ledger.y_staff_food_total);
+            return std::to_string(park_session.ledger.y_staff_food_total);
         }
         const struct ShopRow {
             const char* prefix;
@@ -1276,21 +1276,21 @@ std::string Game::hud_widget_text(const std::string& name) {
                 static_cast<std::size_t>(row.kind);
             if (name.find("_COST_NUMBER") != std::string::npos) {
                 return std::to_string(
-                    budget_ledger.y_shop_revenue[index]);
+                    park_session.ledger.y_shop_revenue[index]);
             }
             return std::to_string(
-                budget_ledger.y_shop_sales[index]);
+                park_session.ledger.y_shop_sales[index]);
         }
         if (name == "BUDGET_TOTAL_LEFT_COST_NUMBER") {
-            return std::to_string(budget_ledger.expenses());
+            return std::to_string(park_session.ledger.expenses());
         }
         if (name == "BUDGET_TOTAL_RIGHT_COST_NUMBER") {
-            return std::to_string(budget_ledger.income());
+            return std::to_string(park_session.ledger.income());
         }
         return "0";
     }
     if (name == "BUDGET_TOTAL_PRICE_PANEL_PRICE_ZONE") {
-        return std::to_string(budget_ledger.net());
+        return std::to_string(park_session.ledger.net());
     }
     return "";
 }

@@ -407,10 +407,10 @@ bool Game::try_construct(int kind, int cell_x, int cell_y,
                                  : static_cast<int>(def.footprint_w);
     // Retail gates the budget first (0x5306e1 -> FUN_0052bed0), then the
     // placement/ground checks.
-    if (park_budget < static_cast<int>(def.construction_cost)) {
+    if (park_session.budget < static_cast<int>(def.construction_cost)) {
         std::printf(
             "construction: %s needs %u, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
-            def.name.c_str(), def.construction_cost, park_budget);
+            def.name.c_str(), def.construction_cost, park_session.budget);
         return false;
     }
     const int world = static_cast<int>(terrain.world_size);
@@ -440,12 +440,12 @@ bool Game::try_construct(int kind, int cell_x, int cell_y,
                         kind)) {
         return false;
     }
-    park_budget -= static_cast<int>(def.construction_cost);
-    budget_ledger.spend_construction(
+    park_session.budget -= static_cast<int>(def.construction_cost);
+    park_session.ledger.spend_construction(
         static_cast<int>(def.construction_cost));
     rebuild_extra_items();
     std::printf("construction: %s cost=%u budget=%d cell=%d,%d\n",
-                def.name.c_str(), def.construction_cost, park_budget,
+                def.name.c_str(), def.construction_cost, park_session.budget,
                 cell_x, cell_y);
     return true;
 
@@ -572,22 +572,22 @@ void Game::road_click(int cx, int cy) {
         return;
     }
     const int cost = dino::road_cost(road, ensure_road_price());
-    if (park_budget < cost) {
+    if (park_session.budget < cost) {
         std::printf("road: needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
-                    cost, park_budget);
+                    cost, park_session.budget);
         road_message("&WARNING_NOT_ENOUGH_MONEY");
         return;
     }
     const int added = dino::place_road(build_grid, road);
-    park_budget -= cost;
-    budget_ledger.spend_construction(cost);
+    park_session.budget -= cost;
+    park_session.ledger.spend_construction(cost);
     rebuild_build_meshes();
     std::printf(
         "road: built %d,%d -> %d,%d cells=%d new=%d cost=%d budget=%d "
         "construction=%d/%d\n",
         road.x0, road.y0, road.x1, road.y1, road.cells(), added, cost,
-        park_budget, budget_ledger.construction_count,
-        budget_ledger.construction_total);
+        park_session.budget, park_session.ledger.construction_count,
+        park_session.ledger.construction_total);
     // FUN_005f8830: chain from the run's endpoint nearest the click, in
     // the direction the run was dragged. `road_segment` stores x0<=x1 /
     // y0<=y1, so using the ordered max corner restarts at the wrong end
@@ -608,11 +608,11 @@ void Game::handle_store_buy(int index) {
     }
     const dino::MarketEntry& entry =
         store_catalog[static_cast<std::size_t>(index)];
-    if (park_budget < entry.price) {
+    if (park_session.budget < entry.price) {
         std::printf(
             "store: %s price=%d budget=%d "
             "(WARNING_NOT_ENOUGH_MONEY)\n",
-            entry.name.c_str(), entry.price, park_budget);
+            entry.name.c_str(), entry.price, park_session.budget);
         park.show_message(dino::ui::resolve_loc_text(
             "&WARNING_NOT_ENOUGH_MONEY", park.loc));
         return;
@@ -670,16 +670,16 @@ void Game::run_daily_settlement() {
         }
         const dino::EmployeeProfile& profile =
             employee_profiles[static_cast<std::size_t>(employee.profile)];
-        budget_ledger.spend_staff(profile.kind, profile.wage);
+        park_session.ledger.spend_staff(profile.kind, profile.wage);
     }
-    park_budget += tickets - wages;
-    budget_ledger.add_ticket(tickets, visitors);
-    budget_ledger.settle();
+    park_session.budget += tickets - wages;
+    park_session.ledger.add_ticket(tickets, visitors);
+    park_session.ledger.settle();
     std::printf(
         "daily settlement: day=%d visitors=%d ticket=%d income=%d "
         "wages=%d budget=%d\n",
-        park_clock.day, visitors, ticket_price, tickets, wages,
-        park_budget);
+        park_session.clock.day, visitors, ticket_price, tickets, wages,
+        park_session.budget);
 
 }
 
@@ -997,7 +997,7 @@ void Game::sell_paddock_now(int index) {
         return;
     }
     const int value = dino::fence_sell_value(
-        pen.rect, build_grid.cell_size, 30, 4, park_sellback);
+        pen.rect, build_grid.cell_size, 30, 4, park_session.sellback);
     const int x0 = std::min(pen.rect.x0, pen.rect.x1);
     const int x1 = std::max(pen.rect.x0, pen.rect.x1);
     const int y0 = std::min(pen.rect.y0, pen.rect.y1);
@@ -1023,14 +1023,14 @@ void Game::sell_paddock_now(int index) {
         --selected_paddock;
     }
     park_paddocks = paddocks;
-    park_budget += value;
+    park_session.budget += value;
     park_sell_paddock = -1;
     rebuild_build_meshes();
     refresh_fence_info_panel();
     std::printf(
         "sell: sold enclosure %d refund=%d budget=%d sellback=%.2f\n",
-        index, value, park_budget,
-        static_cast<double>(park_sellback));
+        index, value, park_session.budget,
+        static_cast<double>(park_session.sellback));
 
 }
 

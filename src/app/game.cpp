@@ -300,14 +300,14 @@ void Game::update_menu_loading() {
                     if (delta != mission->values.end()) {
                         budget += std::atoi(delta->second.c_str());
                     }
-                    park_budget = std::max(0, budget);
-                    park_sellback = static_cast<float>(campaign->sell_back);
+                    park_session.budget = std::max(0, budget);
+                    park_session.sellback = static_cast<float>(campaign->sell_back);
                     std::printf(
                         "start: campaign=%s mission=%s island=%s "
                         "budget=%d sellback=%.2f\n",
                         campaign->name.c_str(), mission->name.c_str(),
-                        campaign->island.c_str(), park_budget,
-                        static_cast<double>(park_sellback));
+                        campaign->island.c_str(), park_session.budget,
+                        static_cast<double>(park_session.sellback));
                     start_campaign_mission(*mission);
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "campaign start: %s\n", e.what());
@@ -336,8 +336,8 @@ void Game::update_menu_loading() {
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "island load: %s\n", e.what());
                 }
-                park_budget = free_game_budgets[difficulty];
-                park_sellback = free_game_sellback[difficulty];
+                park_session.budget = free_game_budgets[difficulty];
+                park_session.sellback = free_game_sellback[difficulty];
                 // Free game lists its own [DINOSTORE] subset (20 entries)
                 // in FreeGame.ini; campaign missions override this with
                 // their mission block in start_campaign_mission.
@@ -353,7 +353,7 @@ void Game::update_menu_loading() {
                 std::printf(
                     "start: island=%s difficulty=%d budget=%d\n",
                     island_names[static_cast<std::size_t>(island_index)].c_str(),
-                    difficulty, park_budget);
+                    difficulty, park_session.budget);
             }
         }
     }
@@ -363,19 +363,19 @@ void Game::update_menu_loading() {
 void Game::update_park_world() {
     if (park.loaded() && !start_screen) {
         park.update(frame_dt);
-        park_clock.advance(frame_dt);
+        park_session.clock.advance(frame_dt);
         if (campaign_runtime && campaign_runtime->active()) {
             const int hour_index = static_cast<int>(
-                park_clock.elapsed * park_clock.hours_per_second());
+                park_session.clock.elapsed * park_session.clock.hours_per_second());
             show_runtime.tick(
-                hour_index, park_clock.day, park_clock.end_of_day, frame_dt,
-                park_clock.time_scale, [&](dino::ParkShow& show) {
+                hour_index, park_session.clock.day, park_session.clock.end_of_day, frame_dt,
+                park_session.clock.time_scale, [&](dino::ParkShow& show) {
                     fill_show_scores(show.record, show.participants);
                     std::printf(
                         "show: %s finished round %d/%d at %02d:%02d\n",
                         show.entry.stem.c_str(), show.done,
-                        show.iterations, park_clock.hour(),
-                        park_clock.minute());
+                        show.iterations, park_session.clock.hour(),
+                        park_session.clock.minute());
                 });
         }
         if (opt.show_status && !show_status_printed) {
@@ -391,12 +391,12 @@ void Game::update_park_world() {
                     slot, text.c_str(), iterations, locked);
             }
         }
-        if (park_clock.new_hour && !employee_system.employees.empty()) {
+        if (park_session.clock.new_hour && !employee_system.employees.empty()) {
             const int assigned = employee_system.start_hour(
                 employee_profiles, food_sources, food_defs);
             if (assigned > 0) {
                 std::printf("feed: hour=%d assigned=%d\n",
-                            park_clock.hour(), assigned);
+                            park_session.clock.hour(), assigned);
             }
         }
         employee_system.update(frame_dt, employee_profiles, food_sources,
@@ -406,9 +406,9 @@ void Game::update_park_world() {
                         employee_system.build_mesh(terrain, employee_pose),
                         glfns);
         }
-        if (park_clock.end_of_day) {
+        if (park_session.clock.end_of_day) {
             run_daily_settlement();
-            park_clock.next_day();
+            park_session.clock.next_day();
         }
     }
 }
@@ -449,19 +449,19 @@ void Game::update_campaign_session() {
 // Snapshot of the live park for the campaign objectives.
 dino::CampaignState Game::build_mission_state() {
     dino::CampaignState mission_state;
-    mission_state.treasury = park_budget;
-    for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
+    mission_state.treasury = park_session.budget;
+    for (std::size_t i = 1; i < park_session.ledger.shop_revenue.size(); ++i) {
         mission_state.merchandise_income +=
-            budget_ledger.shop_revenue[i];
+            park_session.ledger.shop_revenue[i];
     }
     // The port has no death counter; deaths stay zero (dyingdinos
     // passes). Hired staff feed the `employees` objective.
     mission_state.deaths = 0;
     mission_state.camera_altitude = static_cast<int>(
         (free_camera ? free_pos : orbit_eye()).z);
-    mission_state.clock_minutes = park_clock.minutes();
+    mission_state.clock_minutes = park_session.clock.minutes();
     mission_state.store_empty = store_catalog.empty();
-    mission_state.bankrupt = park_budget < 0;
+    mission_state.bankrupt = park_session.budget < 0;
     // VisitorList.ini personality order 0..9; mission objective
     // profile strings use these names.
     static const char* const kProfileNames[10] = {

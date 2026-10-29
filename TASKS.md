@@ -2170,12 +2170,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/platform/architecture.md`, `architecture.svg`.
 
 ### ARCH-2: Extract ParkSession state
-- [ ] Introduce `world/park_session.{h,cpp}` for the park/economy/visitor/
-  dino/build/show state now in `Game`; move one subsystem per commit
-  (budget+clock+ledger, build grid+paddocks, visitors, dinos, buildings,
-  food/employees, shows) with `Game` holding `ParkSession park_session`.
+- [x] Introduce `world/park_session.h` and move the first subsystem:
+  `clock`, `budget`, `sellback` and `ledger`. `Game` holds
+  `dino::ParkSession park_session`; 165 references updated mechanically;
+  save/load, campaign and HUD tests unchanged. Member ratchet 286 -> 283.
+- [ ] Move the remaining subsystems one commit at a time: build grid +
+  paddocks, visitors, dinos, buildings, food/employees, shows. Lower the
+  `GAME_MEMBERS_MAX` ratchet after each slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
-  body of `update_park_world`/`update_simulation` in a second step.
+  bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member
   ratchet drops by the moved fields; `game.h` < 500 lines at the end.
 - **Depends on:** ARCH-1.

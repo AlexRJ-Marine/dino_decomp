@@ -478,7 +478,7 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
                             const dino::BuildingDef& def =
                                 construction_defs[static_cast<
                                     std::size_t>(kind)];
-                            if (park_budget <
+                            if (park_session.budget <
                                 static_cast<int>(
                                     def.construction_cost)) {
                                 std::printf(
@@ -487,7 +487,7 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
                                     "(WARNING_NOT_ENOUGH_MONEY)\n",
                                     def.name.c_str(),
                                     def.construction_cost,
-                                    park_budget);
+                                    park_session.budget);
                             } else {
                                 build_tool = 3;
                                 pending_construct_kind = kind;
@@ -948,8 +948,8 @@ void Game::place_selected_store_item() {
                                             : nullptr)) {
                         dino::paddock_add(paddock, dino_id,
                                           cost_class);
-                        park_budget -= pending_store_price;
-                        budget_ledger.spend_dinoachat(
+                        park_session.budget -= pending_store_price;
+                        park_session.ledger.spend_dinoachat(
                             pending_store_price);
                         store_catalog.erase(
                             store_catalog.begin() +
@@ -966,10 +966,10 @@ void Game::place_selected_store_item() {
                             "dinoachat=%d/%d used=%.0f "
                             "total=%.0f\n",
                             entry.name.c_str(),
-                            pending_store_price, park_budget,
+                            pending_store_price, park_session.budget,
                             paddock_index, imported_dinos.size(),
-                            budget_ledger.dinoachat_count,
-                            budget_ledger.dinoachat_total,
+                            park_session.ledger.dinoachat_count,
+                            park_session.ledger.dinoachat_total,
                             paddock.used, total_used);
                         pending_store_index = -1;
                         pending_store_price = 0;
@@ -1109,7 +1109,7 @@ void Game::apply_build_tool_click() {
                         // cell*price; Fence.bwi cell 4, price 30.
                         cost = ((x1 + y1) - (x0 + y0)) * 2 / 4 *
                                30;
-                        if (park_budget < cost) {
+                        if (park_session.budget < cost) {
                             warning =
                                 "&WARNING_NOT_ENOUGH_MONEY";
                         }
@@ -1155,8 +1155,8 @@ void Game::apply_build_tool_click() {
                                        std::to_string(
                                            paddocks.size() + 1);
                         paddocks.push_back(paddock);
-                        park_budget -= cost;
-                        budget_ledger.spend_construction(cost);
+                        park_session.budget -= cost;
+                        park_session.ledger.spend_construction(cost);
                         std::printf(
                             "fence: built rect %d,%d-%d,%d "
                             "edges=%d paddock=%zu capacity=%.0f "
@@ -1166,9 +1166,9 @@ void Game::apply_build_tool_click() {
                             build_grid.fence_count - before,
                             paddocks.size(),
                             static_cast<double>(paddock.capacity),
-                            cost, park_budget,
-                            budget_ledger.construction_count,
-                            budget_ledger.construction_total);
+                            cost, park_session.budget,
+                            park_session.ledger.construction_count,
+                            park_session.ledger.construction_total);
                         rebuild_build_meshes();
                     }
                     fence_corner_x = -1;
@@ -1267,7 +1267,7 @@ void Game::apply_park_click() {
                 } else {
                     const int value = dino::fence_sell_value(
                         pen.rect, build_grid.cell_size, 30, 4,
-                        park_sellback);
+                        park_session.sellback);
                     park_sell_paddock = index;
                     park.show_request(
                         dino::ui::resolve_loc_text(
@@ -1372,7 +1372,7 @@ void Game::update_preview() {
                 road_preview_ok =
                     dino::check_road(build_grid, road, road_perimeters(),
                                      [this](int x, int y) { return road_cell_busy(x, y); }) == dino::RoadCheck::Ok &&
-                    park_budget >= cost;
+                    park_session.budget >= cost;
                 if (road_preview_texture == 0) {
                     try {
                         road_helper_image = dino::load_tga(resolve_asset(

@@ -135,28 +135,28 @@ std::optional<int> Game::boot_budgets_and_clock() {
     } catch (const std::exception& e) {
         std::fprintf(stderr, "free game scenario: %s\n", e.what());
     }
-    park_clock.time_scale =
+    park_session.clock.time_scale =
         opt.park_time_scale > 0.0f ? opt.park_time_scale : 60.0;
     if (!opt.park_time.empty()) {
         int hour = 0;
         int minute = 0;
         if (std::sscanf(opt.park_time.c_str(), "%d:%d", &hour, &minute) == 2) {
             const double target =
-                (hour - park_clock.base_hour) * 60.0 + minute;
-            park_clock.elapsed =
-                target > 0.0 ? target / park_clock.minutes_per_second() : 0.0;
+                (hour - park_session.clock.base_hour) * 60.0 + minute;
+            park_session.clock.elapsed =
+                target > 0.0 ? target / park_session.clock.minutes_per_second() : 0.0;
         }
     }
     if (opt.park_advance > 0.0f) {
-        park_clock.advance(opt.park_advance);
-        if (park_clock.end_of_day) {
-            park_clock.next_day();
+        park_session.clock.advance(opt.park_advance);
+        if (park_session.clock.end_of_day) {
+            park_session.clock.next_day();
         }
     }
     std::printf("park clock: scale=%.1f base=%d time=%s day=%s\n",
-                park_clock.time_scale, park_clock.base_hour,
-                park_clock.time_text(false).c_str(),
-                park_clock.day_text().c_str());
+                park_session.clock.time_scale, park_session.clock.base_hour,
+                park_session.clock.time_text(false).c_str(),
+                park_session.clock.day_text().c_str());
     return std::nullopt;
 }
 

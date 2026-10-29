@@ -693,10 +693,10 @@ void Game::apply_port_state(const dino::PortState& state) {
         current_island = state.island;
     }
     ensure_build_ready();
-    park_budget = state.budget;
-    park_clock.day = state.day;
-    park_clock.elapsed = state.elapsed;
-    park_clock.time_scale = state.time_scale > 0.0 ? state.time_scale : 60.0;
+    park_session.budget = state.budget;
+    park_session.clock.day = state.day;
+    park_session.clock.elapsed = state.elapsed;
+    park_session.clock.time_scale = state.time_scale > 0.0 ? state.time_scale : 60.0;
     center = state.target;
     yaw = state.yaw;
     pitch = std::clamp(state.pitch, -89.0f, 89.0f);
@@ -764,7 +764,7 @@ void Game::apply_port_state(const dino::PortState& state) {
     std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
                 "paths=%d fences=%d buildings=%zu dinos=%zu "
                 "paddocks=%zu food=%zu\n",
-                current_island.c_str(), park_budget, park_clock.day,
+                current_island.c_str(), park_session.budget, park_session.clock.day,
                 visitor_system.visitors.size(), build_grid.path_count,
                 build_grid.fence_count, building_instances.size(),
                 imported_dinos.size(), paddocks.size(),
@@ -1059,10 +1059,10 @@ dino::PortState Game::make_port_state() {
                 .string();
     }
     state.difficulty = std::clamp(menu.difficulty, 0, 2);
-    state.budget = park_budget;
-    state.day = park_clock.day;
-    state.elapsed = park_clock.elapsed;
-    state.time_scale = park_clock.time_scale;
+    state.budget = park_session.budget;
+    state.day = park_session.clock.day;
+    state.elapsed = park_session.clock.elapsed;
+    state.time_scale = park_session.clock.time_scale;
     state.target = center;
     state.yaw = yaw;
     state.pitch = pitch;

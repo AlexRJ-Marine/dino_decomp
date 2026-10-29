@@ -510,7 +510,7 @@ std::optional<int> Game::boot_import_dinos() {
                                     ? dino::genotype_is_carnivore(buy_genotype)
                                     : true;
                             dino::paddock_add(paddock, dino_id, cost_class);
-                            budget_ledger.spend_dinoachat(entry->price);
+                            park_session.ledger.spend_dinoachat(entry->price);
                             pending_buy_price = entry->price;
                             std::printf(
                                 "buy: %s price=%d budget=%d paddock=%d "
@@ -720,12 +720,12 @@ std::optional<int> Game::boot_park_session() {
     park_hover_x = -1;
     park_hover_y = -1;
     park_active_index = -1;
-    park_budget = free_game_budgets[0];
-    park_sellback = free_game_sellback[0];
+    park_session.budget = free_game_budgets[0];
+    park_session.sellback = free_game_sellback[0];
     if (sav_ready) {
-        park_budget = sav_simulation.budget;
-        park_clock.day = sav_simulation.day;
-        park_clock.elapsed = sav_simulation.elapsed;
+        park_session.budget = sav_simulation.budget;
+        park_session.clock.day = sav_simulation.day;
+        park_session.clock.elapsed = sav_simulation.elapsed;
         // Camera tail: eye[0..2], target[3..5], progress[6], reserved[7..9].
         // The port's save reader retained it; apply it unless the CLI asked
         // for an explicit camera.
@@ -786,37 +786,37 @@ std::optional<int> Game::boot_park_session() {
                                                                     : value;
             };
             const dino::SavEconomy& economy = sav_simulation.economy;
-            budget_ledger.y_food_total = sane(economy.yesterday_food[0]);
-            budget_ledger.y_food_count = sane(economy.yesterday_food[1]);
-            budget_ledger.y_staff_food_total =
+            park_session.ledger.y_food_total = sane(economy.yesterday_food[0]);
+            park_session.ledger.y_food_count = sane(economy.yesterday_food[1]);
+            park_session.ledger.y_staff_food_total =
                 sane(economy.yesterday_staff[0]);
-            budget_ledger.y_secu_total = sane(economy.yesterday_secu[0]);
-            budget_ledger.y_secu_count = sane(economy.yesterday_secu[1]);
-            budget_ledger.y_dinoachat_count =
+            park_session.ledger.y_secu_total = sane(economy.yesterday_secu[0]);
+            park_session.ledger.y_secu_count = sane(economy.yesterday_secu[1]);
+            park_session.ledger.y_dinoachat_count =
                 sane(economy.yesterday_totals[5]);
-            budget_ledger.y_dinoachat_total =
+            park_session.ledger.y_dinoachat_total =
                 sane(economy.yesterday_totals[6]);
-            budget_ledger.y_construction_count =
+            park_session.ledger.y_construction_count =
                 sane(economy.yesterday_totals[7]);
-            budget_ledger.y_construction_total =
+            park_session.ledger.y_construction_total =
                 sane(economy.yesterday_totals[8]);
-            budget_ledger.y_laboaction_count =
+            park_session.ledger.y_laboaction_count =
                 sane(economy.yesterday_totals[9]);
-            budget_ledger.y_laboaction_total =
+            park_session.ledger.y_laboaction_total =
                 sane(economy.yesterday_totals[10]);
-            budget_ledger.y_ticket_total =
+            park_session.ledger.y_ticket_total =
                 sane(economy.yesterday_totals[0]);
-            budget_ledger.y_ticket_count =
+            park_session.ledger.y_ticket_count =
                 sane(economy.yesterday_totals[1]);
-            budget_ledger.y_ventes_total =
+            park_session.ledger.y_ventes_total =
                 sane(economy.yesterday_totals[12]);
-            budget_ledger.y_ventes_count =
+            park_session.ledger.y_ventes_count =
                 sane(economy.yesterday_totals[11]);
             for (std::size_t i = 1;
-                 i < budget_ledger.y_shop_revenue.size(); ++i) {
-                budget_ledger.y_shop_revenue[i] =
+                 i < park_session.ledger.y_shop_revenue.size(); ++i) {
+                park_session.ledger.y_shop_revenue[i] =
                     sane(economy.yesterday_revenue[i]);
-                budget_ledger.y_shop_sales[i] =
+                park_session.ledger.y_shop_sales[i] =
                     sane(economy.yesterday_sales[i]);
             }
         }
@@ -860,7 +860,7 @@ std::optional<int> Game::boot_park_session() {
                         visitor_system.visitors.size());
         }
         std::printf("sav park budget=%d day=%d elapsed=%.3f roads=%zu\n",
-                    park_budget, park_clock.day, park_clock.elapsed,
+                    park_session.budget, park_session.clock.day, park_session.clock.elapsed,
                     wld_roads.size());
     }
     return std::nullopt;
@@ -868,10 +868,10 @@ std::optional<int> Game::boot_park_session() {
 
 std::optional<int> Game::boot_employee_session() {
     if (opt.park_budget_override >= 0) {
-        park_budget = opt.park_budget_override;
+        park_session.budget = opt.park_budget_override;
     }
     if (pending_buy_price > 0) {
-        park_budget -= pending_buy_price;
+        park_session.budget -= pending_buy_price;
     }
     if (opt.hire_nutritionists > 0 && !employee_profiles.empty()) {
         int nutritionist = -1;
@@ -897,18 +897,18 @@ std::optional<int> Game::boot_employee_session() {
             }
             int hired = 0;
             for (int n = 0; n < opt.hire_nutritionists; ++n) {
-                if (park_budget < wage) {
+                if (park_session.budget < wage) {
                     std::printf("hire: not enough money wage=%d budget=%d\n",
-                                wage, park_budget);
+                                wage, park_session.budget);
                     break;
                 }
-                park_budget -= wage;
+                park_session.budget -= wage;
                 employee_system.hire(employee_profiles, nutritionist, spawn_x,
                                      spawn_y);
                 ++hired;
             }
             std::printf("employees: hired=%d wage=%d budget=%d\n", hired, wage,
-                        park_budget);
+                        park_session.budget);
         }
     }
     if (opt.fire_nutritionists > 0) {
@@ -1055,25 +1055,25 @@ std::optional<int> Game::boot_build_tools() {
         std::printf(
             "budget ledger: dinoachat=%d/%d construction=%d/%d tickets=%d/%d "
             "food=%d/%d secu=%d/%d labo=%d/%d ventes=%d/%d\n",
-            budget_ledger.dinoachat_count, budget_ledger.dinoachat_total,
-            budget_ledger.construction_count,
-            budget_ledger.construction_total, budget_ledger.ticket_count,
-            budget_ledger.ticket_total, budget_ledger.food_count,
-            budget_ledger.food_total, budget_ledger.secu_count,
-            budget_ledger.secu_total, budget_ledger.laboaction_count,
-            budget_ledger.laboaction_total, budget_ledger.ventes_count,
-            budget_ledger.ventes_total);
+            park_session.ledger.dinoachat_count, park_session.ledger.dinoachat_total,
+            park_session.ledger.construction_count,
+            park_session.ledger.construction_total, park_session.ledger.ticket_count,
+            park_session.ledger.ticket_total, park_session.ledger.food_count,
+            park_session.ledger.food_total, park_session.ledger.secu_count,
+            park_session.ledger.secu_total, park_session.ledger.laboaction_count,
+            park_session.ledger.laboaction_total, park_session.ledger.ventes_count,
+            park_session.ledger.ventes_total);
         std::printf(
             "budget yesterday: dinoachat=%d/%d construction=%d/%d "
             "tickets=%d/%d\n",
-            budget_ledger.y_dinoachat_count, budget_ledger.y_dinoachat_total,
-            budget_ledger.y_construction_count,
-            budget_ledger.y_construction_total, budget_ledger.y_ticket_count,
-            budget_ledger.y_ticket_total);
+            park_session.ledger.y_dinoachat_count, park_session.ledger.y_dinoachat_total,
+            park_session.ledger.y_construction_count,
+            park_session.ledger.y_construction_total, park_session.ledger.y_ticket_count,
+            park_session.ledger.y_ticket_total);
         std::printf(
             "budget totals: expenses=%d income=%d net=%d\n",
-            budget_ledger.expenses(), budget_ledger.income(),
-            budget_ledger.net());
+            park_session.ledger.expenses(), park_session.ledger.income(),
+            park_session.ledger.net());
     }
 
     park_layout_w = 800;
@@ -1114,7 +1114,7 @@ std::optional<int> Game::boot_finalize() {
         state.budget = sav_simulation.budget;
         state.day = sav_simulation.day;
         state.elapsed = sav_simulation.elapsed;
-        state.time_scale = park_clock.time_scale;
+        state.time_scale = park_session.clock.time_scale;
         state.target = center;
         state.yaw = yaw;
         state.pitch = pitch;
@@ -1201,7 +1201,7 @@ std::optional<int> Game::boot_finalize() {
         std::printf(
             "sav import: budget=%d day=%d elapsed=%.3f visitors=%zu "
             "paths=%d fences=%d buildings=%zu\n",
-            park_budget, park_clock.day, park_clock.elapsed,
+            park_session.budget, park_session.clock.day, park_session.clock.elapsed,
             visitor_system.visitors.size(), build_grid.path_count,
             build_grid.fence_count, building_instances.size());
     }
