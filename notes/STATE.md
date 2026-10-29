@@ -2154,3 +2154,15 @@ Updated: 2026-10-28
   (buildings, roads, save/load, campaign). ARCH-2 has one subsystem left
   (dinos; move `ImportedDino`/tables to world first), then
   `ParkSession::update`.
+
+- MAINT-8 is done (`16f2660`): `Game::advance_time` clamps the frame delta
+  to the retail 0.2 s first-delta limit (`docs/decomp/scheduler.md:45`), so
+  stalls no longer jump the clock/needs/visitors. `formats/atomic_file.{h,cpp}`
+  writes `<path>.tmp`, flushes/checks, renames on commit and removes the temp
+  on abort; the port save, campaign unlock and campaign progress use it. The
+  sav overwrite test writes twice and asserts no `.tmp`; bad input still leaves
+  no output. Gates: selftest 194, fast 379, full 521 in 4:54.
+- Architecture finding A9 (recorded in `docs/platform/architecture.md`):
+  `ImportedDino`/`ImportedSpecies` mix simulation state with `GpuMesh`/GLuint,
+  so the dino slice is deferred to ARCH-5 after the type split; ARCH-2's
+  remaining work is `ParkSession::update`.
