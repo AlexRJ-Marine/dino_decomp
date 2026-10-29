@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "../formats/image.h"
+#include "../formats/path.h"
 #include "../formats/tga.h"
 #include "../formats/shw.h"
 #include "../world/vegetation.h"

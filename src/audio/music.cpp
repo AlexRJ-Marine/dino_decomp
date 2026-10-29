@@ -2,7 +2,7 @@
 
 #include "music.h"
 
-#include "../world/vegetation.h"
+#include "../formats/path.h"
 
 #include <algorithm>
 #include <cstdio>

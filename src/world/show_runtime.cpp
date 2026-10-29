@@ -6,7 +6,7 @@
 #include <sstream>
 
 #include "../formats/shw.h"
-#include "vegetation.h"
+#include "../formats/path.h"
 
 namespace dino {
 namespace {

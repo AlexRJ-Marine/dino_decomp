@@ -54,8 +54,8 @@ struct Vegetation {
     std::vector<std::string> warnings;  // missing/malformed entries, non-fatal
 };
 
-// Joins a retail path (backslashes) onto an asset root.
-std::string asset_path(const std::string& root, const std::string& path);
+// Joins a retail path (backslashes) onto an asset root. Defined in
+// `formats/path.h` so audio and app code do not depend on vegetation.
 
 // Loads every non-"None" .imp listed by the .lnd, resolves its .blf LOD
 // meshes, and bakes the placements into one mesh per (entry, sector, LOD).

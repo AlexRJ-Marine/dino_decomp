@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "../formats/path.h"
+
 #include "../formats/bai.h"
 #include "../formats/bbi.h"
 #include "../formats/bei.h"

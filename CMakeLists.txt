@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(dino_core STATIC
     src/formats/mesh.cpp
+    src/formats/path.cpp
     src/formats/tga.cpp
     src/formats/image.cpp
     src/formats/fnt.cpp
