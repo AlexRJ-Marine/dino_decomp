@@ -150,6 +150,14 @@ private:
             GLuint texture = 0;
         };
 
+    // The chosen `.bbi` LOD mesh, split by material, with one uploaded
+    // texture per part. Built by load_building_model().
+    struct BuildingModel {
+            std::string mesh_rel;
+            std::vector<dino::Mesh> parts;
+            std::vector<GLuint> part_textures;
+        };
+
     struct ShowFeatureDraw {
             GpuMesh gpu;
             GLuint texture = 0;
@@ -623,6 +631,7 @@ private:
     void apply_store_catalog(dino::Market market, const std::string& source);
     StorePreview* store_preview_for(const dino::ui::StoreRow& row);
     void clear_buildings();
+    BuildingModel load_building_model(const dino::BuildingDef& def);
     bool place_building(const dino::BuildingDef& def, float cell_x, float cell_y,
                         int state, float extra_angle_deg, float scale,
                         int kind);

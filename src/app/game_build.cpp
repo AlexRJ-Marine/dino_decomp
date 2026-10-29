@@ -30,117 +30,11 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
         return false;
     }
     try {
-        auto ends_with_ci = [](const std::string& text, const char* suffix) {
-            const std::size_t n = std::char_traits<char>::length(suffix);
-            if (text.size() < n) {
-                return false;
-            }
-            for (std::size_t i = 0; i < n; ++i) {
-                const char a = static_cast<char>(std::tolower(
-                    static_cast<unsigned char>(text[text.size() - n + i])));
-                const char b = static_cast<char>(std::tolower(
-                    static_cast<unsigned char>(suffix[i])));
-                if (a != b) {
-                    return false;
-                }
-            }
-            return true;
-        };
-        // `.bbi` mesh order: normal LOD1 `.skin`, crash, destroy, then
-        // either the static normal LOD1 `.mesh` (Entrance, seats, doors)
-        // or the construction model. The static normal LOD1 is in metres
-        // and in the placement-pivot space; the `.skin` full mesh is in
-        // centimetres and is centred on its own bind origin. The Entrance
-        // needs the static mesh so the pier reaches the beach and the
-        // boat sits at the water end. Other buildings fall back to the
-        // animated `.skin`.
-        auto is_static_lod1 = [&](const std::string& path) {
-            // Retail abbreviates the construction variants (`construc`)
-            // as well as spelling them out. Missing the abbreviation
-            // selected `stand_construc_lod1.mesh`, which has no material
-            // and rendered as a white model.
-            return ends_with_ci(path, ".mesh") &&
-                   path.find("_lod1") != std::string::npos &&
-                   path.find("crash") == std::string::npos &&
-                   path.find("crach") == std::string::npos &&
-                   path.find("destroy") == std::string::npos &&
-                   path.find("construc") == std::string::npos;
-        };
-        std::string mesh_rel;
-        if (!def.meshes.empty()) {
-            mesh_rel = def.meshes.front();
-            if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
-                mesh_rel = def.meshes[3];
-            }
-            if (opt.building_model_mesh) {
-                if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
-                    mesh_rel = def.meshes[3];
-                } else {
-                    for (const std::string& candidate : def.meshes) {
-                        if (is_static_lod1(candidate)) {
-                            mesh_rel = candidate;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        // A static `.mesh` can hold several chunks (entrance_lod1: boat,
-        // radar, ponton2 gangway, ponton dock); retail draws them all, so
-        // every chunk/material becomes its own textured part.
-        std::vector<dino::Mesh> parts;
-        if (ends_with_ci(mesh_rel, ".skin")) {
-            dino::Skin skinned =
-                dino::load_skin_auto(resolve_asset(opt.asset_root, mesh_rel));
-            parts.push_back(std::move(skinned.mesh));
-            // `.skin` full meshes are stored in centimetres.
-            for (dino::Vec3& p : parts.front().positions) {
-                p.x *= 0.01f;
-                p.y *= 0.01f;
-                p.z *= 0.01f;
-            }
-        } else {
-            for (const dino::Mesh& chunk : dino::load_mesh_chunks(
-                     resolve_asset(opt.asset_root, mesh_rel))) {
-                for (dino::Mesh& part : dino::split_by_material(chunk)) {
-                    parts.push_back(std::move(part));
-                }
-            }
-        }
-        // `tail_strings` mostly holds the building's mesh/skeleton paths
-        // (e.g. `DATA\graphics\buildings\souvenirs\souv_construction_
-        // lod1.skel`). Only PointOfView declares a real texture directory
-        // (`DATA\graphics\TEXTURES\buildings`). Treating every `DATA\`
-        // string as a texture directory made most buildings look up their
-        // .tga inside a .skel path and render white.
-        std::string texture_dir = "Data/Graphics/Textures/buildings";
-        for (const auto& text : def.tail_strings) {
-            std::string lower = text;
-            for (char& c : lower) {
-                c = static_cast<char>(
-                    std::tolower(static_cast<unsigned char>(c)));
-            }
-            if (lower.find("textures") != std::string::npos &&
-                lower.rfind("data\\", 0) == 0) {
-                texture_dir = text;
-                break;
-            }
-        }
-        std::vector<GLuint> part_textures;
-        for (const dino::Mesh& part : parts) {
-            GLuint texture = 0;
-            const std::string texture_name = part.texture_name();
-            if (!texture_name.empty()) {
-                try {
-                    texture = upload_texture(dino::load_tga(
-                        resolve_asset(opt.asset_root,
-                                      texture_dir + "/" + texture_name)));
-                } catch (const std::exception& e) {
-                    std::fprintf(stderr, "building texture: %s\n", e.what());
-                }
-            }
-            part_textures.push_back(texture);
-        }
+        BuildingModel model = load_building_model(def);
+        const std::string& mesh_rel = model.mesh_rel;
+        std::vector<dino::Mesh>& parts = model.parts;
+        const std::vector<GLuint>& part_textures = model.part_textures;
+
         // `FUN_00586b80`: cell_x/cell_y is the footprint min corner; odd
         // orientation states swap the footprint axes. `gpkBuilding`
         // (`FUN_005fecf0`) places the model at the footprint centre.
@@ -169,49 +63,49 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
         const float sin_a = std::sin(radians);
         for (std::size_t part_index = 0; part_index < parts.size();
              ++part_index) {
-        dino::Mesh& placed = parts[part_index];
-        if (def.model0 == 1) {
-            // FUN_0061c510: slope-aligned basis from the terrain normal.
-            const dino::TerrainBasis basis =
-                dino::slope_basis(terrain, wx, wy, radians);
-            const dino::Vec3& right = basis.right;
-            const dino::Vec3& up = basis.up;
-            const dino::Vec3& n = basis.normal;
-            const dino::Vec3 rx{right.x * scale, right.y * scale,
-                                right.z * scale};
-            const dino::Vec3 ux{up.x * scale, up.y * scale, up.z * scale};
-            const dino::Vec3 nx{n.x * scale, n.y * scale, n.z * scale};
-            for (std::size_t i = 0; i < placed.positions.size(); ++i) {
-                const dino::Vec3 p = placed.positions[i];
-                placed.positions[i] = {
-                    wx + p.x * rx.x + p.y * ux.x + p.z * nx.x,
-                    wy + p.x * rx.y + p.y * ux.y + p.z * nx.y,
-                    wz + p.x * rx.z + p.y * ux.z + p.z * nx.z};
-                if (i < placed.normals.size()) {
-                    const dino::Vec3 v = placed.normals[i];
-                    placed.normals[i] = dino::normalize(
-                        {v.x * right.x + v.y * up.x + v.z * n.x,
-                         v.x * right.y + v.y * up.y + v.z * n.y,
-                         v.x * right.z + v.y * up.z + v.z * n.z});
+            dino::Mesh& placed = parts[part_index];
+            if (def.model0 == 1) {
+                // FUN_0061c510: slope-aligned basis from the terrain normal.
+                const dino::TerrainBasis basis =
+                    dino::slope_basis(terrain, wx, wy, radians);
+                const dino::Vec3& right = basis.right;
+                const dino::Vec3& up = basis.up;
+                const dino::Vec3& n = basis.normal;
+                const dino::Vec3 rx{right.x * scale, right.y * scale,
+                                    right.z * scale};
+                const dino::Vec3 ux{up.x * scale, up.y * scale, up.z * scale};
+                const dino::Vec3 nx{n.x * scale, n.y * scale, n.z * scale};
+                for (std::size_t i = 0; i < placed.positions.size(); ++i) {
+                    const dino::Vec3 p = placed.positions[i];
+                    placed.positions[i] = {
+                        wx + p.x * rx.x + p.y * ux.x + p.z * nx.x,
+                        wy + p.x * rx.y + p.y * ux.y + p.z * nx.y,
+                        wz + p.x * rx.z + p.y * ux.z + p.z * nx.z};
+                    if (i < placed.normals.size()) {
+                        const dino::Vec3 v = placed.normals[i];
+                        placed.normals[i] = dino::normalize(
+                            {v.x * right.x + v.y * up.x + v.z * n.x,
+                             v.x * right.y + v.y * up.y + v.z * n.y,
+                             v.x * right.z + v.y * up.z + v.z * n.z});
+                    }
+                }
+            } else {
+                const float cs = cos_a * scale;
+                const float sn = sin_a * scale;
+                for (std::size_t i = 0; i < placed.positions.size(); ++i) {
+                    const dino::Vec3 p = placed.positions[i];
+                    placed.positions[i] = {wx + p.x * cs - p.y * sn,
+                                           wy + p.x * sn + p.y * cs,
+                                           wz + p.z * scale};
+                    if (i < placed.normals.size()) {
+                        const dino::Vec3 n = placed.normals[i];
+                        placed.normals[i] = dino::normalize(
+                            {n.x * cs - n.y * sn, n.x * sn + n.y * cs, n.z});
+                    }
                 }
             }
-        } else {
-            const float cs = cos_a * scale;
-            const float sn = sin_a * scale;
-            for (std::size_t i = 0; i < placed.positions.size(); ++i) {
-                const dino::Vec3 p = placed.positions[i];
-                placed.positions[i] = {wx + p.x * cs - p.y * sn,
-                                       wy + p.x * sn + p.y * cs,
-                                       wz + p.z * scale};
-                if (i < placed.normals.size()) {
-                    const dino::Vec3 n = placed.normals[i];
-                    placed.normals[i] = dino::normalize(
-                        {n.x * cs - n.y * sn, n.x * sn + n.y * cs, n.z});
-                }
-            }
-        }
-        building_draws.push_back(
-            {upload_mesh(placed, glfns), part_textures[part_index]});
+            building_draws.push_back(
+                {upload_mesh(placed, glfns), part_textures[part_index]});
         }
         if (kind >= 0) {
             building_defs[kind] = def;
@@ -291,6 +185,124 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
         return false;
     }
 
+}
+
+// Select the `.bbi` LOD mesh, split materials and upload their textures.
+Game::BuildingModel Game::load_building_model(
+    const dino::BuildingDef& def) {
+    auto ends_with_ci = [](const std::string& text, const char* suffix) {
+        const std::size_t n = std::char_traits<char>::length(suffix);
+        if (text.size() < n) {
+            return false;
+        }
+        for (std::size_t i = 0; i < n; ++i) {
+            const char a = static_cast<char>(std::tolower(
+                static_cast<unsigned char>(text[text.size() - n + i])));
+            const char b = static_cast<char>(std::tolower(
+                static_cast<unsigned char>(suffix[i])));
+            if (a != b) {
+                return false;
+            }
+        }
+        return true;
+    };
+    // `.bbi` mesh order: normal LOD1 `.skin`, crash, destroy, then
+    // either the static normal LOD1 `.mesh` (Entrance, seats, doors)
+    // or the construction model. The static normal LOD1 is in metres
+    // and in the placement-pivot space; the `.skin` full mesh is in
+    // centimetres and is centred on its own bind origin. The Entrance
+    // needs the static mesh so the pier reaches the beach and the
+    // boat sits at the water end. Other buildings fall back to the
+    // animated `.skin`.
+    auto is_static_lod1 = [&](const std::string& path) {
+        // Retail abbreviates the construction variants (`construc`)
+        // as well as spelling them out. Missing the abbreviation
+        // selected `stand_construc_lod1.mesh`, which has no material
+        // and rendered as a white model.
+        return ends_with_ci(path, ".mesh") &&
+               path.find("_lod1") != std::string::npos &&
+               path.find("crash") == std::string::npos &&
+               path.find("crach") == std::string::npos &&
+               path.find("destroy") == std::string::npos &&
+               path.find("construc") == std::string::npos;
+    };
+    std::string mesh_rel;
+    if (!def.meshes.empty()) {
+        mesh_rel = def.meshes.front();
+        if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
+            mesh_rel = def.meshes[3];
+        }
+        if (opt.building_model_mesh) {
+            if (def.meshes.size() > 3 && is_static_lod1(def.meshes[3])) {
+                mesh_rel = def.meshes[3];
+            } else {
+                for (const std::string& candidate : def.meshes) {
+                    if (is_static_lod1(candidate)) {
+                        mesh_rel = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    // A static `.mesh` can hold several chunks (entrance_lod1: boat,
+    // radar, ponton2 gangway, ponton dock); retail draws them all, so
+    // every chunk/material becomes its own textured part.
+    std::vector<dino::Mesh> parts;
+    if (ends_with_ci(mesh_rel, ".skin")) {
+        dino::Skin skinned =
+            dino::load_skin_auto(resolve_asset(opt.asset_root, mesh_rel));
+        parts.push_back(std::move(skinned.mesh));
+        // `.skin` full meshes are stored in centimetres.
+        for (dino::Vec3& p : parts.front().positions) {
+            p.x *= 0.01f;
+            p.y *= 0.01f;
+            p.z *= 0.01f;
+        }
+    } else {
+        for (const dino::Mesh& chunk : dino::load_mesh_chunks(
+                 resolve_asset(opt.asset_root, mesh_rel))) {
+            for (dino::Mesh& part : dino::split_by_material(chunk)) {
+                parts.push_back(std::move(part));
+            }
+        }
+    }
+    // `tail_strings` mostly holds the building's mesh/skeleton paths
+    // (e.g. `DATA\graphics\buildings\souvenirs\souv_construction_
+    // lod1.skel`). Only PointOfView declares a real texture directory
+    // (`DATA\graphics\TEXTURES\buildings`). Treating every `DATA\`
+    // string as a texture directory made most buildings look up their
+    // .tga inside a .skel path and render white.
+    std::string texture_dir = "Data/Graphics/Textures/buildings";
+    for (const auto& text : def.tail_strings) {
+        std::string lower = text;
+        for (char& c : lower) {
+            c = static_cast<char>(
+                std::tolower(static_cast<unsigned char>(c)));
+        }
+        if (lower.find("textures") != std::string::npos &&
+            lower.rfind("data\\", 0) == 0) {
+            texture_dir = text;
+            break;
+        }
+    }
+    std::vector<GLuint> part_textures;
+    for (const dino::Mesh& part : parts) {
+        GLuint texture = 0;
+        const std::string texture_name = part.texture_name();
+        if (!texture_name.empty()) {
+            try {
+                texture = upload_texture(dino::load_tga(
+                    resolve_asset(opt.asset_root,
+                                  texture_dir + "/" + texture_name)));
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "building texture: %s\n", e.what());
+            }
+        }
+        part_textures.push_back(texture);
+    }
+    return {std::move(mesh_rel), std::move(parts),
+            std::move(part_textures)};
 }
 
 int Game::place_world_buildings(const dino::WldWorld& world) {
