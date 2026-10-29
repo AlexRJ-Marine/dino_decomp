@@ -22,7 +22,7 @@ bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
     // (`terrain.world_size > 0`), so the pick ray must use the same value;
     // the old 33-degree value was the single-dino viewer and made the ground
     // point drift away from the cursor toward the screen edges.
-    const float tan_half = std::tan(80.0f * 3.14159265f / 360.0f);
+    const float tan_half = std::tan(80.0f * dino::kPi / 360.0f);
     const float aspect = static_cast<float>(width) / static_cast<float>(std::max(1, height));
     const float ndc_x = (2.0f * mouse_x / static_cast<float>(width) - 1.0f) *
                         tan_half * aspect;
@@ -71,7 +71,7 @@ dino::Mesh make_contact_shadow(float x, float y, float z, float radius) {
     mesh.uvs.push_back({0.0f, 0.0f});
     mesh.colors.push_back(color);
     for (int i = 0; i < kSegments; ++i) {
-        const float angle = 2.0f * 3.14159265f * static_cast<float>(i) /
+        const float angle = 2.0f * dino::kPi * static_cast<float>(i) /
                             static_cast<float>(kSegments);
         mesh.positions.push_back({x + std::cos(angle) * radius,
                                   y + std::sin(angle) * radius, z});
@@ -91,7 +91,7 @@ dino::Mesh place_on_terrain(dino::Mesh mesh, const dino::Terrain& terrain,
                             float x, float y, float angle_degrees) {
     const float half = terrain.world_size * 0.5f;
     const float base_z = terrain.height_at(x - half, y - half);
-    const float radians = angle_degrees * 3.14159265f / 180.0f;
+    const float radians = angle_degrees * dino::kPi / 180.0f;
     const float cs = std::cos(radians);
     const float sn = std::sin(radians);
     const bool has_normals = mesh.normals.size() == mesh.positions.size();

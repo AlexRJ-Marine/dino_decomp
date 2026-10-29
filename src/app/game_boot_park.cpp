@@ -749,18 +749,18 @@ std::optional<int> Game::boot_park_session() {
                 if (camera_retail_model) {
                     retail_camera.set_saved(saved_eye, saved_target, cam[6]);
                     center = retail_camera.target_cur;
-                    yaw = retail_camera.yaw_cur * 180.0f / 3.14159265f;
+                    yaw = retail_camera.yaw_cur * 180.0f / kPi;
                     distance = length;
                     pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
-                            180.0f / 3.14159265f;
+                            180.0f / kPi;
                 } else {
                     center = saved_target;
                     distance = length;
                     if (horizontal > 1e-4f) {
-                        yaw = std::atan2(dy, dx) * 180.0f / 3.14159265f;
+                        yaw = std::atan2(dy, dx) * 180.0f / kPi;
                     }
                     pitch = std::asin(std::clamp(dz / length, -1.0f, 1.0f)) *
-                            180.0f / 3.14159265f;
+                            180.0f / kPi;
                 }
                 // The tail's progress is the retail orbit parameter; using it
                 // preserves the saved eye exactly (radius/height are derived).

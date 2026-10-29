@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 #include <utility>
 
@@ -11,14 +12,26 @@
 namespace dino {
 namespace {
 
-plm_t* open_video(const std::string& path) {
-    plm_t* video = plm_create_with_filename(path.c_str());
-    if (video == nullptr) {
+struct PlmDeleter {
+    void operator()(plm_t* video) const noexcept {
+        if (video != nullptr) {
+            plm_destroy(video);
+        }
+    }
+};
+
+// Owning handle for the C decoder (R.1/R.11): every early return and throw
+// still destroys the PLM stream.
+using PlmVideo = std::unique_ptr<plm_t, PlmDeleter>;
+
+PlmVideo open_video(const std::string& path) {
+    PlmVideo video{plm_create_with_filename(path.c_str())};
+    if (!video) {
         throw std::runtime_error("mpg: cannot open " + path);
     }
     // Keep the MP2 track available so probe_mpg can report it; callers that
     // only decode video disable it explicitly.
-    plm_set_audio_enabled(video, 1);
+    plm_set_audio_enabled(video.get(), 1);
     return video;
 }
 
@@ -52,7 +65,7 @@ void on_video(plm_t* self, plm_frame_t* frame, void* user) {
 }  // namespace
 
 struct MpgStream::Impl {
-    plm_t* video = nullptr;
+    PlmVideo video;
     int width = 0;
     int height = 0;
     double frame_rate = 0.0;
@@ -95,48 +108,44 @@ void on_stream_video(plm_t* self, plm_frame_t* frame, void* user) {
 
 }  // namespace
 
-MpgStream::MpgStream() : impl_(new Impl()) {}
+MpgStream::MpgStream() : impl_(std::make_unique<Impl>()) {}
 
 MpgStream::~MpgStream() { close(); }
 
 bool MpgStream::open(const std::string& path, std::string& error) {
     close();
-    impl_->video = plm_create_with_filename(path.c_str());
-    if (impl_->video == nullptr) {
+    impl_->video.reset(plm_create_with_filename(path.c_str()));
+    if (!impl_->video) {
         error = "cannot open " + path;
         return false;
     }
-    plm_set_audio_enabled(impl_->video, 1);
-    impl_->audio_streams = plm_get_num_audio_streams(impl_->video);
+    plm_set_audio_enabled(impl_->video.get(), 1);
+    impl_->audio_streams = plm_get_num_audio_streams(impl_->video.get());
     impl_->audio_samplerate = impl_->audio_streams > 0
-                                  ? plm_get_samplerate(impl_->video)
+                                  ? plm_get_samplerate(impl_->video.get())
                                   : 0;
     if (impl_->audio_streams > 0) {
-        plm_set_audio_stream(impl_->video, 0);
-        plm_set_audio_decode_callback(impl_->video, on_stream_audio, impl_);
+        plm_set_audio_stream(impl_->video.get(), 0);
+        plm_set_audio_decode_callback(impl_->video.get(), on_stream_audio,
+                                      impl_.get());
     } else {
-        plm_set_audio_enabled(impl_->video, 0);
+        plm_set_audio_enabled(impl_->video.get(), 0);
     }
-    impl_->width = static_cast<int>(plm_get_width(impl_->video));
-    impl_->height = static_cast<int>(plm_get_height(impl_->video));
-    impl_->frame_rate = plm_get_framerate(impl_->video);
-    impl_->duration = plm_get_duration(impl_->video);
+    impl_->width = static_cast<int>(plm_get_width(impl_->video.get()));
+    impl_->height = static_cast<int>(plm_get_height(impl_->video.get()));
+    impl_->frame_rate = plm_get_framerate(impl_->video.get());
+    impl_->duration = plm_get_duration(impl_->video.get());
     if (impl_->width <= 0 || impl_->height <= 0) {
         error = "no video stream in " + path;
         return false;
     }
-    plm_set_video_decode_callback(impl_->video, on_stream_video, impl_);
+    plm_set_video_decode_callback(impl_->video.get(), on_stream_video,
+                                  impl_.get());
     return true;
 }
 
 void MpgStream::close() {
-    if (impl_ == nullptr) {
-        return;
-    }
-    if (impl_->video != nullptr) {
-        plm_destroy(impl_->video);
-        impl_->video = nullptr;
-    }
+    impl_->video.reset();
     impl_->ready = false;
     impl_->pending = MpgFrame{};
     impl_->audio.clear();
@@ -144,47 +153,37 @@ void MpgStream::close() {
     impl_->audio_samplerate = 0;
 }
 
-int MpgStream::width() const { return impl_ != nullptr ? impl_->width : 0; }
-int MpgStream::height() const { return impl_ != nullptr ? impl_->height : 0; }
-double MpgStream::frame_rate() const {
-    return impl_ != nullptr ? impl_->frame_rate : 0.0;
-}
-double MpgStream::duration() const {
-    return impl_ != nullptr ? impl_->duration : 0.0;
-}
+int MpgStream::width() const { return impl_->width; }
+int MpgStream::height() const { return impl_->height; }
+double MpgStream::frame_rate() const { return impl_->frame_rate; }
+double MpgStream::duration() const { return impl_->duration; }
 
 bool MpgStream::has_audio() const {
-    return impl_ != nullptr && impl_->audio_streams > 0 &&
-           impl_->audio_samplerate > 0;
+    return impl_->audio_streams > 0 && impl_->audio_samplerate > 0;
 }
 
-int MpgStream::audio_samplerate() const {
-    return impl_ != nullptr ? impl_->audio_samplerate : 0;
-}
+int MpgStream::audio_samplerate() const { return impl_->audio_samplerate; }
 
 std::vector<float> MpgStream::take_audio() {
-    if (impl_ == nullptr) {
-        return {};
-    }
     std::vector<float> out = std::move(impl_->audio);
     impl_->audio.clear();
     return out;
 }
 
 bool MpgStream::next(MpgFrame& frame) {
-    if (impl_ == nullptr || impl_->video == nullptr) {
+    if (!impl_->video) {
         return false;
     }
     const double rate = impl_->frame_rate > 0.0 ? impl_->frame_rate : 24.0;
     const double step = 1.0 / rate;
-    while (!plm_has_ended(impl_->video)) {
+    while (!plm_has_ended(impl_->video.get())) {
         if (impl_->ready) {
             frame = std::move(impl_->pending);
             impl_->pending = MpgFrame{};
             impl_->ready = false;
             return true;
         }
-        plm_decode(impl_->video, step);
+        plm_decode(impl_->video.get(), step);
     }
     if (impl_->ready) {
         frame = std::move(impl_->pending);
@@ -196,16 +195,15 @@ bool MpgStream::next(MpgFrame& frame) {
 }
 
 MpgInfo probe_mpg(const std::string& path) {
-    plm_t* video = open_video(path);
+    PlmVideo video = open_video(path);
     MpgInfo info;
-    info.width = static_cast<int>(plm_get_width(video));
-    info.height = static_cast<int>(plm_get_height(video));
-    info.duration = plm_get_duration(video);
-    info.frame_rate = plm_get_framerate(video);
-    info.audio_streams = plm_get_num_audio_streams(video);
+    info.width = static_cast<int>(plm_get_width(video.get()));
+    info.height = static_cast<int>(plm_get_height(video.get()));
+    info.duration = plm_get_duration(video.get());
+    info.frame_rate = plm_get_framerate(video.get());
+    info.audio_streams = plm_get_num_audio_streams(video.get());
     info.audio_samplerate =
-        info.audio_streams > 0 ? plm_get_samplerate(video) : 0;
-    plm_destroy(video);
+        info.audio_streams > 0 ? plm_get_samplerate(video.get()) : 0;
     if (info.width <= 0 || info.height <= 0) {
         throw std::runtime_error("mpg: no video stream in " + path);
     }
@@ -216,17 +214,16 @@ MpgFrame decode_mpg_frame(const std::string& path, int frame_index) {
     if (frame_index < 0) {
         throw std::runtime_error("mpg: negative frame index");
     }
-    plm_t* video = open_video(path);
-    plm_set_audio_enabled(video, 0);  // video-only thumbnail decode
+    PlmVideo video = open_video(path);
+    plm_set_audio_enabled(video.get(), 0);  // video-only thumbnail decode
     DecodeTarget target;
     target.target = frame_index;
-    plm_set_video_decode_callback(video, on_video, &target);
-    const double rate = plm_get_framerate(video);
+    plm_set_video_decode_callback(video.get(), on_video, &target);
+    const double rate = plm_get_framerate(video.get());
     const double step = rate > 0.0 ? 1.0 / rate : 1.0 / 30.0;
-    while (!plm_has_ended(video) && !target.found) {
-        plm_decode(video, step);
+    while (!plm_has_ended(video.get()) && !target.found) {
+        plm_decode(video.get(), step);
     }
-    plm_destroy(video);
     if (!target.found) {
         throw std::runtime_error("mpg: frame " + std::to_string(frame_index) +
                                  " not found in " + path);

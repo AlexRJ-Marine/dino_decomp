@@ -7,6 +7,10 @@
 
 namespace dino {
 
+// Degrees/radians conversion constant. Keep expressions in the form
+// `x * kPi / 180.0f` so the float rounding matches the retail code.
+constexpr float kPi = 3.14159265f;
+
 // Row-major 4x4, matching the retail files:
 //   [ R00 R01 R02 0 ]
 //   [ R10 R11 R12 0 ]

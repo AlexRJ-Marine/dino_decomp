@@ -393,7 +393,7 @@ void Game::reset_island_camera(bool reset_view) {
                 distance = std::sqrt(radius * radius +
                                      elevation * elevation);
                 pitch = std::atan2(elevation, radius) *
-                        180.0f / 3.14159265f;
+                        180.0f / kPi;
             } else {
                 // Legacy orbit start used by --camera-orbit.
                 center = {0.0f, 0.0f, terrain.height_at(0.0f, 0.0f)};
@@ -406,7 +406,7 @@ void Game::reset_island_camera(bool reset_view) {
                 yaw = 0.0f;
                 pitch = std::asin(std::clamp(elevation / distance,
                                              -1.0f, 1.0f)) *
-                        180.0f / 3.14159265f;
+                        180.0f / kPi;
             }
         }
         free_pos = orbit_eye();
@@ -709,8 +709,8 @@ void Game::apply_port_state(const dino::PortState& state) {
     // Rebuild the retail camera's eye/target/goals from it so a loaded
     // session keeps its view instead of snapping back to the start state.
     if (camera_retail_model && terrain.world_size > 0.0f) {
-        const float yaw_rad = state.yaw * 3.14159265f / 180.0f;
-        const float pitch_rad = pitch * 3.14159265f / 180.0f;
+        const float yaw_rad = state.yaw * kPi / 180.0f;
+        const float pitch_rad = pitch * kPi / 180.0f;
         const dino::Vec3 eye{
             center.x + distance * std::cos(pitch_rad) * std::cos(yaw_rad),
             center.y + distance * std::cos(pitch_rad) * std::sin(yaw_rad),

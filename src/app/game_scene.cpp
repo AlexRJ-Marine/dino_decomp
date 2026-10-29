@@ -524,13 +524,13 @@ float Game::camera_height() {
 }
 
 dino::Vec3 Game::orbit_eye() {
-    const float cy = std::cos(yaw * 3.14159265f / 180.0f);
-    const float sy = std::sin(yaw * 3.14159265f / 180.0f);
+    const float cy = std::cos(yaw * kPi / 180.0f);
+    const float sy = std::sin(yaw * kPi / 180.0f);
     if (camera_retail_model) {
         return retail_camera.eye_cur;
     }
-    const float cp = std::cos(pitch * 3.14159265f / 180.0f);
-    const float sp = std::sin(pitch * 3.14159265f / 180.0f);
+    const float cp = std::cos(pitch * kPi / 180.0f);
+    const float sp = std::sin(pitch * kPi / 180.0f);
     return dino::Vec3{center.x + distance * cp * cy,
                       center.y + distance * cp * sy,
                       center.z + distance * sp};
@@ -542,8 +542,8 @@ void Game::enter_free_camera() {
     const dino::Vec3 dir = dino::normalize({center.x - free_pos.x,
                                             center.y - free_pos.y,
                                             center.z - free_pos.z});
-    free_yaw = std::atan2(dir.y, dir.x) * 180.0f / 3.14159265f;
-    free_pitch = std::asin(std::clamp(dir.z, -1.0f, 1.0f)) * 180.0f / 3.14159265f;
+    free_yaw = std::atan2(dir.y, dir.x) * 180.0f / kPi;
+    free_pitch = std::asin(std::clamp(dir.z, -1.0f, 1.0f)) * 180.0f / kPi;
 
 }
 

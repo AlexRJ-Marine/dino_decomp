@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -55,7 +56,7 @@ public:
     struct Impl;
 
 private:
-    Impl* impl_ = nullptr;
+    std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace dino

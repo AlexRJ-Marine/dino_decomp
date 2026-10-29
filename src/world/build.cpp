@@ -11,8 +11,6 @@
 namespace dino {
 namespace {
 
-constexpr float kPi = 3.14159265f;
-
 void append_mesh(Mesh& dst, const Mesh& src, const Vec3& offset, float angle,
                  float scale) {
     const bool has_normals = src.normals.size() == src.positions.size();

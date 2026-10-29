@@ -49,6 +49,7 @@
 #include "../formats/lnd.h"
 #include "../formats/loc.h"
 #include "../formats/market.h"
+#include "../formats/math.h"
 #include "../formats/mesh.h"
 #include "../formats/mpg.h"
 #include "../formats/sav.h"
@@ -99,6 +100,10 @@ class Game {
 public:
     Game(int argc, char** argv);
     ~Game();
+    Game(const Game&) = delete;
+    Game& operator=(const Game&) = delete;
+    Game(Game&&) = delete;
+    Game& operator=(Game&&) = delete;
 
     // Boot -> frame loop -> shutdown. Returns the process exit code.
     int run();
@@ -370,7 +375,6 @@ private:
     dino::CameraConfig camera_config;
     dino::BudgetLedger budget_ledger;
     int pending_buy_price;
-    static constexpr float kPi = 3.14159265f;
     int build_tool;
     int pending_construct_kind;
     bool pending_click;

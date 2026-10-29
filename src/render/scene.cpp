@@ -2,6 +2,8 @@
 
 #include "scene.h"
 
+#include "../formats/math.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -66,7 +68,7 @@ dino::Mesh make_sky_face(int index, float half_size) {
 
 dino::Mat4 perspective(float fov_deg, float aspect, float near_plane, float far_plane) {
     dino::Mat4 out;
-    const float f = 1.0f / std::tan(fov_deg * 3.14159265f / 360.0f);
+    const float f = 1.0f / std::tan(fov_deg * dino::kPi / 360.0f);
     out.m[0] = f / aspect;
     out.m[5] = f;
     out.m[10] = (far_plane + near_plane) / (near_plane - far_plane);

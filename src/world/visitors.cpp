@@ -11,8 +11,6 @@
 namespace dino {
 namespace {
 
-constexpr float kPi = 3.14159265f;
-
 struct Rng {
     unsigned state = 1;
     explicit Rng(unsigned seed) : state(seed ? seed : 1) {}

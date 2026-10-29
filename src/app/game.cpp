@@ -741,8 +741,8 @@ void Game::update_camera() {
                 SDL_GetScancodeFromKey(keymap[action], nullptr);
             return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode];
         };
-        const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
-        const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+        const float yaw_rad = free_yaw * kPi / 180.0f;
+        const float pitch_rad = free_pitch * kPi / 180.0f;
         const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
                                  std::cos(pitch_rad) * std::sin(yaw_rad),
                                  std::sin(pitch_rad)};
@@ -861,7 +861,7 @@ void Game::update_camera() {
         } else {
             // Legacy spherical orbit for --camera-orbit and explicit
             // screenshot views. Speed/limits still come from camera.ini.
-            const float pitch_rad = pitch * 3.14159265f / 180.0f;
+            const float pitch_rad = pitch * kPi / 180.0f;
             const float horizontal =
                 std::max(camera_config.distance_min,
                          distance * std::cos(pitch_rad));
@@ -899,7 +899,7 @@ void Game::update_camera() {
             // is the opposite. Move the target in the camera's ground
             // plane at the camera.ini MoveSpeed (4-unit cells/second).
             const float view_yaw =
-                yaw * 3.14159265f / 180.0f + 3.14159265f;
+                yaw * kPi / 180.0f + kPi;
             const dino::Vec3 forward{std::cos(view_yaw),
                                      std::sin(view_yaw), 0.0f};
             const dino::Vec3 right{std::sin(view_yaw),
@@ -1198,8 +1198,8 @@ void Game::update_simulation() {
 
 void Game::update_camera_view() {
     if (free_camera) {
-        const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
-        const float pitch_rad = free_pitch * 3.14159265f / 180.0f;
+        const float yaw_rad = free_yaw * kPi / 180.0f;
+        const float pitch_rad = free_pitch * kPi / 180.0f;
         const dino::Vec3 forward{std::cos(pitch_rad) * std::cos(yaw_rad),
                                  std::cos(pitch_rad) * std::sin(yaw_rad),
                                  std::sin(pitch_rad)};

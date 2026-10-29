@@ -164,7 +164,7 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
         }
         const float angle_deg =
             extra_angle_deg + static_cast<float>(orientation) * 90.0f;
-        const float radians = angle_deg * 3.14159265f / 180.0f;
+        const float radians = angle_deg * kPi / 180.0f;
         const float cos_a = std::cos(radians);
         const float sin_a = std::sin(radians);
         for (std::size_t part_index = 0; part_index < parts.size();
