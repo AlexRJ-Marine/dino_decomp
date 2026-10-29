@@ -951,6 +951,257 @@ void Game::place_selected_store_item() {
     }
 }
 
+void Game::apply_build_tool_click() {
+    dino::Vec3 hit;
+    const bool picked = pick_terrain(terrain, eye, view_center, click_x,
+                                     click_y, logical_width, logical_height, hit);
+    if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+        std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
+                    click_y, picked ? 1 : 0, hit.x, hit.y);
+    }
+    if (picked) {
+        int cx = 0;
+        int cy = 0;
+        // The road cursor and the fence helper both snap to the
+        // nearest 4-unit anchor (0x5faaa0); the other build tools
+        // use the floored cell.
+        if ((build_tool == 4 || build_tool == 6
+                 ? build_grid.road_cells_for_world(hit.x, hit.y,
+                                                   cx, cy)
+                 : build_grid.cells_for_world(hit.x, hit.y, cx,
+                                              cy))) {
+            const int before = build_grid.path_count + build_grid.fence_count;
+            const float cs = build_grid.cell_size;
+            auto cell_buildable = [&](int gx, int gy) {
+                return terrain.buildable(
+                    build_grid.origin_x +
+                        (static_cast<float>(gx) + 0.5f) * cs,
+                    build_grid.origin_y +
+                        (static_cast<float>(gy) + 0.5f) * cs);
+            };
+            if (build_tool == 4) {
+                road_click(cx, cy);  // rebuilds the meshes itself
+            } else if (build_tool == 1) {
+                const bool removing = build_grid.path_at(cx, cy);
+                if (!removing && !cell_buildable(cx, cy)) {
+                    std::printf("placement: blocked cell\n");
+                } else {
+                    build_grid.set_path(cx, cy, !removing);
+                }
+            } else if (build_tool == 6) {
+                // Retail FENCE_CONSTRUCTION: the helper snaps the
+                // click to the nearest anchor (0x5f8c70) and
+                // stores that corner; the second click builds the
+                // sorted max-1 rectangle.
+                const int px = static_cast<int>(
+                    static_cast<float>(cx) * cs);
+                const int py = static_cast<int>(
+                    static_cast<float>(cy) * cs);
+                auto inside_paddock = [&](float rx, float ry) {
+                    for (const dino::Paddock& paddock : paddocks) {
+                        const dino::WorldRect& rect =
+                            paddock.rect;
+                        if (rx > std::min(rect.x0, rect.x1) &&
+                            rx < std::max(rect.x0, rect.x1) &&
+                            ry > std::min(rect.y0, rect.y1) &&
+                            ry < std::max(rect.y0, rect.y1)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                if (fence_corner_x < 0) {
+                    // 0x58a190: scan `p .. p+margin-1` (margin 4
+                    // from Fence.bwi) for a busy high nibble and
+                    // the height-slope rule; point strictly
+                    // inside an existing perimeter -> code 3.
+                    const bool busy =
+                        !build_grid.occupancy.free_rect(
+                            px, py, px + 3, py + 3);
+                    if (busy) {
+                        road_message("&WARNING_BUSY_SPACE");
+                    } else if (inside_paddock(
+                                   static_cast<float>(px),
+                                   static_cast<float>(py))) {
+                        road_message(
+                            "&WARNING_INSIDE_PERIMETER");
+                    } else {
+                        fence_corner_x = px;
+                        fence_corner_y = py;
+                        std::printf(
+                            "fence: corner %d,%d (click opposite "
+                            "corner)\n",
+                            px, py);
+                    }
+                } else {
+                    // 0x52bbf0 sorts the two clicked points and
+                    // subtracts 1 from the high corner.
+                    const int x0 =
+                        std::min(fence_corner_x, px);
+                    const int y0 =
+                        std::min(fence_corner_y, py);
+                    const int x1 =
+                        std::max(fence_corner_x, px) - 1;
+                    const int y1 =
+                        std::max(fence_corner_y, py) - 1;
+                    std::string warning;
+                    int cost = 0;
+                    // 0x58a4e0: a side shorter than
+                    // 6*margin-1 (margin 4 -> 23 units) is
+                    // PERIMETER_TOO_SMALL, then the inside test,
+                    // then the inset margin scan.
+                    // (The `>= 16` check in 0x527150 is the
+                    // stFence LunchBox dish list, max 15 — not a
+                    // park enclosure cap; see
+                    // notes/fence-panel-sell-recon.md.)
+                    if (x1 - x0 < 23 || y1 - y0 < 23) {
+                        warning = "&WARNING_PERIMETER_TOO_SMALL";
+                    } else if (inside_paddock(
+                                   (static_cast<float>(x0) +
+                                    static_cast<float>(x1)) *
+                                       0.5f,
+                                   (static_cast<float>(y0) +
+                                    static_cast<float>(y1)) *
+                                       0.5f)) {
+                        warning = "&WARNING_INSIDE_PERIMETER";
+                    } else if (!build_grid.occupancy.free_rect(
+                                   x0 + 4, y0 + 4, x1 - 4,
+                                   y1 - 4)) {
+                        warning = "&WARNING_BUSY_SPACE";
+                    } else {
+                        // 0x581b90: ((x1+y1)-(x0+y0))*2/
+                        // cell*price; Fence.bwi cell 4, price 30.
+                        cost = ((x1 + y1) - (x0 + y0)) * 2 / 4 *
+                               30;
+                        if (park_budget < cost) {
+                            warning =
+                                "&WARNING_NOT_ENOUGH_MONEY";
+                        }
+                    }
+                    if (!warning.empty()) {
+                        road_message(warning.c_str());
+                    } else {
+                        const int before =
+                            build_grid.fence_count;
+                        const int cx0 = std::max(
+                            0, static_cast<int>(
+                                   std::floor(x0 / cs)));
+                        const int cx1 = static_cast<int>(
+                            std::floor(x1 / cs));
+                        const int cy0 = std::max(
+                            0, static_cast<int>(
+                                   std::floor(y0 / cs)));
+                        const int cy1 = static_cast<int>(
+                            std::floor(y1 / cs));
+                        for (int x = cx0; x <= cx1; ++x) {
+                            build_grid.set_fence(x, cy0, 0, true);
+                            build_grid.set_fence(x, cy1 + 1, 0,
+                                                 true);
+                        }
+                        for (int y = cy0; y <= cy1; ++y) {
+                            build_grid.set_fence(cx0 - 1, y, 1,
+                                                 true);
+                            build_grid.set_fence(cx1, y, 1,
+                                                 true);
+                        }
+                        // stPerimeter's four wall lines: 1 map
+                        // unit thick, inclusive min .. max-1.
+                        build_grid.occupancy.stamp_wall_rect(
+                            x0, y0, x1, y1, true);
+                        dino::Paddock paddock;
+                        paddock.rect = {x0, y0, x1, y1};
+                        paddock.capacity = dino::paddock_capacity(
+                            paddock.rect, cs);
+                        // 0x5ec7e0: rand() & 3 picks the ground
+                        // atlas quadrant per stFence.
+                        paddock.ground_variant = std::rand() & 3;
+                        paddock.name = "Enclosure" +
+                                       std::to_string(
+                                           paddocks.size() + 1);
+                        paddocks.push_back(paddock);
+                        park_budget -= cost;
+                        budget_ledger.spend_construction(cost);
+                        std::printf(
+                            "fence: built rect %d,%d-%d,%d "
+                            "edges=%d paddock=%zu capacity=%.0f "
+                            "cost=%d budget=%d "
+                            "construction=%d/%d\n",
+                            x0, y0, x1, y1,
+                            build_grid.fence_count - before,
+                            paddocks.size(),
+                            static_cast<double>(paddock.capacity),
+                            cost, park_budget,
+                            budget_ledger.construction_count,
+                            budget_ledger.construction_total);
+                        rebuild_build_meshes();
+                    }
+                    fence_corner_x = -1;
+                    fence_corner_y = -1;
+                }
+            } else if (build_tool == 3 &&
+                       pending_construct_kind >= 0) {
+                const float half = terrain.world_size * 0.5f;
+                try_construct(
+                    pending_construct_kind,
+                    static_cast<int>(std::floor(hit.x + half)),
+                    static_cast<int>(std::floor(hit.y + half)), 0);
+            } else if (build_tool == 5 && pending_show_index >= 0) {
+                // Grid cell -> show record coordinate (0..1024).
+                place_show_at(
+                    static_cast<int>(std::lround(cx * cs)),
+                    static_cast<int>(std::lround(cy * cs)));
+            } else {
+                const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
+                const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
+                float best = 1e30f;
+                int ex = cx;
+                int ey = cy;
+                int edge = 0;
+                auto consider = [&](float distance, int gx, int gy, int e) {
+                    if (distance < best) {
+                        best = distance;
+                        ex = gx;
+                        ey = gy;
+                        edge = e;
+                    }
+                };
+                if (cx > 0) {
+                    consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
+                }
+                consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
+                consider(std::fabs(hit.y - y0), cx, cy, 0);
+                if (cy + 1 < build_grid.height) {
+                    consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
+                }
+                const bool removing =
+                    build_grid.fence_at(ex, ey, edge);
+                bool allowed = removing;
+                if (!allowed) {
+                    const bool inside = cell_buildable(ex, ey);
+                    bool neighbour = true;
+                    if (edge == 1) {
+                        if (ex + 1 < build_grid.width) {
+                            neighbour = cell_buildable(ex + 1, ey);
+                        }
+                    } else if (ey > 0) {
+                        neighbour = cell_buildable(ex, ey - 1);
+                    }
+                    allowed = inside && neighbour;
+                }
+                if (!allowed) {
+                    std::printf("placement: blocked cell\n");
+                } else {
+                    build_grid.set_fence(ex, ey, edge, !removing);
+                }
+            }
+            if (build_tool != 4 &&
+                build_grid.path_count + build_grid.fence_count != before) {
+                rebuild_build_meshes();
+            }
+        }
+    }
+}
+
 void Game::update_placement() {
     if (pending_fence_tool) {
         ensure_build_ready();
@@ -966,254 +1217,8 @@ void Game::update_placement() {
         pending_click = false;
         if (pending_store_index >= 0 && build_ready) {
             place_selected_store_item();
-        } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
-            const bool picked = pick_terrain(terrain, eye, view_center, click_x,
-                                             click_y, logical_width, logical_height, hit);
-            if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
-                            click_y, picked ? 1 : 0, hit.x, hit.y);
-            }
-            if (picked) {
-                int cx = 0;
-                int cy = 0;
-                // The road cursor and the fence helper both snap to the
-                // nearest 4-unit anchor (0x5faaa0); the other build tools
-                // use the floored cell.
-                if ((build_tool == 4 || build_tool == 6
-                         ? build_grid.road_cells_for_world(hit.x, hit.y,
-                                                           cx, cy)
-                         : build_grid.cells_for_world(hit.x, hit.y, cx,
-                                                      cy))) {
-                    const int before = build_grid.path_count + build_grid.fence_count;
-                    const float cs = build_grid.cell_size;
-                    auto cell_buildable = [&](int gx, int gy) {
-                        return terrain.buildable(
-                            build_grid.origin_x +
-                                (static_cast<float>(gx) + 0.5f) * cs,
-                            build_grid.origin_y +
-                                (static_cast<float>(gy) + 0.5f) * cs);
-                    };
-                    if (build_tool == 4) {
-                        road_click(cx, cy);  // rebuilds the meshes itself
-                    } else if (build_tool == 1) {
-                        const bool removing = build_grid.path_at(cx, cy);
-                        if (!removing && !cell_buildable(cx, cy)) {
-                            std::printf("placement: blocked cell\n");
-                        } else {
-                            build_grid.set_path(cx, cy, !removing);
-                        }
-                    } else if (build_tool == 6) {
-                        // Retail FENCE_CONSTRUCTION: the helper snaps the
-                        // click to the nearest anchor (0x5f8c70) and
-                        // stores that corner; the second click builds the
-                        // sorted max-1 rectangle.
-                        const int px = static_cast<int>(
-                            static_cast<float>(cx) * cs);
-                        const int py = static_cast<int>(
-                            static_cast<float>(cy) * cs);
-                        auto inside_paddock = [&](float rx, float ry) {
-                            for (const dino::Paddock& paddock : paddocks) {
-                                const dino::WorldRect& rect =
-                                    paddock.rect;
-                                if (rx > std::min(rect.x0, rect.x1) &&
-                                    rx < std::max(rect.x0, rect.x1) &&
-                                    ry > std::min(rect.y0, rect.y1) &&
-                                    ry < std::max(rect.y0, rect.y1)) {
-                                    return true;
-                                }
-                            }
-                            return false;
-                        };
-                        if (fence_corner_x < 0) {
-                            // 0x58a190: scan `p .. p+margin-1` (margin 4
-                            // from Fence.bwi) for a busy high nibble and
-                            // the height-slope rule; point strictly
-                            // inside an existing perimeter -> code 3.
-                            const bool busy =
-                                !build_grid.occupancy.free_rect(
-                                    px, py, px + 3, py + 3);
-                            if (busy) {
-                                road_message("&WARNING_BUSY_SPACE");
-                            } else if (inside_paddock(
-                                           static_cast<float>(px),
-                                           static_cast<float>(py))) {
-                                road_message(
-                                    "&WARNING_INSIDE_PERIMETER");
-                            } else {
-                                fence_corner_x = px;
-                                fence_corner_y = py;
-                                std::printf(
-                                    "fence: corner %d,%d (click opposite "
-                                    "corner)\n",
-                                    px, py);
-                            }
-                        } else {
-                            // 0x52bbf0 sorts the two clicked points and
-                            // subtracts 1 from the high corner.
-                            const int x0 =
-                                std::min(fence_corner_x, px);
-                            const int y0 =
-                                std::min(fence_corner_y, py);
-                            const int x1 =
-                                std::max(fence_corner_x, px) - 1;
-                            const int y1 =
-                                std::max(fence_corner_y, py) - 1;
-                            std::string warning;
-                            int cost = 0;
-                            // 0x58a4e0: a side shorter than
-                            // 6*margin-1 (margin 4 -> 23 units) is
-                            // PERIMETER_TOO_SMALL, then the inside test,
-                            // then the inset margin scan.
-                            // (The `>= 16` check in 0x527150 is the
-                            // stFence LunchBox dish list, max 15 — not a
-                            // park enclosure cap; see
-                            // notes/fence-panel-sell-recon.md.)
-                            if (x1 - x0 < 23 || y1 - y0 < 23) {
-                                warning = "&WARNING_PERIMETER_TOO_SMALL";
-                            } else if (inside_paddock(
-                                           (static_cast<float>(x0) +
-                                            static_cast<float>(x1)) *
-                                               0.5f,
-                                           (static_cast<float>(y0) +
-                                            static_cast<float>(y1)) *
-                                               0.5f)) {
-                                warning = "&WARNING_INSIDE_PERIMETER";
-                            } else if (!build_grid.occupancy.free_rect(
-                                           x0 + 4, y0 + 4, x1 - 4,
-                                           y1 - 4)) {
-                                warning = "&WARNING_BUSY_SPACE";
-                            } else {
-                                // 0x581b90: ((x1+y1)-(x0+y0))*2/
-                                // cell*price; Fence.bwi cell 4, price 30.
-                                cost = ((x1 + y1) - (x0 + y0)) * 2 / 4 *
-                                       30;
-                                if (park_budget < cost) {
-                                    warning =
-                                        "&WARNING_NOT_ENOUGH_MONEY";
-                                }
-                            }
-                            if (!warning.empty()) {
-                                road_message(warning.c_str());
-                            } else {
-                                const int before =
-                                    build_grid.fence_count;
-                                const int cx0 = std::max(
-                                    0, static_cast<int>(
-                                           std::floor(x0 / cs)));
-                                const int cx1 = static_cast<int>(
-                                    std::floor(x1 / cs));
-                                const int cy0 = std::max(
-                                    0, static_cast<int>(
-                                           std::floor(y0 / cs)));
-                                const int cy1 = static_cast<int>(
-                                    std::floor(y1 / cs));
-                                for (int x = cx0; x <= cx1; ++x) {
-                                    build_grid.set_fence(x, cy0, 0, true);
-                                    build_grid.set_fence(x, cy1 + 1, 0,
-                                                         true);
-                                }
-                                for (int y = cy0; y <= cy1; ++y) {
-                                    build_grid.set_fence(cx0 - 1, y, 1,
-                                                         true);
-                                    build_grid.set_fence(cx1, y, 1,
-                                                         true);
-                                }
-                                // stPerimeter's four wall lines: 1 map
-                                // unit thick, inclusive min .. max-1.
-                                build_grid.occupancy.stamp_wall_rect(
-                                    x0, y0, x1, y1, true);
-                                dino::Paddock paddock;
-                                paddock.rect = {x0, y0, x1, y1};
-                                paddock.capacity = dino::paddock_capacity(
-                                    paddock.rect, cs);
-                                // 0x5ec7e0: rand() & 3 picks the ground
-                                // atlas quadrant per stFence.
-                                paddock.ground_variant = std::rand() & 3;
-                                paddock.name = "Enclosure" +
-                                               std::to_string(
-                                                   paddocks.size() + 1);
-                                paddocks.push_back(paddock);
-                                park_budget -= cost;
-                                budget_ledger.spend_construction(cost);
-                                std::printf(
-                                    "fence: built rect %d,%d-%d,%d "
-                                    "edges=%d paddock=%zu capacity=%.0f "
-                                    "cost=%d budget=%d "
-                                    "construction=%d/%d\n",
-                                    x0, y0, x1, y1,
-                                    build_grid.fence_count - before,
-                                    paddocks.size(),
-                                    static_cast<double>(paddock.capacity),
-                                    cost, park_budget,
-                                    budget_ledger.construction_count,
-                                    budget_ledger.construction_total);
-                                rebuild_build_meshes();
-                            }
-                            fence_corner_x = -1;
-                            fence_corner_y = -1;
-                        }
-                    } else if (build_tool == 3 &&
-                               pending_construct_kind >= 0) {
-                        const float half = terrain.world_size * 0.5f;
-                        try_construct(
-                            pending_construct_kind,
-                            static_cast<int>(std::floor(hit.x + half)),
-                            static_cast<int>(std::floor(hit.y + half)), 0);
-                    } else if (build_tool == 5 && pending_show_index >= 0) {
-                        // Grid cell -> show record coordinate (0..1024).
-                        place_show_at(
-                            static_cast<int>(std::lround(cx * cs)),
-                            static_cast<int>(std::lround(cy * cs)));
-                    } else {
-                        const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
-                        const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
-                        float best = 1e30f;
-                        int ex = cx;
-                        int ey = cy;
-                        int edge = 0;
-                        auto consider = [&](float distance, int gx, int gy, int e) {
-                            if (distance < best) {
-                                best = distance;
-                                ex = gx;
-                                ey = gy;
-                                edge = e;
-                            }
-                        };
-                        if (cx > 0) {
-                            consider(std::fabs(hit.x - x0), cx - 1, cy, 1);
-                        }
-                        consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
-                        consider(std::fabs(hit.y - y0), cx, cy, 0);
-                        if (cy + 1 < build_grid.height) {
-                            consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
-                        }
-                        const bool removing =
-                            build_grid.fence_at(ex, ey, edge);
-                        bool allowed = removing;
-                        if (!allowed) {
-                            const bool inside = cell_buildable(ex, ey);
-                            bool neighbour = true;
-                            if (edge == 1) {
-                                if (ex + 1 < build_grid.width) {
-                                    neighbour = cell_buildable(ex + 1, ey);
-                                }
-                            } else if (ey > 0) {
-                                neighbour = cell_buildable(ex, ey - 1);
-                            }
-                            allowed = inside && neighbour;
-                        }
-                        if (!allowed) {
-                            std::printf("placement: blocked cell\n");
-                        } else {
-                            build_grid.set_fence(ex, ey, edge, !removing);
-                        }
-                    }
-                    if (build_tool != 4 &&
-                        build_grid.path_count + build_grid.fence_count != before) {
-                        rebuild_build_meshes();
-                    }
-                }
-            }
+        } else if (build_ready && build_tool != 0) {
+            apply_build_tool_click();
         } else if (build_ready) {
             // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
             // selection (retail `gatFence` -> pass B). Clicking empty
