@@ -52,6 +52,119 @@ void Game::apply_injected_input() {
     }
 }
 
+void Game::handle_menu_input(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_QUIT) {
+        running = false;
+    } else if (menu_loaded && opt.use_menu) {
+        const float off_x =
+            (static_cast<float>(logical_width) - 800.0f) * 0.5f;
+        const float off_y =
+            (static_cast<float>(logical_height) - 600.0f) * 0.5f;
+        if (event.type == SDL_EVENT_MOUSE_MOTION) {
+            if (!menu_hover_forced) {
+                menu.move(static_cast<int>(event.motion.x - off_x),
+                          static_cast<int>(event.motion.y - off_y));
+            }
+            if (menu.scroll_drag_active &&
+                !menu.scroll_drag_list.empty()) {
+                menu.list_drag_to(
+                    menu.scroll_drag_list,
+                    static_cast<int>(event.motion.y - off_y));
+            }
+            if (menu.slider_drag_active &&
+                !menu.slider_drag_name.empty()) {
+                menu.slider_drag_to(
+                    menu.slider_drag_name,
+                    static_cast<int>(event.motion.x - off_x));
+                apply_menu_options();
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                   event.button.button == SDL_BUTTON_LEFT) {
+            menu.scroll_drag_active = false;
+            menu.scroll_drag_list.clear();
+            menu.slider_drag_active = false;
+            menu.slider_drag_name.clear();
+            apply_menu_options();
+        } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            // VSCROLL/HSCROLL wheel: one notch = one line
+            // (0x5cbb7f / 0x5be7e0, pos -= delta / 120).
+            const int mx = static_cast<int>(
+                event.wheel.mouse_x - off_x);
+            const int my = static_cast<int>(
+                event.wheel.mouse_y - off_y);
+            const int hit = menu.hit_test(mx, my);
+            if (hit >= 0) {
+                const dino::ui::Widget& list =
+                    menu.overlay.widgets[static_cast<std::size_t>(
+                        hit)];
+                int notches =
+                    static_cast<int>(event.wheel.y);
+                if (notches == 0) {
+                    notches = event.wheel.y > 0.0f ? 1 : -1;
+                }
+                if (list.type == "LIST" &&
+                    list.list_scroll_width > 0) {
+                    menu.list_scroll(list.name, -notches);
+                } else if (list.type == "HSCROLL") {
+                    menu.slider_step(list.name, -notches);
+                    apply_menu_options();
+                }
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                   event.button.button == SDL_BUTTON_LEFT) {
+            const int mx = static_cast<int>(event.button.x - off_x);
+            const int my = static_cast<int>(event.button.y - off_y);
+            const int menu_hit = menu.hit_test(mx, my);
+            if (menu_hit >= 0) {
+                const std::string& name =
+                    menu.overlay.widgets[static_cast<std::size_t>(
+                        menu_hit)]
+                        .name;
+                const std::string sound_name =
+                    name == "QUIT_BUTTON" ? "exitClic" : "clicDefault";
+                const auto sound_it =
+                    menu_sound_files.find(sound_name);
+                if (sound_it != menu_sound_files.end()) {
+                    ui_sound.play(sound_it->second);
+                }
+            }
+            menu.click(mx, my);
+            apply_menu_options();
+            queue_menu_load();
+            if (!pending_menu_load_path.empty()) {
+                do_port_load(pending_menu_load_path);
+                pending_menu_load_path.clear();
+                menu.loading = false;
+                menu.active = false;
+            }
+            queue_menu_cinematic();
+            play_pending_cinematic();
+            if (menu.quit) {
+                running = false;
+            }
+            if (!menu.active) {
+                start_screen = false;
+            }
+        } else if (event.type == SDL_EVENT_KEY_DOWN &&
+                   !event.key.repeat) {
+            if (event.key.key == SDLK_ESCAPE) {
+                menu.escape();
+                if (menu.quit) {
+                    running = false;
+                }
+            } else if (event.key.key == SDLK_RETURN && menu.page == 0) {
+                menu.page = 1;
+            }
+        }
+    } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+        if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
+            start_screen = false;
+        } else if (event.key.key == SDLK_ESCAPE) {
+            running = false;
+        }
+    }
+}
+
 void Game::handle_input() {
     sync_park_layout();
     apply_injected_input();
@@ -61,116 +174,7 @@ void Game::handle_input() {
             continue;
         }
         if (start_screen) {
-            if (event.type == SDL_EVENT_QUIT) {
-                running = false;
-            } else if (menu_loaded && opt.use_menu) {
-                const float off_x =
-                    (static_cast<float>(logical_width) - 800.0f) * 0.5f;
-                const float off_y =
-                    (static_cast<float>(logical_height) - 600.0f) * 0.5f;
-                if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                    if (!menu_hover_forced) {
-                        menu.move(static_cast<int>(event.motion.x - off_x),
-                                  static_cast<int>(event.motion.y - off_y));
-                    }
-                    if (menu.scroll_drag_active &&
-                        !menu.scroll_drag_list.empty()) {
-                        menu.list_drag_to(
-                            menu.scroll_drag_list,
-                            static_cast<int>(event.motion.y - off_y));
-                    }
-                    if (menu.slider_drag_active &&
-                        !menu.slider_drag_name.empty()) {
-                        menu.slider_drag_to(
-                            menu.slider_drag_name,
-                            static_cast<int>(event.motion.x - off_x));
-                        apply_menu_options();
-                    }
-                } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
-                           event.button.button == SDL_BUTTON_LEFT) {
-                    menu.scroll_drag_active = false;
-                    menu.scroll_drag_list.clear();
-                    menu.slider_drag_active = false;
-                    menu.slider_drag_name.clear();
-                    apply_menu_options();
-                } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                    // VSCROLL/HSCROLL wheel: one notch = one line
-                    // (0x5cbb7f / 0x5be7e0, pos -= delta / 120).
-                    const int mx = static_cast<int>(
-                        event.wheel.mouse_x - off_x);
-                    const int my = static_cast<int>(
-                        event.wheel.mouse_y - off_y);
-                    const int hit = menu.hit_test(mx, my);
-                    if (hit >= 0) {
-                        const dino::ui::Widget& list =
-                            menu.overlay.widgets[static_cast<std::size_t>(
-                                hit)];
-                        int notches =
-                            static_cast<int>(event.wheel.y);
-                        if (notches == 0) {
-                            notches = event.wheel.y > 0.0f ? 1 : -1;
-                        }
-                        if (list.type == "LIST" &&
-                            list.list_scroll_width > 0) {
-                            menu.list_scroll(list.name, -notches);
-                        } else if (list.type == "HSCROLL") {
-                            menu.slider_step(list.name, -notches);
-                            apply_menu_options();
-                        }
-                    }
-                } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                           event.button.button == SDL_BUTTON_LEFT) {
-                    const int mx = static_cast<int>(event.button.x - off_x);
-                    const int my = static_cast<int>(event.button.y - off_y);
-                    const int menu_hit = menu.hit_test(mx, my);
-                    if (menu_hit >= 0) {
-                        const std::string& name =
-                            menu.overlay.widgets[static_cast<std::size_t>(
-                                menu_hit)]
-                                .name;
-                        const std::string sound_name =
-                            name == "QUIT_BUTTON" ? "exitClic" : "clicDefault";
-                        const auto sound_it =
-                            menu_sound_files.find(sound_name);
-                        if (sound_it != menu_sound_files.end()) {
-                            ui_sound.play(sound_it->second);
-                        }
-                    }
-                    menu.click(mx, my);
-                    apply_menu_options();
-                    queue_menu_load();
-                    if (!pending_menu_load_path.empty()) {
-                        do_port_load(pending_menu_load_path);
-                        pending_menu_load_path.clear();
-                        menu.loading = false;
-                        menu.active = false;
-                    }
-                    queue_menu_cinematic();
-                    play_pending_cinematic();
-                    if (menu.quit) {
-                        running = false;
-                    }
-                    if (!menu.active) {
-                        start_screen = false;
-                    }
-                } else if (event.type == SDL_EVENT_KEY_DOWN &&
-                           !event.key.repeat) {
-                    if (event.key.key == SDLK_ESCAPE) {
-                        menu.escape();
-                        if (menu.quit) {
-                            running = false;
-                        }
-                    } else if (event.key.key == SDLK_RETURN && menu.page == 0) {
-                        menu.page = 1;
-                    }
-                }
-            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
-                if (event.key.key == SDLK_RETURN || event.key.key == SDLK_SPACE) {
-                    start_screen = false;
-                } else if (event.key.key == SDLK_ESCAPE) {
-                    running = false;
-                }
-            }
+            handle_menu_input(event);
             continue;
         }
         if (event.type == SDL_EVENT_QUIT) {

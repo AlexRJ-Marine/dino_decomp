@@ -502,6 +502,7 @@ private:
     // Input details (game_input.cpp): the injected-event setup and one
     // handler per SDL event type, called from handle_input().
     void apply_injected_input();
+    void handle_menu_input(const SDL_Event& event);
 
     // --- UI drawing (game_ui.cpp) --------------------------------------
     UiTexture* ui_texture(const std::string& filename);
