@@ -55,8 +55,10 @@ See `notes/lanes.md`. Default split:
   shadow, SDL-free layers) plus centre-scene pixels in the park shot.
   `draw_menu` is done (`ec4d97e`..`11885fe`): 428 -> 26 lines plus
   `draw_menu_widget`/`_list_`/`_hscroll_`/`_sprite`, body proven verbatim,
-  menu shot `notes/harness/maint2-menu.bmp`. Next: `update_placement` 638,
-  `handle_input` 638, `draw_park_hud` 758
+  menu shot `notes/harness/maint2-menu.bmp`. `update_placement` is done
+  (`159a267`..`cb091b6`): 638 -> 43 lines plus `update_fence_cursor`,
+  `place_selected_store_item`, `apply_build_tool_click` and
+  `apply_park_click`. Next: `handle_input` 638, then `draw_park_hud` 758
   (`notes/refactor-maint2-plan.md`), then MAINT-4 (`-Fast` still skips
   every app test). **All other port work is paused** until the code base is
   readable; `--selftest` 194 PASS, fast suite 355, full suite 511.
@@ -159,10 +161,10 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-2: `draw_menu` is done (428 -> 26 lines plus four helpers). Next:
-   `update_placement` 638, then `handle_input` 638, then `draw_park_hud`
-   758, one commit each, verbatim moves (`notes/refactor-maint2-plan.md`);
-   then MAINT-4 (make `-Fast` run the headless app tests). Keep `--selftest`
+1. MAINT-2: `draw_menu` (428 -> 26 lines) and `update_placement` (638 -> 43
+   lines) are done. Next: `handle_input` 638, then `draw_park_hud` 758, one
+   commit each, verbatim moves (`notes/refactor-maint2-plan.md`); then
+   MAINT-4 (make `-Fast` run the headless app tests). Keep `--selftest`
    (194), the fast suite (355) and the full suite (511) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.

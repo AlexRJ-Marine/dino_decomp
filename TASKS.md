@@ -2009,9 +2009,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `draw_menu_list_widget`, `draw_menu_hscroll_widget` and
   `draw_menu_sprite`; body proven verbatim, menu shot unchanged
   (`notes/harness/maint2-menu.bmp`).
-- [ ] `draw_park_hud` 758 -> named panels; `handle_input` 638 and
-  `update_placement` 638 -> per-tool handlers. Move code verbatim; no
-  behaviour change.
+- [x] `update_placement` 638 -> 43 lines plus `update_fence_cursor`,
+  `place_selected_store_item`, `apply_build_tool_click` and
+  `apply_park_click`; full suite 511.
+- [ ] `handle_input` 638 -> per-event handlers, then `draw_park_hud` 758
+  -> named panels. Move code verbatim; no behaviour change.
 - **Plan:** `notes/refactor-maint2-plan.md` (per-function extraction order,
   shared locals and gates).
 - **Acceptance:** the four bodies are each under 300 lines; `--selftest`

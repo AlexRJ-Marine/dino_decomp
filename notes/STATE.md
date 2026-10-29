@@ -1985,3 +1985,11 @@ Updated: 2026-10-28
   `(0,83,117)`) shows the unchanged start screen; fast suite 355, full 511.
 - Next MAINT-2 target: `update_placement` (638), then `handle_input` (638),
   then `draw_park_hud` (758).
+- MAINT-2 `update_placement` is done (`159a267`, `36231e6`, `a7359cf`,
+  `cb091b6`): 638 -> 43 lines plus `update_fence_cursor` (175),
+  `place_selected_store_item` (131), `apply_build_tool_click` (250) and
+  `apply_park_click` (52). The `pending_click` dispatch keeps its original
+  conditions and the `--pick-test` hook stays in `update_placement`; one
+  pre-existing `{ statement;` line was split so the build-tool body could
+  move verbatim. Fast suite 355, full suite 511.
+- Next MAINT-2 target: `handle_input` (638), then `draw_park_hud` (758).

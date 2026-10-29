@@ -1,11 +1,12 @@
 # MAINT-2 plan — split the four remaining long bodies
 
 Date: 2026-10-29. Follow-up to MAINT-1 (`docs/platform/app-shell.md`).
-Status: **in progress.** `draw_menu` is done (`ec4d97e`, `7859319`,
-`a844904`, `11885fe`); `update_placement`, `handle_input` and
-`draw_park_hud` remain. Every step below is a verbatim move plus a call
-site — no behaviour change, no signature change beyond receiving the state
-the body already used through the `Game` object.
+Status: **in progress.** `draw_menu` (`ec4d97e`, `7859319`, `a844904`,
+`11885fe`) and `update_placement` (`159a267`, `36231e6`, `a7359cf`,
+`cb091b6`) are done; `handle_input` and `draw_park_hud` remain. Every step
+below is a verbatim move plus a call site — no behaviour change, no
+signature change beyond receiving the state the body already used through
+the `Game` object.
 
 Targets (measured on `5fcd5ce` + `fad10bd`):
 
@@ -64,6 +65,15 @@ Order:
 Risk: these blocks mutate many members; the `Game` object makes that a
 mechanical move. The only care point is the early `if (running)`/`return`
 paths — preserve them exactly.
+
+**Done** (`159a267`, `36231e6`, `a7359cf`, `cb091b6`): `update_placement` is
+43 lines. `update_fence_cursor` (175) holds the arming preview and the
+mode-2 template; `place_selected_store_item` (131),
+`apply_build_tool_click` (250) and `apply_park_click` (52) are the three
+`pending_click` branches. The conditions stay in `update_placement`, so the
+helpers assume the branch gate already passed. One pre-existing
+`{ statement;` line was split for the build-tool body; everything else moved
+verbatim. Fast suite 355, full suite 511.
 
 ## 3. `update_placement` (638)
 
