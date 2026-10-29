@@ -706,6 +706,56 @@ void Game::apply_port_state(const dino::PortState& state) {
         camera_progress = progress;
     }
 
+    apply_port_build_grid(state);
+
+    apply_port_visitors(state);
+
+    apply_port_buildings(state);
+
+    apply_port_dinos(state);
+
+    rebuild_build_meshes();
+    if (!visitor_system.visitors.empty() &&
+        !visitor_pose1.positions.empty()) {
+        if (visitor_texture_id == 0 && visitor_image.width > 0) {
+            visitor_texture_id = upload_texture(visitor_image);
+        }
+        const dino::Mesh visitor_mesh = visitor_system.build_mesh(
+            build_grid, terrain, visitor_pose1, visitor_pose2);
+        if (visitor_gpu.vao == 0) {
+            visitor_gpu = upload_mesh(visitor_mesh, glfns);
+        } else {
+            update_mesh(visitor_gpu, visitor_mesh, glfns);
+        }
+    } else if (visitor_gpu.vao != 0) {
+        visitor_gpu.destroy(glfns);
+    }
+
+    apply_port_paddocks(state);
+
+    apply_port_food_and_employees(state);
+
+    rebuild_extra_items();
+    minimap_rendered_scale = -1.0f;
+    minimap_focus = {1e30f, 1e30f, 1e30f};
+    minimap_heading = 1e30f;
+    if (opt.dino_action_loop) {
+        log_dino_food();
+    }
+    std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
+                "paths=%d fences=%d buildings=%zu dinos=%zu "
+                "paddocks=%zu food=%zu\n",
+                current_island.c_str(), park_budget, park_clock.day,
+                visitor_system.visitors.size(), build_grid.path_count,
+                build_grid.fence_count, building_instances.size(),
+                imported_dinos.size(), paddocks.size(),
+                food_sources.size());
+
+    resume_port_campaign(state);
+}
+
+// Save rows: cells, roads and fences.
+void Game::apply_port_build_grid(const dino::PortState& state) {
     build_grid.init(state.cell_size > 0.0f ? state.cell_size : 4.0f,
                     terrain.world_size);
     build_grid.occupancy.init_from_mask(terrain.occupation,
@@ -721,7 +771,10 @@ void Game::apply_port_state(const dino::PortState& state) {
         build_grid.set_fence(fence.x, fence.y, fence.edge, true);
     }
     build_grid.undo_stack.clear();
+}
 
+// Save rows: visitor actors and their state machine.
+void Game::apply_port_visitors(const dino::PortState& state) {
     visitor_system.visitors.clear();
     for (const dino::PortVisitorState& saved : state.visitors) {
         dino::Visitor visitor;
@@ -765,7 +818,10 @@ void Game::apply_port_state(const dino::PortState& state) {
                                     visitor_system.visitors.size() + 1);
         visitor_system.visitors.push_back(visitor);
     }
+}
 
+// Save rows: placed buildings (kind, cell, orientation).
+void Game::apply_port_buildings(const dino::PortState& state) {
     if (!state.buildings.empty()) {
         clear_buildings();
         try {
@@ -797,7 +853,10 @@ void Game::apply_port_state(const dino::PortState& state) {
             std::fprintf(stderr, "port buildings: %s\n", e.what());
         }
     }
+}
 
+// Save rows: imported dinosaurs, needs and the live action loop.
+void Game::apply_port_dinos(const dino::PortState& state) {
     if (!state.dinos.empty()) {
         clear_imported_dinos();
         for (const dino::PortDinoState& saved : state.dinos) {
@@ -834,23 +893,9 @@ void Game::apply_port_state(const dino::PortState& state) {
         }
         rebuild_extra_items();
     }
+}
 
-    rebuild_build_meshes();
-    if (!visitor_system.visitors.empty() &&
-        !visitor_pose1.positions.empty()) {
-        if (visitor_texture_id == 0 && visitor_image.width > 0) {
-            visitor_texture_id = upload_texture(visitor_image);
-        }
-        const dino::Mesh visitor_mesh = visitor_system.build_mesh(
-            build_grid, terrain, visitor_pose1, visitor_pose2);
-        if (visitor_gpu.vao == 0) {
-            visitor_gpu = upload_mesh(visitor_mesh, glfns);
-        } else {
-            update_mesh(visitor_gpu, visitor_mesh, glfns);
-        }
-    } else if (visitor_gpu.vao != 0) {
-        visitor_gpu.destroy(glfns);
-    }
+void Game::apply_port_paddocks(const dino::PortState& state) {
     // Restore the live paddock model and placed food sources. Older port
     // saves omit these records.
     if (!state.paddocks.empty()) {
@@ -870,6 +915,10 @@ void Game::apply_port_state(const dino::PortState& state) {
         }
         park_paddocks = paddocks;
     }
+}
+
+// Save rows: food sources and employees, with their GPU actors.
+void Game::apply_port_food_and_employees(const dino::PortState& state) {
     if (!state.food.empty() || !state.employees.empty()) {
         if (food_defs.empty()) {
             try {
@@ -948,21 +997,9 @@ void Game::apply_port_state(const dino::PortState& state) {
             }
         }
     }
-    rebuild_extra_items();
-    minimap_rendered_scale = -1.0f;
-    minimap_focus = {1e30f, 1e30f, 1e30f};
-    minimap_heading = 1e30f;
-    if (opt.dino_action_loop) {
-        log_dino_food();
-    }
-    std::printf("port load: island=%s budget=%d day=%d visitors=%zu "
-                "paths=%d fences=%d buildings=%zu dinos=%zu "
-                "paddocks=%zu food=%zu\n",
-                current_island.c_str(), park_budget, park_clock.day,
-                visitor_system.visitors.size(), build_grid.path_count,
-                build_grid.fence_count, building_instances.size(),
-                imported_dinos.size(), paddocks.size(),
-                food_sources.size());
+}
+
+void Game::resume_port_campaign(const dino::PortState& state) {
     // Resume the campaign mission stored in the port save. The objective
     // verdicts are derived again by the first runtime tick, so only the
     // mission id is persisted.
@@ -987,7 +1024,6 @@ void Game::apply_port_state(const dino::PortState& state) {
             }
         }
     }
-
 }
 
 dino::PortState Game::make_port_state() {

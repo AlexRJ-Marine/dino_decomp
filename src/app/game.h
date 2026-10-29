@@ -596,6 +596,14 @@ private:
     dino::PortState make_port_state();
     void load_campaign_park(const std::string& world_path);
     void apply_port_state(const dino::PortState& state);
+    // Apply-port-state steps (game_park.cpp), in call order.
+    void apply_port_build_grid(const dino::PortState& state);
+    void apply_port_visitors(const dino::PortState& state);
+    void apply_port_buildings(const dino::PortState& state);
+    void apply_port_dinos(const dino::PortState& state);
+    void apply_port_paddocks(const dino::PortState& state);
+    void apply_port_food_and_employees(const dino::PortState& state);
+    void resume_port_campaign(const dino::PortState& state);
     std::string save_name_sanitized();
     std::string port_save_target(bool for_load);
     void do_port_save(const std::string& path);
