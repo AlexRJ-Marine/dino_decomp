@@ -1202,6 +1202,59 @@ void Game::apply_build_tool_click() {
     }
 }
 
+void Game::apply_park_click() {
+    // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
+    // selection (retail `gatFence` -> pass B). Clicking empty
+    // ground/right-click deselects; the Dino_SelectedWall pulse
+    // is pass B. The retail info panel is still a separate task.
+    dino::Vec3 hit;
+    if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                     logical_width, logical_height, hit)) {
+        const float half = terrain.world_size * 0.5f;
+        const float mx = hit.x + half;
+        const float my = hit.y + half;
+        const int index = paddock_at_map(mx, my);
+        if (park_sell_mode) {
+            if (index < 0) {
+                std::printf("sell: no enclosure under the cursor\n");
+            } else {
+                const dino::Paddock& pen =
+                    paddocks[static_cast<std::size_t>(index)];
+                if (!pen.occupants.empty() || pen.used > 0.0f) {
+                    park.show_warning(
+                        dino::ui::resolve_loc_text(
+                            "&WARNING_SELLING_NON_EMPTY_FENCE",
+                            park.loc));
+                    std::printf(
+                        "sell: enclosure %d refused (occupied)\n",
+                        index);
+                } else {
+                    const int value = dino::fence_sell_value(
+                        pen.rect, build_grid.cell_size, 30, 4,
+                        park_sellback);
+                    park_sell_paddock = index;
+                    park.show_request(
+                        dino::ui::resolve_loc_text(
+                            "&REQUEST_SELL_FENCE", park.loc) +
+                        std::to_string(value));
+                    std::printf(
+                        "sell: enclosure %d value=%d\n", index,
+                        value);
+                }
+            }
+        } else if (index != selected_paddock) {
+            selected_paddock = index;
+            if (index >= 0) {
+                std::printf("paddock: selected %d\n", index);
+            } else {
+                std::printf("paddock: deselected\n");
+            }
+            rebuild_build_meshes();
+            refresh_fence_info_panel();
+        }
+    }
+}
+
 void Game::update_placement() {
     if (pending_fence_tool) {
         ensure_build_ready();
@@ -1220,56 +1273,7 @@ void Game::update_placement() {
         } else if (build_ready && build_tool != 0) {
             apply_build_tool_click();
         } else if (build_ready) {
-            // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
-            // selection (retail `gatFence` -> pass B). Clicking empty
-            // ground/right-click deselects; the Dino_SelectedWall pulse
-            // is pass B. The retail info panel is still a separate task.
-            dino::Vec3 hit;
-            if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                             logical_width, logical_height, hit)) {
-                const float half = terrain.world_size * 0.5f;
-                const float mx = hit.x + half;
-                const float my = hit.y + half;
-                const int index = paddock_at_map(mx, my);
-                if (park_sell_mode) {
-                    if (index < 0) {
-                        std::printf("sell: no enclosure under the cursor\n");
-                    } else {
-                        const dino::Paddock& pen =
-                            paddocks[static_cast<std::size_t>(index)];
-                        if (!pen.occupants.empty() || pen.used > 0.0f) {
-                            park.show_warning(
-                                dino::ui::resolve_loc_text(
-                                    "&WARNING_SELLING_NON_EMPTY_FENCE",
-                                    park.loc));
-                            std::printf(
-                                "sell: enclosure %d refused (occupied)\n",
-                                index);
-                        } else {
-                            const int value = dino::fence_sell_value(
-                                pen.rect, build_grid.cell_size, 30, 4,
-                                park_sellback);
-                            park_sell_paddock = index;
-                            park.show_request(
-                                dino::ui::resolve_loc_text(
-                                    "&REQUEST_SELL_FENCE", park.loc) +
-                                std::to_string(value));
-                            std::printf(
-                                "sell: enclosure %d value=%d\n", index,
-                                value);
-                        }
-                    }
-                } else if (index != selected_paddock) {
-                    selected_paddock = index;
-                    if (index >= 0) {
-                        std::printf("paddock: selected %d\n", index);
-                    } else {
-                        std::printf("paddock: deselected\n");
-                    }
-                    rebuild_build_meshes();
-                    refresh_fence_info_panel();
-                }
-            }
+            apply_park_click();
         }
     }
 

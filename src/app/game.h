@@ -486,6 +486,7 @@ private:
     void update_fence_cursor();
     void place_selected_store_item();
     void apply_build_tool_click();
+    void apply_park_click();
     void update_preview();
     void draw_frame();
     void present_frame();
