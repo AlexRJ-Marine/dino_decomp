@@ -323,14 +323,14 @@ void Game::update_menu_loading() {
                     current_island =
                         island_names[static_cast<std::size_t>(island_index)];
                     minimap_rendered_scale = -1.0f;
-                    if (entrance_road) {
+                    if (park_session.entrance_road) {
                         ensure_build_ready();
-                        dino::import_roads(park_session.build_grid, {*entrance_road});
+                        dino::import_roads(park_session.build_grid, {*park_session.entrance_road});
                         rebuild_build_meshes();
                         std::printf(
                             "entrance road: %d,%d-%d,%d path_cells=%d\n",
-                            entrance_road->x0, entrance_road->y0,
-                            entrance_road->x1, entrance_road->y1,
+                            park_session.entrance_road->x0, park_session.entrance_road->y0,
+                            park_session.entrance_road->x1, park_session.entrance_road->y1,
                             park_session.build_grid.path_count);
                     }
                 } catch (const std::exception& e) {
@@ -494,9 +494,9 @@ dino::CampaignState Game::build_mission_state() {
     // path cell touches its footprint perimeter. `+0x34` is the retail
     // flag; the port derives it from the live build grid.
     for (const dino::PortBuildingState& building :
-         building_instances) {
-        const auto def_it = building_defs.find(building.kind);
-        if (def_it == building_defs.end()) {
+         park_session.building_instances) {
+        const auto def_it = park_session.building_defs.find(building.kind);
+        if (def_it == park_session.building_defs.end()) {
             continue;
         }
         const dino::BuildingDef& def = def_it->second;
@@ -1187,7 +1187,7 @@ void Game::update_simulation() {
     if (!park_session.visitor_system.visitors.empty()) {
         park_session.visitor_system.update(park_session.build_grid, terrain,
                               static_cast<float>(frame_dt), attractions,
-                              entrance_cell_x, entrance_cell_y,
+                              park_session.entrance_cell_x, park_session.entrance_cell_y,
                               park_session.visitor_profiles);
         update_mesh(visitor_gpu,
                     park_session.visitor_system.build_mesh(park_session.build_grid, terrain,

@@ -1,12 +1,17 @@
 #pragma once
 
+#include <map>
+#include <optional>
 #include <vector>
 
+#include "../formats/bbi.h"
+#include "../formats/math.h"
 #include "build.h"
 #include "economy.h"
 #include "employees.h"
 #include "food.h"
 #include "park_clock.h"
+#include "port_save.h"
 #include "show_runtime.h"
 #include "visitors.h"
 
@@ -31,6 +36,12 @@ struct ParkSession {
     std::vector<EmployeeProfile> employee_profiles;
     ShowRuntime show_runtime;
     std::vector<ShowCatalogEntry> show_catalog;
+    std::vector<PortBuildingState> building_instances;
+    std::map<int, BuildingDef> building_defs;
+    int entrance_cell_x = -1;
+    int entrance_cell_y = -1;
+    std::optional<WorldRect> entrance_road;
+    Vec3 building_center{1e30f, 1e30f, 1e30f};
 };
 
 }  // namespace dino

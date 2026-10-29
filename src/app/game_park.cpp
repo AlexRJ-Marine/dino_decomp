@@ -6,7 +6,7 @@
 namespace dino::app {
 
 void Game::load_island(const std::string& island, bool reset_view) {
-    entrance_road.reset();
+    park_session.entrance_road.reset();
     if (park_session.visitor_profiles.empty()) {
         try {
             park_session.visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
@@ -261,7 +261,7 @@ void Game::build_island_park() {
                                     : park_session.visitor_system.spawn(
                                           park_session.build_grid, opt.visitors,
                                           park_session.visitor_profiles,
-                                          entrance_cell_x, entrance_cell_y);
+                                          park_session.entrance_cell_x, park_session.entrance_cell_y);
             std::printf("visitors: %d spawned on %d path cells\n", spawned,
                         park_session.build_grid.path_count);
             if (opt.visitor_satisfaction >= 0) {
@@ -766,7 +766,7 @@ void Game::apply_port_state(const dino::PortState& state) {
                 "paddocks=%zu food=%zu\n",
                 current_island.c_str(), park_session.budget, park_session.clock.day,
                 park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
-                park_session.build_grid.fence_count, building_instances.size(),
+                park_session.build_grid.fence_count, park_session.building_instances.size(),
                 imported_dinos.size(), park_session.paddocks.size(),
                 park_session.food_sources.size());
 
@@ -1119,7 +1119,7 @@ dino::PortState Game::make_port_state() {
         saved.route = visitor.route;
         state.visitors.push_back(saved);
     }
-    state.buildings = building_instances;
+    state.buildings = park_session.building_instances;
     for (const ImportedDino& dinosaur : imported_dinos) {
         dino::PortDinoState saved;
         saved.species = dinosaur.species;

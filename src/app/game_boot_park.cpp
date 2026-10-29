@@ -209,9 +209,9 @@ std::optional<int> Game::boot_scene_resources() {
 
 std::optional<int> Game::boot_park_objects() {
     sav_ready = false;
-    entrance_cell_x = -1;
-    entrance_cell_y = -1;
-    building_center = {1e30f, 1e30f, 1e30f};
+    park_session.entrance_cell_x = -1;
+    park_session.entrance_cell_y = -1;
+    park_session.building_center = {1e30f, 1e30f, 1e30f};
 
     if (!opt.building_path.empty()) {
         try {
@@ -327,13 +327,13 @@ std::optional<int> Game::boot_minimap_and_visitors() {
 
     if (opt.wld_park || sav_ready) {
         import_park_layout();
-    } else if (opt.entrance_road && entrance_road && build_ready) {
+    } else if (opt.entrance_road && park_session.entrance_road && build_ready) {
         // Opt-in: treat a --building Entrance at startup as a fresh park.
-        dino::import_roads(park_session.build_grid, {*entrance_road});
+        dino::import_roads(park_session.build_grid, {*park_session.entrance_road});
         rebuild_build_meshes();
         std::printf("entrance road: %d,%d-%d,%d path_cells=%d\n",
-                    entrance_road->x0, entrance_road->y0, entrance_road->x1,
-                    entrance_road->y1, park_session.build_grid.path_count);
+                    park_session.entrance_road->x0, park_session.entrance_road->y0, park_session.entrance_road->x1,
+                    park_session.entrance_road->y1, park_session.build_grid.path_count);
     }
     // `--visitors` is handled before the `.wld` roads are imported, so a
     // campaign park would spawn on zero path cells. Spawn once more after
@@ -344,8 +344,8 @@ std::optional<int> Game::boot_minimap_and_visitors() {
             park_session.visitor_profiles.empty()
                 ? park_session.visitor_system.spawn(park_session.build_grid, opt.visitors)
                 : park_session.visitor_system.spawn(park_session.build_grid, opt.visitors,
-                                       park_session.visitor_profiles, entrance_cell_x,
-                                       entrance_cell_y);
+                                       park_session.visitor_profiles, park_session.entrance_cell_x,
+                                       park_session.entrance_cell_y);
         std::printf("visitors: %d spawned on %d path cells\n", spawned,
                     park_session.build_grid.path_count);
         if (opt.visitor_satisfaction >= 0) {
@@ -679,8 +679,8 @@ std::optional<int> Game::boot_camera_setup() {
     explicit_camera_view = !opt.camera_target.empty() || opt.distance > 0.0f ||
         opt.focus_building || opt.focus_dinos || place_dino;
     camera_retail_model = !opt.camera_orbit && (opt.camera_retail || !explicit_camera_view);
-    if (opt.focus_building && building_center.x < 1e29f) {
-        center = building_center;
+    if (opt.focus_building && park_session.building_center.x < 1e29f) {
+        center = park_session.building_center;
         distance = 60.0f;
     }
     if (opt.focus_dinos && !imported_dinos.empty()) {
@@ -889,10 +889,10 @@ std::optional<int> Game::boot_employee_session() {
             const float half = terrain.world_size * 0.5f;
             float spawn_x = half;
             float spawn_y = half;
-            if (entrance_cell_x >= 0 && entrance_cell_y >= 0) {
-                spawn_x = (static_cast<float>(entrance_cell_x) + 0.5f) *
+            if (park_session.entrance_cell_x >= 0 && park_session.entrance_cell_y >= 0) {
+                spawn_x = (static_cast<float>(park_session.entrance_cell_x) + 0.5f) *
                           park_session.build_grid.cell_size;
-                spawn_y = (static_cast<float>(entrance_cell_y) + 0.5f) *
+                spawn_y = (static_cast<float>(park_session.entrance_cell_y) + 0.5f) *
                           park_session.build_grid.cell_size;
             }
             int hired = 0;
@@ -1203,7 +1203,7 @@ std::optional<int> Game::boot_finalize() {
             "paths=%d fences=%d buildings=%zu\n",
             park_session.budget, park_session.clock.day, park_session.clock.elapsed,
             park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
-            park_session.build_grid.fence_count, building_instances.size());
+            park_session.build_grid.fence_count, park_session.building_instances.size());
     }
 
     if (!opt.load_port_path.empty()) {

@@ -335,8 +335,6 @@ private:
     dino::Mesh employee_pose;
     dino::Image employee_image;
     std::vector<BuildingDraw> building_draws;
-    std::vector<dino::PortBuildingState> building_instances;
-    std::map<int, dino::BuildingDef> building_defs;
     std::vector<dino::WorldRect> wld_roads;
     std::vector<dino::WorldRect> wld_fences;
     std::vector<dino::WorldDinosaur> wld_dinosaurs;
@@ -346,10 +344,6 @@ private:
     std::vector<dino::WorldVisitor> sav_world_visitors;
     bool sav_ready;
     std::vector<dino::Attraction> attractions;
-    int entrance_cell_x;
-    int entrance_cell_y;
-    std::optional<dino::WorldRect> entrance_road;
-    dino::Vec3 building_center;
     MinimapTarget minimap;
     bool minimap_ready;
     float minimap_scale;

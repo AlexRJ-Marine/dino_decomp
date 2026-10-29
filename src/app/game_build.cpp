@@ -13,12 +13,12 @@ void Game::clear_buildings() {
         }
     }
     building_draws.clear();
-    building_instances.clear();
+    park_session.building_instances.clear();
     attractions.clear();
-    entrance_cell_x = -1;
-    entrance_cell_y = -1;
-    entrance_road.reset();
-    building_center = {1e30f, 1e30f, 1e30f};
+    park_session.entrance_cell_x = -1;
+    park_session.entrance_cell_y = -1;
+    park_session.entrance_road.reset();
+    park_session.building_center = {1e30f, 1e30f, 1e30f};
 
 }
 
@@ -53,8 +53,8 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
         const float wx = centre_x - half;
         const float wy = centre_y - half;
         const float wz = terrain.height_at(wx, wy);
-        if (building_center.x > 1e29f) {
-            building_center = {wx, wy, wz + 3.0f};
+        if (park_session.building_center.x > 1e29f) {
+            park_session.building_center = {wx, wy, wz + 3.0f};
         }
         const float angle_deg =
             extra_angle_deg + static_cast<float>(orientation) * 90.0f;
@@ -108,8 +108,8 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
                 {upload_mesh(placed, glfns), part_textures[part_index]});
         }
         if (kind >= 0) {
-            building_defs[kind] = def;
-            building_instances.push_back(
+            park_session.building_defs[kind] = def;
+            park_session.building_instances.push_back(
                 {kind, static_cast<int>(cell_x), static_cast<int>(cell_y),
                  orientation});
             // spPark building footprint stamp (0x586b80): class 1 over
@@ -136,9 +136,9 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
                             ? park_session.build_grid.cell_size
                             : 4.0f)));
         if (def.category == 10) {
-            entrance_cell_x = centre_cell_x;
-            entrance_cell_y = centre_cell_y;
-            entrance_road = dino::entrance_access_road(
+            park_session.entrance_cell_x = centre_cell_x;
+            park_session.entrance_cell_y = centre_cell_y;
+            park_session.entrance_road = dino::entrance_access_road(
                 def, static_cast<int>(cell_x), static_cast<int>(cell_y),
                 orientation);
         } else if (def.category > 0) {
@@ -371,7 +371,7 @@ bool Game::construction_overlaps(int kind, int cell_x, int cell_y,
                                  : static_cast<int>(def.footprint_h);
     const int h = state % 2 == 0 ? static_cast<int>(def.footprint_h)
                                  : static_cast<int>(def.footprint_w);
-    for (const dino::PortBuildingState& other : building_instances) {
+    for (const dino::PortBuildingState& other : park_session.building_instances) {
         if (other.kind < 0 ||
             other.kind >= static_cast<int>(construction_defs.size())) {
             continue;
@@ -509,7 +509,7 @@ bool Game::road_cell_busy(int x, int y) {
     const int wy = static_cast<int>(std::lround(
         park_session.build_grid.origin_y + y * cs + terrain.world_size * 0.5f));
     const int wc = static_cast<int>(cs);
-    for (const dino::PortBuildingState& b : building_instances) {
+    for (const dino::PortBuildingState& b : park_session.building_instances) {
         if (b.kind < 0 || b.kind >= static_cast<int>(construction_defs.size())) {
             continue;
         }

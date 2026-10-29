@@ -2191,8 +2191,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `ParkSession`; drop the now-unused `world/show_runtime.h` include from
   `game.h`. Ratchet 274 -> 272; `game.h` 671 lines. Show, campaign and HUD
   tests unchanged.
-- [ ] Move the remaining subsystems one commit at a time: dinos, buildings.
-  Lower the `GAME_MEMBERS_MAX` ratchet after each slice.
+- [x] Move the building/entrance subsystem: `building_instances`,
+  `building_defs`, `entrance_cell_x`, `entrance_cell_y`, `entrance_road` and
+  `building_center` into `ParkSession` (the `opt.entrance_road` option is
+  preserved). Ratchet 272 -> 266; `game.h` 665 lines. Building, road,
+  save/load and campaign tests unchanged.
+- [ ] Move the remaining subsystem: dinos. This needs `ImportedDino` and the
+  dino tables moved from the nested `Game` types to `world` first. Lower the
+  `GAME_MEMBERS_MAX` ratchet after the slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member
