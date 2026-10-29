@@ -2087,3 +2087,16 @@ Updated: 2026-10-28
   in TASKS.md: guards + inversion moves, ParkSession state, build/camera
   controllers, FrameScheduler, dino sim/animator, renderer/header split. No
   code moved in this pass.
+
+- ARCH-1 is done (`8cff80d`, `1a12e57`, `0b6d1eb`): the include census has no
+  wrong-way edges. `asset_path` moved from `world/vegetation.h` to
+  `formats/path.{h,cpp}` (audio and app no longer include world for it); the
+  generic INI parser moved from `ui/ini.{h,cpp}` to `formats/ini.{h,cpp}` in
+  namespace `dino` (campaign, camera config, game boot and overlay updated;
+  `game.h` no longer includes it). `tests/test_architecture.py` enforces the
+  one-way layer matrix and a `Game` ratchet of 286 members / 171 methods /
+  700 `game.h` lines, mutation-tested with an injected `formats -> ui`
+  include. Current edges: app->formats 56, app->world 21, app->render 7,
+  app->ui 4, app->audio 2; world->formats 30, render->formats 12,
+  ui->formats 6, audio->formats 4, formats->third_party 1. Gates: selftest
+  194, fast 379 in 31 s, full 521 in 3:49. ARCH-2 (`ParkSession`) is next.
