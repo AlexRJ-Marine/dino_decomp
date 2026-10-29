@@ -2127,3 +2127,12 @@ Updated: 2026-10-28
   Ratchet 281 -> 278 members, `game.h` 679 lines. Gates: selftest 194,
   fast 379, full 521 in 4:31 (visitors, save/load, campaign, HUD). Next
   ARCH-2 slices: dinos, buildings, food/employees, shows, then `update`.
+
+- ARCH-2 fourth slice (`aa84f5f`): `ParkSession` now owns `food_sources`,
+  `food_defs`, `employee_system` and `employee_profiles`. The code-only
+  replacement preserved the four `WldWorld::food_sources` reads in
+  `load_campaign_food`/`reports`; `game.h` keeps `FoodSource*` but drops
+  `world/employees.h` (SF.10). Ratchet 278 -> 274 members, `game.h` 674
+  lines. Gates: selftest 194, fast 379, full 521 in 4:38 (food, employees,
+  save/load, campaign). Next ARCH-2 slices: dinos, buildings, shows, then
+  `ParkSession::update`.
