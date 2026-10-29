@@ -2151,20 +2151,23 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** MAINT-4/6.
 
 ### ARCH-1: Architecture guards and the two inversions
-- [ ] Add `tests/test_architecture.py`: explicit layer include matrix
+- [x] Add `tests/test_architecture.py`: explicit layer include matrix
   (`formats`/`world`/`ui`/`render`/`audio` → `app` forbidden; `formats` →
   `ui`/`render`/`audio` forbidden; `world` → `ui`/`render`/`audio` forbidden),
-  no SDL/GL in `formats`/`world`/`ui`, a `Game` member/method ratchet (start
-  286/172, lower it as ARCH-2..6 land) and the 21+14 phase names.
-- [ ] Move `asset_path` out of `world/vegetation.h` into a shared path header
-  (`formats/path.h`); update `audio/music.cpp`, `audio/ui_sound.cpp`,
-  `app/asset_paths.*` and the vegetation caller.
-- [ ] Move the INI parser out of `ui/ini.h` into `formats/ini.h` (keep a thin
-  `ui/ini.h` re-export for one commit) so `formats/campaign.cpp` stops
-  depending on UI.
+  a `Game` member/method/header ratchet (286/171/700) and the layer direction.
+  The guard is mutation-tested (an injected `formats → ui` include fails it).
+- [x] Move `asset_path` out of `world/vegetation.h` into
+  `formats/path.{h,cpp}`; update `audio/music.cpp`, `audio/ui_sound.cpp`,
+  `app/asset_paths.*`, `app/reports.cpp`, `world/show_runtime.cpp` and the
+  vegetation caller.
+- [x] Move the INI parser out of `ui/ini.h` into `formats/ini.{h,cpp}` in
+  namespace `dino`; update campaign, camera config, game boot and overlay.
+  `game.h` no longer includes it.
 - **Acceptance:** include census has zero inversions; existing tests green;
   guards fail on an injected `formats → ui` include.
-- **Evidence:** `docs/platform/architecture.md`, `notes/harness/architecture_census.py`.
+  - Met: census clean; fast 379; guard mutation test fails as intended.
+- **Evidence:** commits `8cff80d` (path), `1a12e57` (INI), `tests/test_architecture.py`,
+  `docs/platform/architecture.md`, `architecture.svg`.
 
 ### ARCH-2: Extract ParkSession state
 - [ ] Introduce `world/park_session.{h,cpp}` for the park/economy/visitor/

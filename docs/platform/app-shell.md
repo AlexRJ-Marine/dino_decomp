@@ -136,7 +136,7 @@ Rules:
 ```powershell
 .\scripts\build.ps1 -BuildDir build\refactor
 .\build\refactor\dino_port.exe --selftest      # 194 checks
-.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 376 tests
+.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 379 tests
 ```
 
 `--selftest` covers the format readers, objectives and HUD math without a

@@ -1,6 +1,6 @@
 # Port architecture (2026-10-29 review)
 
-Status: **reviewed, target defined, migration queued (ARCH-1..6).** This page
+Status: **ARCH-1 landed; ARCH-2..6 queued.** This page
 is the architecture view: what the source looks like now, where the coupling
 is, and the order in which the remaining `Game` responsibilities move out.
 The file/phase map is `app-shell.md`; the C++ rules are `cpp-guidelines.md`.
@@ -30,7 +30,7 @@ The file/phase map is `app-shell.md`; the C++ rules are `cpp-guidelines.md`.
 | `audio` | 276 | 1% | music + UI sounds |
 
 `Game` is the architectural centre of gravity: **286 data members, 172
-methods**, declared in a **674-line `game.h` with 52 project includes**. All
+methods**, declared in a **686-line `game.h` with 51 project includes**. All
 **11** `src/app/*.cpp` translation units include that header, so every domain
 change recompiles the whole app layer.
 
@@ -38,21 +38,21 @@ change recompiles the whole app layer.
 
 | From → to | Count | Comment |
 | --- | ---: | --- |
-| `app → formats` | 52 | expected |
+| `app → formats` | 56 | expected |
 | `app → world` | 21 | expected |
 | `app → render` | 7 | expected |
-| `app → ui` | 6 | expected |
+| `app → ui` | 4 | expected |
 | `app → audio` | 2 | expected |
-| `world → formats` | 28 | expected |
+| `world → formats` | 30 | expected |
 | `render → formats` | 12 | expected |
-| `ui → formats` | 5 | expected |
-| `audio → formats` | 2 | expected |
-| **`formats → ui`** | **1** | **inversion**: `campaign.cpp` uses `ui::IniFile` |
-| **`audio → world`** | **2** | **inversion**: audio calls `asset_path`, declared in `vegetation.h` |
+| `ui → formats` | 6 | expected |
+| `audio → formats` | 4 | expected |
+| `formats → third_party` | 1 | `pl_mpeg` decoder |
 
 No lower layer includes `app`, and no first-party lower layer uses SDL/GL:
-the core is genuinely portable. The two inversions are small but point at two
-misplaced utilities, not at a design need.
+the core is genuinely portable. **ARCH-1 removed the two inversions**
+(`formats → ui`, `audio → world`) and added a guard that fails on any new
+wrong-way edge.
 
 ## Findings
 
@@ -60,9 +60,9 @@ misplaced utilities, not at a design need.
 | --- | --- | --- | --- |
 | A1 | **High** | `Game` is a god object: it owns park, economy, visitors, dinos, build, show, camera, UI, render and audio state, and the frame order. There is no `ParkSession` boundary to test or to swap for a campaign/free-game session. | 286 members, 172 methods, 11 TUs include `game.h` |
 | A2 | **High** | Domain logic lives in the app layer: `game_build.cpp` (1,037), `game_park.cpp` (1,262), `game_scene.cpp` (855), `game_show.cpp` (390). Only the data types are in `world`. | layer/census; app is 44% of first-party code |
-| A3 | Medium | Two dependency inversions: `formats → ui` (`ui::IniFile`) and `audio → world` (`asset_path` in `vegetation.h`). | include census; `formats/campaign.cpp:13`, `audio/music.cpp:5`, `audio/ui_sound.cpp:5` |
+| A3 | Medium | Two dependency inversions: `formats → ui` (`ui::IniFile`) and `audio → world` (`asset_path` in `vegetation.h`). **Fixed by ARCH-1**: parser moved to `formats/ini.*`, path helper to `formats/path.*`. | include census; `tests/test_architecture.py` |
 | A4 | Medium | The frame order is implicit in `Game::run()` and the phase bodies, not represented as retail tasks (`lpScheduler`); two phase names mislead (`update_audio` does minimap zoom, `update_diagnostics` refills a WAV). | `game.cpp` phase list; `app-shell.md` notes |
-| A5 | Medium | `game.h` is the build bottleneck: 52 project includes, 11 TUs. Splitting it requires the state boundary from A1. | header census |
+| A5 | Medium | `game.h` is the build bottleneck: 51 project includes, 11 TUs. Splitting it requires the state boundary from A1. | header census |
 | A6 | Medium | UI layout/state (`ui`) and UI drawing (`app/game_ui.cpp`, 1,500) are split across layers with no draw-list seam; every new panel couples to GL and `Game`. | `game_ui.cpp`, `ui/*` |
 | A7 | Low | GL names (`GpuMesh`, `GLuint` textures) are copyable, manual-destroy handles; the owner is `Game` and the deleter needs `GlFns`. | `render/mesh_gpu.h`; policy deviation row |
 | A8 | Low | No unit-test seam for `Game` (private phase methods, non-copyable); the only automated proof is the CLI/screenshot suite. | `tests/test_app_cpp.py`, `test_app_shell.py` |
@@ -94,15 +94,15 @@ without a window.
 ## Migration plan
 
 Each phase is behaviour-preserving and ends at the same gate: `--selftest`
-194, fast 376, full 518, plus screenshot parity for the HUD/park shots. The
+194, fast 379, full 521, plus screenshot parity for the HUD/park shots. The
 task queue is `TASKS.md` ARCH-1..6.
 
 | Phase | Work | Output | Gate |
 | --- | --- | --- | --- |
-| **ARCH-1** | Architecture guards: `tests/test_architecture.py` for the layer matrix, no lower→app, no `formats`/`world`/`ui` SDL/GL, a `Game` member/method budget and the phase-name map. Move `asset_path` to a shared path header and `ui::IniFile` to `formats` (or a util header). | acyclic include graph; guards fail on an injected wrong edge | fast 376 |
+| **ARCH-1** | **Done.** Architecture guards: `tests/test_architecture.py` for the layer matrix, no lower→app, a `Game` member/method/header budget (286/171/700) and the phase map. Moved `asset_path` to `formats/path.*` and the INI parser to `formats/ini.*`. | zero inversions; guard fails on an injected wrong edge | fast 379 |
 | **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`; `Game` holds `ParkSession park` and forwards. Start with a plain state struct (mechanical rename), add `update()` in a second commit. | save/load and campaign tests unchanged; `game.h` shrinks | full 518 |
 | **ARCH-3** | `BuildController` + `CameraController`: move placement/validation/cost and the camera equations behind the new types; keep the draw data in `Game`/`Renderer`. | placement/road/sell tests unchanged | full 518 |
-| **ARCH-4** | `FrameScheduler`: a table of named tasks in the retail order from `docs/decomp/scheduler.md`; `Game::run()` calls `scheduler.run_tasks(dt)`; phase-order test becomes task-order test. | order is data, not statement position | fast 376 |
+| **ARCH-4** | `FrameScheduler`: a table of named tasks in the retail order from `docs/decomp/scheduler.md`; `Game::run()` calls `scheduler.run_tasks(dt)`; phase-order test becomes task-order test. | order is data, not statement position | fast 379 |
 | **ARCH-5** | `DinoSim` + `DinoAnimator`: move needs/chooser/mover and clip selection/sampling/skinning out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 518 |
 | **ARCH-6** | `Renderer` + `AudioSystem`: GL RAII (or a documented owner), hidden capture mode, split `game.h` into domain headers; `Game` < 250 lines. | no GL in `Game`; clean build time down | full 518 |
 

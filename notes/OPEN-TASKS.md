@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 11:04. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 18:52. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-59 open items.
+56 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -98,11 +98,6 @@ Generated from `TASKS.md` on 2026-10-29 11:04. Do not edit; regenerate with `scr
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
-
-## ARCH-1: Architecture guards and the two inversions
-- [ ] Add `tests/test_architecture.py`: explicit layer include matrix
-- [ ] Move `asset_path` out of `world/vegetation.h` into a shared path header
-- [ ] Move the INI parser out of `ui/ini.h` into `formats/ini.h` (keep a thin
 
 ## ARCH-2: Extract ParkSession state
 - [ ] Introduce `world/park_session.{h,cpp}` for the park/economy/visitor/
