@@ -76,7 +76,7 @@ void Game::render_minimap(const dino::Vec3& focus, float heading_rad) {
         return;
     }
     const float half = terrain.world_size * 2.0f * minimap_scale;
-    const dino::Vec3 eye{focus.x, focus.y, 4000.0f};
+    const dino::Vec3 minimap_eye{focus.x, focus.y, 4000.0f};
     // Put the camera's forward direction at the top of the map so the
     // island rotates with the park camera (FUN_005fb120).
     const dino::Vec3 up{std::cos(heading_rad), std::sin(heading_rad), 0.0f};
@@ -89,7 +89,7 @@ void Game::render_minimap(const dino::Vec3& focus, float heading_rad) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     const dino::Mat4 view =
-        look_at(eye, {focus.x, focus.y, 0.0f}, up);
+        look_at(minimap_eye, {focus.x, focus.y, 0.0f}, up);
     const dino::Mat4 proj =
         ortho(-half, half, -half, half, 0.1f, 8000.0f);
     const dino::Mat4 mvp = dino::multiply(proj, view);

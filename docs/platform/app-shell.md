@@ -88,9 +88,9 @@ test lives in `boot()` only, so a phase body reads as plain setup.
 | `begin_frame` | window size, park layout sync, pending select/sell requests |
 | `advance_time` | frame `dt`, elapsed time, park palette pulse |
 | `update_session` | menu loading/timer, campaign or free-game start, session transitions |
-| `update_audio` | UI sound and music players, minimap zoom keys |
+| `update_audio` | UI sound and music players; delegates the minimap zoom keys to `update_minimap_zoom()` |
 | `update_camera` | camera input and goals (retail park model or free camera) |
-| `update_diagnostics` | `DINO_DEBUG_CAMERA` trace, looping audio restart |
+| `update_diagnostics` | `DINO_DEBUG_CAMERA` trace; calls `refill_looping_stream()` |
 | `set_background` | clear colour (time-of-day pulse) |
 | `update_simulation` | animation clock, visitors, employees, dinosaurs, shows |
 | `update_camera_view` | the frame's `eye` and `view_center` |
@@ -119,21 +119,27 @@ Rules:
 - `game.h` is a map: data members and declarations, no logic beyond inline
   data helpers.
 - No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
-- A phase must fit on a screen or two. When a phase grows, split it — do not
-  let `boot()` or `run()` grow again.
+- A phase should fit on a screen or two. When one grows, split it — do not
+  let `boot()` or `run()` grow again. The known exceptions are tracked in
+  `TASKS.md` MAINT-2 (largest: `update_session`, 434 lines).
+- A function-body local must not share a name with a `Game` member: a local
+  in `update_camera_view()` once hid `eye`/`view_center` and the scene went
+  black. `tests/test_app_shell.py` enforces this.
 
 ## Verification
 
 ```powershell
 .\scripts\build.ps1 -BuildDir build\refactor
 .\build\refactor\dino_port.exe --selftest      # 194 checks
-.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 350 tests
+.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 355 tests
 ```
 
 `--selftest` covers the format readers, objectives and HUD math without a
 window; `--camera-selftest` asserts the retail camera equations; the fast suite
 covers the window, report and CLI paths. A change that only moves code must
-leave both unchanged.
+leave both unchanged. `tests/test_app_shell.py` is a static guard: it checks
+`main.cpp`, the 21 boot and 14 frame phase calls in order, and rejects a
+function-scope local that shadows a `Game` member.
 
 History: this file used to describe the single-file 2026 vertical-slice
 "viewer". The mesh/TGA/skinning notes it held now live in `docs/formats/`

@@ -43,9 +43,12 @@ testable without a window and reusable outside the port.
 
 ## Functions
 
-- `snake_case`, verb first, from a small closed set: `load_`, `read_`,
-  `write_`, `save_`, `parse_`, `build_`, `make_`, `apply_`, `update_`,
-  `handle_`, `draw_`, `render_`, `run_`.
+- `snake_case`, verb first. Common verbs: `load_`, `read_`, `write_`,
+  `save_`, `parse_`, `build_`, `make_`, `apply_`, `update_`, `handle_`,
+  `draw_`, `render_`, `run_`, `boot_`, `advance_`, `present_`, `ensure_`,
+  `refresh_`, `sync_`, `place_`, `spawn_`, `queue_`, `activate_`, `set_`,
+  `start_`. Add a new verb when none fits; a few legacy noun-first names
+  remain (`minimap_click_zoom`), but new functions are verb first.
 - `try_<verb>` returns `bool` and leaves state unchanged when it fails
   (`try_construct`).
 - Predicates start with `is_` / `has_` / `can_` (`is_loaded`, `has_room`).
@@ -54,9 +57,13 @@ testable without a window and reusable outside the port.
 
 ## State and constants
 
-- Fields `snake_case`. Private class state gets a trailing underscore
-  (`loaded_`, `dialog_text_` in `ui::Park`). `ui::Menu` predates the rule and
-  uses bare names; new code follows `ui::Park`.
+- Fields `snake_case`. `ui::Park` uses a trailing underscore for private
+  state (`loaded_`, `dialog_text_`); `ui::Menu` predates the rule.
+- `app::Game` is the deliberate exception: its fields keep the names of the
+  `main()` locals they replaced (no trailing underscore) so the 2026-10 move
+  stayed mechanical. Do not rename them in a move-only commit. New classes
+  follow `ui::Park`; `tests/test_app_shell.py` rejects a function-scope local
+  that shadows a `Game` member.
 - Compile-time constants `kCamelCase` (`kSkyboxHalfSize`).
 - `enum class` values `PascalCase` (`VisitorState::Choose`).
 - Booleans read as assertions: `build_ready`, `menu_loaded`, `sav_ready`.

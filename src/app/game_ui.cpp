@@ -57,10 +57,11 @@ const dino::Fnt* Game::ui_font(const std::string& path, int text_height,
 
 }
 
-void Game::draw_ui_mesh(GpuMesh& target, const dino::Mesh& mesh, GLuint texture_id,
-                            float alpha, int unlit, int view_w, int view_h) {
+void Game::draw_ui_mesh(GpuMesh& target, const dino::Mesh& geometry,
+                        GLuint texture_id, float alpha, int unlit, int view_w,
+                        int view_h) {
     target.destroy(glfns);
-    target = upload_mesh(mesh, glfns);
+    target = upload_mesh(geometry, glfns);
     if (target.vao == 0) {
         return;
     }

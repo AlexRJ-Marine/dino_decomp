@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 00:11. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 00:30. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-52 open items.
+51 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -102,9 +102,8 @@ Generated from `TASKS.md` on 2026-10-29 00:11. Do not edit; regenerate with `scr
 ## MAINT-2: Split the four remaining long bodies
 - [ ] `draw_park_hud` 758 -> named panels; `handle_input` 638 and
 
-## MAINT-3: Regression guards for the split
-- [ ] Add a scene-pixel assertion to `tests/test_app_cpp.py` (the park
-- [ ] Add a guard test that `src/formats`, `src/world` and `src/ui` include
+## MAINT-4: Make the fast gate cover the app
+- [ ] `tests/test_app_cpp.py` marks the whole module `slow`, so
 
 ## SELL-1: Shared object sell (port)
 - [ ] **Cursor:** retail changes the mouse icon in the sell state (0x14); the

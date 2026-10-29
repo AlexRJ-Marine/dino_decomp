@@ -1957,9 +1957,21 @@ Updated: 2026-10-28
 - Gates: `--selftest` 194 PASS, fast suite 350 passed / 156 deselected;
   build `build/refactor`. `src/formats`, `src/world` and `src/ui` still
   include no SDL/GL (`docs/platform/naming.md`).
-- Remaining readability work (behaviour-preserving, no priority over the
-  game once this lane is done): the four largest bodies are still
+- Independent review (`notes/code-review-refactor-app-shell.md`): no
+  behavioural regression in the final tree. One more function-scope shadow
+  fixed (`render_minimap`'s local `eye` -> `minimap_eye`), `draw_ui_mesh`'s
+  `mesh` parameter -> `geometry`, and two misnamed phase helpers split out
+  (`update_minimap_zoom`, `refill_looping_stream`) without changing the
+  frame order.
+- Guards (MAINT-3): `tests/test_app_shell.py` pins `main.cpp`, the 21 boot
+  and 14 frame phase calls, rejects a function-scope local/parameter that
+  shadows a `Game` member, and rejects SDL/GL includes in
+  `src/formats`/`src/world`/`src/ui`; `test_cpp_park_hud_shot` now asserts
+  the centre crop is terrain. Both were checked against the regression
+  artifacts (centre crop: 1 colour before, >1,000 after). Fast suite 355.
+- Remaining readability work: the four largest bodies are still
   `draw_park_hud` 758, `handle_input` 638, `update_placement` 638 and
-  `draw_menu` 428; add a scene-pixel guard to `tests/test_app_cpp.py` (the
-  park shots assert HUD panels only) and a guard for the SDL-free layer
-  rule. Tracked as MAINT-2 / MAINT-3 in `TASKS.md`.
+  `draw_menu` 428, with `update_session` 434, `load_island` 386 and
+  `apply_port_state` 321 next. MAINT-2 (plan in
+  `notes/refactor-maint2-plan.md`) and MAINT-4 (`-Fast` still deselects
+  every app test) are open.

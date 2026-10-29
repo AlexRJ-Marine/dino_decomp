@@ -47,7 +47,12 @@ Command (isl01, no vegetation, fixed distance):
 | Build | Distinct colours | Centre pixel (400,300) |
 | --- | ---: | --- |
 | before (locals shadowing the members) | 45,364 | `(17, 27, 41)` — clear colour |
-| after (locals removed) | 152,879 | `(67, 127, 21)` — island grass |
+| after (locals removed) | 152,879 (152,928 on a re-run) | `(67, 127, 21)` — island grass |
+
+The distinct-colour count varies by a few dozen between runs because the
+clear colour pulses with elapsed time; the centre pixel and the centre crop
+are stable. The crop `(300,200)-(500,400)` has exactly 1 colour in the before
+image and >1,000 in the after image.
 
 `notes/harness/cam-before.bmp` / `cam-after.bmp` (gitignored) are the two
 frames; the after image shows isl01 with water, skybox, HUD and minimap, i.e.
@@ -64,15 +69,22 @@ void Game::update_camera_view() {
 }
 ```
 
-No other name from the loop body shadows a `Game` member that a later phase
-reads: a scan of all `src/app/game*.cpp` for declarations matching a `game.h`
-member name reports only function-local variables with no cross-phase use
-(`fence_texture` path string, `sky_faces`, a `texture` upload handle, menu
-frame indices, `spawn_x/spawn_y` in the hire loop).
+A repeat scan of all `src/app/game*.cpp` for function-scope declarations and
+parameters whose name matches a `Game` member found one more function-scope
+collision: `render_minimap()` built its own top-down `eye` (now
+`minimap_eye`), which was benign but is the same bug class. The remaining
+same-name locals are inside nested blocks, where they cannot hide the member
+for the rest of the method (the store preview and port-state restore build
+their own camera that way on purpose).
 
-## Follow-up worth doing (port lane, `tests/test_app_cpp.py`)
+## Follow-up (done)
 
-A scene-pixel guard would have caught this in one second: render the park with
-`--distance 500` and assert that the centre region is not the clear colour
-(e.g. `len(crop.getcolors(maxcolors=1_000_000)) > 1000`). The current park
-shot tests only sample HUD panels.
+`tests/test_app_cpp.py::test_cpp_park_hud_shot` now samples the centre crop
+(`(300,200)-(500,400)`): it must have >1,000 colours and a green-dominant
+centre pixel. On the before image the crop has 1 colour and the centre is
+`(17,27,41)`.
+
+`tests/test_app_shell.py` additionally rejects any function-scope local or
+parameter that shadows a `Game` member, and pins the 21 boot and 14 frame
+phase calls in order. It catches the `update_camera_view()` bug directly
+(verified by reintroducing `dino::Vec3 eye;` temporarily).

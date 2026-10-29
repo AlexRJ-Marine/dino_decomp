@@ -51,12 +51,15 @@ See `notes/lanes.md`. Default split:
   10 lines and `Game::run()` 35 (was 15,266 / 11,145); the app is `dino_port`
   with one `src/app/game_*.cpp` per domain, 21 boot phases and 14 frame
   phases. Naming/layering rules: `docs/platform/naming.md`; file map and
-  phase tables: `docs/platform/app-shell.md`. Next: independent review, then
-  MAINT-2 (split `draw_park_hud` 758, `handle_input` 638,
-  `update_placement` 638, `draw_menu` 428) and MAINT-3 (scene-pixel and
-  SDL-free guard tests). **All other port work is paused** until the code
-  base is readable; `--selftest` 194 PASS, fast suite 350 passed.
-- PLACE-1: **exact object placement (paused behind MAINT-2/3).** Road cursor now
+  phase tables: `docs/platform/app-shell.md`. The independent review found
+  no behavioural regression; MAINT-3 guards are in
+  (`tests/test_app_shell.py`: phase order, no member shadow, SDL-free
+  layers; plus centre-scene pixels in the park shot). Next: MAINT-2 (split
+  `draw_park_hud` 758, `handle_input` 638, `update_placement` 638,
+  `draw_menu` 428), then MAINT-4 (`-Fast` still skips every app test).
+  **All other port work is paused** until the code base is readable;
+  `--selftest` 194 PASS, fast suite 355 passed.
+- PLACE-1: **exact object placement (paused behind MAINT-2/4).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
   quirk is disproven (retail +x/-x 100, +y 100, -y 190, all commit). Marcus's
@@ -157,9 +160,9 @@ See `notes/lanes.md`. Default split:
 
 1. MAINT-2: split the four remaining long bodies (`draw_park_hud` 758,
    `handle_input` 638, `update_placement` 638, `draw_menu` 428) into named
-   handlers, one commit each, verbatim moves; then MAINT-3 (scene-pixel guard
-   in `tests/test_app_cpp.py`, SDL-free layer guard). Keep `--selftest` (194)
-   and the fast suite green after every slice.
+   handlers, one commit each, verbatim moves (`notes/refactor-maint2-plan.md`);
+   then MAINT-4 (make `-Fast` run the headless app tests). Keep `--selftest`
+   (194) and the fast suite (355) green after every slice.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -186,6 +189,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-3: regression guards for the app-shell split - scene-pixel centre check, phase-order/member-shadow/SDL-free static guard (tests/test_app_shell.py); review fixes (minimap_eye, draw_ui_mesh param, named phase helpers); fast suite 355
 - 2026-10-29 - MAINT-1: readable app shell + naming complete - main.cpp 10 lines, Game::run() 35, per-domain game_*.cpp, 21 boot / 14 frame phases; selftest 194 PASS, fast suite 350 passed
 - 2026-10-28 - UI: paddock info panel on enclosure selection - EnclosureN name, dino count, occupation %, per-diet food sufficiency snapshot (0x5269e0/0x57e720); sell-mode cursor observation and DINO-STATS-1/P3-MOTION-1 audits recorded; full suite 500
 - 2026-10-28 - ECONOMY: fence sell flow - HUD Sell state, REQUEST dialog, inset-perimeter GetSellValue x SellBackFactor (live 870->630, port 2130->1890), non-empty gate, fence/ground/wall removal; removed the disproven 16-paddock gate; full suite 497
@@ -193,7 +197,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-28 - PLACE-1: Esc now clears the pending mode-2 enclosure grid (was leaving the blue dots); loaded/campaign paddocks build their gatAttraction sandy floors at load (rebuild after the paddock list); full suite 496
 - 2026-10-28 - INPUT: retail Escape behavior - default park no-op, construction strip stays, Esc closes OPTIONS_PANEL, placement/selection states leave; park Esc never quits; full suite 494
 - 2026-10-28 - PLACE-1: Esc leaves the active placement state (retail fence key handler 0x52be60 -> leave 0x5269c0, no close button); fence/road/building/show/store tools release and a selected paddock deselects, so placed enclosures can be selected; --inject-key test hook; full suite 493
-- 2026-10-28 - PLACE-1: fence palette pulse ported from the binary - bank 4 additive laser sin4 (1.571 s), bank 1 Dino_SelectedWall sin10 (0.628 s, 1.0-2.0x); click-select enclosure with right-click deselect; HUD/minimap tint reset; full suite 493
 
 ## Blockers
 

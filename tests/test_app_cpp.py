@@ -1574,6 +1574,15 @@ def test_cpp_park_hud_shot(tmp_path):
     # The budget readout area is a UI panel, not the terrain.
     r, g, b = image.getpixel((120, 585))
     assert not (r < 40 and g > 100 and b < 80)
+    # The 3D scene must actually be drawn. This shot passed while the whole
+    # scene was black: the HUD checks above sample only panel widgets, and a
+    # local shadowing a Game member left eye/view_center at (0,0,0). The
+    # centre crop is plain terrain, so it must have many colours and a
+    # green-dominant centre (the clear colour is blue).
+    scene = image.crop((300, 200, 500, 400))
+    assert len(scene.getcolors(maxcolors=1_000_000)) > 1000
+    r, g, b = image.getpixel((400, 300))
+    assert g > r + 20 and g > b + 20, (r, g, b)
 
 def test_cpp_park_panels():
     if not EXE.exists() or not ISL01.exists():

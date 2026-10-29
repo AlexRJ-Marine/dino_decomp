@@ -691,7 +691,12 @@ void Game::update_session() {
 void Game::update_audio() {
     ui_sound.update(frame_dt);
     music.update();
+    update_minimap_zoom();
+}
 
+// The minimap zoom keys are polled per frame; they are not audio, so the
+// audio phase delegates them here by name.
+void Game::update_minimap_zoom() {
     if (minimap_zoom_in) {
         minimap_scale =
             std::max(0.1f, minimap_scale - static_cast<float>(frame_dt) * 0.15f);
@@ -944,6 +949,13 @@ void Game::update_diagnostics() {
                      camera_yaw_goal);
     }
 
+    refill_looping_stream();
+}
+
+// Keep the looping WAV stream topped up. This is audio work, but it must run
+// after the camera phase (as it did before the loop split), so the
+// diagnostics phase calls it here by name.
+void Game::refill_looping_stream() {
     if (audio != nullptr && opt.loop_audio && !wav.data.empty()) {
         const int queued = SDL_GetAudioStreamQueued(audio);
         if (queued < static_cast<int>(wav.data.size() / 2)) {

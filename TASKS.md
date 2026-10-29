@@ -2008,19 +2008,36 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] `draw_park_hud` 758 -> named panels; `handle_input` 638 and
   `update_placement` 638 -> per-tool handlers; `draw_menu` 428 -> page
   draws. Move code verbatim; no behaviour change.
+- **Plan:** `notes/refactor-maint2-plan.md` (per-function extraction order,
+  shared locals and gates).
 - **Acceptance:** the four bodies are each under 300 lines; `--selftest`
   and the fast suite are unchanged.
 - **Depends on:** MAINT-1.
 
 ### MAINT-3: Regression guards for the split
-- [ ] Add a scene-pixel assertion to `tests/test_app_cpp.py` (the park
+- [x] Add a scene-pixel assertion to `tests/test_app_cpp.py` (the park
   screenshots check HUD panels only, which is why the camera shadowing
   slipped through): render the isl01 shot and require the centre pixel to
   be terrain, not the clear colour.
-- [ ] Add a guard test that `src/formats`, `src/world` and `src/ui` include
+- [x] Add a guard test that `src/formats`, `src/world` and `src/ui` include
   no SDL/GL headers (the layering rule in `docs/platform/naming.md`).
+  `tests/test_app_shell.py` also pins the 21 boot and 14 frame phase calls
+  and rejects a function-scope local shadowing a `Game` member.
 - **Acceptance:** both guards fail on the `5fcd5ce` regression or a
   deliberate SDL include, and pass on the current tree.
+- **Evidence:** `notes/refactor-camera-shadowing.md` (centre crop: 1 colour
+  before, >1,000 after; centre pixel `(17,27,41)` -> `(67,127,21)`);
+  `tests/test_app_shell.py` (5 checks, verified by temporarily
+  reintroducing `dino::Vec3 eye;`); fast suite 355 passed.
+- **Depends on:** MAINT-1.
+
+### MAINT-4: Make the fast gate cover the app
+- [ ] `tests/test_app_cpp.py` marks the whole module `slow`, so
+  `scripts/verify.ps1 -Fast` deselects every app test, including the
+  headless `--selftest`, `--validate`, `--sav-*` and `--camera-selftest`
+  cases. Mark only the window/screenshot/vsync tests slow.
+- **Acceptance:** `scripts/verify.ps1 -Fast` runs the headless app tests and
+  still finishes in the low minutes; window tests stay opt-in.
 - **Depends on:** MAINT-1.
 
 ## Phase 4 — remove the original exe

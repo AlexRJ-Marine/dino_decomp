@@ -487,12 +487,18 @@ private:
     void draw_frame();
     void present_frame();
 
+    // Frame-phase details (game.cpp): called from the phase above at the
+    // same point in the frame, so the phase name says what runs.
+    void update_minimap_zoom();
+    void refill_looping_stream();
+
     // --- UI drawing (game_ui.cpp) --------------------------------------
     UiTexture* ui_texture(const std::string& filename);
     const dino::Fnt* ui_font(const std::string& path, int text_height,
                              float& scale_out, GLuint& atlas_out);
-    void draw_ui_mesh(GpuMesh& target, const dino::Mesh& mesh, GLuint texture_id,
-                      float alpha, int unlit, int view_w, int view_h);
+    void draw_ui_mesh(GpuMesh& target, const dino::Mesh& geometry,
+                      GLuint texture_id, float alpha, int unlit, int view_w,
+                      int view_h);
     void draw_menu(int view_w, int view_h, int logical_w, int logical_h);
     void attraction_row_text(int slot, std::string& name, int& iterations,
                              int& locked);
