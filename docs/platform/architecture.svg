@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/></marker><marker id="bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker></defs>
+<rect width="1600" height="1080" fill="#f8fafc"/>
+<text x="32" y="42" font-size="26" font-weight="700" fill="#0f172a">Dino Island port - architecture review</text>
+<text x="32" y="68" font-size="14" fill="#475569">Current source dependencies (left), target composition (right), migration plan (bottom). Census 2026-10-29, HEAD 1a081f7.</text>
+<rect x="24" y="90" width="760" height="630" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="42" y="120" font-size="18" font-weight="700" fill="#0f172a">A. Current: layers and edges</text>
+<text x="42" y="141" font-size="12" fill="#64748b">no lower layer includes app; two edges point the wrong way</text>
+<rect x="70" y="160" width="300" height="62" rx="8" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="82" y="182" font-size="15" font-weight="700" fill="#0f172a">app  14,510 lines</text>
+<text x="82" y="202" font-size="12" fill="#334155">Game object + game_*.cpp (10 files)</text>
+<rect x="70" y="280" width="150" height="56" rx="8" fill="#ede9fe" stroke="#94a3b8"/>
+<text x="82" y="302" font-size="15" font-weight="700" fill="#0f172a">ui  2,503</text>
+<text x="82" y="322" font-size="12" fill="#334155">overlay / menu state</text>
+<rect x="240" y="280" width="150" height="56" rx="8" fill="#dcfce7" stroke="#94a3b8"/>
+<text x="252" y="302" font-size="15" font-weight="700" fill="#0f172a">render  1,402</text>
+<text x="252" y="322" font-size="12" fill="#334155">GL scene + uploads</text>
+<rect x="410" y="280" width="150" height="56" rx="8" fill="#fef9c3" stroke="#94a3b8"/>
+<text x="422" y="302" font-size="15" font-weight="700" fill="#0f172a">audio  276</text>
+<text x="422" y="322" font-size="12" fill="#334155">music / UI sounds</text>
+<rect x="70" y="400" width="490" height="62" rx="8" fill="#ffedd5" stroke="#94a3b8"/>
+<text x="82" y="422" font-size="15" font-weight="700" fill="#0f172a">world  5,905</text>
+<text x="82" y="442" font-size="12" fill="#334155">build / visitors / dinos / economy / shows</text>
+<rect x="70" y="520" width="490" height="62" rx="8" fill="#e5e7eb" stroke="#94a3b8"/>
+<text x="82" y="542" font-size="15" font-weight="700" fill="#0f172a">formats  8,145</text>
+<text x="82" y="562" font-size="12" fill="#334155">one parser per retail file; no SDL/GL</text>
+<path d="M 220 222 L 145 280" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 220 222 L 315 280" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 220 222 L 485 280" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 145 336 L 240 400" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 315 336 L 315 400" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 485 336 L 400 400" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 315 462 L 315 520" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M 70 545 L 42 545 L 42 300 L 70 300" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-dasharray="6 4" marker-end="url(#bad)"/>
+<text x="50" y="258" font-size="11" fill="#dc2626" text-anchor="start" font-weight="600">1  formats -> ui (bad)</text>
+<text x="50" y="273" font-size="10" fill="#b91c1c" text-anchor="start" font-weight="400">campaign.cpp uses ui::IniFile</text>
+<path d="M 485 336 L 485 400" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-dasharray="6 4" marker-end="url(#bad)"/>
+<text x="495" y="372" font-size="11" fill="#dc2626" text-anchor="start" font-weight="600">2  audio -> world (bad)</text>
+<text x="495" y="387" font-size="10" fill="#b91c1c" text-anchor="start" font-weight="400">asset_path is in vegetation.h</text>
+<text x="70" y="612" font-size="12" fill="#0f172a" text-anchor="start" font-weight="600">include edges (count):</text>
+<text x="70" y="632" font-size="11" fill="#475569" text-anchor="start" font-weight="400">app -> formats 52    app -> world 21    app -> render 7</text>
+<text x="70" y="649" font-size="11" fill="#475569" text-anchor="start" font-weight="400">app -> ui 6    app -> audio 2</text>
+<text x="70" y="666" font-size="11" fill="#475569" text-anchor="start" font-weight="400">world -> formats 28    render -> formats 12    ui -> formats 5</text>
+<text x="70" y="683" font-size="11" fill="#475569" text-anchor="start" font-weight="400">audio -> formats 2    audio -> world 2 (bad)    formats -> ui 1 (bad)</text>
+<rect x="580" y="150" width="180" height="132" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+<text x="592" y="172" font-size="15" font-weight="700" fill="#0f172a">Game</text>
+<text x="592" y="192" font-size="12" fill="#334155">284 session members</text>
+<text x="592" y="208" font-size="12" fill="#334155">172 methods</text>
+<text x="592" y="224" font-size="12" fill="#334155">52 project includes</text>
+<text x="592" y="240" font-size="12" fill="#334155">11 TUs include game.h</text>
+<text x="580" y="302" font-size="11" fill="#0f172a" text-anchor="start" font-weight="600">methods per file</text>
+<text x="580" y="320" font-size="10" fill="#475569" text-anchor="start" font-weight="400">core 21   boot 23   boot_park 11</text>
+<text x="580" y="336" font-size="10" fill="#475569" text-anchor="start" font-weight="400">build 24   park 24   scene 22</text>
+<text x="580" y="352" font-size="10" fill="#475569" text-anchor="start" font-weight="400">input 14   menu 8   show 10   ui 26</text>
+<rect x="812" y="90" width="764" height="630" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="830" y="120" font-size="18" font-weight="700" fill="#0f172a">B. Target: composition root + domain types</text>
+<text x="830" y="141" font-size="12" fill="#64748b">one owner per concern; Game stops owning the park</text>
+<rect x="860" y="155" width="670" height="58" rx="8" fill="#dbeafe" stroke="#94a3b8"/>
+<text x="872" y="177" font-size="15" font-weight="700" fill="#0f172a">Game / Application</text>
+<text x="872" y="197" font-size="12" fill="#334155">boot, platform, event loop, FrameScheduler, input mapping, IO; no park state</text>
+<rect x="860" y="250" width="205" height="76" rx="8" fill="#ffedd5" stroke="#94a3b8"/>
+<text x="872" y="272" font-size="15" font-weight="700" fill="#0f172a">ParkSession</text>
+<text x="872" y="292" font-size="12" fill="#334155">budget, clock, grid, paddocks,</text>
+<text x="872" y="308" font-size="12" fill="#334155">dinos, food, employees, shows</text>
+<text x="872" y="324" font-size="12" fill="#334155">update_order(); save/load</text>
+<rect x="1085" y="250" width="205" height="76" rx="8" fill="#ffedd5" stroke="#94a3b8"/>
+<text x="1097" y="272" font-size="15" font-weight="700" fill="#0f172a">BuildController</text>
+<text x="1097" y="292" font-size="12" fill="#334155">fence/road/building/store</text>
+<text x="1097" y="308" font-size="12" fill="#334155">validation, cost, commit;</text>
+<text x="1097" y="324" font-size="12" fill="#334155">no drawing</text>
+<rect x="1310" y="250" width="220" height="76" rx="8" fill="#ffedd5" stroke="#94a3b8"/>
+<text x="1322" y="272" font-size="15" font-weight="700" fill="#0f172a">DinoSim + Animator</text>
+<text x="1322" y="292" font-size="12" fill="#334155">import, needs, chooser,</text>
+<text x="1322" y="308" font-size="12" fill="#334155">mover, clip sampling, skinning</text>
+<text x="1322" y="324" font-size="12" fill="#334155">(P3-MOTION lands here)</text>
+<rect x="860" y="355" width="205" height="70" rx="8" fill="#ede9fe" stroke="#94a3b8"/>
+<text x="872" y="377" font-size="15" font-weight="700" fill="#0f172a">CameraController</text>
+<text x="872" y="397" font-size="12" fill="#334155">retail pan/yaw/zoom</text>
+<text x="872" y="413" font-size="12" fill="#334155">orbit + free modes</text>
+<rect x="1085" y="355" width="205" height="70" rx="8" fill="#fce7f3" stroke="#94a3b8"/>
+<text x="1097" y="377" font-size="15" font-weight="700" fill="#0f172a">Renderer</text>
+<text x="1097" y="397" font-size="12" fill="#334155">GL resources (RAII),</text>
+<text x="1097" y="413" font-size="12" fill="#334155">scene + HUD passes</text>
+<rect x="1310" y="355" width="220" height="70" rx="8" fill="#fce7f3" stroke="#94a3b8"/>
+<text x="1322" y="377" font-size="15" font-weight="700" fill="#0f172a">AudioSystem / UiState</text>
+<text x="1322" y="397" font-size="12" fill="#334155">SDL streams, overlay state;</text>
+<text x="1322" y="413" font-size="12" fill="#334155">draw lists, no GL in ui</text>
+<rect x="860" y="465" width="670" height="56" rx="8" fill="#e5e7eb" stroke="#94a3b8"/>
+<text x="872" y="487" font-size="15" font-weight="700" fill="#0f172a">shared data</text>
+<text x="872" y="507" font-size="12" fill="#334155">formats (no SDL/GL)   |   world math/geometry   |   ui layout rectangles</text>
+<text x="860" y="545" font-size="11" fill="#0f172a" text-anchor="start" font-weight="400">rules: arrows go down only; no app includes in lower layers; no SDL/GL in formats/world/ui; every type has a test seam</text>
+<rect x="860" y="570" width="670" height="58" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+<text x="872" y="592" font-size="15" font-weight="700" fill="#0f172a">kept from today</text>
+<text x="872" y="612" font-size="12" fill="#334155">evidence-first formats, retail phase names, fast headless gate, policy + static guards</text>
+<rect x="24" y="740" width="1552" height="300" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+<text x="42" y="770" font-size="18" font-weight="700" fill="#0f172a">C. Migration plan</text>
+<text x="42" y="791" font-size="12" fill="#64748b">each slice is behaviour-preserving; gate = 376 fast / 518 full, selftest 194, screenshot parity</text>
+<rect x="48" y="820" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="60" y="842" font-size="14" font-weight="700" fill="#0f172a">1. Guards first</text>
+<text x="60" y="864" font-size="11" fill="#475569" text-anchor="start" font-weight="400">test_architecture.py: layer edges, no app in</text>
+<text x="60" y="879" font-size="11" fill="#475569" text-anchor="start" font-weight="400">lower layers, Game method/member budget.</text>
+<text x="60" y="900" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: guards fail on an injected wrong edge</text>
+<rect x="553" y="820" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="565" y="842" font-size="14" font-weight="700" fill="#0f172a">2. ParkSession state</text>
+<text x="565" y="864" font-size="11" fill="#475569" text-anchor="start" font-weight="400">move the 284 session members into</text>
+<text x="565" y="879" font-size="11" fill="#475569" text-anchor="start" font-weight="400">world/park_session.* behind Game.</text>
+<text x="565" y="900" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: save/load + campaign tests unchanged</text>
+<rect x="1058" y="820" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="1070" y="842" font-size="14" font-weight="700" fill="#0f172a">3. BuildController</text>
+<text x="1070" y="864" font-size="11" fill="#475569" text-anchor="start" font-weight="400">fence/road/building/store validation,</text>
+<text x="1070" y="879" font-size="11" fill="#475569" text-anchor="start" font-weight="400">cost and commit; keep draw data separate.</text>
+<text x="1070" y="900" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: placement/road/sell tests unchanged</text>
+<rect x="48" y="920" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="60" y="942" font-size="14" font-weight="700" fill="#0f172a">4. FrameScheduler</text>
+<text x="60" y="964" font-size="11" fill="#475569" text-anchor="start" font-weight="400">explicit retail task table from</text>
+<text x="60" y="979" font-size="11" fill="#475569" text-anchor="start" font-weight="400">scheduler.md; Game::run calls it.</text>
+<text x="60" y="1000" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: phase-order test becomes task test</text>
+<rect x="553" y="920" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="565" y="942" font-size="14" font-weight="700" fill="#0f172a">5. DinoSim/Animator</text>
+<text x="565" y="964" font-size="11" fill="#475569" text-anchor="start" font-weight="400">mover + action events + clip sampling;</text>
+<text x="565" y="979" font-size="11" fill="#475569" text-anchor="start" font-weight="400">this also closes P3-MOTION.</text>
+<text x="565" y="1000" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: dino/show/campaign tests unchanged</text>
+<rect x="1058" y="920" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+<text x="1070" y="942" font-size="14" font-weight="700" fill="#0f172a">6. Renderer + shrink</text>
+<text x="1070" y="964" font-size="11" fill="#475569" text-anchor="start" font-weight="400">GL RAII + hidden test mode; split</text>
+<text x="1070" y="979" font-size="11" fill="#475569" text-anchor="start" font-weight="400">game.h into domain headers.</text>
+<text x="1070" y="1000" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: game.h &lt; 250 lines; clean build time down</text>
+</svg>

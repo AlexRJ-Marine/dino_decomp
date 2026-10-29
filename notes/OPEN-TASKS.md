@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 09:20. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 11:04. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-49 open items.
+59 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -98,6 +98,28 @@ Generated from `TASKS.md` on 2026-10-29 09:20. Do not edit; regenerate with `scr
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
+
+## ARCH-1: Architecture guards and the two inversions
+- [ ] Add `tests/test_architecture.py`: explicit layer include matrix
+- [ ] Move `asset_path` out of `world/vegetation.h` into a shared path header
+- [ ] Move the INI parser out of `ui/ini.h` into `formats/ini.h` (keep a thin
+
+## ARCH-2: Extract ParkSession state
+- [ ] Introduce `world/park_session.{h,cpp}` for the park/economy/visitor/
+- [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
+
+## ARCH-3: BuildController and CameraController
+- [ ] `world/build_controller.*`: fence/road/building/store validation, cost
+- [ ] `world/camera_controller.*` (or `app/camera_controller`): the retail
+
+## ARCH-4: Explicit FrameScheduler
+- [ ] Replace the statement order in `Game::run()` with a table of named tasks
+
+## ARCH-5: DinoSim and DinoAnimator
+- [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
+
+## ARCH-6: Renderer ownership and header split
+- [ ] Move GL resources and passes behind a `render` owner (RAII or a
 
 ## SELL-1: Shared object sell (port)
 - [ ] **Cursor:** retail changes the mouse icon in the sell state (0x14); the

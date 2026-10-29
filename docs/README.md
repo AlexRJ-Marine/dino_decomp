@@ -14,6 +14,7 @@ page is the map for the `docs/` tree.
 | Source layout, file naming, layering rules | [platform/naming.md](platform/naming.md) |
 | Port lifecycle: boot/frame phases, where new code goes | [platform/app-shell.md](platform/app-shell.md) |
 | C++ Core Guidelines policy, ownership rules, deliberate deviations | [platform/cpp-guidelines.md](platform/cpp-guidelines.md) |
+| Architecture review: layer census, target types, migration plan | [platform/architecture.md](platform/architecture.md) |
 | Which claim is proven where | `notes/evidence-index.md` |
 | Phase-level picture | [ROADMAP.md](ROADMAP.md) |
 | Lanes, builds, state updates, evidence workflow | [workflow.md](workflow.md) |

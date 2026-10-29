@@ -75,6 +75,12 @@ See `notes/lanes.md`. Default split:
   swap chain; full suite 518. Also fixed the app-shell phase map/counts, the
   video gap row, the dead `src/viewer` evidence links, the member-scan gaps
   and the audio-stream RAII.
+- ARCH-1..6: **queued** (architecture review 2026-10-29,
+  `docs/platform/architecture.md` + `architecture.svg`). `Game` is still a
+  286-member / 172-method god object; `app` is 44% of first-party code; two
+  include inversions (`formats → ui`, `audio → world`). Plan: guards, then
+  `ParkSession`, `BuildController`/`CameraController`, `FrameScheduler`,
+  `DinoSim`/`Animator`, `Renderer`/header split. **Next: ARCH-1.**
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -174,14 +180,14 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-4/7 are **done**: `-Fast` runs 376 headless tests in 31 s with no
-   window, guarded by `tests/test_app_shell.py`. MAINT-5 is **done** (four
-   long bodies split) and MAINT-6 is **done** (Core Guidelines policy +
-   RAII/pi/catch fixes, `tests/test_cpp_style.py`). If readability work
-   continues, pick from the >200-line list in `TASKS.md` MAINT-5
-   (`boot_load_assets` 263, `handle_park_mouse_down` 261,
-   `apply_build_tool_click` 250, `update_camera` 227). Keep `--selftest`
-   (194), the fast suite (376) and the full suite (518) green.
+1. **ARCH-1 is next** (`docs/platform/architecture.md`): add the layer
+   dependency guard, move `asset_path` and the INI parser out of
+   `world`/`ui`, and start the `Game` member/method ratchet. Then ARCH-2
+   (`ParkSession`), ARCH-3 (build/camera controllers), ARCH-4
+   (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6
+   (renderer/header split). MAINT-4/7 are done: `-Fast` is 376 headless tests
+   in 31 s. Keep `--selftest` (194), the fast suite (376) and the full suite
+   (518) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -208,6 +214,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - ARCHITECTURE: layer census + target + plan (`docs/platform/architecture.md`, `architecture.svg`); 286 Game members/172 methods, app 44% of code, two include inversions; ARCH-1..6 queued
 - 2026-10-29 - MAINT-7: `-Fast` is truly headless - 26 campaign + 1 video window tests marked slow, guard scans all port test modules, fast 376 in 31 s, full 518; member scan and audio RAII fixed; docs drift swept
 - 2026-10-29 - MAINT-6: Core Guidelines pass - cpp-guidelines policy + tests/test_cpp_style.py; MpgStream pimpl/PLM leak fixed with RAII; Game non-copyable; one dino::kPi (29 literals); catch (...) narrowed; place_building 270->164; full suite 518
 - 2026-10-29 - MAINT-5: long bodies split - update_session 434->8 (menu/park/campaign, campaign state+completion), load_island 386->153, apply_port_state 321->86, load_campaign_park 251->57; call order unchanged; fast 397, full 512

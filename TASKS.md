@@ -2150,6 +2150,69 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   - Met: fast 31 s, full 3:55.
 - **Depends on:** MAINT-4/6.
 
+### ARCH-1: Architecture guards and the two inversions
+- [ ] Add `tests/test_architecture.py`: explicit layer include matrix
+  (`formats`/`world`/`ui`/`render`/`audio` → `app` forbidden; `formats` →
+  `ui`/`render`/`audio` forbidden; `world` → `ui`/`render`/`audio` forbidden),
+  no SDL/GL in `formats`/`world`/`ui`, a `Game` member/method ratchet (start
+  286/172, lower it as ARCH-2..6 land) and the 21+14 phase names.
+- [ ] Move `asset_path` out of `world/vegetation.h` into a shared path header
+  (`formats/path.h`); update `audio/music.cpp`, `audio/ui_sound.cpp`,
+  `app/asset_paths.*` and the vegetation caller.
+- [ ] Move the INI parser out of `ui/ini.h` into `formats/ini.h` (keep a thin
+  `ui/ini.h` re-export for one commit) so `formats/campaign.cpp` stops
+  depending on UI.
+- **Acceptance:** include census has zero inversions; existing tests green;
+  guards fail on an injected `formats → ui` include.
+- **Evidence:** `docs/platform/architecture.md`, `notes/harness/architecture_census.py`.
+
+### ARCH-2: Extract ParkSession state
+- [ ] Introduce `world/park_session.{h,cpp}` for the park/economy/visitor/
+  dino/build/show state now in `Game`; move one subsystem per commit
+  (budget+clock+ledger, build grid+paddocks, visitors, dinos, buildings,
+  food/employees, shows) with `Game` holding `ParkSession park_session`.
+- [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
+  body of `update_park_world`/`update_simulation` in a second step.
+- **Acceptance:** save/load, campaign and park tests unchanged; `Game` member
+  ratchet drops by the moved fields; `game.h` < 500 lines at the end.
+- **Depends on:** ARCH-1.
+
+### ARCH-3: BuildController and CameraController
+- [ ] `world/build_controller.*`: fence/road/building/store validation, cost
+  and commit from `game_build.cpp`/`game_input.cpp`; drawing data stays with
+  the renderer.
+- [ ] `world/camera_controller.*` (or `app/camera_controller`): the retail
+  pan/yaw/zoom equations and the orbit/free modes from `park_camera.cpp`/
+  `game.cpp`.
+- **Acceptance:** placement, road, fence and camera selftest outputs
+  unchanged; `Game` shrinks again.
+- **Depends on:** ARCH-2.
+
+### ARCH-4: Explicit FrameScheduler
+- [ ] Replace the statement order in `Game::run()` with a table of named tasks
+  in the retail order (`docs/decomp/scheduler.md`), including the
+  `update_minimap_zoom`/`refill_looping_stream` details in the right task.
+- **Acceptance:** task order is data; the phase-order guard reads the table;
+  `--selftest`, fast and full suites unchanged.
+- **Depends on:** ARCH-2/3.
+
+### ARCH-5: DinoSim and DinoAnimator
+- [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
+  `Game`/`render` into `world/dino_sim.*` and `render/dino_animator.*`; the
+  mover and element events close `P3-MOTION-1`.
+- **Acceptance:** dino action/show/campaign tests unchanged; the P3-MOTION
+  acceptance evidence is attached.
+- **Depends on:** ARCH-2.
+
+### ARCH-6: Renderer ownership and header split
+- [ ] Move GL resources and passes behind a `render` owner (RAII or a
+  documented owner), add a hidden capture mode for tests, and split
+  `game.h` into `park_session.h`/`build_controller.h`/`camera.h` +
+  `game.h` (composition only).
+- **Acceptance:** `Game` < 250 header lines and no GL calls in `game*.cpp`;
+  build time and fast suite stay within budget; window tests can run hidden.
+- **Depends on:** ARCH-2..5.
+
 ## Phase 4 - remove the original exe
 
 ### PAR-1: Reference comparison harness

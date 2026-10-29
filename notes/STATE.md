@@ -2075,3 +2075,15 @@ Updated: 2026-10-28
   mapped; `docs/README.md` links cpp-guidelines. Gates: `--selftest` 194,
   `-Fast` 376 passed / 142 deselected in 31 s with no window, full suite 518 in
   3:55. This closes the independent review's only P1.
+
+- Architecture review 2026-10-29 (`docs/platform/architecture.md` +
+  `architecture.svg`): census shows `Game` at 286 members / 172 methods,
+  `game.h` with 52 project includes and 11 app TUs, `app` at 44% of the 32.7k
+  first-party lines. Layer edges are clean downward except `formats -> ui`
+  (campaign.cpp uses ui::IniFile) and `audio -> world` (asset_path is declared
+  in vegetation.h). Findings A1..A8 and the target composition (ParkSession,
+  BuildController, DinoSim/Animator, CameraController, FrameScheduler,
+  Renderer, AudioSystem, UiState) are recorded there. Plan ARCH-1..6 is queued
+  in TASKS.md: guards + inversion moves, ParkSession state, build/camera
+  controllers, FrameScheduler, dino sim/animator, renderer/header split. No
+  code moved in this pass.
