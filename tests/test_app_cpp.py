@@ -4434,6 +4434,16 @@ def test_cpp_sav_write_rename(tmp_path):
         capture_output=True, text=True, timeout=120)
     assert check.returncode == 0, check.stderr
     assert "whole file identical" in check.stdout, check.stdout
+    assert not out_path.with_name(out_path.name + ".tmp").exists()
+    # A second write replaces the target; the atomic writer must not leave a
+    # temp file or truncate it on the rename.
+    again = subprocess.run(
+        [str(EXE), "--sav-write", str(save), str(out_path),
+         "--sav-name", "renamed", "--sav-slot", "3", "--no-save-config"],
+        capture_output=True, text=True, timeout=120)
+    assert again.returncode == 0, again.stderr
+    assert out_path.read_bytes() == rebuilt
+    assert not out_path.with_name(out_path.name + ".tmp").exists()
 
 
 def test_cpp_sav_info():
@@ -4514,6 +4524,7 @@ def test_cpp_sav_write_refuses_bad_input(tmp_path):
     assert result.returncode == 2, result.stdout
     assert "sav read failed:" in result.stderr, result.stderr
     assert not out_path.exists()
+    assert not out_path.with_name(out_path.name + ".tmp").exists()
     forced = subprocess.run(
         [str(EXE), "--sav-write", str(broken), str(out_path), "--sav-force",
          "--no-save-config"],

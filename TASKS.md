@@ -2150,6 +2150,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   - Met: fast 31 s, full 3:55.
 - **Depends on:** MAINT-4/6.
 
+### MAINT-8: Close the review's P1 robustness findings
+- [x] Cap `Game::advance_time` at the retail `lpScheduler` 0.2 s first-delta
+  limit (`docs/decomp/scheduler.md:45`), so a stalled frame cannot advance the
+  clock, needs, visitors or employees by seconds.
+- [x] Add `formats/atomic_file.{h,cpp}`: write `<path>.tmp`, flush/check,
+  rename on commit, remove the temp file on abort. Use it for the port save,
+  campaign unlock and campaign progress.
+- [x] Test the overwrite path: `test_cpp_sav_write_rename` writes twice and
+  asserts no `.tmp` remains; the bad-input test also checks no temp file.
+- **Acceptance:** saves still byte-identical/round-trip; full suite green.
+  - Met: selftest 194, fast 379, full 521; save tests 5 passed.
+- **Evidence:** `docs/platform/architecture.md` ("Review P1s closed"),
+  commits after `358013d`.
+
 ### ARCH-1: Architecture guards and the two inversions
 - [x] Add `tests/test_architecture.py`: explicit layer include matrix
   (`formats`/`world`/`ui`/`render`/`audio` → `app` forbidden; `formats` →
@@ -2196,9 +2210,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `building_center` into `ParkSession` (the `opt.entrance_road` option is
   preserved). Ratchet 272 -> 266; `game.h` 665 lines. Building, road,
   save/load and campaign tests unchanged.
-- [ ] Move the remaining subsystem: dinos. This needs `ImportedDino` and the
-  dino tables moved from the nested `Game` types to `world` first. Lower the
-  `GAME_MEMBERS_MAX` ratchet after the slice.
+- [ ] Move the remaining subsystem: `ParkSession::update(dt)` and the
+  `update_park_world`/`update_simulation` bodies. Dino state is deferred to
+  ARCH-5 because `ImportedDino`/`ImportedSpecies` mix simulation and GL state
+  (architecture finding A9); split the types first.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member
@@ -2225,6 +2240,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** ARCH-2/3.
 
 ### ARCH-5: DinoSim and DinoAnimator
+- [ ] Split `ImportedDino`/`ImportedSpecies` (currently nested in `Game`)
+  into world simulation state and render assets; moving them as-is would make
+  `world` depend on GL (architecture finding A9).
 - [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
   `Game`/`render` into `world/dino_sim.*` and `render/dino_animator.*`; the
   mover and element events close `P3-MOTION-1`.

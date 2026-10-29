@@ -75,6 +75,11 @@ See `notes/lanes.md`. Default split:
   swap chain; full suite 518. Also fixed the app-shell phase map/counts, the
   video gap row, the dead `src/viewer` evidence links, the member-scan gaps
   and the audio-stream RAII.
+- MAINT-8: **done.** The review's P1 robustness items are closed:
+  `advance_time` caps the frame delta at the retail 0.2 s first-delta limit,
+  and `formats/atomic_file.*` writes saves through a temp file + rename (port
+  save, campaign unlock/progress). The overwrite test asserts no `.tmp`
+  remains; full suite 521.
 - ARCH-1: **done.** ARCH-2 **in progress**: `world/park_session.h` now owns
   clock/budget/sellback/ledger, the build grid/paddocks, visitors,
   food/employees, the show runtime/catalog and placed buildings/entrance
@@ -183,11 +188,12 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. **ARCH-2 continues** (`docs/platform/architecture.md`): the session now
-   owns clock/budget/ledger, grid/paddocks, visitors, food/employees, shows
-   and buildings/entrance (266-member ratchet). Next: move `ImportedDino` and
-   the dino tables to `world`, then the dino slice, then `update()`. Then
-   ARCH-3 (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-5
+1. **ARCH-2 continues** (`docs/platform/architecture.md`): the session owns
+   clock/budget/ledger, grid/paddocks, visitors, food/employees, shows and
+   buildings/entrance (266-member ratchet). Next: `ParkSession::update(dt)` and
+   the `update_park_world`/`update_simulation` bodies. Dino state is deferred to
+   ARCH-5 (the type mixes simulation and GL state; split it first). Then ARCH-3
+   (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-5
    (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6 (renderer/header split).
    Keep `--selftest` (194), the fast suite (379) and the full suite (521)
    green.
@@ -217,6 +223,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-8: P1 robustness - simulation delta capped at 0.2 s; atomic save writes (temp+rename) for port/campaign; overwrite test checks no .tmp; full 521
 - 2026-10-29 - ARCH-2 slice 6: buildings/entrance moved into `ParkSession` (opt.entrance_road preserved); ratchet 272->266, full 521
 - 2026-10-29 - ARCH-2 slice 5: show runtime/catalog moved into `ParkSession`; game.h drops show_runtime.h; ratchet 274->272, full 521
 - 2026-10-29 - ARCH-2 slice 4: food/employee subsystem moved into `ParkSession`; game.h drops employees.h; ratchet 278->274, full 521

@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../formats/atomic_file.h"
+
 namespace dino {
 namespace {
 
@@ -22,10 +24,8 @@ void require(std::istringstream& in, const std::string& key,
 }  // namespace
 
 void save_port_state(const PortState& state, const std::string& path) {
-    std::ofstream out(path);
-    if (!out) {
-        throw std::runtime_error("cannot write port save " + path);
-    }
+    AtomicFile file(path);
+    std::ostream& out = file.stream();
     out << std::setprecision(9);
     out << "DINOPSAV " << kVersion << "\n";
     out << "island " << (state.island.empty() ? "-" : state.island) << "\n";
@@ -107,9 +107,7 @@ void save_port_state(const PortState& state, const std::string& path) {
         out << "employee " << employee.profile << " " << employee.x << " "
             << employee.y << "\n";
     }
-    if (!out) {
-        throw std::runtime_error("short write to port save " + path);
-    }
+    file.commit();
 }
 
 PortState load_port_state(const std::string& path) {

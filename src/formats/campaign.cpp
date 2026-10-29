@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "atomic_file.h"
 #include "ini.h"
 
 namespace dino {
@@ -278,10 +279,8 @@ std::optional<CampaignMission> next_campaign_mission(
 }
 
 void write_campaign_unlock(const std::string& path, std::uint32_t value) {
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out) {
-        throw std::runtime_error("cannot write campaign unlock " + path);
-    }
+    AtomicFile file(path, FileMode::Binary);
+    std::ostream& out = file.stream();
     const unsigned char bytes[4] = {
         static_cast<unsigned char>(value & 0xFF),
         static_cast<unsigned char>((value >> 8) & 0xFF),
@@ -289,9 +288,7 @@ void write_campaign_unlock(const std::string& path, std::uint32_t value) {
         static_cast<unsigned char>((value >> 24) & 0xFF),
     };
     out.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
-    if (!out) {
-        throw std::runtime_error("short write to campaign unlock " + path);
-    }
+    file.commit();
 }
 
 Campaign load_campaign(const std::string& campaign_ini) {
@@ -420,16 +417,12 @@ void save_campaign_progress(
     if (!target.parent_path().empty()) {
         std::filesystem::create_directories(target.parent_path());
     }
-    std::ofstream out(target);
-    if (!out) {
-        throw std::runtime_error("cannot write campaign progress " + path);
-    }
+    AtomicFile file(path);
+    std::ostream& out = file.stream();
     for (const auto& [campaign, mission] : progress) {
         out << campaign << ' ' << mission << '\n';
     }
-    if (!out) {
-        throw std::runtime_error("short write to campaign progress " + path);
-    }
+    file.commit();
 }
 
 }  // namespace dino

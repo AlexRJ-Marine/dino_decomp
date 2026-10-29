@@ -66,10 +66,21 @@ wrong-way edge.
 | A6 | Medium | UI layout/state (`ui`) and UI drawing (`app/game_ui.cpp`, 1,500) are split across layers with no draw-list seam; every new panel couples to GL and `Game`. | `game_ui.cpp`, `ui/*` |
 | A7 | Low | GL names (`GpuMesh`, `GLuint` textures) are copyable, manual-destroy handles; the owner is `Game` and the deleter needs `GlFns`. | `render/mesh_gpu.h`; policy deviation row |
 | A8 | Low | No unit-test seam for `Game` (private phase methods, non-copyable); the only automated proof is the CLI/screenshot suite. | `tests/test_app_cpp.py`, `test_app_shell.py` |
+| A9 | Medium | `ImportedDino`/`ImportedSpecies` mix simulation state (needs/attributes/action_loop/position) with GL state (`GpuMesh`, `GLuint texture`). Moving them into `ParkSession` would make `world` depend on GL, so the dino slice is deferred to ARCH-5 after the type split. | `game.h` nested types; layer guard |
 
 Strengths to keep: the lower layers are SDL/GL-free, the format layer has one
 parser per file with evidence, the 21 boot / 14 frame phases are named, the
 fast gate is now truly headless, and the static guards are mutation-tested.
+
+## Review P1s closed
+
+- **Simulation delta:** `Game::advance_time` caps the frame delta at 0.2 s
+  (retail `lpScheduler`; `docs/decomp/scheduler.md:45`), so a stalled frame
+  cannot jump the park clock, needs, visitors or employees by seconds.
+- **Save integrity:** `formats/atomic_file.{h,cpp}` writes `<path>.tmp`,
+  flushes and checks the stream, renames on commit and removes the temp file
+  on abort. The port save, campaign unlock and campaign progress use it; the
+  overwrite test asserts that no `.tmp` is left behind.
 
 ## Target composition
 
@@ -100,10 +111,10 @@ task queue is `TASKS.md` ARCH-1..6.
 | Phase | Work | Output | Gate |
 | --- | --- | --- | --- |
 | **ARCH-1** | **Done.** Architecture guards: `tests/test_architecture.py` for the layer matrix, no lower→app, a `Game` member/method/header budget (286/171/700) and the phase map. Moved `asset_path` to `formats/path.*` and the INI parser to `formats/ini.*`. | zero inversions; guard fails on an injected wrong edge | fast 379 |
-| **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`. Slices done: clock/budget/sellback/ledger, the build grid and paddocks, then the visitor system and profiles, then food/employees, then the show runtime/catalog, then buildings/entrance (266 members); next dinos, then `update()`. | save/load and campaign tests unchanged; `game.h` shrinks | full 521 |
+| **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`. Slices done: clock/budget/sellback/ledger, the build grid and paddocks, then the visitor system and profiles, then food/employees, then the show runtime/catalog, then buildings/entrance (266 members). Dinos are deferred to ARCH-5 because the type mixes simulation and GL state (A9); next `ParkSession::update()`. | save/load and campaign tests unchanged; `game.h` shrinks | full 521 |
 | **ARCH-3** | `BuildController` + `CameraController`: move placement/validation/cost and the camera equations behind the new types; keep the draw data in `Game`/`Renderer`. | placement/road/sell tests unchanged | full 521 |
 | **ARCH-4** | `FrameScheduler`: a table of named tasks in the retail order from `docs/decomp/scheduler.md`; `Game::run()` calls `scheduler.run_tasks(dt)`; phase-order test becomes task-order test. | order is data, not statement position | fast 379 |
-| **ARCH-5** | `DinoSim` + `DinoAnimator`: move needs/chooser/mover and clip selection/sampling/skinning out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 521 |
+| **ARCH-5** | `DinoSim` + `DinoAnimator`: first split `ImportedDino`/`ImportedSpecies` into world simulation state and render assets, then move needs/chooser/mover and clip selection/sampling/skinning out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 521 |
 | **ARCH-6** | `Renderer` + `AudioSystem`: GL RAII (or a documented owner), hidden capture mode, split `game.h` into domain headers; `Game` < 250 lines. | no GL in `Game`; clean build time down | full 521 |
 
 Sequencing rationale: guards first so every move is checked; state before

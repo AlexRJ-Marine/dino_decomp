@@ -220,8 +220,15 @@ void Game::begin_frame() {
 
 void Game::advance_time() {
     const std::uint64_t now = SDL_GetPerformanceCounter();
-    frame_dt = static_cast<double>(now - last) / static_cast<double>(freq);
+    const double raw_dt =
+        static_cast<double>(now - last) / static_cast<double>(freq);
     last = now;
+    // Retail lpScheduler caps the first delta at 0.2 s
+    // (docs/decomp/scheduler.md:45). A stalled frame (asset load, window drag,
+    // debugger) must not advance the clock, needs, visitors or employees by
+    // seconds. FPS diagnostics read the clamped value, so a stall shows the
+    // 5 FPS floor rather than a bogus burst.
+    frame_dt = std::min(raw_dt, 0.2);
     elapsed += frame_dt;
 
     // Retail palette time: starts at 0 when the park scene is created and

@@ -34,6 +34,9 @@ and `src/third_party/**` (vendored decoders). Those two keep their own style.
 - The raw `SDL_*`, `GLuint`, `plm_t*` handles are C API values. They are owned
   by `Game` (released in `Game::shutdown()`) or by an RAII wrapper; they never
   appear as transferable parameters.
+- Writes go through `formats/atomic_file.h` (temp file, flushed and renamed),
+  not a bare `std::ofstream` on the target; a crash cannot leave a truncated
+  save.
 
 ### Initialization and constants (ES.20, ES.23, ES.45, Per.11)
 
