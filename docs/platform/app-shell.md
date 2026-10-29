@@ -118,6 +118,9 @@ Rules:
 
 - `game.h` is a map: data members and declarations, no logic beyond inline
   data helpers.
+- C++ style follows `cpp-guidelines.md`: selected Core Guidelines rules, the
+  RAII/ownership rules, and the documented deviations (report `printf`,
+  boot-order member initialization, flat `Mat4`).
 - No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
 - A phase should fit on a screen or two. When one grows, split it — do not
   let `boot()` or `run()` grow again. The four original long bodies and the

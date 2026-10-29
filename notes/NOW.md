@@ -61,6 +61,13 @@ See `notes/lanes.md`. Default split:
   listed in `TASKS.md` MAINT-5. **All other port work is paused** until the
   code base is readable; `--selftest` 194 PASS, fast suite 397, full suite
   512.
+- MAINT-6: **done.** `docs/platform/cpp-guidelines.md` is the C++ policy
+  (selected Core Guidelines + deviations). The audit fixed a real
+  `MpgStream` pimpl leak (`unique_ptr` + `PlmVideo` RAII), made `Game`
+  non-copyable/non-movable, replaced 29 pi literals with `dino::kPi`, narrowed
+  the three `catch (...)` handlers, and split `place_building` 270 -> 164
+  (`load_building_model` 119). `tests/test_cpp_style.py` guards the rules.
+  `--selftest` 194 PASS, fast suite 403, full suite 518.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -161,12 +168,13 @@ See `notes/lanes.md`. Default split:
 ## Next actions
 
 1. MAINT-4 is **done** (`-Fast` runs 41 headless app tests, guard in
-   `tests/test_app_shell.py`) and MAINT-5 is **done** (four long bodies split,
-   397 fast / 512 full). If readability work continues, pick from the
-   >200-line list in `TASKS.md` MAINT-5 (`place_building` 270,
-   `boot_load_assets` 263, `handle_park_mouse_down` 261,
-   `apply_build_tool_click` 250, `update_camera` 227). Keep `--selftest`
-   (194), the fast suite (397) and the full suite (512) green.
+   `tests/test_app_shell.py`), MAINT-5 is **done** (four long bodies split) and
+   MAINT-6 is **done** (Core Guidelines policy + RAII/pi/catch fixes,
+   `tests/test_cpp_style.py`). If readability work continues, pick from the
+   >200-line list in `TASKS.md` MAINT-5 (`boot_load_assets` 263,
+   `handle_park_mouse_down` 261, `apply_build_tool_click` 250,
+   `update_camera` 227). Keep `--selftest` (194), the fast suite (403) and the
+   full suite (518) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -193,6 +201,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-6: Core Guidelines pass - cpp-guidelines policy + tests/test_cpp_style.py; MpgStream pimpl/PLM leak fixed with RAII; Game non-copyable; one dino::kPi (29 literals); catch (...) narrowed; place_building 270->164; full suite 518
 - 2026-10-29 - MAINT-5: long bodies split - update_session 434->8 (menu/park/campaign, campaign state+completion), load_island 386->153, apply_port_state 321->86, load_campaign_park 251->57; call order unchanged; fast 397, full 512
 - 2026-10-29 - MAINT-4: fast gate covers the app - 41 headless CLI tests now run in `-Fast` (397 passed / 115 deselected, 68 s) while 106 window/screenshot tests stay `slow`; guard in tests/test_app_shell.py; full suite 511
 - 2026-10-29 - MAINT-2 complete: draw_menu 428->26, update_placement 638->43, handle_input 638->45, draw_park_hud 758->64 plus a 14-line family dispatcher; every move verbatim, HUD shots unchanged, full suite 511

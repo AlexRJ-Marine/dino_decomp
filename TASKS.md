@@ -2090,15 +2090,42 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Extra (same method): `load_campaign_park` 251 -> 57 lines plus
   `load_campaign_show_features` (89), `load_campaign_employees` (31) and
   `load_campaign_food` (87). Commit `9c47094`.
-- **Remaining >200-line bodies (not queued):** `place_building` 270,
-  `boot_load_assets` 263, `handle_park_mouse_down` 261,
-  `apply_build_tool_click` 250, `update_camera` 227, `draw_menu_list_widget`
-  210, `hud_widget_text` 202, `boot_scene_resources` 201, `draw_frame` 201.
+- **Remaining >200-line bodies (not queued):** `boot_load_assets` 263,
+  `handle_park_mouse_down` 261, `apply_build_tool_click` 250,
+  `update_camera` 227, `draw_menu_list_widget` 210, `hud_widget_text` 202,
+  `boot_scene_resources` 201, `draw_frame` 201. `place_building` is done in
+  MAINT-6.
 - **Acceptance:** each extracted helper fits a screen or two; `--selftest`
   194, fast suite 397 and full suite 512 stay green after each slice.
   - Met after every commit; full suite 512 passed in 3:48 after the last one.
 - **Depends on:** MAINT-2 (verbatim move method) and MAINT-4 (the app tests
   now run in `-Fast`, so a regression is caught in ~70 s).
+
+### MAINT-6: C++ Core Guidelines pass
+- [x] Study the C++ Core Guidelines and write the project policy in
+  `docs/platform/cpp-guidelines.md`: the rules applied (P.1/P.3, F.2/F.3,
+  P.8/R.1/R.11/C.21, ES.20/ES.23/ES.45/Per.11, ES.48/ES.49, Enum.3,
+  Con.1-3, SF.7/SF.10/SF.11, E.14) and the deliberate deviations (`printf`
+  report contract, `Game` boot-order members, `Mat4` flat array, retail
+  numeric offsets).
+- [x] RAII/ownership: `MpgStream`'s pimpl is a `std::unique_ptr` (the old
+  `new Impl()` was leaked) and every PLM handle is a `PlmVideo` unique_ptr;
+  `Game` deletes copy and move because it owns the SDL/GL handles.
+- [x] ES.45: one `dino::kPi` in `src/formats/math.h`; 29 literals in
+  app/world/render replaced, keeping the retail `x * kPi / 180.0f` order.
+- [x] E.14: the three `catch (...)` blocks around `stoi`/`stod` now catch
+  `std::exception`, so allocation failures are not masked as parse fallbacks.
+- [x] F.3: `place_building` 270 -> 164 plus `load_building_model` (119)
+  returning `BuildingModel` (mesh_rel, parts, textures).
+- [x] Guards: `tests/test_cpp_style.py` bans naked `new`/`delete`,
+  `using namespace` in headers, `NULL`/`std::endl`, `catch (...)` and new
+  `3.14159` literals.
+- **Evidence:** commits `7e2bd93`, `a44b6e6`, `1766578`;
+  `docs/platform/cpp-guidelines.md`; `tests/test_cpp_style.py`.
+- **Acceptance:** `--selftest` 194, fast suite 403, full suite 518;
+  video/cinematic/campaign/building window tests green.
+  - Met: full suite 518 passed in 4:06.
+- **Depends on:** MAINT-4 (fast gate) and MAINT-5 (verbatim move method).
 
 ## Phase 4 — remove the original exe
 

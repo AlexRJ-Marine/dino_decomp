@@ -2046,3 +2046,17 @@ Updated: 2026-10-28
   scope. Gates after each slice: `--selftest` 194, fast suite 397; final full
   suite 512 in 3:48. The remaining >200-line methods are listed in TASKS.md
   MAINT-5 (largest `place_building` 270, `boot_load_assets` 263).
+
+- MAINT-6 is done (`7e2bd93`, `a44b6e6`, `1766578`): the C++ Core Guidelines
+  policy is `docs/platform/cpp-guidelines.md` (rules applied plus the
+  deliberate deviations: printf report contract, Game boot-order members,
+  flat Mat4, retail numeric offsets). Code fixes found by the audit:
+  `MpgStream` leaked its `new Impl()` and used raw PLM handles -> unique_ptr
+  pimpl + `PlmVideo` RAII; `Game` now deletes copy/move; one `dino::kPi`
+  replaces 29 literals in app/world/render; the three `catch (...)` around
+  stoi/stod now catch `std::exception`; `place_building` 270 -> 164 plus
+  `load_building_model` (119) returning `BuildingModel`. Guards:
+  `tests/test_cpp_style.py` (6 static checks). Gates: `--selftest` 194, fast
+  suite 403, full suite 518 in 4:06; video, cinematic, campaign and building
+  window tests green. Remaining >200-line bodies are listed in TASKS.md
+  MAINT-5 (largest boot_load_assets 263, handle_park_mouse_down 261).
