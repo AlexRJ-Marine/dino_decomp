@@ -483,10 +483,6 @@ private:
     void update_simulation();
     void update_camera_view();
     void update_placement();
-    void update_fence_cursor();
-    void place_selected_store_item();
-    void apply_build_tool_click();
-    void apply_park_click();
     void update_preview();
     void draw_frame();
     void present_frame();
@@ -495,6 +491,17 @@ private:
     // same point in the frame, so the phase name says what runs.
     void update_minimap_zoom();
     void refill_looping_stream();
+
+    // Placement details (game_input.cpp): called from update_placement()
+    // after the branch conditions have been checked.
+    void update_fence_cursor();
+    void place_selected_store_item();
+    void apply_build_tool_click();
+    void apply_park_click();
+
+    // Input details (game_input.cpp): the injected-event setup and one
+    // handler per SDL event type, called from handle_input().
+    void apply_injected_input();
 
     // --- UI drawing (game_ui.cpp) --------------------------------------
     UiTexture* ui_texture(const std::string& filename);

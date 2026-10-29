@@ -4,8 +4,7 @@
 
 namespace dino::app {
 
-void Game::handle_input() {
-    sync_park_layout();
+void Game::apply_injected_input() {
     // --inject-key FRAME,KEYCODE: a real key down/up pair (tests).
     for (const std::string& spec : opt.inject_keys) {
         int at = 0;
@@ -51,6 +50,11 @@ void Game::handle_input() {
             SDL_PushEvent(&injected);
         }
     }
+}
+
+void Game::handle_input() {
+    sync_park_layout();
+    apply_injected_input();
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (opt.no_input) {
