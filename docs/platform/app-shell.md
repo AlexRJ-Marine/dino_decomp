@@ -13,7 +13,7 @@ few dozen lines with a name instead of a slice of a 10k-line function. See
 | `main.cpp` | 10 | entry point: `Game(argc, argv).run()` |
 | `game.h` | ~600 | the `Game` object: session state by subsystem, then the method map (boot phases, frame phases, one banner per domain file) |
 | `game.cpp` | ~1,400 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
-| `game_boot.cpp` | ~1,140 | boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
+| `game_boot.cpp` | ~1,140 | `boot()` itself and boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
 | `game_boot_park.cpp` | ~1,280 | boot phases 12–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
 | `game_input.cpp` | ~1,390 | `handle_input()`, `update_placement()`, `update_preview()` |
 | `game_ui.cpp` | ~1,420 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |

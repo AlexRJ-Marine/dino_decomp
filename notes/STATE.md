@@ -1657,6 +1657,13 @@ Updated: 2026-10-28
     (6 passed); manual 1280x720 window clicks open BUDGET_PANEL and
     DINO_LAB_MAIN_CENTER.
 
+- REFACTOR complete: **app shell split and naming.** `src/app/main.cpp` is
+  10 lines (was 15,266) and `Game::run()` is 35 lines (was 11,145); the
+  executable and app layer are `dino_port` / `src/app`, with one file per
+  domain. Evidence: commits `48db583..5fcd5ce`,
+  `docs/platform/app-shell.md`, `docs/platform/naming.md`; `--selftest`
+  194 PASS and the fast suite 350 passed / 156 deselected.
+
 ## In progress
 
 - **P3 action loop (remaining):** the chooser + `DinoActionLoop` are ported
@@ -1901,3 +1908,58 @@ Updated: 2026-10-28
 - Campaign mission labels were checked: `ParkEng.loc` stores "1/4".."4/4"
   for `&Cpg4_Mission*_Title` and the exact objective sentences; the port is
   faithful (the odd title is retail).
+
+## 2026-10-29 - REFACTOR: app shell split and naming
+
+- A (naming) is complete in `48db583`: `src/viewer` -> `src/app`, the target
+  and executable `dino_viewer` -> `dino_port`, `DINO_VIEWER_EXE` ->
+  `DINO_EXE`, `dino_viewer.cfg` -> `dino_port.cfg` (old file migrated on
+  load), `tests/test_viewer_cpp.py` -> `tests/test_app_cpp.py`,
+  `docs/platform/sdl3-viewer.md` -> `docs/platform/app-shell.md`.
+  `tests/test_naming.py` bans the old identifiers in `src/`, `scripts/`,
+  `tests/`, `docs/`, `.opencode/` and the key root files; tools and
+  historical evidence keep the viewer name. Conventions are codified in
+  `docs/platform/naming.md`.
+- B1 (leaf extractions) moved every leaf out of the 15,266-line
+  `main.cpp`: `dino_core` + headless `dino_tools --selftest` (`bed12bd`),
+  `app/capture`, `world/park_clock`, `app/cli`, `render/shaders`,
+  `render/gl_api`, `render/mesh_gpu`, `render/text`, `render/scene`,
+  `world/terrain_query`, `render/skinning`, `app/park_camera`,
+  `audio/ui_sound`, `audio/music`, `app/asset_paths`, then `app/reports`
+  (`92efd77`..`bdcf5e8`).
+- B2 moved the ~1,900-line headless report prologue to
+  `app/reports.cpp` (`run_cli_reports(const Options&)` returns
+  `std::optional<int>`), so `main()` parses args, runs the reports, then
+  enters the shell.
+- B3 moved the shell into `app::Game` (`2f6c7db`): 285 former `main()`
+  locals became members without default initializers, each original
+  initializer now runs in the boot phase at the same relative position.
+  The 2,591-line frame loop became 14 named phases (`598f050`), the setup
+  block became `boot()` (`426ed24`) split into 21 ordered phases
+  (`8101db9`, bodies in `game_boot.cpp` / `game_boot_park.cpp`), the
+  129-line shutdown became `Game::shutdown()` (`a964333`), `game.cpp` was
+  split by domain into `game_input`, `game_ui`, `game_menu`, `game_show`,
+  `game_park`, `game_build`, `game_scene` (`a8cae36`) and `game.h` groups
+  its declarations per domain unit (`d3dae6f`). `run()` is now
+  `boot -> 14 phases -> shutdown`.
+- Behaviour-preservation check: a statement census showed no content lost;
+  every phase exit code stays in `boot()` as
+  `if (std::optional<int> exit_code = phase())`; loop control stays in
+  `run()`. One real regression was found and fixed in `5fcd5ce`: the loop
+  split left local `eye`/`view_center` in `update_camera_view()` shadowing
+  the new members, so `draw_scene()` used `(0,0,0)`; the isl01 shot went
+  from 45,364 to 152,879 distinct colours (centre pixel clear colour to
+  grass). Evidence `notes/refactor-camera-shadowing.md`.
+- Layout after the split: `src/app/` has no file over 1,418 lines;
+  `main.cpp` 10 lines; `Game::run()` 35. `docs/platform/app-shell.md` is the
+  file map, lifecycle and phase table; `docs/platform/naming.md` the
+  directory/type/function/state rules.
+- Gates: `--selftest` 194 PASS, fast suite 350 passed / 156 deselected;
+  build `build/refactor`. `src/formats`, `src/world` and `src/ui` still
+  include no SDL/GL (`docs/platform/naming.md`).
+- Remaining readability work (behaviour-preserving, no priority over the
+  game once this lane is done): the four largest bodies are still
+  `draw_park_hud` 758, `handle_input` 638, `update_placement` 638 and
+  `draw_menu` 428; add a scene-pixel guard to `tests/test_app_cpp.py` (the
+  park shots assert HUD panels only) and a guard for the SDL-free layer
+  rule. Tracked as MAINT-2 / MAINT-3 in `TASKS.md`.

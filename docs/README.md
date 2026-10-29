@@ -11,6 +11,8 @@ page is the map for the `docs/` tree.
 | What is being worked on now | `notes/NOW.md` |
 | Every unchecked task | `notes/OPEN-TASKS.md` |
 | One row per retail feature: status, evidence, port entry, tests, gaps | [platform/feature-status.md](platform/feature-status.md) |
+| Source layout, file naming, layering rules | [platform/naming.md](platform/naming.md) |
+| Port lifecycle: boot/frame phases, where new code goes | [platform/app-shell.md](platform/app-shell.md) |
 | Which claim is proven where | `notes/evidence-index.md` |
 | Phase-level picture | [ROADMAP.md](ROADMAP.md) |
 | Lanes, builds, state updates, evidence workflow | [workflow.md](workflow.md) |

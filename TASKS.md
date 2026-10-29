@@ -1980,6 +1980,49 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/formats/bni.md`, `docs/formats/laboratory.md`,
   `docs/formats/campaign.md`, `tests/test_feature_matrix.py`.
 
+## Maintainability
+
+### MAINT-1: Readable app shell (naming + `main.cpp` split)
+- [x] Rename the app layer to `src/app` and the executable/target to
+  `dino_port`; update the config name, the app test file name and the
+  app-shell doc name; add `tests/test_naming.py` so the legacy identifiers
+  cannot come back.
+- [x] Codify the layout and naming rules in `docs/platform/naming.md`.
+- [x] Move the leaf helpers out of `main.cpp`: capture, park clock, CLI,
+  shaders, GL loader, mesh upload, text, scene, terrain query, skinning,
+  park camera, audio, asset paths and reports; add `dino_core` and the
+  headless `dino_tools --selftest`.
+- [x] Move `main()`'s body into `app::Game`: 21 boot phases, 14 frame
+  phases, one `game_*.cpp` per domain, `Game::shutdown()` and a `game.h`
+  grouped per domain unit.
+- [x] Fix the camera regression the split exposed (local `eye` /
+  `view_center` shadowing the members) and record
+  `notes/refactor-camera-shadowing.md`.
+- **Acceptance:** `src/app/main.cpp` < 2,000 lines and `main()` < 350
+  (actual: 10 and 35); `--selftest` 194 PASS; fast suite green;
+  `src/formats`, `src/world` and `src/ui` stay SDL/GL-free.
+- **Evidence:** commits `48db583..5fcd5ce`, `docs/platform/app-shell.md`,
+  `docs/platform/naming.md`, `notes/refactor-camera-shadowing.md`.
+
+### MAINT-2: Split the four remaining long bodies
+- [ ] `draw_park_hud` 758 -> named panels; `handle_input` 638 and
+  `update_placement` 638 -> per-tool handlers; `draw_menu` 428 -> page
+  draws. Move code verbatim; no behaviour change.
+- **Acceptance:** the four bodies are each under 300 lines; `--selftest`
+  and the fast suite are unchanged.
+- **Depends on:** MAINT-1.
+
+### MAINT-3: Regression guards for the split
+- [ ] Add a scene-pixel assertion to `tests/test_app_cpp.py` (the park
+  screenshots check HUD panels only, which is why the camera shadowing
+  slipped through): render the isl01 shot and require the centre pixel to
+  be terrain, not the clear colour.
+- [ ] Add a guard test that `src/formats`, `src/world` and `src/ui` include
+  no SDL/GL headers (the layering rule in `docs/platform/naming.md`).
+- **Acceptance:** both guards fail on the `5fcd5ce` regression or a
+  deliberate SDL include, and pass on the current tree.
+- **Depends on:** MAINT-1.
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness

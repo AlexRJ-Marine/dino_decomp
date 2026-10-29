@@ -58,6 +58,12 @@ row there without claiming it here, and do not touch another lane's files.
 
 ## Recent integration
 
+- 2026-10-29: the refactor lane completed MAINT-1 (`48db583..5fcd5ce`):
+  `src/viewer` -> `src/app`, `dino_viewer` -> `dino_port`, `main.cpp`
+  15,266 -> 10 lines, `Game::run()` 35 lines, one `game_*.cpp` per domain
+  with 21 boot and 14 frame phases (`docs/platform/app-shell.md`,
+  `docs/platform/naming.md`). Do not land `src/app/main.cpp` edits against
+  the old single-file layout; new code goes in the domain unit.
 - 2026-10-28: camera pan corrected to the retail rigid translation (live
   probe; eye and target goals move together). Menu playtest R-16 (Load Game)
   and R-17 (Cinematics) are done; `dino.dat` is an unlocked-campaign count,
