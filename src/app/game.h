@@ -226,7 +226,6 @@ private:
     dino::Vegetation vegetation;
     float lod_quality;
     bool veg_stats;
-    dino::BuildGrid build_grid;
     dino::Mesh fence_source;
     dino::Image path_image;
     dino::Image fence_image;
@@ -286,7 +285,6 @@ private:
     double danger_timer;
     std::vector<dino::FoodSource> food_sources;
     std::vector<dino::Paddock> park_paddocks;
-    std::vector<dino::Paddock> paddocks;
     dino::DinoFamilyTable family_table;
     std::map<int, std::string> head_species;
     std::map<std::string, int> species_size_cm;

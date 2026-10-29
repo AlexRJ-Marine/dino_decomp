@@ -275,7 +275,7 @@ void Game::handle_key_input(const SDL_Event& event) {
         pending_construct_kind = -1;
         std::printf("build tool: off\n");
     } else if (key == SDLK_U) {
-        if (build_grid.undo()) {
+        if (park_session.build_grid.undo()) {
             rebuild_build_meshes();
         }
     }
@@ -695,12 +695,12 @@ void Game::update_fence_cursor() {
         bool ok = false;
         if (pick_terrain(terrain, eye, view_center, mxf, myf,
                          logical_width, logical_height, hit) &&
-            build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
-            const float cs = build_grid.cell_size;
+            park_session.build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
+            const float cs = park_session.build_grid.cell_size;
             const float wx =
-                build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
+                park_session.build_grid.origin_x + (static_cast<float>(cx) + 0.5f) * cs;
             const float wy =
-                build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
+                park_session.build_grid.origin_y + (static_cast<float>(cy) + 0.5f) * cs;
             // 0x5f8c70 -> 0x5faaa0: the helper snaps the picked point to
             // the nearest 4-unit anchor (cell corner in map units); the
             // disc/grid sphere sits at anchor + step/2 = the cell centre.
@@ -708,7 +708,7 @@ void Game::update_fence_cursor() {
             const int start_y = static_cast<int>(static_cast<float>(cy) * cs);
             // 0x58a190 runs on the snapped helper position: scan
             // `p .. p+margin-1` (margin 4) for a busy high nibble.
-            ok = build_grid.occupancy.free_rect(
+            ok = park_session.build_grid.occupancy.free_rect(
                 start_x, start_y, start_x + 3, start_y + 3);
             // Retail rejects a fence start strictly inside an existing
             // paddock (`WARNING_INSIDE_PERIMETER`). Use the snapped point,
@@ -779,7 +779,7 @@ void Game::update_fence_cursor() {
                     }
                 }
                 if (template_ok &&
-                    !build_grid.occupancy.free_rect(rx0 + 4, ry0 + 4,
+                    !park_session.build_grid.occupancy.free_rect(rx0 + 4, ry0 + 4,
                                                     rx1 - 4, ry1 - 4)) {
                     template_ok = false;
                 }
@@ -866,8 +866,8 @@ void Game::place_selected_store_item() {
         const float wy = hit.y + half;
         std::printf("store: pick world %.1f %.1f\n", wx, wy);
         int paddock_index = -1;
-        for (std::size_t p = 0; p < paddocks.size(); ++p) {
-            const dino::WorldRect& r = paddocks[p].rect;
+        for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
+            const dino::WorldRect& r = park_session.paddocks[p].rect;
             if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
                 wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
                 wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
@@ -922,7 +922,7 @@ void Game::place_selected_store_item() {
                     1000000 +
                     static_cast<int>(imported_dinos.size());
                 dino::Paddock& paddock =
-                    paddocks[static_cast<std::size_t>(
+                    park_session.paddocks[static_cast<std::size_t>(
                         paddock_index)];
                 if (!dino::paddock_can_add(paddock, dino_id,
                                            cost_class)) {
@@ -955,9 +955,9 @@ void Game::place_selected_store_item() {
                             store_catalog.begin() +
                             pending_store_index);
                         refresh_store_rows();
-                        park_paddocks = paddocks;
+                        park_paddocks = park_session.paddocks;
                         float total_used = 0.0f;
-                        for (const dino::Paddock& p : paddocks) {
+                        for (const dino::Paddock& p : park_session.paddocks) {
                             total_used += p.used;
                         }
                         std::printf(
@@ -1002,27 +1002,27 @@ void Game::apply_build_tool_click() {
         // nearest 4-unit anchor (0x5faaa0); the other build tools
         // use the floored cell.
         if ((build_tool == 4 || build_tool == 6
-                 ? build_grid.road_cells_for_world(hit.x, hit.y,
+                 ? park_session.build_grid.road_cells_for_world(hit.x, hit.y,
                                                    cx, cy)
-                 : build_grid.cells_for_world(hit.x, hit.y, cx,
+                 : park_session.build_grid.cells_for_world(hit.x, hit.y, cx,
                                               cy))) {
-            const int before = build_grid.path_count + build_grid.fence_count;
-            const float cs = build_grid.cell_size;
+            const int before = park_session.build_grid.path_count + park_session.build_grid.fence_count;
+            const float cs = park_session.build_grid.cell_size;
             auto cell_buildable = [&](int gx, int gy) {
                 return terrain.buildable(
-                    build_grid.origin_x +
+                    park_session.build_grid.origin_x +
                         (static_cast<float>(gx) + 0.5f) * cs,
-                    build_grid.origin_y +
+                    park_session.build_grid.origin_y +
                         (static_cast<float>(gy) + 0.5f) * cs);
             };
             if (build_tool == 4) {
                 road_click(cx, cy);  // rebuilds the meshes itself
             } else if (build_tool == 1) {
-                const bool removing = build_grid.path_at(cx, cy);
+                const bool removing = park_session.build_grid.path_at(cx, cy);
                 if (!removing && !cell_buildable(cx, cy)) {
                     std::printf("placement: blocked cell\n");
                 } else {
-                    build_grid.set_path(cx, cy, !removing);
+                    park_session.build_grid.set_path(cx, cy, !removing);
                 }
             } else if (build_tool == 6) {
                 // Retail FENCE_CONSTRUCTION: the helper snaps the
@@ -1034,7 +1034,7 @@ void Game::apply_build_tool_click() {
                 const int py = static_cast<int>(
                     static_cast<float>(cy) * cs);
                 auto inside_paddock = [&](float rx, float ry) {
-                    for (const dino::Paddock& paddock : paddocks) {
+                    for (const dino::Paddock& paddock : park_session.paddocks) {
                         const dino::WorldRect& rect =
                             paddock.rect;
                         if (rx > std::min(rect.x0, rect.x1) &&
@@ -1052,7 +1052,7 @@ void Game::apply_build_tool_click() {
                     // the height-slope rule; point strictly
                     // inside an existing perimeter -> code 3.
                     const bool busy =
-                        !build_grid.occupancy.free_rect(
+                        !park_session.build_grid.occupancy.free_rect(
                             px, py, px + 3, py + 3);
                     if (busy) {
                         road_message("&WARNING_BUSY_SPACE");
@@ -1100,7 +1100,7 @@ void Game::apply_build_tool_click() {
                                     static_cast<float>(y1)) *
                                        0.5f)) {
                         warning = "&WARNING_INSIDE_PERIMETER";
-                    } else if (!build_grid.occupancy.free_rect(
+                    } else if (!park_session.build_grid.occupancy.free_rect(
                                    x0 + 4, y0 + 4, x1 - 4,
                                    y1 - 4)) {
                         warning = "&WARNING_BUSY_SPACE";
@@ -1118,7 +1118,7 @@ void Game::apply_build_tool_click() {
                         road_message(warning.c_str());
                     } else {
                         const int before =
-                            build_grid.fence_count;
+                            park_session.build_grid.fence_count;
                         const int cx0 = std::max(
                             0, static_cast<int>(
                                    std::floor(x0 / cs)));
@@ -1130,19 +1130,19 @@ void Game::apply_build_tool_click() {
                         const int cy1 = static_cast<int>(
                             std::floor(y1 / cs));
                         for (int x = cx0; x <= cx1; ++x) {
-                            build_grid.set_fence(x, cy0, 0, true);
-                            build_grid.set_fence(x, cy1 + 1, 0,
+                            park_session.build_grid.set_fence(x, cy0, 0, true);
+                            park_session.build_grid.set_fence(x, cy1 + 1, 0,
                                                  true);
                         }
                         for (int y = cy0; y <= cy1; ++y) {
-                            build_grid.set_fence(cx0 - 1, y, 1,
+                            park_session.build_grid.set_fence(cx0 - 1, y, 1,
                                                  true);
-                            build_grid.set_fence(cx1, y, 1,
+                            park_session.build_grid.set_fence(cx1, y, 1,
                                                  true);
                         }
                         // stPerimeter's four wall lines: 1 map
                         // unit thick, inclusive min .. max-1.
-                        build_grid.occupancy.stamp_wall_rect(
+                        park_session.build_grid.occupancy.stamp_wall_rect(
                             x0, y0, x1, y1, true);
                         dino::Paddock paddock;
                         paddock.rect = {x0, y0, x1, y1};
@@ -1153,8 +1153,8 @@ void Game::apply_build_tool_click() {
                         paddock.ground_variant = std::rand() & 3;
                         paddock.name = "Enclosure" +
                                        std::to_string(
-                                           paddocks.size() + 1);
-                        paddocks.push_back(paddock);
+                                           park_session.paddocks.size() + 1);
+                        park_session.paddocks.push_back(paddock);
                         park_session.budget -= cost;
                         park_session.ledger.spend_construction(cost);
                         std::printf(
@@ -1163,8 +1163,8 @@ void Game::apply_build_tool_click() {
                             "cost=%d budget=%d "
                             "construction=%d/%d\n",
                             x0, y0, x1, y1,
-                            build_grid.fence_count - before,
-                            paddocks.size(),
+                            park_session.build_grid.fence_count - before,
+                            park_session.paddocks.size(),
                             static_cast<double>(paddock.capacity),
                             cost, park_session.budget,
                             park_session.ledger.construction_count,
@@ -1187,8 +1187,8 @@ void Game::apply_build_tool_click() {
                     static_cast<int>(std::lround(cx * cs)),
                     static_cast<int>(std::lround(cy * cs)));
             } else {
-                const float x0 = build_grid.origin_x + static_cast<float>(cx) * cs;
-                const float y0 = build_grid.origin_y + static_cast<float>(cy) * cs;
+                const float x0 = park_session.build_grid.origin_x + static_cast<float>(cx) * cs;
+                const float y0 = park_session.build_grid.origin_y + static_cast<float>(cy) * cs;
                 float best = 1e30f;
                 int ex = cx;
                 int ey = cy;
@@ -1206,17 +1206,17 @@ void Game::apply_build_tool_click() {
                 }
                 consider(std::fabs(hit.x - (x0 + cs)), cx, cy, 1);
                 consider(std::fabs(hit.y - y0), cx, cy, 0);
-                if (cy + 1 < build_grid.height) {
+                if (cy + 1 < park_session.build_grid.height) {
                     consider(std::fabs(hit.y - (y0 + cs)), cx, cy + 1, 0);
                 }
                 const bool removing =
-                    build_grid.fence_at(ex, ey, edge);
+                    park_session.build_grid.fence_at(ex, ey, edge);
                 bool allowed = removing;
                 if (!allowed) {
                     const bool inside = cell_buildable(ex, ey);
                     bool neighbour = true;
                     if (edge == 1) {
-                        if (ex + 1 < build_grid.width) {
+                        if (ex + 1 < park_session.build_grid.width) {
                             neighbour = cell_buildable(ex + 1, ey);
                         }
                     } else if (ey > 0) {
@@ -1227,11 +1227,11 @@ void Game::apply_build_tool_click() {
                 if (!allowed) {
                     std::printf("placement: blocked cell\n");
                 } else {
-                    build_grid.set_fence(ex, ey, edge, !removing);
+                    park_session.build_grid.set_fence(ex, ey, edge, !removing);
                 }
             }
             if (build_tool != 4 &&
-                build_grid.path_count + build_grid.fence_count != before) {
+                park_session.build_grid.path_count + park_session.build_grid.fence_count != before) {
                 rebuild_build_meshes();
             }
         }
@@ -1255,7 +1255,7 @@ void Game::apply_park_click() {
                 std::printf("sell: no enclosure under the cursor\n");
             } else {
                 const dino::Paddock& pen =
-                    paddocks[static_cast<std::size_t>(index)];
+                    park_session.paddocks[static_cast<std::size_t>(index)];
                 if (!pen.occupants.empty() || pen.used > 0.0f) {
                     park.show_warning(
                         dino::ui::resolve_loc_text(
@@ -1266,7 +1266,7 @@ void Game::apply_park_click() {
                         index);
                 } else {
                     const int value = dino::fence_sell_value(
-                        pen.rect, build_grid.cell_size, 30, 4,
+                        pen.rect, park_session.build_grid.cell_size, 30, 4,
                         park_session.sellback);
                     park_sell_paddock = index;
                     park.show_request(
@@ -1321,8 +1321,8 @@ void Game::update_placement() {
             if (pick_terrain(terrain, eye, view_center, static_cast<float>(mx),
                              static_cast<float>(my), logical_width,
                              logical_height, hit)) {
-                const float cs = build_ready ? build_grid.cell_size : 4.0f;
-                const float origin = build_ready ? build_grid.origin_x
+                const float cs = build_ready ? park_session.build_grid.cell_size : 4.0f;
+                const float origin = build_ready ? park_session.build_grid.origin_x
                                                  : -terrain.world_size * 0.5f;
                 const int cx = static_cast<int>(std::floor((hit.x - origin) / cs));
                 const int cy = static_cast<int>(std::floor((hit.y - origin) / cs));
@@ -1350,7 +1350,7 @@ void Game::update_preview() {
         int cy = 0;
         if (pick_terrain(terrain, eye, view_center, mxf, myf, logical_width,
                          logical_height, hit) &&
-            build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
+            park_session.build_grid.road_cells_for_world(hit.x, hit.y, cx, cy)) {
             const dino::RoadSegment road =
                 dino::road_segment(road_start_x, road_start_y, cx, cy);
             const std::array<int, 4> key = {road.x0, road.y0, road.x1, road.y1};
@@ -1366,11 +1366,11 @@ void Game::update_preview() {
                 }
                 road_preview_gpu.destroy(glfns);
                 road_preview_gpu = upload_mesh(
-                    dino::road_helper_mesh(road_helper_box, road, build_grid, terrain),
+                    dino::road_helper_mesh(road_helper_box, road, park_session.build_grid, terrain),
                     glfns);
                 const int cost = dino::road_cost(road, ensure_road_price());
                 road_preview_ok =
-                    dino::check_road(build_grid, road, road_perimeters(),
+                    dino::check_road(park_session.build_grid, road, road_perimeters(),
                                      [this](int x, int y) { return road_cell_busy(x, y); }) == dino::RoadCheck::Ok &&
                     park_session.budget >= cost;
                 if (road_preview_texture == 0) {

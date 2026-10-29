@@ -568,28 +568,28 @@ std::optional<int> Game::boot_load_assets() {
                 vegetation = dino::load_vegetation(opt.asset_root, lnd, terrain);
             }
             if (opt.build_mode) {
-                build_grid.init(opt.build_cell, terrain.world_size);
-                build_grid.occupancy.init_from_mask(
+                park_session.build_grid.init(opt.build_cell, terrain.world_size);
+                park_session.build_grid.occupancy.init_from_mask(
                     terrain.occupation, terrain.occupation_width,
                     terrain.occupation_height);
                 if (!opt.build_load_path.empty()) {
-                    dino::load_build(build_grid, opt.build_load_path, terrain.world_size);
+                    dino::load_build(park_session.build_grid, opt.build_load_path, terrain.world_size);
                 }
                 for (const auto& value : opt.place_paths) {
                     int x = 0, y = 0, edge = 0;
                     if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
-                        const float cs = build_grid.cell_size;
+                        const float cs = park_session.build_grid.cell_size;
                         if (!terrain.buildable(
-                                build_grid.origin_x +
+                                park_session.build_grid.origin_x +
                                     (static_cast<float>(x) + 0.5f) * cs,
-                                build_grid.origin_y +
+                                park_session.build_grid.origin_y +
                                     (static_cast<float>(y) + 0.5f) * cs)) {
                             std::fprintf(stderr,
                                          "place-path: blocked cell %d,%d\n", x,
                                          y);
                             continue;
                         }
-                        build_grid.set_path(x, y, true);
+                        park_session.build_grid.set_path(x, y, true);
                     } else {
                         std::fprintf(stderr, "bad --place-path %s\n", value.c_str());
                     }
@@ -597,12 +597,12 @@ std::optional<int> Game::boot_load_assets() {
                 for (const auto& value : opt.place_fences) {
                     int x = 0, y = 0, edge = 0;
                     if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
-                        const float cs = build_grid.cell_size;
+                        const float cs = park_session.build_grid.cell_size;
                         auto free_cell = [&](int gx, int gy) {
                             return terrain.buildable(
-                                build_grid.origin_x +
+                                park_session.build_grid.origin_x +
                                     (static_cast<float>(gx) + 0.5f) * cs,
-                                build_grid.origin_y +
+                                park_session.build_grid.origin_y +
                                     (static_cast<float>(gy) + 0.5f) * cs);
                         };
                         // Edge 0 is the south edge (shared with y-1); edge 1
@@ -614,7 +614,7 @@ std::optional<int> Game::boot_load_assets() {
                                 return false;
                             }
                             if (e == 1) {
-                                return gx + 1 >= build_grid.width ||
+                                return gx + 1 >= park_session.build_grid.width ||
                                        free_cell(gx + 1, gy);
                             }
                             return gy <= 0 || free_cell(gx, gy - 1);
@@ -625,12 +625,12 @@ std::optional<int> Game::boot_load_assets() {
                                          y);
                             continue;
                         }
-                        build_grid.set_fence(x, y, edge, true);
+                        park_session.build_grid.set_fence(x, y, edge, true);
                     } else {
                         std::fprintf(stderr, "bad --place-fence %s\n", value.c_str());
                     }
                 }
-                build_grid.undo_stack.clear();
+                park_session.build_grid.undo_stack.clear();
                 const std::string fence_mesh =
                     opt.fence_mesh_path.empty()
                         ? resolve_asset(opt.asset_root,
@@ -683,14 +683,14 @@ std::optional<int> Game::boot_load_assets() {
                     if (!defer_visitors) {
                         const int spawned =
                             visitor_profiles.empty()
-                                ? visitor_system.spawn(build_grid,
+                                ? visitor_system.spawn(park_session.build_grid,
                                                        opt.visitors)
                                 : visitor_system.spawn(
-                                      build_grid, opt.visitors,
+                                      park_session.build_grid, opt.visitors,
                                       visitor_profiles, -1, -1);
                         std::printf(
                             "visitors: %d spawned on %d path cells\n",
-                            spawned, build_grid.path_count);
+                            spawned, park_session.build_grid.path_count);
                         if (opt.visitor_satisfaction >= 0) {
                             for (dino::Visitor& visitor :
                                  visitor_system.visitors) {
@@ -1001,16 +1001,16 @@ std::optional<int> Game::boot_print_modes() {
         }
         if (build_ready) {
             const dino::BuildMeshes meshes =
-                dino::build_placement_meshes(build_grid, terrain, fence_source);            std::printf("build: cell %.1f, grid %dx%d, %d path cells, %d fences; "
+                dino::build_placement_meshes(park_session.build_grid, terrain, fence_source);            std::printf("build: cell %.1f, grid %dx%d, %d path cells, %d fences; "
                         "mesh %d tiles, %d segments\n",
-                        build_grid.cell_size, build_grid.width, build_grid.height,
-                        build_grid.path_count, build_grid.fence_count,
+                        park_session.build_grid.cell_size, park_session.build_grid.width, park_session.build_grid.height,
+                        park_session.build_grid.path_count, park_session.build_grid.fence_count,
                         meshes.path_tiles, meshes.fence_segments);
             if (!visitor_system.visitors.empty()) {
                 std::printf("visitors: %zu\n", visitor_system.visitors.size());
             }
             if (!opt.build_save_path.empty()) {
-                dino::save_build(build_grid, opt.build_save_path);
+                dino::save_build(park_session.build_grid, opt.build_save_path);
                 std::printf("build saved: %s\n", opt.build_save_path.c_str());
             }
         }

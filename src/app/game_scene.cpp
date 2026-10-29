@@ -268,7 +268,7 @@ void Game::refresh_terrain_texture() {
     }
     dino::Image painted = image;
     if (build_ready) {
-        dino::paint_roads(painted, build_grid, terrain.world_size);
+        dino::paint_roads(painted, park_session.build_grid, terrain.world_size);
     }
     if (texture != 0) {
         glDeleteTextures(1, &texture);
@@ -325,19 +325,19 @@ void Game::spawn_world_dinos() {
                                      fence.end_x, fence.end_y});
         }
     }
-    paddocks.clear();
-    paddocks.reserve(paddock_rects.size());
+    park_session.paddocks.clear();
+    park_session.paddocks.reserve(paddock_rects.size());
     for (const dino::WorldRect& rect : paddock_rects) {
         dino::Paddock paddock;
         paddock.rect = rect;
         paddock.capacity =
-            dino::paddock_capacity(rect, build_grid.cell_size);
+            dino::paddock_capacity(rect, park_session.build_grid.cell_size);
         // 0x5ec7e0 picks the ground atlas quadrant at creation time.
         paddock.ground_variant = std::rand() & 3;
         // FUN_00590ac0 names the stFence "EnclosureN" from the bank; the
         // name is regenerated on load and never saved.
-        paddock.name = "Enclosure" + std::to_string(paddocks.size() + 1);
-        paddocks.push_back(paddock);
+        paddock.name = "Enclosure" + std::to_string(park_session.paddocks.size() + 1);
+        park_session.paddocks.push_back(paddock);
     }
     // `import_park_layout` runs before the paddock list exists, so its
     // rebuild produced no gatAttraction ground quads. Loaded parks need
@@ -397,7 +397,7 @@ void Game::spawn_world_dinos() {
                 : dino::DinoAttributes{};
         const dino::DinoAttributes* attrs_ptr =
             phenotype_table.valid ? &attrs : nullptr;
-        if (!paddocks.empty()) {
+        if (!park_session.paddocks.empty()) {
             const int cost_class =
                 phenotype_table.valid
                     ? phenotype_table.size_class(record.genotype)
@@ -435,16 +435,16 @@ void Game::spawn_world_dinos() {
                     record.genotype[17].first, record.genotype[17].second);
             }
             int paddock_index = -1;
-            for (std::size_t p = 0; p < paddocks.size(); ++p) {
+            for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
                 if (dino::paddock_can_add(
-                        paddocks[p], static_cast<int>(i), cost_class)) {
+                        park_session.paddocks[p], static_cast<int>(i), cost_class)) {
                     paddock_index = static_cast<int>(p);
                     break;
                 }
             }
             if (paddock_index >= 0) {
                 dino::Paddock& paddock =
-                    paddocks[static_cast<std::size_t>(paddock_index)];
+                    park_session.paddocks[static_cast<std::size_t>(paddock_index)];
                 dino::paddock_add(paddock, static_cast<int>(i),
                                   cost_class);
                 const dino::WorldRect& pen = paddock.rect;
@@ -492,7 +492,7 @@ void Game::spawn_world_dinos() {
         std::printf("\n");
         rebuild_extra_items();
     }
-    park_paddocks = paddocks;
+    park_paddocks = park_session.paddocks;
 
 }
 
@@ -550,8 +550,8 @@ void Game::enter_free_camera() {
 int Game::paddock_at_map(float mx, float my) {
     int best = -1;
     float best_d = 1e30f;
-    for (std::size_t p = 0; p < paddocks.size(); ++p) {
-        const dino::WorldRect& r = paddocks[p].rect;
+    for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
+        const dino::WorldRect& r = park_session.paddocks[p].rect;
         const float x0 = static_cast<float>(std::min(r.x0, r.x1));
         const float x1 = static_cast<float>(std::max(r.x0, r.x1));
         const float y0 = static_cast<float>(std::min(r.y0, r.y1));
@@ -575,16 +575,16 @@ int Game::paddock_at_map(float mx, float my) {
 
 const dino::WorldRect* Game::selected_paddock_rect() {
     if (selected_paddock < 0 ||
-        selected_paddock >= static_cast<int>(paddocks.size())) {
+        selected_paddock >= static_cast<int>(park_session.paddocks.size())) {
         return nullptr;
     }
-    return &paddocks[static_cast<std::size_t>(selected_paddock)].rect;
+    return &park_session.paddocks[static_cast<std::size_t>(selected_paddock)].rect;
 
 }
 
 int Game::paddock_at(float x, float y) {
-    for (std::size_t p = 0; p < paddocks.size(); ++p) {
-        const dino::WorldRect& r = paddocks[p].rect;
+    for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
+        const dino::WorldRect& r = park_session.paddocks[p].rect;
         if (x >= static_cast<float>(std::min(r.x0, r.x1)) &&
             x <= static_cast<float>(std::max(r.x0, r.x1)) &&
             y >= static_cast<float>(std::min(r.y0, r.y1)) &&
@@ -598,11 +598,11 @@ int Game::paddock_at(float x, float y) {
 
 dino::FoodSource* Game::paddock_food(int paddock, bool carnivore) {
     if (paddock < 0 ||
-        paddock >= static_cast<int>(paddocks.size())) {
+        paddock >= static_cast<int>(park_session.paddocks.size())) {
         return nullptr;
     }
     const dino::WorldRect& r =
-        paddocks[static_cast<std::size_t>(paddock)].rect;
+        park_session.paddocks[static_cast<std::size_t>(paddock)].rect;
     for (dino::FoodSource& source : food_sources) {
         if (source.remaining <= 0.0f || source.def < 0 ||
             source.def >= static_cast<int>(food_defs.size())) {
@@ -625,17 +625,17 @@ dino::FoodSource* Game::paddock_food(int paddock, bool carnivore) {
 }
 
 void Game::print_paddock_totals() {
-    if (paddocks.empty()) {
+    if (park_session.paddocks.empty()) {
         return;
     }
     float capacity = 0.0f;
     float used = 0.0f;
-    for (const dino::Paddock& paddock : paddocks) {
+    for (const dino::Paddock& paddock : park_session.paddocks) {
         capacity += paddock.capacity;
         used += paddock.used;
     }
     std::printf("paddocks: %zu capacity=%.0f used=%.0f\n",
-                paddocks.size(), capacity, used);
+                park_session.paddocks.size(), capacity, used);
 
 }
 

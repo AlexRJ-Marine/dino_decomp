@@ -203,35 +203,35 @@ int Game::upload_island_graphics() {
 // Build grid, --place-path/--place-fence cells and the visitor actors.
 void Game::build_island_park() {
     if (build_ready) {
-        build_grid.init(opt.build_cell, terrain.world_size);
-        build_grid.occupancy.init_from_mask(
+        park_session.build_grid.init(opt.build_cell, terrain.world_size);
+        park_session.build_grid.occupancy.init_from_mask(
             terrain.occupation, terrain.occupation_width,
             terrain.occupation_height);
         for (const auto& value : opt.place_paths) {
             int x = 0, y = 0, edge = 0;
             if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) >= 2) {
-                const float cs = build_grid.cell_size;
+                const float cs = park_session.build_grid.cell_size;
                 if (!terrain.buildable(
-                        build_grid.origin_x +
+                        park_session.build_grid.origin_x +
                             (static_cast<float>(x) + 0.5f) * cs,
-                        build_grid.origin_y +
+                        park_session.build_grid.origin_y +
                             (static_cast<float>(y) + 0.5f) * cs)) {
                     std::fprintf(stderr, "place-path: blocked cell %d,%d\n",
                                  x, y);
                     continue;
                 }
-                build_grid.set_path(x, y, true);
+                park_session.build_grid.set_path(x, y, true);
             }
         }
         for (const auto& value : opt.place_fences) {
             int x = 0, y = 0, edge = 0;
             if (std::sscanf(value.c_str(), "%d,%d,%d", &x, &y, &edge) == 3) {
-                const float cs = build_grid.cell_size;
+                const float cs = park_session.build_grid.cell_size;
                 auto free_cell = [&](int gx, int gy) {
                     return terrain.buildable(
-                        build_grid.origin_x +
+                        park_session.build_grid.origin_x +
                             (static_cast<float>(gx) + 0.5f) * cs,
-                        build_grid.origin_y +
+                        park_session.build_grid.origin_y +
                             (static_cast<float>(gy) + 0.5f) * cs);
                 };
                 auto edge_ok = [&](int gx, int gy, int e) {
@@ -239,7 +239,7 @@ void Game::build_island_park() {
                         return false;
                     }
                     if (e == 1) {
-                        return gx + 1 >= build_grid.width ||
+                        return gx + 1 >= park_session.build_grid.width ||
                                free_cell(gx + 1, gy);
                     }
                     return gy <= 0 || free_cell(gx, gy - 1);
@@ -249,21 +249,21 @@ void Game::build_island_park() {
                                  "place-fence: blocked cell %d,%d\n", x, y);
                     continue;
                 }
-                build_grid.set_fence(x, y, edge, true);
+                park_session.build_grid.set_fence(x, y, edge, true);
             }
         }
-        build_grid.undo_stack.clear();
+        park_session.build_grid.undo_stack.clear();
         visitor_system.visitors.clear();
         if (opt.visitors > 0) {
             const int spawned = visitor_profiles.empty()
-                                    ? visitor_system.spawn(build_grid,
+                                    ? visitor_system.spawn(park_session.build_grid,
                                                            opt.visitors)
                                     : visitor_system.spawn(
-                                          build_grid, opt.visitors,
+                                          park_session.build_grid, opt.visitors,
                                           visitor_profiles,
                                           entrance_cell_x, entrance_cell_y);
             std::printf("visitors: %d spawned on %d path cells\n", spawned,
-                        build_grid.path_count);
+                        park_session.build_grid.path_count);
             if (opt.visitor_satisfaction >= 0) {
                 for (dino::Visitor& visitor : visitor_system.visitors) {
                     visitor.need0 =
@@ -274,7 +274,7 @@ void Game::build_island_park() {
         if (!visitor_system.visitors.empty()) {
             visitor_texture_id = upload_texture(visitor_image);
             visitor_gpu = upload_mesh(
-                visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+                visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                           visitor_pose2),
                 glfns);
         }
@@ -423,7 +423,7 @@ void Game::load_campaign_park(const std::string& world_path) {
     wld_roads.clear();
     wld_fences.clear();
     wld_dinosaurs.clear();
-    paddocks.clear();
+    park_session.paddocks.clear();
     ensure_build_ready();
     try {
         const dino::WldWorld world = dino::read_wld(world_path);
@@ -740,7 +740,7 @@ void Game::apply_port_state(const dino::PortState& state) {
             visitor_texture_id = upload_texture(visitor_image);
         }
         const dino::Mesh visitor_mesh = visitor_system.build_mesh(
-            build_grid, terrain, visitor_pose1, visitor_pose2);
+            park_session.build_grid, terrain, visitor_pose1, visitor_pose2);
         if (visitor_gpu.vao == 0) {
             visitor_gpu = upload_mesh(visitor_mesh, glfns);
         } else {
@@ -765,9 +765,9 @@ void Game::apply_port_state(const dino::PortState& state) {
                 "paths=%d fences=%d buildings=%zu dinos=%zu "
                 "paddocks=%zu food=%zu\n",
                 current_island.c_str(), park_session.budget, park_session.clock.day,
-                visitor_system.visitors.size(), build_grid.path_count,
-                build_grid.fence_count, building_instances.size(),
-                imported_dinos.size(), paddocks.size(),
+                visitor_system.visitors.size(), park_session.build_grid.path_count,
+                park_session.build_grid.fence_count, building_instances.size(),
+                imported_dinos.size(), park_session.paddocks.size(),
                 food_sources.size());
 
     resume_port_campaign(state);
@@ -775,21 +775,21 @@ void Game::apply_port_state(const dino::PortState& state) {
 
 // Save rows: cells, roads and fences.
 void Game::apply_port_build_grid(const dino::PortState& state) {
-    build_grid.init(state.cell_size > 0.0f ? state.cell_size : 4.0f,
+    park_session.build_grid.init(state.cell_size > 0.0f ? state.cell_size : 4.0f,
                     terrain.world_size);
-    build_grid.occupancy.init_from_mask(terrain.occupation,
+    park_session.build_grid.occupancy.init_from_mask(terrain.occupation,
                                         terrain.occupation_width,
                                         terrain.occupation_height);
     for (const auto& cell : state.paths) {
-        build_grid.set_path(cell.first, cell.second, true);
+        park_session.build_grid.set_path(cell.first, cell.second, true);
     }
     for (const auto& road : state.roads) {
-        dino::add_road(build_grid, {road[0], road[1], road[2], road[3]});
+        dino::add_road(park_session.build_grid, {road[0], road[1], road[2], road[3]});
     }
     for (const dino::PortFenceState& fence : state.fences) {
-        build_grid.set_fence(fence.x, fence.y, fence.edge, true);
+        park_session.build_grid.set_fence(fence.x, fence.y, fence.edge, true);
     }
-    build_grid.undo_stack.clear();
+    park_session.build_grid.undo_stack.clear();
 }
 
 // Save rows: visitor actors and their state machine.
@@ -918,7 +918,7 @@ void Game::apply_port_paddocks(const dino::PortState& state) {
     // Restore the live paddock model and placed food sources. Older port
     // saves omit these records.
     if (!state.paddocks.empty()) {
-        paddocks.clear();
+        park_session.paddocks.clear();
         for (const dino::PortPaddockState& saved : state.paddocks) {
             dino::Paddock paddock;
             paddock.rect = {saved.x0, saved.y0, saved.x1, saved.y1};
@@ -929,10 +929,10 @@ void Game::apply_port_paddocks(const dino::PortState& state) {
             // drawn again from rand() & 3 and the name regenerated.
             paddock.ground_variant = std::rand() & 3;
             paddock.name =
-                "Enclosure" + std::to_string(paddocks.size() + 1);
-            paddocks.push_back(std::move(paddock));
+                "Enclosure" + std::to_string(park_session.paddocks.size() + 1);
+            park_session.paddocks.push_back(std::move(paddock));
         }
-        park_paddocks = paddocks;
+        park_paddocks = park_session.paddocks;
     }
 }
 
@@ -1071,21 +1071,21 @@ dino::PortState Game::make_port_state() {
     state.free_pos = free_pos;
     state.free_yaw = free_yaw;
     state.free_pitch = free_pitch;
-    state.cell_size = build_grid.cell_size;
-    state.origin_x = build_grid.origin_x;
-    state.origin_y = build_grid.origin_y;
-    state.width = build_grid.width;
-    state.height = build_grid.height;
-    for (const dino::WorldRect& road : build_grid.roads) {
+    state.cell_size = park_session.build_grid.cell_size;
+    state.origin_x = park_session.build_grid.origin_x;
+    state.origin_y = park_session.build_grid.origin_y;
+    state.width = park_session.build_grid.width;
+    state.height = park_session.build_grid.height;
+    for (const dino::WorldRect& road : park_session.build_grid.roads) {
         state.roads.push_back({road.x0, road.y0, road.x1, road.y1});
     }
-    for (int cy = 0; cy < build_grid.height; ++cy) {
-        for (int cx = 0; cx < build_grid.width; ++cx) {
-            if (build_grid.path_at(cx, cy)) {
+    for (int cy = 0; cy < park_session.build_grid.height; ++cy) {
+        for (int cx = 0; cx < park_session.build_grid.width; ++cx) {
+            if (park_session.build_grid.path_at(cx, cy)) {
                 state.paths.emplace_back(cx, cy);
             }
             for (int edge = 0; edge < 2; ++edge) {
-                if (build_grid.fence_at(cx, cy, edge)) {
+                if (park_session.build_grid.fence_at(cx, cy, edge)) {
                     state.fences.push_back({cx, cy, edge});
                 }
             }
@@ -1148,7 +1148,7 @@ dino::PortState Game::make_port_state() {
         saved.obstacle_radius = needs.obstacle_radius;
         state.dinos.push_back(saved);
     }
-    for (const dino::Paddock& paddock : paddocks) {
+    for (const dino::Paddock& paddock : park_session.paddocks) {
         dino::PortPaddockState saved;
         saved.x0 = paddock.rect.x0;
         saved.y0 = paddock.rect.y0;
@@ -1249,13 +1249,13 @@ void Game::import_park_layout() {
     }
     // A new park invalidates the selected paddock index.
     selected_paddock = -1;
-    dino::import_roads(build_grid, wld_roads);
-    dino::import_fences(build_grid, wld_fences);
+    dino::import_roads(park_session.build_grid, wld_roads);
+    dino::import_fences(park_session.build_grid, wld_fences);
     rebuild_build_meshes();
     std::printf(
         "park import: roads=%zu path_cells=%d fences=%zu fence_edges=%d\n",
-        wld_roads.size(), build_grid.path_count, wld_fences.size(),
-        build_grid.fence_count);
+        wld_roads.size(), park_session.build_grid.path_count, wld_fences.size(),
+        park_session.build_grid.fence_count);
 
 }
 

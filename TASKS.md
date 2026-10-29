@@ -2174,9 +2174,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `clock`, `budget`, `sellback` and `ledger`. `Game` holds
   `dino::ParkSession park_session`; 165 references updated mechanically;
   save/load, campaign and HUD tests unchanged. Member ratchet 286 -> 283.
-- [ ] Move the remaining subsystems one commit at a time: build grid +
-  paddocks, visitors, dinos, buildings, food/employees, shows. Lower the
-  `GAME_MEMBERS_MAX` ratchet after each slice.
+- [x] Move `build_grid` and `paddocks` into `ParkSession`; the 68+166
+  references were replaced code-only (strings/comments preserved), with the
+  three `state.paddocks` PortState references restored. Ratchet 283 -> 281;
+  `game.h` 683 lines. Full suite 521 unchanged.
+- [ ] Move the remaining subsystems one commit at a time: visitors, dinos,
+  buildings, food/employees, shows. Lower the `GAME_MEMBERS_MAX` ratchet after
+  each slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

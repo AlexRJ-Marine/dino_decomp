@@ -121,19 +121,19 @@ bool Game::place_building(const dino::BuildingDef& def, float cell_x,
             const int fh = orientation % 2 == 0
                                ? static_cast<int>(def.footprint_h)
                                : static_cast<int>(def.footprint_w);
-            build_grid.occupancy.stamp(
+            park_session.build_grid.occupancy.stamp(
                 static_cast<int>(cell_x), static_cast<int>(cell_y),
                 static_cast<int>(cell_x) + fw - 1,
                 static_cast<int>(cell_y) + fh - 1,
                 dino::OccupancyGrid::kBuilding);
         }
         const int centre_cell_x = static_cast<int>(std::floor(
-            centre_x / (build_grid.cell_size > 0.0f
-                            ? build_grid.cell_size
+            centre_x / (park_session.build_grid.cell_size > 0.0f
+                            ? park_session.build_grid.cell_size
                             : 4.0f)));
         const int centre_cell_y = static_cast<int>(std::floor(
-            centre_y / (build_grid.cell_size > 0.0f
-                            ? build_grid.cell_size
+            centre_y / (park_session.build_grid.cell_size > 0.0f
+                            ? park_session.build_grid.cell_size
                             : 4.0f)));
         if (def.category == 10) {
             entrance_cell_x = centre_cell_x;
@@ -428,8 +428,8 @@ bool Game::try_construct(int kind, int cell_x, int cell_y,
     // Occupancy scan (0x58a390): any non-zero high nibble is busy. The
     // grid is seeded from the .raw mask and carries buildings/roads/
     // walls, so this replaces the old centre-sample buildable() test.
-    if (build_grid.occupancy.width > 0 &&
-        !build_grid.occupancy.free_rect(cell_x, cell_y, cell_x + w - 1,
+    if (park_session.build_grid.occupancy.width > 0 &&
+        !park_session.build_grid.occupancy.free_rect(cell_x, cell_y, cell_x + w - 1,
                                         cell_y + h - 1)) {
         std::printf("construction: %s on blocked ground\n",
                     def.name.c_str());
@@ -498,16 +498,16 @@ void Game::road_message(const char* id) {
 }
 
 bool Game::road_cell_busy(int x, int y) {
-    const float cs = build_grid.cell_size;
-    if (!terrain.buildable(build_grid.origin_x + (x + 0.5f) * cs,
-                           build_grid.origin_y + (y + 0.5f) * cs)) {
+    const float cs = park_session.build_grid.cell_size;
+    if (!terrain.buildable(park_session.build_grid.origin_x + (x + 0.5f) * cs,
+                           park_session.build_grid.origin_y + (y + 0.5f) * cs)) {
         return true;
     }
     ensure_construction_catalog();
     const int wx = static_cast<int>(std::lround(
-        build_grid.origin_x + x * cs + terrain.world_size * 0.5f));
+        park_session.build_grid.origin_x + x * cs + terrain.world_size * 0.5f));
     const int wy = static_cast<int>(std::lround(
-        build_grid.origin_y + y * cs + terrain.world_size * 0.5f));
+        park_session.build_grid.origin_y + y * cs + terrain.world_size * 0.5f));
     const int wc = static_cast<int>(cs);
     for (const dino::PortBuildingState& b : building_instances) {
         if (b.kind < 0 || b.kind >= static_cast<int>(construction_defs.size())) {
@@ -528,8 +528,8 @@ bool Game::road_cell_busy(int x, int y) {
 
 std::vector<dino::WorldRect> Game::road_perimeters() {
     std::vector<dino::WorldRect> rects;
-    rects.reserve(paddocks.size());
-    for (const dino::Paddock& p : paddocks) {
+    rects.reserve(park_session.paddocks.size());
+    for (const dino::Paddock& p : park_session.paddocks) {
         rects.push_back(p.rect);
     }
     return rects;
@@ -548,7 +548,7 @@ void Game::road_click(int cx, int cy) {
     const std::vector<dino::WorldRect> perimeters = road_perimeters();
     if (!road_has_start) {
         const dino::RoadCheck check = dino::check_road_start(
-            build_grid, cx, cy, perimeters, [this](int x, int y) { return road_cell_busy(x, y); });
+            park_session.build_grid, cx, cy, perimeters, [this](int x, int y) { return road_cell_busy(x, y); });
         if (check != dino::RoadCheck::Ok) {
             std::printf("road: start %d,%d rejected (%s)\n", cx, cy,
                         dino::road_warning(check) + 1);
@@ -564,7 +564,7 @@ void Game::road_click(int cx, int cy) {
     const dino::RoadSegment road =
         dino::road_segment(road_start_x, road_start_y, cx, cy);
     const dino::RoadCheck check =
-        dino::check_road(build_grid, road, perimeters, [this](int x, int y) { return road_cell_busy(x, y); });
+        dino::check_road(park_session.build_grid, road, perimeters, [this](int x, int y) { return road_cell_busy(x, y); });
     if (check != dino::RoadCheck::Ok) {
         std::printf("road: %d,%d -> %d,%d rejected (%s)\n", road.x0, road.y0,
                     road.x1, road.y1, dino::road_warning(check) + 1);
@@ -578,7 +578,7 @@ void Game::road_click(int cx, int cy) {
         road_message("&WARNING_NOT_ENOUGH_MONEY");
         return;
     }
-    const int added = dino::place_road(build_grid, road);
+    const int added = dino::place_road(park_session.build_grid, road);
     park_session.budget -= cost;
     park_session.ledger.spend_construction(cost);
     rebuild_build_meshes();
@@ -830,9 +830,9 @@ void Game::ensure_build_ready() {
         return;
     }
     if (!build_ready) {
-        build_grid.init(opt.build_cell > 0.0f ? opt.build_cell : 4.0f,
+        park_session.build_grid.init(opt.build_cell > 0.0f ? opt.build_cell : 4.0f,
                         terrain.world_size);
-        build_grid.occupancy.init_from_mask(
+        park_session.build_grid.occupancy.init_from_mask(
             terrain.occupation, terrain.occupation_width,
             terrain.occupation_height);
         try {
@@ -960,7 +960,7 @@ void Game::rebuild_build_meshes() {
     }
     refresh_terrain_texture();
     const dino::BuildMeshes meshes =
-        dino::build_placement_meshes(build_grid, terrain, fence_source,
+        dino::build_placement_meshes(park_session.build_grid, terrain, fence_source,
                                      selected_paddock_rect());
     path_gpu.destroy(glfns);
     fence_gpu.destroy(glfns);
@@ -971,24 +971,24 @@ void Game::rebuild_build_meshes() {
     fence_gpu = upload_mesh(meshes.fences, glfns);
     fence_selected_gpu = upload_mesh(meshes.fences_selected, glfns);
     fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
-    const dino::Mesh ground = dino::fence_ground_mesh(paddocks, terrain);
+    const dino::Mesh ground = dino::fence_ground_mesh(park_session.paddocks, terrain);
     if (std::getenv("DINO_DEBUG_GROUND") != nullptr) {
-        std::printf("ground: %zu paddocks, %zu verts\n", paddocks.size(),
+        std::printf("ground: %zu paddocks, %zu verts\n", park_session.paddocks.size(),
                     ground.positions.size());
     }
     fence_ground_gpu = upload_mesh(ground, glfns);
     rebuild_extra_items();
-    std::printf("build: %d path cells, %d fences\n", build_grid.path_count,
-                build_grid.fence_count);
+    std::printf("build: %d path cells, %d fences\n", park_session.build_grid.path_count,
+                park_session.build_grid.fence_count);
 
 }
 
 void Game::sell_paddock_now(int index) {
-    if (index < 0 || index >= static_cast<int>(paddocks.size())) {
+    if (index < 0 || index >= static_cast<int>(park_session.paddocks.size())) {
         park_sell_paddock = -1;
         return;
     }
-    const dino::Paddock pen = paddocks[static_cast<std::size_t>(index)];
+    const dino::Paddock pen = park_session.paddocks[static_cast<std::size_t>(index)];
     if (!pen.occupants.empty() || pen.used > 0.0f) {
         park.show_warning(dino::ui::resolve_loc_text(
             "&WARNING_SELLING_NON_EMPTY_FENCE", park.loc));
@@ -997,32 +997,32 @@ void Game::sell_paddock_now(int index) {
         return;
     }
     const int value = dino::fence_sell_value(
-        pen.rect, build_grid.cell_size, 30, 4, park_session.sellback);
+        pen.rect, park_session.build_grid.cell_size, 30, 4, park_session.sellback);
     const int x0 = std::min(pen.rect.x0, pen.rect.x1);
     const int x1 = std::max(pen.rect.x0, pen.rect.x1);
     const int y0 = std::min(pen.rect.y0, pen.rect.y1);
     const int y1 = std::max(pen.rect.y0, pen.rect.y1);
-    const int cell = std::max(1, static_cast<int>(build_grid.cell_size));
+    const int cell = std::max(1, static_cast<int>(park_session.build_grid.cell_size));
     const int cx0 = x0 / cell;
     const int cx1 = x1 / cell;
     const int cy0 = y0 / cell;
     const int cy1 = y1 / cell;
     for (int x = cx0; x <= cx1; ++x) {
-        build_grid.set_fence(x, cy0, 0, false);
-        build_grid.set_fence(x, cy1 + 1, 0, false);
+        park_session.build_grid.set_fence(x, cy0, 0, false);
+        park_session.build_grid.set_fence(x, cy1 + 1, 0, false);
     }
     for (int y = cy0; y <= cy1; ++y) {
-        build_grid.set_fence(cx0 - 1, y, 1, false);
-        build_grid.set_fence(cx1, y, 1, false);
+        park_session.build_grid.set_fence(cx0 - 1, y, 1, false);
+        park_session.build_grid.set_fence(cx1, y, 1, false);
     }
-    build_grid.occupancy.stamp_wall_rect(x0, y0, x1, y1, false);
-    paddocks.erase(paddocks.begin() + index);
+    park_session.build_grid.occupancy.stamp_wall_rect(x0, y0, x1, y1, false);
+    park_session.paddocks.erase(park_session.paddocks.begin() + index);
     if (selected_paddock == index) {
         selected_paddock = -1;
     } else if (selected_paddock > index) {
         --selected_paddock;
     }
-    park_paddocks = paddocks;
+    park_paddocks = park_session.paddocks;
     park_session.budget += value;
     park_sell_paddock = -1;
     rebuild_build_meshes();

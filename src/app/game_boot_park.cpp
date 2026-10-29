@@ -134,14 +134,14 @@ std::optional<int> Game::boot_scene_resources() {
                 ? upload_texture_wrapped(paddock_occup_image, GL_REPEAT)
                 : 0;
         const dino::BuildMeshes meshes =
-            dino::build_placement_meshes(build_grid, terrain, fence_source,
+            dino::build_placement_meshes(park_session.build_grid, terrain, fence_source,
                                          selected_paddock_rect());
         path_gpu = upload_mesh(meshes.paths, glfns);
         fence_gpu = upload_mesh(meshes.fences, glfns);
         fence_selected_gpu = upload_mesh(meshes.fences_selected, glfns);
         fence_beams_gpu = upload_mesh(meshes.fence_beams, glfns);
         fence_ground_gpu =
-            upload_mesh(dino::fence_ground_mesh(paddocks, terrain), glfns);
+            upload_mesh(dino::fence_ground_mesh(park_session.paddocks, terrain), glfns);
     }
     fence_preview_visible = false;
     fence_preview_ok = true;
@@ -200,7 +200,7 @@ std::optional<int> Game::boot_scene_resources() {
     if (!visitor_system.visitors.empty()) {
         visitor_texture_id = upload_texture(visitor_image);
         visitor_gpu = upload_mesh(
-            visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+            visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                       visitor_pose2),
             glfns);
     }
@@ -329,25 +329,25 @@ std::optional<int> Game::boot_minimap_and_visitors() {
         import_park_layout();
     } else if (opt.entrance_road && entrance_road && build_ready) {
         // Opt-in: treat a --building Entrance at startup as a fresh park.
-        dino::import_roads(build_grid, {*entrance_road});
+        dino::import_roads(park_session.build_grid, {*entrance_road});
         rebuild_build_meshes();
         std::printf("entrance road: %d,%d-%d,%d path_cells=%d\n",
                     entrance_road->x0, entrance_road->y0, entrance_road->x1,
-                    entrance_road->y1, build_grid.path_count);
+                    entrance_road->y1, park_session.build_grid.path_count);
     }
     // `--visitors` is handled before the `.wld` roads are imported, so a
     // campaign park would spawn on zero path cells. Spawn once more after
     // the roads exist.
     if (opt.visitors > 0 && visitor_system.visitors.empty() &&
-        build_grid.path_count > 0) {
+        park_session.build_grid.path_count > 0) {
         const int spawned =
             visitor_profiles.empty()
-                ? visitor_system.spawn(build_grid, opt.visitors)
-                : visitor_system.spawn(build_grid, opt.visitors,
+                ? visitor_system.spawn(park_session.build_grid, opt.visitors)
+                : visitor_system.spawn(park_session.build_grid, opt.visitors,
                                        visitor_profiles, entrance_cell_x,
                                        entrance_cell_y);
         std::printf("visitors: %d spawned on %d path cells\n", spawned,
-                    build_grid.path_count);
+                    park_session.build_grid.path_count);
         if (opt.visitor_satisfaction >= 0) {
             for (dino::Visitor& visitor : visitor_system.visitors) {
                 visitor.need0 =
@@ -359,7 +359,7 @@ std::optional<int> Game::boot_minimap_and_visitors() {
                 visitor_texture_id = upload_texture(visitor_image);
             }
             visitor_gpu = upload_mesh(
-                visitor_system.build_mesh(build_grid, terrain, visitor_pose1,
+                visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                           visitor_pose2),
                 glfns);
         }
@@ -439,15 +439,15 @@ std::optional<int> Game::boot_import_dinos() {
                         1000000 + static_cast<int>(imported_dinos.size());
                     int paddock_index = -1;
                     if (opt.buy_paddock >= 0 &&
-                        opt.buy_paddock < static_cast<int>(paddocks.size()) &&
+                        opt.buy_paddock < static_cast<int>(park_session.paddocks.size()) &&
                         dino::paddock_can_add(
-                            paddocks[static_cast<std::size_t>(
+                            park_session.paddocks[static_cast<std::size_t>(
                                 opt.buy_paddock)],
                             dino_id, cost_class)) {
                         paddock_index = opt.buy_paddock;
                     } else if (opt.buy_paddock < 0) {
-                        for (std::size_t p = 0; p < paddocks.size(); ++p) {
-                            if (dino::paddock_can_add(paddocks[p], dino_id,
+                        for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
+                            if (dino::paddock_can_add(park_session.paddocks[p], dino_id,
                                                       cost_class)) {
                                 paddock_index = static_cast<int>(p);
                                 break;
@@ -474,7 +474,7 @@ std::optional<int> Game::boot_import_dinos() {
                         }
                     } else {
                         dino::Paddock& paddock =
-                            paddocks[static_cast<std::size_t>(
+                            park_session.paddocks[static_cast<std::size_t>(
                                 paddock_index)];
                         const dino::WorldRect& pen = paddock.rect;
                         const float x0 = static_cast<float>(
@@ -584,12 +584,12 @@ std::optional<int> Game::boot_food_definitions() {
                 int cy = 0;
                 if (std::sscanf(opt.food_pos.c_str(), "%d,%d", &cx, &cy) == 2) {
                     fx = (static_cast<float>(cx) + 0.5f) *
-                         build_grid.cell_size;
+                         park_session.build_grid.cell_size;
                     fy = (static_cast<float>(cy) + 0.5f) *
-                         build_grid.cell_size;
+                         park_session.build_grid.cell_size;
                     have_position = true;
-                } else if (!paddocks.empty()) {
-                    const dino::WorldRect& rect = paddocks.front().rect;
+                } else if (!park_session.paddocks.empty()) {
+                    const dino::WorldRect& rect = park_session.paddocks.front().rect;
                     fx = (static_cast<float>(std::min(rect.x0, rect.x1)) +
                           static_cast<float>(std::max(rect.x0, rect.x1)) +
                           1.0f) *
@@ -891,9 +891,9 @@ std::optional<int> Game::boot_employee_session() {
             float spawn_y = half;
             if (entrance_cell_x >= 0 && entrance_cell_y >= 0) {
                 spawn_x = (static_cast<float>(entrance_cell_x) + 0.5f) *
-                          build_grid.cell_size;
+                          park_session.build_grid.cell_size;
                 spawn_y = (static_cast<float>(entrance_cell_y) + 0.5f) *
-                          build_grid.cell_size;
+                          park_session.build_grid.cell_size;
             }
             int hired = 0;
             for (int n = 0; n < opt.hire_nutritionists; ++n) {
@@ -1202,8 +1202,8 @@ std::optional<int> Game::boot_finalize() {
             "sav import: budget=%d day=%d elapsed=%.3f visitors=%zu "
             "paths=%d fences=%d buildings=%zu\n",
             park_session.budget, park_session.clock.day, park_session.clock.elapsed,
-            visitor_system.visitors.size(), build_grid.path_count,
-            build_grid.fence_count, building_instances.size());
+            visitor_system.visitors.size(), park_session.build_grid.path_count,
+            park_session.build_grid.fence_count, building_instances.size());
     }
 
     if (!opt.load_port_path.empty()) {

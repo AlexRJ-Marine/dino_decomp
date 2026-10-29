@@ -257,7 +257,7 @@ void Game::place_show_at(int rx, int ry) {
         show_catalog[static_cast<std::size_t>(pending_show_index)];
     const int w = std::max(1, entry.width);
     const int h = std::max(1, entry.height);
-    const float cs = build_grid.cell_size;
+    const float cs = park_session.build_grid.cell_size;
     // Record coordinate -> build cell: `cell = floor(record / cell_size)`
     // (docs/platform/world-import.md; the grid origin is -world_size/2).
     const int gx0 =
@@ -270,14 +270,14 @@ void Game::place_show_at(int rx, int ry) {
         std::floor(static_cast<float>(ry + h - 1) / cs));
     auto cell_buildable = [&](int x, int y) {
         return terrain.buildable(
-            build_grid.origin_x + (static_cast<float>(x) + 0.5f) * cs,
-            build_grid.origin_y + (static_cast<float>(y) + 0.5f) * cs);
+            park_session.build_grid.origin_x + (static_cast<float>(x) + 0.5f) * cs,
+            park_session.build_grid.origin_y + (static_cast<float>(y) + 0.5f) * cs);
     };
     bool blocked = false;
     for (int y = gy0; y <= gy1 && !blocked; ++y) {
         for (int x = gx0; x <= gx1 && !blocked; ++x) {
-            if (x < 0 || y < 0 || x >= build_grid.width ||
-                y >= build_grid.height || !cell_buildable(x, y)) {
+            if (x < 0 || y < 0 || x >= park_session.build_grid.width ||
+                y >= park_session.build_grid.height || !cell_buildable(x, y)) {
                 blocked = true;
             }
         }

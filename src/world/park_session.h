@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+
+#include "build.h"
 #include "economy.h"
 #include "park_clock.h"
 
@@ -13,6 +16,8 @@ struct ParkSession {
     int budget = 0;
     float sellback = 1.0f;
     BudgetLedger ledger;
+    BuildGrid build_grid;
+    std::vector<Paddock> paddocks;
 };
 
 }  // namespace dino

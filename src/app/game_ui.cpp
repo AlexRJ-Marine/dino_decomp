@@ -1419,7 +1419,7 @@ void Game::activate_main_menu() {
 void Game::refresh_fence_info_panel() {
     const bool selected =
         selected_paddock >= 0 &&
-        selected_paddock < static_cast<int>(paddocks.size());
+        selected_paddock < static_cast<int>(park_session.paddocks.size());
     if (!selected) {
         if (build_tool != 6) {
             park.overlay.set_visible("FENCE_CONSTRUCTION_AND_INFO_PANEL",
@@ -1428,7 +1428,7 @@ void Game::refresh_fence_info_panel() {
         return;
     }
     const dino::Paddock& pen =
-        paddocks[static_cast<std::size_t>(selected_paddock)];
+        park_session.paddocks[static_cast<std::size_t>(selected_paddock)];
     park.overlay.set_visible("FENCE_CONSTRUCTION_AND_INFO_PANEL", true);
     auto set_text = [&](const char* widget_name, const std::string& text) {
         dino::ui::Widget* widget = park.overlay.get(widget_name);

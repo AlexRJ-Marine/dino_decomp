@@ -64,10 +64,10 @@ void Game::shutdown() {
 
     if (build_ready && !opt.build_save_path.empty()) {
         try {
-            dino::save_build(build_grid, opt.build_save_path);
+            dino::save_build(park_session.build_grid, opt.build_save_path);
             std::printf("build saved: %s (%d paths, %d fences)\n",
-                        opt.build_save_path.c_str(), build_grid.path_count,
-                        build_grid.fence_count);
+                        opt.build_save_path.c_str(), park_session.build_grid.path_count,
+                        park_session.build_grid.fence_count);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "build save: %s\n", e.what());
         }
@@ -185,7 +185,7 @@ void Game::begin_frame() {
     SDL_GetWindowSizeInPixels(window, &width, &height);
     sync_park_layout();
     if (build_ready && opt.select_paddock >= 0 &&
-        opt.select_paddock < static_cast<int>(paddocks.size()) &&
+        opt.select_paddock < static_cast<int>(park_session.paddocks.size()) &&
         selected_paddock != opt.select_paddock) {
         selected_paddock = opt.select_paddock;
         rebuild_build_meshes();
@@ -325,13 +325,13 @@ void Game::update_menu_loading() {
                     minimap_rendered_scale = -1.0f;
                     if (entrance_road) {
                         ensure_build_ready();
-                        dino::import_roads(build_grid, {*entrance_road});
+                        dino::import_roads(park_session.build_grid, {*entrance_road});
                         rebuild_build_meshes();
                         std::printf(
                             "entrance road: %d,%d-%d,%d path_cells=%d\n",
                             entrance_road->x0, entrance_road->y0,
                             entrance_road->x1, entrance_road->y1,
-                            build_grid.path_count);
+                            park_session.build_grid.path_count);
                     }
                 } catch (const std::exception& e) {
                     std::fprintf(stderr, "island load: %s\n", e.what());
@@ -508,8 +508,8 @@ dino::CampaignState Game::build_mission_state() {
         // `.wld` roads/fences and building cells are uncentered world
         // units; `import_roads` maps them with world/cell_size, so the
         // connectivity test uses the same convention.
-        const float cell = build_grid.cell_size > 0.0f
-                               ? build_grid.cell_size
+        const float cell = park_session.build_grid.cell_size > 0.0f
+                               ? park_session.build_grid.cell_size
                                : 4.0f;
         const int gx0 = static_cast<int>(
             std::floor(static_cast<float>(building.cell_x) / cell));
@@ -521,12 +521,12 @@ dino::CampaignState Game::build_mission_state() {
             static_cast<float>(building.cell_y + height - 1) / cell));
         bool connected = false;
         for (int y = gy0; y <= gy1 && !connected; ++y) {
-            connected = build_grid.path_at(gx0 - 1, y) ||
-                        build_grid.path_at(gx1 + 1, y);
+            connected = park_session.build_grid.path_at(gx0 - 1, y) ||
+                        park_session.build_grid.path_at(gx1 + 1, y);
         }
         for (int x = gx0; x <= gx1 && !connected; ++x) {
-            connected = build_grid.path_at(x, gy0 - 1) ||
-                        build_grid.path_at(x, gy1 + 1);
+            connected = park_session.build_grid.path_at(x, gy0 - 1) ||
+                        park_session.build_grid.path_at(x, gy1 + 1);
         }
         if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
             std::fprintf(
@@ -540,7 +540,7 @@ dino::CampaignState Game::build_mission_state() {
         mission_state.buildings.push_back(
             {static_cast<int>(def.category), connected});
     }
-    mission_state.fence_count = static_cast<int>(paddocks.size());
+    mission_state.fence_count = static_cast<int>(park_session.paddocks.size());
     // Show arenas: `--show NAME[:I,J]` is the immediate-score test
     // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
     // per-performance scores arrive on the hour. Both use the retail
@@ -603,7 +603,7 @@ dino::CampaignState Game::build_mission_state() {
         trait.hybrid = dinosaur.attributes.originality;
         // Isolation: the dino is inside a paddock rectangle and no
         // other imported dino shares that rectangle.
-        for (const dino::Paddock& paddock : paddocks) {
+        for (const dino::Paddock& paddock : park_session.paddocks) {
             const float x0 =
                 static_cast<float>(std::min(paddock.rect.x0,
                                             paddock.rect.x1));
@@ -1185,12 +1185,12 @@ void Game::update_simulation() {
     }
 
     if (!visitor_system.visitors.empty()) {
-        visitor_system.update(build_grid, terrain,
+        visitor_system.update(park_session.build_grid, terrain,
                               static_cast<float>(frame_dt), attractions,
                               entrance_cell_x, entrance_cell_y,
                               visitor_profiles);
         update_mesh(visitor_gpu,
-                    visitor_system.build_mesh(build_grid, terrain,
+                    visitor_system.build_mesh(park_session.build_grid, terrain,
                                               visitor_pose1, visitor_pose2),
                     glfns);
     }
@@ -1385,8 +1385,8 @@ void Game::draw_frame() {
                           frame_dt > 0.0 ? 1.0 / frame_dt : 0.0);
             std::snprintf(line2, sizeof(line2),
                           "visitors %zu   paths %d   fences %d",
-                          visitor_system.visitors.size(), build_grid.path_count,
-                          build_grid.fence_count);
+                          visitor_system.visitors.size(), park_session.build_grid.path_count,
+                          park_session.build_grid.fence_count);
             std::string text = std::string(line1) + "\n" + line2;
             if (opt.frames == 0 && elapsed < 12.0) {
                 text += "\nArrows pan   Shift+Arrows rotate   "

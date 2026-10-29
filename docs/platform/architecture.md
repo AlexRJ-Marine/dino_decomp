@@ -29,8 +29,8 @@ The file/phase map is `app-shell.md`; the C++ rules are `cpp-guidelines.md`.
 | `render` | 1,402 | 4% | GL scene, uploads, shaders |
 | `audio` | 276 | 1% | music + UI sounds |
 
-`Game` is the architectural centre of gravity: **283 data members, 171
-methods**, declared in a **685-line `game.h` with 52 project includes**. All
+`Game` is the architectural centre of gravity: **281 data members, 171
+methods**, declared in a **683-line `game.h` with 52 project includes**. All
 **11** `src/app/*.cpp` translation units include that header, so every domain
 change recompiles the whole app layer.
 
@@ -58,7 +58,7 @@ wrong-way edge.
 
 | # | Severity | Finding | Evidence |
 | --- | --- | --- | --- |
-| A1 | **High** | `Game` is a god object: it owns park, economy, visitors, dinos, build, show, camera, UI, render and audio state, and the frame order. `ParkSession` now exists, but only clock/budget/sellback/ledger live there. | 283 members, 171 methods, 11 TUs include `game.h` |
+| A1 | **High** | `Game` is a god object: it owns park, economy, visitors, dinos, build, show, camera, UI, render and audio state, and the frame order. `ParkSession` now exists, but only clock/budget/sellback/ledger, the build grid and paddocks live there. | 281 members, 171 methods, 11 TUs include `game.h` |
 | A2 | **High** | Domain logic lives in the app layer: `game_build.cpp` (1,037), `game_park.cpp` (1,262), `game_scene.cpp` (855), `game_show.cpp` (390). Only the data types are in `world`. | layer/census; app is 44% of first-party code |
 | A3 | Medium | Two dependency inversions: `formats → ui` (`ui::IniFile`) and `audio → world` (`asset_path` in `vegetation.h`). **Fixed by ARCH-1**: parser moved to `formats/ini.*`, path helper to `formats/path.*`. | include census; `tests/test_architecture.py` |
 | A4 | Medium | The frame order is implicit in `Game::run()` and the phase bodies, not represented as retail tasks (`lpScheduler`); two phase names mislead (`update_audio` does minimap zoom, `update_diagnostics` refills a WAV). | `game.cpp` phase list; `app-shell.md` notes |
@@ -100,7 +100,7 @@ task queue is `TASKS.md` ARCH-1..6.
 | Phase | Work | Output | Gate |
 | --- | --- | --- | --- |
 | **ARCH-1** | **Done.** Architecture guards: `tests/test_architecture.py` for the layer matrix, no lower→app, a `Game` member/method/header budget (286/171/700) and the phase map. Moved `asset_path` to `formats/path.*` and the INI parser to `formats/ini.*`. | zero inversions; guard fails on an injected wrong edge | fast 379 |
-| **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`. First slice done: clock, budget, sellback and ledger moved (283 members); next the grid/paddocks, visitors, dinos, buildings, food/employees and shows, then `update()`. | save/load and campaign tests unchanged; `game.h` shrinks | full 521 |
+| **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`. Slices done: clock/budget/sellback/ledger, then the build grid and paddocks (281 members); next visitors, dinos, buildings, food/employees and shows, then `update()`. | save/load and campaign tests unchanged; `game.h` shrinks | full 521 |
 | **ARCH-3** | `BuildController` + `CameraController`: move placement/validation/cost and the camera equations behind the new types; keep the draw data in `Game`/`Renderer`. | placement/road/sell tests unchanged | full 521 |
 | **ARCH-4** | `FrameScheduler`: a table of named tasks in the retail order from `docs/decomp/scheduler.md`; `Game::run()` calls `scheduler.run_tasks(dt)`; phase-order test becomes task-order test. | order is data, not statement position | fast 379 |
 | **ARCH-5** | `DinoSim` + `DinoAnimator`: move needs/chooser/mover and clip selection/sampling/skinning out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 521 |
