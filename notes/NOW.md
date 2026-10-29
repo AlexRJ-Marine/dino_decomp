@@ -47,18 +47,19 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- MAINT-1: **readable app shell — done, current focus.** `src/app/main.cpp` is
-  10 lines and `Game::run()` 35 (was 15,266 / 11,145); the app is `dino_port`
-  with one `src/app/game_*.cpp` per domain, 21 boot phases and 14 frame
-  phases. Naming/layering rules: `docs/platform/naming.md`; file map and
-  phase tables: `docs/platform/app-shell.md`. The independent review found
-  no behavioural regression; MAINT-3 guards are in
-  (`tests/test_app_shell.py`: phase order, no member shadow, SDL-free
-  layers; plus centre-scene pixels in the park shot). Next: MAINT-2 (split
-  `draw_park_hud` 758, `handle_input` 638, `update_placement` 638,
-  `draw_menu` 428), then MAINT-4 (`-Fast` still skips every app test).
-  **All other port work is paused** until the code base is readable;
-  `--selftest` 194 PASS, fast suite 355 passed.
+- MAINT-2: **split the long bodies — current focus.** MAINT-1 is done:
+  `src/app/main.cpp` is 10 lines and `Game::run()` 35 (was 15,266 / 11,145);
+  one `src/app/game_*.cpp` per domain, 21 boot and 14 frame phases
+  (`docs/platform/app-shell.md`, naming in `docs/platform/naming.md`).
+  MAINT-3 guards are in `tests/test_app_shell.py` (phase order, no member
+  shadow, SDL-free layers) plus centre-scene pixels in the park shot.
+  `draw_menu` is done (`ec4d97e`..`11885fe`): 428 -> 26 lines plus
+  `draw_menu_widget`/`_list_`/`_hscroll_`/`_sprite`, body proven verbatim,
+  menu shot `notes/harness/maint2-menu.bmp`. Next: `update_placement` 638,
+  `handle_input` 638, `draw_park_hud` 758
+  (`notes/refactor-maint2-plan.md`), then MAINT-4 (`-Fast` still skips
+  every app test). **All other port work is paused** until the code base is
+  readable; `--selftest` 194 PASS, fast suite 355, full suite 511.
 - PLACE-1: **exact object placement (paused behind MAINT-2/4).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -158,11 +159,11 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-2: split the four remaining long bodies (`draw_park_hud` 758,
-   `handle_input` 638, `update_placement` 638, `draw_menu` 428) into named
-   handlers, one commit each, verbatim moves (`notes/refactor-maint2-plan.md`);
+1. MAINT-2: `draw_menu` is done (428 -> 26 lines plus four helpers). Next:
+   `update_placement` 638, then `handle_input` 638, then `draw_park_hud`
+   758, one commit each, verbatim moves (`notes/refactor-maint2-plan.md`);
    then MAINT-4 (make `-Fast` run the headless app tests). Keep `--selftest`
-   (194) and the fast suite (355) green after every slice.
+   (194), the fast suite (355) and the full suite (511) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign

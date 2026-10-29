@@ -2005,9 +2005,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `docs/platform/naming.md`, `notes/refactor-camera-shadowing.md`.
 
 ### MAINT-2: Split the four remaining long bodies
+- [x] `draw_menu` 428 -> 26 lines plus `draw_menu_widget`,
+  `draw_menu_list_widget`, `draw_menu_hscroll_widget` and
+  `draw_menu_sprite`; body proven verbatim, menu shot unchanged
+  (`notes/harness/maint2-menu.bmp`).
 - [ ] `draw_park_hud` 758 -> named panels; `handle_input` 638 and
-  `update_placement` 638 -> per-tool handlers; `draw_menu` 428 -> page
-  draws. Move code verbatim; no behaviour change.
+  `update_placement` 638 -> per-tool handlers. Move code verbatim; no
+  behaviour change.
 - **Plan:** `notes/refactor-maint2-plan.md` (per-function extraction order,
   shared locals and gates).
 - **Acceptance:** the four bodies are each under 300 lines; `--selftest`

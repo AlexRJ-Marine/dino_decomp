@@ -1969,9 +1969,19 @@ Updated: 2026-10-28
   `src/formats`/`src/world`/`src/ui`; `test_cpp_park_hud_shot` now asserts
   the centre crop is terrain. Both were checked against the regression
   artifacts (centre crop: 1 colour before, >1,000 after). Fast suite 355.
-- Remaining readability work: the four largest bodies are still
-  `draw_park_hud` 758, `handle_input` 638, `update_placement` 638 and
-  `draw_menu` 428, with `update_session` 434, `load_island` 386 and
-  `apply_port_state` 321 next. MAINT-2 (plan in
-  `notes/refactor-maint2-plan.md`) and MAINT-4 (`-Fast` still deselects
-  every app test) are open.
+- Remaining readability work: the three largest bodies are still
+  `draw_park_hud` 758, `handle_input` 638 and `update_placement` 638, with
+  `update_session` 434, `load_island` 386 and `apply_port_state` 321 next.
+  MAINT-2 (plan in `notes/refactor-maint2-plan.md`) and MAINT-4 (`-Fast`
+  still deselects every app test) are open.
+- MAINT-2 `draw_menu` is done (`ec4d97e`, `7859319`, `a844904`, `11885fe`):
+  the 428-line body became `draw_menu` 26 lines plus `draw_menu_widget`
+  (106), `draw_menu_list_widget` (205), `draw_menu_hscroll_widget` (73)
+  and `draw_menu_sprite` (26). The loop body was proven verbatim against
+  HEAD; the only changes are the documented `i` -> `widget_index`,
+  `continue` -> `return` and `frame` -> `sprite_frame`/`chosen_frame`
+  renames the MAINT-3 guard requires. Menu shot
+  `notes/harness/maint2-menu.bmp` (800x600, 67,216 colours, background
+  `(0,83,117)`) shows the unchanged start screen; fast suite 355, full 511.
+- Next MAINT-2 target: `update_placement` (638), then `handle_input` (638),
+  then `draw_park_hud` (758).

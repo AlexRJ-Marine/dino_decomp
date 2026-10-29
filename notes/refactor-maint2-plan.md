@@ -1,9 +1,11 @@
 # MAINT-2 plan — split the four remaining long bodies
 
 Date: 2026-10-29. Follow-up to MAINT-1 (`docs/platform/app-shell.md`).
-Status: **plan only**; no source changed. Every step below is a verbatim move
-plus a call site — no behaviour change, no signature change beyond receiving
-the state the body already used through the `Game` object.
+Status: **in progress.** `draw_menu` is done (`ec4d97e`, `7859319`,
+`a844904`, `11885fe`); `update_placement`, `handle_input` and
+`draw_park_hud` remain. Every step below is a verbatim move plus a call
+site — no behaviour change, no signature change beyond receiving the state
+the body already used through the `Game` object.
 
 Targets (measured on `5fcd5ce` + `fad10bd`):
 
@@ -96,6 +98,16 @@ Order:
 3. `draw_menu_list_widget(const dino::ui::Widget&, ...)`.
 4. `draw_menu` keeps the background, `ui_texture` helper lambdas and the
    loop; target < 100 lines.
+
+**Done** (`ec4d97e`, `7859319`, `a844904`, `11885fe`): `draw_menu` is 26
+lines and calls `draw_menu_widget` per overlay widget; the sprite lookup
+(`draw_menu_sprite`), the HSCROLL block and the LIST block are private
+methods that receive `dpi`/`ox`/`oy`/`view_w`/`view_h` and rebuild the two
+one-line `px`/`py` lambdas locally. The widget body was proven textually
+verbatim against the pre-move file; only `i` -> `widget_index`,
+`continue` -> `return` and the `frame` -> `sprite_frame`/`chosen_frame`
+renames changed (a `Game` member is named `frame`, so MAINT-3's shadow
+guard requires them). Menu shot: `notes/harness/maint2-menu.bmp`.
 
 Risk: the two helpers need the texture/rect local lambdas
 (`draw_graphic`, `ui_frame_rect`); pass the resolved texture/rect or make
