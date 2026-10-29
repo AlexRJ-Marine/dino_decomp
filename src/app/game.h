@@ -533,6 +533,22 @@ private:
     const char* hud_dialog_zone();
     void draw_park_hud_widget(int index, int hovered, float dpi, int view_w,
                               int view_h);
+    void draw_park_hud_frame(const dino::ui::Widget& widget, int i, int hovered,
+                             float dpi, int view_w, int view_h);
+    void draw_park_hud_store_preview(const dino::ui::Widget& widget, float dpi,
+                                     int view_w, int view_h);
+    void draw_park_hud_progress(const dino::ui::Widget& widget, float dpi,
+                                int view_w, int view_h);
+    void draw_park_hud_dialog_text(const dino::ui::Widget& widget, float dpi,
+                                   int view_w, int view_h);
+    void draw_park_hud_save_list(const dino::ui::Widget& widget, float dpi,
+                                 int view_w, int view_h);
+    void draw_park_hud_store_list(const dino::ui::Widget& widget, float dpi,
+                                  int view_w, int view_h);
+    void draw_park_hud_show_list(const dino::ui::Widget& widget, float dpi,
+                                 int view_w, int view_h);
+    void draw_park_hud_text(const dino::ui::Widget& widget, float dpi,
+                            int view_w, int view_h);
     void draw_park_hud_campaign_text(float dpi, int view_w, int view_h);
     void activate_main_menu();
     void park_design(float window_x, float window_y, int& design_x,

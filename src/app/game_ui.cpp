@@ -602,12 +602,10 @@ void Game::draw_park_hud_campaign_text(float dpi, int view_w, int view_h) {
     }
 }
 
-void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
-                                int view_h) {
+void Game::draw_park_hud_frame(const dino::ui::Widget& widget, int i,
+                               int hovered, float dpi, int view_w, int view_h) {
     auto px = [&](int value) { return static_cast<float>(value) * dpi; };
     auto py = [&](int value) { return static_cast<float>(value) * dpi; };
-    const dino::ui::Widget& widget =
-        park.overlay.widgets[static_cast<std::size_t>(i)];
     if (!widget.texture.empty()) {
         if (const dino::ui::Graphic* graphic =
                 park.overlay.graphic(widget.texture)) {
@@ -655,7 +653,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
                                        widget.back_color),
                      0, 1.0f, 1, view_w, view_h);
     }
+}
 
+void Game::draw_park_hud_store_preview(const dino::ui::Widget& widget,
+                                       float dpi, int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected store entry's
     // dinosaur's standing LOD1 mesh directly into the well. The
     // retail widget is a 3D preview; the port fits the mesh to the
@@ -767,7 +770,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
             }
         }
     }
+}
 
+void Game::draw_park_hud_progress(const dino::ui::Widget& widget, float dpi,
+                                  int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     // PROGRESS widgets: fill the gauge track proportionally. The
     // retail panel texture supplies the empty track; the port draws a
     // solid light-blue fill over it (the exact retail gauge art is a
@@ -788,7 +796,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
                 0, 1.0f, 1, view_w, view_h);
         }
     }
+}
 
+void Game::draw_park_hud_dialog_text(const dino::ui::Widget& widget, float dpi,
+                                     int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     if (widget.name == hud_dialog_zone() && park.dialog_open()) {
         const int line_h =
             widget.list_line_height > 0 ? widget.list_line_height : 15;
@@ -851,7 +864,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
             }
         }
     }
+}
 
+void Game::draw_park_hud_save_list(const dino::ui::Widget& widget, float dpi,
+                                   int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     if (widget.name == "OPTIONS_SAVE_NAMES_LIST" && !save_slots.empty()) {
         const int line_h =
             widget.list_line_height > 0 ? widget.list_line_height : 12;
@@ -880,7 +898,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
             }
         }
     }
+}
 
+void Game::draw_park_hud_store_list(const dino::ui::Widget& widget, float dpi,
+                                    int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     if (widget.name == "DINO_ACHAT_SAVE_NAMES_LIST" &&
         !park.store_rows().empty()) {
         const int line_h = widget.list_line_height > 0
@@ -932,7 +955,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
             }
         }
     }
+}
 
+void Game::draw_park_hud_show_list(const dino::ui::Widget& widget, float dpi,
+                                   int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     if (widget.name == "PREDEFINED_SHOW_LIST" &&
         !park.show_rows().empty()) {
         const int pitch = std::max(
@@ -1014,7 +1042,12 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
             }
         }
     }
+}
 
+void Game::draw_park_hud_text(const dino::ui::Widget& widget, float dpi,
+                              int view_w, int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
     std::string text = hud_widget_text(widget.name);
     if (text.empty()) {
         // `FUN_00516dd0` clears an empty attraction row to the
@@ -1042,6 +1075,22 @@ void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
         draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
     }
 }
+
+void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
+                                int view_h) {
+    const dino::ui::Widget& widget =
+        park.overlay.widgets[static_cast<std::size_t>(i)];
+
+    draw_park_hud_frame(widget, i, hovered, dpi, view_w, view_h);
+    draw_park_hud_store_preview(widget, dpi, view_w, view_h);
+    draw_park_hud_progress(widget, dpi, view_w, view_h);
+    draw_park_hud_dialog_text(widget, dpi, view_w, view_h);
+    draw_park_hud_save_list(widget, dpi, view_w, view_h);
+    draw_park_hud_store_list(widget, dpi, view_w, view_h);
+    draw_park_hud_show_list(widget, dpi, view_w, view_h);
+    draw_park_hud_text(widget, dpi, view_w, view_h);
+}
+
 
 std::string Game::hud_widget_text(const std::string& name) {
     if (name == "MISSION_PANEL_TITLE" &&
