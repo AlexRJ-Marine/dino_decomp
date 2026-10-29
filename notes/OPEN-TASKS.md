@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 20:16. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 20:24. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 56 open items.
 
@@ -100,7 +100,7 @@ Generated from `TASKS.md` on 2026-10-29 20:16. Do not edit; regenerate with `scr
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
 
 ## ARCH-2: Extract ParkSession state
-- [ ] Move the remaining subsystems one commit at a time: visitors, dinos,
+- [ ] Move the remaining subsystems one commit at a time: dinos, buildings,
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
 
 ## ARCH-3: BuildController and CameraController

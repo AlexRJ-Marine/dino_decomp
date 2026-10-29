@@ -7,9 +7,9 @@ namespace dino::app {
 
 void Game::load_island(const std::string& island, bool reset_view) {
     entrance_road.reset();
-    if (visitor_profiles.empty()) {
+    if (park_session.visitor_profiles.empty()) {
         try {
-            visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+            park_session.visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "visitor profiles: %s\n", e.what());
         }
@@ -253,28 +253,28 @@ void Game::build_island_park() {
             }
         }
         park_session.build_grid.undo_stack.clear();
-        visitor_system.visitors.clear();
+        park_session.visitor_system.visitors.clear();
         if (opt.visitors > 0) {
-            const int spawned = visitor_profiles.empty()
-                                    ? visitor_system.spawn(park_session.build_grid,
+            const int spawned = park_session.visitor_profiles.empty()
+                                    ? park_session.visitor_system.spawn(park_session.build_grid,
                                                            opt.visitors)
-                                    : visitor_system.spawn(
+                                    : park_session.visitor_system.spawn(
                                           park_session.build_grid, opt.visitors,
-                                          visitor_profiles,
+                                          park_session.visitor_profiles,
                                           entrance_cell_x, entrance_cell_y);
             std::printf("visitors: %d spawned on %d path cells\n", spawned,
                         park_session.build_grid.path_count);
             if (opt.visitor_satisfaction >= 0) {
-                for (dino::Visitor& visitor : visitor_system.visitors) {
+                for (dino::Visitor& visitor : park_session.visitor_system.visitors) {
                     visitor.need0 =
                         std::clamp(opt.visitor_satisfaction, 0, 99);
                 }
             }
         }
-        if (!visitor_system.visitors.empty()) {
+        if (!park_session.visitor_system.visitors.empty()) {
             visitor_texture_id = upload_texture(visitor_image);
             visitor_gpu = upload_mesh(
-                visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
+                park_session.visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                           visitor_pose2),
                 glfns);
         }
@@ -734,12 +734,12 @@ void Game::apply_port_state(const dino::PortState& state) {
     apply_port_dinos(state);
 
     rebuild_build_meshes();
-    if (!visitor_system.visitors.empty() &&
+    if (!park_session.visitor_system.visitors.empty() &&
         !visitor_pose1.positions.empty()) {
         if (visitor_texture_id == 0 && visitor_image.width > 0) {
             visitor_texture_id = upload_texture(visitor_image);
         }
-        const dino::Mesh visitor_mesh = visitor_system.build_mesh(
+        const dino::Mesh visitor_mesh = park_session.visitor_system.build_mesh(
             park_session.build_grid, terrain, visitor_pose1, visitor_pose2);
         if (visitor_gpu.vao == 0) {
             visitor_gpu = upload_mesh(visitor_mesh, glfns);
@@ -765,7 +765,7 @@ void Game::apply_port_state(const dino::PortState& state) {
                 "paths=%d fences=%d buildings=%zu dinos=%zu "
                 "paddocks=%zu food=%zu\n",
                 current_island.c_str(), park_session.budget, park_session.clock.day,
-                visitor_system.visitors.size(), park_session.build_grid.path_count,
+                park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
                 park_session.build_grid.fence_count, building_instances.size(),
                 imported_dinos.size(), park_session.paddocks.size(),
                 food_sources.size());
@@ -794,7 +794,7 @@ void Game::apply_port_build_grid(const dino::PortState& state) {
 
 // Save rows: visitor actors and their state machine.
 void Game::apply_port_visitors(const dino::PortState& state) {
-    visitor_system.visitors.clear();
+    park_session.visitor_system.visitors.clear();
     for (const dino::PortVisitorState& saved : state.visitors) {
         dino::Visitor visitor;
         visitor.x = saved.x;
@@ -807,12 +807,12 @@ void Game::apply_port_visitors(const dino::PortState& state) {
         visitor.target_y = saved.target_y;
         visitor.prev_x = saved.prev_x;
         visitor.prev_y = saved.prev_y;
-        visitor.profile = visitor_profiles.empty()
+        visitor.profile = park_session.visitor_profiles.empty()
                               ? 0
                               : std::clamp(
                                     saved.profile, 0,
                                     static_cast<int>(
-                                        visitor_profiles.size()) -
+                                        park_session.visitor_profiles.size()) -
                                         1);
         visitor.need0 = saved.needs[0];
         visitor.need1 = saved.needs[1];
@@ -834,8 +834,8 @@ void Game::apply_port_visitors(const dino::PortState& state) {
                           ? saved.rng
                           : 0x51ce5eedu ^
                                 static_cast<unsigned>(
-                                    visitor_system.visitors.size() + 1);
-        visitor_system.visitors.push_back(visitor);
+                                    park_session.visitor_system.visitors.size() + 1);
+        park_session.visitor_system.visitors.push_back(visitor);
     }
 }
 
@@ -1091,7 +1091,7 @@ dino::PortState Game::make_port_state() {
             }
         }
     }
-    for (const dino::Visitor& visitor : visitor_system.visitors) {
+    for (const dino::Visitor& visitor : park_session.visitor_system.visitors) {
         dino::PortVisitorState saved;
         saved.x = visitor.x;
         saved.y = visitor.y;

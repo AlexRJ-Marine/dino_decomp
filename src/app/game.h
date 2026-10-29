@@ -84,7 +84,6 @@
 #include "../world/terrain.h"
 #include "../world/terrain_query.h"
 #include "../world/vegetation.h"
-#include "../world/visitors.h"
 #include "asset_paths.h"
 #include "camera_config.h"
 #include "capture.h"
@@ -237,9 +236,6 @@ private:
     dino::Image water2_image;
     float water_z;
     float water_scroll;
-    dino::VisitorSystem visitor_system;
-    std::vector<dino::VisitorProfile> visitor_profiles;
-    std::vector<dino::VisitorProfile> all_visitor_profiles;
     std::vector<PortShowSpec> port_shows;
     dino::Mesh visitor_pose1;
     dino::Mesh visitor_pose2;

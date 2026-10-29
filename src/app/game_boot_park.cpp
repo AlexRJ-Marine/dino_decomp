@@ -197,10 +197,10 @@ std::optional<int> Game::boot_scene_resources() {
     }
     visitor_texture_id = 0;
     employee_texture_id = 0;
-    if (!visitor_system.visitors.empty()) {
+    if (!park_session.visitor_system.visitors.empty()) {
         visitor_texture_id = upload_texture(visitor_image);
         visitor_gpu = upload_mesh(
-            visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
+            park_session.visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                       visitor_pose2),
             glfns);
     }
@@ -338,28 +338,28 @@ std::optional<int> Game::boot_minimap_and_visitors() {
     // `--visitors` is handled before the `.wld` roads are imported, so a
     // campaign park would spawn on zero path cells. Spawn once more after
     // the roads exist.
-    if (opt.visitors > 0 && visitor_system.visitors.empty() &&
+    if (opt.visitors > 0 && park_session.visitor_system.visitors.empty() &&
         park_session.build_grid.path_count > 0) {
         const int spawned =
-            visitor_profiles.empty()
-                ? visitor_system.spawn(park_session.build_grid, opt.visitors)
-                : visitor_system.spawn(park_session.build_grid, opt.visitors,
-                                       visitor_profiles, entrance_cell_x,
+            park_session.visitor_profiles.empty()
+                ? park_session.visitor_system.spawn(park_session.build_grid, opt.visitors)
+                : park_session.visitor_system.spawn(park_session.build_grid, opt.visitors,
+                                       park_session.visitor_profiles, entrance_cell_x,
                                        entrance_cell_y);
         std::printf("visitors: %d spawned on %d path cells\n", spawned,
                     park_session.build_grid.path_count);
         if (opt.visitor_satisfaction >= 0) {
-            for (dino::Visitor& visitor : visitor_system.visitors) {
+            for (dino::Visitor& visitor : park_session.visitor_system.visitors) {
                 visitor.need0 =
                     std::clamp(opt.visitor_satisfaction, 0, 99);
             }
         }
-        if (!visitor_system.visitors.empty()) {
+        if (!park_session.visitor_system.visitors.empty()) {
             if (visitor_texture_id == 0 && visitor_image.width > 0) {
                 visitor_texture_id = upload_texture(visitor_image);
             }
             visitor_gpu = upload_mesh(
-                visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
+                park_session.visitor_system.build_mesh(park_session.build_grid, terrain, visitor_pose1,
                                           visitor_pose2),
                 glfns);
         }
@@ -820,15 +820,15 @@ std::optional<int> Game::boot_park_session() {
                     sane(economy.yesterday_sales[i]);
             }
         }
-        if (visitor_profiles.empty()) {
+        if (park_session.visitor_profiles.empty()) {
             try {
-                visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+                park_session.visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "visitor profiles: %s\n", e.what());
             }
         }
         if (!sav_simulation.visitors.empty()) {
-            visitor_system.visitors.clear();
+            park_session.visitor_system.visitors.clear();
             for (const dino::SavVisitor& saved : sav_simulation.visitors) {
                 dino::Visitor visitor;
                 visitor.x = static_cast<float>(saved.x) - 512.0f;
@@ -853,11 +853,11 @@ std::optional<int> Game::boot_park_session() {
                 visitor.angle = std::atan2(saved.dy, saved.dx);
                 visitor.rng = 0x51ce5eedu ^
                               static_cast<unsigned>(
-                                  visitor_system.visitors.size() + 1);
-                visitor_system.visitors.push_back(visitor);
+                                  park_session.visitor_system.visitors.size() + 1);
+                park_session.visitor_system.visitors.push_back(visitor);
             }
             std::printf("sav visitors: %zu restored\n",
-                        visitor_system.visitors.size());
+                        park_session.visitor_system.visitors.size());
         }
         std::printf("sav park budget=%d day=%d elapsed=%.3f roads=%zu\n",
                     park_session.budget, park_session.clock.day, park_session.clock.elapsed,
@@ -1191,18 +1191,18 @@ std::optional<int> Game::boot_finalize() {
         apply_port_state(state);
         for (std::size_t i = 0;
              i < sav_simulation.visitors.size() &&
-             i < visitor_system.visitors.size();
+             i < park_session.visitor_system.visitors.size();
              ++i) {
             const auto& needs = sav_simulation.visitors[i].needs;
-            visitor_system.visitors[i].need0 = static_cast<int>(needs[0]);
-            visitor_system.visitors[i].need1 = static_cast<int>(needs[1]);
-            visitor_system.visitors[i].need2 = static_cast<int>(needs[2]);
+            park_session.visitor_system.visitors[i].need0 = static_cast<int>(needs[0]);
+            park_session.visitor_system.visitors[i].need1 = static_cast<int>(needs[1]);
+            park_session.visitor_system.visitors[i].need2 = static_cast<int>(needs[2]);
         }
         std::printf(
             "sav import: budget=%d day=%d elapsed=%.3f visitors=%zu "
             "paths=%d fences=%d buildings=%zu\n",
             park_session.budget, park_session.clock.day, park_session.clock.elapsed,
-            visitor_system.visitors.size(), park_session.build_grid.path_count,
+            park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
             park_session.build_grid.fence_count, building_instances.size());
     }
 

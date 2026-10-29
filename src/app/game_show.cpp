@@ -27,17 +27,17 @@ void Game::sync_show_identity(dino::CampaignShowState& show,
 void Game::fill_show_scores(dino::CampaignShowState& show,
                                 const std::vector<int>& participants) {
     sync_show_identity(show, participants);
-    if (all_visitor_profiles.empty()) {
+    if (park_session.all_visitor_profiles.empty()) {
         try {
-            all_visitor_profiles =
+            park_session.all_visitor_profiles =
                 load_all_visitor_profiles(opt.asset_root);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
         }
     }
     const std::vector<dino::VisitorProfile>& show_profiles =
-        all_visitor_profiles.empty() ? visitor_profiles
-                                     : all_visitor_profiles;
+        park_session.all_visitor_profiles.empty() ? park_session.visitor_profiles
+                                     : park_session.all_visitor_profiles;
     for (const dino::VisitorProfile& profile : show_profiles) {
         float best = -1.0e9f;
         for (int index : show.participant_ids) {
@@ -60,17 +60,17 @@ void Game::fill_show_scores(dino::CampaignShowState& show,
 }
 
 std::vector<int> Game::show_profile_ids() {
-    if (all_visitor_profiles.empty()) {
+    if (park_session.all_visitor_profiles.empty()) {
         try {
-            all_visitor_profiles =
+            park_session.all_visitor_profiles =
                 load_all_visitor_profiles(opt.asset_root);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
         }
     }
     const std::vector<dino::VisitorProfile>& profiles =
-        all_visitor_profiles.empty() ? visitor_profiles
-                                     : all_visitor_profiles;
+        park_session.all_visitor_profiles.empty() ? park_session.visitor_profiles
+                                     : park_session.all_visitor_profiles;
     std::vector<int> ids;
     ids.reserve(profiles.size());
     for (const dino::VisitorProfile& profile : profiles) {

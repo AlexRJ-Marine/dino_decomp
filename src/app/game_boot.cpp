@@ -648,9 +648,9 @@ std::optional<int> Game::boot_load_assets() {
                 build_ready = true;
 
                 if (opt.visitors > 0 || !opt.load_port_path.empty()) {
-                    if (visitor_profiles.empty()) {
+                    if (park_session.visitor_profiles.empty()) {
                         try {
-                            visitor_profiles =
+                            park_session.visitor_profiles =
                                 load_easy_visitor_profiles(opt.asset_root);
                         } catch (const std::exception& e) {
                             std::fprintf(stderr, "visitor profiles: %s\n",
@@ -682,18 +682,18 @@ std::optional<int> Game::boot_load_assets() {
                         opt.wld_park || !opt.sav_park_path.empty();
                     if (!defer_visitors) {
                         const int spawned =
-                            visitor_profiles.empty()
-                                ? visitor_system.spawn(park_session.build_grid,
+                            park_session.visitor_profiles.empty()
+                                ? park_session.visitor_system.spawn(park_session.build_grid,
                                                        opt.visitors)
-                                : visitor_system.spawn(
+                                : park_session.visitor_system.spawn(
                                       park_session.build_grid, opt.visitors,
-                                      visitor_profiles, -1, -1);
+                                      park_session.visitor_profiles, -1, -1);
                         std::printf(
                             "visitors: %d spawned on %d path cells\n",
                             spawned, park_session.build_grid.path_count);
                         if (opt.visitor_satisfaction >= 0) {
                             for (dino::Visitor& visitor :
-                                 visitor_system.visitors) {
+                                 park_session.visitor_system.visitors) {
                                 visitor.need0 = std::clamp(
                                     opt.visitor_satisfaction, 0, 99);
                             }
@@ -1006,8 +1006,8 @@ std::optional<int> Game::boot_print_modes() {
                         park_session.build_grid.cell_size, park_session.build_grid.width, park_session.build_grid.height,
                         park_session.build_grid.path_count, park_session.build_grid.fence_count,
                         meshes.path_tiles, meshes.fence_segments);
-            if (!visitor_system.visitors.empty()) {
-                std::printf("visitors: %zu\n", visitor_system.visitors.size());
+            if (!park_session.visitor_system.visitors.empty()) {
+                std::printf("visitors: %zu\n", park_session.visitor_system.visitors.size());
             }
             if (!opt.build_save_path.empty()) {
                 dino::save_build(park_session.build_grid, opt.build_save_path);

@@ -2178,9 +2178,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   references were replaced code-only (strings/comments preserved), with the
   three `state.paddocks` PortState references restored. Ratchet 283 -> 281;
   `game.h` 683 lines. Full suite 521 unchanged.
-- [ ] Move the remaining subsystems one commit at a time: visitors, dinos,
-  buildings, food/employees, shows. Lower the `GAME_MEMBERS_MAX` ratchet after
-  each slice.
+- [x] Move the visitor subsystem: `VisitorSystem visitor_system`,
+  `visitor_profiles` and `all_visitor_profiles` into `ParkSession`; remove the
+  now-unused `world/visitors.h` include from `game.h`. Ratchet 281 -> 278;
+  `game.h` 679 lines. Visitor, save/load and HUD tests unchanged.
+- [ ] Move the remaining subsystems one commit at a time: dinos, buildings,
+  food/employees, shows. Lower the `GAME_MEMBERS_MAX` ratchet after each
+  slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

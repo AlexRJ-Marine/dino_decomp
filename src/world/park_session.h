@@ -5,6 +5,7 @@
 #include "build.h"
 #include "economy.h"
 #include "park_clock.h"
+#include "visitors.h"
 
 namespace dino {
 
@@ -18,6 +19,9 @@ struct ParkSession {
     BudgetLedger ledger;
     BuildGrid build_grid;
     std::vector<Paddock> paddocks;
+    VisitorSystem visitor_system;
+    std::vector<VisitorProfile> visitor_profiles;
+    std::vector<VisitorProfile> all_visitor_profiles;
 };
 
 }  // namespace dino

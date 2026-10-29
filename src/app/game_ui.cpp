@@ -1122,7 +1122,7 @@ std::string Game::hud_widget_text(const std::string& name) {
         return park.save_name();
     }
     if (name == "VISITOR_AMOUNT") {
-        return std::to_string(visitor_system.visitors.size());
+        return std::to_string(park_session.visitor_system.visitors.size());
     }
     if (name == "DINO_AMOUNT") {
         const std::size_t count =

@@ -634,20 +634,20 @@ void Game::run_daily_settlement() {
             break;
         }
     }
-    const int visitors = static_cast<int>(visitor_system.visitors.size());
-    if (all_visitor_profiles.empty()) {
+    const int visitors = static_cast<int>(park_session.visitor_system.visitors.size());
+    if (park_session.all_visitor_profiles.empty()) {
         try {
-            all_visitor_profiles =
+            park_session.all_visitor_profiles =
                 load_all_visitor_profiles(opt.asset_root);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
         }
     }
     const std::vector<dino::VisitorProfile>& ticket_profiles =
-        all_visitor_profiles.empty() ? visitor_profiles
-                                     : all_visitor_profiles;
+        park_session.all_visitor_profiles.empty() ? park_session.visitor_profiles
+                                     : park_session.all_visitor_profiles;
     int tickets = 0;
-    for (const dino::Visitor& visitor : visitor_system.visitors) {
+    for (const dino::Visitor& visitor : park_session.visitor_system.visitors) {
         int index = visitor.global_profile;
         if (index < 0 ||
             index >= static_cast<int>(ticket_profiles.size())) {
@@ -917,9 +917,9 @@ void Game::ensure_build_ready() {
                 upload_texture_wrapped(paddock_occup_image, GL_REPEAT);
         }
     }
-    if (visitor_profiles.empty()) {
+    if (park_session.visitor_profiles.empty()) {
         try {
-            visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
+            park_session.visitor_profiles = load_easy_visitor_profiles(opt.asset_root);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "visitor profiles: %s\n", e.what());
         }

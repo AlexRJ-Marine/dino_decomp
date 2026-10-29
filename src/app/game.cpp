@@ -159,10 +159,10 @@ void Game::shutdown() {
     SDL_GL_DestroyContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit();
-    if (opt.visitor_stats && !visitor_system.visitors.empty()) {
+    if (opt.visitor_stats && !park_session.visitor_system.visitors.empty()) {
         int states[4] = {0, 0, 0, 0};
         double needs[3] = {0.0, 0.0, 0.0};
-        for (const dino::Visitor& visitor : visitor_system.visitors) {
+        for (const dino::Visitor& visitor : park_session.visitor_system.visitors) {
             const int state = static_cast<int>(visitor.state);
             if (state >= 0 && state < 4) {
                 ++states[state];
@@ -172,11 +172,11 @@ void Game::shutdown() {
             needs[2] += visitor.need2;
         }
         const double count =
-            static_cast<double>(visitor_system.visitors.size());
+            static_cast<double>(park_session.visitor_system.visitors.size());
         std::printf(
             "visitor stats: count=%zu states=%d/%d/%d/%d "
             "needs=%.1f/%.1f/%.1f\n",
-            visitor_system.visitors.size(), states[0], states[1], states[2],
+            park_session.visitor_system.visitors.size(), states[0], states[1], states[2],
             states[3], needs[0] / count, needs[1] / count, needs[2] / count);
     }
 }
@@ -467,7 +467,7 @@ dino::CampaignState Game::build_mission_state() {
     static const char* const kProfileNames[10] = {
         "surfer",  "holligan", "parent", "blase",    "retraite",
         "riche",   "scientific", "amoureux", "spd", "enfant"};
-    for (const dino::Visitor& visitor : visitor_system.visitors) {
+    for (const dino::Visitor& visitor : park_session.visitor_system.visitors) {
         dino::CampaignVisitorState state_visitor;
         const int profile = visitor.global_profile;
         state_visitor.profile =
@@ -1184,13 +1184,13 @@ void Game::update_simulation() {
         update_mesh(dinosaur.gpu, deformed, glfns);
     }
 
-    if (!visitor_system.visitors.empty()) {
-        visitor_system.update(park_session.build_grid, terrain,
+    if (!park_session.visitor_system.visitors.empty()) {
+        park_session.visitor_system.update(park_session.build_grid, terrain,
                               static_cast<float>(frame_dt), attractions,
                               entrance_cell_x, entrance_cell_y,
-                              visitor_profiles);
+                              park_session.visitor_profiles);
         update_mesh(visitor_gpu,
-                    visitor_system.build_mesh(park_session.build_grid, terrain,
+                    park_session.visitor_system.build_mesh(park_session.build_grid, terrain,
                                               visitor_pose1, visitor_pose2),
                     glfns);
     }
@@ -1385,7 +1385,7 @@ void Game::draw_frame() {
                           frame_dt > 0.0 ? 1.0 / frame_dt : 0.0);
             std::snprintf(line2, sizeof(line2),
                           "visitors %zu   paths %d   fences %d",
-                          visitor_system.visitors.size(), park_session.build_grid.path_count,
+                          park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
                           park_session.build_grid.fence_count);
             std::string text = std::string(line1) + "\n" + line2;
             if (opt.frames == 0 && elapsed < 12.0) {
