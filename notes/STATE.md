@@ -1969,11 +1969,10 @@ Updated: 2026-10-28
   `src/formats`/`src/world`/`src/ui`; `test_cpp_park_hud_shot` now asserts
   the centre crop is terrain. Both were checked against the regression
   artifacts (centre crop: 1 colour before, >1,000 after). Fast suite 355.
-- Remaining readability work: the three largest bodies are still
-  `draw_park_hud` 758, `handle_input` 638 and `update_placement` 638, with
-  `update_session` 434, `load_island` 386 and `apply_port_state` 321 next.
-  MAINT-2 (plan in `notes/refactor-maint2-plan.md`) and MAINT-4 (`-Fast`
-  still deselects every app test) are open.
+- Remaining readability work: the largest bodies are still `draw_park_hud`
+  758, `update_session` 434, `load_island` 386 and `apply_port_state` 321;
+  MAINT-2's last target is `draw_park_hud`, and MAINT-4 (`-Fast` still
+  deselects every app test) is open.
 - MAINT-2 `draw_menu` is done (`ec4d97e`, `7859319`, `a844904`, `11885fe`):
   the 428-line body became `draw_menu` 26 lines plus `draw_menu_widget`
   (106), `draw_menu_list_widget` (205), `draw_menu_hscroll_widget` (73)
@@ -1992,4 +1991,13 @@ Updated: 2026-10-28
   conditions and the `--pick-test` hook stays in `update_placement`; one
   pre-existing `{ statement;` line was split so the build-tool body could
   move verbatim. Fast suite 355, full suite 511.
-- Next MAINT-2 target: `handle_input` (638), then `draw_park_hud` (758).
+- Next MAINT-2 target: `draw_park_hud` (758).
+- MAINT-2 `handle_input` is done (`25e19e5`, `847bb8a`, `00035ca`,
+  `1911df2`, `37f74e0`): 638 -> 45 lines plus `apply_injected_input` (45),
+  `handle_menu_input` (110), `handle_key_input` (113),
+  `handle_park_mouse_down` (259), `handle_park_mouse_up` (28),
+  `handle_park_mouse_motion` (45) and `handle_park_mouse_wheel` (8).
+  `WINDOW_RESIZED` stays inline. The pump dispatches by event type and each
+  helper gates on the button, so a button is named once. Every body was
+  proven verbatim against HEAD; only `continue` -> `return` inside a handler
+  and one branch-header continuation re-indent changed. Fast suite 355.

@@ -2,8 +2,9 @@
 
 Date: 2026-10-29. Follow-up to MAINT-1 (`docs/platform/app-shell.md`).
 Status: **in progress.** `draw_menu` (`ec4d97e`, `7859319`, `a844904`,
-`11885fe`) and `update_placement` (`159a267`, `36231e6`, `a7359cf`,
-`cb091b6`) are done; `handle_input` and `draw_park_hud` remain. Every step
+`11885fe`), `update_placement` (`159a267`, `36231e6`, `a7359cf`,
+`cb091b6`) and `handle_input` (`25e19e5`, `847bb8a`, `00035ca`, `1911df2`,
+`37f74e0`) are done; `draw_park_hud` remains. Every step
 below is a verbatim move plus a call site — no behaviour change, no
 signature change beyond receiving the state the body already used through
 the `Game` object.
@@ -66,14 +67,16 @@ Risk: these blocks mutate many members; the `Game` object makes that a
 mechanical move. The only care point is the early `if (running)`/`return`
 paths — preserve them exactly.
 
-**Done** (`159a267`, `36231e6`, `a7359cf`, `cb091b6`): `update_placement` is
-43 lines. `update_fence_cursor` (175) holds the arming preview and the
-mode-2 template; `place_selected_store_item` (131),
-`apply_build_tool_click` (250) and `apply_park_click` (52) are the three
-`pending_click` branches. The conditions stay in `update_placement`, so the
-helpers assume the branch gate already passed. One pre-existing
-`{ statement;` line was split for the build-tool body; everything else moved
-verbatim. Fast suite 355, full suite 511.
+**Done** (`25e19e5`, `847bb8a`, `00035ca`, `1911df2`, `37f74e0`):
+`handle_input` is 45 lines. `apply_injected_input` (45) is the parser,
+`handle_menu_input` (110) the start screen, `handle_key_input` (113) the key
+chain, `handle_park_mouse_down` (259) the three press branches,
+`handle_park_mouse_up` (28), `handle_park_mouse_motion` (45) and
+`handle_park_mouse_wheel` (8) the rest; `WINDOW_RESIZED` stays inline (two
+assignments). The pump dispatches by event type only and each helper gates
+on the button, so the buttons are named once. Bodies proven verbatim against
+`HEAD`; only `continue` -> `return` (inside a handler) and the branch-header
+continuation re-indent changed. Fast suite 355, full suite 511.
 
 ## 3. `update_placement` (638)
 
@@ -94,6 +97,15 @@ Risk: the branches share `hit`, `cx`, `cy`, `visible`, `ok` from the pick
 block. Pass them as a small struct or keep the pick at the top of
 `update_placement` and pass the four values to each handler — do not
 duplicate the pick.
+
+**Done** (`159a267`, `36231e6`, `a7359cf`, `cb091b6`): `update_placement` is
+43 lines. `update_fence_cursor` (175) holds the arming preview and the
+mode-2 template; `place_selected_store_item` (131),
+`apply_build_tool_click` (250) and `apply_park_click` (52) are the three
+`pending_click` branches. The conditions stay in `update_placement`, so the
+helpers assume the branch gate already passed. One pre-existing
+`{ statement;` line was split for the build-tool body; everything else moved
+verbatim. Fast suite 355, full suite 511.
 
 ## 4. `draw_menu` (428)
 

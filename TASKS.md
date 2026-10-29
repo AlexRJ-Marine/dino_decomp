@@ -2012,8 +2012,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] `update_placement` 638 -> 43 lines plus `update_fence_cursor`,
   `place_selected_store_item`, `apply_build_tool_click` and
   `apply_park_click`; full suite 511.
-- [ ] `handle_input` 638 -> per-event handlers, then `draw_park_hud` 758
-  -> named panels. Move code verbatim; no behaviour change.
+- [x] `handle_input` 638 -> 45 lines plus `apply_injected_input`,
+  `handle_menu_input`, `handle_key_input`, `handle_park_mouse_down`,
+  `handle_park_mouse_up`, `handle_park_mouse_motion` and
+  `handle_park_mouse_wheel`; the pump dispatches by event type only.
+  Bodies proven verbatim; full suite 511.
+- [ ] `draw_park_hud` 758 -> named panels. Move code verbatim; no behaviour
+  change.
 - **Plan:** `notes/refactor-maint2-plan.md` (per-function extraction order,
   shared locals and gates).
 - **Acceptance:** the four bodies are each under 300 lines; `--selftest`
