@@ -87,6 +87,7 @@ and `src/third_party/**` (vendored decoders). Those two keep their own style.
 | I/O | `std::printf`/`std::fprintf` for reports and diagnostics | The `--*-info`/`--validate` output is a stable test contract; iostream would add no value and change the bytes. |
 | Numbers | Numeric retail offsets/constants in expressions | They mirror the binary and the file data; naming them would hide the address the evidence refers to. |
 | `Mat4` | `float m[16]` | Matches the row-major 4x4 file/GL layout and is uploaded as a block. |
+| GL names | `GpuMesh`/`GLuint` are non-owning names; the owner calls `destroy(glfns)` / `glDeleteTextures` | The deleter needs the loaded `GlFns` table; `Game::shutdown` and the per-scene clear paths own the lifetime. Do not destroy a copied name twice. |
 | `Game` members | No default member initializers | They are former `main()` locals initialized by boot phases in retail load order (P.8/ES.20 exception, documented in `app-shell.md`). |
 | Build | No exceptions disabled, no RTTI use | Compiler defaults; the code never uses `typeid`/`dynamic_cast`. |
 

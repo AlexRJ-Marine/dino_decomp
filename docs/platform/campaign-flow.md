@@ -321,8 +321,8 @@ lines and ON/OFF lights (`notes/mission-panel.png`).
 - `../decomp/function-status.md` — evaluator addresses and status.
 - `notes/campaign-recon.md`, `notes/objectives-recon.md`.
 - `docs/platform/world-import.md` — `--wld-park` / `--sav-park`.
-- `src/ui/menu.cpp` — page mapping; `src/app/main.cpp` — page rendering,
-  `--menu-page`, `--wld-park`.
+- `src/ui/menu.cpp` - page mapping; `src/app/game_ui.cpp` - page rendering;
+  `src/app/game_menu.cpp` / `game_park.cpp` - `--menu-page`, `--wld-park`.
 - `src/formats/campaign.{h,cpp}` — C++ `CampaignList`/`CampaignBase`/
   `MissionBase` reader and 33-verb table; `--campaign-info`/
   `--campaign-mission`.

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <exception>
 #include <functional>
 
 namespace dino {

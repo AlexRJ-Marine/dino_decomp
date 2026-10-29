@@ -15,12 +15,12 @@ few dozen lines with a name instead of a slice of a 10k-line function. See
 | `game.cpp` | ~1,450 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
 | `game_boot.cpp` | ~1,140 | `boot()` itself and boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
 | `game_boot_park.cpp` | ~1,280 | boot phases 12–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
-| `game_input.cpp` | ~1,390 | `handle_input()`, `update_placement()`, `update_preview()` |
-| `game_ui.cpp` | ~1,420 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |
+| `game_input.cpp` | ~1,440 | `handle_input()`, `update_placement()`, `update_preview()` |
+| `game_ui.cpp` | ~1,500 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |
 | `game_menu.cpp` | ~430 | menu/campaign actions, options, video playback |
 | `game_show.cpp` | ~390 | show scoring, participants, show placement, attraction actions |
 | `game_park.cpp` | ~1,260 | island load, campaign park load, `PortState` save/load |
-| `game_build.cpp` | ~1,030 | buildings, fences, roads, store catalog, daily settlement |
+| `game_build.cpp` | ~1,040 | buildings, fences, roads, store catalog, daily settlement |
 | `game_scene.cpp` | ~860 | vegetation, minimap, extra items, dinosaur import, paddock queries |
 | `cli.{h,cpp}` | 235 + 740 | `Options`, `parse_args`, config load/save, help text |
 | `reports.{h,cpp}` | 18 + 860 | headless `--…-info` report modes, called once from boot |

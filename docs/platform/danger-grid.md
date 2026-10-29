@@ -44,7 +44,7 @@ Evidence: `notes/x32dbg-secu6.out.log`, `notes/x32dbg-secu-sample.txt`,
 - `src/world/danger_grid.{h,cpp}`: `DangerGrid` (`clear`, `stamp`, `at`,
   cell access) and `secu_from_grid`. The port uses the same 8-unit cells,
   the same radius box and the same truncating arithmetic.
-- `src/app/main.cpp`: once per second it clears the grid, stamps every
+- `src/app/game.cpp` (`update_simulation`): once per second it clears the grid, stamps every
   imported dinosaur from `DinoNeeds::threat` / `threat_radius`, and pushes
   the recomputed value through `DinoActionLoop::set_secu`. Positions are
   raw units (`ImportedDino::x/y`; the renderer subtracts

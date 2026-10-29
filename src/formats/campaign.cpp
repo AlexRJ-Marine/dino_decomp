@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iterator>

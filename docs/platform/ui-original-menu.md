@@ -18,7 +18,7 @@ Research details: `notes/ui-recon.md` (evidence) and
   the recovered transitions (Free/Campaign/Load/Options/Cinematics/Credits/
   Quit, island/difficulty, Start/Cancel).
 - `src/formats/loc.cpp` resolves `&` strings through `MenuEng.loc`.
-- Rendering in `src/app/main.cpp`: 800×600 design space centred in the
+- Rendering in `src/app/game_ui.cpp`: 800×600 design space centred in the
   window (pixels, not scaled); background from `BACKGROUND_*`; sprite frames
   packed per `NB_OBJECTS`/`SKIP_LIST` (compactly, horizontal or vertical);
   `.fnt` text with `TEXT_HEIGHT/font_size` scaling and `TEXT_JUSTIFY`.
@@ -301,7 +301,7 @@ dispatch by widget name (or by a small enum assigned by the page builder).
 - [x] On timer expiry the viewer loads the selected island at runtime:
       `IslandList.ini` order → `Data/Design/Landscape/<name>/<name>.lnd` →
       terrain, basemap, vegetation, skybox, water and GPU resources are
-      rebuilt (`load_island` in `src/app/main.cpp`). This mirrors
+      rebuilt (`load_island` in `src/app/game_park.cpp`). This mirrors
       `FUN_0051dad0`/`FUN_00403e10`; the loading page itself is display-only
       in the original.
 - [x] Free-game budget from `Data/Design/Scenario/FreeGame.ini`

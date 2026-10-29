@@ -37,7 +37,7 @@ All seven movies carry exactly one MPEG-1 Audio Layer II track at 44.1 kHz
   - `MpgStream` → one `next(MpgFrame&)` per video frame for playback, plus
     `has_audio()`, `audio_samplerate()` and `take_audio()` (interleaved
     stereo float decoded since the previous call).
-- `src/app/main.cpp`:
+- `src/app/game_menu.cpp` (`play_video`):
   - `--video-info FILE` prints the probe and exits;
   - `--video-frame FILE --video-frame-index N --video-out OUT.bmp` decodes
     frame N, flips it to top-down and writes a 24-bit BMP;
@@ -94,7 +94,7 @@ screenshot. The campaign completion path (`Cpg02_Mission5`) prints
 ## Evidence
 
 - `third_party/pl_mpeg.h`, `third_party/README.md`.
-- `src/formats/mpg.{h,cpp}`, `src/app/main.cpp`.
+- `src/formats/mpg.{h,cpp}`, `src/app/game_menu.cpp`.
 - `tests/test_video.py` (probe, frame export, playback),
   `tests/test_campaign_cpp.py::test_cpp_campaign_completion_video`,
   `tests/test_app_cpp.py::test_cpp_mpg_cinematic_audio_probe`,
