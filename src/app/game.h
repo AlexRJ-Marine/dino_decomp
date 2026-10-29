@@ -104,7 +104,7 @@ public:
     int run();
 
 private:
-    // --- nested types -------------------------------------------------
+    // --- nested types --------------------------------------------------
     struct ImportedSpecies {
             dino::Mesh mesh;
             dino::Skeleton skeleton;
@@ -150,7 +150,7 @@ private:
             GLuint texture = 0;
         };
 
-    // --- session state ------------------------------------------------
+    // --- session state -------------------------------------------------
     Options opt;
     dino::KeyMap keymap;
     std::vector<std::string> island_names;
@@ -442,7 +442,7 @@ private:
     dino::Vec3 eye;
     dino::Vec3 view_center;
 
-    // --- lifecycle ------------------------------------------------------
+    // --- lifecycle -----------------------------------------------------
     std::optional<int> boot();
     // Release the GL/SDL resources and write the end-of-run output.
     void shutdown();
@@ -487,82 +487,74 @@ private:
     void draw_frame();
     void present_frame();
 
-    // --- sections ------------------------------------------------------
-    std::array<int, 11> store_row_attributes(const dino::MarketEntry& entry);
-    void refresh_store_rows();
-    void apply_store_catalog(dino::Market market,
-                                   const std::string& source);
+    // --- UI drawing (game_ui.cpp) --------------------------------------
+    UiTexture* ui_texture(const std::string& filename);
+    const dino::Fnt* ui_font(const std::string& path, int text_height,
+                             float& scale_out, GLuint& atlas_out);
+    void draw_ui_mesh(GpuMesh& target, const dino::Mesh& mesh, GLuint texture_id,
+                      float alpha, int unlit, int view_w, int view_h);
+    void draw_menu(int view_w, int view_h, int logical_w, int logical_h);
+    void attraction_row_text(int slot, std::string& name, int& iterations,
+                             int& locked);
+    void refresh_fence_info_panel();
+    void draw_park_hud(int view_w, int view_h, int logical_w, int logical_h);
+    void activate_main_menu();
+    void park_design(float window_x, float window_y, int& design_x,
+                     int& design_y);
+    void sync_park_layout();
+
+    // --- menu and campaign (game_menu.cpp) -----------------------------
     void start_campaign_mission(const dino::CampaignMission& mission);
     void queue_menu_load();
     void queue_menu_cinematic();
     void update_campaign_info_lines();
     void apply_menu_options();
-    UiTexture* ui_texture(const std::string& filename);
-    const dino::Fnt* ui_font(const std::string& path, int text_height,
-                       float& scale_out, GLuint& atlas_out);
-    void draw_ui_mesh(GpuMesh& target, const dino::Mesh& mesh, GLuint texture_id,
-                            float alpha, int unlit, int view_w, int view_h);
-    bool play_video(const std::string& path, int start_frame,
-                          int max_frames);
+    bool play_video(const std::string& path, int start_frame, int max_frames);
     void play_pending_cinematic();
-    void draw_menu(int view_w, int view_h, int logical_w, int logical_h);
-    dino::Mesh pose_dino(double time);
+    void advance_campaign();
+
+    // --- shows and attractions (game_show.cpp) -------------------------
     void sync_show_identity(dino::CampaignShowState& show,
-                                  const std::vector<int>& participants);
+                            const std::vector<int>& participants);
     void fill_show_scores(dino::CampaignShowState& show,
-                                const std::vector<int>& participants);
+                          const std::vector<int>& participants);
     std::vector<int> show_profile_ids();
     void apply_show_specs();
     void auto_assign_show_participants(int show_index);
-    void attraction_row_text(int slot, std::string& name, int& iterations,
-                                   int& locked);
-    std::shared_ptr<ImportedSpecies> load_imported_species(const std::string& species,
-                                     const std::string& family,
-                                     const std::string& clip);
-    StorePreview* store_preview_for(const dino::ui::StoreRow& row);
-    bool add_imported_dino(const std::string& species,
-                                 const std::string& family,
-                                 const std::string& clip, float x, float y,
-                                 float angle,
-                                 const dino::DinoAttributes* attributes =
-                                     nullptr);
-    void clear_imported_dinos();
-    void upload_vegetation();
-    void release_vegetation();
-    const dino::WorldRect* selected_paddock_rect();
-    int paddock_at_map(float mx, float my);
-    void clear_buildings();
-    bool place_building(const dino::BuildingDef& def, float cell_x,
-                              float cell_y, int state, float extra_angle_deg,
-                              float scale, int kind);
-    int place_world_buildings(const dino::WldWorld& world);
-    void minimap_click_zoom(int delta);
-    void render_minimap(const dino::Vec3& focus, float heading_rad);
-    void rebuild_extra_items();
-    void refresh_terrain_texture();
-    void rebuild_build_meshes();
+    bool ends_with(const std::string& text, const std::string& suffix);
+    void handle_show_place(int catalog_index);
+    void place_show_at(int rx, int ry);
+    int find_show_by_slot(int slot);
+    void handle_attraction_action(const std::string& action);
+
+    // --- park lifecycle and save (game_park.cpp) -----------------------
     void import_park_layout();
-    void load_dino_family_tables();
-    void spawn_world_dinos();
-    void print_paddock_totals();
-    int paddock_at(float x, float y);
-    dino::FoodSource* paddock_food(int paddock, bool carnivore);
-    void log_dino_food();
-    void refresh_fence_info_panel();
-    float camera_radius();
-    float camera_height();
-    dino::Vec3 orbit_eye();
-    void enter_free_camera();
     void load_island(const std::string& island, bool reset_view);
+    dino::PortState make_port_state();
+    void load_campaign_park(const std::string& world_path);
+    void apply_port_state(const dino::PortState& state);
+    std::string save_name_sanitized();
+    std::string port_save_target(bool for_load);
+    void do_port_save(const std::string& path);
+    void do_port_load(const std::string& path);
+
+    // --- construction, roads and store (game_build.cpp) ----------------
+    std::array<int, 11> store_row_attributes(const dino::MarketEntry& entry);
+    void refresh_store_rows();
+    void apply_store_catalog(dino::Market market, const std::string& source);
+    StorePreview* store_preview_for(const dino::ui::StoreRow& row);
+    void clear_buildings();
+    bool place_building(const dino::BuildingDef& def, float cell_x, float cell_y,
+                        int state, float extra_angle_deg, float scale,
+                        int kind);
+    int place_world_buildings(const dino::WldWorld& world);
+    void rebuild_build_meshes();
     void sell_paddock_now(int index);
-    void advance_campaign();
     void ensure_construction_catalog();
     int construction_kind_for_widget(const std::string& widget);
     int construction_kind_for_name(const std::string& name);
-    bool construction_overlaps(int kind, int cell_x, int cell_y,
-                                     int state);
-    bool try_construct(int kind, int cell_x, int cell_y,
-                             int state);
+    bool construction_overlaps(int kind, int cell_x, int cell_y, int state);
+    bool try_construct(int kind, int cell_x, int cell_y, int state);
     std::uint32_t ensure_road_price();
     void road_message(const char* id);
     bool road_cell_busy(int x, int y);
@@ -571,24 +563,37 @@ private:
     void road_click(int cx, int cy);
     void handle_store_buy(int index);
     void run_daily_settlement();
-    bool ends_with(const std::string& text, const std::string& suffix);
-    dino::PortState make_port_state();
     void ensure_build_ready();
-    void handle_show_place(int catalog_index);
-    void place_show_at(int rx, int ry);
-    int find_show_by_slot(int slot);
-    void handle_attraction_action(const std::string& action);
-    void load_campaign_park(const std::string& world_path);
-    void apply_port_state(const dino::PortState& state);
-    std::string save_name_sanitized();
-    std::string port_save_target(bool for_load);
-    void do_port_save(const std::string& path);
-    void do_port_load(const std::string& path);
-    void draw_park_hud(int view_w, int view_h, int logical_w, int logical_h);
-    void activate_main_menu();
-    void park_design(float window_x, float window_y, int& design_x,
-                          int& design_y);
-    void sync_park_layout();
+
+    // --- scene and park contents (game_scene.cpp) ----------------------
+    dino::Mesh pose_dino(double time);
+    std::shared_ptr<ImportedSpecies> load_imported_species(const std::string& species,
+                                                           const std::string& family,
+                                                           const std::string& clip);
+    bool add_imported_dino(const std::string& species, const std::string& family,
+                           const std::string& clip, float x, float y,
+                           float angle,
+                           const dino::DinoAttributes* attributes = nullptr);
+    void clear_imported_dinos();
+    void upload_vegetation();
+    void release_vegetation();
+    const dino::WorldRect* selected_paddock_rect();
+    int paddock_at_map(float mx, float my);
+    void minimap_click_zoom(int delta);
+    void render_minimap(const dino::Vec3& focus, float heading_rad);
+    void rebuild_extra_items();
+    void refresh_terrain_texture();
+    void load_dino_family_tables();
+    void spawn_world_dinos();
+    void print_paddock_totals();
+    int paddock_at(float x, float y);
+    dino::FoodSource* paddock_food(int paddock, bool carnivore);
+    void log_dino_food();
+    float camera_radius();
+    float camera_height();
+    dino::Vec3 orbit_eye();
+    void enter_free_camera();
+
 };
 
 }  // namespace dino::app
