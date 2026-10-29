@@ -391,19 +391,19 @@ void Game::update_park_world() {
                     slot, text.c_str(), iterations, locked);
             }
         }
-        if (park_session.clock.new_hour && !employee_system.employees.empty()) {
-            const int assigned = employee_system.start_hour(
-                employee_profiles, food_sources, food_defs);
+        if (park_session.clock.new_hour && !park_session.employee_system.employees.empty()) {
+            const int assigned = park_session.employee_system.start_hour(
+                park_session.employee_profiles, park_session.food_sources, park_session.food_defs);
             if (assigned > 0) {
                 std::printf("feed: hour=%d assigned=%d\n",
                             park_session.clock.hour(), assigned);
             }
         }
-        employee_system.update(frame_dt, employee_profiles, food_sources,
-                               food_defs);
+        park_session.employee_system.update(frame_dt, park_session.employee_profiles, park_session.food_sources,
+                               park_session.food_defs);
         if (employee_gpu.vao != 0 && !employee_pose.positions.empty()) {
             update_mesh(employee_gpu,
-                        employee_system.build_mesh(terrain, employee_pose),
+                        park_session.employee_system.build_mesh(terrain, employee_pose),
                         glfns);
         }
         if (park_session.clock.end_of_day) {
@@ -480,12 +480,12 @@ dino::CampaignState Game::build_mission_state() {
     // Hired staff are the live `employees` source. The objective
     // profile strings match the `.bei` role names
     // (Nutritionist/Guard); "all" matches any role.
-    for (const dino::Employee& employee : employee_system.employees) {
+    for (const dino::Employee& employee : park_session.employee_system.employees) {
         if (employee.profile >= 0 &&
             employee.profile <
-                static_cast<int>(employee_profiles.size())) {
+                static_cast<int>(park_session.employee_profiles.size())) {
             mission_state.employee_roles.push_back(
-                employee_profiles[static_cast<std::size_t>(
+                park_session.employee_profiles[static_cast<std::size_t>(
                                       employee.profile)]
                     .name);
         }
@@ -1114,7 +1114,7 @@ void Game::update_simulation() {
                         source->remaining =
                             std::max(0.0f, source->remaining - 1.0f);
                         const std::string& food_name =
-                            food_defs[static_cast<std::size_t>(
+                            park_session.food_defs[static_cast<std::size_t>(
                                           source->def)]
                                 .name;
                         std::printf(

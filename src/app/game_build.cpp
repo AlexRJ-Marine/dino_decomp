@@ -662,14 +662,14 @@ void Game::run_daily_settlement() {
         tickets += static_cast<int>(
             static_cast<float>(ticket_price) * scale);
     }
-    const int wages = employee_system.daily_wages(employee_profiles);
-    for (const dino::Employee& employee : employee_system.employees) {
+    const int wages = park_session.employee_system.daily_wages(park_session.employee_profiles);
+    for (const dino::Employee& employee : park_session.employee_system.employees) {
         if (employee.profile < 0 ||
-            employee.profile >= static_cast<int>(employee_profiles.size())) {
+            employee.profile >= static_cast<int>(park_session.employee_profiles.size())) {
             continue;
         }
         const dino::EmployeeProfile& profile =
-            employee_profiles[static_cast<std::size_t>(employee.profile)];
+            park_session.employee_profiles[static_cast<std::size_t>(employee.profile)];
         park_session.ledger.spend_staff(profile.kind, profile.wage);
     }
     park_session.budget += tickets - wages;

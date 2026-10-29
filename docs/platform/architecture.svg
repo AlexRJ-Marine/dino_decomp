@@ -34,7 +34,7 @@
 <text x="580" y="380" font-size="11" fill="#166534" text-anchor="start" font-weight="600">ARCH-1: inversions removed</text>
 <text x="580" y="396" font-size="10" fill="#166534" text-anchor="start" font-weight="400">formats/ini.* + formats/path.*</text>
 <text x="580" y="412" font-size="10" fill="#166534" text-anchor="start" font-weight="400">guard: tests/test_architecture.py</text>
-<text x="580" y="430" font-size="10" fill="#166534" text-anchor="start" font-weight="400">ARCH-2: + visitors moved</text>
+<text x="580" y="430" font-size="10" fill="#166534" text-anchor="start" font-weight="400">ARCH-2: + food/employees moved</text>
 <text x="70" y="612" font-size="12" fill="#0f172a" text-anchor="start" font-weight="600">include edges (count):</text>
 <text x="70" y="632" font-size="11" fill="#475569" text-anchor="start" font-weight="400">app -> formats 56    app -> world 21    app -> render 7</text>
 <text x="70" y="649" font-size="11" fill="#475569" text-anchor="start" font-weight="400">app -> ui 4    app -> audio 2</text>
@@ -42,7 +42,7 @@
 <text x="70" y="683" font-size="11" fill="#475569" text-anchor="start" font-weight="400">audio -> formats 4    formats -> third_party 1 (allowed)</text>
 <rect x="580" y="150" width="180" height="132" rx="8" fill="#f1f5f9" stroke="#64748b"/>
 <text x="592" y="172" font-size="15" font-weight="700" fill="#0f172a">Game</text>
-<text x="592" y="192" font-size="12" fill="#334155">278 session members</text>
+<text x="592" y="192" font-size="12" fill="#334155">274 session members</text>
 <text x="592" y="208" font-size="12" fill="#334155">171 methods</text>
 <text x="592" y="224" font-size="12" fill="#334155">52 project includes</text>
 <text x="592" y="240" font-size="12" fill="#334155">11 TUs include game.h</text>
@@ -101,7 +101,7 @@
 <rect x="553" y="820" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
 <text x="565" y="842" font-size="14" font-weight="700" fill="#0f172a">2. ParkSession (started)</text>
 <text x="565" y="864" font-size="11" fill="#475569" text-anchor="start" font-weight="400">clock/budget/ledger moved;</text>
-<text x="565" y="879" font-size="11" fill="#475569" text-anchor="start" font-weight="400">dinos/buildings next.</text>
+<text x="565" y="879" font-size="11" fill="#475569" text-anchor="start" font-weight="400">dinos/buildings/shows next.</text>
 <text x="565" y="900" font-size="10" fill="#166534" text-anchor="start" font-weight="600">gate: save/load + campaign tests unchanged</text>
 <rect x="1058" y="820" width="485" height="88" rx="8" fill="#ffffff" stroke="#94a3b8"/>
 <text x="1070" y="842" font-size="14" font-weight="700" fill="#0f172a">3. BuildController</text>

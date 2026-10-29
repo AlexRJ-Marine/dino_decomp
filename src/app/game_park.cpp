@@ -418,8 +418,8 @@ void Game::reset_island_camera(bool reset_view) {
 
 void Game::load_campaign_park(const std::string& world_path) {
     clear_imported_dinos();
-    food_sources.clear();
-    employee_system.employees.clear();
+    park_session.food_sources.clear();
+    park_session.employee_system.employees.clear();
     wld_roads.clear();
     wld_fences.clear();
     wld_dinosaurs.clear();
@@ -573,10 +573,10 @@ void Game::load_campaign_employees(const dino::WldWorld& world) {
         // +0x20 profile field is never written on the load path.
         int spawned_employees = 0;
         const float half = terrain.world_size * 0.5f;
-        if (!employee_profiles.empty()) {
+        if (!park_session.employee_profiles.empty()) {
             for (const dino::WldEmployeeState& saved :
                  world.employees_sim) {
-                if (employee_system.hire(employee_profiles, 0,
+                if (park_session.employee_system.hire(park_session.employee_profiles, 0,
                                          saved.x - half,
                                          saved.y - half)) {
                     ++spawned_employees;
@@ -591,10 +591,10 @@ void Game::load_campaign_employees(const dino::WldWorld& world) {
                 employee_texture_id = upload_texture(employee_image);
             }
             employee_gpu = upload_mesh(
-                employee_system.build_mesh(terrain, employee_pose), glfns);
+                park_session.employee_system.build_mesh(terrain, employee_pose), glfns);
             rebuild_extra_items();
             std::printf("campaign employees: rendered=%zu\n",
-                        employee_system.employees.size());
+                        park_session.employee_system.employees.size());
         }
 }
 
@@ -604,9 +604,9 @@ void Game::load_campaign_food(const dino::WldWorld& world) {
         // nutrition constant (+0x12). Match that constant against the
         // .bsi nutrition to recover the FoodSourceList index.
         const float half = terrain.world_size * 0.5f;
-        if (food_defs.empty()) {
+        if (park_session.food_defs.empty()) {
             try {
-                food_defs = dino::load_food_defs(
+                park_session.food_defs = dino::load_food_defs(
                     opt.asset_root,
                     resolve_asset(opt.asset_root,
                                   "Data/Design/foodsource"));
@@ -617,8 +617,8 @@ void Game::load_campaign_food(const dino::WldWorld& world) {
         int spawned_food = 0;
         for (const dino::WldFoodSource& saved : world.food_sources) {
             int def_index = -1;
-            for (std::size_t i = 0; i < food_defs.size(); ++i) {
-                if (std::fabs(food_defs[i].nutrition -
+            for (std::size_t i = 0; i < park_session.food_defs.size(); ++i) {
+                if (std::fabs(park_session.food_defs[i].nutrition -
                               static_cast<float>(saved.field_12)) < 0.5f) {
                     def_index = static_cast<int>(i);
                     break;
@@ -632,14 +632,14 @@ void Game::load_campaign_food(const dino::WldWorld& world) {
             }
             const float fx = saved.x - half;
             const float fy = saved.y - half;
-            food_sources.push_back(
-                {def_index, fx, fy, food_defs[def_index].quantity});
+            park_session.food_sources.push_back(
+                {def_index, fx, fy, park_session.food_defs[def_index].quantity});
             ++spawned_food;
         }
         std::printf("campaign food sources: spawned=%d/%zu\n",
                     spawned_food, world.food_sources.size());
         if (spawned_food > 0 && food_gpu.vao == 0 &&
-            !food_sources.empty()) {
+            !park_session.food_sources.empty()) {
             // The renderer has one food draw item, so merge every
             // campaign source into a single mesh at its saved position.
             dino::Mesh combined;
@@ -663,9 +663,9 @@ void Game::load_campaign_food(const dino::WldWorld& world) {
                 }
             };
             try {
-                for (const dino::FoodSource& source : food_sources) {
+                for (const dino::FoodSource& source : park_session.food_sources) {
                     const dino::FoodDef& def =
-                        food_defs[static_cast<std::size_t>(source.def)];
+                        park_session.food_defs[static_cast<std::size_t>(source.def)];
                     dino::Mesh mesh = dino::load_mesh(
                         resolve_asset(opt.asset_root, def.mesh));
                     mesh = place_on_terrain(std::move(mesh), terrain,
@@ -680,7 +680,7 @@ void Game::load_campaign_food(const dino::WldWorld& world) {
                 rebuild_extra_items();
                 std::printf(
                     "campaign food sources: rendered=%zu vertices=%zu\n",
-                    food_sources.size(), combined.positions.size());
+                    park_session.food_sources.size(), combined.positions.size());
             } catch (const std::exception& e) {
                 std::fprintf(stderr, "campaign food mesh: %s\n", e.what());
             }
@@ -768,7 +768,7 @@ void Game::apply_port_state(const dino::PortState& state) {
                 park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
                 park_session.build_grid.fence_count, building_instances.size(),
                 imported_dinos.size(), park_session.paddocks.size(),
-                food_sources.size());
+                park_session.food_sources.size());
 
     resume_port_campaign(state);
 }
@@ -939,9 +939,9 @@ void Game::apply_port_paddocks(const dino::PortState& state) {
 // Save rows: food sources and employees, with their GPU actors.
 void Game::apply_port_food_and_employees(const dino::PortState& state) {
     if (!state.food.empty() || !state.employees.empty()) {
-        if (food_defs.empty()) {
+        if (park_session.food_defs.empty()) {
             try {
-                food_defs = dino::load_food_defs(
+                park_session.food_defs = dino::load_food_defs(
                     opt.asset_root,
                     resolve_asset(opt.asset_root,
                                   "Data/Design/foodsource"));
@@ -949,37 +949,37 @@ void Game::apply_port_food_and_employees(const dino::PortState& state) {
                 std::fprintf(stderr, "port food defs: %s\n", e.what());
             }
         }
-        food_sources.clear();
+        park_session.food_sources.clear();
         for (const dino::PortFoodState& saved : state.food) {
             int def_index = -1;
-            for (std::size_t i = 0; i < food_defs.size(); ++i) {
-                if (food_defs[i].name == saved.name) {
+            for (std::size_t i = 0; i < park_session.food_defs.size(); ++i) {
+                if (park_session.food_defs[i].name == saved.name) {
                     def_index = static_cast<int>(i);
                     break;
                 }
             }
             if (def_index >= 0) {
-                food_sources.push_back(
+                park_session.food_sources.push_back(
                     {def_index, saved.x, saved.y, saved.remaining});
             }
         }
         if (!state.employees.empty()) {
-            employee_system.employees.clear();
+            park_session.employee_system.employees.clear();
             for (const dino::PortEmployeeState& saved : state.employees) {
                 int profile_index = -1;
-                for (std::size_t i = 0; i < employee_profiles.size(); ++i) {
-                    if (employee_profiles[i].name == saved.profile) {
+                for (std::size_t i = 0; i < park_session.employee_profiles.size(); ++i) {
+                    if (park_session.employee_profiles[i].name == saved.profile) {
                         profile_index = static_cast<int>(i);
                         break;
                     }
                 }
                 if (profile_index >= 0) {
-                    employee_system.hire(employee_profiles, profile_index,
+                    park_session.employee_system.hire(park_session.employee_profiles, profile_index,
                                          saved.x, saved.y);
                 }
             }
             std::printf("port employees: %zu\n",
-                        employee_system.employees.size());
+                        park_session.employee_system.employees.size());
             if (employee_gpu.vao == 0 &&
                 !employee_pose.positions.empty()) {
                 if (employee_image.width > 0 &&
@@ -987,15 +987,15 @@ void Game::apply_port_food_and_employees(const dino::PortState& state) {
                     employee_texture_id = upload_texture(employee_image);
                 }
                 employee_gpu = upload_mesh(
-                    employee_system.build_mesh(terrain, employee_pose),
+                    park_session.employee_system.build_mesh(terrain, employee_pose),
                     glfns);
                 rebuild_extra_items();
             }
         }
-        if (!food_sources.empty()) {
+        if (!park_session.food_sources.empty()) {
             const dino::FoodDef& def =
-                food_defs[static_cast<std::size_t>(
-                    food_sources.front().def)];
+                park_session.food_defs[static_cast<std::size_t>(
+                    park_session.food_sources.front().def)];
             try {
                 if (food_gpu.vao != 0) {
                     food_gpu.destroy(glfns);
@@ -1004,8 +1004,8 @@ void Game::apply_port_food_and_employees(const dino::PortState& state) {
                 dino::Mesh mesh = dino::load_mesh(
                     resolve_asset(opt.asset_root, def.mesh));
                 mesh = place_on_terrain(
-                    std::move(mesh), terrain, food_sources.front().x,
-                    food_sources.front().y, 0.0f);
+                    std::move(mesh), terrain, park_session.food_sources.front().x,
+                    park_session.food_sources.front().y, 0.0f);
                 food_gpu = upload_mesh(mesh, glfns);
                 if (!def.texture.empty()) {
                     food_texture = upload_texture(dino::load_tga(
@@ -1159,27 +1159,27 @@ dino::PortState Game::make_port_state() {
         saved.occupants = paddock.occupants;
         state.paddocks.push_back(std::move(saved));
     }
-    for (const dino::FoodSource& food : food_sources) {
+    for (const dino::FoodSource& food : park_session.food_sources) {
         if (food.def < 0 ||
-            food.def >= static_cast<int>(food_defs.size())) {
+            food.def >= static_cast<int>(park_session.food_defs.size())) {
             continue;
         }
         dino::PortFoodState saved;
         saved.name =
-            food_defs[static_cast<std::size_t>(food.def)].name;
+            park_session.food_defs[static_cast<std::size_t>(food.def)].name;
         saved.x = food.x;
         saved.y = food.y;
         saved.remaining = food.remaining;
         state.food.push_back(std::move(saved));
     }
-    for (const dino::Employee& employee : employee_system.employees) {
+    for (const dino::Employee& employee : park_session.employee_system.employees) {
         if (employee.profile < 0 ||
-            employee.profile >= static_cast<int>(employee_profiles.size())) {
+            employee.profile >= static_cast<int>(park_session.employee_profiles.size())) {
             continue;
         }
         dino::PortEmployeeState saved;
         saved.profile =
-            employee_profiles[static_cast<std::size_t>(employee.profile)]
+            park_session.employee_profiles[static_cast<std::size_t>(employee.profile)]
                 .name;
         saved.x = employee.x;
         saved.y = employee.y;

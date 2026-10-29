@@ -2182,9 +2182,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `visitor_profiles` and `all_visitor_profiles` into `ParkSession`; remove the
   now-unused `world/visitors.h` include from `game.h`. Ratchet 281 -> 278;
   `game.h` 679 lines. Visitor, save/load and HUD tests unchanged.
+- [x] Move the food/employee subsystem: `food_sources`, `food_defs`,
+  `employee_system` and `employee_profiles` into `ParkSession`; keep
+  `FoodSource*` in `game.h` but drop `world/employees.h` (SF.10). Ratchet
+  278 -> 274; `game.h` 674 lines. Food, employee, save/load and campaign
+  tests unchanged.
 - [ ] Move the remaining subsystems one commit at a time: dinos, buildings,
-  food/employees, shows. Lower the `GAME_MEMBERS_MAX` ratchet after each
-  slice.
+  shows. Lower the `GAME_MEMBERS_MAX` ratchet after each slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

@@ -225,8 +225,8 @@ void Game::rebuild_extra_items() {
             }
         }
     }
-    if (food_gpu.vao != 0 && !food_sources.empty() &&
-        food_sources.front().remaining > 0.0f) {
+    if (food_gpu.vao != 0 && !park_session.food_sources.empty() &&
+        park_session.food_sources.front().remaining > 0.0f) {
         extra_items.push_back({&food_gpu, food_texture});
     }
     for (const ShowFeatureDraw& feature : show_feature_draws) {
@@ -603,13 +603,13 @@ dino::FoodSource* Game::paddock_food(int paddock, bool carnivore) {
     }
     const dino::WorldRect& r =
         park_session.paddocks[static_cast<std::size_t>(paddock)].rect;
-    for (dino::FoodSource& source : food_sources) {
+    for (dino::FoodSource& source : park_session.food_sources) {
         if (source.remaining <= 0.0f || source.def < 0 ||
-            source.def >= static_cast<int>(food_defs.size())) {
+            source.def >= static_cast<int>(park_session.food_defs.size())) {
             continue;
         }
         if (dino::food_is_carnivore(
-                food_defs[static_cast<std::size_t>(source.def)].kind) !=
+                park_session.food_defs[static_cast<std::size_t>(source.def)].kind) !=
             carnivore) {
             continue;
         }
@@ -648,7 +648,7 @@ void Game::log_dino_food() {
                     dinosaur.species.c_str(), pen,
                     dinosaur.carnivore ? "carnivore" : "herbivore",
                     source != nullptr
-                        ? food_defs[static_cast<std::size_t>(
+                        ? park_session.food_defs[static_cast<std::size_t>(
                                         source->def)]
                               .name.c_str()
                         : "none");
@@ -809,7 +809,7 @@ bool Game::add_imported_dino(const std::string& species,
                 }
                 const dino::FoodSource* nearest = nullptr;
                 float best = 0.0f;
-                for (const dino::FoodSource& source : food_sources) {
+                for (const dino::FoodSource& source : park_session.food_sources) {
                     if (source.remaining <= 0.0f) {
                         continue;
                     }

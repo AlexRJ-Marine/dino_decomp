@@ -369,7 +369,7 @@ std::optional<int> Game::boot_minimap_and_visitors() {
 
 std::optional<int> Game::boot_employee_profiles() {
     try {
-        employee_profiles = dino::load_employee_list(
+        park_session.employee_profiles = dino::load_employee_list(
             resolve_asset(opt.asset_root, "Data/Design/employees"));
     } catch (const std::exception& e) {
         std::fprintf(stderr, "employee profiles: %s\n", e.what());
@@ -541,11 +541,11 @@ std::optional<int> Game::boot_food_definitions() {
     // Food sources (`--place-food`): the `.bsi` definition supplies the model,
     // texture and portion count; the position is a build-grid cell and
     // defaults to the first paddock centre.
-    if (food_defs.empty() &&
+    if (park_session.food_defs.empty() &&
         (!opt.place_food.empty() || opt.hire_nutritionists > 0 ||
          opt.feed_now)) {
         try {
-            food_defs = dino::load_food_defs(
+            park_session.food_defs = dino::load_food_defs(
                 opt.asset_root,
                 resolve_asset(opt.asset_root, "Data/Design/foodsource"));
         } catch (const std::exception& e) {
@@ -554,20 +554,20 @@ std::optional<int> Game::boot_food_definitions() {
     }
     if (!opt.place_food.empty()) {
         try {
-            food_defs = dino::load_food_defs(
+            park_session.food_defs = dino::load_food_defs(
                 opt.asset_root,
                 resolve_asset(opt.asset_root, "Data/Design/foodsource"));
             int def_index = -1;
-            for (std::size_t i = 0; i < food_defs.size(); ++i) {
-                if (food_defs[i].name == opt.place_food) {
+            for (std::size_t i = 0; i < park_session.food_defs.size(); ++i) {
+                if (park_session.food_defs[i].name == opt.place_food) {
                     def_index = static_cast<int>(i);
                     break;
                 }
             }
             if (def_index < 0) {
                 const int kind = std::atoi(opt.place_food.c_str());
-                for (std::size_t i = 0; i < food_defs.size(); ++i) {
-                    if (food_defs[i].kind == kind) {
+                for (std::size_t i = 0; i < park_session.food_defs.size(); ++i) {
+                    if (park_session.food_defs[i].kind == kind) {
                         def_index = static_cast<int>(i);
                         break;
                     }
@@ -604,8 +604,8 @@ std::optional<int> Game::boot_food_definitions() {
                     std::printf("food: no position (use --food-pos X,Y)\n");
                 } else {
                     const dino::FoodDef& def =
-                        food_defs[static_cast<std::size_t>(def_index)];
-                    food_sources.push_back({def_index, fx, fy, def.quantity});
+                        park_session.food_defs[static_cast<std::size_t>(def_index)];
+                    park_session.food_sources.push_back({def_index, fx, fy, def.quantity});
                     try {
                         dino::Mesh mesh = dino::load_mesh(resolve_asset(
                             opt.asset_root, def.mesh));
@@ -873,10 +873,10 @@ std::optional<int> Game::boot_employee_session() {
     if (pending_buy_price > 0) {
         park_session.budget -= pending_buy_price;
     }
-    if (opt.hire_nutritionists > 0 && !employee_profiles.empty()) {
+    if (opt.hire_nutritionists > 0 && !park_session.employee_profiles.empty()) {
         int nutritionist = -1;
-        for (std::size_t i = 0; i < employee_profiles.size(); ++i) {
-            if (employee_profiles[i].kind == 0) {
+        for (std::size_t i = 0; i < park_session.employee_profiles.size(); ++i) {
+            if (park_session.employee_profiles[i].kind == 0) {
                 nutritionist = static_cast<int>(i);
                 break;
             }
@@ -885,7 +885,7 @@ std::optional<int> Game::boot_employee_session() {
             std::printf("employees: no nutritionist profile\n");
         } else {
             const int wage =
-                employee_profiles[static_cast<std::size_t>(nutritionist)].wage;
+                park_session.employee_profiles[static_cast<std::size_t>(nutritionist)].wage;
             const float half = terrain.world_size * 0.5f;
             float spawn_x = half;
             float spawn_y = half;
@@ -903,7 +903,7 @@ std::optional<int> Game::boot_employee_session() {
                     break;
                 }
                 park_session.budget -= wage;
-                employee_system.hire(employee_profiles, nutritionist, spawn_x,
+                park_session.employee_system.hire(park_session.employee_profiles, nutritionist, spawn_x,
                                      spawn_y);
                 ++hired;
             }
@@ -912,29 +912,29 @@ std::optional<int> Game::boot_employee_session() {
         }
     }
     if (opt.fire_nutritionists > 0) {
-        const std::size_t before = employee_system.employees.size();
+        const std::size_t before = park_session.employee_system.employees.size();
         const std::size_t fired = std::min<std::size_t>(
             before, static_cast<std::size_t>(opt.fire_nutritionists));
-        employee_system.employees.resize(before - fired);
+        park_session.employee_system.employees.resize(before - fired);
         std::printf("employees: fired=%zu active=%zu\n", fired,
-                    employee_system.employees.size());
+                    park_session.employee_system.employees.size());
     }
     if (opt.feed_now) {
-        const int assigned = employee_system.start_hour(
-            employee_profiles, food_sources, food_defs, true);
+        const int assigned = park_session.employee_system.start_hour(
+            park_session.employee_profiles, park_session.food_sources, park_session.food_defs, true);
         int completed = 0;
         for (int step = 0; step < 20; ++step) {
-            completed += employee_system.update(
-                10.0f, employee_profiles, food_sources, food_defs);
+            completed += park_session.employee_system.update(
+                10.0f, park_session.employee_profiles, park_session.food_sources, park_session.food_defs);
         }
         std::printf(
             "feed: assigned=%d completed=%d serviced=%d sources=%zu\n",
-            assigned, completed, employee_system.serviced, food_sources.size());
-        for (const dino::FoodSource& source : food_sources) {
+            assigned, completed, park_session.employee_system.serviced, park_session.food_sources.size());
+        for (const dino::FoodSource& source : park_session.food_sources) {
             const float capacity =
                 source.def >= 0 &&
-                        source.def < static_cast<int>(food_defs.size())
-                    ? food_defs[static_cast<std::size_t>(source.def)].quantity
+                        source.def < static_cast<int>(park_session.food_defs.size())
+                    ? park_session.food_defs[static_cast<std::size_t>(source.def)].quantity
                     : 0.0f;
             std::printf("feed: source def=%d remaining=%.3f capacity=%.3f\n",
                         source.def, static_cast<double>(source.remaining),
@@ -944,17 +944,17 @@ std::optional<int> Game::boot_employee_session() {
 
     // Load the Nutritionist standing pose + texture once; the hourly walk is
     // a straight move, so one pose is enough for the first slice.
-    if (!employee_profiles.empty() && employee_pose.positions.empty()) {
+    if (!park_session.employee_profiles.empty() && employee_pose.positions.empty()) {
         int nutritionist = -1;
-        for (std::size_t i = 0; i < employee_profiles.size(); ++i) {
-            if (employee_profiles[i].kind == 0) {
+        for (std::size_t i = 0; i < park_session.employee_profiles.size(); ++i) {
+            if (park_session.employee_profiles[i].kind == 0) {
                 nutritionist = static_cast<int>(i);
                 break;
             }
         }
         if (nutritionist >= 0) {
             const dino::EmployeeProfile& profile =
-                employee_profiles[static_cast<std::size_t>(nutritionist)];
+                park_session.employee_profiles[static_cast<std::size_t>(nutritionist)];
             try {
                 if (!profile.meshes.empty()) {
                     employee_pose = dino::load_mesh(
@@ -984,14 +984,14 @@ std::optional<int> Game::boot_employee_session() {
         }
     }
     if (employee_gpu.vao == 0 && !employee_pose.positions.empty() &&
-        !employee_system.employees.empty()) {
+        !park_session.employee_system.employees.empty()) {
         if (employee_image.width > 0) {
             employee_texture_id = upload_texture(employee_image);
         }
         employee_gpu = upload_mesh(
-            employee_system.build_mesh(terrain, employee_pose), glfns);
+            park_session.employee_system.build_mesh(terrain, employee_pose), glfns);
         std::printf("employees: rendered=%zu pose_vertices=%zu\n",
-                    employee_system.employees.size(),
+                    park_session.employee_system.employees.size(),
                     employee_pose.positions.size());
         rebuild_extra_items();
     }

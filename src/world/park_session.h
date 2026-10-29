@@ -4,6 +4,8 @@
 
 #include "build.h"
 #include "economy.h"
+#include "employees.h"
+#include "food.h"
 #include "park_clock.h"
 #include "visitors.h"
 
@@ -22,6 +24,10 @@ struct ParkSession {
     VisitorSystem visitor_system;
     std::vector<VisitorProfile> visitor_profiles;
     std::vector<VisitorProfile> all_visitor_profiles;
+    std::vector<FoodSource> food_sources;
+    std::vector<FoodDef> food_defs;
+    EmployeeSystem employee_system;
+    std::vector<EmployeeProfile> employee_profiles;
 };
 
 }  // namespace dino

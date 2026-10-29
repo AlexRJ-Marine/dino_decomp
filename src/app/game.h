@@ -75,7 +75,6 @@
 #include "../world/danger_grid.h"
 #include "../world/dino_actions.h"
 #include "../world/economy.h"
-#include "../world/employees.h"
 #include "../world/food.h"
 #include "../world/park_clock.h"
 #include "../world/park_session.h"
@@ -279,7 +278,6 @@ private:
     std::vector<ImportedDino> imported_dinos;
     dino::DangerGrid danger_grid;
     double danger_timer;
-    std::vector<dino::FoodSource> food_sources;
     std::vector<dino::Paddock> park_paddocks;
     dino::DinoFamilyTable family_table;
     std::map<int, std::string> head_species;
@@ -369,11 +367,9 @@ private:
     bool nav_zoom_in;
     bool nav_zoom_out;
     std::vector<DrawItem> extra_items;
-    std::vector<dino::FoodDef> food_defs;
     GpuMesh food_gpu;
     GLuint food_texture;
     std::vector<ShowFeatureDraw> show_feature_draws;
-    std::vector<dino::EmployeeProfile> employee_profiles;
     dino::CameraConfig camera_config;
     int pending_buy_price;
     int build_tool;
@@ -403,7 +399,6 @@ private:
     int park_hover_x;
     int park_hover_y;
     int park_active_index;
-    dino::EmployeeSystem employee_system;
     std::vector<std::string> construction_names;
     std::vector<dino::BuildingDef> construction_defs;
     std::uint32_t road_price;

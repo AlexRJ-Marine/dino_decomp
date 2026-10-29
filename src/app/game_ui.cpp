@@ -1255,7 +1255,7 @@ std::string Game::hud_widget_text(const std::string& name) {
         }
         if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
             return std::to_string(
-                employee_system.count_role(employee_profiles, 0));
+                park_session.employee_system.count_role(park_session.employee_profiles, 0));
         }
         if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
             return std::to_string(park_session.ledger.y_staff_food_total);
