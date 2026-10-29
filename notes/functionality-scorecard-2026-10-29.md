@@ -118,7 +118,7 @@ simulation-rule effort, not a rendering/format effort.**
 Three axes, because one percentage hides the difference:
 
 1. **File/function readability — essentially done.** `main.cpp` is 10 lines,
-   `Game::run()` 35, the 12 identified long bodies are split, and the largest
+   `Game::run()` 35, the nine identified long bodies are split, and the largest
    remaining method is 263 lines (8 methods over 200). The policy page and
    static guards exist.
 2. **Object/architecture — not done.** `Game` still owns 172 methods across
