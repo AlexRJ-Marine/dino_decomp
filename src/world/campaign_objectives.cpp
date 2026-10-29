@@ -109,7 +109,7 @@ int arg_int(const CampaignObjective& objective, std::size_t index,
     }
     try {
         return std::stoi(objective.args[index]);
-    } catch (...) {
+    } catch (const std::exception&) {
         return fallback;
     }
 }

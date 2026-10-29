@@ -75,8 +75,10 @@ and `src/third_party/**` (vendored decoders). Those two keep their own style.
 - Format readers throw `std::runtime_error` with the path and field; callers
   catch at a command or boot boundary and print one diagnostic.
 - C callbacks do not throw. Preallocate or return a status instead.
-- `catch (...)` is only for a boundary that must not let an unknown exception
-  escape; the three `campaign*` uses convert to a user-facing failure.
+- Do not use `catch (...)` in first-party code: it would turn allocation
+  failures into "missing value" fallbacks. Catch `std::exception` (or a more
+  specific type) at the parse/boot boundary; an unknown exception is a bug
+  and should terminate the run visibly.
 
 ## Deliberate deviations
 

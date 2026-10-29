@@ -80,7 +80,7 @@ std::string get(const std::map<std::string, std::string>& values,
 int to_int(const std::string& value, int fallback = 0) {
     try {
         return std::stoi(trim(value));
-    } catch (...) {
+    } catch (const std::exception&) {
         return fallback;
     }
 }
@@ -88,7 +88,7 @@ int to_int(const std::string& value, int fallback = 0) {
 double to_double(const std::string& value, double fallback = 1.0) {
     try {
         return std::stod(trim(value));
-    } catch (...) {
+    } catch (const std::exception&) {
         return fallback;
     }
 }

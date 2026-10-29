@@ -57,6 +57,13 @@ def test_no_null_or_std_endl():
     assert not offenders, "\n".join(offenders)
 
 
+def test_no_catch_all():
+    """E.14: narrow catches; catch (...) hides allocation failures."""
+    offenders = _hits(r"catch\s*\(\s*\.\.\.\s*\)",
+                      list(_sources(".cpp")) + list(_sources(".h")))
+    assert not offenders, "\n".join(offenders)
+
+
 def test_pi_literal_has_one_definition():
     """ES.45: dino::kPi is the only 3.14159... in first-party code."""
     paths = list(_sources(".cpp")) + list(_sources(".h"))
