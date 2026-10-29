@@ -1,10 +1,10 @@
 # MAINT-2 plan — split the four remaining long bodies
 
 Date: 2026-10-29. Follow-up to MAINT-1 (`docs/platform/app-shell.md`).
-Status: **in progress.** `draw_menu` (`ec4d97e`, `7859319`, `a844904`,
+Status: **done** (2026-10-29). `draw_menu` (`ec4d97e`, `7859319`, `a844904`,
 `11885fe`), `update_placement` (`159a267`, `36231e6`, `a7359cf`,
-`cb091b6`) and `handle_input` (`25e19e5`, `847bb8a`, `00035ca`, `1911df2`,
-`37f74e0`) are done; `draw_park_hud` remains. Every step
+`cb091b6`), `handle_input` (`25e19e5`, `847bb8a`, `00035ca`, `1911df2`,
+`37f74e0`) and `draw_park_hud` (`8853552`, `0de096f`) are split. Every step
 below is a verbatim move plus a call site — no behaviour change, no
 signature change beyond receiving the state the body already used through
 the `Game` object.
@@ -41,6 +41,20 @@ The 435-line widget dispatcher is the hard part: do **not** invent a
 dispatch table in this pass. Extract it as step 2 so the entry point is
 readable, then split it by widget family in a later pass only if a real
 boundary appears (BUDGET/MARKET/lists/dialogs).
+
+**Done** (`8853552`, `0de096f`): `draw_park_hud` is 64 lines and builds the
+draw order, then calls `draw_park_hud_widget` per widget and
+`draw_park_hud_campaign_text` once. The text/value mapping is
+`hud_widget_text` (202), the dialog target `hud_dialog_zone` (12), the
+campaign text zones (47). The 439-line widget dispatcher was split by the
+real families in the second commit: `draw_park_hud_frame` (52),
+`draw_park_hud_store_preview` (116), `draw_park_hud_progress` (25),
+`draw_park_hud_dialog_text` (67), `draw_park_hud_save_list` (33),
+`draw_park_hud_store_list` (56), `draw_park_hud_show_list` (86) and
+`draw_park_hud_text` (31); `draw_park_hud_widget` is 14 lines of calls. Every
+block was proven verbatim against `HEAD`; the only additions are the px/py
+lambdas each helper needs. HUD shot tests (`test_cpp_park_hud_shot`,
+`_panel_shot`, `_hover_shot`, `_1024_anchor`) pass; fast suite 355.
 
 ## 2. `handle_input` (638)
 

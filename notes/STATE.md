@@ -1969,10 +1969,10 @@ Updated: 2026-10-28
   `src/formats`/`src/world`/`src/ui`; `test_cpp_park_hud_shot` now asserts
   the centre crop is terrain. Both were checked against the regression
   artifacts (centre crop: 1 colour before, >1,000 after). Fast suite 355.
-- Remaining readability work: the largest bodies are still `draw_park_hud`
-  758, `update_session` 434, `load_island` 386 and `apply_port_state` 321;
-  MAINT-2's last target is `draw_park_hud`, and MAINT-4 (`-Fast` still
-  deselects every app test) is open.
+- Remaining readability work: MAINT-2 is done; the largest bodies are now
+  `update_session` 434, `load_island` 386 and `apply_port_state` 321 (a
+  possible follow-up, not queued). MAINT-4 (`-Fast` still deselects every app
+  test) is the last open refactor task.
 - MAINT-2 `draw_menu` is done (`ec4d97e`, `7859319`, `a844904`, `11885fe`):
   the 428-line body became `draw_menu` 26 lines plus `draw_menu_widget`
   (106), `draw_menu_list_widget` (205), `draw_menu_hscroll_widget` (73)
@@ -1991,7 +1991,16 @@ Updated: 2026-10-28
   conditions and the `--pick-test` hook stays in `update_placement`; one
   pre-existing `{ statement;` line was split so the build-tool body could
   move verbatim. Fast suite 355, full suite 511.
-- Next MAINT-2 target: `draw_park_hud` (758).
+- MAINT-2 `draw_park_hud` is done (`8853552`, `0de096f`): 758 -> 64 lines
+  plus `hud_widget_text` (202), `hud_dialog_zone` (12),
+  `draw_park_hud_campaign_text` (47) and `draw_park_hud_widget` (14). The
+  439-line dispatcher was split by widget family into `draw_park_hud_frame`
+  (52), `draw_park_hud_store_preview` (116), `draw_park_hud_progress` (25),
+  `draw_park_hud_dialog_text` (67), `draw_park_hud_save_list` (33),
+  `draw_park_hud_store_list` (56), `draw_park_hud_show_list` (86) and
+  `draw_park_hud_text` (31). Every block was proven verbatim against HEAD;
+  the additions are the px/py lambdas each helper needs. HUD shot tests and
+  the full suite 511 pass. **MAINT-2 complete.**
 - MAINT-2 `handle_input` is done (`25e19e5`, `847bb8a`, `00035ca`,
   `1911df2`, `37f74e0`): 638 -> 45 lines plus `apply_injected_input` (45),
   `handle_menu_input` (110), `handle_key_input` (113),

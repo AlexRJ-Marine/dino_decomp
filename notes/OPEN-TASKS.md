@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 01:21. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 01:32. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-51 open items.
+50 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -98,9 +98,6 @@ Generated from `TASKS.md` on 2026-10-29 01:21. Do not edit; regenerate with `scr
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
-
-## MAINT-2: Split the four remaining long bodies
-- [ ] `draw_park_hud` 758 -> named panels. Move code verbatim; no behaviour
 
 ## MAINT-4: Make the fast gate cover the app
 - [ ] `tests/test_app_cpp.py` marks the whole module `slow`, so

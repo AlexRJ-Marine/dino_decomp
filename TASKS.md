@@ -2017,12 +2017,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `handle_park_mouse_up`, `handle_park_mouse_motion` and
   `handle_park_mouse_wheel`; the pump dispatches by event type only.
   Bodies proven verbatim; full suite 511.
-- [ ] `draw_park_hud` 758 -> named panels. Move code verbatim; no behaviour
-  change.
+- [x] `draw_park_hud` 758 -> 64 lines plus `hud_widget_text`,
+  `hud_dialog_zone`, `draw_park_hud_campaign_text`; the 439-line widget
+  dispatcher became 14 lines of calls to `draw_park_hud_frame`,
+  `draw_park_hud_store_preview`, `draw_park_hud_progress`,
+  `draw_park_hud_dialog_text`, `draw_park_hud_save_list`,
+  `draw_park_hud_store_list`, `draw_park_hud_show_list` and
+  `draw_park_hud_text`. Bodies proven verbatim; HUD shot tests and the full
+  suite 511 pass.
 - **Plan:** `notes/refactor-maint2-plan.md` (per-function extraction order,
   shared locals and gates).
-- **Acceptance:** the four bodies are each under 300 lines; `--selftest`
-  and the fast suite are unchanged.
+- **Acceptance:** met — the four bodies are 26/43/45/64 lines; `--selftest`
+  194 and the fast suite 355 are unchanged.
 - **Depends on:** MAINT-1.
 
 ### MAINT-3: Regression guards for the split

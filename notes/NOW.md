@@ -47,21 +47,19 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- MAINT-2: **split the long bodies — current focus.** MAINT-1 is done:
+- MAINT-2: **done.** MAINT-1 is done:
   `src/app/main.cpp` is 10 lines and `Game::run()` 35 (was 15,266 / 11,145);
   one `src/app/game_*.cpp` per domain, 21 boot and 14 frame phases
   (`docs/platform/app-shell.md`, naming in `docs/platform/naming.md`).
   MAINT-3 guards are in `tests/test_app_shell.py` (phase order, no member
   shadow, SDL-free layers) plus centre-scene pixels in the park shot.
-  `draw_menu` is done (`ec4d97e`..`11885fe`): 428 -> 26 lines plus
-  `draw_menu_widget`/`_list_`/`_hscroll_`/`_sprite`, body proven verbatim,
-  menu shot `notes/harness/maint2-menu.bmp`. `update_placement` is done
-  (`159a267`..`cb091b6`): 638 -> 43 lines plus `update_fence_cursor`,
-  `place_selected_store_item`, `apply_build_tool_click` and
-  `apply_park_click`. Next: `draw_park_hud` 758
-  (`notes/refactor-maint2-plan.md`), then MAINT-4 (`-Fast` still skips
-  every app test). **All other port work is paused** until the code base is
-  readable; `--selftest` 194 PASS, fast suite 355, full suite 511.
+  `draw_menu` (428 -> 26), `update_placement` (638 -> 43), `handle_input`
+  (638 -> 45) and `draw_park_hud` (758 -> 64 plus a 14-line family
+  dispatcher) are split; every move was proven verbatim
+  (`notes/refactor-maint2-plan.md`). Current focus: **MAINT-4** (`-Fast`
+  still skips every app test). **All other port work is paused** until the
+  code base is readable; `--selftest` 194 PASS, fast suite 355, full suite
+  511.
 - PLACE-1: **exact object placement (paused behind MAINT-2/4).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -161,12 +159,12 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-2: `draw_menu` (428 -> 26 lines), `update_placement` (638 -> 43
-   lines) and `handle_input` (638 -> 45 lines) are done. Next:
-   `draw_park_hud` 758, one commit per extraction, verbatim moves
-   (`notes/refactor-maint2-plan.md`); then MAINT-4 (make `-Fast` run the
-   headless app tests). Keep `--selftest` (194), the fast suite (355) and
-   the full suite (511) green.
+1. MAINT-2 is **done**: `draw_menu` (428 -> 26 lines), `update_placement`
+   (638 -> 43), `handle_input` (638 -> 45) and `draw_park_hud` (758 -> 64
+   plus a 14-line family dispatcher), all verbatim moves
+   (`notes/refactor-maint2-plan.md`). Current focus: MAINT-4 (make `-Fast`
+   run the headless app tests, keep window/screenshot tests slow). Keep
+   `--selftest` (194), the fast suite (355) and the full suite (511) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -193,6 +191,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-2 complete: draw_menu 428->26, update_placement 638->43, handle_input 638->45, draw_park_hud 758->64 plus a 14-line family dispatcher; every move verbatim, HUD shots unchanged, full suite 511
 - 2026-10-29 - MAINT-3: regression guards for the app-shell split - scene-pixel centre check, phase-order/member-shadow/SDL-free static guard (tests/test_app_shell.py); review fixes (minimap_eye, draw_ui_mesh param, named phase helpers); fast suite 355
 - 2026-10-29 - MAINT-1: readable app shell + naming complete - main.cpp 10 lines, Game::run() 35, per-domain game_*.cpp, 21 boot / 14 frame phases; selftest 194 PASS, fast suite 350 passed
 - 2026-10-28 - UI: paddock info panel on enclosure selection - EnclosureN name, dino count, occupation %, per-diet food sufficiency snapshot (0x5269e0/0x57e720); sell-mode cursor observation and DINO-STATS-1/P3-MOTION-1 audits recorded; full suite 500
