@@ -2119,3 +2119,11 @@ Updated: 2026-10-28
   Gates: selftest 194, fast 379, full 521 in 4:40 (save/load, campaign,
   construction, HUD). Next ARCH-2 slices: visitors, dinos, buildings,
   food/employees, shows, then `ParkSession::update`.
+
+- ARCH-2 third slice (`b53f7c9`): `ParkSession` now owns
+  `VisitorSystem visitor_system`, `visitor_profiles` and
+  `all_visitor_profiles`; the code-only replacement updated 89 references
+  and `game.h` dropped the now-unused `world/visitors.h` include (SF.10).
+  Ratchet 281 -> 278 members, `game.h` 679 lines. Gates: selftest 194,
+  fast 379, full 521 in 4:31 (visitors, save/load, campaign, HUD). Next
+  ARCH-2 slices: dinos, buildings, food/employees, shows, then `update`.
