@@ -2073,17 +2073,30 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** MAINT-1.
 
 ### MAINT-5: Split the three remaining long phase bodies
-- [ ] `update_session` 434 -> `finish_menu_loading` (~95),
-  `update_park_world` (~53) and `update_campaign_session` (~285); then split
-  the campaign block into `build_mission_state` (~185) and
-  `finish_campaign_mission` (~100). Every block a verbatim move; the
-  MAINT-3 shadow guard stays clean.
-- [ ] `load_island` 386 -> asset-load / placement / minimap sections by the
-  same method.
-- [ ] `apply_port_state` 321 -> roads/fences, buildings/objects and
-  visitors/dinos sections.
+- [x] `update_session` 434 -> 8 lines plus `update_menu_loading` (94),
+  `update_park_world` (52) and `update_campaign_session` (31); the campaign
+  block became `build_mission_state` (187) and `finish_campaign_mission` (76)
+  around the verdict diff. `update_session` keeps the original call order and
+  each helper keeps its guard. Commit `66feea9`.
+- [x] `load_island` 386 -> 153 lines (asset reads and GPU releases) plus
+  `upload_island_graphics` (41, returns `loaded_faces`), `build_island_park`
+  (80), `place_island_entrance` (22), `compute_island_center` (55) and
+  `reset_island_camera` (52). Commit `305baf4`.
+- [x] `apply_port_state` 321 -> 86 lines plus `apply_port_build_grid` (17),
+  `apply_port_visitors` (45), `apply_port_buildings` (33),
+  `apply_port_dinos` (38), `apply_port_paddocks` (21),
+  `apply_port_food_and_employees` (80) and `resume_port_campaign` (26).
+  Commit `e5d50df`.
+- [x] Extra (same method): `load_campaign_park` 251 -> 57 lines plus
+  `load_campaign_show_features` (89), `load_campaign_employees` (31) and
+  `load_campaign_food` (87). Commit `9c47094`.
+- **Remaining >200-line bodies (not queued):** `place_building` 270,
+  `boot_load_assets` 263, `handle_park_mouse_down` 261,
+  `apply_build_tool_click` 250, `update_camera` 227, `draw_menu_list_widget`
+  210, `hud_widget_text` 202, `boot_scene_resources` 201, `draw_frame` 201.
 - **Acceptance:** each extracted helper fits a screen or two; `--selftest`
-  194, fast suite 397 and full suite 511 stay green after each slice.
+  194, fast suite 397 and full suite 512 stay green after each slice.
+  - Met after every commit; full suite 512 passed in 3:48 after the last one.
 - **Depends on:** MAINT-2 (verbatim move method) and MAINT-4 (the app tests
   now run in `-Fast`, so a regression is caught in ~70 s).
 

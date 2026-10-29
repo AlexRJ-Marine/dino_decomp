@@ -2029,3 +2029,20 @@ Updated: 2026-10-28
   the feature-status project row. The refactor queue is now empty; the
   largest bodies are `update_session` 434, `load_island` 386 and
   `apply_port_state` 321 (not queued).
+
+- MAINT-5 is done (`66feea9`, `305baf4`, `e5d50df`, `9c47094`):
+  `update_session` 434 -> 8 (update_menu_loading 94, update_park_world 52,
+  update_campaign_session 31 -> build_mission_state 187 +
+  finish_campaign_mission 76); `load_island` 386 -> 153
+  (upload_island_graphics 41, build_island_park 80, place_island_entrance 22,
+  compute_island_center 55, reset_island_camera 52); `apply_port_state` 321 ->
+  86 (apply_port_build_grid 17, apply_port_visitors 45, apply_port_buildings
+  33, apply_port_dinos 38, apply_port_paddocks 21,
+  apply_port_food_and_employees 80, resume_port_campaign 26); and
+  `load_campaign_park` 251 -> 57 (load_campaign_show_features 89,
+  load_campaign_employees 31, load_campaign_food 87). Every call order and
+  guard is unchanged; the only non-move edits are re-indentation and the food
+  helper recomputing `half = terrain.world_size * 0.5f` from its old outer
+  scope. Gates after each slice: `--selftest` 194, fast suite 397; final full
+  suite 512 in 3:48. The remaining >200-line methods are listed in TASKS.md
+  MAINT-5 (largest `place_building` 270, `boot_load_assets` 263).

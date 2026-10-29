@@ -51,11 +51,16 @@ See `notes/lanes.md`. Default split:
   `slow` marker: 41 headless CLI tests (validate, selftest, sav, *-info) run in
   `-Fast`, 106 window/screenshot tests stay opt-in. A guard now rejects a
   blanket marker and unmarked window tests. `--camera-selftest` stays slow
-  (it runs after `begin_frame()` and needs the window). Refactor queue is
-  empty; next-largest bodies are `update_session` 434, `load_island` 386,
-  `apply_port_state` 321 (not queued). **All other port work is paused** until
-  the code base is readable; `--selftest` 194 PASS, fast suite 397, full suite
-  511.
+  (it runs after `begin_frame()` and needs the window).
+- MAINT-5: **done.** The three long phase bodies are split:
+  `update_session` 434 -> 8 (`update_menu_loading`, `update_park_world`,
+  `update_campaign_session` -> `build_mission_state` + `finish_campaign_mission`),
+  `load_island` 386 -> 153, `apply_port_state` 321 -> 86, plus
+  `load_campaign_park` 251 -> 57. Call order and guards unchanged. Remaining
+  >200-line methods (largest `place_building` 270, `boot_load_assets` 263) are
+  listed in `TASKS.md` MAINT-5. **All other port work is paused** until the
+  code base is readable; `--selftest` 194 PASS, fast suite 397, full suite
+  512.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -155,13 +160,13 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-4 is **done**: `-Fast` keeps the module marker off, runs 41 headless
-   app tests and still finishes in ~68 s (397 passed / 115 deselected); the
-   window/screenshot tests stay `@pytest.mark.slow`, and
-   `tests/test_app_shell.py` guards the split. Refactor queue: **MAINT-5** is
-   queued (split `update_session` 434, `load_island` 386, `apply_port_state`
-   321 by the MAINT-2 verbatim method). Keep `--selftest` (194), the fast
-   suite (397) and the full suite (511) green.
+1. MAINT-4 is **done** (`-Fast` runs 41 headless app tests, guard in
+   `tests/test_app_shell.py`) and MAINT-5 is **done** (four long bodies split,
+   397 fast / 512 full). If readability work continues, pick from the
+   >200-line list in `TASKS.md` MAINT-5 (`place_building` 270,
+   `boot_load_assets` 263, `handle_park_mouse_down` 261,
+   `apply_build_tool_click` 250, `update_camera` 227). Keep `--selftest`
+   (194), the fast suite (397) and the full suite (512) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -188,6 +193,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-5: long bodies split - update_session 434->8 (menu/park/campaign, campaign state+completion), load_island 386->153, apply_port_state 321->86, load_campaign_park 251->57; call order unchanged; fast 397, full 512
 - 2026-10-29 - MAINT-4: fast gate covers the app - 41 headless CLI tests now run in `-Fast` (397 passed / 115 deselected, 68 s) while 106 window/screenshot tests stay `slow`; guard in tests/test_app_shell.py; full suite 511
 - 2026-10-29 - MAINT-2 complete: draw_menu 428->26, update_placement 638->43, handle_input 638->45, draw_park_hud 758->64 plus a 14-line family dispatcher; every move verbatim, HUD shots unchanged, full suite 511
 - 2026-10-29 - MAINT-3: regression guards for the app-shell split - scene-pixel centre check, phase-order/member-shadow/SDL-free static guard (tests/test_app_shell.py); review fixes (minimap_eye, draw_ui_mesh param, named phase helpers); fast suite 355

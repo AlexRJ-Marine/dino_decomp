@@ -11,15 +11,15 @@ few dozen lines with a name instead of a slice of a 10k-line function. See
 | File | Lines | Holds |
 | --- | ---: | --- |
 | `main.cpp` | 10 | entry point: `Game(argc, argv).run()` |
-| `game.h` | ~600 | the `Game` object: session state by subsystem, then the method map (boot phases, frame phases, one banner per domain file) |
-| `game.cpp` | ~1,400 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
+| `game.h` | ~670 | the `Game` object: session state by subsystem, then the method map (boot phases, frame phases, one banner per domain file) |
+| `game.cpp` | ~1,450 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
 | `game_boot.cpp` | ~1,140 | `boot()` itself and boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
 | `game_boot_park.cpp` | ~1,280 | boot phases 12–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
 | `game_input.cpp` | ~1,390 | `handle_input()`, `update_placement()`, `update_preview()` |
 | `game_ui.cpp` | ~1,420 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |
 | `game_menu.cpp` | ~430 | menu/campaign actions, options, video playback |
 | `game_show.cpp` | ~390 | show scoring, participants, show placement, attraction actions |
-| `game_park.cpp` | ~1,180 | island load, campaign park load, `PortState` save/load |
+| `game_park.cpp` | ~1,260 | island load, campaign park load, `PortState` save/load |
 | `game_build.cpp` | ~1,030 | buildings, fences, roads, store catalog, daily settlement |
 | `game_scene.cpp` | ~860 | vegetation, minimap, extra items, dinosaur import, paddock queries |
 | `cli.{h,cpp}` | 235 + 740 | `Options`, `parse_args`, config load/save, help text |
@@ -120,9 +120,10 @@ Rules:
   data helpers.
 - No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
 - A phase should fit on a screen or two. When one grows, split it — do not
-  let `boot()` or `run()` grow again. The four original long bodies are split
-  (MAINT-2); the remaining long phase bodies are `update_session` (434),
-  `load_island` (386) and `apply_port_state` (321), not queued.
+  let `boot()` or `run()` grow again. The four original long bodies and the
+  three long phase bodies are split (MAINT-2/MAINT-5); the largest remaining
+  methods are `place_building` (270) and `boot_load_assets` (263), tracked in
+  `TASKS.md` MAINT-5.
 - A function-body local must not share a name with a `Game` member: a local
   in `update_camera_view()` once hid `eye`/`view_center` and the scene went
   black. `tests/test_app_shell.py` enforces this.
