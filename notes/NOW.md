@@ -47,20 +47,16 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
-- MAINT-2: **done.** MAINT-1 is done:
-  `src/app/main.cpp` is 10 lines and `Game::run()` 35 (was 15,266 / 11,145);
-  one `src/app/game_*.cpp` per domain, 21 boot and 14 frame phases
-  (`docs/platform/app-shell.md`, naming in `docs/platform/naming.md`).
-  MAINT-3 guards are in `tests/test_app_shell.py` (phase order, no member
-  shadow, SDL-free layers) plus centre-scene pixels in the park shot.
-  `draw_menu` (428 -> 26), `update_placement` (638 -> 43), `handle_input`
-  (638 -> 45) and `draw_park_hud` (758 -> 64 plus a 14-line family
-  dispatcher) are split; every move was proven verbatim
-  (`notes/refactor-maint2-plan.md`). Current focus: **MAINT-4** (`-Fast`
-  still skips every app test). **All other port work is paused** until the
-  code base is readable; `--selftest` 194 PASS, fast suite 355, full suite
+- MAINT-4: **done.** `tests/test_app_cpp.py` no longer sets a module-wide
+  `slow` marker: 41 headless CLI tests (validate, selftest, sav, *-info) run in
+  `-Fast`, 106 window/screenshot tests stay opt-in. A guard now rejects a
+  blanket marker and unmarked window tests. `--camera-selftest` stays slow
+  (it runs after `begin_frame()` and needs the window). Refactor queue is
+  empty; next-largest bodies are `update_session` 434, `load_island` 386,
+  `apply_port_state` 321 (not queued). **All other port work is paused** until
+  the code base is readable; `--selftest` 194 PASS, fast suite 397, full suite
   511.
-- PLACE-1: **exact object placement (paused behind MAINT-2/4).** Road cursor now
+- PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
   quirk is disproven (retail +x/-x 100, +y 100, -y 190, all commit). Marcus's
@@ -159,12 +155,14 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-2 is **done**: `draw_menu` (428 -> 26 lines), `update_placement`
-   (638 -> 43), `handle_input` (638 -> 45) and `draw_park_hud` (758 -> 64
-   plus a 14-line family dispatcher), all verbatim moves
-   (`notes/refactor-maint2-plan.md`). Current focus: MAINT-4 (make `-Fast`
-   run the headless app tests, keep window/screenshot tests slow). Keep
-   `--selftest` (194), the fast suite (355) and the full suite (511) green.
+1. MAINT-4 is **done**: `-Fast` keeps the module marker off, runs 41 headless
+   app tests and still finishes in ~68 s (397 passed / 115 deselected); the
+   window/screenshot tests stay `@pytest.mark.slow`, and
+   `tests/test_app_shell.py` guards the split. Refactor queue is empty. If
+   readability work continues, the next bodies are `update_session` 434,
+   `load_island` 386 and `apply_port_state` 321 (not queued; queue as MAINT-5
+   first). Keep `--selftest` (194), the fast suite (397) and the full suite
+   (511) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -191,6 +189,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-4: fast gate covers the app - 41 headless CLI tests now run in `-Fast` (397 passed / 115 deselected, 68 s) while 106 window/screenshot tests stay `slow`; guard in tests/test_app_shell.py; full suite 511
 - 2026-10-29 - MAINT-2 complete: draw_menu 428->26, update_placement 638->43, handle_input 638->45, draw_park_hud 758->64 plus a 14-line family dispatcher; every move verbatim, HUD shots unchanged, full suite 511
 - 2026-10-29 - MAINT-3: regression guards for the app-shell split - scene-pixel centre check, phase-order/member-shadow/SDL-free static guard (tests/test_app_shell.py); review fixes (minimap_eye, draw_ui_mesh param, named phase helpers); fast suite 355
 - 2026-10-29 - MAINT-1: readable app shell + naming complete - main.cpp 10 lines, Game::run() 35, per-domain game_*.cpp, 21 boot / 14 frame phases; selftest 194 PASS, fast suite 350 passed

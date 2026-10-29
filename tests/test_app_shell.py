@@ -11,11 +11,13 @@ phase is a design change; it must update `docs/platform/app-shell.md` and this
 test, which is cheaper than silently dropping a call.
 """
 
+import ast
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "src" / "app"
+APP_TESTS = ROOT / "tests" / "test_app_cpp.py"
 
 FRAME_PHASES = [
     "handle_input",
@@ -127,6 +129,81 @@ def _game_members():
         if depth == 0:
             break
     return members
+
+
+def test_app_cpp_window_tests_are_marked_slow():
+    """The fast gate must cover the headless app CLI tests (MAINT-4).
+
+    `tests/test_app_cpp.py` launches the port; a window run needs a swap
+    chain and stays opt-in via `@pytest.mark.slow`. Headless modes
+    (`--selftest`, `--validate`, `--sav-*`, `--*-info`) return from
+    `boot()` before SDL starts and must stay unmarked so `-Fast` exercises
+    them. Module-level helpers are followed because `_ui_shot` and
+    `_vegetation_frame` run the window.
+    """
+    text = APP_TESTS.read_text(encoding="utf-8")
+    assert "pytestmark = pytest.mark.slow" not in text, (
+        "a module-wide slow marker deselects the headless app tests")
+    tree = ast.parse(text)
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, ast.FunctionDef)}
+    tests = [node for node in tree.body
+             if isinstance(node, ast.FunctionDef)
+             and node.name.startswith("test_")]
+    helpers = set(functions) - {node.name for node in tests}
+
+    def flags(node):
+        return {child.value for child in ast.walk(node)
+                if isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value.startswith("--")}
+
+    def reachable_flags(test):
+        found, pending = set(), [test.name]
+        while pending:
+            name = pending.pop()
+            body = functions[name]
+            found |= flags(body)
+            for child in ast.walk(body):
+                if (isinstance(child, ast.Call)
+                        and isinstance(child.func, ast.Name)
+                        and child.func.id in helpers):
+                    pending.append(child.func.id)
+        return found
+
+    window_flags = {"--screenshot", "--capture-dir", "--park-window-click",
+                    "--camera-selftest"}
+    unmarked_window = []
+    unmarked = []
+    for test in tests:
+        used = reachable_flags(test)
+        marked = any(
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "slow"
+            for decorator in test.decorator_list)
+        if marked:
+            continue
+        unmarked.append(test.name)
+        if used & window_flags:
+            unmarked_window.append(test.name)
+    assert not unmarked_window, (
+        "window tests missing @pytest.mark.slow: " + ", ".join(unmarked_window))
+    # Anchor headless tests: a blanket marker is what MAINT-4 removed.
+    anchors = [
+        "test_cpp_selftest",
+        "test_cpp_mesh_validate",
+        "test_cpp_skinned_validate",
+        "test_cpp_retail_menu_load",
+        "test_cpp_park_clock",
+        "test_cpp_sav_info",
+        "test_cpp_wld_reader_matches_retail",
+        "test_cpp_market_info",
+    ]
+    missing = [name for name in anchors if name not in unmarked]
+    assert not missing, (
+        "headless app tests are deselected by -Fast: " + ", ".join(missing))
+    assert len(unmarked) >= 30, (
+        f"only {len(unmarked)} app tests run in the fast gate")
 
 
 def test_main_is_only_the_entry_point():

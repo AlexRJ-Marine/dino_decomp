@@ -120,8 +120,9 @@ Rules:
   data helpers.
 - No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
 - A phase should fit on a screen or two. When one grows, split it — do not
-  let `boot()` or `run()` grow again. The known exceptions are tracked in
-  `TASKS.md` MAINT-2 (largest: `update_session`, 434 lines).
+  let `boot()` or `run()` grow again. The four original long bodies are split
+  (MAINT-2); the remaining long phase bodies are `update_session` (434),
+  `load_island` (386) and `apply_port_state` (321), not queued.
 - A function-body local must not share a name with a `Game` member: a local
   in `update_camera_view()` once hid `eye`/`view_center` and the scene went
   black. `tests/test_app_shell.py` enforces this.
@@ -131,15 +132,22 @@ Rules:
 ```powershell
 .\scripts\build.ps1 -BuildDir build\refactor
 .\build\refactor\dino_port.exe --selftest      # 194 checks
-.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 355 tests
+.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 397 tests
 ```
 
 `--selftest` covers the format readers, objectives and HUD math without a
-window; `--camera-selftest` asserts the retail camera equations; the fast suite
-covers the window, report and CLI paths. A change that only moves code must
-leave both unchanged. `tests/test_app_shell.py` is a static guard: it checks
-`main.cpp`, the 21 boot and 14 frame phase calls in order, and rejects a
-function-scope local that shadows a `Game` member.
+window; `--camera-selftest` asserts the retail camera equations. The fast
+suite runs every headless app CLI test (`--selftest`, `--validate`, `--sav-*`,
+`--*-info`) plus the format and static guards; window and screenshot tests are
+marked `@pytest.mark.slow` and stay opt-in. A change that only moves code must
+leave all of it unchanged.
+
+`tests/test_app_shell.py` is a static guard: it checks `main.cpp`, the 21 boot
+and 14 frame phase calls in order, rejects a function-scope local that shadows
+a `Game` member, and rejects a module-wide `slow` marker on
+`tests/test_app_cpp.py`. In that module a window run must stay `slow` and the
+headless anchor tests must stay unmarked, so `-Fast` keeps covering the app
+(MAINT-4).
 
 History: this file used to describe the single-file 2026 vertical-slice
 "viewer". The mesh/TGA/skinning notes it held now live in `docs/formats/`

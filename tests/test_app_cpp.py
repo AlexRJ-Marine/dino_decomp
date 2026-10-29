@@ -22,11 +22,12 @@ ALLO_ANIM = (GAME / "Data" / "Graphics" / "Actors" / "Dinos" / "animations"
              / "HeavyBiped" / "HeavyBiped_Armor.anim")
 ISL01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
 
-# Every test in this module launches the viewer; `scripts/test.ps1 -Fast`
-# skips them via `-m "not slow"`.
-pytestmark = pytest.mark.slow
+# Window and screenshot tests need a real swap chain and are slow; keep
+# them opt-in via `-m "not slow"`. The headless CLI tests (--selftest,
+# --validate, --sav-*, --*-info) run in the fast gate.
 
 
+@pytest.mark.slow
 def test_viewer_window_smoke(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -60,6 +61,7 @@ def test_cpp_mesh_validate():
     assert "texture" in result.stdout and "256x256 RGBA" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_mesh_window(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -138,6 +140,7 @@ def test_cpp_island_dino_validate():
     assert "(.mesh bind)" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_island_dino_window(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -168,6 +171,7 @@ def test_cpp_island_dino_window(tmp_path):
     assert foreground > 3000
 
 
+@pytest.mark.slow
 def test_cpp_free_camera_start(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -189,6 +193,7 @@ def test_cpp_free_camera_start(tmp_path):
     assert Image.open(shot).size == (400, 300)
 
 
+@pytest.mark.slow
 def test_cpp_camera_retail_progress_default():
     """The park camera defaults to the retail ctor state: p=0.1, yaw=0,
     target (0,0,terrain), r=39, h=52.7, pitch=53.5, no roll."""
@@ -211,6 +216,7 @@ def test_cpp_camera_retail_progress_default():
     assert "up=0,0,1" in result.stderr, result.stderr
 
 
+@pytest.mark.slow
 def test_cpp_camera_retail_selftest():
     """Exact 0x5e5ff0 equations: per-update pan, dt-scaled yaw/zoom, filters.
 
@@ -245,6 +251,7 @@ def test_cpp_camera_retail_selftest():
     assert "camera selftest zoom delta=-0.060430 p=0.039570" in out, out
 
 
+@pytest.mark.slow
 def test_cpp_camera_orbit_option_keeps_legacy_view():
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -338,6 +345,7 @@ def test_cpp_occupation_mask_blocks_placement():
     assert "1 fences" in fence.stdout
 
 
+@pytest.mark.slow
 def test_cpp_pick_terrain(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -379,6 +387,7 @@ def test_cpp_skinned_validate():
     assert "skin pose bounds" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_skinned_window(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -405,6 +414,7 @@ def test_cpp_skinned_window(tmp_path):
     assert foreground > 200
 
 
+@pytest.mark.slow
 def test_cpp_frame_capture(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -423,6 +433,7 @@ def test_cpp_frame_capture(tmp_path):
     assert Image.open(frames[0]).size == (200, 150)
 
 
+@pytest.mark.slow
 def test_cpp_config_persist(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -446,6 +457,7 @@ def test_cpp_config_persist(tmp_path):
     assert Image.open(second).size == (400, 300)
 
 
+@pytest.mark.slow
 def test_cpp_widescreen_and_4x3(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -516,6 +528,7 @@ def test_cpp_wav_validate():
     assert "0.100s" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_wav_window(tmp_path):
     wav = GAME / "Data" / "Sound" / "Actors" / "Dinos" / "avoidance.wav"
     if not EXE.exists():
@@ -566,6 +579,7 @@ def test_cpp_lnd_no_vegetation():
     assert "vegetation:" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_terrain_window(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -626,6 +640,7 @@ def _vegetation_frame(tmp_path, name, *extra):
     return tuple(int(v) for v in match.groups()), Image.open(shot).convert("RGB")
 
 
+@pytest.mark.slow
 def test_cpp_vegetation_sector_lod(tmp_path):
     """Retail gpkLandscape LOD: 15x15 sectors, LOD1 <= 200, LOD2 <= 400.
 
@@ -667,6 +682,7 @@ def test_cpp_vegetation_sector_lod(tmp_path):
     assert c1 > 0
 
 
+@pytest.mark.slow
 def test_cpp_vegetation_frustum_cull(tmp_path):
     """Port-only frustum test skips off-screen batches without changing pixels."""
     if not EXE.exists() or not ISL01.exists():
@@ -685,6 +701,7 @@ def test_cpp_vegetation_frustum_cull(tmp_path):
     assert max(diff.getextrema()) <= 8
 
 
+@pytest.mark.slow
 def test_cpp_skybox_follows_camera(tmp_path):
     """Retail 0x00600df0 centres the sky cube on the eye (no bottom/side seam).
 
@@ -723,6 +740,7 @@ def test_cpp_skybox_follows_camera(tmp_path):
     assert max(diff) < 2.0, diff
 
 
+@pytest.mark.slow
 def test_cpp_water_animation(tmp_path):
     """The two water layers scroll at the retail 0.03/0.01 UV/s rates."""
     if not EXE.exists() or not ISL01.exists():
@@ -753,6 +771,7 @@ def test_cpp_water_animation(tmp_path):
     assert mean_diff > 1.0, mean_diff
 
 
+@pytest.mark.slow
 def test_cpp_water_modulate2x(tmp_path):
     """WaterSurface stage 1 Modulate2x (coordinate set 1, second TGA)."""
     if not EXE.exists() or not ISL01.exists():
@@ -809,6 +828,7 @@ def test_cpp_visitors_validate():
     assert "visitors: 8" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_daily_settlement():
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -831,6 +851,7 @@ def test_cpp_daily_settlement():
     # ticket = round(entrance 50 * .bvi offset 0x34). Fixed spawn seed.
 
 
+@pytest.mark.slow
 def test_cpp_sim2b_visitor_state_machine(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -878,6 +899,7 @@ def test_cpp_selftest():
     assert result.returncode == 0, result.stdout + result.stderr
     assert "selftest: PASS (194 checks)" in result.stdout
 
+@pytest.mark.slow
 def test_cpp_hud(tmp_path):
     if not EXE.exists():
         pytest.skip("dino_port not built (run scripts/build.ps1)")
@@ -919,6 +941,7 @@ def _ui_shot(tmp_path, extra, size=(600, 400)):
     return Image.open(shot).convert("RGB")
 
 
+@pytest.mark.slow
 def test_cpp_start_menu(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -929,6 +952,7 @@ def test_cpp_start_menu(tmp_path):
     assert bright > 200
 
 
+@pytest.mark.slow
 def test_cpp_help_panel(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -986,6 +1010,7 @@ def test_cpp_retail_menu_clicks():
     assert "menu page=8 active=1" in start.stdout
 
 
+@pytest.mark.slow
 def test_cpp_free_game_entrance_road(tmp_path):
     """Free Game start lays the retail access road from the Entrance door.
 
@@ -1009,6 +1034,7 @@ def test_cpp_free_game_entrance_road(tmp_path):
     assert "entrance road: 524,392-524,452 path_cells=16" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_entrance_dock_and_road_render(tmp_path):
     """The dock chunks and the access road change the pixels at the shore."""
     if not EXE.exists() or not ISL01.exists():
@@ -1040,6 +1066,7 @@ def test_cpp_entrance_dock_and_road_render(tmp_path):
     assert box is not None and box[2] - box[0] > 100, box
 
 
+@pytest.mark.slow
 def test_cpp_road_network_retail_segments(tmp_path):
     """Road tool runs join into retail spRoadNetwork segments in the save.
 
@@ -1069,6 +1096,7 @@ def test_cpp_road_network_retail_segments(tmp_path):
                      ["432", "516", "460", "516"]], roads
 
 
+@pytest.mark.slow
 def test_cpp_terrain_detail_map(tmp_path):
     """Retail detailmap.ini: unlit basemap AddSigned the .lnd detail map.
 
@@ -1095,6 +1123,7 @@ def test_cpp_terrain_detail_map(tmp_path):
     assert detail_var > lit_var, (detail_var, lit_var)
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_loading_handoff(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1114,6 +1143,7 @@ def test_cpp_retail_menu_loading_handoff(tmp_path):
     assert not (r > 235 and g > 235 and b > 235)
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1134,6 +1164,7 @@ def test_cpp_retail_menu_shot(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_load_game_page(tmp_path):
     """LOAD_GAME_NAMES_LIST must list save slots and LOAD_LOAD_BUTTON load one.
 
@@ -1183,6 +1214,7 @@ def test_cpp_retail_menu_load_game_page(tmp_path):
             target.unlink()
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_cinematics_page(tmp_path):
     """CINEMATICS_LIST lists campaign ending videos; START plays the clip.
 
@@ -1264,6 +1296,7 @@ def test_cpp_mpg_cinematic_audio_probe():
     assert "audio=44100Hz streams=1" in result.stdout, result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_hover(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1281,6 +1314,7 @@ def test_cpp_retail_menu_hover(tmp_path):
     assert r < 30 and abs(g - 113) < 30 and abs(b - 149) < 30
 
 
+@pytest.mark.slow
 def test_cpp_retail_menu_free_rows(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1297,6 +1331,7 @@ def test_cpp_retail_menu_free_rows(tmp_path):
     r, g, b = image.getpixel((210, 220))
     assert r < 40 and g > 50 and b > 90
 
+@pytest.mark.slow
 def test_cpp_menu_options_page(tmp_path):
     """Options sliders/indications apply live and persist (retail 0x518c10..)."""
     if not EXE.exists():
@@ -1322,6 +1357,7 @@ def test_cpp_menu_options_page(tmp_path):
     assert "width=1024" in text and "height=768" in text
 
 
+@pytest.mark.slow
 def test_cpp_campaign_info_description_scroll(tmp_path):
     """The wrapped briefing is a real LIST viewport: the scrollbar moves it."""
     if not EXE.exists() or not (GAME / "Data/Overlay/MenuInterface.Ini").exists():
@@ -1355,6 +1391,7 @@ def test_cpp_campaign_info_description_scroll(tmp_path):
                                  second.crop(text_area)).getbbox() is not None
 
 
+@pytest.mark.slow
 def test_cpp_campaign_list_starts_unselected(tmp_path):
     """Retail campaigns page: no row selected, START disabled until a click.
 
@@ -1392,6 +1429,7 @@ def test_cpp_campaign_list_starts_unselected(tmp_path):
     assert plate(base) < 80 < plate(selected), (plate(base), plate(selected))
 
 
+@pytest.mark.slow
 def test_cpp_campaign_list_fits_has_no_scrollbar(tmp_path):
     """7 campaign rows fit the 8-row viewport: retail hides the VSCROLL.
 
@@ -1427,6 +1465,7 @@ def test_cpp_campaign_list_fits_has_no_scrollbar(tmp_path):
     assert red_pixels(shots["info"]) > 10
 
 
+@pytest.mark.slow
 def test_cpp_menu_text_metrics(tmp_path):
     """Menu text is point-sampled at retail's position.
 
@@ -1469,6 +1508,7 @@ def test_cpp_menu_text_metrics(tmp_path):
     assert title_rows and min(title_rows) == 69 and max(title_rows) == 80
 
 
+@pytest.mark.slow
 def test_cpp_park_quit_confirmation_and_menu(tmp_path):
     """In-park `&QuitGame` asks "quit and return to the menu?" then returns.
 
@@ -1553,6 +1593,7 @@ def test_cpp_park_hud_load():
     assert "park hud:" not in disabled.stdout
 
 
+@pytest.mark.slow
 def test_cpp_park_hud_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1623,6 +1664,7 @@ def test_cpp_park_panels():
     assert "park hud: loaded=1 widgets=2694 roots=38 visible=53" in log
 
 
+@pytest.mark.slow
 def test_cpp_park_window_clicks_1024():
     """Window-space clicks must match the HUD re-anchored to a 1024x768 window.
 
@@ -1644,6 +1686,7 @@ def test_cpp_park_window_clicks_1024():
     assert "park window click 981,214 -> open DINO_LAB_MAIN_CENTER" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_park_panel_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1685,6 +1728,7 @@ def test_cpp_park_panel_shot(tmp_path):
     assert sum(restored.mean) / 3.0 < 0.05
 
 
+@pytest.mark.slow
 def test_cpp_park_lab_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1710,6 +1754,7 @@ def test_cpp_park_lab_shot(tmp_path):
     assert a.crop((69, 569, 687, 600)).tobytes() != b.crop((69, 569, 687, 600)).tobytes()
 
 
+@pytest.mark.slow
 def test_cpp_park_hover_shot(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1772,6 +1817,7 @@ def _menu_start(shot, row, difficulty):
     )
 
 
+@pytest.mark.slow
 def test_cpp_menu_start_loads_selected_island(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1807,6 +1853,7 @@ def test_cpp_menu_start_loads_selected_island(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "island: isl08" in result.stdout
 
+@pytest.mark.slow
 def test_cpp_minimap_detail_view(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1840,6 +1887,7 @@ def test_cpp_minimap_detail_view(tmp_path):
     assert diff is not None
     assert (diff[2] - diff[0]) * (diff[3] - diff[1]) > 1000
 
+@pytest.mark.slow
 def test_cpp_park_hud_1024_anchor(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1922,6 +1970,7 @@ def test_cpp_pachy_lod2_mesh_bind():
     # The .skin full mesh is the crouched/bent-neck bind pose.
     assert float(match.group(1)) > 1.0
 
+@pytest.mark.slow
 def test_cpp_menu_start_with_dino(tmp_path):
     if not EXE.exists() or not (GAME / "Data/Graphics/Actors/Dinos/allo").exists():
         pytest.skip("viewer or retail data missing")
@@ -1948,6 +1997,7 @@ def test_cpp_menu_start_with_dino(tmp_path):
     stat = ImageStat.Stat(diff)
     assert sum(stat.mean) / 3 > 5.0
 
+@pytest.mark.slow
 def test_cpp_menu_sounds():
     if not EXE.exists() or not GAME.exists():
         pytest.skip("viewer or retail data missing")
@@ -1969,6 +2019,7 @@ def test_cpp_menu_sounds():
     assert played.returncode == 0, played.stderr
     assert "sound: " in played.stdout and "clic#3.wav" in played.stdout
 
+@pytest.mark.slow
 def test_cpp_park_music():
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -1983,6 +2034,7 @@ def test_cpp_park_music():
     assert "music: " in result.stdout
     assert "musEquateur.wav" in result.stdout
 
+@pytest.mark.slow
 def test_cpp_options_save_panel(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2018,6 +2070,7 @@ def test_cpp_options_save_panel(tmp_path):
     )
     assert yellow > 20
 
+@pytest.mark.slow
 def test_cpp_menu_and_island_music_switch():
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2034,6 +2087,7 @@ def test_cpp_menu_and_island_music_switch():
     assert "musEquateur.wav" in result.stdout
 
 @pytest.mark.parametrize("row", range(10))
+@pytest.mark.slow
 def test_cpp_menu_start_all_islands(tmp_path, row):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2073,6 +2127,7 @@ def test_cpp_menu_start_all_islands(tmp_path, row):
     assert "cell=" in entrance
     assert f"state={entrance_states[row]} angle={entrance_states[row] * 90}" in entrance
 
+@pytest.mark.slow
 def test_cpp_warning_dialog(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2114,6 +2169,7 @@ def test_cpp_warning_dialog(tmp_path):
     # Closing restores the scene.
     assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
 
+@pytest.mark.slow
 def test_cpp_building_bbi_place(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2222,6 +2278,7 @@ def test_cpp_wld_reads_save_world():
     assert ("building: kind=9 name=Entrance x=520 y=376 state=1 "
             "obj=1 linked=2 link=0 class=24") in result.stdout
 
+@pytest.mark.slow
 def test_cpp_building_placement_transform():
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2252,6 +2309,7 @@ def test_cpp_building_placement_transform():
     assert "entrance_lod1.mesh" in line
 
 
+@pytest.mark.slow
 def test_cpp_wld_places_all_buildings():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2301,6 +2359,7 @@ def _save_catalog_rows():
     return sorted(paths)
 
 
+@pytest.mark.slow
 def test_cpp_port_save_roundtrip(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2364,6 +2423,7 @@ def test_cpp_port_save_roundtrip(tmp_path):
     assert "needs=39.0/99.0/99.0" in load.stdout
 
 
+@pytest.mark.slow
 def test_cpp_port_save_dino_state(tmp_path):
     """UI-2 Phase D: imported dinosaurs round-trip with needs/action state."""
     if not EXE.exists():
@@ -2409,6 +2469,7 @@ def test_cpp_port_save_dino_state(tmp_path):
     assert "Sleep score=6360 needs=20/90/50/20" in load.stdout
 
 
+@pytest.mark.slow
 def test_cpp_port_save_danger_cache(tmp_path):
     """The danger-grid caches and their phenotype sources survive .psav."""
     if not EXE.exists():
@@ -2447,6 +2508,7 @@ def test_cpp_port_save_danger_cache(tmp_path):
     assert "threat=54 radius=7" in load.stdout
 
 
+@pytest.mark.slow
 def test_cpp_options_save_and_load_buttons(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2496,6 +2558,7 @@ def test_cpp_options_save_and_load_buttons(tmp_path):
         if target.exists():
             target.unlink()
 
+@pytest.mark.slow
 def test_cpp_request_dialog(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2535,6 +2598,7 @@ def test_cpp_request_dialog(tmp_path):
     assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
 
 
+@pytest.mark.slow
 def test_cpp_campaign_end_dialog(tmp_path):
     if not EXE.exists() or not ISL01.exists():
         pytest.skip("viewer or retail data missing")
@@ -2573,6 +2637,7 @@ def test_cpp_campaign_end_dialog(tmp_path):
     assert bright > 20
     assert sum(c.getpixel((50, 300))) == sum(a.getpixel((50, 300)))
 
+@pytest.mark.slow
 def test_cpp_wld_park_import(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2598,6 +2663,7 @@ def test_cpp_wld_park_import(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+@pytest.mark.slow
 def test_cpp_wld_park_dinosaurs(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2627,6 +2693,7 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 500
 
 
+@pytest.mark.slow
 def test_cpp_cpg04_phenotype_lengths():
     """Exact phenotype lengths from the live Cpg04 run (genotype -> part size).
 
@@ -2661,6 +2728,7 @@ def test_cpp_cpg04_phenotype_lengths():
     assert "paddocks: 9 capacity=492 used=336" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_cpg04_phenotype_attributes():
     """Computed phenotype attributes against the live Cpg04 ctor table.
 
@@ -2754,6 +2822,7 @@ def test_cpp_cpg04_phenotype_attributes():
     # not print them yet (the cache wiring will expose them through SECU).
 
 
+@pytest.mark.slow
 def test_cpp_dino_action_loop():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2800,6 +2869,7 @@ def test_cpp_dino_action_loop():
     assert all(" Exploration score=75 " in line for line in default)
 
 
+@pytest.mark.slow
 def test_cpp_danger_grid_secu():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2881,6 +2951,7 @@ def test_cpp_danger_grid_secu():
     assert all(int(row[8]) == 0 for row in zeroed[:20])
 
 
+@pytest.mark.slow
 def test_cpp_wld_park_no_import_dinos():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2900,6 +2971,7 @@ def test_cpp_wld_park_no_import_dinos():
     assert "dinos:" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_wld_park_import_single_road():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2919,6 +2991,7 @@ def test_cpp_wld_park_import_single_road():
     assert ("park import: roads=1 path_cells=16 fences=0 fence_edges=0"
             in result.stdout)
 
+@pytest.mark.slow
 def test_cpp_options_name_entry():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2945,6 +3018,7 @@ def test_cpp_options_name_entry():
         target.unlink(missing_ok=True)
 
 
+@pytest.mark.slow
 def test_cpp_construction_placement():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -2981,6 +3055,7 @@ def test_cpp_construction_placement():
             "(WARNING_NOT_ENOUGH_MONEY)") in poor.stdout
 
 
+@pytest.mark.slow
 def test_cpp_road_tool():
     """Retail ROAD_CONSTRUCTION through the Infrastructure panel on isl01.
 
@@ -3025,6 +3100,7 @@ def test_cpp_road_tool():
     assert "road: built" not in poor.stdout
 
 
+@pytest.mark.slow
 def test_cpp_road_tool_menu_started_park():
     """Menu -> free game -> Infrastructure -> Road -> ground clicks, driven
     through the live SDL event loop (--inject-click). Menu-started parks had
@@ -3049,6 +3125,7 @@ def test_cpp_road_tool_menu_started_park():
     assert "road: built " in out
 
 
+@pytest.mark.slow
 def test_cpp_enclosure_panel_arms_fence_tool():
     """OPEN_CONSTRUCTION_FENCE arms the tool; two ground clicks build a paddock."""
     if not EXE.exists() or not ISL01.exists():
@@ -3076,6 +3153,7 @@ def test_cpp_enclosure_panel_arms_fence_tool():
     assert match is not None and int(match.group(1)) > 0
 
 
+@pytest.mark.slow
 def test_cpp_enclosure_preview_inside_paddock_red():
     """A fence cursor inside an existing Cpg04 paddock previews red."""
     if not EXE.exists():
@@ -3102,6 +3180,7 @@ def test_cpp_enclosure_preview_inside_paddock_red():
     assert "fence: built rect " not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_fence_selected_wall_pulse(tmp_path):
     """Esc leaves the fence state (retail +0x1c/+0x08); clicking the paddock
     then selects it and the `Dino_SelectedWall` pass doubles the fence body.
@@ -3157,6 +3236,7 @@ def test_cpp_fence_selected_wall_pulse(tmp_path):
     assert "paddock: deselected (Esc)" in deselect.stdout
 
 
+@pytest.mark.slow
 def test_cpp_escape_default_and_options(tmp_path):
     """Retail Esc: no-op in the default park, does not close the construction
     strip, and closes OPTIONS_PANEL. PauseGame is P, not Esc.
@@ -3206,6 +3286,7 @@ def test_cpp_escape_default_and_options(tmp_path):
     assert "options: closed (Esc)" in options.stdout
 
 
+@pytest.mark.slow
 def test_cpp_fence_info_panel():
     """Selecting an enclosure opens FENCE_CONSTRUCTION_AND_INFO_PANEL and
     fills the stFence::GetStats snapshot: name, dino count, fill % and the
@@ -3230,6 +3311,7 @@ def test_cpp_fence_info_panel():
             "carn=100% herb=100%") in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_fence_sell_empty():
     """HUD Sell -> click enclosure -> REQUEST -> validate credits the
     stFence::GetSellValue refund (build 2130 -> sell 1890) and removes the
@@ -3258,6 +3340,7 @@ def test_cpp_fence_sell_empty():
     assert "build: 0 path cells, 0 fences" in out
 
 
+@pytest.mark.slow
 def test_cpp_fence_sell_refuses_occupied():
     """A paddock with dinosaurs cannot be sold; retail shows
     &WARNING_SELLING_NON_EMPTY_FENCE and keeps the fence and budget."""
@@ -3287,6 +3370,7 @@ def test_cpp_fence_sell_refuses_occupied():
     assert "sell: sold" not in out
 
 
+@pytest.mark.slow
 def test_cpp_escape_clears_fence_template(tmp_path):
     """Esc after the first enclosure corner hides the mode-2 blue dot grid."""
     if not EXE.exists() or not ISL01.exists():
@@ -3320,6 +3404,7 @@ def test_cpp_escape_clears_fence_template(tmp_path):
     assert blue_dots(after_path) == 0
 
 
+@pytest.mark.slow
 def test_cpp_campaign_enclosure_ground_loaded():
     """Loaded campaign paddocks get their gatAttraction floor immediately,
     without waiting for a new build (the rebuild ran before `paddocks`)."""
@@ -3340,6 +3425,7 @@ def test_cpp_campaign_enclosure_ground_loaded():
     assert "ground: 9 paddocks, 36 verts" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_road_preview_tint(tmp_path):
     """The pending run draws focus/road.tga boxes tinted by gscMaterialBank
     (0x600550): blue when buildable, red when not (here: unaffordable).
@@ -3387,6 +3473,7 @@ def test_cpp_road_preview_tint(tmp_path):
             assert dominant[1:] == (64, 64) and dominant[0] > 120, dominant
 
 
+@pytest.mark.slow
 def test_cpp_road_panel_buttons_visible(tmp_path):
     """CONSTRUC_ROAD_BUTTON has no PRIORITY/ZPRIORITY; it must inherit the
     panel's and draw over the P=10 weave panels declared before it."""
@@ -3411,6 +3498,7 @@ def test_cpp_road_panel_buttons_visible(tmp_path):
     assert frame > 40 and sky > 15
 
 
+@pytest.mark.slow
 def test_cpp_sav_park_import(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -3440,6 +3528,7 @@ def test_cpp_sav_park_import(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 300
 
 
+@pytest.mark.slow
 def test_cpp_sav_park_auto_camera(tmp_path):
     """The saved camera tail is applied for a non-default view."""
     if not EXE.exists():
@@ -3460,6 +3549,7 @@ def test_cpp_sav_park_auto_camera(tmp_path):
             "50.00") in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_sav_ticket_value():
     # The manual save's two visitors are drsVisitor profiles 6 (Scientist,
     # 1.5 -> 75) and 9 (Kid, 1.0 -> 50); the stored ticket pair is 125/2.
@@ -3536,6 +3626,7 @@ def test_cpp_market_info():
     assert ("first=Allosaurus 9000 allo.gen "
             "last=Zarbosaurus 4900 zarbo.gen") in result.stdout
 
+@pytest.mark.slow
 def test_cpp_buy_dino():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -3590,6 +3681,7 @@ def test_cpp_freegame_store():
     assert ("first=Allosaurus 9000 allo.gen "
             "last=Velociraptor 15000 velo.gen") in result.stdout
 
+@pytest.mark.slow
 def test_cpp_sav_budget_rows(tmp_path):
     """The budget panel imports the save's yesterday block (0x510430)."""
     if not EXE.exists() or not ISL01.exists():
@@ -3658,6 +3750,7 @@ def test_cpp_sav_budget_rows(tmp_path):
     assert diff.getbbox() is not None
 
 
+@pytest.mark.slow
 def test_cpp_budget_panel_ledger(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -3706,6 +3799,7 @@ def test_cpp_budget_panel_ledger(tmp_path):
         diff = ImageChops.difference(a.crop(box), b.crop(box))
         assert diff.getbbox() is not None
 
+@pytest.mark.slow
 def test_cpp_park_fence_and_dino_lists(tmp_path):
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -3743,6 +3837,7 @@ def test_cpp_park_fence_and_dino_lists(tmp_path):
     assert len(image.crop((176, 541, 240, 557)).getcolors(maxcolors=100000)) > 20
 
 
+@pytest.mark.slow
 def test_cpp_store_panel_purchase():
     """Store row select -> SAVE -> paddock click charges and updates the row."""
     if not EXE.exists():
@@ -3775,6 +3870,7 @@ def test_cpp_store_panel_purchase():
             "dinos=21 dinoachat=1/9000 used=32 total=368") in log
 
 
+@pytest.mark.slow
 def test_cpp_store_attribute_gauges(tmp_path):
     """Selecting a store row fills the eleven attribute gauges and numbers."""
     if not EXE.exists():
@@ -3814,6 +3910,7 @@ def test_cpp_store_attribute_gauges(tmp_path):
     assert shot.exists() and shot.stat().st_size > 0
 
 
+@pytest.mark.slow
 def test_cpp_store_3d_preview(tmp_path):
     """The store well renders the selected Market.ini dinosaur in 3D."""
     if not EXE.exists():
@@ -3846,6 +3943,7 @@ def test_cpp_store_3d_preview(tmp_path):
     assert bright > 500, bright
 
 
+@pytest.mark.slow
 def test_cpp_store_panel_no_money():
     if not EXE.exists():
         pytest.skip("viewer not built")
@@ -3869,6 +3967,7 @@ def test_cpp_store_panel_no_money():
     assert "store: bought" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_store_message_keeps_panel(tmp_path):
     """A failed purchase uses the retail MESSAGE_PANEL toast, not a modal
     warning: the text appears in the top-left yellow message panel and the
@@ -3920,6 +4019,7 @@ def test_cpp_store_message_keeps_panel(tmp_path):
     assert yellow > 40, yellow
 
 
+@pytest.mark.slow
 def test_cpp_store_catalog_mission(tmp_path):
     """Campaign missions use their effective [DINOSTORE] block (own or
     inherited from MissionBase.ini), not Market.ini."""
@@ -3974,6 +4074,7 @@ def test_cpp_store_catalog_mission(tmp_path):
     assert progress.exists()
 
 
+@pytest.mark.slow
 def test_cpp_store_catalog_freegame(tmp_path):
     """Free game uses FreeGame.ini's 20-entry [DINOSTORE] subset."""
     if not EXE.exists() or not ISL01.exists():
@@ -3992,6 +4093,7 @@ def test_cpp_store_catalog_freegame(tmp_path):
     assert "start: island=isl01 difficulty=0 budget=75000" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_store_panel_scroll():
     """Scrollbar strip scrolls the six-row viewport before selecting."""
     if not EXE.exists():
@@ -4051,6 +4153,7 @@ def test_cpp_food_info():
         assert (GAME / feeder).exists(), feeder
 
 
+@pytest.mark.slow
 def test_cpp_food_feeding():
     """A placed .bsi source gates Eat by paddock and diet, then depletes."""
     if not EXE.exists():
@@ -4114,6 +4217,7 @@ def test_cpp_employee_info():
     assert "employee profiles: 2" in log
 
 
+@pytest.mark.slow
 def test_cpp_employee_feeding_and_wages():
     """A nutritionist feeds the placed source; wages hit the daily settlement."""
     if not EXE.exists():
@@ -4143,6 +4247,7 @@ def test_cpp_employee_feeding_and_wages():
             "wages=1000 budget=73000") in log
 
 
+@pytest.mark.slow
 def test_cpp_employee_save_roundtrip(tmp_path):
     """Hired Nutritionists are written to DINOPSAV and restored on load."""
     if not EXE.exists():
@@ -4201,6 +4306,7 @@ def test_cpp_show_info():
     assert "show team: cage=0 team=1" in single.stdout
 
 
+@pytest.mark.slow
 def test_cpp_port_save_paddocks_food(tmp_path):
     """Paddock capacity/occupancy and placed food survive a .psav round-trip."""
     if not EXE.exists():

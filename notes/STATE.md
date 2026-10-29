@@ -2010,3 +2010,22 @@ Updated: 2026-10-28
   helper gates on the button, so a button is named once. Every body was
   proven verbatim against HEAD; only `continue` -> `return` inside a handler
   and one branch-header continuation re-indent changed. Fast suite 355.
+
+- MAINT-4 is done: `tests/test_app_cpp.py` no longer sets a module-wide
+  `pytestmark`; 41 headless app tests now run in `-Fast` (396 before the new
+  guard), while 106 window/screenshot tests keep `@pytest.mark.slow`. The
+  classifier (`notes/harness/maint4_mark_slow.py`) follows module helpers and
+  resolves list/`+` command lines; a command stays fast only when it carries
+  an early-exit report flag (`--selftest`, `--validate`, `--sav-*`, `--*-info`,
+  `--dino-actions`, `--video-info`, `--list-*`), because those return from
+  `boot_command_line`/`boot_print_modes` before `boot_platform`. Negative
+  result: `--camera-selftest` needs the window (it runs after `begin_frame()`),
+  so it stays slow. Guard:
+  `tests/test_app_shell.py::test_app_cpp_window_tests_are_marked_slow` rejects
+  a module-wide marker, fails on an unmarked window-flag test, pins eight
+  headless anchors as unmarked and requires >= 30 fast app tests. Gates:
+  `verify.ps1 -Fast` 397 passed / 115 deselected in 68 s (was 355/156), full
+  suite 511 in 3:52, `--selftest` 194 PASS. Docs: app-shell verification and
+  the feature-status project row. The refactor queue is now empty; the
+  largest bodies are `update_session` 434, `load_island` 386 and
+  `apply_port_state` 321 (not queued).

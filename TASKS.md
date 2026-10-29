@@ -2049,12 +2049,27 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** MAINT-1.
 
 ### MAINT-4: Make the fast gate cover the app
-- [ ] `tests/test_app_cpp.py` marks the whole module `slow`, so
+- [x] `tests/test_app_cpp.py` marks the whole module `slow`, so
   `scripts/verify.ps1 -Fast` deselects every app test, including the
   headless `--selftest`, `--validate`, `--sav-*` and `--camera-selftest`
   cases. Mark only the window/screenshot/vsync tests slow.
+  - Done: the module marker is gone. A per-command classification keeps the
+    headless report modes fast (`--selftest`, `--validate`, `--sav-*`,
+    `--*-info`, `--dino-actions`, `--video-info`, `--list-*`), because
+    `run_cli_reports`/`boot_command_line`/`boot_print_modes` return before
+    `boot_platform`. Window flags (`--screenshot`, `--capture-dir`,
+    `--park-window-click`, `--camera-selftest`) and bare `--frames` runs are
+    `slow`. 41 tests run in the fast gate, 106 stay opt-in.
+  - Negative result: `--camera-selftest` cannot move to the fast gate — it
+    runs inside `Game::run()` after `begin_frame()`, so it needs the window.
 - **Acceptance:** `scripts/verify.ps1 -Fast` runs the headless app tests and
   still finishes in the low minutes; window tests stay opt-in.
+  - Met: `verify.ps1 -Fast` 397 passed / 115 deselected in 68 s; full suite
+    511 passed in 3:52.
+- **Evidence:** `tests/test_app_cpp.py` (per-test markers),
+  `tests/test_app_shell.py::test_app_cpp_window_tests_are_marked_slow`,
+  `docs/platform/app-shell.md` (verification), `docs/platform/feature-status.md`
+  (project row), `notes/harness/maint4-fast.log`, `notes/harness/maint4-full.log`.
 - **Depends on:** MAINT-1.
 
 ## Phase 4 — remove the original exe
