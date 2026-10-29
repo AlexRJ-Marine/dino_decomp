@@ -2144,3 +2144,13 @@ Updated: 2026-10-28
   `game.h` 671 lines. Gates: selftest 194, fast 379, full 521 in 4:37 (show
   scoring, campaign, HUD). Next ARCH-2 slices: dinos and buildings, then
   `ParkSession::update`.
+
+- ARCH-2 sixth slice (`e9d8751`): `ParkSession` now owns
+  `building_instances`, `building_defs`, `entrance_cell_x/y`,
+  `entrance_road` and `building_center`. The code-only replacement preserved
+  the `opt.entrance_road` option and the WldWorld import paths; the defaults
+  match `clear_buildings()`'s sentinels. Ratchet 272 -> 266 members,
+  `game.h` 665 lines. Gates: selftest 194, fast 379, full 521 in 4:37
+  (buildings, roads, save/load, campaign). ARCH-2 has one subsystem left
+  (dinos; move `ImportedDino`/tables to world first), then
+  `ParkSession::update`.
