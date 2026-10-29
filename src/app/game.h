@@ -504,6 +504,7 @@ private:
     void apply_injected_input();
     void handle_menu_input(const SDL_Event& event);
     void handle_key_input(const SDL_Event& event);
+    void handle_park_mouse_down(const SDL_Event& event);
 
     // --- UI drawing (game_ui.cpp) --------------------------------------
     UiTexture* ui_texture(const std::string& filename);

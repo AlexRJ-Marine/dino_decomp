@@ -281,6 +281,268 @@ void Game::handle_key_input(const SDL_Event& event) {
     }
 }
 
+void Game::handle_park_mouse_down(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+        event.button.button == SDL_BUTTON_LEFT) {
+        if (park.loaded()) {
+            int dx = 0, dy = 0;
+            park_design(event.button.x, event.button.y, dx, dy);
+            if (!park_hover_forced) {
+                park_hover_x = dx;
+                park_hover_y = dy;
+            }
+            const int hit = park.overlay.hit_test(dx, dy);
+            std::string action;
+            if (park.click(dx, dy, action)) {
+                if (park.return_to_menu_requested()) {
+                    park.clear_return_to_menu_request();
+                    activate_main_menu();
+                }
+                if (hit >= 0) {
+                    park_active_index = hit;
+                }
+                if (action.empty() && std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+                    std::printf("park click %d,%d -> consumed by %s\n", dx, dy,
+                                hit >= 0 ? park.overlay.widgets[static_cast<std::size_t>(hit)]
+                                               .name.c_str()
+                                         : "?");
+                }
+                ui_click_consumed = true;
+                // Clicking the construction panel's background/close
+                // (consumed with no widget action) leaves the retail
+                // FENCE_CONSTRUCTION state, so the next ground click
+                // can select an enclosure.
+                if (hit < 0 && action.empty() && build_tool == 6) {
+                    build_tool = 0;
+                    fence_corner_x = -1;
+                    fence_corner_y = -1;
+                    pending_construct_kind = -1;
+                    std::printf("fence: tool off (panel close)\n");
+                }
+                if (action == "minimap zoom in") {
+                    minimap_zoom_in = true;
+                } else if (action == "minimap zoom out") {
+                    minimap_zoom_out = true;
+                } else if (action == "camera pan forward") {
+                    nav_pan_forward = true;
+                } else if (action == "camera pan back") {
+                    nav_pan_back = true;
+                } else if (action == "camera pan left") {
+                    nav_pan_left = true;
+                } else if (action == "camera pan right") {
+                    nav_pan_right = true;
+                } else if (action == "camera turn left") {
+                    nav_turn_left = true;
+                } else if (action == "camera turn right") {
+                    nav_turn_right = true;
+                } else if (action == "camera zoom in") {
+                    nav_zoom_in = true;
+                } else if (action == "camera zoom out") {
+                    nav_zoom_out = true;
+                } else if (action == "save port" ||
+                           action == "load port") {
+                    const std::string path =
+                        port_save_target(action == "load port");
+                    if (action == "save port") {
+                        do_port_save(path);
+                    } else {
+                        do_port_load(path);
+                    }
+                    park.overlay.set_visible("OPTIONS_PANEL", false);
+                } else if (action == "close campaign end") {
+                    advance_campaign();
+                } else if (action.rfind("close ", 0) == 0) {
+                    // Leaving a construction/info panel deactivates
+                    // its placement tool (retail's info-panel
+                    // controller state deactivation). The openers
+                    // toggle, so the same icon that armed the tool
+                    // closes the panel and frees the next click.
+                    const std::string panel = action.substr(6);
+                    if (panel ==
+                        "FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                        if (build_tool == 6) {
+                            build_tool = 0;
+                            fence_corner_x = -1;
+                            fence_corner_y = -1;
+                            pending_construct_kind = -1;
+                            std::printf(
+                                "fence: tool off (panel closed)\n");
+                        }
+                    } else if (
+                        panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
+                        panel == "CONSTRUCTION_PANEL") {
+                        if (build_tool == 3) {
+                            build_tool = 0;
+                            pending_construct_kind = -1;
+                            std::printf(
+                                "construction: tool off (panel "
+                                "closed)\n");
+                        }
+                    } else if (
+                        panel == "CONSTRUCTION_ROAD_METRO_PANEL") {
+                        if (build_tool == 4) {
+                            build_tool = 0;
+                            road_has_start = false;
+                            std::printf(
+                                "road: tool off (panel closed)\n");
+                        }
+                    } else if (
+                        panel == "PREDEFINED_SHOW_PANEL" ||
+                        panel == "CONSTRUCTION_KIT_PANEL") {
+                        if (build_tool == 5) {
+                            build_tool = 0;
+                            pending_show_index = -1;
+                            std::printf(
+                                "show: tool off (panel closed)\n");
+                        }
+                    } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
+                        pending_store_index = -1;
+                    }
+                } else if (action == "sell mode") {
+                    // HUD Sell switch (`OPEN_SELLING`, state 0x14):
+                    // arm the shared object-sell state.
+                    pending_sell_mode = true;
+                    if (park_sell_mode) {
+                        // Toggling the switch leaves the state.
+                        park_sell_mode = false;
+                        park_sell_paddock = -1;
+                        if (park.dialog_open()) {
+                            park.close_dialog();
+                        }
+                        std::printf("sell: mode off\n");
+                        pending_sell_mode = false;
+                    }
+                } else if (action == "accept request") {
+                    if (park_sell_paddock >= 0) {
+                        sell_paddock_now(park_sell_paddock);
+                    }
+                } else if (action == "cancel request") {
+                    if (park_sell_paddock >= 0) {
+                        park_sell_paddock = -1;
+                        std::printf("sell: cancelled\n");
+                    }
+                }
+                if (!action.empty()) {
+                    std::printf("park click %d,%d -> %s\n", dx, dy,
+                                action.c_str());
+                    const auto sound_it =
+                        menu_sound_files.find("clicDefault");
+                    if (sound_it != menu_sound_files.end()) {
+                        ui_sound.play(sound_it->second);
+                    }
+                    if (action.rfind("open DINO_LAB", 0) == 0 ||
+                        action.rfind("open LAB_", 0) == 0) {
+                        const auto lab_music =
+                            park_sound_files.find("musLabo");
+                        if (lab_music != park_sound_files.end()) {
+                            music.play(lab_music->second);
+                        }
+                    } else if (action == "close lab" &&
+                               !lnd.music.empty()) {
+                        const auto island_music =
+                            park_sound_files.find(lnd.music);
+                        if (island_music != park_sound_files.end()) {
+                            music.play(island_music->second);
+                        }
+                    }
+                    // A menu-started free game has no build grid yet;
+                    // every construction tool needs one for its
+                    // ground clicks.
+                    if (action.rfind("construct ", 0) == 0) {
+                        ensure_build_ready();
+                    }
+                    if (action ==
+                        "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
+                        // Retail arms the enclosure tool when the
+                        // Enclosure panel opens; the ground clicks
+                        // then add fence edges.
+                        ensure_build_ready();
+                        build_tool = 6;
+                        fence_corner_x = -1;
+                        fence_corner_y = -1;
+                        pending_construct_kind = -1;
+                        std::printf(
+                            "fence: tool armed (click two corners)\n");
+                    }
+                    if (action == "construct CONSTRUC_ROAD_BUTTON") {
+                        arm_road_tool();
+                    } else if (action.rfind("construct ", 0) == 0) {
+                        const std::string widget = action.substr(10);
+                        const int kind =
+                            construction_kind_for_widget(widget);
+                        if (kind < 0) {
+                            std::printf(
+                                "construction: no building for %s\n",
+                                widget.c_str());
+                        } else {
+                            const dino::BuildingDef& def =
+                                construction_defs[static_cast<
+                                    std::size_t>(kind)];
+                            if (park_budget <
+                                static_cast<int>(
+                                    def.construction_cost)) {
+                                std::printf(
+                                    "construction: %s needs %u, "
+                                    "budget %d "
+                                    "(WARNING_NOT_ENOUGH_MONEY)\n",
+                                    def.name.c_str(),
+                                    def.construction_cost,
+                                    park_budget);
+                            } else {
+                                build_tool = 3;
+                                pending_construct_kind = kind;
+                                std::printf(
+                                    "construction: %s selected, "
+                                    "cost=%u (click the ground)\n",
+                                    def.name.c_str(),
+                                    def.construction_cost);
+                            }
+                        }
+                    }
+                    if (action.rfind("store buy ", 0) == 0) {
+                        ensure_build_ready();  // paddock pick click
+                        handle_store_buy(
+                            std::atoi(action.c_str() + 10));
+                    } else if (action == "store no selection") {
+                        std::printf("store: no dinosaur selected\n");
+                    } else if (action.rfind("show place ", 0) == 0) {
+                        handle_show_place(
+                            std::atoi(action.c_str() + 11));
+                    } else if (action == "show no selection") {
+                        std::printf("show: no show selected\n");
+                    } else if (action.rfind("attraction ", 0) == 0) {
+                        handle_attraction_action(action);
+                    }
+                }
+                return;
+            }
+        }
+        dragging = true;
+        drag_distance = 0.0f;
+        last_mx = event.button.x;
+        last_my = event.button.y;
+    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+               event.button.button == SDL_BUTTON_RIGHT &&
+               build_tool == 0 && selected_paddock >= 0) {
+        // Retail leaves the selected-object state on a right click.
+        selected_paddock = -1;
+        std::printf("paddock: deselected\n");
+        rebuild_build_meshes();
+        refresh_fence_info_panel();
+    } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+               event.button.button == SDL_BUTTON_RIGHT &&
+               build_tool == 4) {
+        // 0x52ed6a: cancel the run in progress, else disarm the tool.
+        if (road_has_start) {
+            road_has_start = false;
+            std::printf("road: segment cancelled\n");
+        } else {
+            build_tool = 0;
+            std::printf("road: tool off\n");
+        }
+    }
+}
+
 void Game::handle_input() {
     sync_park_layout();
     apply_injected_input();
@@ -306,263 +568,9 @@ void Game::handle_input() {
         } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
             handle_key_input(event);
         } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                   event.button.button == SDL_BUTTON_LEFT) {
-            if (park.loaded()) {
-                int dx = 0, dy = 0;
-                park_design(event.button.x, event.button.y, dx, dy);
-                if (!park_hover_forced) {
-                    park_hover_x = dx;
-                    park_hover_y = dy;
-                }
-                const int hit = park.overlay.hit_test(dx, dy);
-                std::string action;
-                if (park.click(dx, dy, action)) {
-                    if (park.return_to_menu_requested()) {
-                        park.clear_return_to_menu_request();
-                        activate_main_menu();
-                    }
-                    if (hit >= 0) {
-                        park_active_index = hit;
-                    }
-                    if (action.empty() && std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                        std::printf("park click %d,%d -> consumed by %s\n", dx, dy,
-                                    hit >= 0 ? park.overlay.widgets[static_cast<std::size_t>(hit)]
-                                                   .name.c_str()
-                                             : "?");
-                    }
-                    ui_click_consumed = true;
-                    // Clicking the construction panel's background/close
-                    // (consumed with no widget action) leaves the retail
-                    // FENCE_CONSTRUCTION state, so the next ground click
-                    // can select an enclosure.
-                    if (hit < 0 && action.empty() && build_tool == 6) {
-                        build_tool = 0;
-                        fence_corner_x = -1;
-                        fence_corner_y = -1;
-                        pending_construct_kind = -1;
-                        std::printf("fence: tool off (panel close)\n");
-                    }
-                    if (action == "minimap zoom in") {
-                        minimap_zoom_in = true;
-                    } else if (action == "minimap zoom out") {
-                        minimap_zoom_out = true;
-                    } else if (action == "camera pan forward") {
-                        nav_pan_forward = true;
-                    } else if (action == "camera pan back") {
-                        nav_pan_back = true;
-                    } else if (action == "camera pan left") {
-                        nav_pan_left = true;
-                    } else if (action == "camera pan right") {
-                        nav_pan_right = true;
-                    } else if (action == "camera turn left") {
-                        nav_turn_left = true;
-                    } else if (action == "camera turn right") {
-                        nav_turn_right = true;
-                    } else if (action == "camera zoom in") {
-                        nav_zoom_in = true;
-                    } else if (action == "camera zoom out") {
-                        nav_zoom_out = true;
-                    } else if (action == "save port" ||
-                               action == "load port") {
-                        const std::string path =
-                            port_save_target(action == "load port");
-                        if (action == "save port") {
-                            do_port_save(path);
-                        } else {
-                            do_port_load(path);
-                        }
-                        park.overlay.set_visible("OPTIONS_PANEL", false);
-                    } else if (action == "close campaign end") {
-                        advance_campaign();
-                    } else if (action.rfind("close ", 0) == 0) {
-                        // Leaving a construction/info panel deactivates
-                        // its placement tool (retail's info-panel
-                        // controller state deactivation). The openers
-                        // toggle, so the same icon that armed the tool
-                        // closes the panel and frees the next click.
-                        const std::string panel = action.substr(6);
-                        if (panel ==
-                            "FENCE_CONSTRUCTION_AND_INFO_PANEL") {
-                            if (build_tool == 6) {
-                                build_tool = 0;
-                                fence_corner_x = -1;
-                                fence_corner_y = -1;
-                                pending_construct_kind = -1;
-                                std::printf(
-                                    "fence: tool off (panel closed)\n");
-                            }
-                        } else if (
-                            panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
-                            panel == "CONSTRUCTION_PANEL") {
-                            if (build_tool == 3) {
-                                build_tool = 0;
-                                pending_construct_kind = -1;
-                                std::printf(
-                                    "construction: tool off (panel "
-                                    "closed)\n");
-                            }
-                        } else if (
-                            panel == "CONSTRUCTION_ROAD_METRO_PANEL") {
-                            if (build_tool == 4) {
-                                build_tool = 0;
-                                road_has_start = false;
-                                std::printf(
-                                    "road: tool off (panel closed)\n");
-                            }
-                        } else if (
-                            panel == "PREDEFINED_SHOW_PANEL" ||
-                            panel == "CONSTRUCTION_KIT_PANEL") {
-                            if (build_tool == 5) {
-                                build_tool = 0;
-                                pending_show_index = -1;
-                                std::printf(
-                                    "show: tool off (panel closed)\n");
-                            }
-                        } else if (panel == "DINO_ACHAT_SAVE_PANEL") {
-                            pending_store_index = -1;
-                        }
-                    } else if (action == "sell mode") {
-                        // HUD Sell switch (`OPEN_SELLING`, state 0x14):
-                        // arm the shared object-sell state.
-                        pending_sell_mode = true;
-                        if (park_sell_mode) {
-                            // Toggling the switch leaves the state.
-                            park_sell_mode = false;
-                            park_sell_paddock = -1;
-                            if (park.dialog_open()) {
-                                park.close_dialog();
-                            }
-                            std::printf("sell: mode off\n");
-                            pending_sell_mode = false;
-                        }
-                    } else if (action == "accept request") {
-                        if (park_sell_paddock >= 0) {
-                            sell_paddock_now(park_sell_paddock);
-                        }
-                    } else if (action == "cancel request") {
-                        if (park_sell_paddock >= 0) {
-                            park_sell_paddock = -1;
-                            std::printf("sell: cancelled\n");
-                        }
-                    }
-                    if (!action.empty()) {
-                        std::printf("park click %d,%d -> %s\n", dx, dy,
-                                    action.c_str());
-                        const auto sound_it =
-                            menu_sound_files.find("clicDefault");
-                        if (sound_it != menu_sound_files.end()) {
-                            ui_sound.play(sound_it->second);
-                        }
-                        if (action.rfind("open DINO_LAB", 0) == 0 ||
-                            action.rfind("open LAB_", 0) == 0) {
-                            const auto lab_music =
-                                park_sound_files.find("musLabo");
-                            if (lab_music != park_sound_files.end()) {
-                                music.play(lab_music->second);
-                            }
-                        } else if (action == "close lab" &&
-                                   !lnd.music.empty()) {
-                            const auto island_music =
-                                park_sound_files.find(lnd.music);
-                            if (island_music != park_sound_files.end()) {
-                                music.play(island_music->second);
-                            }
-                        }
-                        // A menu-started free game has no build grid yet;
-                        // every construction tool needs one for its
-                        // ground clicks.
-                        if (action.rfind("construct ", 0) == 0) {
-                            ensure_build_ready();
-                        }
-                        if (action ==
-                            "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
-                            // Retail arms the enclosure tool when the
-                            // Enclosure panel opens; the ground clicks
-                            // then add fence edges.
-                            ensure_build_ready();
-                            build_tool = 6;
-                            fence_corner_x = -1;
-                            fence_corner_y = -1;
-                            pending_construct_kind = -1;
-                            std::printf(
-                                "fence: tool armed (click two corners)\n");
-                        }
-                        if (action == "construct CONSTRUC_ROAD_BUTTON") {
-                            arm_road_tool();
-                        } else if (action.rfind("construct ", 0) == 0) {
-                            const std::string widget = action.substr(10);
-                            const int kind =
-                                construction_kind_for_widget(widget);
-                            if (kind < 0) {
-                                std::printf(
-                                    "construction: no building for %s\n",
-                                    widget.c_str());
-                            } else {
-                                const dino::BuildingDef& def =
-                                    construction_defs[static_cast<
-                                        std::size_t>(kind)];
-                                if (park_budget <
-                                    static_cast<int>(
-                                        def.construction_cost)) {
-                                    std::printf(
-                                        "construction: %s needs %u, "
-                                        "budget %d "
-                                        "(WARNING_NOT_ENOUGH_MONEY)\n",
-                                        def.name.c_str(),
-                                        def.construction_cost,
-                                        park_budget);
-                                } else {
-                                    build_tool = 3;
-                                    pending_construct_kind = kind;
-                                    std::printf(
-                                        "construction: %s selected, "
-                                        "cost=%u (click the ground)\n",
-                                        def.name.c_str(),
-                                        def.construction_cost);
-                                }
-                            }
-                        }
-                        if (action.rfind("store buy ", 0) == 0) {
-                            ensure_build_ready();  // paddock pick click
-                            handle_store_buy(
-                                std::atoi(action.c_str() + 10));
-                        } else if (action == "store no selection") {
-                            std::printf("store: no dinosaur selected\n");
-                        } else if (action.rfind("show place ", 0) == 0) {
-                            handle_show_place(
-                                std::atoi(action.c_str() + 11));
-                        } else if (action == "show no selection") {
-                            std::printf("show: no show selected\n");
-                        } else if (action.rfind("attraction ", 0) == 0) {
-                            handle_attraction_action(action);
-                        }
-                    }
-                    continue;
-                }
-            }
-            dragging = true;
-            drag_distance = 0.0f;
-            last_mx = event.button.x;
-            last_my = event.button.y;
-        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                   event.button.button == SDL_BUTTON_RIGHT &&
-                   build_tool == 0 && selected_paddock >= 0) {
-            // Retail leaves the selected-object state on a right click.
-            selected_paddock = -1;
-            std::printf("paddock: deselected\n");
-            rebuild_build_meshes();
-            refresh_fence_info_panel();
-        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                   event.button.button == SDL_BUTTON_RIGHT &&
-                   build_tool == 4) {
-            // 0x52ed6a: cancel the run in progress, else disarm the tool.
-            if (road_has_start) {
-                road_has_start = false;
-                std::printf("road: segment cancelled\n");
-            } else {
-                build_tool = 0;
-                std::printf("road: tool off\n");
-            }
+                   (event.button.button == SDL_BUTTON_LEFT ||
+                    event.button.button == SDL_BUTTON_RIGHT)) {
+            handle_park_mouse_down(event);
         } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
                    event.button.button == SDL_BUTTON_LEFT) {
             park_active_index = -1;
