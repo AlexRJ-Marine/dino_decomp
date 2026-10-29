@@ -18,6 +18,13 @@
 #include "../formats/wav.h"
 
 struct UiSoundPlayer {
+    UiSoundPlayer() = default;
+    ~UiSoundPlayer() { destroy(); }
+    UiSoundPlayer(const UiSoundPlayer&) = delete;
+    UiSoundPlayer& operator=(const UiSoundPlayer&) = delete;
+    UiSoundPlayer(UiSoundPlayer&&) = delete;
+    UiSoundPlayer& operator=(UiSoundPlayer&&) = delete;
+
     std::string asset_root;
     std::unordered_map<std::string, dino::Wav> cache;
     SDL_AudioStream* stream = nullptr;

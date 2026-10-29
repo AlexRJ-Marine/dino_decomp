@@ -16,6 +16,13 @@
 #include "../formats/wav.h"
 
 struct MusicPlayer {
+    MusicPlayer() = default;
+    ~MusicPlayer() { destroy(); }
+    MusicPlayer(const MusicPlayer&) = delete;
+    MusicPlayer& operator=(const MusicPlayer&) = delete;
+    MusicPlayer(MusicPlayer&&) = delete;
+    MusicPlayer& operator=(MusicPlayer&&) = delete;
+
     std::string asset_root;
     SDL_AudioStream* stream = nullptr;
     dino::Wav wav;

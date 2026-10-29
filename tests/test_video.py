@@ -52,6 +52,7 @@ def test_cpp_video_frame(tmp_path):
     assert len(image.getcolors(maxcolors=1_000_000)) > 1000
 
 
+@pytest.mark.slow
 def test_cpp_video_play(tmp_path):
     out = tmp_path / "play.bmp"
     result = _run(

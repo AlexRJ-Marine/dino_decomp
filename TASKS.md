@@ -2127,7 +2127,30 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   - Met: full suite 518 passed in 4:06.
 - **Depends on:** MAINT-4 (fast gate) and MAINT-5 (verbatim move method).
 
-## Phase 4 — remove the original exe
+### MAINT-7: Make `-Fast` actually headless
+- [x] The fast gate still launched windows: 26 `test_campaign_cpp.py` tests
+  use `--frames` and `test_cpp_video_play` uses `--play-video`, but none were
+  marked `slow`. Mark all 27 slow; `-Fast` now selects 376 tests and launches
+  no swap chain (31 s run).
+- [x] Generalize the guard: scan every `test_*.py` that references the port
+  executable, treat `--frames`/`--play-video` as window modes, keep report
+  modes fast, ban module-wide markers, and require >= 45 headless exe tests.
+- [x] `_game_members()` now parses `std::function<...>`, braced initializers
+  and multi-line declarations (286 members; `size_for_species` included).
+- [x] `MusicPlayer` and `UiSoundPlayer` own their SDL streams with a
+  destructor and deleted copy/move (policy said RAII; they were copyable).
+- [x] Docs: `app-shell.md` frame-phase split (11 + 3) and boot ranges
+  (1-10 / 11-21), current largest methods, 376 fast count; the video row no
+  longer lists MP2 audio; the dead pre-rename evidence links mapped to
+  `src/app/` / `test_app_cpp.py`; `docs/README.md` links `cpp-guidelines.md`.
+- **Evidence:** `notes/harness/headless_gate_audit.py`,
+  `notes/harness/maint7-full.log`; commits after `8a726f9`.
+- **Acceptance:** `-Fast` 376 passed / 142 deselected, no window; full suite
+  518 passed; `--selftest` 194.
+  - Met: fast 31 s, full 3:55.
+- **Depends on:** MAINT-4/6.
+
+## Phase 4 - remove the original exe
 
 ### PAR-1: Reference comparison harness
 - Run original under dgVoodoo2/DXVK; capture screenshots and traces.

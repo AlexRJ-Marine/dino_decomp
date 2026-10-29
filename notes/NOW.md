@@ -68,6 +68,13 @@ See `notes/lanes.md`. Default split:
   the three `catch (...)` handlers, and split `place_building` 270 -> 164
   (`load_building_model` 119). `tests/test_cpp_style.py` guards the rules.
   `--selftest` 194 PASS, fast suite 403, full suite 518.
+- MAINT-7: **done.** `-Fast` was not actually headless: 26 campaign tests
+  (`--frames`) and `test_cpp_video_play` (`--play-video`) were unmarked. All
+  27 are now `slow`; the guard scans every port-launching test module and
+  treats those flags as window modes. `-Fast` is 376 tests in 31 s with no
+  swap chain; full suite 518. Also fixed the app-shell phase map/counts, the
+  video gap row, the dead `src/viewer` evidence links, the member-scan gaps
+  and the audio-stream RAII.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -167,14 +174,14 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. MAINT-4 is **done** (`-Fast` runs 41 headless app tests, guard in
-   `tests/test_app_shell.py`), MAINT-5 is **done** (four long bodies split) and
-   MAINT-6 is **done** (Core Guidelines policy + RAII/pi/catch fixes,
-   `tests/test_cpp_style.py`). If readability work continues, pick from the
-   >200-line list in `TASKS.md` MAINT-5 (`boot_load_assets` 263,
-   `handle_park_mouse_down` 261, `apply_build_tool_click` 250,
-   `update_camera` 227). Keep `--selftest` (194), the fast suite (403) and the
-   full suite (518) green.
+1. MAINT-4/7 are **done**: `-Fast` runs 376 headless tests in 31 s with no
+   window, guarded by `tests/test_app_shell.py`. MAINT-5 is **done** (four
+   long bodies split) and MAINT-6 is **done** (Core Guidelines policy +
+   RAII/pi/catch fixes, `tests/test_cpp_style.py`). If readability work
+   continues, pick from the >200-line list in `TASKS.md` MAINT-5
+   (`boot_load_assets` 263, `handle_park_mouse_down` 261,
+   `apply_build_tool_click` 250, `update_camera` 227). Keep `--selftest`
+   (194), the fast suite (376) and the full suite (518) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -201,6 +208,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - MAINT-7: `-Fast` is truly headless - 26 campaign + 1 video window tests marked slow, guard scans all port test modules, fast 376 in 31 s, full 518; member scan and audio RAII fixed; docs drift swept
 - 2026-10-29 - MAINT-6: Core Guidelines pass - cpp-guidelines policy + tests/test_cpp_style.py; MpgStream pimpl/PLM leak fixed with RAII; Game non-copyable; one dino::kPi (29 literals); catch (...) narrowed; place_building 270->164; full suite 518
 - 2026-10-29 - MAINT-5: long bodies split - update_session 434->8 (menu/park/campaign, campaign state+completion), load_island 386->153, apply_port_state 321->86, load_campaign_park 251->57; call order unchanged; fast 397, full 512
 - 2026-10-29 - MAINT-4: fast gate covers the app - 41 headless CLI tests now run in `-Fast` (397 passed / 115 deselected, 68 s) while 106 window/screenshot tests stay `slow`; guard in tests/test_app_shell.py; full suite 511

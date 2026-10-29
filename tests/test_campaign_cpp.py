@@ -93,6 +93,7 @@ def test_cpp_campaign_mission_objectives():
     ) in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_isolated_success():
     # Cpg01_Save.wld starts with no dinosaurs, so `isolateddinos 71` has no
     # aggressive dino to reject (required count 0) and the mission completes
@@ -116,6 +117,7 @@ def test_cpp_campaign_isolated_success():
     assert "mission Cpg04_Mission1: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_mission_panel():
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
@@ -165,6 +167,7 @@ def _show_mission(
     return path
 
 
+@pytest.mark.slow
 def test_cpp_campaign_place_show_scheduled(tmp_path):
     # SHOW-4: `--place-show` uses the mission `[SHOWS]` catalog and the
     # retail hour-slot scheduler (show+0x100, spScheduleManager cursor).
@@ -210,6 +213,7 @@ def test_cpp_campaign_place_show_scheduled(tmp_path):
     assert "mission PlaceShowProbe: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_place_show_hour_and_iterations(tmp_path):
     # `--show-hour` moves the slot (3 -> 12:00) and `--show-iterations 2`
     # keeps the state machine repeating; each frame completes one round.
@@ -240,6 +244,7 @@ def test_cpp_campaign_place_show_hour_and_iterations(tmp_path):
     assert "show: Cpg4_Derby_1 finished round 2/2 at 12:00" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_show_panel_ui(tmp_path):
     # SHOW-4 interactive panel: open the construction kit, select a row of
     # PREDEFINED_SHOW_LIST, click VALIDATE (FUN_0052d1e0), then place the
@@ -291,6 +296,7 @@ def test_cpp_campaign_show_panel_ui(tmp_path):
     )
 
 
+@pytest.mark.slow
 def test_cpp_campaign_show_list_scroll(tmp_path):
     # PREDEFINED_SHOW_LIST is 365 px tall with 30 px rows -> 12 visible rows.
     # The right 15 px strip scrolls; 13 catalog entries clamp the scroll to 1,
@@ -326,6 +332,7 @@ def test_cpp_campaign_show_list_scroll(tmp_path):
     assert "show: cpg3_race_1 selected" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_attraction_list_actions(tmp_path):
     # ATTRACTION_LIST_PANEL controls: iteration up edits `show+0x8c`, LOCK
     # sets `show+0xd3`, SELECTION_LIGHT selects the row. Scripted clicks are
@@ -368,6 +375,7 @@ def test_cpp_campaign_attraction_list_actions(tmp_path):
     )
 
 
+@pytest.mark.slow
 def test_cpp_campaign_show_objectives(tmp_path):
     # The retail Cpg04 park (20 dinosaurs, one Derby arena) plus `--show`
     # exercises the full judge pipeline: FUN_00618020 five needs, visitor
@@ -397,6 +405,7 @@ def test_cpp_campaign_show_objectives(tmp_path):
     assert "mission ShowProbe: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_scientificshow_cap(tmp_path):
     # `0x5678b0` rejects a show when any participant +0x1E4 is above the cap.
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
@@ -416,6 +425,7 @@ def test_cpp_campaign_scientificshow_cap(tmp_path):
     assert "mission objective 0 scientificshow -> success" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_dinoexclusiveshow():
     # `0x5692a0`: a dinosaur assigned to two shows keeps the objective
     # pending; disjoint assignments pass. The retail Cpg08 mission supplies
@@ -446,6 +456,7 @@ def test_cpp_campaign_dinoexclusiveshow():
     assert "mission objective 1 dinoexclusiveshow -> success" in disjoint.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_happyshow_retail_threshold():
     # Cpg04_Mission3 asks for a hooligan score >= 60; the Cpg04 park's best
     # hooligan score is 48.70, so the real mission stays pending.
@@ -504,6 +515,7 @@ def test_cpp_menu_campaign_select(tmp_path):
     assert "menu page=3 active=1" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_progress_resume(tmp_path):
     # The port-owned progress file stores `Cpg04 Cpg04_Mission2`; the menu
     # campaign start must resume that mission instead of Mission1.
@@ -550,6 +562,7 @@ def test_cpp_menu_campaign_locked(tmp_path):
     assert "menu page=2 active=1" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_menu_campaign_mission_start(tmp_path):
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
     wld = SCENARIO / "Cpg04" / "Cpg04_Save.wld"
@@ -597,6 +610,7 @@ def test_cpp_menu_campaign_mission_start(tmp_path):
     assert "mission Cpg04_Mission1: success" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_live_employees():
     # Cpg01_Mission6 wants a farm (connectedbuildings, still pending) and two
     # employees. Hired nutritionists are the live `employees all 2` source.
@@ -617,6 +631,7 @@ def test_cpp_campaign_live_employees():
     assert "mission Cpg01_Mission6: success" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_connected_buildings():
     # `0x566620`: mode 0 counts every active building of the type, mode 1
     # requires the +0x34 connected flag. The port derives it from a path
@@ -649,6 +664,7 @@ def test_cpp_campaign_connected_buildings():
     assert "mission Cpg01_Mission6: success" in farm.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_mission_port_save(tmp_path):
     # The active mission id is part of DINOPSAV; a later --load-port resumes
     # the mission and its live objective evaluation.
@@ -680,6 +696,7 @@ def test_cpp_campaign_mission_port_save(tmp_path):
     assert "mission objective 2 dyingdinos -> success" in second.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_auto_advance():
     # Closing CPGEND on a successful mission starts the next mission in the
     # same campaign. --auto-continue is the headless test hook.
@@ -708,6 +725,7 @@ def test_cpp_campaign_auto_advance():
     assert "mission Cpg01_Mission12: success" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_sized_agility():
     # 0x569040 maps arg0 to pattern[8] (+0x1e0 size class) and arg1 to
     # pattern[5] (+0x98 agility); mode 2 compares as minima. Cpg04 has a
@@ -729,6 +747,7 @@ def test_cpp_campaign_sized_agility():
     assert "mission objective 0 sizedagilitydinos -> success" not in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_hungry_objective():
     # Cpg01_Mission7 `hungrydinos -1 60`: every dino must have food >= 60.
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
@@ -757,6 +776,7 @@ def test_cpp_campaign_hungry_objective():
     assert "mission Cpg01_Mission7: success" in fed.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_completion_unlock(tmp_path):
     # Cpg02_Mission5 is the last Cpg02 mission. 100 visitors with need0=99
     # satisfy `happyvisitors parent 60`; completing it shows the campaign
@@ -790,6 +810,7 @@ def test_cpp_campaign_completion_unlock(tmp_path):
     assert "Cpg02" not in progress.read_text(encoding="utf-8")
 
 
+@pytest.mark.slow
 def test_cpp_campaign_ornamented_dinos(tmp_path):
     # The 23-slot Part-6 dummy map is exposed as DinoAttributes::
     # ornament_count. Cpg04 has two ornamented dinosaurs; a temp mission
@@ -821,6 +842,7 @@ def test_cpp_campaign_ornamented_dinos(tmp_path):
     assert "mission OrnamentTest: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_hybrid_dinos(tmp_path):
     # `+0x1e4` is filled from the phenotype originality (the store's
     # ORIGINALITY/Strangeness gauge). Cpg04 has one dino with originality 80.
@@ -851,6 +873,7 @@ def test_cpp_campaign_hybrid_dinos(tmp_path):
     assert "mission HybridTest: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_franck_strange():
     # Cpg06_Mission4's four `franckstrangedinos 20 30` lines all use the same
     # predicate: any carnivore, biped, size class >=2, age<20, intelligence>30.
@@ -870,6 +893,7 @@ def test_cpp_campaign_franck_strange():
     assert "mission Cpg06_Mission4: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_completion_video(tmp_path):
     # Closing CPGEND on the final mission hands off to the ending video.
     isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
@@ -898,6 +922,7 @@ def test_cpp_campaign_completion_video(tmp_path):
     assert unlock.read_bytes() == b"\x03\x00\x00\x00"
 
 
+@pytest.mark.slow
 def test_cpp_campaign_mission_success():
     isl01 = GAME / "Data" / "Design" / "landscape" / "isl01" / "isl01.lnd"
     mission = SCENARIO / "Cpg01" / "Cpg01_Mission11.ini"
@@ -920,6 +945,7 @@ def test_cpp_campaign_mission_success():
     assert "mission Cpg01_Mission11: success" in result.stdout
 
 
+@pytest.mark.slow
 def test_cpp_campaign_live_traits():
     # Cpg04's imported dinosaurs carry phenotype snapshots; Cpg01_Mission9
     # wants one dinosaur with intelligence >= 80. The mission is just a

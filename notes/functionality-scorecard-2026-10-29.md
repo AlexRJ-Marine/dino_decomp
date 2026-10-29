@@ -10,7 +10,7 @@ the task view is `OPEN-TASKS.md` and the feature index is
 
 - `docs/platform/feature-status.md` row counts (36 rows, one per feature):
   19 **ported**, 14 **partial**, 3 **decoded** (not ported), 0 **not ported**.
-- Test evidence: 518 tests (403 in the fast gate, 115 window/screenshot),
+- Test evidence: 518 tests (376 in the fast gate, 142 window/screenshot),
   plus `--selftest` 194 checks.
 - Fresh vertical-slice capture:
   `notes/harness/review-isl01-dino.png` (isl01 terrain, vegetation, water,
@@ -111,7 +111,8 @@ simulation-rule effort, not a rendering/format effort.**
   phases; 172 `Game` methods; 32.7k lines in the first-party app layers.
 - Four long bodies + four lifecycle bodies split (MAINT-2/MAINT-5); policy and
   static guards (MAINT-6).
-- 518 tests, 403 fast; 60,000-frame soak exit 0; full suite 4:06.
+- 518 tests, 376 fast (headless after MAINT-7); 60,000-frame soak exit 0;
+  full suite 3:55.
 
 ## Code-quality distance
 

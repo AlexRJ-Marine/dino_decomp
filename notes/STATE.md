@@ -2060,3 +2060,18 @@ Updated: 2026-10-28
   suite 403, full suite 518 in 4:06; video, cinematic, campaign and building
   window tests green. Remaining >200-line bodies are listed in TASKS.md
   MAINT-5 (largest boot_load_assets 263, handle_park_mouse_down 261).
+
+- MAINT-7 is done (review follow-up): `-Fast` still launched windows after
+  MAINT-4 — 26 `test_campaign_cpp.py` tests use `--frames` and
+  `test_cpp_video_play` uses `--play-video`, none marked slow. All 27 are
+  `slow` now; `tests/test_app_shell.py` scans every port-launching test module,
+  treats `--frames`/`--play-video` as window modes, keeps report modes fast
+  and bans module-wide markers. `_game_members()` parses
+  `std::function<...>`, braced and multi-line declarations (286 members);
+  `MusicPlayer`/`UiSoundPlayer` own their SDL streams with a destructor and
+  deleted copy/move. Docs: app-shell frame-phase split (11 + 3) and boot
+  ranges (1-10/11-21), current largest methods, 376 fast count; the video row
+  no longer lists MP2 audio; 58 dead `src/viewer`/`test_viewer` evidence links
+  mapped; `docs/README.md` links cpp-guidelines. Gates: `--selftest` 194,
+  `-Fast` 376 passed / 142 deselected in 31 s with no window, full suite 518 in
+  3:55. This closes the independent review's only P1.

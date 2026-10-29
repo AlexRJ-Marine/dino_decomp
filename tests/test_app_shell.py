@@ -17,7 +17,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "src" / "app"
-APP_TESTS = ROOT / "tests" / "test_app_cpp.py"
 
 FRAME_PHASES = [
     "handle_input",
@@ -107,6 +106,7 @@ def _game_members():
     """Direct data members of `class Game`, ignoring nested types."""
     members = set()
     depth = 0
+    paren = 0
     in_class = False
     for line in _read("game.h").split("\n"):
         code = line.split("//", 1)[0].strip()
@@ -115,42 +115,59 @@ def _game_members():
                 in_class = True
                 depth = code.count("{") - code.count("}")
             continue
-        if (depth == 1 and code.endswith(";") and
-                "(" not in code and ")" not in code and
-                "{" not in code and "}" not in code):
+        if (depth == 1 and paren == 0 and code.endswith(";")):
             declaration = code[:-1].split("=", 1)[0].strip()
             if not declaration.startswith(
                     ("using ", "struct ", "class ", "enum ", "typedef ",
                      "friend ")):
-                name = re.search(r"(\w+)\s*$", declaration)
-                if name:
-                    members.add(name.group(1))
+                # Drop template arguments and brace initializers so members
+                # with `std::function<int(const std::string&)>` or `{0}` parse.
+                flat = re.sub(r"<[^<>]*(?:<[^<>]*>[^<>]*)*>", "",
+                              declaration)
+                flat = re.sub(r"\{[^{}]*\}\s*$", "", flat).strip()
+                if not any(ch in flat for ch in "(){}"):
+                    name = re.search(r"(\w+)\s*(?:\[[^\]]*\])?\s*$", flat)
+                    if name:
+                        members.add(name.group(1))
+        paren += code.count("(") - code.count(")")
         depth += code.count("{") - code.count("}")
         if depth == 0:
             break
     return members
 
 
-def test_app_cpp_window_tests_are_marked_slow():
-    """The fast gate must cover the headless app CLI tests (MAINT-4).
+def test_window_and_headless_test_markers_are_correct():
+    """`-Fast` must be headless; window launches stay opt-in (MAINT-4/7).
 
-    `tests/test_app_cpp.py` launches the port; a window run needs a swap
-    chain and stays opt-in via `@pytest.mark.slow`. Headless modes
-    (`--selftest`, `--validate`, `--sav-*`, `--*-info`) return from
-    `boot()` before SDL starts and must stay unmarked so `-Fast` exercises
-    them. Module-level helpers are followed because `_ui_shot` and
-    `_vegetation_frame` run the window.
+    Every test module that launches the port is scanned, not just the app
+    tests. `--frames` and `--play-video` need a swap chain and are window
+    modes; report flags (`--selftest`, `--validate`, `--sav-*`, `--*-info`)
+    return from `boot()` before SDL starts and must stay unmarked. A
+    module-wide `slow` marker is banned because it would deselect the headless
+    cases too. Module-level helpers are followed (`_ui_shot`,
+    `_vegetation_frame`, `_run`).
     """
-    text = APP_TESTS.read_text(encoding="utf-8")
-    assert "pytestmark = pytest.mark.slow" not in text, (
-        "a module-wide slow marker deselects the headless app tests")
-    tree = ast.parse(text)
-    functions = {node.name: node for node in tree.body
-                 if isinstance(node, ast.FunctionDef)}
-    tests = [node for node in tree.body
-             if isinstance(node, ast.FunctionDef)
-             and node.name.startswith("test_")]
-    helpers = set(functions) - {node.name for node in tests}
+    modules = []
+    legacy_env = "DINO_" + "VIEWER_EXE"  # keep the naming guard happy
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        if path.name == "test_app_shell.py":
+            continue  # this guard reads the other modules; it launches nothing
+        text = path.read_text(encoding="utf-8")
+        if "DINO_EXE" in text or legacy_env in text:
+            modules.append((path, text))
+
+    window_flags = {
+        "--frames", "--play-video", "--screenshot", "--capture-dir",
+        "--park-window-click", "--camera-selftest",
+    }
+    report_flags = {
+        "--selftest", "--validate", "--sav-info", "--sav-roundtrip",
+        "--sav-write", "--wld-info", "--bai-info", "--market-info",
+        "--store-info", "--food-info", "--show-info", "--dino-actions",
+        "--employee-info", "--campaign-info", "--campaign-coverage",
+        "--campaign-mission", "--video-info", "--video-frame",
+        "--list-keys", "--list-sounds", "--budget-info",
+    }
 
     def flags(node):
         return {child.value for child in ast.walk(node)
@@ -158,52 +175,51 @@ def test_app_cpp_window_tests_are_marked_slow():
                 and isinstance(child.value, str)
                 and child.value.startswith("--")}
 
-    def reachable_flags(test):
-        found, pending = set(), [test.name]
-        while pending:
-            name = pending.pop()
-            body = functions[name]
-            found |= flags(body)
-            for child in ast.walk(body):
-                if (isinstance(child, ast.Call)
-                        and isinstance(child.func, ast.Name)
-                        and child.func.id in helpers):
-                    pending.append(child.func.id)
-        return found
-
-    window_flags = {"--screenshot", "--capture-dir", "--park-window-click",
-                    "--camera-selftest"}
     unmarked_window = []
-    unmarked = []
-    for test in tests:
-        used = reachable_flags(test)
-        marked = any(
-            isinstance(decorator, ast.Attribute)
-            and decorator.attr == "slow"
-            for decorator in test.decorator_list)
-        if marked:
-            continue
-        unmarked.append(test.name)
-        if used & window_flags:
-            unmarked_window.append(test.name)
+    marked_headless = []
+    fast = 0
+    for path, text in modules:
+        assert "pytestmark = pytest.mark.slow" not in text, (
+            f"{path.name}: a module-wide slow marker at module scope")
+        tree = ast.parse(text)
+        functions = {node.name: node for node in tree.body
+                     if isinstance(node, ast.FunctionDef)}
+        tests = [node for node in tree.body
+                 if isinstance(node, ast.FunctionDef)
+                 and node.name.startswith("test_")]
+        helpers = set(functions) - {node.name for node in tests}
+        for test in tests:
+            seen, pending, used = set(), [test.name], set()
+            while pending:
+                name = pending.pop()
+                if name in seen:
+                    continue
+                seen.add(name)
+                body = functions[name]
+                used |= flags(body)
+                for child in ast.walk(body):
+                    if (isinstance(child, ast.Call)
+                            and isinstance(child.func, ast.Name)
+                            and child.func.id in helpers):
+                        pending.append(child.func.id)
+            marked = any(
+                isinstance(decorator, ast.Attribute)
+                and decorator.attr == "slow"
+                for decorator in test.decorator_list)
+            where = f"{path.name}::{test.name}"
+            if used & window_flags:
+                if not marked:
+                    unmarked_window.append(where)
+            elif used & report_flags:
+                fast += 1
+                if marked:
+                    marked_headless.append(where)
     assert not unmarked_window, (
-        "window tests missing @pytest.mark.slow: " + ", ".join(unmarked_window))
-    # Anchor headless tests: a blanket marker is what MAINT-4 removed.
-    anchors = [
-        "test_cpp_selftest",
-        "test_cpp_mesh_validate",
-        "test_cpp_skinned_validate",
-        "test_cpp_retail_menu_load",
-        "test_cpp_park_clock",
-        "test_cpp_sav_info",
-        "test_cpp_wld_reader_matches_retail",
-        "test_cpp_market_info",
-    ]
-    missing = [name for name in anchors if name not in unmarked]
-    assert not missing, (
-        "headless app tests are deselected by -Fast: " + ", ".join(missing))
-    assert len(unmarked) >= 30, (
-        f"only {len(unmarked)} app tests run in the fast gate")
+        "window tests missing @pytest.mark.slow:\n" +
+        "\n".join(unmarked_window))
+    assert not marked_headless, (
+        "headless tests deselected by -Fast:\n" + "\n".join(marked_headless))
+    assert fast >= 45, f"only {fast} headless exe tests run in the fast gate"
 
 
 def test_main_is_only_the_entry_point():

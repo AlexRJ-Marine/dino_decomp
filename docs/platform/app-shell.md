@@ -12,9 +12,9 @@ few dozen lines with a name instead of a slice of a 10k-line function. See
 | --- | ---: | --- |
 | `main.cpp` | 10 | entry point: `Game(argc, argv).run()` |
 | `game.h` | ~670 | the `Game` object: session state by subsystem, then the method map (boot phases, frame phases, one banner per domain file) |
-| `game.cpp` | ~1,450 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
-| `game_boot.cpp` | ~1,140 | `boot()` itself and boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
-| `game_boot_park.cpp` | ~1,280 | boot phases 12–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
+| `game.cpp` | ~1,450 | constructor/destructor, `run()`, `shutdown()`, 11 of the 14 frame phases (the 3 input/placement phases are in `game_input.cpp`) |
+| `game_boot.cpp` | ~1,140 | `boot()` itself and boot phases 1–10: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
+| `game_boot_park.cpp` | ~1,280 | boot phases 11–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
 | `game_input.cpp` | ~1,440 | `handle_input()`, `update_placement()`, `update_preview()` |
 | `game_ui.cpp` | ~1,500 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |
 | `game_menu.cpp` | ~430 | menu/campaign actions, options, video playback |
@@ -124,9 +124,9 @@ Rules:
 - No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
 - A phase should fit on a screen or two. When one grows, split it — do not
   let `boot()` or `run()` grow again. The four original long bodies and the
-  three long phase bodies are split (MAINT-2/MAINT-5); the largest remaining
-  methods are `place_building` (270) and `boot_load_assets` (263), tracked in
-  `TASKS.md` MAINT-5.
+  three long phase bodies are split (MAINT-2/MAINT-5/MAINT-6); the eight
+  remaining methods over 200 lines are listed in `TASKS.md` MAINT-5 (largest:
+  `boot_load_assets` 263, `handle_park_mouse_down` 261).
 - A function-body local must not share a name with a `Game` member: a local
   in `update_camera_view()` once hid `eye`/`view_center` and the scene went
   black. `tests/test_app_shell.py` enforces this.
@@ -136,22 +136,23 @@ Rules:
 ```powershell
 .\scripts\build.ps1 -BuildDir build\refactor
 .\build\refactor\dino_port.exe --selftest      # 194 checks
-.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 397 tests
+.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 376 tests
 ```
 
 `--selftest` covers the format readers, objectives and HUD math without a
 window; `--camera-selftest` asserts the retail camera equations. The fast
-suite runs every headless app CLI test (`--selftest`, `--validate`, `--sav-*`,
-`--*-info`) plus the format and static guards; window and screenshot tests are
-marked `@pytest.mark.slow` and stay opt-in. A change that only moves code must
-leave all of it unchanged.
+suite runs every headless CLI test (`--selftest`, `--validate`, `--sav-*`,
+`--*-info`, `--campaign-info`, `--video-info`) plus the format and static
+guards; window and screenshot tests, including every `--frames` and
+`--play-video` run, are marked `@pytest.mark.slow` and stay opt-in. A change
+that only moves code must leave all of it unchanged.
 
 `tests/test_app_shell.py` is a static guard: it checks `main.cpp`, the 21 boot
-and 14 frame phase calls in order, rejects a function-scope local that shadows
-a `Game` member, and rejects a module-wide `slow` marker on
-`tests/test_app_cpp.py`. In that module a window run must stay `slow` and the
-headless anchor tests must stay unmarked, so `-Fast` keeps covering the app
-(MAINT-4).
+and 14 frame phase calls in order, and rejects a function-scope local that
+shadows a `Game` member. It also scans every test module that launches the
+port, rejects a module-wide `slow` marker, requires `--frames`/`--play-video`
+tests to be `slow`, and requires report-mode tests to stay unmarked, so
+`-Fast` launches no window (MAINT-4/MAINT-7).
 
 History: this file used to describe the single-file 2026 vertical-slice
 "viewer". The mesh/TGA/skinning notes it held now live in `docs/formats/`
