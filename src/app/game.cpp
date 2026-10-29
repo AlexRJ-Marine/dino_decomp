@@ -367,7 +367,7 @@ void Game::update_park_world() {
         if (campaign_runtime && campaign_runtime->active()) {
             const int hour_index = static_cast<int>(
                 park_session.clock.elapsed * park_session.clock.hours_per_second());
-            show_runtime.tick(
+            park_session.show_runtime.tick(
                 hour_index, park_session.clock.day, park_session.clock.end_of_day, frame_dt,
                 park_session.clock.time_scale, [&](dino::ParkShow& show) {
                     fill_show_scores(show.record, show.participants);
@@ -563,7 +563,7 @@ dino::CampaignState Game::build_mission_state() {
         mission_state.shows.push_back(std::move(show));
     }
     for (const dino::CampaignShowState& show :
-         show_runtime.campaign_states()) {
+         park_session.show_runtime.campaign_states()) {
         mission_state.shows.push_back(show);
     }
     // Live trait snapshot. The objective slots are actor fields

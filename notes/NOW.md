@@ -76,13 +76,13 @@ See `notes/lanes.md`. Default split:
   video gap row, the dead `src/viewer` evidence links, the member-scan gaps
   and the audio-stream RAII.
 - ARCH-1: **done.** ARCH-2 **in progress**: `world/park_session.h` now owns
-  clock/budget/sellback/ledger, the build grid and paddocks, the visitor
-  system/profiles and food/employees; `Game` holds `park_session` and the
-  member ratchet is 274 (674-line `game.h`). Next ARCH-2 slices: dinos,
-  buildings, shows, then `update()`. After that ARCH-3 (build/camera
-  controllers), ARCH-4 (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also
-  P3-MOTION), ARCH-6 (renderer/header split). Architecture:
-  `docs/platform/architecture.md` + `architecture.svg`.
+  clock/budget/sellback/ledger, the build grid/paddocks, the visitor
+  system/profiles, food/employees and the show runtime/catalog; `Game` holds
+  `park_session` and the member ratchet is 272 (671-line `game.h`). Next
+  ARCH-2 slices: dinos and buildings, then `update()`. After that ARCH-3
+  (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-5
+  (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6 (renderer/header split).
+  Architecture: `docs/platform/architecture.md` + `architecture.svg`.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -183,12 +183,12 @@ See `notes/lanes.md`. Default split:
 ## Next actions
 
 1. **ARCH-2 continues** (`docs/platform/architecture.md`): clock/budget/
-   sellback/ledger, the build grid, paddocks, visitors and food/employees now
-   live in `ParkSession` (274-member ratchet); next the dinos, buildings and
-   shows, then `update()`. Then ARCH-3 (build/camera controllers), ARCH-4
-   (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6
-   (renderer/header split). Keep `--selftest` (194), the fast suite (379) and
-   the full suite (521) green.
+   sellback/ledger, the build grid, paddocks, visitors, food/employees and
+   the show runtime/catalog now live in `ParkSession` (272-member ratchet);
+   next the dinos and buildings, then `update()`. Then ARCH-3 (build/camera
+   controllers), ARCH-4 (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also
+   P3-MOTION), ARCH-6 (renderer/header split). Keep `--selftest` (194), the
+   fast suite (379) and the full suite (521) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -215,6 +215,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - ARCH-2 slice 5: show runtime/catalog moved into `ParkSession`; game.h drops show_runtime.h; ratchet 274->272, full 521
 - 2026-10-29 - ARCH-2 slice 4: food/employee subsystem moved into `ParkSession`; game.h drops employees.h; ratchet 278->274, full 521
 - 2026-10-29 - ARCH-2 slice 3: visitor system/profiles moved into `ParkSession`; game.h drops visitors.h; ratchet 281->278, full 521
 - 2026-10-29 - ARCH-2 slice 2: build grid + paddocks moved into `ParkSession` (code-only replacement; PortState references kept); ratchet 283->281, full 521

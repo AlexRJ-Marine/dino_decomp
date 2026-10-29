@@ -7,6 +7,7 @@
 #include "employees.h"
 #include "food.h"
 #include "park_clock.h"
+#include "show_runtime.h"
 #include "visitors.h"
 
 namespace dino {
@@ -28,6 +29,8 @@ struct ParkSession {
     std::vector<FoodDef> food_defs;
     EmployeeSystem employee_system;
     std::vector<EmployeeProfile> employee_profiles;
+    ShowRuntime show_runtime;
+    std::vector<ShowCatalogEntry> show_catalog;
 };
 
 }  // namespace dino

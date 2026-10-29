@@ -312,23 +312,23 @@ void Game::play_pending_cinematic() {
 void Game::start_campaign_mission(const dino::CampaignMission& mission) {
     campaign_runtime.emplace();
     campaign_runtime->start(mission, park_session.clock.minutes());
-    show_runtime.clear();
-    show_runtime.set_duration_minutes(opt.show_duration_minutes);
-    show_catalog.clear();
+    park_session.show_runtime.clear();
+    park_session.show_runtime.set_duration_minutes(opt.show_duration_minutes);
+    park_session.show_catalog.clear();
     show_placements_applied = false;
     pending_show_index = -1;
     try {
-        show_catalog = dino::load_show_catalog(opt.asset_root, mission,
+        park_session.show_catalog = dino::load_show_catalog(opt.asset_root, mission,
                                                park.loc);
     } catch (const std::exception& e) {
         std::fprintf(stderr, "show catalog: %s\n", e.what());
     }
-    if (!show_catalog.empty()) {
-        std::printf("show catalog: %zu entries\n", show_catalog.size());
+    if (!park_session.show_catalog.empty()) {
+        std::printf("show catalog: %zu entries\n", park_session.show_catalog.size());
     }
     std::vector<dino::ui::ShowRow> show_rows;
-    show_rows.reserve(show_catalog.size());
-    for (const dino::ShowCatalogEntry& entry : show_catalog) {
+    show_rows.reserve(park_session.show_catalog.size());
+    for (const dino::ShowCatalogEntry& entry : park_session.show_catalog) {
         dino::ui::ShowRow row;
         row.title = entry.title;
         row.stem = entry.stem;

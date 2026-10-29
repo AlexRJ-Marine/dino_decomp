@@ -1130,7 +1130,7 @@ std::string Game::hud_widget_text(const std::string& name) {
         return std::to_string(count);
     }
     if (name == "SHOW_AMOUNT") {
-        return std::to_string(show_runtime.count());
+        return std::to_string(park_session.show_runtime.count());
     }
     if (name == "PADDOCK_AMOUNT") {
         return std::to_string(park_paddocks.size());
@@ -1484,7 +1484,7 @@ void Game::attraction_row_text(int slot, std::string& name, int& iterations,
     name.clear();
     iterations = 0;
     locked = 0;
-    for (const dino::ParkShow& show : show_runtime.shows()) {
+    for (const dino::ParkShow& show : park_session.show_runtime.shows()) {
         if (show.slot != slot) {
             continue;
         }

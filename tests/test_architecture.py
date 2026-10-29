@@ -27,9 +27,9 @@ ALLOWED = {
     "formats": {"formats", "third_party"},
 }
 
-GAME_MEMBERS_MAX = 274
+GAME_MEMBERS_MAX = 272
 GAME_METHODS_MAX = 171
-GAME_HEADER_LINES_MAX = 674
+GAME_HEADER_LINES_MAX = 671
 
 
 def _include_edges():

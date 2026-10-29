@@ -79,7 +79,6 @@
 #include "../world/park_clock.h"
 #include "../world/park_session.h"
 #include "../world/port_save.h"
-#include "../world/show_runtime.h"
 #include "../world/terrain.h"
 #include "../world/terrain_query.h"
 #include "../world/vegetation.h"
@@ -187,8 +186,6 @@ private:
     bool park_sell_mode;
     int park_sell_paddock;
     dino::ui::ParkHud park;
-    dino::ShowRuntime show_runtime;
-    std::vector<dino::ShowCatalogEntry> show_catalog;
     bool show_placements_applied;
     int pending_show_index;
     int attraction_selected_slot;

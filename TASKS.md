@@ -2187,8 +2187,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FoodSource*` in `game.h` but drop `world/employees.h` (SF.10). Ratchet
   278 -> 274; `game.h` 674 lines. Food, employee, save/load and campaign
   tests unchanged.
-- [ ] Move the remaining subsystems one commit at a time: dinos, buildings,
-  shows. Lower the `GAME_MEMBERS_MAX` ratchet after each slice.
+- [x] Move the show subsystem: `show_runtime` and `show_catalog` into
+  `ParkSession`; drop the now-unused `world/show_runtime.h` include from
+  `game.h`. Ratchet 274 -> 272; `game.h` 671 lines. Show, campaign and HUD
+  tests unchanged.
+- [ ] Move the remaining subsystems one commit at a time: dinos, buildings.
+  Lower the `GAME_MEMBERS_MAX` ratchet after each slice.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

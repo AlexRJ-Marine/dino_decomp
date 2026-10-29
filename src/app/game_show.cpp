@@ -85,7 +85,7 @@ void Game::apply_show_specs() {
         return;
     }
     show_placements_applied = true;
-    if (show_catalog.empty() && !opt.place_show_specs.empty()) {
+    if (park_session.show_catalog.empty() && !opt.place_show_specs.empty()) {
         std::printf("show: mission catalog is empty\n");
         return;
     }
@@ -93,20 +93,20 @@ void Game::apply_show_specs() {
     for (const std::string& raw : opt.place_show_specs) {
         const PortNameSpec spec = parse_name_spec(raw);
         const int catalog_index =
-            dino::find_show_catalog_index(show_catalog, spec.name);
+            dino::find_show_catalog_index(park_session.show_catalog, spec.name);
         if (catalog_index < 0) {
             std::printf("show: %s not in the mission catalog\n",
                         spec.name.c_str());
             continue;
         }
-        int x = 64 + 8 * show_runtime.count();
+        int x = 64 + 8 * park_session.show_runtime.count();
         int y = 64;
         if (spec.values.size() >= 2) {
             x = spec.values[0];
             y = spec.values[1];
         }
-        const int index = show_runtime.place(
-            show_catalog[static_cast<std::size_t>(catalog_index)], x, y,
+        const int index = park_session.show_runtime.place(
+            park_session.show_catalog[static_cast<std::size_t>(catalog_index)], x, y,
             profile_ids);
         if (index < 0) {
             std::printf("show: no free hour slot for %s\n",
@@ -114,9 +114,9 @@ void Game::apply_show_specs() {
             continue;
         }
         if (opt.show_locked) {
-            show_runtime.set_locked(index, true);
+            park_session.show_runtime.set_locked(index, true);
         }
-        const dino::ParkShow* show = show_runtime.at(index);
+        const dino::ParkShow* show = park_session.show_runtime.at(index);
         std::printf(
             "show: placed %s at %d,%d slot=%d (%s) size=%dx%d\n",
             show->entry.stem.c_str(), show->cell_x, show->cell_y,
@@ -126,13 +126,13 @@ void Game::apply_show_specs() {
     for (const std::string& raw : opt.show_participant_specs) {
         const PortNameSpec spec = parse_name_spec(raw);
         bool matched = false;
-        for (int i = 0; i < show_runtime.count(); ++i) {
-            dino::ParkShow* show = show_runtime.at(i);
+        for (int i = 0; i < park_session.show_runtime.count(); ++i) {
+            dino::ParkShow* show = park_session.show_runtime.at(i);
             if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
                 continue;
             }
             matched = true;
-            show_runtime.set_participants(i, spec.values);
+            park_session.show_runtime.set_participants(i, spec.values);
             sync_show_identity(show->record, spec.values);
             std::printf("show: %s participants=%zu\n",
                         show->entry.stem.c_str(),
@@ -147,12 +147,12 @@ void Game::apply_show_specs() {
         if (spec.values.empty()) {
             continue;
         }
-        for (int i = 0; i < show_runtime.count(); ++i) {
-            dino::ParkShow* show = show_runtime.at(i);
+        for (int i = 0; i < park_session.show_runtime.count(); ++i) {
+            dino::ParkShow* show = park_session.show_runtime.at(i);
             if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
                 continue;
             }
-            if (show_runtime.set_slot(i, spec.values[0])) {
+            if (park_session.show_runtime.set_slot(i, spec.values[0])) {
                 std::printf("show: %s slot=%d (%s)\n",
                             show->entry.stem.c_str(), show->slot,
                             show_slot_text(show->slot).c_str());
@@ -164,19 +164,19 @@ void Game::apply_show_specs() {
         if (spec.values.empty()) {
             continue;
         }
-        for (int i = 0; i < show_runtime.count(); ++i) {
-            dino::ParkShow* show = show_runtime.at(i);
+        for (int i = 0; i < park_session.show_runtime.count(); ++i) {
+            dino::ParkShow* show = park_session.show_runtime.at(i);
             if (!dino::show_catalog_entry_matches(show->entry, spec.name)) {
                 continue;
             }
-            if (show_runtime.set_iterations(i, spec.values[0])) {
+            if (park_session.show_runtime.set_iterations(i, spec.values[0])) {
                 std::printf("show: %s iterations=%d\n",
                             show->entry.stem.c_str(), show->iterations);
             }
         }
     }
-    for (int i = 0; i < show_runtime.count(); ++i) {
-        const dino::ParkShow* show = show_runtime.at(i);
+    for (int i = 0; i < park_session.show_runtime.count(); ++i) {
+        const dino::ParkShow* show = park_session.show_runtime.at(i);
         std::printf(
             "show schedule: %s slot=%d (%s) iterations=%d "
             "participants=%zu locked=%d\n",
@@ -188,7 +188,7 @@ void Game::apply_show_specs() {
 }
 
 void Game::auto_assign_show_participants(int show_index) {
-    dino::ParkShow* show = show_runtime.at(show_index);
+    dino::ParkShow* show = park_session.show_runtime.at(show_index);
     if (show == nullptr) {
         return;
     }
@@ -215,7 +215,7 @@ void Game::auto_assign_show_participants(int show_index) {
     if (participants.empty()) {
         return;
     }
-    show_runtime.set_participants(show_index, participants);
+    park_session.show_runtime.set_participants(show_index, participants);
     sync_show_identity(show->record, participants);
     std::printf("show: %s participants=%zu (auto-assigned by cage size)\n",
                 show->entry.stem.c_str(), show->participants.size());
@@ -224,12 +224,12 @@ void Game::auto_assign_show_participants(int show_index) {
 
 void Game::handle_show_place(int catalog_index) {
     if (catalog_index < 0 ||
-        catalog_index >= static_cast<int>(show_catalog.size())) {
+        catalog_index >= static_cast<int>(park_session.show_catalog.size())) {
         std::printf("show: no show selected\n");
         return;
     }
     const dino::ShowCatalogEntry& entry =
-        show_catalog[static_cast<std::size_t>(catalog_index)];
+        park_session.show_catalog[static_cast<std::size_t>(catalog_index)];
     if (park_session.budget < entry.cost) {
         std::printf(
             "show: %s needs %d, budget %d (WARNING_NOT_ENOUGH_MONEY)\n",
@@ -250,11 +250,11 @@ void Game::handle_show_place(int catalog_index) {
 
 void Game::place_show_at(int rx, int ry) {
     if (pending_show_index < 0 ||
-        pending_show_index >= static_cast<int>(show_catalog.size())) {
+        pending_show_index >= static_cast<int>(park_session.show_catalog.size())) {
         return;
     }
     const dino::ShowCatalogEntry& entry =
-        show_catalog[static_cast<std::size_t>(pending_show_index)];
+        park_session.show_catalog[static_cast<std::size_t>(pending_show_index)];
     const int w = std::max(1, entry.width);
     const int h = std::max(1, entry.height);
     const float cs = park_session.build_grid.cell_size;
@@ -293,7 +293,7 @@ void Game::place_show_at(int rx, int ry) {
         return;
     }
     const std::vector<int> profile_ids = show_profile_ids();
-    const int index = show_runtime.place(entry, rx, ry, profile_ids);
+    const int index = park_session.show_runtime.place(entry, rx, ry, profile_ids);
     if (index < 0) {
         std::printf("show: no free hour slot for %s\n",
                     entry.stem.c_str());
@@ -302,7 +302,7 @@ void Game::place_show_at(int rx, int ry) {
     park_session.budget -= entry.cost;
     park_session.ledger.spend_construction(entry.cost);
     auto_assign_show_participants(index);
-    const dino::ParkShow* show = show_runtime.at(index);
+    const dino::ParkShow* show = park_session.show_runtime.at(index);
     std::printf(
         "show: placed %s at %d,%d slot=%d (%s) size=%dx%d budget=%d\n",
         show->entry.stem.c_str(), show->cell_x, show->cell_y, show->slot,
@@ -314,8 +314,8 @@ void Game::place_show_at(int rx, int ry) {
 }
 
 int Game::find_show_by_slot(int slot) {
-    for (int i = 0; i < show_runtime.count(); ++i) {
-        const dino::ParkShow* show = show_runtime.at(i);
+    for (int i = 0; i < park_session.show_runtime.count(); ++i) {
+        const dino::ParkShow* show = park_session.show_runtime.at(i);
         if (show != nullptr && show->slot == slot) {
             return i;
         }
@@ -336,7 +336,7 @@ void Game::handle_attraction_action(const std::string& action) {
     const int index = find_show_by_slot(slot);
     if (verb == "select" || verb == "selection_light") {
         if (index >= 0) {
-            const dino::ParkShow* show = show_runtime.at(index);
+            const dino::ParkShow* show = park_session.show_runtime.at(index);
             attraction_selected_slot = slot;
             std::printf("show: selected %s slot=%d\n",
                         show->entry.stem.c_str(), slot);
@@ -347,31 +347,31 @@ void Game::handle_attraction_action(const std::string& action) {
         std::printf("show: no show in slot %d\n", slot);
         return;
     }
-    dino::ParkShow* show = show_runtime.at(index);
+    dino::ParkShow* show = park_session.show_runtime.at(index);
     if (verb == "lock") {
-        show_runtime.set_locked(index, true);
-        show_runtime.set_enabled(index, false);
+        park_session.show_runtime.set_locked(index, true);
+        park_session.show_runtime.set_enabled(index, false);
         std::printf("show: %s slot=%d closed to the public\n",
                     show->entry.stem.c_str(), slot);
     } else if (verb == "unlock") {
-        show_runtime.set_locked(index, false);
-        show_runtime.set_enabled(index, true);
+        park_session.show_runtime.set_locked(index, false);
+        park_session.show_runtime.set_enabled(index, true);
         std::printf("show: %s slot=%d open to the public\n",
                     show->entry.stem.c_str(), slot);
     } else if (verb == "iteration_up" || verb == "iteration_down") {
         const int delta = verb == "iteration_up" ? 1 : -1;
         const int value = std::clamp(show->iterations + delta, 1, 10);
         if (value != show->iterations) {
-            show_runtime.set_iterations(index, value);
+            park_session.show_runtime.set_iterations(index, value);
             std::printf("show: %s iterations=%d\n",
                         show->entry.stem.c_str(), value);
         }
     } else if (verb == "permutation") {
         const int other_slot = slot % 10 + 1;
         const int other = find_show_by_slot(other_slot);
-        show_runtime.set_slot(index, other_slot);
+        park_session.show_runtime.set_slot(index, other_slot);
         if (other >= 0) {
-            show_runtime.set_slot(other, slot);
+            park_session.show_runtime.set_slot(other, slot);
         }
         std::printf("show: %s slot=%d (%s) permuted with slot %d\n",
                     show->entry.stem.c_str(), other_slot,
