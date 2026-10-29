@@ -554,719 +554,9 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
 
 }
 
-void Game::draw_park_hud(int view_w, int view_h, int logical_w, int logical_h) {
-    (void)logical_h;
-    if (!park.loaded()) {
-        return;
-    }
-    const int hovered =
-        park_hover_x >= 0 ? park.overlay.hit_test(park_hover_x, park_hover_y) : -1;
-    auto dialog_zone = [&]() -> const char* {
-        switch (park.dialog_kind()) {
-            case dino::ui::ParkHud::DialogKind::warning:
-                return "WARNING_TEXT_ZONE";
-            case dino::ui::ParkHud::DialogKind::request:
-                return "REQUEST_TEXT_ZONE";
-            case dino::ui::ParkHud::DialogKind::campaign_end:
-                return "CPGEND_TEXT_ZONE";
-            default:
-                return "";
-        }
-    };
-    auto is_text_zone = [](const std::string& name) {
-        static const std::string suffix = "_TEXT_ZONE";
-        return name.size() >= suffix.size() &&
-               name.compare(name.size() - suffix.size(), suffix.size(),
-                            suffix) == 0;
-    };
-    const float dpi = logical_w > 0
-                          ? static_cast<float>(view_w) / static_cast<float>(logical_w)
-                          : 1.0f;
+void Game::draw_park_hud_campaign_text(float dpi, int view_w, int view_h) {
     auto px = [&](int value) { return static_cast<float>(value) * dpi; };
     auto py = [&](int value) { return static_cast<float>(value) * dpi; };
-
-    std::vector<int> order;
-    auto draw_less = [&](int a, int b) {            const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
-        const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
-        if (wa.priority != wb.priority) {
-            return wa.priority < wb.priority;
-        }
-        if (wa.zpriority != wb.zpriority) {
-            // Lower ZPRIORITY is nearer the viewer in the retail overlay;
-            // draw the far widgets first and the near ones last.
-            return wa.zpriority > wb.zpriority;
-        }
-        return a < b;
-    };
-    // moWidget::Draw (0x005c5bf0) draws the widget, then its child list in
-    // priority order. A flat ZPRIORITY sort loses that nesting: a list
-    // slot's snapshot would cover its indicator strip. Walk the tree.
-    std::function<void(int)> append_widget = [&](int i) {
-        const dino::ui::Widget& widget =
-            park.overlay.widgets[static_cast<std::size_t>(i)];
-        if (widget.name == "RENDERVIEW" ||
-            !park.overlay.visible_in_tree(i)) {
-            return;
-        }
-        order.push_back(i);
-        std::vector<int> children = widget.children;
-        std::sort(children.begin(), children.end(), draw_less);
-        for (int child : children) {
-            append_widget(child);
-        }
-    };
-    std::vector<int> roots = park.overlay.roots;
-    std::sort(roots.begin(), roots.end(), draw_less);
-    for (int root : roots) {
-        append_widget(root);
-    }
-    // Dialog text must draw above its *_TEXT_BACK_ZONE and the wood frame.
-    std::stable_partition(order.begin(), order.end(), [&](int i) {
-        return !is_text_zone(
-            park.overlay.widgets[static_cast<std::size_t>(i)].name);
-    });
-
-    auto runtime_text = [&](const std::string& name) -> std::string {
-        if (name == "MISSION_PANEL_TITLE" &&
-            !mission_panel_title.empty()) {
-            return mission_panel_title;
-        }
-        if (campaign_runtime) {
-            const dino::CampaignMission& mission =
-                campaign_runtime->mission();
-            static const std::string suffix = "_PANEL_EXPLICATION";
-            if (name.rfind("OBJECTIF", 0) == 0 &&
-                name.size() > suffix.size() &&
-                name.compare(name.size() - suffix.size(), suffix.size(),
-                             suffix) == 0) {
-                const int index = std::atoi(name.c_str() + 8) - 1;
-                if (index >= 0 &&
-                    index < static_cast<int>(mission.objectives.size())) {
-                    return dino::ui::resolve_loc_text(
-                        mission.objectives[static_cast<std::size_t>(index)]
-                            .description_id,
-                        park.loc);
-                }
-            }
-        }
-        if (name == "BUDGET_AMOUNT") {
-            return std::to_string(park_budget);
-        }
-        if (name == "OPTIONS_NAME_SLOT") {
-            return park.save_name();
-        }
-        if (name == "VISITOR_AMOUNT") {
-            return std::to_string(visitor_system.visitors.size());
-        }
-        if (name == "DINO_AMOUNT") {
-            const std::size_t count =
-                imported_dinos.size() + (place_dino ? 1 : 0);
-            return std::to_string(count);
-        }
-        if (name == "SHOW_AMOUNT") {
-            return std::to_string(show_runtime.count());
-        }
-        if (name == "PADDOCK_AMOUNT") {
-            return std::to_string(park_paddocks.size());
-        }
-        const auto slot_index = [](const std::string& widget_name,
-                                   const char* prefix) -> int {
-            const std::size_t prefix_len = std::strlen(prefix);
-            if (widget_name.rfind(prefix, 0) != 0) {
-                return -1;
-            }
-            return std::atoi(widget_name.c_str() + prefix_len) - 1;
-        };
-        if (name.rfind("DINO_NAME_SLOT", 0) == 0) {
-            const int slot = slot_index(name, "DINO_NAME_SLOT");
-            if (slot >= 0 && slot < static_cast<int>(imported_dinos.size())) {
-                return imported_dinos[static_cast<std::size_t>(slot)].species;
-            }
-            return "";
-        }
-        if (name.rfind("FENCE_NAME_SLOT", 0) == 0) {
-            const int slot = slot_index(name, "FENCE_NAME_SLOT");
-            if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
-                return "Paddock " + std::to_string(slot + 1);
-            }
-            return "";
-        }
-        if (name.rfind("FENCE_LIST_QUANTITY_SLOT", 0) == 0) {
-            const int slot = slot_index(name, "FENCE_LIST_QUANTITY_SLOT");
-            if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
-                return std::to_string(
-                    park_paddocks[static_cast<std::size_t>(slot)]
-                        .occupants.size());
-            }
-            return "";
-        }
-        if (name.rfind("FENCE_LIST_POURCENT_SLOT", 0) == 0) {
-            const int slot = slot_index(name, "FENCE_LIST_POURCENT_SLOT");
-            if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
-                const float percent =
-                    park_paddocks[static_cast<std::size_t>(slot)].fill() *
-                    100.0f;
-                return std::to_string(
-                    static_cast<int>(percent + 0.5f));
-            }
-            return "";
-        }
-        // Attraction list: one row per hour slot. The retail NAME field
-        // defaults to the hour label and holds the show name once a show
-        // is scheduled (`FUN_00516dd0`); ITERATION_INDIC is the
-        // performances-per-day count `show+0x8c` (`%u`).
-        if (name.rfind("ATTRACTION_LIST_NAME", 0) == 0) {
-            const int slot = slot_index(name, "ATTRACTION_LIST_NAME") + 1;
-            std::string text;
-            int iterations = 0;
-            int locked = 0;
-            attraction_row_text(slot, text, iterations, locked);
-            return text;
-        }
-        if (name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
-            const int slot =
-                slot_index(name, "ATTRACTION_LIST_ITERATION_INDIC") + 1;
-            std::string text;
-            int iterations = 0;
-            int locked = 0;
-            attraction_row_text(slot, text, iterations, locked);
-            return iterations > 0 ? std::to_string(iterations) : "";
-        }
-        if (name == "PARK_CURRENT_TIME") {
-            return park_clock.time_text(false);
-        }
-        if (name == "PARK_CURRENT_DAY") {
-            return park_clock.day_text();
-        }
-        // Budget-panel fields are separate number widgets refreshed by
-        // 0x510430. The panel shows the yesterday block (docs/decomp/
-        // economy.md); only the categories the port currently changes
-        // are non-zero.
-        if (name.rfind("BUDGET_", 0) == 0 &&
-            name.size() > 7 &&
-            name.compare(name.size() - 7, 7, "_NUMBER") == 0) {
-            if (name == "BUDGET_DINOACHAT_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_dinoachat_count);
-            }
-            if (name == "BUDGET_DINOACHAT_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_dinoachat_total);
-            }
-            if (name == "BUDGET_CONSTRUCTION_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_construction_count);
-            }
-            if (name == "BUDGET_CONSTRUCTION_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_construction_total);
-            }
-            if (name == "BUDGET_LABOACTION_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_laboaction_count);
-            }
-            if (name == "BUDGET_LABOACTION_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_laboaction_total);
-            }
-            if (name == "BUDGET_ENTREES_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_ticket_count);
-            }
-            if (name == "BUDGET_ENTREES_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_ticket_total);
-            }
-            if (name == "BUDGET_VENTES_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_ventes_count);
-            }
-            if (name == "BUDGET_VENTES_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_ventes_total);
-            }
-            if (name == "BUDGET_FOOD_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_food_count);
-            }
-            if (name == "BUDGET_FOOD_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_food_total);
-            }
-            if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_NUMBER") {
-                return std::to_string(budget_ledger.y_secu_count);
-            }
-            if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_secu_total);
-            }
-            if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
-                return std::to_string(
-                    employee_system.count_role(employee_profiles, 0));
-            }
-            if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
-                return std::to_string(budget_ledger.y_staff_food_total);
-            }
-            const struct ShopRow {
-                const char* prefix;
-                int kind;
-            } shop_rows[] = {
-                {"BUDGET_RESTOS_", 1},     {"BUDGET_BARAQUES_", 2},
-                {"BUDGET_SOUVENIRS_", 3},  {"BUDGET_BOITNOIRE_", 4},
-                {"BUDGET_POINTDEVUE_", 5}, {"BUDGET_GRADINS_", 6},
-            };
-            for (const ShopRow& row : shop_rows) {
-                if (name.rfind(row.prefix, 0) != 0) {
-                    continue;
-                }
-                const std::size_t index =
-                    static_cast<std::size_t>(row.kind);
-                if (name.find("_COST_NUMBER") != std::string::npos) {
-                    return std::to_string(
-                        budget_ledger.y_shop_revenue[index]);
-                }
-                return std::to_string(
-                    budget_ledger.y_shop_sales[index]);
-            }
-            if (name == "BUDGET_TOTAL_LEFT_COST_NUMBER") {
-                return std::to_string(budget_ledger.expenses());
-            }
-            if (name == "BUDGET_TOTAL_RIGHT_COST_NUMBER") {
-                return std::to_string(budget_ledger.income());
-            }
-            return "0";
-        }
-        if (name == "BUDGET_TOTAL_PRICE_PANEL_PRICE_ZONE") {
-            return std::to_string(budget_ledger.net());
-        }
-        return "";
-    };
-
-    for (const int i : order) {
-        const dino::ui::Widget& widget =
-            park.overlay.widgets[static_cast<std::size_t>(i)];
-        if (!widget.texture.empty()) {
-            if (const dino::ui::Graphic* graphic =
-                    park.overlay.graphic(widget.texture)) {
-                if (UiTexture* texture = ui_texture(graphic->filename)) {
-                    int frame = graphic->objects <= 1 ? 0 : 4;
-                    if (widget.type == "BUTTON" && graphic->objects > 1) {
-                        int wanted = -1;
-                        if (i == park_active_index) {
-                            wanted = 6;
-                        } else if (i == hovered) {
-                            wanted = 5;
-                        }
-                        if (wanted >= 0 &&
-                            ui_frame_rect(*texture, *graphic, wanted).valid) {
-                            frame = wanted;
-                        }
-                    }
-                    const UiSourceRect source =
-                        ui_frame_rect(*texture, *graphic, frame);
-                    if (source.valid) {
-                        const float u0 =
-                            static_cast<float>(source.x) / texture->width;
-                        const float v0 =
-                            static_cast<float>(source.y) / texture->height;
-                        const float u1 = static_cast<float>(source.x + source.w) /
-                                         texture->width;
-                        const float v1 = static_cast<float>(source.y + source.h) /
-                                         texture->height;
-                        draw_ui_mesh(
-                            menu_gpu,
-                            build_ui_quad(px(widget.abs_x), py(widget.abs_y),
-                                          static_cast<float>(widget.width) * dpi,
-                                          static_cast<float>(widget.height) * dpi,
-                                          u0, v0, u1, v1,
-                                          {255, 255, 255, 255}),
-                            texture->id, 1.0f, 1, view_w, view_h);
-                    }
-                }
-            }
-        } else if (widget.has_back_color) {
-            draw_ui_mesh(menu_gpu,
-                         build_screen_rect(px(widget.abs_x), py(widget.abs_y),
-                                           static_cast<float>(widget.width) * dpi,
-                                           static_cast<float>(widget.height) * dpi,
-                                           widget.back_color),
-                         0, 1.0f, 1, view_w, view_h);
-        }
-
-        // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected store entry's
-        // dinosaur's standing LOD1 mesh directly into the well. The
-        // retail widget is a 3D preview; the port fits the mesh to the
-        // widget rect with a pixel-space MVP and scissor clipping.
-        if (widget.name == "DINO_ACHAT_SAVE_RENDER_VIEW" &&
-            !park.store_rows().empty()) {
-            const int selected = park.store_selected();
-            if (selected >= 0 &&
-                selected < static_cast<int>(park.store_rows().size())) {
-                if (StorePreview* preview =
-                        store_preview_for(
-                            park.store_rows()[static_cast<std::size_t>(
-                                selected)])) {
-                    const float w =
-                        static_cast<float>(widget.width) * dpi;
-                    const float h =
-                        static_cast<float>(widget.height) * dpi;
-                    const float size =
-                        std::max(0.001f, preview->size);
-                    const dino::Vec3 center = preview->center;
-                    // Side/three-quarter camera; the scene renderer
-                    // already uses this projection convention for the
-                    // imported dinosaurs.
-                    const dino::Vec3 eye{
-                        center.x - size * 1.4f,
-                        center.y - size * 0.25f,
-                        center.z + size * 0.35f};
-                    const dino::Mat4 view =
-                        look_at(eye, center, {0.0f, 0.0f, 1.0f});
-                    const dino::Mat4 proj = perspective(
-                        32.0f, 1.0f, 0.1f, size * 10.0f);
-                    const dino::Mat4 mvp =
-                        dino::multiply(proj, view);
-                    const int vx =
-                        static_cast<int>(px(widget.abs_x));
-                    const int vy = static_cast<int>(
-                        view_h - (py(widget.abs_y) + h));
-                    glEnable(GL_SCISSOR_TEST);
-                    glScissor(vx, vy, static_cast<int>(w),
-                              static_cast<int>(h));
-                    glViewport(vx, vy, static_cast<int>(w),
-                               static_cast<int>(h));
-                    glEnable(GL_DEPTH_TEST);
-                    glDepthFunc(GL_LEQUAL);
-                    glDisable(GL_CULL_FACE);
-                    glClear(GL_DEPTH_BUFFER_BIT);
-                    glfns.UseProgram(program);
-                    {
-                        const float white[3] = {1.0f, 1.0f, 1.0f};
-                        glfns.Uniform3fv(
-                            glfns.GetUniformLocation(program, "u_tint"), 1,
-                            white);
-                    }
-                    glfns.UniformMatrix4fv(
-                        glfns.GetUniformLocation(program, "u_mvp"), 1,
-                        GL_TRUE, mvp.m);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program, "u_unlit"), 1);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program,
-                                                 "u_use_texture"),
-                        preview->texture != 0 ? 1 : 0);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program,
-                                                 "u_use_texture2"),
-                        0);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program,
-                                                 "u_modulate2x"),
-                        0);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program, "u_texture"), 0);
-                    glfns.Uniform1f(
-                        glfns.GetUniformLocation(program, "u_alpha"),
-                        1.0f);
-                    glfns.Uniform1i(
-                        glfns.GetUniformLocation(program,
-                                                 "u_fog_enable"),
-                        0);
-                    const float light[3] = {-0.35f, -0.68f, 0.72f};
-                    const float light_color[3] = {0.92f, 0.93f, 0.95f};
-                    const float ambient[3] = {0.62f, 0.64f, 0.68f};
-                    const float camera[3] = {0.0f, 0.0f, 4.0f};
-                    glfns.Uniform3fv(
-                        glfns.GetUniformLocation(program,
-                                                 "u_light_dir"),
-                        1, light);
-                    glfns.Uniform3fv(
-                        glfns.GetUniformLocation(program,
-                                                 "u_light_color"),
-                        1, light_color);
-                    glfns.Uniform3fv(
-                        glfns.GetUniformLocation(program, "u_ambient"),
-                        1, ambient);
-                    glfns.Uniform3fv(
-                        glfns.GetUniformLocation(program, "u_camera"),
-                        1, camera);
-                    if (preview->texture != 0) {
-                        glfns.ActiveTexture(GL_TEXTURE0);
-                        glBindTexture(GL_TEXTURE_2D, preview->texture);
-                    }
-                    glfns.BindVertexArray(preview->gpu.vao);
-                    glDrawElements(GL_TRIANGLES,
-                                   preview->gpu.index_count,
-                                   GL_UNSIGNED_INT, nullptr);
-                    glViewport(0, 0, view_w, view_h);
-                    glDisable(GL_SCISSOR_TEST);
-                    glDisable(GL_DEPTH_TEST);
-                }
-            }
-        }
-
-        // PROGRESS widgets: fill the gauge track proportionally. The
-        // retail panel texture supplies the empty track; the port draws a
-        // solid light-blue fill over it (the exact retail gauge art is a
-        // `moProgress` draw we have not ported yet).
-        if (widget.type == "PROGRESS" && widget.progress_max > 0) {
-            const float fraction = std::clamp(
-                static_cast<float>(widget.progress_current) /
-                    static_cast<float>(widget.progress_max),
-                0.0f, 1.0f);
-            if (fraction > 0.0f) {
-                draw_ui_mesh(
-                    menu_gpu,
-                    build_screen_rect(
-                        px(widget.abs_x), py(widget.abs_y),
-                        static_cast<float>(widget.width) * fraction * dpi,
-                        static_cast<float>(widget.height) * dpi,
-                        {120, 200, 255, 255}),
-                    0, 1.0f, 1, view_w, view_h);
-            }
-        }
-
-        if (widget.name == dialog_zone() && park.dialog_open()) {
-            const int line_h =
-                widget.list_line_height > 0 ? widget.list_line_height : 15;
-            float list_scale = 1.0f;
-            GLuint list_atlas = 0;
-            const dino::Fnt* list_font =
-                ui_font(widget.font, widget.text_height, list_scale,
-                        list_atlas);
-            if (list_font != nullptr) {
-                const float max_w = static_cast<float>(
-                    widget.width - widget.list_scroll_width);
-                std::vector<std::string> lines;
-                std::string current;
-                std::string word;
-                auto flush_line = [&]() {
-                    lines.push_back(current);
-                    current.clear();
-                };
-                auto flush_word = [&]() {
-                    if (word.empty()) {
-                        return;
-                    }
-                    const std::string candidate =
-                        current.empty() ? word : current + " " + word;
-                    if (!current.empty() &&
-                        text_width(*list_font, candidate, list_scale) > max_w) {
-                        flush_line();
-                        current = word;
-                    } else {
-                        current = candidate;
-                    }
-                    word.clear();
-                };
-                for (const char ch : park.dialog_text()) {
-                    if (ch == '\n') {
-                        flush_word();
-                        flush_line();
-                    } else if (ch == ' ') {
-                        flush_word();
-                    } else {
-                        word.push_back(ch);
-                    }
-                }
-                flush_word();
-                if (!current.empty()) {
-                    flush_line();
-                }
-                const int rows = std::min(
-                    static_cast<int>(lines.size()),
-                    line_h > 0 ? widget.height / line_h : 0);
-                for (int row = 0; row < rows; ++row) {
-                    const dino::Mesh block = build_text_block(
-                        *list_font, lines[static_cast<std::size_t>(row)],
-                        px(widget.abs_x), py(widget.abs_y + row * line_h),
-                        list_scale * dpi, widget.text_color, "LEFT",
-                        static_cast<float>(max_w) * dpi,
-                        static_cast<float>(line_h) * dpi);
-                    draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
-                                 view_w, view_h);
-                }
-            }
-        }
-
-        if (widget.name == "OPTIONS_SAVE_NAMES_LIST" && !save_slots.empty()) {
-            const int line_h =
-                widget.list_line_height > 0 ? widget.list_line_height : 12;
-            const int row_w =
-                widget.list_column0_width > 0
-                    ? widget.list_column0_width
-                    : widget.width - widget.list_scroll_width;
-            float list_scale = 1.0f;
-            GLuint list_atlas = 0;
-            const dino::Fnt* list_font =
-                ui_font(widget.font, widget.text_height, list_scale,
-                        list_atlas);
-            if (list_font != nullptr) {
-                const int rows = std::min(
-                    static_cast<int>(save_slots.size()),
-                    line_h > 0 ? widget.height / line_h : 0);
-                for (int row = 0; row < rows; ++row) {
-                    const dino::Mesh block = build_text_block(
-                        *list_font, save_slots[static_cast<std::size_t>(row)].second,
-                        px(widget.abs_x), py(widget.abs_y + row * line_h),
-                        list_scale * dpi, widget.text_color, widget.justify,
-                        static_cast<float>(row_w) * dpi,
-                        static_cast<float>(line_h) * dpi);
-                    draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
-                                 view_w, view_h);
-                }
-            }
-        }
-
-        if (widget.name == "DINO_ACHAT_SAVE_NAMES_LIST" &&
-            !park.store_rows().empty()) {
-            const int line_h = widget.list_line_height > 0
-                                   ? widget.list_line_height
-                                   : 12;
-            const int pitch = std::max(
-                1, widget.height /
-                       dino::ui::ParkHud::store_visible_rows());
-            const int row_w =
-                widget.list_column0_width > 0
-                    ? widget.list_column0_width
-                    : widget.width - widget.list_scroll_width;
-            float list_scale = 1.0f;
-            GLuint list_atlas = 0;
-            const dino::Fnt* list_font =
-                ui_font(widget.font, widget.text_height, list_scale,
-                        list_atlas);
-            if (list_font != nullptr) {
-                for (int slot = 0;
-                     slot < dino::ui::ParkHud::store_visible_rows();
-                     ++slot) {
-                    const dino::ui::StoreRow* row =
-                        park.store_visible_row(slot);
-                    if (row == nullptr) {
-                        break;
-                    }
-                    const bool selected =
-                        park.store_scroll() + slot ==
-                        park.store_selected();
-                    const int row_y = widget.abs_y + slot * pitch;
-                    const dino::Mesh name_block = build_text_block(
-                        *list_font, row->name, px(widget.abs_x),
-                        py(row_y), list_scale * dpi,
-                        selected ? dino::Color{255, 255, 0, 255}
-                                 : widget.text_color,
-                        "LEFT", static_cast<float>(row_w) * dpi,
-                        static_cast<float>(line_h) * dpi);
-                    draw_ui_mesh(menu_gpu, name_block, list_atlas, 1.0f,
-                                 2, view_w, view_h);
-                    const dino::Mesh price_block = build_text_block(
-                        *list_font, std::to_string(row->price),
-                        px(widget.abs_x), py(row_y + line_h),
-                        list_scale * dpi,
-                        dino::Color{220, 200, 120, 255}, "RIGHT",
-                        static_cast<float>(row_w) * dpi,
-                        static_cast<float>(line_h) * dpi);
-                    draw_ui_mesh(menu_gpu, price_block, list_atlas, 1.0f,
-                                 2, view_w, view_h);
-                }
-            }
-        }
-
-        if (widget.name == "PREDEFINED_SHOW_LIST" &&
-            !park.show_rows().empty()) {
-            const int pitch = std::max(
-                1, widget.height /
-                       dino::ui::ParkHud::show_visible_rows());
-            const int column_widths[7] = {
-                widget.list_column0_width > 0
-                    ? widget.list_column0_width
-                    : 150,
-                widget.list_column1_width > 0
-                    ? widget.list_column1_width
-                    : 28,
-                widget.list_column2_width > 0
-                    ? widget.list_column2_width
-                    : 60,
-                widget.list_column3_width > 0
-                    ? widget.list_column3_width
-                    : 28,
-                widget.list_column4_width > 0
-                    ? widget.list_column4_width
-                    : 28,
-                widget.list_column5_width > 0
-                    ? widget.list_column5_width
-                    : 28,
-                widget.list_column6_width > 0
-                    ? widget.list_column6_width
-                    : 28,
-            };
-            float list_scale = 1.0f;
-            GLuint list_atlas = 0;
-            const dino::Fnt* list_font =
-                ui_font(widget.font, widget.text_height, list_scale,
-                        list_atlas);
-            if (list_font != nullptr) {
-                for (int slot = 0;
-                     slot < dino::ui::ParkHud::show_visible_rows();
-                     ++slot) {
-                    const dino::ui::ShowRow* row =
-                        park.show_visible_row(slot);
-                    if (row == nullptr) {
-                        break;
-                    }
-                    const bool selected =
-                        park.show_scroll() + slot ==
-                        park.show_selected();
-                    const int row_y = widget.abs_y + slot * pitch;
-                    int column_x = widget.abs_x;
-                    auto draw_cell = [&](int column,
-                                         const std::string& value,
-                                         dino::Color color,
-                                         const char* justify) {
-                        const dino::Mesh block = build_text_block(
-                            *list_font, value, px(column_x), py(row_y),
-                            list_scale * dpi, color, justify,
-                            static_cast<float>(column_widths[column]) *
-                                dpi,
-                            static_cast<float>(pitch) * dpi);
-                        draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f,
-                                     2, view_w, view_h);
-                        column_x += column_widths[column];
-                    };
-                    draw_cell(0, row->title,
-                              selected ? dino::Color{255, 255, 0, 255}
-                                       : widget.text_color,
-                              "LEFT");
-                    draw_cell(1, std::to_string(row->judge_kind),
-                              dino::Color{220, 220, 220, 255}, "CENTER");
-                    draw_cell(2, std::to_string(row->price),
-                              dino::Color{220, 200, 120, 255}, "RIGHT");
-                    for (int cage = 0; cage < 4; ++cage) {
-                        draw_cell(
-                            3 + cage,
-                            row->cage_size[static_cast<std::size_t>(cage)] >
-                                    0
-                                ? std::to_string(cage + 1)
-                                : std::string(),
-                            dino::Color{180, 220, 180, 255}, "CENTER");
-                    }
-                }
-            }
-        }
-
-        std::string text = runtime_text(widget.name);
-        if (text.empty()) {
-            // `FUN_00516dd0` clears an empty attraction row to the
-            // zero-filled `DAT_006743c8`; the INI `TEXT` ("10:00 AM") is
-            // only the pre-refresh template. The hour itself is drawn by
-            // the separate `ATTRACTION_LIST_TIME<n>` widget.
-            if (widget.name.rfind("ATTRACTION_LIST_NAME", 0) == 0 ||
-                widget.name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
-                continue;
-            }
-            text = dino::ui::resolve_loc_text(widget.text, park.loc);
-        }
-        if (text.empty()) {
-            continue;
-        }
-        float scale = 1.0f;
-        GLuint atlas = 0;
-        if (const dino::Fnt* font =
-                ui_font(widget.font, widget.text_height, scale, atlas)) {
-            const dino::Mesh block = build_text_block(
-                *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
-                widget.text_color, widget.justify,
-                static_cast<float>(widget.width) * dpi,
-                static_cast<float>(widget.height) * dpi);
-            draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
-        }
-    }
-
     // The mission description/tips are LIST widgets whose back area has a
     // higher ZPRIORITY than the list in the overlay data; drawing them
     // per-widget would put the back area over the text. Draw these two
@@ -1310,7 +600,728 @@ void Game::draw_park_hud(int view_w, int view_h, int logical_w, int logical_h) {
                                   58),
                         6));
     }
+}
 
+void Game::draw_park_hud_widget(int i, int hovered, float dpi, int view_w,
+                                int view_h) {
+    auto px = [&](int value) { return static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return static_cast<float>(value) * dpi; };
+    const dino::ui::Widget& widget =
+        park.overlay.widgets[static_cast<std::size_t>(i)];
+    if (!widget.texture.empty()) {
+        if (const dino::ui::Graphic* graphic =
+                park.overlay.graphic(widget.texture)) {
+            if (UiTexture* texture = ui_texture(graphic->filename)) {
+                int frame = graphic->objects <= 1 ? 0 : 4;
+                if (widget.type == "BUTTON" && graphic->objects > 1) {
+                    int wanted = -1;
+                    if (i == park_active_index) {
+                        wanted = 6;
+                    } else if (i == hovered) {
+                        wanted = 5;
+                    }
+                    if (wanted >= 0 &&
+                        ui_frame_rect(*texture, *graphic, wanted).valid) {
+                        frame = wanted;
+                    }
+                }
+                const UiSourceRect source =
+                    ui_frame_rect(*texture, *graphic, frame);
+                if (source.valid) {
+                    const float u0 =
+                        static_cast<float>(source.x) / texture->width;
+                    const float v0 =
+                        static_cast<float>(source.y) / texture->height;
+                    const float u1 = static_cast<float>(source.x + source.w) /
+                                     texture->width;
+                    const float v1 = static_cast<float>(source.y + source.h) /
+                                     texture->height;
+                    draw_ui_mesh(
+                        menu_gpu,
+                        build_ui_quad(px(widget.abs_x), py(widget.abs_y),
+                                      static_cast<float>(widget.width) * dpi,
+                                      static_cast<float>(widget.height) * dpi,
+                                      u0, v0, u1, v1,
+                                      {255, 255, 255, 255}),
+                        texture->id, 1.0f, 1, view_w, view_h);
+                }
+            }
+        }
+    } else if (widget.has_back_color) {
+        draw_ui_mesh(menu_gpu,
+                     build_screen_rect(px(widget.abs_x), py(widget.abs_y),
+                                       static_cast<float>(widget.width) * dpi,
+                                       static_cast<float>(widget.height) * dpi,
+                                       widget.back_color),
+                     0, 1.0f, 1, view_w, view_h);
+    }
+
+    // DINO_ACHAT_SAVE_RENDER_VIEW: draw the selected store entry's
+    // dinosaur's standing LOD1 mesh directly into the well. The
+    // retail widget is a 3D preview; the port fits the mesh to the
+    // widget rect with a pixel-space MVP and scissor clipping.
+    if (widget.name == "DINO_ACHAT_SAVE_RENDER_VIEW" &&
+        !park.store_rows().empty()) {
+        const int selected = park.store_selected();
+        if (selected >= 0 &&
+            selected < static_cast<int>(park.store_rows().size())) {
+            if (StorePreview* preview =
+                    store_preview_for(
+                        park.store_rows()[static_cast<std::size_t>(
+                            selected)])) {
+                const float w =
+                    static_cast<float>(widget.width) * dpi;
+                const float h =
+                    static_cast<float>(widget.height) * dpi;
+                const float size =
+                    std::max(0.001f, preview->size);
+                const dino::Vec3 center = preview->center;
+                // Side/three-quarter camera; the scene renderer
+                // already uses this projection convention for the
+                // imported dinosaurs.
+                const dino::Vec3 eye{
+                    center.x - size * 1.4f,
+                    center.y - size * 0.25f,
+                    center.z + size * 0.35f};
+                const dino::Mat4 view =
+                    look_at(eye, center, {0.0f, 0.0f, 1.0f});
+                const dino::Mat4 proj = perspective(
+                    32.0f, 1.0f, 0.1f, size * 10.0f);
+                const dino::Mat4 mvp =
+                    dino::multiply(proj, view);
+                const int vx =
+                    static_cast<int>(px(widget.abs_x));
+                const int vy = static_cast<int>(
+                    view_h - (py(widget.abs_y) + h));
+                glEnable(GL_SCISSOR_TEST);
+                glScissor(vx, vy, static_cast<int>(w),
+                          static_cast<int>(h));
+                glViewport(vx, vy, static_cast<int>(w),
+                           static_cast<int>(h));
+                glEnable(GL_DEPTH_TEST);
+                glDepthFunc(GL_LEQUAL);
+                glDisable(GL_CULL_FACE);
+                glClear(GL_DEPTH_BUFFER_BIT);
+                glfns.UseProgram(program);
+                {
+                    const float white[3] = {1.0f, 1.0f, 1.0f};
+                    glfns.Uniform3fv(
+                        glfns.GetUniformLocation(program, "u_tint"), 1,
+                        white);
+                }
+                glfns.UniformMatrix4fv(
+                    glfns.GetUniformLocation(program, "u_mvp"), 1,
+                    GL_TRUE, mvp.m);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program, "u_unlit"), 1);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program,
+                                             "u_use_texture"),
+                    preview->texture != 0 ? 1 : 0);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program,
+                                             "u_use_texture2"),
+                    0);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program,
+                                             "u_modulate2x"),
+                    0);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program, "u_texture"), 0);
+                glfns.Uniform1f(
+                    glfns.GetUniformLocation(program, "u_alpha"),
+                    1.0f);
+                glfns.Uniform1i(
+                    glfns.GetUniformLocation(program,
+                                             "u_fog_enable"),
+                    0);
+                const float light[3] = {-0.35f, -0.68f, 0.72f};
+                const float light_color[3] = {0.92f, 0.93f, 0.95f};
+                const float ambient[3] = {0.62f, 0.64f, 0.68f};
+                const float camera[3] = {0.0f, 0.0f, 4.0f};
+                glfns.Uniform3fv(
+                    glfns.GetUniformLocation(program,
+                                             "u_light_dir"),
+                    1, light);
+                glfns.Uniform3fv(
+                    glfns.GetUniformLocation(program,
+                                             "u_light_color"),
+                    1, light_color);
+                glfns.Uniform3fv(
+                    glfns.GetUniformLocation(program, "u_ambient"),
+                    1, ambient);
+                glfns.Uniform3fv(
+                    glfns.GetUniformLocation(program, "u_camera"),
+                    1, camera);
+                if (preview->texture != 0) {
+                    glfns.ActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, preview->texture);
+                }
+                glfns.BindVertexArray(preview->gpu.vao);
+                glDrawElements(GL_TRIANGLES,
+                               preview->gpu.index_count,
+                               GL_UNSIGNED_INT, nullptr);
+                glViewport(0, 0, view_w, view_h);
+                glDisable(GL_SCISSOR_TEST);
+                glDisable(GL_DEPTH_TEST);
+            }
+        }
+    }
+
+    // PROGRESS widgets: fill the gauge track proportionally. The
+    // retail panel texture supplies the empty track; the port draws a
+    // solid light-blue fill over it (the exact retail gauge art is a
+    // `moProgress` draw we have not ported yet).
+    if (widget.type == "PROGRESS" && widget.progress_max > 0) {
+        const float fraction = std::clamp(
+            static_cast<float>(widget.progress_current) /
+                static_cast<float>(widget.progress_max),
+            0.0f, 1.0f);
+        if (fraction > 0.0f) {
+            draw_ui_mesh(
+                menu_gpu,
+                build_screen_rect(
+                    px(widget.abs_x), py(widget.abs_y),
+                    static_cast<float>(widget.width) * fraction * dpi,
+                    static_cast<float>(widget.height) * dpi,
+                    {120, 200, 255, 255}),
+                0, 1.0f, 1, view_w, view_h);
+        }
+    }
+
+    if (widget.name == hud_dialog_zone() && park.dialog_open()) {
+        const int line_h =
+            widget.list_line_height > 0 ? widget.list_line_height : 15;
+        float list_scale = 1.0f;
+        GLuint list_atlas = 0;
+        const dino::Fnt* list_font =
+            ui_font(widget.font, widget.text_height, list_scale,
+                    list_atlas);
+        if (list_font != nullptr) {
+            const float max_w = static_cast<float>(
+                widget.width - widget.list_scroll_width);
+            std::vector<std::string> lines;
+            std::string current;
+            std::string word;
+            auto flush_line = [&]() {
+                lines.push_back(current);
+                current.clear();
+            };
+            auto flush_word = [&]() {
+                if (word.empty()) {
+                    return;
+                }
+                const std::string candidate =
+                    current.empty() ? word : current + " " + word;
+                if (!current.empty() &&
+                    text_width(*list_font, candidate, list_scale) > max_w) {
+                    flush_line();
+                    current = word;
+                } else {
+                    current = candidate;
+                }
+                word.clear();
+            };
+            for (const char ch : park.dialog_text()) {
+                if (ch == '\n') {
+                    flush_word();
+                    flush_line();
+                } else if (ch == ' ') {
+                    flush_word();
+                } else {
+                    word.push_back(ch);
+                }
+            }
+            flush_word();
+            if (!current.empty()) {
+                flush_line();
+            }
+            const int rows = std::min(
+                static_cast<int>(lines.size()),
+                line_h > 0 ? widget.height / line_h : 0);
+            for (int row = 0; row < rows; ++row) {
+                const dino::Mesh block = build_text_block(
+                    *list_font, lines[static_cast<std::size_t>(row)],
+                    px(widget.abs_x), py(widget.abs_y + row * line_h),
+                    list_scale * dpi, widget.text_color, "LEFT",
+                    static_cast<float>(max_w) * dpi,
+                    static_cast<float>(line_h) * dpi);
+                draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
+                             view_w, view_h);
+            }
+        }
+    }
+
+    if (widget.name == "OPTIONS_SAVE_NAMES_LIST" && !save_slots.empty()) {
+        const int line_h =
+            widget.list_line_height > 0 ? widget.list_line_height : 12;
+        const int row_w =
+            widget.list_column0_width > 0
+                ? widget.list_column0_width
+                : widget.width - widget.list_scroll_width;
+        float list_scale = 1.0f;
+        GLuint list_atlas = 0;
+        const dino::Fnt* list_font =
+            ui_font(widget.font, widget.text_height, list_scale,
+                    list_atlas);
+        if (list_font != nullptr) {
+            const int rows = std::min(
+                static_cast<int>(save_slots.size()),
+                line_h > 0 ? widget.height / line_h : 0);
+            for (int row = 0; row < rows; ++row) {
+                const dino::Mesh block = build_text_block(
+                    *list_font, save_slots[static_cast<std::size_t>(row)].second,
+                    px(widget.abs_x), py(widget.abs_y + row * line_h),
+                    list_scale * dpi, widget.text_color, widget.justify,
+                    static_cast<float>(row_w) * dpi,
+                    static_cast<float>(line_h) * dpi);
+                draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f, 2,
+                             view_w, view_h);
+            }
+        }
+    }
+
+    if (widget.name == "DINO_ACHAT_SAVE_NAMES_LIST" &&
+        !park.store_rows().empty()) {
+        const int line_h = widget.list_line_height > 0
+                               ? widget.list_line_height
+                               : 12;
+        const int pitch = std::max(
+            1, widget.height /
+                   dino::ui::ParkHud::store_visible_rows());
+        const int row_w =
+            widget.list_column0_width > 0
+                ? widget.list_column0_width
+                : widget.width - widget.list_scroll_width;
+        float list_scale = 1.0f;
+        GLuint list_atlas = 0;
+        const dino::Fnt* list_font =
+            ui_font(widget.font, widget.text_height, list_scale,
+                    list_atlas);
+        if (list_font != nullptr) {
+            for (int slot = 0;
+                 slot < dino::ui::ParkHud::store_visible_rows();
+                 ++slot) {
+                const dino::ui::StoreRow* row =
+                    park.store_visible_row(slot);
+                if (row == nullptr) {
+                    break;
+                }
+                const bool selected =
+                    park.store_scroll() + slot ==
+                    park.store_selected();
+                const int row_y = widget.abs_y + slot * pitch;
+                const dino::Mesh name_block = build_text_block(
+                    *list_font, row->name, px(widget.abs_x),
+                    py(row_y), list_scale * dpi,
+                    selected ? dino::Color{255, 255, 0, 255}
+                             : widget.text_color,
+                    "LEFT", static_cast<float>(row_w) * dpi,
+                    static_cast<float>(line_h) * dpi);
+                draw_ui_mesh(menu_gpu, name_block, list_atlas, 1.0f,
+                             2, view_w, view_h);
+                const dino::Mesh price_block = build_text_block(
+                    *list_font, std::to_string(row->price),
+                    px(widget.abs_x), py(row_y + line_h),
+                    list_scale * dpi,
+                    dino::Color{220, 200, 120, 255}, "RIGHT",
+                    static_cast<float>(row_w) * dpi,
+                    static_cast<float>(line_h) * dpi);
+                draw_ui_mesh(menu_gpu, price_block, list_atlas, 1.0f,
+                             2, view_w, view_h);
+            }
+        }
+    }
+
+    if (widget.name == "PREDEFINED_SHOW_LIST" &&
+        !park.show_rows().empty()) {
+        const int pitch = std::max(
+            1, widget.height /
+                   dino::ui::ParkHud::show_visible_rows());
+        const int column_widths[7] = {
+            widget.list_column0_width > 0
+                ? widget.list_column0_width
+                : 150,
+            widget.list_column1_width > 0
+                ? widget.list_column1_width
+                : 28,
+            widget.list_column2_width > 0
+                ? widget.list_column2_width
+                : 60,
+            widget.list_column3_width > 0
+                ? widget.list_column3_width
+                : 28,
+            widget.list_column4_width > 0
+                ? widget.list_column4_width
+                : 28,
+            widget.list_column5_width > 0
+                ? widget.list_column5_width
+                : 28,
+            widget.list_column6_width > 0
+                ? widget.list_column6_width
+                : 28,
+        };
+        float list_scale = 1.0f;
+        GLuint list_atlas = 0;
+        const dino::Fnt* list_font =
+            ui_font(widget.font, widget.text_height, list_scale,
+                    list_atlas);
+        if (list_font != nullptr) {
+            for (int slot = 0;
+                 slot < dino::ui::ParkHud::show_visible_rows();
+                 ++slot) {
+                const dino::ui::ShowRow* row =
+                    park.show_visible_row(slot);
+                if (row == nullptr) {
+                    break;
+                }
+                const bool selected =
+                    park.show_scroll() + slot ==
+                    park.show_selected();
+                const int row_y = widget.abs_y + slot * pitch;
+                int column_x = widget.abs_x;
+                auto draw_cell = [&](int column,
+                                     const std::string& value,
+                                     dino::Color color,
+                                     const char* justify) {
+                    const dino::Mesh block = build_text_block(
+                        *list_font, value, px(column_x), py(row_y),
+                        list_scale * dpi, color, justify,
+                        static_cast<float>(column_widths[column]) *
+                            dpi,
+                        static_cast<float>(pitch) * dpi);
+                    draw_ui_mesh(menu_gpu, block, list_atlas, 1.0f,
+                                 2, view_w, view_h);
+                    column_x += column_widths[column];
+                };
+                draw_cell(0, row->title,
+                          selected ? dino::Color{255, 255, 0, 255}
+                                   : widget.text_color,
+                          "LEFT");
+                draw_cell(1, std::to_string(row->judge_kind),
+                          dino::Color{220, 220, 220, 255}, "CENTER");
+                draw_cell(2, std::to_string(row->price),
+                          dino::Color{220, 200, 120, 255}, "RIGHT");
+                for (int cage = 0; cage < 4; ++cage) {
+                    draw_cell(
+                        3 + cage,
+                        row->cage_size[static_cast<std::size_t>(cage)] >
+                                0
+                            ? std::to_string(cage + 1)
+                            : std::string(),
+                        dino::Color{180, 220, 180, 255}, "CENTER");
+                }
+            }
+        }
+    }
+
+    std::string text = hud_widget_text(widget.name);
+    if (text.empty()) {
+        // `FUN_00516dd0` clears an empty attraction row to the
+        // zero-filled `DAT_006743c8`; the INI `TEXT` ("10:00 AM") is
+        // only the pre-refresh template. The hour itself is drawn by
+        // the separate `ATTRACTION_LIST_TIME<n>` widget.
+        if (widget.name.rfind("ATTRACTION_LIST_NAME", 0) == 0 ||
+            widget.name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
+            return;
+        }
+        text = dino::ui::resolve_loc_text(widget.text, park.loc);
+    }
+    if (text.empty()) {
+        return;
+    }
+    float scale = 1.0f;
+    GLuint atlas = 0;
+    if (const dino::Fnt* font =
+            ui_font(widget.font, widget.text_height, scale, atlas)) {
+        const dino::Mesh block = build_text_block(
+            *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
+            widget.text_color, widget.justify,
+            static_cast<float>(widget.width) * dpi,
+            static_cast<float>(widget.height) * dpi);
+        draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
+    }
+}
+
+std::string Game::hud_widget_text(const std::string& name) {
+    if (name == "MISSION_PANEL_TITLE" &&
+        !mission_panel_title.empty()) {
+        return mission_panel_title;
+    }
+    if (campaign_runtime) {
+        const dino::CampaignMission& mission =
+            campaign_runtime->mission();
+        static const std::string suffix = "_PANEL_EXPLICATION";
+        if (name.rfind("OBJECTIF", 0) == 0 &&
+            name.size() > suffix.size() &&
+            name.compare(name.size() - suffix.size(), suffix.size(),
+                         suffix) == 0) {
+            const int index = std::atoi(name.c_str() + 8) - 1;
+            if (index >= 0 &&
+                index < static_cast<int>(mission.objectives.size())) {
+                return dino::ui::resolve_loc_text(
+                    mission.objectives[static_cast<std::size_t>(index)]
+                        .description_id,
+                    park.loc);
+            }
+        }
+    }
+    if (name == "BUDGET_AMOUNT") {
+        return std::to_string(park_budget);
+    }
+    if (name == "OPTIONS_NAME_SLOT") {
+        return park.save_name();
+    }
+    if (name == "VISITOR_AMOUNT") {
+        return std::to_string(visitor_system.visitors.size());
+    }
+    if (name == "DINO_AMOUNT") {
+        const std::size_t count =
+            imported_dinos.size() + (place_dino ? 1 : 0);
+        return std::to_string(count);
+    }
+    if (name == "SHOW_AMOUNT") {
+        return std::to_string(show_runtime.count());
+    }
+    if (name == "PADDOCK_AMOUNT") {
+        return std::to_string(park_paddocks.size());
+    }
+    const auto slot_index = [](const std::string& widget_name,
+                               const char* prefix) -> int {
+        const std::size_t prefix_len = std::strlen(prefix);
+        if (widget_name.rfind(prefix, 0) != 0) {
+            return -1;
+        }
+        return std::atoi(widget_name.c_str() + prefix_len) - 1;
+    };
+    if (name.rfind("DINO_NAME_SLOT", 0) == 0) {
+        const int slot = slot_index(name, "DINO_NAME_SLOT");
+        if (slot >= 0 && slot < static_cast<int>(imported_dinos.size())) {
+            return imported_dinos[static_cast<std::size_t>(slot)].species;
+        }
+        return "";
+    }
+    if (name.rfind("FENCE_NAME_SLOT", 0) == 0) {
+        const int slot = slot_index(name, "FENCE_NAME_SLOT");
+        if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+            return "Paddock " + std::to_string(slot + 1);
+        }
+        return "";
+    }
+    if (name.rfind("FENCE_LIST_QUANTITY_SLOT", 0) == 0) {
+        const int slot = slot_index(name, "FENCE_LIST_QUANTITY_SLOT");
+        if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+            return std::to_string(
+                park_paddocks[static_cast<std::size_t>(slot)]
+                    .occupants.size());
+        }
+        return "";
+    }
+    if (name.rfind("FENCE_LIST_POURCENT_SLOT", 0) == 0) {
+        const int slot = slot_index(name, "FENCE_LIST_POURCENT_SLOT");
+        if (slot >= 0 && slot < static_cast<int>(park_paddocks.size())) {
+            const float percent =
+                park_paddocks[static_cast<std::size_t>(slot)].fill() *
+                100.0f;
+            return std::to_string(
+                static_cast<int>(percent + 0.5f));
+        }
+        return "";
+    }
+    // Attraction list: one row per hour slot. The retail NAME field
+    // defaults to the hour label and holds the show name once a show
+    // is scheduled (`FUN_00516dd0`); ITERATION_INDIC is the
+    // performances-per-day count `show+0x8c` (`%u`).
+    if (name.rfind("ATTRACTION_LIST_NAME", 0) == 0) {
+        const int slot = slot_index(name, "ATTRACTION_LIST_NAME") + 1;
+        std::string text;
+        int iterations = 0;
+        int locked = 0;
+        attraction_row_text(slot, text, iterations, locked);
+        return text;
+    }
+    if (name.rfind("ATTRACTION_LIST_ITERATION_INDIC", 0) == 0) {
+        const int slot =
+            slot_index(name, "ATTRACTION_LIST_ITERATION_INDIC") + 1;
+        std::string text;
+        int iterations = 0;
+        int locked = 0;
+        attraction_row_text(slot, text, iterations, locked);
+        return iterations > 0 ? std::to_string(iterations) : "";
+    }
+    if (name == "PARK_CURRENT_TIME") {
+        return park_clock.time_text(false);
+    }
+    if (name == "PARK_CURRENT_DAY") {
+        return park_clock.day_text();
+    }
+    // Budget-panel fields are separate number widgets refreshed by
+    // 0x510430. The panel shows the yesterday block (docs/decomp/
+    // economy.md); only the categories the port currently changes
+    // are non-zero.
+    if (name.rfind("BUDGET_", 0) == 0 &&
+        name.size() > 7 &&
+        name.compare(name.size() - 7, 7, "_NUMBER") == 0) {
+        if (name == "BUDGET_DINOACHAT_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_dinoachat_count);
+        }
+        if (name == "BUDGET_DINOACHAT_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_dinoachat_total);
+        }
+        if (name == "BUDGET_CONSTRUCTION_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_construction_count);
+        }
+        if (name == "BUDGET_CONSTRUCTION_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_construction_total);
+        }
+        if (name == "BUDGET_LABOACTION_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_laboaction_count);
+        }
+        if (name == "BUDGET_LABOACTION_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_laboaction_total);
+        }
+        if (name == "BUDGET_ENTREES_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_ticket_count);
+        }
+        if (name == "BUDGET_ENTREES_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_ticket_total);
+        }
+        if (name == "BUDGET_VENTES_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_ventes_count);
+        }
+        if (name == "BUDGET_VENTES_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_ventes_total);
+        }
+        if (name == "BUDGET_FOOD_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_food_count);
+        }
+        if (name == "BUDGET_FOOD_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_food_total);
+        }
+        if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_NUMBER") {
+            return std::to_string(budget_ledger.y_secu_count);
+        }
+        if (name == "BUDGET_EFFECTIFS_SECU_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_secu_total);
+        }
+        if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_NUMBER") {
+            return std::to_string(
+                employee_system.count_role(employee_profiles, 0));
+        }
+        if (name == "BUDGET_EFFECTIFS_FOOD_QUANTITY_COST_NUMBER") {
+            return std::to_string(budget_ledger.y_staff_food_total);
+        }
+        const struct ShopRow {
+            const char* prefix;
+            int kind;
+        } shop_rows[] = {
+            {"BUDGET_RESTOS_", 1},     {"BUDGET_BARAQUES_", 2},
+            {"BUDGET_SOUVENIRS_", 3},  {"BUDGET_BOITNOIRE_", 4},
+            {"BUDGET_POINTDEVUE_", 5}, {"BUDGET_GRADINS_", 6},
+        };
+        for (const ShopRow& row : shop_rows) {
+            if (name.rfind(row.prefix, 0) != 0) {
+                continue;
+            }
+            const std::size_t index =
+                static_cast<std::size_t>(row.kind);
+            if (name.find("_COST_NUMBER") != std::string::npos) {
+                return std::to_string(
+                    budget_ledger.y_shop_revenue[index]);
+            }
+            return std::to_string(
+                budget_ledger.y_shop_sales[index]);
+        }
+        if (name == "BUDGET_TOTAL_LEFT_COST_NUMBER") {
+            return std::to_string(budget_ledger.expenses());
+        }
+        if (name == "BUDGET_TOTAL_RIGHT_COST_NUMBER") {
+            return std::to_string(budget_ledger.income());
+        }
+        return "0";
+    }
+    if (name == "BUDGET_TOTAL_PRICE_PANEL_PRICE_ZONE") {
+        return std::to_string(budget_ledger.net());
+    }
+    return "";
+}
+
+const char* Game::hud_dialog_zone() {
+    switch (park.dialog_kind()) {
+        case dino::ui::ParkHud::DialogKind::warning:
+            return "WARNING_TEXT_ZONE";
+        case dino::ui::ParkHud::DialogKind::request:
+            return "REQUEST_TEXT_ZONE";
+        case dino::ui::ParkHud::DialogKind::campaign_end:
+            return "CPGEND_TEXT_ZONE";
+        default:
+            return "";
+    }
+}
+
+void Game::draw_park_hud(int view_w, int view_h, int logical_w, int logical_h) {
+    (void)logical_h;
+    if (!park.loaded()) {
+        return;
+    }
+    const int hovered =
+        park_hover_x >= 0 ? park.overlay.hit_test(park_hover_x, park_hover_y) : -1;
+    auto is_text_zone = [](const std::string& name) {
+        static const std::string suffix = "_TEXT_ZONE";
+        return name.size() >= suffix.size() &&
+               name.compare(name.size() - suffix.size(), suffix.size(),
+                            suffix) == 0;
+    };
+    const float dpi = logical_w > 0
+                          ? static_cast<float>(view_w) / static_cast<float>(logical_w)
+                          : 1.0f;
+
+    std::vector<int> order;
+    auto draw_less = [&](int a, int b) {            const auto& wa = park.overlay.widgets[static_cast<std::size_t>(a)];
+        const auto& wb = park.overlay.widgets[static_cast<std::size_t>(b)];
+        if (wa.priority != wb.priority) {
+            return wa.priority < wb.priority;
+        }
+        if (wa.zpriority != wb.zpriority) {
+            // Lower ZPRIORITY is nearer the viewer in the retail overlay;
+            // draw the far widgets first and the near ones last.
+            return wa.zpriority > wb.zpriority;
+        }
+        return a < b;
+    };
+    // moWidget::Draw (0x005c5bf0) draws the widget, then its child list in
+    // priority order. A flat ZPRIORITY sort loses that nesting: a list
+    // slot's snapshot would cover its indicator strip. Walk the tree.
+    std::function<void(int)> append_widget = [&](int i) {
+        const dino::ui::Widget& widget =
+            park.overlay.widgets[static_cast<std::size_t>(i)];
+        if (widget.name == "RENDERVIEW" ||
+            !park.overlay.visible_in_tree(i)) {
+            return;
+        }
+        order.push_back(i);
+        std::vector<int> children = widget.children;
+        std::sort(children.begin(), children.end(), draw_less);
+        for (int child : children) {
+            append_widget(child);
+        }
+    };
+    std::vector<int> roots = park.overlay.roots;
+    std::sort(roots.begin(), roots.end(), draw_less);
+    for (int root : roots) {
+        append_widget(root);
+    }
+    // Dialog text must draw above its *_TEXT_BACK_ZONE and the wood frame.
+    std::stable_partition(order.begin(), order.end(), [&](int i) {
+        return !is_text_zone(
+            park.overlay.widgets[static_cast<std::size_t>(i)].name);
+    });
+
+    for (const int i : order) {
+        draw_park_hud_widget(i, hovered, dpi, view_w, view_h);
+    }
+
+    draw_park_hud_campaign_text(dpi, view_w, view_h);
 }
 
 void Game::park_design(float window_x, float window_y, int& design_x,

@@ -529,6 +529,11 @@ private:
                              int& locked);
     void refresh_fence_info_panel();
     void draw_park_hud(int view_w, int view_h, int logical_w, int logical_h);
+    std::string hud_widget_text(const std::string& name);
+    const char* hud_dialog_zone();
+    void draw_park_hud_widget(int index, int hovered, float dpi, int view_w,
+                              int view_h);
+    void draw_park_hud_campaign_text(float dpi, int view_w, int view_h);
     void activate_main_menu();
     void park_design(float window_x, float window_y, int& design_x,
                      int& design_y);
