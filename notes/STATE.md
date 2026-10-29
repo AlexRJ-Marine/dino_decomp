@@ -2136,3 +2136,11 @@ Updated: 2026-10-28
   lines. Gates: selftest 194, fast 379, full 521 in 4:38 (food, employees,
   save/load, campaign). Next ARCH-2 slices: dinos, buildings, shows, then
   `ParkSession::update`.
+
+- ARCH-2 fifth slice (`ad32e71`): `ParkSession` now owns `ShowRuntime
+  show_runtime` and `std::vector<ShowCatalogEntry> show_catalog`; the code-only
+  replacement covers the hourly tick, show UI and show scoring paths, and
+  `game.h` drops `world/show_runtime.h` (SF.10). Ratchet 274 -> 272 members,
+  `game.h` 671 lines. Gates: selftest 194, fast 379, full 521 in 4:37 (show
+  scoring, campaign, HUD). Next ARCH-2 slices: dinos and buildings, then
+  `ParkSession::update`.
