@@ -1159,8 +1159,6 @@ void Game::update_simulation() {
 }
 
 void Game::update_camera_view() {
-    dino::Vec3 eye;
-    dino::Vec3 view_center;
     if (free_camera) {
         const float yaw_rad = free_yaw * 3.14159265f / 180.0f;
         const float pitch_rad = free_pitch * 3.14159265f / 180.0f;

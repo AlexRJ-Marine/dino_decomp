@@ -1,115 +1,140 @@
-# SDL3 + OpenGL app shell
+# App shell (`src/app`)
 
-Status: **VIEW-1 + VIEW-2 + VIEW-3 complete** — the window opens, loads a
-retail `.mesh` + `.tga`, and draws a textured, lit, **rigid-skinned animated**
-allosaurus with an orbit camera. The interactive mode is now the retail park
-camera (`docs/decomp/camera.md`); `--camera-orbit` keeps the view described
-here. This is the port's application layer (`src/app`, target `dino_port`).
+Status: **refactored 2026-10-29.** The application layer is a shell: `main.cpp`
+parses the command line, `Game` owns the session, and `Game::run()` is
+*boot → frame loop → shutdown*. Each domain has its own file, so a phase is a
+few dozen lines with a name instead of a slice of a 10k-line function. See
+`naming.md` for the conventions used here.
 
-## Toolchain
+## File map
 
-- SDL3 **3.4.18** MinGW development package, installed under
-  `C:\Tools\SDL3\SDL3-3.4.18\x86_64-w64-mingw32`.
-- Install/reinstall:
+| File | Lines | Holds |
+| --- | ---: | --- |
+| `main.cpp` | 10 | entry point: `Game(argc, argv).run()` |
+| `game.h` | ~600 | the `Game` object: session state by subsystem, then the method map (boot phases, frame phases, one banner per domain file) |
+| `game.cpp` | ~1,400 | constructor/destructor, `run()`, `shutdown()`, the 14 frame phases |
+| `game_boot.cpp` | ~1,140 | boot phases 1–11: options, keymap, budgets, campaign + save discovery, menu state, asset loading, print modes, SDL window + GL context |
+| `game_boot_park.cpp` | ~1,280 | boot phases 12–21: scene resources, park objects, dinosaurs, food, employees, camera, tools, final restore |
+| `game_input.cpp` | ~1,390 | `handle_input()`, `update_placement()`, `update_preview()` |
+| `game_ui.cpp` | ~1,420 | UI texture/font lookup, `draw_menu()`, `draw_park_hud()`, layout helpers |
+| `game_menu.cpp` | ~430 | menu/campaign actions, options, video playback |
+| `game_show.cpp` | ~390 | show scoring, participants, show placement, attraction actions |
+| `game_park.cpp` | ~1,180 | island load, campaign park load, `PortState` save/load |
+| `game_build.cpp` | ~1,030 | buildings, fences, roads, store catalog, daily settlement |
+| `game_scene.cpp` | ~860 | vegetation, minimap, extra items, dinosaur import, paddock queries |
+| `cli.{h,cpp}` | 235 + 740 | `Options`, `parse_args`, config load/save, help text |
+| `reports.{h,cpp}` | 18 + 860 | headless `--…-info` report modes, called once from boot |
+| `asset_paths.{h,cpp}` | 73 + 190 | retail path resolution, island/profile/show helpers |
+| `ui_geometry.{h,cpp}` | 67 + 135 | UI rectangles/quads and park pointer mapping |
+| `keymap.{h,cpp}` | 57 + 200 | key bindings |
+| `camera_config.{h,cpp}` | 39 + 75 | `camera.ini` reader |
+| `capture.{h,cpp}` | 16 + 55 | BMP screenshots |
+| `park_camera.{h,cpp}` | 173 + 65 | retail park camera model (`docs/decomp/camera.md`) |
+
+The line counts are approximate and drift; the point of the table is the
+boundary, not the number.
+
+## Lifecycle
+
+```cpp
+int main(int argc, char** argv) {
+    return dino::app::Game(argc, argv).run();
+}
+```
+
+`Game::run()`:
+
+1. `boot()` — the 21 `boot_*` phases below. Each returns
+   `std::optional<int>`: the process exit code when the run is over (a print
+   mode, `--validate`, a fatal load error), `std::nullopt` to continue.
+2. the frame loop (`while (running)`): 14 phases, in order.
+3. `shutdown()` — release GL/SDL resources, write the config and end-of-run
+   output.
+
+`boot()` is a list of calls, one per phase, in execution order. The exit-code
+test lives in `boot()` only, so a phase body reads as plain setup.
+
+## Boot phases
+
+| Phase | Sets up |
+| --- | --- |
+| `boot_command_line` | report modes, keymap load/rebind, music default, `--list-keys` |
+| `boot_budgets_and_clock` | difficulty budgets/sellback, island list, park clock and `--park-time` |
+| `boot_campaign_and_saves` | campaign progress, save-slot discovery, `--list-sounds` |
+| `boot_menu_state` | session flags, campaign unlock, initial menu screen, pending actions |
+| `boot_menu_overlay` | `ParkInterface.Ini`/`ParkGraphicDB.Ini` overlay, menu overlay, hover seeding |
+| `boot_demo_defaults` | demo-path asset fallbacks, LOD quality, water, show specs |
+| `boot_load_assets` | every optional asset: mesh, landscape, skin, animation, textures, wav |
+| `boot_build_textures` | build-tool textures and HUD font atlas |
+| `boot_print_modes` | `--validate` and print-only modes (returns the exit code) |
+| `boot_platform` | SDL init, window and GL context, shaders, audio device |
+| `boot_scene_resources` | texture/mesh uploads, spawn and camera seed, vegetation |
+| `boot_park_objects` | building focus, `.wld` park load, entrance cells |
+| `boot_minimap_and_visitors` | minimap, navigation flags, extra items, visitor spawn |
+| `boot_employee_profiles` | employee list and `camera.ini` |
+| `boot_import_dinos` | `.wld` dinosaurs, `--buy-dino`, paddock totals |
+| `boot_food_definitions` | food source definitions and `--place-food` |
+| `boot_camera_setup` | camera target/distance/yaw/pitch, free-camera entry |
+| `boot_park_session` | park session defaults and the `.sav` park restore |
+| `boot_employee_session` | budget overrides, purchases, nutritionists, feeding, employee mesh |
+| `boot_build_tools` | road tool, construct/store/show actions, HUD layout defaults |
+| `boot_finalize` | port save/load, hover probes, loop timing and window size |
+
+## Frame phases
+
+| Phase | Does |
+| --- | --- |
+| `handle_input` | pumps SDL events, keyboard/mouse actions, menu and HUD clicks |
+| `begin_frame` | window size, park layout sync, pending select/sell requests |
+| `advance_time` | frame `dt`, elapsed time, park palette pulse |
+| `update_session` | menu loading/timer, campaign or free-game start, session transitions |
+| `update_audio` | UI sound and music players, minimap zoom keys |
+| `update_camera` | camera input and goals (retail park model or free camera) |
+| `update_diagnostics` | `DINO_DEBUG_CAMERA` trace, looping audio restart |
+| `set_background` | clear colour (time-of-day pulse) |
+| `update_simulation` | animation clock, visitors, employees, dinosaurs, shows |
+| `update_camera_view` | the frame's `eye` and `view_center` |
+| `update_placement` | build-tool placement, picking, paddock selection |
+| `update_preview` | fence/road/ghost preview state |
+| `draw_frame` | water scroll, LOD/cull, scene, minimap, HUD and menu |
+| `present_frame` | `SDL_GL_SwapWindow`, capture/screenshot, frame counter |
+
+`eye` and `view_center` are `Game` members because `update_placement()` and
+`draw_frame()` both read them after the camera phase computed them.
+
+## Where does new code go?
+
+| If you are adding… | Put it in |
+| --- | --- |
+| a startup step | a new `boot_<area>()` phase, declared in `game.h` and called from `boot()` in order |
+| per-frame work | a `update_<thing>()` phase, called from `run()` in the right slot |
+| park simulation | `src/world/`, not `src/app/`; call it from a phase |
+| a menu/HUD screen | layout and state in `src/ui/`, drawing in `game_ui.cpp` |
+| GPU work | `src/render/`; the app keeps the GL handles |
+| a headless report | `reports.cpp` (called from `boot_command_line`) |
+| a CLI option | `cli.{h,cpp}` and one line in the help text |
+
+Rules:
+
+- `game.h` is a map: data members and declarations, no logic beyond inline
+  data helpers.
+- No SDL/GL in `src/formats`, `src/world`, `src/ui` (see `naming.md`).
+- A phase must fit on a screen or two. When a phase grows, split it — do not
+  let `boot()` or `run()` grow again.
+
+## Verification
 
 ```powershell
-.\scripts\setup-sdl3.ps1
+.\scripts\build.ps1 -BuildDir build\refactor
+.\build\refactor\dino_port.exe --selftest      # 194 checks
+.\scripts\test.ps1 -Exe build\refactor\dino_port.exe -Fast   # 350 tests
 ```
 
-- `scripts/build.ps1` finds the newest `C:\Tools\SDL3\SDL3-*` prefix (or uses
-  `$env:SDL3_ROOT`) and passes it to CMake as `-DSDL3_ROOT=...`.
-- CMake target `dino_port` links `SDL3::SDL3` + `opengl32` and copies
-  `SDL3.dll` next to the executable.
+`--selftest` covers the format readers, objectives and HUD math without a
+window; `--camera-selftest` asserts the retail camera equations; the fast suite
+covers the window, report and CLI paths. A change that only moves code must
+leave both unchanged.
 
-## Build/run
-
-```powershell
-.\scripts\build.ps1
-.\build\mingw\dino_port.exe --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
-  --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga"
-```
-
-Options:
-
-```text
---mesh FILE              retail .mesh to draw
---texture FILE           retail .tga texture
---skel FILE              retail .skel skeleton (required for skinning)
---skin FILE              retail .skin rigid-skin table
---anim FILE              retail .anim clip
---time N                 fixed animation time (default: play the loop)
---speed N                animation speed multiplier (default 1)
---width N --height N     window size (default 1280x720)
---frames N               exit after N frames (0 = run until closed)
---screenshot FILE.bmp    save the last frame as a 24-bit BMP
---capture-dir DIR        save every frame (fixed animation step)
---capture-prefix P       frame filename prefix (default frame)
---yaw DEG --pitch DEG    initial orbit camera
---distance N             camera distance (0 = auto)
---validate               parse inputs and print counts/bounds, no window
---title TEXT             window title
---no-vsync               disable vsync
-```
-
-Controls: **left-drag** orbit, **wheel** zoom, **arrows** orbit, **R** reset,
-**Esc** or the close button quits.
-
-Example animated run:
-
-```powershell
-.\build\mingw\dino_port.exe `
-  --mesh "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.mesh" `
-  --texture "game/%MAINDIR%/Data/Graphics/Textures/actors/dinos/allo.tga" `
-  --skel "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo.skel" `
-  --skin "game/%MAINDIR%/Data/Graphics/Actors/Dinos/allo/allo_lod1.skin" `
-  --anim "game/%MAINDIR%/Data/Graphics/Actors/Dinos/animations/HeavyBiped/HeavyBiped_Armor.anim"
-```
-
-Deterministic 25-frame capture:
-
-```powershell
-.\build\mingw\dino_port.exe --frames 25 `
-  --capture-dir notes\anim-cpp --capture-prefix allo `
-  --width 600 --height 400 --no-vsync --distance 16 `
-  --mesh ... --texture ... --skel ... --skin ... --anim ...
-```
-
-Result: `notes/viewer-anim-1600.png`, `notes/viewer-anim-sheet.png`,
-`notes/viewer-anim-cpp.gif`.
-
-## Implementation notes
-
-- `src/formats/mesh.cpp` reads the retail `.mesh`: header, positions, indices,
-  UVs, normals and the optional per-vertex RGBA tail. `--validate` prints the
-  same counts as the Python parser.
-- `src/formats/tga.cpp` reads uncompressed/RLE 24/32-bit and 8-bit grayscale
-  TGA, returning top-left RGBA8.
-- `src/app/main.cpp`:
-  - SDL3 window/events/timing; GL 3.3 core context.
-  - GLSL 3.3 vertex/fragment shaders with per-vertex normal, UV, color,
-    texture modulation, key + fill lighting and a small gamma lift.
-  - Interleaved VBO/VAO + EBO; UV `v_tex = 1 + v` as in the Python renderer.
-  - Orbit camera, resize handling, `glReadPixels` BMP screenshots.
-- `src/formats/skel.cpp` reads the 80-bone skeleton (64-byte row-major
-  matrices, parent table, names).
-- `src/formats/skin.cpp` locates the full-mesh block by name, reads its
-  centimetre vertices, and parses the 35 rigid skin records
-  (vertex partition, weights, inverse-bind matrices).
-- `src/formats/anim.cpp` reads the 35-bone clip (`u64` times + local 4×4
-  matrices) and samples it with quaternion slerp.
-- CPU rigid skinning per frame:
-  `v_cm @ inverse_bind @ W_raw_anim`, then `× 0.01` for metres. Normals are
-  transformed by the same 3×3 and renormalised. The 317-vertex VBO is updated
-  with `glBufferData` each frame.
-- `tests/test_app_cpp.py` checks the window smoke test, `.mesh`/`.tga`
-  validation, skinned validation, a fixed animation pose, and frame capture.
-
-## Next
-
-Phase 2 QoL:
-- QOL-1 resolution/widescreen/borderless.
-- QOL-2 UI scaling.
-- QOL-3 key rebinding.
-
-Then Phase 3: hook the original exe and replace loaders one at a time.
-
+History: this file used to describe the single-file 2026 vertical-slice
+"viewer". The mesh/TGA/skinning notes it held now live in `docs/formats/`
+(`mesh.md`, `tga.md`, `skel.md`, `skin.md`, `anim.md`).

@@ -77,9 +77,8 @@ testable without a window and reusable outside the port.
 - Config keys: `snake_case` mirroring the option (`music_volume`).
 - Executable and target: `dino_port`.
 
-## What keeps the old names
+## What keeps a "viewer" name
 
 `tools/viewer/` (asset preview tools), `tests/test_viewer.py` and the
 historical `notes/viewer-*.png` captures are genuinely viewers or evidence and
-keep their names. The application layer is `src/app` with target `dino_port`;
-there is no `src/viewer` and no `dino_viewer` anymore.
+keep their names. The application layer is `src/app` with target `dino_port`.
