@@ -428,6 +428,54 @@ void Game::load_campaign_park(const std::string& world_path) {
     try {
         const dino::WldWorld world = dino::read_wld(world_path);
         place_world_buildings(world);
+        load_campaign_show_features(world);
+
+        if (!opt.camera_target.empty()) {
+            // Scripted campaign screenshots need a view independent of
+            // the park's default start camera.
+            float tx = 0.0f;
+            float ty = 0.0f;
+            if (std::sscanf(opt.camera_target.c_str(), "%f,%f", &tx,
+                            &ty) == 2) {
+                center = {tx, ty, terrain.height_at(tx, ty) + 2.5f};
+                distance = opt.distance > 0.0f ? opt.distance : 12.0f;
+                yaw = opt.yaw;
+                pitch = opt.pitch;
+                camera_retail_model = false;
+            }
+        }
+        rebuild_extra_items();
+        wld_dinosaurs = world.dinosaurs;
+        for (const dino::RoadRect& road : world.roads) {
+            wld_roads.push_back({road.x0, road.y0, road.x1, road.y1});
+        }
+        for (const dino::WorldFence& fence : world.fences) {
+            wld_fences.push_back({fence.start_x, fence.start_y,
+                                  fence.end_x, fence.end_y});
+        }
+        import_park_layout();
+        load_dino_family_tables();
+        spawn_world_dinos();
+        load_campaign_employees(world);
+
+        load_campaign_food(world);
+
+        print_paddock_totals();
+        std::printf(
+            "campaign park: %s buildings=%zu roads=%zu fences=%zu "
+            "dinos=%zu shows=%zu animals=%zu employees=%zu\n",
+            world_path.c_str(), world.buildings.size(), wld_roads.size(),
+            wld_fences.size(), imported_dinos.size(),
+            world.records.shows.size(), world.records.animals.size(),
+            world.records.employees.size());
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "campaign park: %s\n", e.what());
+    }
+
+}
+
+// Campaign show arenas: one placed .bfi feature per drsShow waypoint.
+void Game::load_campaign_show_features(const dino::WldWorld& world) {
         // Campaign show arenas: each drsShow waypoint is one placed .bfi
         // feature (index, rotation, cell offset). Draw them from the
         // FeatureList order used by the waypoints.
@@ -515,32 +563,10 @@ void Game::load_campaign_park(const std::string& world_path) {
         std::printf("campaign show features: spawned=%zu/%zu features=%zu\n",
                     show_features_spawned, show_waypoints,
                     show_features.size());
-        if (!opt.camera_target.empty()) {
-            // Scripted campaign screenshots need a view independent of
-            // the park's default start camera.
-            float tx = 0.0f;
-            float ty = 0.0f;
-            if (std::sscanf(opt.camera_target.c_str(), "%f,%f", &tx,
-                            &ty) == 2) {
-                center = {tx, ty, terrain.height_at(tx, ty) + 2.5f};
-                distance = opt.distance > 0.0f ? opt.distance : 12.0f;
-                yaw = opt.yaw;
-                pitch = opt.pitch;
-                camera_retail_model = false;
-            }
-        }
-        rebuild_extra_items();
-        wld_dinosaurs = world.dinosaurs;
-        for (const dino::RoadRect& road : world.roads) {
-            wld_roads.push_back({road.x0, road.y0, road.x1, road.y1});
-        }
-        for (const dino::WorldFence& fence : world.fences) {
-            wld_fences.push_back({fence.start_x, fence.start_y,
-                                  fence.end_x, fence.end_y});
-        }
-        import_park_layout();
-        load_dino_family_tables();
-        spawn_world_dinos();
+}
+
+// Campaign employees: .wld simulation positions, Nutritionist profile.
+void Game::load_campaign_employees(const dino::WldWorld& world) {
         // Campaign employees: the .wld simulation list stores the live
         // positions; the world record only carries the actor id. Retail
         // assigns profile index 0 (Nutritionist) because drsEmployee's
@@ -570,9 +596,14 @@ void Game::load_campaign_park(const std::string& world_path) {
             std::printf("campaign employees: rendered=%zu\n",
                         employee_system.employees.size());
         }
+}
+
+// Campaign food sources: nutrition match, merged draw mesh.
+void Game::load_campaign_food(const dino::WldWorld& world) {
         // Food sources: list1 stores the live position and the profile's
         // nutrition constant (+0x12). Match that constant against the
         // .bsi nutrition to recover the FoodSourceList index.
+        const float half = terrain.world_size * 0.5f;
         if (food_defs.empty()) {
             try {
                 food_defs = dino::load_food_defs(
@@ -654,18 +685,6 @@ void Game::load_campaign_park(const std::string& world_path) {
                 std::fprintf(stderr, "campaign food mesh: %s\n", e.what());
             }
         }
-        print_paddock_totals();
-        std::printf(
-            "campaign park: %s buildings=%zu roads=%zu fences=%zu "
-            "dinos=%zu shows=%zu animals=%zu employees=%zu\n",
-            world_path.c_str(), world.buildings.size(), wld_roads.size(),
-            wld_fences.size(), imported_dinos.size(),
-            world.records.shows.size(), world.records.animals.size(),
-            world.records.employees.size());
-    } catch (const std::exception& e) {
-        std::fprintf(stderr, "campaign park: %s\n", e.what());
-    }
-
 }
 
 void Game::apply_port_state(const dino::PortState& state) {

@@ -595,6 +595,10 @@ private:
     void reset_island_camera(bool reset_view);
     dino::PortState make_port_state();
     void load_campaign_park(const std::string& world_path);
+    // Campaign-load steps (game_park.cpp), in call order.
+    void load_campaign_show_features(const dino::WldWorld& world);
+    void load_campaign_employees(const dino::WldWorld& world);
+    void load_campaign_food(const dino::WldWorld& world);
     void apply_port_state(const dino::PortState& state);
     // Apply-port-state steps (game_park.cpp), in call order.
     void apply_port_build_grid(const dino::PortState& state);
