@@ -2110,3 +2110,12 @@ Updated: 2026-10-28
   171 methods / 685 header lines. Next ARCH-2 slices: build grid+paddocks,
   visitors, dinos, buildings, food/employees, shows, then `ParkSession::update`.
   Gates: selftest 194, fast 379, full 521 in 3:48.
+
+- ARCH-2 second slice (`b2d455a`): `ParkSession` now also owns
+  `BuildGrid build_grid` and `std::vector<Paddock> paddocks`. The mechanical
+  pass was code-only (strings/comments preserved) and the three
+  `PortState::paddocks` references were restored after it; `park_paddocks`
+  remains the HUD snapshot. Ratchet 283 -> 281 members, `game.h` 683 lines.
+  Gates: selftest 194, fast 379, full 521 in 4:40 (save/load, campaign,
+  construction, HUD). Next ARCH-2 slices: visitors, dinos, buildings,
+  food/employees, shows, then `ParkSession::update`.
