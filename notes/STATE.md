@@ -2166,3 +2166,11 @@ Updated: 2026-10-28
   `ImportedDino`/`ImportedSpecies` mix simulation state with `GpuMesh`/GLuint,
   so the dino slice is deferred to ARCH-5 after the type split; ARCH-2's
   remaining work is `ParkSession::update`.
+
+- ARCH-2 update slice (`448ec3f`): `world/park_session.cpp` now owns
+  `ParkSession::advance_clock(dt)` and `update_staff(dt)` (hourly employee
+  assignment + employee update). `Game` keeps the feed print, employee GPU
+  upload and the day-end settlement/next_day call; call order is unchanged
+  and all inputs are session-owned. Adds the source to dino_core. Gates:
+  selftest 194, fast 379, full 521 in 4:50. Next ARCH-2: extend `update()` to
+  the show tick/daily settlement; dinos deferred to ARCH-5 (A9).
