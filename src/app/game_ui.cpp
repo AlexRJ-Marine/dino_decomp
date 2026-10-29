@@ -132,6 +132,79 @@ void Game::draw_menu_sprite(const std::string& name, float x, float y, float w,
                  sprite_texture->id, 1.0f, 1, view_w, view_h);
 }
 
+void Game::draw_menu_hscroll_widget(const dino::ui::Widget& widget, float dpi,
+                                    float ox, float oy, int view_w,
+                                    int view_h) {
+    auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+    // Retail HSCROLL children have no INI geometry; the track is
+    // the widget texture and the arrows/thumb are derived:
+    // U=D=height, thumbW=max(5,W-(U+D+5)-3*range),
+    // travel=W-U-D-thumbW, thumbX=U+pos*travel/(range-1).
+    const int range = widget.hs_range > 0 ? widget.hs_range : 32;
+    const int arrow = widget.height;
+    const int thumb_w =
+        range <= 1
+            ? std::max(0, widget.width - 2 * arrow)
+            : std::max(5, widget.width - (2 * arrow + 5) -
+                              3 * range);
+    const int travel =
+        std::max(0, widget.width - 2 * arrow - thumb_w);
+    const int pos =
+        std::clamp(widget.hs_position, 0, range - 1);
+    const float thumb_x =
+        px(widget.abs_x + arrow) +
+        (range > 1 && travel > 0
+             ? static_cast<float>(pos * travel) /
+                   static_cast<float>(range - 1) * dpi
+             : 0.0f);
+    auto draw_scroll_child = [&](const char* suffix, float x, float w) {
+        for (const int child_index : widget.children) {
+            const dino::ui::Widget& child =
+                menu.overlay.widgets[static_cast<std::size_t>(child_index)];
+            const std::string suffix_text(suffix);
+            if (child.name.size() >= suffix_text.size() &&
+                child.name.compare(child.name.size() - suffix_text.size(),
+                                   suffix_text.size(), suffix_text) == 0) {
+                if (!child.texture.empty()) {
+                    // Pick the first frame not in SKIP_LIST; the thumb
+                    // graphic skips 0..3 and 7.
+                    int child_frame = 0;
+                    if (const dino::ui::Graphic* graphic =
+                            menu.overlay.graphic(child.texture)) {
+                        child_frame = 0;
+                        for (int f = 0; f < graphic->objects; ++f) {
+                            bool skipped = false;
+                            for (const int skip : graphic->skip) {
+                                if (skip == f) {
+                                    skipped = true;
+                                    break;
+                                }
+                            }
+                            if (!skipped) {
+                                child_frame = f;
+                                break;
+                            }
+                        }
+                    }
+                    draw_menu_sprite(
+                        child.texture.c_str(), x, py(widget.abs_y), w,
+                        static_cast<float>(widget.height) * dpi, child_frame,
+                        view_w, view_h);
+                }
+                return;
+            }
+        }
+    };
+    draw_scroll_child("_BTN_LEFT", px(widget.abs_x),
+                      static_cast<float>(arrow) * dpi);
+    draw_scroll_child("_SCROLLRIGHT",
+                      px(widget.abs_x + widget.width - arrow),
+                      static_cast<float>(arrow) * dpi);
+    draw_scroll_child("_BTN_THUMB", thumb_x,
+                      static_cast<float>(thumb_w) * dpi);
+}
+
 void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
     (void)logical_h;
     if (!menu_loaded) {
@@ -236,78 +309,7 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
         }
 
         if (widget.type == "HSCROLL") {
-            // Retail HSCROLL children have no INI geometry; the track is
-            // the widget texture and the arrows/thumb are derived:
-            // U=D=height, thumbW=max(5,W-(U+D+5)-3*range),
-            // travel=W-U-D-thumbW, thumbX=U+pos*travel/(range-1).
-            const int range = widget.hs_range > 0 ? widget.hs_range : 32;
-            const int arrow = widget.height;
-            const int thumb_w =
-                range <= 1
-                    ? std::max(0, widget.width - 2 * arrow)
-                    : std::max(5, widget.width - (2 * arrow + 5) -
-                                      3 * range);
-            const int travel =
-                std::max(0, widget.width - 2 * arrow - thumb_w);
-            const int pos =
-                std::clamp(widget.hs_position, 0, range - 1);
-            const float thumb_x =
-                px(widget.abs_x + arrow) +
-                (range > 1 && travel > 0
-                     ? static_cast<float>(pos * travel) /
-                           static_cast<float>(range - 1) * dpi
-                     : 0.0f);
-            auto draw_scroll_child = [&](const char* suffix, float x,
-                                         float w) {
-                for (const int child_index : widget.children) {
-                    const dino::ui::Widget& child =
-                        menu.overlay.widgets[static_cast<std::size_t>(
-                            child_index)];
-                    const std::string suffix_text(suffix);
-                    if (child.name.size() >= suffix_text.size() &&
-                        child.name.compare(
-                            child.name.size() - suffix_text.size(),
-                            suffix_text.size(), suffix_text) == 0) {
-                        if (!child.texture.empty()) {
-                            // Pick the first frame not in SKIP_LIST; the
-                            // thumb graphic skips 0..3 and 7.
-                            int child_frame = 0;
-                            if (const dino::ui::Graphic* graphic =
-                                    menu.overlay.graphic(
-                                        child.texture)) {
-                                child_frame = 0;
-                                for (int f = 0; f < graphic->objects; ++f) {
-                                    bool skipped = false;
-                                    for (const int skip : graphic->skip) {
-                                        if (skip == f) {
-                                            skipped = true;
-                                            break;
-                                        }
-                                    }
-                                    if (!skipped) {
-                                        child_frame = f;
-                                        break;
-                                    }
-                                }
-                            }
-                            draw_menu_sprite(
-                                child.texture.c_str(), x,
-                                py(widget.abs_y), w,
-                                static_cast<float>(widget.height) * dpi,
-                                child_frame, view_w, view_h);
-                        }
-                        return;
-                    }
-                }
-            };
-            draw_scroll_child("_BTN_LEFT", px(widget.abs_x),
-                              static_cast<float>(arrow) * dpi);
-            draw_scroll_child(
-                "_SCROLLRIGHT",
-                px(widget.abs_x + widget.width - arrow),
-                static_cast<float>(arrow) * dpi);
-            draw_scroll_child("_BTN_THUMB", thumb_x,
-                              static_cast<float>(thumb_w) * dpi);
+            draw_menu_hscroll_widget(widget, dpi, ox, oy, view_w, view_h);
         }
 
         if (widget.type == "LIST") {
