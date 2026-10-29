@@ -6,7 +6,7 @@
 #include <functional>
 #include <sstream>
 
-#include "ini.h"
+#include "../formats/ini.h"
 
 namespace dino::ui {
 namespace {

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-#include "../ui/ini.h"
+#include "../formats/ini.h"
 
 namespace dino {
 
@@ -42,8 +42,8 @@ float CameraConfig::position_hardness(float t) const {
 CameraConfig load_camera_config(const std::string& path) {
     CameraConfig out;
     try {
-        const ui::IniFile ini = ui::load_ini(path);
-        const ui::IniSection* section = ini.find("Config1");
+        const IniFile ini = load_ini(path);
+        const IniSection* section = ini.find("Config1");
         if (section == nullptr) {
             return out;
         }

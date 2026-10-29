@@ -6,6 +6,8 @@
 
 #include "reports.h"
 
+#include "../formats/ini.h"
+
 namespace dino::app {
 
 std::optional<int> Game::boot() {
@@ -110,9 +112,9 @@ std::optional<int> Game::boot_budgets_and_clock() {
         std::fprintf(stderr, "island list: %s\n", e.what());
     }
     try {
-        const dino::ui::IniFile free_game = dino::ui::load_ini(
+        const dino::IniFile free_game = dino::load_ini(
             resolve_asset(opt.asset_root, "Data/Design/Scenario/FreeGame.ini"));
-        if (const dino::ui::IniSection* context = free_game.find("CONTEXT")) {
+        if (const dino::IniSection* context = free_game.find("CONTEXT")) {
             auto budget = [&](const char* key, int fallback) {
                 const std::string value = context->get(key);
                 return value.empty() ? fallback : std::atoi(value.c_str());
@@ -164,7 +166,7 @@ std::optional<int> Game::boot_campaign_and_saves() {
             : opt.campaign_progress_path;
     campaign_progress = dino::load_campaign_progress(campaign_progress_path);
     try {
-        const dino::ui::IniFile sound_db = dino::ui::load_ini(
+        const dino::IniFile sound_db = dino::load_ini(
             resolve_asset(opt.asset_root, "Data/Sound/MenuSoundDB.ini"));
         for (const auto& section : sound_db.sections) {
             const std::string filename = section.get("FILENAME");
@@ -177,7 +179,7 @@ std::optional<int> Game::boot_campaign_and_saves() {
         std::fprintf(stderr, "menu sounds: %s\n", e.what());
     }
     try {
-        const dino::ui::IniFile sound_db = dino::ui::load_ini(
+        const dino::IniFile sound_db = dino::load_ini(
             resolve_asset(opt.asset_root, "Data/Sound/ParkSoundDB.ini"));
         for (const auto& section : sound_db.sections) {
             const std::string filename = section.get("FILENAME");
@@ -508,7 +510,7 @@ std::optional<int> Game::boot_demo_defaults() {
                 resolve_asset(opt.asset_root, "Data/Config/Dino.ini");
             if (std::filesystem::exists(ini_path)) {
                 try {
-                    const auto ini = dino::ui::load_ini(ini_path);
+                    const auto ini = dino::load_ini(ini_path);
                     if (const auto* graphic = ini.find("GRAPHIC")) {
                         setting = graphic->get("LODQuality");
                     }

@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace dino::ui {
+namespace dino {
 
 struct IniSection {
     std::string name;
@@ -26,4 +26,4 @@ struct IniFile {
 // sections relative to the including file.
 IniFile load_ini(const std::string& path);
 
-}  // namespace dino::ui
+}  // namespace dino

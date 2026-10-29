@@ -6,7 +6,7 @@
 #include <set>
 #include <stdexcept>
 
-namespace dino::ui {
+namespace dino {
 namespace {
 
 std::string trim(const std::string& value) {
@@ -103,4 +103,4 @@ IniFile load_ini(const std::string& path) {
     return file;
 }
 
-}  // namespace dino::ui
+}  // namespace dino

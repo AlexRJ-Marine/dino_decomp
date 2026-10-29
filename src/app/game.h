@@ -67,7 +67,6 @@
 #include "../render/text.h"
 #include "../audio/music.h"
 #include "../audio/ui_sound.h"
-#include "../ui/ini.h"
 #include "../ui/menu.h"
 #include "../ui/park.h"
 #include "../world/build.h"

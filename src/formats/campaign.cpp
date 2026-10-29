@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string_view>
 
-#include "../ui/ini.h"
+#include "ini.h"
 
 namespace dino {
 namespace {
@@ -60,7 +60,7 @@ std::vector<std::string> split_words(const std::string& value) {
 
 // #INCLUDE expansion appends the base sections after the child sections, so
 // walk backwards: the child (earlier) overwrites the base (later).
-std::map<std::string, std::string> flatten(const dino::ui::IniFile& file) {
+std::map<std::string, std::string> flatten(const dino::IniFile& file) {
     std::map<std::string, std::string> values;
     for (auto section = file.sections.rbegin(); section != file.sections.rend();
          ++section) {
@@ -226,7 +226,7 @@ CampaignMission load_campaign_mission(const std::string& mission_ini) {
     CampaignMission mission;
     mission.path = path.string();
     mission.name = path.stem().string();
-    mission.values = flatten(dino::ui::load_ini(path.string()));
+    mission.values = flatten(dino::load_ini(path.string()));
     mission.title_id = get(mission.values, "BRIEFING", "TITLE");
     mission.description_id = get(mission.values, "BRIEFING", "DESCRIPTIONTEXT");
     mission.hint_id = get(mission.values, "BRIEFING", "HINTTEXT");
@@ -302,7 +302,7 @@ Campaign load_campaign(const std::string& campaign_ini) {
     Campaign campaign;
     campaign.path = path.string();
     campaign.name = path.parent_path().filename().string();
-    campaign.values = flatten(dino::ui::load_ini(path.string()));
+    campaign.values = flatten(dino::load_ini(path.string()));
     campaign.island = get(campaign.values, "LANDSCAPE", "ISLAND");
     campaign.world_file = get(campaign.values, "CONTEXT", "WORLDFILE");
     campaign.budget = to_int(get(campaign.values, "CONTEXT", "BUDGET"));
