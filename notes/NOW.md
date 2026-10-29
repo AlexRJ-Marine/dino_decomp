@@ -158,11 +158,10 @@ See `notes/lanes.md`. Default split:
 1. MAINT-4 is **done**: `-Fast` keeps the module marker off, runs 41 headless
    app tests and still finishes in ~68 s (397 passed / 115 deselected); the
    window/screenshot tests stay `@pytest.mark.slow`, and
-   `tests/test_app_shell.py` guards the split. Refactor queue is empty. If
-   readability work continues, the next bodies are `update_session` 434,
-   `load_island` 386 and `apply_port_state` 321 (not queued; queue as MAINT-5
-   first). Keep `--selftest` (194), the fast suite (397) and the full suite
-   (511) green.
+   `tests/test_app_shell.py` guards the split. Refactor queue: **MAINT-5** is
+   queued (split `update_session` 434, `load_island` 386, `apply_port_state`
+   321 by the MAINT-2 verbatim method). Keep `--selftest` (194), the fast
+   suite (397) and the full suite (511) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign

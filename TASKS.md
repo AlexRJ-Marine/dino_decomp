@@ -2072,6 +2072,21 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (project row), `notes/harness/maint4-fast.log`, `notes/harness/maint4-full.log`.
 - **Depends on:** MAINT-1.
 
+### MAINT-5: Split the three remaining long phase bodies
+- [ ] `update_session` 434 -> `finish_menu_loading` (~95),
+  `update_park_world` (~53) and `update_campaign_session` (~285); then split
+  the campaign block into `build_mission_state` (~185) and
+  `finish_campaign_mission` (~100). Every block a verbatim move; the
+  MAINT-3 shadow guard stays clean.
+- [ ] `load_island` 386 -> asset-load / placement / minimap sections by the
+  same method.
+- [ ] `apply_port_state` 321 -> roads/fences, buildings/objects and
+  visitors/dinos sections.
+- **Acceptance:** each extracted helper fits a screen or two; `--selftest`
+  194, fast suite 397 and full suite 511 stay green after each slice.
+- **Depends on:** MAINT-2 (verbatim move method) and MAINT-4 (the app tests
+  now run in `-Fast`, so a regression is caught in ~70 s).
+
 ## Phase 4 — remove the original exe
 
 ### PAR-1: Reference comparison harness

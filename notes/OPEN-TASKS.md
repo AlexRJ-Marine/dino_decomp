@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-29 01:43. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-29 01:45. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-49 open items.
+52 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -98,6 +98,11 @@ Generated from `TASKS.md` on 2026-10-29 01:43. Do not edit; regenerate with `scr
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
 - [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
+
+## MAINT-5: Split the three remaining long phase bodies
+- [ ] `update_session` 434 -> `finish_menu_loading` (~95),
+- [ ] `load_island` 386 -> asset-load / placement / minimap sections by the
+- [ ] `apply_port_state` 321 -> roads/fences, buildings/objects and
 
 ## SELL-1: Shared object sell (port)
 - [ ] **Cursor:** retail changes the mouse icon in the sell state (0x14); the
