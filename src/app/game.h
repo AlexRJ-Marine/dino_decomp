@@ -587,6 +587,12 @@ private:
     // --- park lifecycle and save (game_park.cpp) -----------------------
     void import_park_layout();
     void load_island(const std::string& island, bool reset_view);
+    // Load-island steps (game_park.cpp), in call order.
+    int upload_island_graphics();
+    void build_island_park();
+    void place_island_entrance();
+    void compute_island_center();
+    void reset_island_camera(bool reset_view);
     dino::PortState make_port_state();
     void load_campaign_park(const std::string& world_path);
     void apply_port_state(const dino::PortState& state);

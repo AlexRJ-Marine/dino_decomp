@@ -134,6 +134,31 @@ void Game::load_island(const std::string& island, bool reset_view) {
     water2_image = std::move(new_water2);
     water_z = new_water_z;
 
+    int loaded_faces = upload_island_graphics();
+
+    build_island_park();
+
+    place_island_entrance();
+    rebuild_extra_items();
+
+    compute_island_center();
+    reset_island_camera(reset_view);
+
+    std::printf(
+        "island: %s lnd=%s terrain=%dx%d vegetation=%zu groups water=%.1f "
+        "sky=%d\n",
+        island.c_str(), lnd_path.c_str(), terrain.width, terrain.height,
+        vegetation.groups.size(), water_z, loaded_faces);
+    if (music.enabled && !lnd.music.empty()) {
+        const auto music_it = park_sound_files.find(lnd.music);
+        if (music_it != park_sound_files.end()) {
+            music.play(music_it->second);
+        }
+    }
+}
+
+// Texture/detail/terrain/vegetation/sky/water GPU state for the new island.
+int Game::upload_island_graphics() {
     if (opt.texture_path.empty() && image.width > 0) {
         texture = upload_texture(image);
     }
@@ -172,7 +197,11 @@ void Game::load_island(const std::string& island, bool reset_view) {
             make_water_plane(terrain.world_size * 4.75f, water_z, 38.0f),
             glfns);
     }
+    return loaded_faces;
+}
 
+// Build grid, --place-path/--place-fence cells and the visitor actors.
+void Game::build_island_park() {
     if (build_ready) {
         build_grid.init(opt.build_cell, terrain.world_size);
         build_grid.occupancy.init_from_mask(
@@ -251,7 +280,9 @@ void Game::load_island(const std::string& island, bool reset_view) {
         }
         rebuild_build_meshes();
     }
+}
 
+void Game::place_island_entrance() {
     // Free Game handoff: the engine's `FUN_0051dad0` spawns the access
     // road from the Entrance (category 10) at the island's .lnd
     // width/height. Place the same Entrance boat at that cell.
@@ -272,8 +303,10 @@ void Game::load_island(const std::string& island, bool reset_view) {
             std::fprintf(stderr, "entrance: %s\n", e.what());
         }
     }
-    rebuild_extra_items();
+}
 
+// Scene bounds and the orbit/close-up centre.
+void Game::compute_island_center() {
     bounds = Bounds{};
     for (const auto& p : display.positions) {
         bounds.add(p);
@@ -327,6 +360,10 @@ void Game::load_island(const std::string& island, bool reset_view) {
         : bounds.center();
     auto_distance = place_dino ? 22.0f
                                : std::max(2.0f, bounds.extent() * 1.7f);
+}
+
+// Initial camera: demo close-up or the retail camSwitcher state.
+void Game::reset_island_camera(bool reset_view) {
     if (reset_view) {
         if (place_dino) {
             // Demo close-up for --start-dino; the original free game has
@@ -377,19 +414,6 @@ void Game::load_island(const std::string& island, bool reset_view) {
             enter_free_camera();
         }
     }
-
-    std::printf(
-        "island: %s lnd=%s terrain=%dx%d vegetation=%zu groups water=%.1f "
-        "sky=%d\n",
-        island.c_str(), lnd_path.c_str(), terrain.width, terrain.height,
-        vegetation.groups.size(), water_z, loaded_faces);
-    if (music.enabled && !lnd.music.empty()) {
-        const auto music_it = park_sound_files.find(lnd.music);
-        if (music_it != park_sound_files.end()) {
-            music.play(music_it->second);
-        }
-    }
-
 }
 
 void Game::load_campaign_park(const std::string& world_path) {
