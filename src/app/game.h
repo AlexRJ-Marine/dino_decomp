@@ -484,6 +484,7 @@ private:
     void update_camera_view();
     void update_placement();
     void update_fence_cursor();
+    void place_selected_store_item();
     void update_preview();
     void draw_frame();
     void present_frame();

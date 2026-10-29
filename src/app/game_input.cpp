@@ -819,6 +819,138 @@ void Game::update_fence_cursor() {
     }
 }
 
+void Game::place_selected_store_item() {
+    // FENCE_INSERTION: the click picks the paddock; a full paddock
+    // keeps the insertion state and shows the retail warning.
+    dino::Vec3 hit;
+    if (pick_terrain(terrain, eye, view_center, click_x, click_y,
+                     logical_width, logical_height, hit)) {
+        const float half = terrain.world_size * 0.5f;
+        const float wx = hit.x + half;
+        const float wy = hit.y + half;
+        std::printf("store: pick world %.1f %.1f\n", wx, wy);
+        int paddock_index = -1;
+        for (std::size_t p = 0; p < paddocks.size(); ++p) {
+            const dino::WorldRect& r = paddocks[p].rect;
+            if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
+                wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
+                wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
+                wy <= static_cast<float>(std::max(r.y0, r.y1))) {
+                paddock_index = static_cast<int>(p);
+                break;
+            }
+        }
+        if (paddock_index < 0) {
+            std::printf("store: click inside a paddock\n");
+        } else if (pending_store_index >=
+                   static_cast<int>(store_catalog.size())) {
+            pending_store_index = -1;
+            pending_store_price = 0;
+        } else {
+            const dino::MarketEntry entry =
+                store_catalog[static_cast<std::size_t>(
+                    pending_store_index)];
+            std::string species;
+            std::string family;
+            int cost_class = 0;
+            try {
+                const std::string genotype_path = resolve_asset(
+                    opt.asset_root,
+                    "Data/Design/Scenario/Genotype/" +
+                        entry.genotype);
+                const int head =
+                    dino::read_gen_head_type(genotype_path);
+                dino::DinoGenotype genotype{};
+                bool have_genotype = false;
+                try {
+                    genotype =
+                        dino::read_gen_genotype(genotype_path);
+                    have_genotype = true;
+                } catch (const std::exception&) {
+                }
+                const auto match = head_species.find(head);
+                species = match != head_species.end()
+                              ? match->second
+                              : "allo";
+                family = family_table.family_of(species);
+                if (family.empty()) {
+                    family = "LightBiped";
+                }
+                cost_class =
+                    (have_genotype && phenotype_table.valid)
+                        ? phenotype_table.size_class(genotype)
+                        : (size_for_species
+                               ? size_for_species(species)
+                               : 1);
+                const int dino_id =
+                    1000000 +
+                    static_cast<int>(imported_dinos.size());
+                dino::Paddock& paddock =
+                    paddocks[static_cast<std::size_t>(
+                        paddock_index)];
+                if (!dino::paddock_can_add(paddock, dino_id,
+                                           cost_class)) {
+                    std::printf(
+                        "store: no room in paddock %d "
+                        "(WARNING_NO_ROOM_IN_FENCE)\n",
+                        paddock_index);
+                    park.show_message(
+                        dino::ui::resolve_loc_text(
+                            "&WARNING_NO_ROOM_IN_FENCE",
+                            park.loc));
+                } else {
+                    const bool have_attributes =
+                        have_genotype && phenotype_table.valid;
+                    const dino::DinoAttributes store_attrs =
+                        have_attributes
+                            ? phenotype_table.attributes(genotype)
+                            : dino::DinoAttributes{};
+                    if (add_imported_dino(
+                            species, family, opt.dino_clip, wx,
+                            wy, 0.0f,
+                            have_attributes ? &store_attrs
+                                            : nullptr)) {
+                        dino::paddock_add(paddock, dino_id,
+                                          cost_class);
+                        park_budget -= pending_store_price;
+                        budget_ledger.spend_dinoachat(
+                            pending_store_price);
+                        store_catalog.erase(
+                            store_catalog.begin() +
+                            pending_store_index);
+                        refresh_store_rows();
+                        park_paddocks = paddocks;
+                        float total_used = 0.0f;
+                        for (const dino::Paddock& p : paddocks) {
+                            total_used += p.used;
+                        }
+                        std::printf(
+                            "store: bought %s price=%d budget=%d "
+                            "paddock=%d dinos=%zu "
+                            "dinoachat=%d/%d used=%.0f "
+                            "total=%.0f\n",
+                            entry.name.c_str(),
+                            pending_store_price, park_budget,
+                            paddock_index, imported_dinos.size(),
+                            budget_ledger.dinoachat_count,
+                            budget_ledger.dinoachat_total,
+                            paddock.used, total_used);
+                        pending_store_index = -1;
+                        pending_store_price = 0;
+                        rebuild_extra_items();
+                    } else {
+                        std::printf(
+                            "store: %s model load failed\n",
+                            entry.name.c_str());
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "store: %s\n", e.what());
+            }
+        }
+    }
+}
+
 void Game::update_placement() {
     if (pending_fence_tool) {
         ensure_build_ready();
@@ -833,135 +965,7 @@ void Game::update_placement() {
     if (pending_click) {
         pending_click = false;
         if (pending_store_index >= 0 && build_ready) {
-            // FENCE_INSERTION: the click picks the paddock; a full paddock
-            // keeps the insertion state and shows the retail warning.
-            dino::Vec3 hit;
-            if (pick_terrain(terrain, eye, view_center, click_x, click_y,
-                             logical_width, logical_height, hit)) {
-                const float half = terrain.world_size * 0.5f;
-                const float wx = hit.x + half;
-                const float wy = hit.y + half;
-                std::printf("store: pick world %.1f %.1f\n", wx, wy);
-                int paddock_index = -1;
-                for (std::size_t p = 0; p < paddocks.size(); ++p) {
-                    const dino::WorldRect& r = paddocks[p].rect;
-                    if (wx >= static_cast<float>(std::min(r.x0, r.x1)) &&
-                        wx <= static_cast<float>(std::max(r.x0, r.x1)) &&
-                        wy >= static_cast<float>(std::min(r.y0, r.y1)) &&
-                        wy <= static_cast<float>(std::max(r.y0, r.y1))) {
-                        paddock_index = static_cast<int>(p);
-                        break;
-                    }
-                }
-                if (paddock_index < 0) {
-                    std::printf("store: click inside a paddock\n");
-                } else if (pending_store_index >=
-                           static_cast<int>(store_catalog.size())) {
-                    pending_store_index = -1;
-                    pending_store_price = 0;
-                } else {
-                    const dino::MarketEntry entry =
-                        store_catalog[static_cast<std::size_t>(
-                            pending_store_index)];
-                    std::string species;
-                    std::string family;
-                    int cost_class = 0;
-                    try {
-                        const std::string genotype_path = resolve_asset(
-                            opt.asset_root,
-                            "Data/Design/Scenario/Genotype/" +
-                                entry.genotype);
-                        const int head =
-                            dino::read_gen_head_type(genotype_path);
-                        dino::DinoGenotype genotype{};
-                        bool have_genotype = false;
-                        try {
-                            genotype =
-                                dino::read_gen_genotype(genotype_path);
-                            have_genotype = true;
-                        } catch (const std::exception&) {
-                        }
-                        const auto match = head_species.find(head);
-                        species = match != head_species.end()
-                                      ? match->second
-                                      : "allo";
-                        family = family_table.family_of(species);
-                        if (family.empty()) {
-                            family = "LightBiped";
-                        }
-                        cost_class =
-                            (have_genotype && phenotype_table.valid)
-                                ? phenotype_table.size_class(genotype)
-                                : (size_for_species
-                                       ? size_for_species(species)
-                                       : 1);
-                        const int dino_id =
-                            1000000 +
-                            static_cast<int>(imported_dinos.size());
-                        dino::Paddock& paddock =
-                            paddocks[static_cast<std::size_t>(
-                                paddock_index)];
-                        if (!dino::paddock_can_add(paddock, dino_id,
-                                                   cost_class)) {
-                            std::printf(
-                                "store: no room in paddock %d "
-                                "(WARNING_NO_ROOM_IN_FENCE)\n",
-                                paddock_index);
-                            park.show_message(
-                                dino::ui::resolve_loc_text(
-                                    "&WARNING_NO_ROOM_IN_FENCE",
-                                    park.loc));
-                        } else {
-                            const bool have_attributes =
-                                have_genotype && phenotype_table.valid;
-                            const dino::DinoAttributes store_attrs =
-                                have_attributes
-                                    ? phenotype_table.attributes(genotype)
-                                    : dino::DinoAttributes{};
-                            if (add_imported_dino(
-                                    species, family, opt.dino_clip, wx,
-                                    wy, 0.0f,
-                                    have_attributes ? &store_attrs
-                                                    : nullptr)) {
-                                dino::paddock_add(paddock, dino_id,
-                                                  cost_class);
-                                park_budget -= pending_store_price;
-                                budget_ledger.spend_dinoachat(
-                                    pending_store_price);
-                                store_catalog.erase(
-                                    store_catalog.begin() +
-                                    pending_store_index);
-                                refresh_store_rows();
-                                park_paddocks = paddocks;
-                                float total_used = 0.0f;
-                                for (const dino::Paddock& p : paddocks) {
-                                    total_used += p.used;
-                                }
-                                std::printf(
-                                    "store: bought %s price=%d budget=%d "
-                                    "paddock=%d dinos=%zu "
-                                    "dinoachat=%d/%d used=%.0f "
-                                    "total=%.0f\n",
-                                    entry.name.c_str(),
-                                    pending_store_price, park_budget,
-                                    paddock_index, imported_dinos.size(),
-                                    budget_ledger.dinoachat_count,
-                                    budget_ledger.dinoachat_total,
-                                    paddock.used, total_used);
-                                pending_store_index = -1;
-                                pending_store_price = 0;
-                                rebuild_extra_items();
-                            } else {
-                                std::printf(
-                                    "store: %s model load failed\n",
-                                    entry.name.c_str());
-                            }
-                        }
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "store: %s\n", e.what());
-                    }
-                }
-            }
+            place_selected_store_item();
         } else if (build_ready && build_tool != 0) {                dino::Vec3 hit;
             const bool picked = pick_terrain(terrain, eye, view_center, click_x,
                                              click_y, logical_width, logical_height, hit);
