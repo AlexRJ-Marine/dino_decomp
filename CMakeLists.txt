@@ -59,6 +59,7 @@ add_library(dino_core STATIC
     src/world/campaign_runtime.cpp
     src/world/show_runtime.cpp
     src/world/port_save.cpp
+    src/world/park_session.cpp
     src/world/economy.cpp
 )
 

@@ -370,7 +370,7 @@ void Game::update_menu_loading() {
 void Game::update_park_world() {
     if (park.loaded() && !start_screen) {
         park.update(frame_dt);
-        park_session.clock.advance(frame_dt);
+        park_session.advance_clock(frame_dt);
         if (campaign_runtime && campaign_runtime->active()) {
             const int hour_index = static_cast<int>(
                 park_session.clock.elapsed * park_session.clock.hours_per_second());
@@ -398,16 +398,11 @@ void Game::update_park_world() {
                     slot, text.c_str(), iterations, locked);
             }
         }
-        if (park_session.clock.new_hour && !park_session.employee_system.employees.empty()) {
-            const int assigned = park_session.employee_system.start_hour(
-                park_session.employee_profiles, park_session.food_sources, park_session.food_defs);
-            if (assigned > 0) {
-                std::printf("feed: hour=%d assigned=%d\n",
-                            park_session.clock.hour(), assigned);
-            }
+        const int assigned = park_session.update_staff(frame_dt);
+        if (assigned > 0) {
+            std::printf("feed: hour=%d assigned=%d\n",
+                        park_session.clock.hour(), assigned);
         }
-        park_session.employee_system.update(frame_dt, park_session.employee_profiles, park_session.food_sources,
-                               park_session.food_defs);
         if (employee_gpu.vao != 0 && !employee_pose.positions.empty()) {
             update_mesh(employee_gpu,
                         park_session.employee_system.build_mesh(terrain, employee_pose),

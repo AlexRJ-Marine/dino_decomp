@@ -2210,10 +2210,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `building_center` into `ParkSession` (the `opt.entrance_road` option is
   preserved). Ratchet 272 -> 266; `game.h` 665 lines. Building, road,
   save/load and campaign tests unchanged.
-- [ ] Move the remaining subsystem: `ParkSession::update(dt)` and the
-  `update_park_world`/`update_simulation` bodies. Dino state is deferred to
-  ARCH-5 because `ImportedDino`/`ImportedSpecies` mix simulation and GL state
-  (architecture finding A9); split the types first.
+- [x] Move the clock and staff update into `ParkSession`:
+  `advance_clock(dt)` and `update_staff(dt)` (hourly assignment + employee
+  update) now live in `world/park_session.cpp`; `Game` keeps the feed print,
+  the employee GPU upload and the daily settlement. Employee, clock and
+  campaign tests unchanged.
+- [ ] Extend `ParkSession::update(dt)` to the show tick and daily settlement
+  (currently `Game` owns the `fill_show_scores` callback and
+  `run_daily_settlement`). Dino state is deferred to ARCH-5 because
+  `ImportedDino`/`ImportedSpecies` mix simulation and GL state (A9).
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

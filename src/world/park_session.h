@@ -42,6 +42,11 @@ struct ParkSession {
     int entrance_cell_y = -1;
     std::optional<WorldRect> entrance_road;
     Vec3 building_center{1e30f, 1e30f, 1e30f};
+
+    // Clock and staff update order. Show ticking and HUD/GPU work stay with
+    // the application; these two steps only touch session state.
+    void advance_clock(double dt);
+    int update_staff(double dt);
 };
 
 }  // namespace dino
