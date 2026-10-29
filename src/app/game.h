@@ -500,6 +500,8 @@ private:
                       GLuint texture_id, float alpha, int unlit, int view_w,
                       int view_h);
     void draw_menu(int view_w, int view_h, int logical_w, int logical_h);
+    void draw_menu_widget(int widget_index, float dpi, float ox, float oy,
+                          int view_w, int view_h);
     void draw_menu_sprite(const std::string& name, float x, float y, float w,
                           float h, int sprite_frame, int view_w, int view_h);
     void draw_menu_hscroll_widget(const dino::ui::Widget& widget, float dpi,

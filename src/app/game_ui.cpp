@@ -416,6 +416,117 @@ void Game::draw_menu_list_widget(const dino::ui::Widget& widget, float dpi,
     }
 }
 
+void Game::draw_menu_widget(int widget_index, float dpi, float ox,
+                            float oy, int view_w, int view_h) {
+    auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
+    auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
+    const dino::ui::Widget& widget =
+        menu.overlay.widgets[static_cast<std::size_t>(widget_index)];
+    bool visible = menu.widget_visible(widget_index);
+    const std::string island_prefix = "FREE_GAME_ISLAND_PIC_isl";
+    if (widget.name.rfind(island_prefix, 0) == 0) {
+        const int index = std::atoi(widget.name.c_str() + island_prefix.size());
+        visible = menu.page == 1 &&
+                  menu.overlay.page_root(widget_index) ==
+                      static_cast<int>(menu.overlay.pages[1]) &&
+                  index == menu.island + 1;
+    }
+    const std::string info_island_prefix =
+        "CAMPAIGN_INFO_ISLAND_PIC_isl";
+    if (widget.name.rfind(info_island_prefix, 0) == 0) {
+        const int index = std::atoi(widget.name.c_str() +
+                                    info_island_prefix.size());
+        visible = false;
+        const dino::Campaign* campaign = menu.selected_campaign();
+        if (campaign != nullptr && menu.page == 3 &&
+            menu.overlay.page_root(widget_index) ==
+                static_cast<int>(menu.overlay.pages[3])) {
+            char island_name[16];
+            std::snprintf(island_name, sizeof(island_name), "Isl%02d",
+                          index);
+            visible = campaign->island == island_name;
+        }
+    }
+    if (!visible) {
+        return;
+    }
+
+    int sprite_frame = widget_index == menu.hover ? 5 : 4;
+    if ((widget.name == "FREE_EASY_BUTTON" && menu.difficulty == 0) ||
+        (widget.name == "FREE_MIDDLE_BUTTON" && menu.difficulty == 1) ||
+        (widget.name == "FREE_HARD_BUTTON" && menu.difficulty == 2)) {
+        sprite_frame = 7;
+    }
+    // Retail starts the campaign list with no row selected; START is
+    // disabled (frame 0) until an unlocked campaign is chosen.
+    if (widget.name == "CAMPAIGN_START_BUTTON" &&
+        (menu.selected_campaign() == nullptr ||
+         !menu.campaign_unlocked(menu.campaign))) {
+        sprite_frame = 0;
+    }
+
+    if (!widget.texture.empty()) {
+        if (const dino::ui::Graphic* graphic =
+                menu.overlay.graphic(widget.texture)) {
+            if (UiTexture* texture = ui_texture(graphic->filename)) {
+                const int chosen_frame =
+                    graphic->objects <= 1 ? 0 : sprite_frame;
+                const UiSourceRect source =
+                    ui_frame_rect(*texture, *graphic, chosen_frame);
+                if (source.valid) {
+                    const float u0 = static_cast<float>(source.x) / texture->width;
+                    const float v0 = static_cast<float>(source.y) / texture->height;
+                    const float u1 = static_cast<float>(source.x + source.w) /
+                                     texture->width;
+                    const float v1 = static_cast<float>(source.y + source.h) /
+                                     texture->height;
+                    draw_ui_mesh(
+                        menu_gpu,
+                        build_ui_quad(px(widget.abs_x), py(widget.abs_y),
+                                      static_cast<float>(widget.width) * dpi,
+                                      static_cast<float>(widget.height) * dpi,
+                                      u0, v0, u1, v1, {255, 255, 255, 255}),
+                        texture->id, 1.0f, 1, view_w, view_h);
+                }
+            }
+        }
+    } else if (widget.has_back_color) {
+        draw_ui_mesh(menu_gpu,
+                     build_screen_rect(px(widget.abs_x), py(widget.abs_y),
+                                       static_cast<float>(widget.width) * dpi,
+                                       static_cast<float>(widget.height) * dpi,
+                                       widget.back_color),
+                     0, 1.0f, 1, view_w, view_h);
+    }
+
+    if (widget.type == "HSCROLL") {
+        draw_menu_hscroll_widget(widget, dpi, ox, oy, view_w, view_h);
+    }
+
+    if (widget.type == "LIST") {
+        draw_menu_list_widget(widget, dpi, ox, oy, view_w, view_h);
+    }
+
+    const std::string text = menu.text_for(widget);
+    // Retail only draws widget text when TEXT_HEIGHT is set (the
+    // glyph scale is TEXT_HEIGHT / font_size, so an absent height is
+    // a zero scale). Icon buttons such as START_BUTTON/CANCEL_BUTTON
+    // carry a TEXT key but no TEXT_HEIGHT and render as bare art.
+    if (!text.empty() && widget.text_height > 0) {
+        float scale = 1.0f;
+        GLuint atlas = 0;
+        if (const dino::Fnt* font =
+                ui_font(widget.font, widget.text_height, scale, atlas)) {
+            const dino::Mesh block = build_text_block(
+                *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
+                widget.text_color, widget.justify,
+                static_cast<float>(widget.width) * dpi,
+                static_cast<float>(widget.height) * dpi);
+            draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
+        }
+    }
+}
+
 void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
     (void)logical_h;
     if (!menu_loaded) {
@@ -426,8 +537,6 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
                           : 1.0f;
     const float ox = (static_cast<float>(view_w) - 800.0f * dpi) * 0.5f;
     const float oy = (static_cast<float>(view_h) - 600.0f * dpi) * 0.5f;
-    auto px = [&](int value) { return ox + static_cast<float>(value) * dpi; };
-    auto py = [&](int value) { return oy + static_cast<float>(value) * dpi; };
 
     if (const dino::ui::Graphic* background =
             menu.overlay.graphic(menu.background())) {
@@ -440,111 +549,7 @@ void Game::draw_menu(int view_w, int view_h, int logical_w, int logical_h) {
     }
 
     for (int i = 0; i < static_cast<int>(menu.overlay.widgets.size()); ++i) {
-        const dino::ui::Widget& widget =
-            menu.overlay.widgets[static_cast<std::size_t>(i)];
-        bool visible = menu.widget_visible(i);
-        const std::string island_prefix = "FREE_GAME_ISLAND_PIC_isl";
-        if (widget.name.rfind(island_prefix, 0) == 0) {
-            const int index = std::atoi(widget.name.c_str() + island_prefix.size());
-            visible = menu.page == 1 &&
-                      menu.overlay.page_root(i) ==
-                          static_cast<int>(menu.overlay.pages[1]) &&
-                      index == menu.island + 1;
-        }
-        const std::string info_island_prefix =
-            "CAMPAIGN_INFO_ISLAND_PIC_isl";
-        if (widget.name.rfind(info_island_prefix, 0) == 0) {
-            const int index = std::atoi(widget.name.c_str() +
-                                        info_island_prefix.size());
-            visible = false;
-            const dino::Campaign* campaign = menu.selected_campaign();
-            if (campaign != nullptr && menu.page == 3 &&
-                menu.overlay.page_root(i) ==
-                    static_cast<int>(menu.overlay.pages[3])) {
-                char island_name[16];
-                std::snprintf(island_name, sizeof(island_name), "Isl%02d",
-                              index);
-                visible = campaign->island == island_name;
-            }
-        }
-        if (!visible) {
-            continue;
-        }
-
-        int frame = i == menu.hover ? 5 : 4;
-        if ((widget.name == "FREE_EASY_BUTTON" && menu.difficulty == 0) ||
-            (widget.name == "FREE_MIDDLE_BUTTON" && menu.difficulty == 1) ||
-            (widget.name == "FREE_HARD_BUTTON" && menu.difficulty == 2)) {
-            frame = 7;
-        }
-        // Retail starts the campaign list with no row selected; START is
-        // disabled (frame 0) until an unlocked campaign is chosen.
-        if (widget.name == "CAMPAIGN_START_BUTTON" &&
-            (menu.selected_campaign() == nullptr ||
-             !menu.campaign_unlocked(menu.campaign))) {
-            frame = 0;
-        }
-
-        if (!widget.texture.empty()) {
-            if (const dino::ui::Graphic* graphic =
-                    menu.overlay.graphic(widget.texture)) {
-                if (UiTexture* texture = ui_texture(graphic->filename)) {
-                    const int sprite_frame =
-                        graphic->objects <= 1 ? 0 : frame;
-                    const UiSourceRect source =
-                        ui_frame_rect(*texture, *graphic, sprite_frame);
-                    if (source.valid) {
-                        const float u0 = static_cast<float>(source.x) / texture->width;
-                        const float v0 = static_cast<float>(source.y) / texture->height;
-                        const float u1 = static_cast<float>(source.x + source.w) /
-                                         texture->width;
-                        const float v1 = static_cast<float>(source.y + source.h) /
-                                         texture->height;
-                        draw_ui_mesh(
-                            menu_gpu,
-                            build_ui_quad(px(widget.abs_x), py(widget.abs_y),
-                                          static_cast<float>(widget.width) * dpi,
-                                          static_cast<float>(widget.height) * dpi,
-                                          u0, v0, u1, v1, {255, 255, 255, 255}),
-                            texture->id, 1.0f, 1, view_w, view_h);
-                    }
-                }
-            }
-        } else if (widget.has_back_color) {
-            draw_ui_mesh(menu_gpu,
-                         build_screen_rect(px(widget.abs_x), py(widget.abs_y),
-                                           static_cast<float>(widget.width) * dpi,
-                                           static_cast<float>(widget.height) * dpi,
-                                           widget.back_color),
-                         0, 1.0f, 1, view_w, view_h);
-        }
-
-        if (widget.type == "HSCROLL") {
-            draw_menu_hscroll_widget(widget, dpi, ox, oy, view_w, view_h);
-        }
-
-        if (widget.type == "LIST") {
-            draw_menu_list_widget(widget, dpi, ox, oy, view_w, view_h);
-        }
-
-        const std::string text = menu.text_for(widget);
-        // Retail only draws widget text when TEXT_HEIGHT is set (the
-        // glyph scale is TEXT_HEIGHT / font_size, so an absent height is
-        // a zero scale). Icon buttons such as START_BUTTON/CANCEL_BUTTON
-        // carry a TEXT key but no TEXT_HEIGHT and render as bare art.
-        if (!text.empty() && widget.text_height > 0) {
-            float scale = 1.0f;
-            GLuint atlas = 0;
-            if (const dino::Fnt* font =
-                    ui_font(widget.font, widget.text_height, scale, atlas)) {
-                const dino::Mesh block = build_text_block(
-                    *font, text, px(widget.abs_x), py(widget.abs_y), scale * dpi,
-                    widget.text_color, widget.justify,
-                    static_cast<float>(widget.width) * dpi,
-                    static_cast<float>(widget.height) * dpi);
-                draw_ui_mesh(menu_gpu, block, atlas, 1.0f, 2, view_w, view_h);
-            }
-        }
+        draw_menu_widget(i, dpi, ox, oy, view_w, view_h);
     }
 
 }
