@@ -2100,3 +2100,13 @@ Updated: 2026-10-28
   app->ui 4, app->audio 2; world->formats 30, render->formats 12,
   ui->formats 6, audio->formats 4, formats->third_party 1. Gates: selftest
   194, fast 379 in 31 s, full 521 in 3:49. ARCH-2 (`ParkSession`) is next.
+
+- ARCH-2 first slice (`b101552`): `world/park_session.h` now owns
+  `ParkClock clock`, `budget`, `sellback` and `BudgetLedger ledger`; `Game`
+  holds `dino::ParkSession park_session` and 165 references moved from the
+  old members (including `park_clock.` -> `park_session.clock.` and
+  `budget_ledger.` -> `park_session.ledger.`). Boot assignment points and
+  semantics are unchanged; the architecture ratchet is now 283 members /
+  171 methods / 685 header lines. Next ARCH-2 slices: build grid+paddocks,
+  visitors, dinos, buildings, food/employees, shows, then `ParkSession::update`.
+  Gates: selftest 194, fast 379, full 521 in 3:48.
