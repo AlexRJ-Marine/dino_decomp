@@ -489,6 +489,11 @@ private:
 
     // Frame-phase details (game.cpp): called from the phase above at the
     // same point in the frame, so the phase name says what runs.
+    void update_menu_loading();
+    void update_park_world();
+    void update_campaign_session();
+    dino::CampaignState build_mission_state();
+    void finish_campaign_mission();
     void update_minimap_zoom();
     void refill_looping_stream();
 

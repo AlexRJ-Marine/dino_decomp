@@ -253,6 +253,16 @@ void Game::advance_time() {
 }
 
 void Game::update_session() {
+    update_menu_loading();
+    if (campaign_runtime && campaign_runtime->active()) {
+        apply_show_specs();
+    }
+    update_park_world();
+    update_campaign_session();
+}
+
+// Menu loading timer: start the chosen island or campaign.
+void Game::update_menu_loading() {
     if (menu_loaded && opt.use_menu && menu.loading) {
         menu.loading_timer -= static_cast<float>(frame_dt);
         if (menu.loading_timer <= 0.0f) {
@@ -347,10 +357,10 @@ void Game::update_session() {
             }
         }
     }
+}
 
-    if (campaign_runtime && campaign_runtime->active()) {
-        apply_show_specs();
-    }
+// Live park: clock, shows, employees and the daily settlement.
+void Game::update_park_world() {
     if (park.loaded() && !start_screen) {
         park.update(frame_dt);
         park_clock.advance(frame_dt);
@@ -401,191 +411,12 @@ void Game::update_session() {
             park_clock.next_day();
         }
     }
+}
+
+// Mission snapshot, verdicts and completion.
+void Game::update_campaign_session() {
     if (campaign_runtime && campaign_runtime->active()) {
-        dino::CampaignState mission_state;
-        mission_state.treasury = park_budget;
-        for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
-            mission_state.merchandise_income +=
-                budget_ledger.shop_revenue[i];
-        }
-        // The port has no death counter; deaths stay zero (dyingdinos
-        // passes). Hired staff feed the `employees` objective.
-        mission_state.deaths = 0;
-        mission_state.camera_altitude = static_cast<int>(
-            (free_camera ? free_pos : orbit_eye()).z);
-        mission_state.clock_minutes = park_clock.minutes();
-        mission_state.store_empty = store_catalog.empty();
-        mission_state.bankrupt = park_budget < 0;
-        // VisitorList.ini personality order 0..9; mission objective
-        // profile strings use these names.
-        static const char* const kProfileNames[10] = {
-            "surfer",  "holligan", "parent", "blase",    "retraite",
-            "riche",   "scientific", "amoureux", "spd", "enfant"};
-        for (const dino::Visitor& visitor : visitor_system.visitors) {
-            dino::CampaignVisitorState state_visitor;
-            const int profile = visitor.global_profile;
-            state_visitor.profile =
-                profile >= 0 && profile < 10
-                    ? kProfileNames[profile]
-                    : std::to_string(visitor.profile);
-            state_visitor.satisfaction = visitor.need0;
-            mission_state.visitors.push_back(state_visitor);
-        }
-        // Hired staff are the live `employees` source. The objective
-        // profile strings match the `.bei` role names
-        // (Nutritionist/Guard); "all" matches any role.
-        for (const dino::Employee& employee : employee_system.employees) {
-            if (employee.profile >= 0 &&
-                employee.profile <
-                    static_cast<int>(employee_profiles.size())) {
-                mission_state.employee_roles.push_back(
-                    employee_profiles[static_cast<std::size_t>(
-                                          employee.profile)]
-                        .name);
-            }
-        }
-        // Connected-buildings objective: a building is connected when a
-        // path cell touches its footprint perimeter. `+0x34` is the retail
-        // flag; the port derives it from the live build grid.
-        for (const dino::PortBuildingState& building :
-             building_instances) {
-            const auto def_it = building_defs.find(building.kind);
-            if (def_it == building_defs.end()) {
-                continue;
-            }
-            const dino::BuildingDef& def = def_it->second;
-            const bool rotated = building.state % 2 != 0;
-            const int width = static_cast<int>(
-                rotated ? def.footprint_h : def.footprint_w);
-            const int height = static_cast<int>(
-                rotated ? def.footprint_w : def.footprint_h);
-            // `.wld` roads/fences and building cells are uncentered world
-            // units; `import_roads` maps them with world/cell_size, so the
-            // connectivity test uses the same convention.
-            const float cell = build_grid.cell_size > 0.0f
-                                   ? build_grid.cell_size
-                                   : 4.0f;
-            const int gx0 = static_cast<int>(
-                std::floor(static_cast<float>(building.cell_x) / cell));
-            const int gy0 = static_cast<int>(
-                std::floor(static_cast<float>(building.cell_y) / cell));
-            const int gx1 = static_cast<int>(std::floor(
-                static_cast<float>(building.cell_x + width - 1) / cell));
-            const int gy1 = static_cast<int>(std::floor(
-                static_cast<float>(building.cell_y + height - 1) / cell));
-            bool connected = false;
-            for (int y = gy0; y <= gy1 && !connected; ++y) {
-                connected = build_grid.path_at(gx0 - 1, y) ||
-                            build_grid.path_at(gx1 + 1, y);
-            }
-            for (int x = gx0; x <= gx1 && !connected; ++x) {
-                connected = build_grid.path_at(x, gy0 - 1) ||
-                            build_grid.path_at(x, gy1 + 1);
-            }
-            if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
-                std::fprintf(
-                    stderr,
-                    "building kind=%d cat=%d cell=%d,%d wh=%dx%d "
-                    "grid=%d,%d..%d,%d connected=%d\n",
-                    building.kind, static_cast<int>(def.category),
-                    building.cell_x, building.cell_y, width, height, gx0,
-                    gy0, gx1, gy1, connected ? 1 : 0);
-            }
-            mission_state.buildings.push_back(
-                {static_cast<int>(def.category), connected});
-        }
-        mission_state.fence_count = static_cast<int>(paddocks.size());
-        // Show arenas: `--show NAME[:I,J]` is the immediate-score test
-        // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
-        // per-performance scores arrive on the hour. Both use the retail
-        // judge pipeline in `fill_show_scores`.
-        for (const PortShowSpec& spec : port_shows) {
-            dino::CampaignShowState show;
-            show.type = spec.type;
-            fill_show_scores(show, spec.participants);
-            if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
-                std::fprintf(stderr,
-                             "show %s type=%d participants=%d profiles=%zu\n",
-                             spec.name.c_str(), show.type,
-                             show.participants,
-                             show.profile_scores.size());
-                for (const auto& entry : show.profile_scores) {
-                    std::fprintf(stderr, "  profile=%d score=%.2f\n",
-                                 entry.personality, entry.score);
-                }
-            }
-            mission_state.shows.push_back(std::move(show));
-        }
-        for (const dino::CampaignShowState& show :
-             show_runtime.campaign_states()) {
-            mission_state.shows.push_back(show);
-        }
-        // Live trait snapshot. The objective slots are actor fields
-        // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
-        // +0x1e0/+0x8c); the port's phenotype exposes the related
-        // beauty/aggression/stamina/agility/intelligence and a body
-        // length. Hybrid/scarcity/strangeness/ornaments are not ported
-        // yet, so those verbs stay pending.
-        for (const ImportedDino& dinosaur : imported_dinos) {
-            dino::DinoTraitState trait;
-            trait.species = dinosaur.species;
-            trait.cuteness = dinosaur.attributes.beauty;
-            trait.aggression = dinosaur.attributes.aggression;
-            const dino::DinoNeeds& needs =
-                dinosaur.action_loop ? dinosaur.action_loop->needs()
-                                     : dinosaur.needs;
-            trait.food = needs.value[0];
-            // Actor +0x98 is agility; +0x1e0 is the phenotype size class
-            // (0..3), not the body length.
-            trait.agility = dinosaur.attributes.agility;
-            trait.size_class = dinosaur.attributes.size_class;
-            trait.strangeness =
-                dinosaur.attributes.conventional_appeal;
-            trait.ornament_count =
-                dinosaur.attributes.ornament_count;
-            trait.carnivore = dinosaur.carnivore;
-            trait.biped = !dinosaur.attributes.quadruped;
-            trait.age = 0;  // imported dinos are spawned at park start
-            trait.speed = static_cast<int>(
-                dinosaur.attributes.walk_speed * 100.0f);
-            trait.stamina = dinosaur.attributes.stamina;
-            trait.intelligence = dinosaur.attributes.intelligence;
-            trait.beauty = dinosaur.attributes.beauty;
-            // `+0x1e4` is hybrid/strangeness. The store's ORIGINALITY /
-            // Strangeness gauge is `100 - conventional_appeal`; use that
-            // phenotype value until the actor writer is traced.
-            trait.hybrid = dinosaur.attributes.originality;
-            // Isolation: the dino is inside a paddock rectangle and no
-            // other imported dino shares that rectangle.
-            for (const dino::Paddock& paddock : paddocks) {
-                const float x0 =
-                    static_cast<float>(std::min(paddock.rect.x0,
-                                                paddock.rect.x1));
-                const float x1 =
-                    static_cast<float>(std::max(paddock.rect.x0,
-                                                paddock.rect.x1));
-                const float y0 =
-                    static_cast<float>(std::min(paddock.rect.y0,
-                                                paddock.rect.y1));
-                const float y1 =
-                    static_cast<float>(std::max(paddock.rect.y0,
-                                                paddock.rect.y1));
-                if (dinosaur.x < x0 || dinosaur.x > x1 ||
-                    dinosaur.y < y0 || dinosaur.y > y1) {
-                    continue;
-                }
-                int occupants = 0;
-                for (const ImportedDino& other : imported_dinos) {
-                    if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
-                        other.y <= y1) {
-                        ++occupants;
-                    }
-                }
-                trait.isolated = occupants <= 1;
-                break;
-            }
-            mission_state.dinos.push_back(trait);
-        }
+        const dino::CampaignState mission_state = build_mission_state();
         campaign_runtime->tick(frame_dt, mission_state);
         const auto& verdicts = campaign_runtime->verdicts();
         if (verdicts != last_mission_verdicts) {
@@ -610,83 +441,278 @@ void Game::update_session() {
             last_mission_verdicts = verdicts;
         }
         if (campaign_runtime->finished()) {
-            const bool success = campaign_runtime->overall() ==
-                                 dino::ObjectiveVerdict::Success;
-            const dino::CampaignMission finished =
-                campaign_runtime->mission();
-            std::printf("mission %s: %s\n", finished.name.c_str(),
-                        success ? "success" : "failure");
-            std::string end_text =
-                success ? "Mission complete." : "Mission failed.";
-            pending_next_mission.reset();
-            if (success) {
-                pending_next_mission =
-                    dino::next_campaign_mission(finished);
-                if (!pending_next_mission) {
-                    const std::optional<dino::Campaign> campaign =
-                        dino::load_parent_campaign(finished);
-                    if (campaign) {
-                        const std::string ending =
-                            dino::ui::resolve_loc_text(
-                                campaign->ending_text_id, park.loc);
-                        if (!ending.empty()) {
-                            end_text = ending;
-                        }
-                        std::printf(
-                            "campaign complete: %s ending=%s video=%s\n",
-                            campaign->name.c_str(), ending.c_str(),
-                            campaign->ending_video.c_str());
-                        if (!campaign->ending_video.empty()) {
-                            pending_ending_video = resolve_asset(
-                                opt.asset_root,
-                                "Data/Video/" + campaign->ending_video);
-                        }
-                        const unsigned number =
-                            dino::campaign_number(campaign->name);
-                        std::uint32_t next_value = campaign_unlock;
-                        if (number > 0) {
-                            next_value = std::max(next_value, number + 1);
-                        }
-                        if (next_value != campaign_unlock) {
-                            campaign_unlock = next_value;
-                            try {
-                                dino::write_campaign_unlock(
-                                    campaign_dino_dat, campaign_unlock);
-                                std::printf(
-                                    "campaign unlock: value=%u\n",
-                                    static_cast<unsigned>(
-                                        campaign_unlock));
-                            } catch (const std::exception& e) {
-                                std::fprintf(stderr,
-                                             "campaign unlock: %s\n",
-                                             e.what());
-                            }
-                        }
-                        campaign_progress.erase(campaign->name);
-                        try {
-                            dino::save_campaign_progress(
-                                campaign_progress,
-                                campaign_progress_path);
-                            std::printf(
-                                "campaign progress: %s complete\n",
-                                campaign->name.c_str());
-                        } catch (const std::exception& e) {
-                            std::fprintf(stderr,
-                                         "campaign progress: %s\n",
-                                         e.what());
-                        }
-                    }
-                }
-            }
-            park.show_campaign_end(end_text);
-            campaign_runtime->stop();
-            if (opt.auto_continue) {
-                park.close_dialog();
-                advance_campaign();
-            }
+            finish_campaign_mission();
         }
     }
 }
+
+// Snapshot of the live park for the campaign objectives.
+dino::CampaignState Game::build_mission_state() {
+    dino::CampaignState mission_state;
+    mission_state.treasury = park_budget;
+    for (std::size_t i = 1; i < budget_ledger.shop_revenue.size(); ++i) {
+        mission_state.merchandise_income +=
+            budget_ledger.shop_revenue[i];
+    }
+    // The port has no death counter; deaths stay zero (dyingdinos
+    // passes). Hired staff feed the `employees` objective.
+    mission_state.deaths = 0;
+    mission_state.camera_altitude = static_cast<int>(
+        (free_camera ? free_pos : orbit_eye()).z);
+    mission_state.clock_minutes = park_clock.minutes();
+    mission_state.store_empty = store_catalog.empty();
+    mission_state.bankrupt = park_budget < 0;
+    // VisitorList.ini personality order 0..9; mission objective
+    // profile strings use these names.
+    static const char* const kProfileNames[10] = {
+        "surfer",  "holligan", "parent", "blase",    "retraite",
+        "riche",   "scientific", "amoureux", "spd", "enfant"};
+    for (const dino::Visitor& visitor : visitor_system.visitors) {
+        dino::CampaignVisitorState state_visitor;
+        const int profile = visitor.global_profile;
+        state_visitor.profile =
+            profile >= 0 && profile < 10
+                ? kProfileNames[profile]
+                : std::to_string(visitor.profile);
+        state_visitor.satisfaction = visitor.need0;
+        mission_state.visitors.push_back(state_visitor);
+    }
+    // Hired staff are the live `employees` source. The objective
+    // profile strings match the `.bei` role names
+    // (Nutritionist/Guard); "all" matches any role.
+    for (const dino::Employee& employee : employee_system.employees) {
+        if (employee.profile >= 0 &&
+            employee.profile <
+                static_cast<int>(employee_profiles.size())) {
+            mission_state.employee_roles.push_back(
+                employee_profiles[static_cast<std::size_t>(
+                                      employee.profile)]
+                    .name);
+        }
+    }
+    // Connected-buildings objective: a building is connected when a
+    // path cell touches its footprint perimeter. `+0x34` is the retail
+    // flag; the port derives it from the live build grid.
+    for (const dino::PortBuildingState& building :
+         building_instances) {
+        const auto def_it = building_defs.find(building.kind);
+        if (def_it == building_defs.end()) {
+            continue;
+        }
+        const dino::BuildingDef& def = def_it->second;
+        const bool rotated = building.state % 2 != 0;
+        const int width = static_cast<int>(
+            rotated ? def.footprint_h : def.footprint_w);
+        const int height = static_cast<int>(
+            rotated ? def.footprint_w : def.footprint_h);
+        // `.wld` roads/fences and building cells are uncentered world
+        // units; `import_roads` maps them with world/cell_size, so the
+        // connectivity test uses the same convention.
+        const float cell = build_grid.cell_size > 0.0f
+                               ? build_grid.cell_size
+                               : 4.0f;
+        const int gx0 = static_cast<int>(
+            std::floor(static_cast<float>(building.cell_x) / cell));
+        const int gy0 = static_cast<int>(
+            std::floor(static_cast<float>(building.cell_y) / cell));
+        const int gx1 = static_cast<int>(std::floor(
+            static_cast<float>(building.cell_x + width - 1) / cell));
+        const int gy1 = static_cast<int>(std::floor(
+            static_cast<float>(building.cell_y + height - 1) / cell));
+        bool connected = false;
+        for (int y = gy0; y <= gy1 && !connected; ++y) {
+            connected = build_grid.path_at(gx0 - 1, y) ||
+                        build_grid.path_at(gx1 + 1, y);
+        }
+        for (int x = gx0; x <= gx1 && !connected; ++x) {
+            connected = build_grid.path_at(x, gy0 - 1) ||
+                        build_grid.path_at(x, gy1 + 1);
+        }
+        if (std::getenv("DINO_DEBUG_BUILDINGS") != nullptr) {
+            std::fprintf(
+                stderr,
+                "building kind=%d cat=%d cell=%d,%d wh=%dx%d "
+                "grid=%d,%d..%d,%d connected=%d\n",
+                building.kind, static_cast<int>(def.category),
+                building.cell_x, building.cell_y, width, height, gx0,
+                gy0, gx1, gy1, connected ? 1 : 0);
+        }
+        mission_state.buildings.push_back(
+            {static_cast<int>(def.category), connected});
+    }
+    mission_state.fence_count = static_cast<int>(paddocks.size());
+    // Show arenas: `--show NAME[:I,J]` is the immediate-score test
+    // hook; `--place-show` feeds the scheduled `ShowRuntime` whose
+    // per-performance scores arrive on the hour. Both use the retail
+    // judge pipeline in `fill_show_scores`.
+    for (const PortShowSpec& spec : port_shows) {
+        dino::CampaignShowState show;
+        show.type = spec.type;
+        fill_show_scores(show, spec.participants);
+        if (std::getenv("DINO_DEBUG_SHOWS") != nullptr) {
+            std::fprintf(stderr,
+                         "show %s type=%d participants=%d profiles=%zu\n",
+                         spec.name.c_str(), show.type,
+                         show.participants,
+                         show.profile_scores.size());
+            for (const auto& entry : show.profile_scores) {
+                std::fprintf(stderr, "  profile=%d score=%.2f\n",
+                             entry.personality, entry.score);
+            }
+        }
+        mission_state.shows.push_back(std::move(show));
+    }
+    for (const dino::CampaignShowState& show :
+         show_runtime.campaign_states()) {
+        mission_state.shows.push_back(show);
+    }
+    // Live trait snapshot. The objective slots are actor fields
+    // (+0x90/+0xbc/+0x1e4/+0x1e8/+0x244/+0x98/int(+0x7c)/+0xc0/
+    // +0x1e0/+0x8c); the port's phenotype exposes the related
+    // beauty/aggression/stamina/agility/intelligence and a body
+    // length. Hybrid/scarcity/strangeness/ornaments are not ported
+    // yet, so those verbs stay pending.
+    for (const ImportedDino& dinosaur : imported_dinos) {
+        dino::DinoTraitState trait;
+        trait.species = dinosaur.species;
+        trait.cuteness = dinosaur.attributes.beauty;
+        trait.aggression = dinosaur.attributes.aggression;
+        const dino::DinoNeeds& needs =
+            dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                 : dinosaur.needs;
+        trait.food = needs.value[0];
+        // Actor +0x98 is agility; +0x1e0 is the phenotype size class
+        // (0..3), not the body length.
+        trait.agility = dinosaur.attributes.agility;
+        trait.size_class = dinosaur.attributes.size_class;
+        trait.strangeness =
+            dinosaur.attributes.conventional_appeal;
+        trait.ornament_count =
+            dinosaur.attributes.ornament_count;
+        trait.carnivore = dinosaur.carnivore;
+        trait.biped = !dinosaur.attributes.quadruped;
+        trait.age = 0;  // imported dinos are spawned at park start
+        trait.speed = static_cast<int>(
+            dinosaur.attributes.walk_speed * 100.0f);
+        trait.stamina = dinosaur.attributes.stamina;
+        trait.intelligence = dinosaur.attributes.intelligence;
+        trait.beauty = dinosaur.attributes.beauty;
+        // `+0x1e4` is hybrid/strangeness. The store's ORIGINALITY /
+        // Strangeness gauge is `100 - conventional_appeal`; use that
+        // phenotype value until the actor writer is traced.
+        trait.hybrid = dinosaur.attributes.originality;
+        // Isolation: the dino is inside a paddock rectangle and no
+        // other imported dino shares that rectangle.
+        for (const dino::Paddock& paddock : paddocks) {
+            const float x0 =
+                static_cast<float>(std::min(paddock.rect.x0,
+                                            paddock.rect.x1));
+            const float x1 =
+                static_cast<float>(std::max(paddock.rect.x0,
+                                            paddock.rect.x1));
+            const float y0 =
+                static_cast<float>(std::min(paddock.rect.y0,
+                                            paddock.rect.y1));
+            const float y1 =
+                static_cast<float>(std::max(paddock.rect.y0,
+                                            paddock.rect.y1));
+            if (dinosaur.x < x0 || dinosaur.x > x1 ||
+                dinosaur.y < y0 || dinosaur.y > y1) {
+                continue;
+            }
+            int occupants = 0;
+            for (const ImportedDino& other : imported_dinos) {
+                if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
+                    other.y <= y1) {
+                    ++occupants;
+                }
+            }
+            trait.isolated = occupants <= 1;
+            break;
+        }
+        mission_state.dinos.push_back(trait);
+    }
+    return mission_state;
+}
+
+// Print the result, queue the next mission/ending and persist unlocks.
+void Game::finish_campaign_mission() {
+    const bool success = campaign_runtime->overall() ==
+                         dino::ObjectiveVerdict::Success;
+    const dino::CampaignMission finished =
+        campaign_runtime->mission();
+    std::printf("mission %s: %s\n", finished.name.c_str(),
+                success ? "success" : "failure");
+    std::string end_text =
+        success ? "Mission complete." : "Mission failed.";
+    pending_next_mission.reset();
+    if (success) {
+        pending_next_mission =
+            dino::next_campaign_mission(finished);
+        if (!pending_next_mission) {
+            const std::optional<dino::Campaign> campaign =
+                dino::load_parent_campaign(finished);
+            if (campaign) {
+                const std::string ending =
+                    dino::ui::resolve_loc_text(
+                        campaign->ending_text_id, park.loc);
+                if (!ending.empty()) {
+                    end_text = ending;
+                }
+                std::printf(
+                    "campaign complete: %s ending=%s video=%s\n",
+                    campaign->name.c_str(), ending.c_str(),
+                    campaign->ending_video.c_str());
+                if (!campaign->ending_video.empty()) {
+                    pending_ending_video = resolve_asset(
+                        opt.asset_root,
+                        "Data/Video/" + campaign->ending_video);
+                }
+                const unsigned number =
+                    dino::campaign_number(campaign->name);
+                std::uint32_t next_value = campaign_unlock;
+                if (number > 0) {
+                    next_value = std::max(next_value, number + 1);
+                }
+                if (next_value != campaign_unlock) {
+                    campaign_unlock = next_value;
+                    try {
+                        dino::write_campaign_unlock(
+                            campaign_dino_dat, campaign_unlock);
+                        std::printf(
+                            "campaign unlock: value=%u\n",
+                            static_cast<unsigned>(
+                                campaign_unlock));
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr,
+                                     "campaign unlock: %s\n",
+                                     e.what());
+                    }
+                }
+                campaign_progress.erase(campaign->name);
+                try {
+                    dino::save_campaign_progress(
+                        campaign_progress,
+                        campaign_progress_path);
+                    std::printf(
+                        "campaign progress: %s complete\n",
+                        campaign->name.c_str());
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr,
+                                 "campaign progress: %s\n",
+                                 e.what());
+                }
+            }
+        }
+    }
+    park.show_campaign_end(end_text);
+    campaign_runtime->stop();
+    if (opt.auto_continue) {
+        park.close_dialog();
+        advance_campaign();
+    }
+}
+
 
 void Game::update_audio() {
     ui_sound.update(frame_dt);
