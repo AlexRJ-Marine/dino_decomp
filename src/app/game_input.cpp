@@ -543,6 +543,103 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
     }
 }
 
+void Game::handle_park_mouse_up(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+        event.button.button == SDL_BUTTON_LEFT) {
+        park_active_index = -1;
+        minimap_zoom_in = false;
+        minimap_zoom_out = false;
+        nav_pan_forward = false;
+        nav_pan_back = false;
+        nav_pan_left = false;
+        nav_pan_right = false;
+        nav_turn_left = false;
+        nav_turn_right = false;
+        nav_zoom_in = false;
+        nav_zoom_out = false;
+        dragging = false;
+        if (ui_click_consumed) {
+            ui_click_consumed = false;
+            return;
+        }
+        if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
+            std::printf("ground release %.0f,%.0f drag=%.1f tool=%d build_ready=%d\n",
+                        event.button.x, event.button.y, drag_distance,
+                        build_tool, build_ready ? 1 : 0);
+        }
+        if ((build_tool != 0 || pending_store_index >= 0 ||
+             build_ready) &&
+            drag_distance < 5.0f) {
+            pending_click = true;
+            click_x = event.button.x;
+            click_y = event.button.y;
+        }
+    }
+}
+
+void Game::handle_park_mouse_motion(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_MOUSE_MOTION) {
+        // Retail edge scroll uses the client-pixel cursor position
+        // from WM_MOUSEMOVE. Keep the last position; it persists on
+        // focus loss (retail keeps scrolling if left in a band).
+        int window_w = 0;
+        int window_h = 0;
+        SDL_GetWindowSize(window, &window_w, &window_h);
+        const float mouse_scale_x =
+            window_w > 0 ? static_cast<float>(width) / window_w
+                         : 1.0f;
+        const float mouse_scale_y =
+            window_h > 0 ? static_cast<float>(height) / window_h
+                         : 1.0f;
+        cam_mouse_x = std::clamp(
+            static_cast<int>(event.motion.x * mouse_scale_x), 0,
+            std::max(0, width - 1));
+        cam_mouse_y = std::clamp(
+            static_cast<int>(event.motion.y * mouse_scale_y), 0,
+            std::max(0, height - 1));
+        cam_mouse_valid = true;
+        if (park.loaded()) {
+            int dx = 0, dy = 0;
+            park_design(event.motion.x, event.motion.y, dx, dy);
+            if (!park_hover_forced) {
+                park_hover_x = dx;
+                park_hover_y = dy;
+            }
+        }
+        if (!dragging) {
+            return;
+        }
+        const float dx = event.motion.x - last_mx;
+        const float dy = event.motion.y - last_my;
+        drag_distance += std::abs(dx) + std::abs(dy);
+        if (free_camera) {
+            free_yaw += dx * 0.3f;
+            free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
+        } else if (camera_retail_model) {
+            // Retail has no mouse-drag camera (KeyMapper.ini has no
+            // mouse entries and 0x5e5ff0 has no mouse input path).
+        } else {
+            yaw += dx * 0.4f;
+            pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
+        }
+        last_mx = event.motion.x;
+        last_my = event.motion.y;
+    }
+}
+
+void Game::handle_park_mouse_wheel(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+        if (camera_retail_model) {
+            // Retail has no mouse wheel binding for the park camera.
+        } else {
+            distance = std::clamp(
+                distance * std::pow(1.1f, -event.wheel.y),
+                camera_config.distance_min,
+                camera_config.distance_max);
+        }
+    }
+}
+
 void Game::handle_input() {
     sync_park_layout();
     apply_injected_input();
@@ -567,95 +664,14 @@ void Game::handle_input() {
             }
         } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
             handle_key_input(event);
-        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
-                   (event.button.button == SDL_BUTTON_LEFT ||
-                    event.button.button == SDL_BUTTON_RIGHT)) {
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
             handle_park_mouse_down(event);
-        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
-                   event.button.button == SDL_BUTTON_LEFT) {
-            park_active_index = -1;
-            minimap_zoom_in = false;
-            minimap_zoom_out = false;
-            nav_pan_forward = false;
-            nav_pan_back = false;
-            nav_pan_left = false;
-            nav_pan_right = false;
-            nav_turn_left = false;
-            nav_turn_right = false;
-            nav_zoom_in = false;
-            nav_zoom_out = false;
-            dragging = false;
-            if (ui_click_consumed) {
-                ui_click_consumed = false;
-                continue;
-            }
-            if (std::getenv("DINO_DEBUG_CLICKS") != nullptr) {
-                std::printf("ground release %.0f,%.0f drag=%.1f tool=%d build_ready=%d\n",
-                            event.button.x, event.button.y, drag_distance,
-                            build_tool, build_ready ? 1 : 0);
-            }
-            if ((build_tool != 0 || pending_store_index >= 0 ||
-                 build_ready) &&
-                drag_distance < 5.0f) {
-                pending_click = true;
-                click_x = event.button.x;
-                click_y = event.button.y;
-            }
+        } else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            handle_park_mouse_up(event);
         } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
-            // Retail edge scroll uses the client-pixel cursor position
-            // from WM_MOUSEMOVE. Keep the last position; it persists on
-            // focus loss (retail keeps scrolling if left in a band).
-            int window_w = 0;
-            int window_h = 0;
-            SDL_GetWindowSize(window, &window_w, &window_h);
-            const float mouse_scale_x =
-                window_w > 0 ? static_cast<float>(width) / window_w
-                             : 1.0f;
-            const float mouse_scale_y =
-                window_h > 0 ? static_cast<float>(height) / window_h
-                             : 1.0f;
-            cam_mouse_x = std::clamp(
-                static_cast<int>(event.motion.x * mouse_scale_x), 0,
-                std::max(0, width - 1));
-            cam_mouse_y = std::clamp(
-                static_cast<int>(event.motion.y * mouse_scale_y), 0,
-                std::max(0, height - 1));
-            cam_mouse_valid = true;
-            if (park.loaded()) {
-                int dx = 0, dy = 0;
-                park_design(event.motion.x, event.motion.y, dx, dy);
-                if (!park_hover_forced) {
-                    park_hover_x = dx;
-                    park_hover_y = dy;
-                }
-            }
-            if (!dragging) {
-                continue;
-            }
-            const float dx = event.motion.x - last_mx;
-            const float dy = event.motion.y - last_my;
-            drag_distance += std::abs(dx) + std::abs(dy);
-            if (free_camera) {
-                free_yaw += dx * 0.3f;
-                free_pitch = std::clamp(free_pitch - dy * 0.3f, -89.0f, 89.0f);
-            } else if (camera_retail_model) {
-                // Retail has no mouse-drag camera (KeyMapper.ini has no
-                // mouse entries and 0x5e5ff0 has no mouse input path).
-            } else {
-                yaw += dx * 0.4f;
-                pitch = std::clamp(pitch + dy * 0.4f, -89.0f, 89.0f);
-            }
-            last_mx = event.motion.x;
-            last_my = event.motion.y;
+            handle_park_mouse_motion(event);
         } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-            if (camera_retail_model) {
-                // Retail has no mouse wheel binding for the park camera.
-            } else {
-                distance = std::clamp(
-                    distance * std::pow(1.1f, -event.wheel.y),
-                    camera_config.distance_min,
-                    camera_config.distance_max);
-            }
+            handle_park_mouse_wheel(event);
         } else if (event.type == SDL_EVENT_WINDOW_RESIZED) {
             width = event.window.data1;
             height = event.window.data2;
