@@ -9,6 +9,10 @@ param(
     [switch]$BuyDino,
     [switch]$SecuTrace,
     [switch]$FileTrace,
+    [switch]$MoverTrace,
+    [switch]$SimProbe,
+    [int]$SimSeconds = 20,
+    [int]$MoverHotMs = 2500,
     [switch]$PhysicalInput,
     [switch]$VirtualMouse,
     [int]$ParkTimeoutSec = 120,
@@ -24,6 +28,11 @@ param(
 #   - stFence::CanAddActor 0x57eb50: occupant, cost index, capacity/used
 #   - -SecuTrace: danger-grid stamps 0x571b50 and the post-store SECU at
 #     0x5714a5 (validate with tools/recon/secu_grid_check.py)
+#   - -MoverTrace: the saDinosaur mover (0x573f40/0x573dc0 queue, 0x574727 turn
+#     arrival, 0x574d99 turn plan, 0x569660 element->move emitter, 0x571190
+#     action completion) plus the eat path (0x522300 state machine, 0x580e60
+#     SetLevel) and a short 0x574350 mover-tick window for the per-frame dt.
+#     -SimSeconds sets the post-briefing simulation window.
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
 # -UnlockCampaigns backs up run/save/dino.dat, writes 8 (all campaigns; the
@@ -68,6 +77,7 @@ if ($VirtualMouse) {
     # Retail stops polling DirectInput when it is not the active window; the
     # proxy reports active when this is set (same contract as the target trace).
     $env:DINO_FORCE_INPUT_ACTIVE = "1"
+    if ($SimProbe -or $MoverTrace) { $env:DINO_VIRTUAL_KEYS = "1" }
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
     $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
@@ -507,22 +517,88 @@ if (-not $game) {
         }
         Save-Window "campaign-park"
 
-        # Mission briefing pages (1/4 ...): the green check closes/advances.
-        for ($i = 0; $i -lt 5; $i++) {
-            Resume
-            Click-Client 322 402
-            Start-Sleep -Milliseconds 900
+        # Diagnostic: the campaign park reports dt = 0 at the mover tick while
+        # the briefing panel is up, so the standard briefing click is not
+        # dismissing it under run-test. Sample the mover dt after each
+        # dismissal attempt so the cause is visible instead of guessed.
+        function Sample-Sim([string]$label) {
+            Send 'pause'
+            Start-Sleep -Milliseconds 400
+            Send 'bp 0x574350'
+            Send ('SetBreakpointCommand 0x574350, "log SIMPROBE|' + $label +
+                  '|t={d:GetTickCount()}|dino={p:[ecx+0x200]}|dt={p:[esp+4]}' +
+                  '|st={d:[ecx+0x1ec]}|px={p:[ecx+0xc]}|py={p:[ecx+0x10]}; run"')
+            Send 'run'
+            Start-Sleep -Milliseconds 1200
+            Send 'pause'
+            Start-Sleep -Milliseconds 400
+            Send 'bc 0x574350'
+            Send 'run'
+            Write-Host "sim probe: $label sampled"
         }
-        Start-Sleep -Seconds 5
-        Save-Window "campaign-running"
+        function Send-VirtualKeys([string]$codes, [int]$holdMs) {
+            $keys = Join-Path $wd "dino_keys.txt"
+            Set-Content -Path $keys -Value $codes -NoNewline -Encoding ascii
+            Start-Sleep -Milliseconds $holdMs
+            Set-Content -Path $keys -Value "" -NoNewline -Encoding ascii
+            Start-Sleep -Milliseconds 400
+        }
+        if ($SimProbe) { Sample-Sim 'PRE' }
+
+        # Mission briefing pages (1/4 ...): the green check closes/advances.
+        # -MoverTrace never sends in-game clicks: the virtual mouse is only
+        # accurate in the menus, and one stray click on the HUD objectives
+        # button pauses the simulator again. Escape closes the briefing
+        # (probe-postclick/probe-postesc in notes/harness: dt = 0 -> dt > 0).
+        if ($MoverTrace) {
+            Send-VirtualKeys '01' 250          # DIK_ESCAPE
+            Start-Sleep -Milliseconds 900
+            Save-Window "campaign-running"
+        } else {
+            for ($i = 0; $i -lt 5; $i++) {
+                Resume
+                Click-Client 322 402
+                Start-Sleep -Milliseconds 900
+            }
+            Start-Sleep -Seconds 5
+            Save-Window "campaign-running"
+        }
+        if ($SimProbe) {
+            Sample-Sim 'POSTCLICK'
+            Save-Window "probe-postclick"
+            Send-VirtualKeys '01' 200          # DIK_ESCAPE
+            Sample-Sim 'POSTESC'
+            Save-Window "probe-postesc"
+            Send-VirtualKeys '1C' 200          # DIK_RETURN
+            Sample-Sim 'POSTENTER'
+            Save-Window "probe-postenter"
+            Resume
+            Click-Client 317 400
+            Start-Sleep -Milliseconds 600
+            Sample-Sim 'POSTLONG'
+            Save-Window "probe-postlong"
+            Resume
+            foreach ($lampY in 213, 245, 279) {
+                Click-Client 522 $lampY
+                Start-Sleep -Milliseconds 400
+            }
+            Sample-Sim 'POSTLAMPS'
+            Save-Window "probe-postlamps"
+            Start-Sleep -Seconds 2
+            Save-Window "probe-settled"
+        }
 
         # Now that the briefing is gone, trace the live dinosaur action path.
         # 0x56e670 is the action selector; [ecx+0x28] is the saDinosaur.
         if (-not $NoTrace) {
             Send 'pause'
             Start-Sleep -Milliseconds 400
-            Send 'bp 0x56e670'
-            Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} x={p:[[ecx+0x28]+8]} y={p:[[ecx+0x28]+0xc]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]} tr={p:[[ecx+0x28]+0x2a0]} r={p:[[ecx+0x28]+0x27c]} secu={p:[[ecx+0x28]+0x24c]}; run"'
+            # The action selector fires for every dino every frame (~500/s); the
+            # mover probe does not need it and it dominates the frame time.
+            if (-not $MoverTrace) {
+                Send 'bp 0x56e670'
+                Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} x={p:[[ecx+0x28]+8]} y={p:[[ecx+0x28]+0xc]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]} tr={p:[[ecx+0x28]+0x2a0]} r={p:[[ecx+0x28]+0x27c]} secu={p:[[ecx+0x28]+0x24c]}; run"'
+            }
             if ($ProviderTrace) {
                 # FUN_0056e410 calls the action target provider at node+0x3c:
                 #   MOV ECX,[ESI+0x3c]; MOV EAX,[ECX]; CALL [EAX+0x14]
@@ -539,18 +615,81 @@ if (-not $game) {
                 Send 'bp 0x5714a5'
                 Send 'SetBreakpointCommand 0x5714a5, "log SECU actor={p:esi} secu={p:[esi+0x24c]} p14={p:[esi+0x14]} p1d4={p:[esi+0x1d4]}; run"'
             }
-            Send 'bp 0x57eb50'
-            Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
-            # FENCE_INSERTION state and its 64-byte-record loop.
-            Send 'bp 0x535be0'
-            Send 'SetBreakpointCommand 0x535be0, "log FENCEINS this={p:ecx} tool={p:[ecx+0x44]} rec={p:[ecx+0x4c]} flags={p:[[ecx+0x44]+0x3c]}/{p:[[ecx+0x44]+0x3d]}; run"'
-            Send 'bp 0x535cb6'
-            Send 'SetBreakpointCommand 0x535cb6, "log PADVEC this={p:ecx} vec={p:ebp} begin={p:[ebp+4]} end={p:[ebp+8]} idx={p:edi} rec0_20={p:[[ebp+4]+0x20]} rec0_24={p:[[ebp+4]+0x24]} rec0_2c={p:[[ebp+4]+0x2c]}; run"'
-            # stFence::AddActor.
-            Send 'bp 0x57e8a0'
-            Send 'SetBreakpointCommand 0x57e8a0, "log ADDACTOR fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+            if (-not $MoverTrace) {
+                Send 'bp 0x57eb50'
+                Send 'SetBreakpointCommand 0x57eb50, "log CANADD fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+                # FENCE_INSERTION state and its 64-byte-record loop.
+                Send 'bp 0x535be0'
+                Send 'SetBreakpointCommand 0x535be0, "log FENCEINS this={p:ecx} tool={p:[ecx+0x44]} rec={p:[ecx+0x4c]} flags={p:[[ecx+0x44]+0x3c]}/{p:[[ecx+0x44]+0x3d]}; run"'
+                Send 'bp 0x535cb6'
+                Send 'SetBreakpointCommand 0x535cb6, "log PADVEC this={p:ecx} vec={p:ebp} begin={p:[ebp+4]} end={p:[ebp+8]} idx={p:edi} rec0_20={p:[[ebp+4]+0x20]} rec0_24={p:[[ebp+4]+0x24]} rec0_2c={p:[[ebp+4]+0x2c]}; run"'
+                # stFence::AddActor.
+                Send 'bp 0x57e8a0'
+                Send 'SetBreakpointCommand 0x57e8a0, "log ADDACTOR fence={p:ecx} dino={p:[esp+4]} idx={p:[[esp+4]+0x1e0]} cap={p:[ecx+0x7c]} used={p:[ecx+0x80]}; run"'
+            }
+            if ($MoverTrace) {
+                # Dinosaur mover probe (notes/dino-mover-tick-recon.md §6/§7).
+                # FUN_00573f40/00573dc0 are __thiscall on the mover but take an
+                # extra leading Vec2* -- the live position -- before the target,
+                # so the target is [esp+8], the duration [esp+0xc], the mode
+                # [esp+0x10] and the kind [esp+0x14]. Every stack slot is logged
+                # raw so the mapping can be re-derived offline. Floats are
+                # logged as raw dwords ({p:}) and decoded by the analysis.
+                $moverArgs = 'a1={p:[esp+4]}|a2={p:[esp+8]}|ax={p:[[esp+8]]}|ay={p:[[esp+8]+4]}|a3={p:[esp+0xc]}|a4={p:[esp+0x10]}|a5={p:[esp+0x14]}|a6={p:[esp+0x18]}|a7={p:[esp+0x1c]}'
+                $moverState = 'dino={p:[ecx+0x200]}|id={d:[[ecx+0x200]+0x28]}|act={d:[[ecx+0x200]+0x2c0]}|cd={p:[[ecx+0x200]+0x260]}|food={p:[[ecx+0x200]+0x25c]}|st={d:[ecx+0x1ec]}|actk={d:[ecx+0x1f4]}|pend={d:[ecx+0x1f0]}|px={p:[ecx+0xc]}|py={p:[ecx+0x10]}|fx={p:[ecx+0x1c]}|fy={p:[ecx+0x20]}|qb={p:[ecx+0x1dc]}|qe={p:[ecx+0x1e0]}|walk={p:[[ecx+0x1fc]+0x54]}|run={p:[[ecx+0x1fc]+0x58]}'
+                Send 'bp 0x573f40'
+                Send ('SetBreakpointCommand 0x573f40, "log MOVSTART|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '; run"')
+                Send 'bp 0x573dc0'
+                Send ('SetBreakpointCommand 0x573dc0, "log MOVAQUEUE|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '; run"')
+                # 0x574727: a turn record (kind 3/4/5) arrived; EBP=mover,
+                # ESI=queue record. 0x57472c is the same frame after the rotate.
+                Send 'bp 0x574727'
+                Send 'SetBreakpointCommand 0x574727, "log TURNPRE|t={d:GetTickCount()}|mv={p:ebp}|dino={p:[ebp+0x200]}|kind={d:[esi+0x10]}|mode={d:[esi+0x14]}|dur={p:[esi+8]}|rx={p:[esi]}|ry={p:[esi+4]}|px={p:[ebp+0xc]}|py={p:[ebp+0x10]}|fx={p:[ebp+0x1c]}|fy={p:[ebp+0x20]}|walk={p:[[ebp+0x1fc]+0x54]}|run={p:[[ebp+0x1fc]+0x58]}; run"'
+                Send 'bp 0x57472c'
+                Send 'SetBreakpointCommand 0x57472c, "log TURNPOST|t={d:GetTickCount()}|mv={p:ebp}|dino={p:[ebp+0x200]}|fx={p:[ebp+0x1c]}|fy={p:[ebp+0x20]}; run"'
+                # 0x574d99: FUN_00575410(desired, idx, &newFacing) is about to
+                # run; the three pushes are [esp]=out, [esp+4]=idx, [esp+8]=desired.
+                Send 'bp 0x574d99'
+                Send 'SetBreakpointCommand 0x574d99, "log TURNPLAN|t={d:GetTickCount()}|mv={p:ebp}|dino={p:[ebp+0x200]}|idx={d:[esp+4]}|des={p:[esp+8]}|dx={p:[[esp+8]]}|dy={p:[[esp+8]+4]}|fx={p:[ebp+0x1c]}|fy={p:[ebp+0x20]}|out={p:[esp]}; run"'
+                # 0x569660: element->move emitter (ECX=element, [esp+4]=dino,
+                # [esp+8]=target point, [esp+0xc]=id). Profile = [element+4].
+                Send 'bp 0x569660'
+                Send 'SetBreakpointCommand 0x569660, "log EMIT|t={d:GetTickCount()}|el={p:ecx}|dino={p:[esp+4]}|tgt={p:[esp+8]}|tx={p:[[esp+8]]}|ty={p:[[esp+8]+4]}|aid={d:[esp+0xc]}|el0={p:[ecx]}|el4={p:[ecx+4]}|el54={d:[ecx+0x54]}|p60={d:[[ecx+4]+0x60]}|w54={d:[[ecx+4]+0x54]}|w58={d:[[ecx+4]+0x58]}|tb={p:[[ecx+4]+0xa0]}|te={p:[[ecx+4]+0xa4]}|k0={p:[[[ecx+4]+0xa0]+8]}|k1={p:[[[ecx+4]+0xa0]+0xc]}|act={d:[[esp+4]+0x2c0]}|cd={p:[[esp+4]+0x260]}|food={p:[[esp+4]+0x25c]}|px={p:[[esp+4]+0x2d4]}|py={p:[[esp+4]+0x2d8]}|fx={p:[[esp+4]+0x2e4]}|fy={p:[[esp+4]+0x2e8]}|ret={p:[esp]}; run"'
+                # 0x580e60 = saFoodSource::SetLevel(ECX=source, [esp+4]=level),
+                # called only from 0x522335 (the eat state machine), where
+                # ECX=[ctrl+0x54] and the level=[ctrl+0x5c]; the caller's saved
+                # ESI at [esp+0xc] is the controller itself.
+                Send 'bp 0x580e60'
+                Send 'SetBreakpointCommand 0x580e60, "log SETLEVEL|t={d:GetTickCount()}|src={p:ecx}|lvl={d:[esp+4]}|ctrl={p:[esp+0xc]}|s8={p:[ecx+8]}|s0c={p:[ecx+0xc]}|s10={p:[ecx+0x10]}|s14={p:[ecx+0x14]}|s3c={p:[ecx+0x3c]}|s54={p:[ecx+0x54]}|s58={p:[ecx+0x58]}|s59={d:[ecx+0x59]}|s5c={p:[ecx+0x5c]}|s64={p:[ecx+0x64]}|sb0={p:[ecx+0xb0]}|ret={p:[esp]}; run"'
+                # 0x522300 = the eat state machine; it runs for every eater every
+                # frame, so only state 2 (eating/the meal tick) is logged.
+                Send 'bp 0x522300'
+                Send 'SetBreakpointCondition 0x522300, "[[ecx+0xc]+0x28]==2"'
+                Send 'SetBreakpointCommand 0x522300, "log EATSM|t={d:GetTickCount()}|ctrl={p:ecx}|vt={p:[ecx]}|state={d:[[ecx+0xc]+0x28]}|s8={p:[ecx+8]}|s10={p:[ecx+0x10]}|s38={p:[ecx+0x38]}|f54={p:[[ecx+0x38]+0x54]}|f58={p:[[ecx+0x38]+0x58]}|f5c={d:[[ecx+0x38]+0x5c]}|ret={p:[esp]}; run"'
+                # 0x571190 = saDinosaur action completion (ECX=dino).
+                Send 'bp 0x571190'
+                Send 'SetBreakpointCommand 0x571190, "log ACTDONE|t={d:GetTickCount()}|dino={p:ecx}|id={d:[ecx+0x28]}|act={d:[ecx+0x2c0]}|cd={p:[ecx+0x260]}|food={p:[ecx+0x25c]}|rest={p:[ecx+0x258]}|px={p:[ecx+0x2d4]}|py={p:[ecx+0x2d8]}|fx={p:[ecx+0x2e4]}|fy={p:[ecx+0x2e8]}; run"'
+            }
             Resume
-            Start-Sleep -Seconds 20
+            if ($SimProbe) { Sample-Sim 'AFTERINSTALL' }
+            Start-Sleep -Seconds $SimSeconds
+            if ($SimProbe) { Sample-Sim 'AFTERSIM' }
+            if ($MoverTrace) {
+                # Speed sample: the mover tick is hot (every dino, every frame),
+                # so it is only installed for a short window. dt is [esp+4] and
+                # position deltas are read against the GetTickCount() tag.
+                Send 'pause'
+                Start-Sleep -Milliseconds 500
+                Send 'bp 0x574350'
+                Send 'SetBreakpointCommand 0x574350, "log MOVTICK|t={d:GetTickCount()}|mv={p:ecx}|dino={p:[ecx+0x200]}|dt={p:[esp+4]}|st={d:[ecx+0x1ec]}|actk={d:[ecx+0x1f4]}|px={p:[ecx+0xc]}|py={p:[ecx+0x10]}|fx={p:[ecx+0x1c]}|fy={p:[ecx+0x20]}|sd={p:[ecx+0x30]}|mt={p:[ecx+0x24]}|walk={p:[[ecx+0x1fc]+0x54]}|run={p:[[ecx+0x1fc]+0x58]}; run"'
+                Send 'run'
+                Start-Sleep -Milliseconds $MoverHotMs
+                Send 'pause'
+                Start-Sleep -Milliseconds 500
+                Send 'bc 0x574350'
+                Write-Host "mover trace: recorded a $MoverHotMs ms mover-tick window"
+                Send 'run'
+            }
             Save-Window "campaign-sim"
         }
 
@@ -595,7 +734,11 @@ if ($null -ne $dinoDatBackup) {
 $out = [DinoHarnessOutput]::Snapshot()
 $err = $errTask.Result
 $out | Set-Content -Path $logPath -Encoding utf8
-$err | Set-Content -Path ($logPath -replace '\.out\.', '.err.') -Encoding utf8
+# Without an ".out." in the name the replace is a no-op and the (usually empty)
+# stderr would overwrite the trace log. Give it its own name instead.
+$errPath = $logPath -replace '\.out\.', '.err.'
+if ($errPath -eq $logPath) { $errPath = "$logPath.err" }
+$err | Set-Content -Path $errPath -Encoding utf8
 
 Write-Host "--- campaign trace matches ---"
-Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|PROVIDER|PARKREADY|EXCEPTION" | Select-Object -First 120
+Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|PROVIDER|PARKREADY|EXCEPTION|MOVSTART|MOVAQUEUE|TURNPRE|TURNPOST|TURNPLAN|EMIT|SETLEVEL|EATSM|ACTDONE|MOVTICK" | Select-Object -First 120
