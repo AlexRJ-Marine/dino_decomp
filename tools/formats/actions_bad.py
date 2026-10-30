@@ -43,8 +43,18 @@ class ActionsBad:
 
     @property
     def tails(self) -> list[list[float]]:
-        """The last 12 floats of every block (candidate action speeds)."""
+        """The last 12 floats of every block (animation-scale candidates)."""
         return [block[-12:] for block in self.blocks]
+
+    @property
+    def durations(self) -> list[list[float]]:
+        """The 51 per-kind record durations: block f[411..461].
+
+        ``FUN_00615e80`` reads each block as 3 header floats, 51x2
+        forward/lateral, 51 scale, 51x5, then these 51 durations; the mover's
+        turn/gesture duration is ``durations[family][kind]``.
+        """
+        return [block[411:462] for block in self.blocks]
 
     def summary(self) -> dict:
         return {

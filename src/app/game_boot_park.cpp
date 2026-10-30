@@ -89,6 +89,15 @@ std::optional<int> Game::boot_scene_resources() {
             std::fprintf(stderr, "dino action table: %s\n", e.what());
         }
     }
+    // Per-family turn/gesture durations: the last 51 floats of each
+    // Actions.bad block. Loaded even without --dino-action-loop so the mover
+    // uses the species duration.
+    try {
+        park_session.actions_bad = dino::load_actions_bad(
+            resolve_asset(opt.asset_root, "Data/Design/Actions.bad"));
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "actions bad: %s\n", e.what());
+    }
     for (const auto& p : display.positions) {
         bounds.add(p);
     }

@@ -408,7 +408,7 @@ void Game::spawn_world_dinos() {
                 std::fprintf(
                     stderr,
                     "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
-                    "class=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
+                    "class=%d family=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
                     "Atk=%d Ag=%d O=%d CA=%d Orn=%d St=%d Co=%d walk=%.3f run=%.3f "
                     "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
                     "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f "
@@ -420,6 +420,7 @@ void Game::spawn_world_dinos() {
                     record.genotype[3].first,
                     record.genotype[3].second,
                     phenotype_table.length_cm(record.genotype), cost_class,
+                    attrs.family,
                     attrs.width_cm, attrs.height_cm, attrs.perception,
                     attrs.intelligence, attrs.beauty, attrs.agility,
                     attrs.armor, attrs.attack_total, attrs.aggression,
@@ -753,6 +754,20 @@ bool Game::add_imported_dino(const std::string& species,
     const float move_scale = std::max(0.001f, opt.dino_move_speed);
     dinosaur.mover = dino::DinoMover(x, y, angle, walk_speed * move_scale,
                                      run_speed * move_scale);
+    // Per-family turn record duration (`Actions.bad` f[411..461]): kinds 3/4
+    // share the 45-degree time, kind 5 is the 180-degree record. The
+    // phenotype family is 0..4; unknown fixtures fall back to LightBiped.
+    const int family_index =
+        dinosaur.attributes.family >= 0 && dinosaur.attributes.family <= 4
+            ? dinosaur.attributes.family
+            : 3;
+    const float turn_step =
+        dino::action_duration(park_session.actions_bad, family_index, 3);
+    const float turn_u =
+        dino::action_duration(park_session.actions_bad, family_index, 5);
+    if (turn_step > 0.0f && turn_u > 0.0f) {
+        dinosaur.mover.set_turn_durations(turn_step, turn_u);
+    }
     dino::Mesh pose =
         dino::pose_imported_dino(dinosaur, model, terrain, 0.0);
     ImportedDinoDraw draw;

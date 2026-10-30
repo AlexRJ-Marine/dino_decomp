@@ -39,10 +39,11 @@ struct MoveCommand {
 class DinoMover {
 public:
     // Turn record timing (`FUN_005758f0` / `FUN_00575de0`): 45 degrees per
-    // step, 1.0 s per turn record for kinds 3/4/5 (all five families). A
-    // 180-degree turn is a single record (side 5), not four 45 steps.
+    // step, one turn record per step. The duration is per species/family from
+    // `Actions.bad` f[411..461] (LightBiped 1.2/1.2/1.5 s, HeavyBiped 2.0 s,
+    // ...); `set_turn_durations` sets it. A 180-degree turn is a single
+    // record (side 5), not four 45 steps.
     static constexpr float kTurnStepDegrees = 45.0f;
-    static constexpr float kTurnStepSeconds = 1.0f;
     // `FUN_00575410` buckets (dot product): >= 0.99 snap to the exact
     // desired vector, >= 0.9238795 also snaps (<= 22.5 deg), >= 0.38268343
     // inserts one 45-degree record, >= 0 two, otherwise one 180-degree
@@ -55,6 +56,9 @@ public:
               float run_speed);
 
     void set_speeds(float walk_speed, float run_speed);
+    // Per-family turn record durations (`ActionsBad`): kind 3/4 for the
+    // 45-degree records and kind 5 for the 180-degree record.
+    void set_turn_durations(float step_seconds, float uturn_seconds);
     void set_position(float x, float y, float angle_deg);
     // Paddock confinement (`path+0x1c0`): a step outside the rect inset by
     // `inset` units is refused (`FUN_0055af70` returns 0). `inset` approximates
@@ -85,6 +89,8 @@ public:
     float facing_y() const { return fy_; }
     float walk_speed() const { return walk_speed_; }
     float run_speed() const { return run_speed_; }
+    float turn_seconds() const { return turn_seconds_; }
+    float uturn_seconds() const { return uturn_seconds_; }
     float target_x() const { return target_x_; }
     float target_y() const { return target_y_; }
 
@@ -104,6 +110,8 @@ private:
     float angle_deg_ = 0.0f;
     float walk_speed_ = 1.0f;
     float run_speed_ = 3.0f;
+    float turn_seconds_ = 1.0f;
+    float uturn_seconds_ = 1.0f;
 
     bool has_bounds_ = false;
     float bounds_x0_ = 0.0f;

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../formats/bbi.h"
+#include "../formats/actions_bad.h"
 #include "../formats/math.h"
 #include "build.h"
 #include "economy.h"
@@ -24,6 +25,9 @@ namespace dino {
 // time. Defaults are safe; the boot phases assign the retail values.
 struct ParkSession {
     ParkClock clock;
+    // Per-family record durations (`Actions.bad` f[411..461]); the mover's
+    // turn kind 3/4/5 duration comes from here. Session-owned config.
+    ActionsBad actions_bad;
     int budget = 0;
     float sellback = 1.0f;
     BudgetLedger ledger;

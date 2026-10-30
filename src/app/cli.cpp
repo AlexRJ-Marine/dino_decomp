@@ -231,6 +231,8 @@ Options parse_args(int argc, char** argv) {
             opt.dino_clip = next("--dino-clip");
         } else if (arg == "--bai-info") {
             opt.bai_info = true;
+        } else if (arg == "--actions-bad-info") {
+            opt.actions_bad_info = next("--actions-bad-info");
         } else if (arg == "--market-info") {
             opt.market_info = true;
         } else if (arg == "--store-info") {
@@ -615,6 +617,7 @@ Options parse_args(int argc, char** argv) {
                 "  --no-import-dinos    do not spawn the imported dinosaur genotypes\n"
                 "  --dino-clip NAME     imported dinosaur clip (default Walk)\n"
                 "  --bai-info           print the 64 action definitions and exit\n"
+                "  --actions-bad-info FILE  print the Actions.bad family durations and exit\n"
                 "  --market-info        print the dinosaur store catalog and exit\n"
                 "  --store-info FILE    print a [DINOSTORE] INI (e.g. FreeGame.ini)\n"
                 "  --food-info DIR      print Data/Design/foodsource and exit\n"

@@ -31,6 +31,11 @@ void DinoMover::set_speeds(float walk_speed, float run_speed) {
     run_speed_ = std::max(0.0f, run_speed);
 }
 
+void DinoMover::set_turn_durations(float step_seconds, float uturn_seconds) {
+    turn_seconds_ = std::max(0.0f, step_seconds);
+    uturn_seconds_ = std::max(0.0f, uturn_seconds);
+}
+
 void DinoMover::set_facing_degrees(float angle_deg) {
     angle_deg_ = normalize_degrees(angle_deg);
     const float radians = angle_deg_ * kPi / 180.0f;
@@ -172,7 +177,7 @@ void DinoMover::begin_segment() {
         turn_step_degrees_ = 180.0f;
         turn_sign_ = 1;
         state_ = 2;
-        turn_left_ = kTurnStepSeconds;
+        turn_left_ = uturn_seconds_;
         return;
     }
     // `FUN_00575410`: pre-rotate the desired vector by the turn side
@@ -187,7 +192,7 @@ void DinoMover::begin_segment() {
     turn_step_degrees_ = kTurnStepDegrees;
     turn_sign_ = cross < 0.0f ? -1 : 1;
     state_ = 2;
-    turn_left_ = kTurnStepSeconds;
+    turn_left_ = turn_seconds_;
 }
 
 void DinoMover::set_desired_facing() {
@@ -257,7 +262,7 @@ bool DinoMover::tick(double dt) {
                 turn_left_ = 0.0f;
                 break;
             }
-            turn_left_ += kTurnStepSeconds;
+            turn_left_ += turn_seconds_;
         }
         return changed;
     }

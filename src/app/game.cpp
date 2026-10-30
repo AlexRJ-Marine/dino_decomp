@@ -1104,9 +1104,12 @@ void Game::update_simulation() {
             park_session.tick_dino(dinosaur, frame_dt, dino_action_table);
         if (event.move_started) {
             std::printf(
-                "dino move: %s start x=%.1f y=%.1f target=%.1f,%.1f\n",
+                "dino move: %s start x=%.1f y=%.1f target=%.1f,%.1f "
+                "turn=%.2f uturn=%.2f\n",
                 dinosaur.species.c_str(), event.x, event.y,
-                event.move_target_x, event.move_target_y);
+                event.move_target_x, event.move_target_y,
+                static_cast<double>(dinosaur.mover.turn_seconds()),
+                static_cast<double>(dinosaur.mover.uturn_seconds()));
         }
         if (event.move_finished) {
             std::printf("dino move: %s stop x=%.1f y=%.1f\n",

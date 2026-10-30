@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (201 checks)" in result.stdout
+    assert "selftest: PASS (204 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -3585,6 +3585,30 @@ def test_cpp_bai_action_table():
     assert "groups: 0=50 1=1 2=1 3=1 4=2 5=8 6=1" in result.stdout
     assert "classes: 0=44 1=1 2=1 3=1 4=0 5=17" in result.stdout
     assert "first=Exploration last=EatBaitForSmallies" in result.stdout
+
+def test_cpp_actions_bad_durations():
+    """`Actions.bad` f[411..461] is the per-family duration table; the C++
+    reader must return the same values the runtime probe measured."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    bad = GAME / "Data" / "Design" / "Actions.bad"
+    if not bad.exists():
+        pytest.skip("retail Actions.bad missing")
+    result = subprocess.run(
+        [str(EXE), "--actions-bad-info", str(bad)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "actions bad: families=5 kinds=51" in log
+    assert ("family 0: dur3=1.50 dur4=1.50 dur5=2.00 dur9=2.00 "
+            "dur25=2.00 dur28=2.00 dur39=2.00") in log
+    assert ("family 2: dur3=1.20 dur4=1.20 dur5=1.50 dur9=1.20 "
+            "dur25=2.00 dur28=1.50 dur39=2.00") in log
+    assert ("family 3: dur3=2.00 dur4=2.00 dur5=2.00 dur9=1.80 "
+            "dur25=2.00 dur28=1.50 dur39=2.00") in log
+    assert ("family 4: dur3=2.00 dur4=2.00 dur5=1.50 dur9=1.50 "
+            "dur25=1.50 dur28=1.50 dur39=2.00") in log
 
 def test_cpp_dino_action_chooser():
     if not EXE.exists():

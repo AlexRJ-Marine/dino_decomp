@@ -43,6 +43,7 @@ add_library(dino_core STATIC
     src/formats/mpg.cpp
     src/formats/general_params.cpp
     src/formats/ini.cpp
+    src/formats/actions_bad.cpp
     src/ui/overlay.cpp
     src/ui/menu.cpp
     src/ui/park.cpp

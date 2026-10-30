@@ -358,11 +358,15 @@ threshold; mode 1 compares the position exactly. `FUN_005759c0` pre-drops
 walk/run records within 0.01 units.
 
 Turns are **45 degrees per record** (`FUN_005758f0` side 3 = +45, side 4 =
--45), with a single 180-degree record (side 5). The duration is **per species**
-from the runtime action table (`X[0x1bc + kind*4]`): the 2026-10-30 Cpg04
-probe measured **1.2 s** for kinds 3/4 and **1.5 s** for kind 5 on 15/20
-dinos, and **2.0 s** on four others; `Actions.bad`'s 1.0 is not the runtime
-value. The exact `FUN_00575410` plan:
+-45), with a single 180-degree record (side 5). The duration is **per family**
+from `X[0x1bc + kind*4]`, i.e. `Actions.bad` **f[411..461]** (the old recon
+read f[111] and saw a false 1.0 s). The 2026-10-30 Cpg04 probe measured the
+table exactly: LightBiped 1.2/1.2/1.5 s (kinds 3/4/5) on 15/20 dinos,
+HeavyBiped 2.0 s, LowQuadruped 2.0/2.0/1.5. The port now loads the five
+family rows (`src/formats/actions_bad.*`) and sets `DinoMover`'s turn
+durations from `DinoAttributes::family`; Part 10 family 2/3 read file blocks
+3/2 (verified against the 20 Cpg04 `DINORESET f1e0` size classes and the
+measured 15×1.2 / 4×2.0 groups). The exact `FUN_00575410` plan:
 
 | dot | plan |
 | ---: | --- |
@@ -421,7 +425,8 @@ instead of the behaviour's record list; the paddock inset is
 element→move profile (`element+0x04` weighted table) is not parsed yet; and
 the `+0x1c/+0x20` initial facing writer is still open in
 `notes/dino-mover-tick-recon.md`. The turn plan and the exact end facing are
-retail-exact; the turn duration is still the fixed 1.0 s placeholder.
+retail-exact; the turn duration now comes from the family table (the Cpg04
+allos log `turn=1.20 uturn=1.50`).
 
 `--fixed-dt SECONDS` makes a headless run deterministic; `--dino-move-speed N`
 scales the mover for tests only. Selftest: `dino mover walk 2 m/s`, `turn

@@ -16,6 +16,7 @@
 #include "../formats/path.h"
 
 #include "../formats/bai.h"
+#include "../formats/actions_bad.h"
 #include "../formats/bbi.h"
 #include "../formats/bei.h"
 #include "../formats/bfi.h"
@@ -449,6 +450,30 @@ std::optional<int> run_cli_reports(const Options& opt) {
             return 0;
         } catch (const std::exception& e) {
             std::fprintf(stderr, "wld-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
+    if (!opt.actions_bad_info.empty()) {
+        try {
+            const dino::ActionsBad table =
+                dino::load_actions_bad(opt.actions_bad_info);
+            std::printf("actions bad: families=%d kinds=%d\n",
+                        dino::ActionsBad::kFamilies, dino::ActionsBad::kKinds);
+            const std::array<int, 7> kinds = {3, 4, 5, 9, 0x19, 0x1c, 0x27};
+            for (int family = 0; family < dino::ActionsBad::kFamilies;
+                 ++family) {
+                std::printf("family %d:", family);
+                for (const int kind : kinds) {
+                    std::printf(" dur%d=%.2f", kind,
+                                static_cast<double>(dino::action_duration(
+                                    table, family, kind)));
+                }
+                std::printf("\n");
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "actions bad: %s\n", e.what());
             return 1;
         }
     }

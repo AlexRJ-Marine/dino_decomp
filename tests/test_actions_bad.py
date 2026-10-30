@@ -29,6 +29,33 @@ def test_actions_bad_blocks():
     )
 
 
+def test_duration_table():
+    """f[411..461] is the per-family record duration table.
+
+    The first mover recon read f[111] and saw 1.0 s for every turn; the
+    runtime probe measured 1.2/1.5/2.0 s, which matches this table.
+    """
+    if not BAD.exists():
+        pytest.skip("retail sample not present")
+    data = read_actions_bad(BAD)
+    assert len(data.durations) == 5
+    assert all(len(row) == 51 for row in data.durations)
+    # File block rows (0..4). The Part 10 family 2/3 indices map to blocks
+    # 3/2; the C++ `--actions-bad-info` prints the effective family rows.
+    expected = [
+        (1.5, 1.5, 2.0, 2.0, 2.0, 2.0, 2.0),  # HighQuadruped
+        (2.0, 2.0, 1.5, 2.0, 2.0, 1.5, 2.0),  # LightQuadruped
+        (2.0, 2.0, 2.0, 1.8, 2.0, 1.5, 2.0),  # HeavyBiped
+        (1.2, 1.2, 1.5, 1.2, 2.0, 1.5, 2.0),  # LightBiped
+        (2.0, 2.0, 1.5, 1.5, 1.5, 1.5, 2.0),  # LowQuadruped
+    ]
+    kinds = (3, 4, 5, 9, 0x19, 0x1c, 0x27)
+    for family, row in enumerate(expected):
+        assert tuple(data.durations[family][k] for k in kinds) == pytest.approx(
+            row
+        )
+
+
 def test_tail_speeds_are_animation_scales():
     """Every tail value is in the `.bai` field_18 scale range."""
     if not BAD.exists():

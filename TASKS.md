@@ -2361,10 +2361,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Runtime move probe (`notes/dino-mover-runtime-probe.md`): 60 s Cpg04,
   3282 queue records, 128 turn arrivals, 202 turn plans, 1250 mover ticks.
   Confirmed 45.00/90/180 turns, map-unit speeds, per-frame 0x34/0x35 markers.
-- [ ] Turn duration: retail is **per species** from `X[0x1bc+kind*4]`
-  (1.2 s kinds 3/4, 1.5 s kind 5 for 15/20 Cpg04 dinos; 2.0 s for four),
-  not `Actions.bad`'s 1.0 and not the port's 1.0 constant. Needs the action
-  table build (`FUN_0061a5b0`) or a per-species duration table.
+- [x] Turn duration: **solved.** `Actions.bad` f[411..461] is the per-family
+  duration table (the old recon read f[111]); `FUN_00615e80` loads it and
+  `FUN_00617250` selects the family. The Part 10 family 2/3 indices map to
+  file blocks 3/2 (runtime: 15 Cpg04 dinos at 1.2 s, 4 at 2.0 s; size classes
+  match `DINORESET f1e0` 20/20). Ported in `src/formats/actions_bad.*`;
+  `DinoMover::set_turn_durations` gets kind 3/5 from the dino family. Cpg04
+  allos log `turn=1.20 uturn=1.50`; the real file test is
+  `test_cpp_actions_bad_durations`.
 - [ ] Park move scripts: the behaviour layer calls `0x573f40` directly and
   emits 1-3 record lists per element; `FUN_00569660` is the item path and
   fired 0 times. Port the behaviour call sites (0x56f... / 0x56e799 /

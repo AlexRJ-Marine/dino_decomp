@@ -84,6 +84,7 @@ struct Options {
     bool import_dinos = true;
     std::string dino_clip = "Walk";
     bool bai_info = false;
+    std::string actions_bad_info;
     bool market_info = false;
     std::string store_ini_path;
     std::string food_info_dir;

@@ -274,6 +274,26 @@ int run_selftest() {
     check(std::fabs(u_turn.angle_deg() - 180.0f) < 0.001f &&
               u_turn.state() == 1,
           "dino mover 180-degree record");
+    // Per-family Actions.bad durations: LightBiped kind 3/4 = 1.2 s,
+    // kind 5 = 1.5 s.
+    dino::DinoMover species_turn(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    species_turn.set_turn_durations(1.2f, 1.5f);
+    species_turn.start(1, 0.0f, 10.0f, 1);
+    species_turn.tick(1.2f);
+    check(species_turn.state() == 2 &&
+              std::fabs(species_turn.angle_deg() - 45.0f) < 0.001f,
+          "dino mover species turn 1.2 s");
+    species_turn.tick(1.2f);
+    check(species_turn.state() == 1 &&
+              std::fabs(species_turn.angle_deg() - 90.0f) < 0.001f,
+          "dino mover species turn 90");
+    dino::DinoMover species_u(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    species_u.set_turn_durations(1.2f, 1.5f);
+    species_u.start(1, -10.0f, 0.0f, 1);
+    species_u.tick(1.5f);
+    check(species_u.state() == 1 &&
+              std::fabs(species_u.angle_deg() - 180.0f) < 0.001f,
+          "dino mover species 180 at 1.5 s");
     dino::DinoMover bounded(2.0f, 2.0f, 0.0f, 2.0f, 5.0f);
     bounded.set_bounds(0.0f, 0.0f, 5.0f, 5.0f, 1.0f);
     bounded.start(1, 10.0f, 2.0f, 1);
