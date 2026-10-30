@@ -2215,10 +2215,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   update) now live in `world/park_session.cpp`; `Game` keeps the feed print,
   the employee GPU upload and the daily settlement. Employee, clock and
   campaign tests unchanged.
-- [ ] Extend `ParkSession::update(dt)` to the show tick and daily settlement
-  (currently `Game` owns the `fill_show_scores` callback and
-  `run_daily_settlement`). Dino state is deferred to ARCH-5 because
-  `ImportedDino`/`ImportedSpecies` mix simulation and GL state (A9).
+- [x] Move the daily settlement economy math into `ParkSession::settle_day`:
+  tickets, wages, budget and ledger updates; `Game` still resolves the
+  construction ticket price, loads the profile tables and prints the summary.
+  Daily-settlement, ledger and employee tests unchanged.
+- [ ] The show tick stays in `Game` until the dino split: `fill_show_scores`
+  reads `imported_dinos`, which moves with ARCH-5 (A9). Then
+  `ParkSession::update(dt)` can own the whole park tick.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member

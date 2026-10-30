@@ -84,12 +84,13 @@ See `notes/lanes.md`. Default split:
   clock/budget/sellback/ledger, the build grid/paddocks, visitors,
   food/employees, the show runtime/catalog and placed buildings/entrance
   state; `Game` holds `park_session` and the member ratchet is 266 (665-line
-  `game.h`). `advance_clock`/`update_staff` now live on `ParkSession`. Next
-  ARCH-2: extend `update()` to the show tick/daily settlement; dinos are
-  deferred to ARCH-5 (requires splitting `ImportedDino` from GL state). After
-  that ARCH-3 (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-5
-  (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6 (renderer/header split).
-  Architecture: `docs/platform/architecture.md` + `architecture.svg`.
+  `game.h`). `advance_clock`/`update_staff`/`settle_day` now live on
+  `ParkSession`. Next ARCH-2: the show tick (needs `imported_dinos`, so it
+  follows the ARCH-5 dino split). Dinos are deferred to ARCH-5 (splitting
+  `ImportedDino` from GL state). After that ARCH-3 (build/camera controllers),
+  ARCH-4 (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also P3-MOTION),
+  ARCH-6 (renderer/header split). Architecture:
+  `docs/platform/architecture.md` + `architecture.svg`.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -191,13 +192,12 @@ See `notes/lanes.md`. Default split:
 
 1. **ARCH-2 continues** (`docs/platform/architecture.md`): the session owns
    clock/budget/ledger, grid/paddocks, visitors, food/employees, shows and
-   buildings/entrance (266-member ratchet); `advance_clock`/`update_staff`
-   moved. Next: extend `update()` to the show tick/daily settlement. Dino
-   state is deferred to ARCH-5 (the type mixes simulation and GL state). Then
-   ARCH-3 (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-5
-   (`DinoSim`/`Animator`, also P3-MOTION), ARCH-6 (renderer/header split).
-   Keep `--selftest` (194), the fast suite (379) and the full suite (521)
-   green.
+   buildings/entrance (266-member ratchet); `advance_clock`/`update_staff`/
+   `settle_day` moved. Next: the show tick waits on the ARCH-5 dino split
+   (`fill_show_scores` needs `imported_dinos`). Then ARCH-3 (build/camera
+   controllers), ARCH-4 (`FrameScheduler`), ARCH-5 (`DinoSim`/`Animator`, also
+   P3-MOTION), ARCH-6 (renderer/header split). Keep `--selftest` (194), the
+   fast suite (379) and the full suite (521) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
@@ -224,6 +224,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - ARCH-2 slice 8: `ParkSession::settle_day` owns daily ticket/wage/ledger math; Game keeps catalog/IO/print; full 521
 - 2026-10-29 - ARCH-2 slice 7: `ParkSession::advance_clock`/`update_staff` own clock + hourly staff update; Game keeps feed print, GPU and settlement; full 521
 - 2026-10-29 - MAINT-8: P1 robustness - simulation delta capped at 0.2 s; atomic save writes (temp+rename) for port/campaign; overwrite test checks no .tmp; full 521
 - 2026-10-29 - ARCH-2 slice 6: buildings/entrance moved into `ParkSession` (opt.entrance_road preserved); ratchet 272->266, full 521

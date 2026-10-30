@@ -634,7 +634,6 @@ void Game::run_daily_settlement() {
             break;
         }
     }
-    const int visitors = static_cast<int>(park_session.visitor_system.visitors.size());
     if (park_session.all_visitor_profiles.empty()) {
         try {
             park_session.all_visitor_profiles =
@@ -643,44 +642,13 @@ void Game::run_daily_settlement() {
             std::fprintf(stderr, "all visitor profiles: %s\n", e.what());
         }
     }
-    const std::vector<dino::VisitorProfile>& ticket_profiles =
-        park_session.all_visitor_profiles.empty() ? park_session.visitor_profiles
-                                     : park_session.all_visitor_profiles;
-    int tickets = 0;
-    for (const dino::Visitor& visitor : park_session.visitor_system.visitors) {
-        int index = visitor.global_profile;
-        if (index < 0 ||
-            index >= static_cast<int>(ticket_profiles.size())) {
-            index = visitor.profile;
-        }
-        const float scale =
-            (index >= 0 &&
-             index < static_cast<int>(ticket_profiles.size()))
-                ? ticket_profiles[static_cast<std::size_t>(index)]
-                      .price_scale
-                : 1.0f;
-        tickets += static_cast<int>(
-            static_cast<float>(ticket_price) * scale);
-    }
-    const int wages = park_session.employee_system.daily_wages(park_session.employee_profiles);
-    for (const dino::Employee& employee : park_session.employee_system.employees) {
-        if (employee.profile < 0 ||
-            employee.profile >= static_cast<int>(park_session.employee_profiles.size())) {
-            continue;
-        }
-        const dino::EmployeeProfile& profile =
-            park_session.employee_profiles[static_cast<std::size_t>(employee.profile)];
-        park_session.ledger.spend_staff(profile.kind, profile.wage);
-    }
-    park_session.budget += tickets - wages;
-    park_session.ledger.add_ticket(tickets, visitors);
-    park_session.ledger.settle();
+    const ParkSession::DaySettlement settled =
+        park_session.settle_day(ticket_price);
     std::printf(
         "daily settlement: day=%d visitors=%d ticket=%d income=%d "
         "wages=%d budget=%d\n",
-        park_session.clock.day, visitors, ticket_price, tickets, wages,
-        park_session.budget);
-
+        park_session.clock.day, settled.visitors, ticket_price,
+        settled.tickets, settled.wages, park_session.budget);
 }
 
 std::array<int, 11> Game::store_row_attributes(const dino::MarketEntry& entry) {

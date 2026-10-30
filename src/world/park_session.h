@@ -47,6 +47,16 @@ struct ParkSession {
     // the application; these two steps only touch session state.
     void advance_clock(double dt);
     int update_staff(double dt);
+
+    // Day-end economy. The caller resolves the ticket price and loads the
+    // profile tables; this method only mutates session state and returns the
+    // figures for the log line.
+    struct DaySettlement {
+        int visitors = 0;
+        int tickets = 0;
+        int wages = 0;
+    };
+    DaySettlement settle_day(int ticket_price);
 };
 
 }  // namespace dino
