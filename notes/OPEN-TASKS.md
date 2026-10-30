@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-30 18:54. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-30 20:34. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-56 open items.
+57 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -129,7 +129,8 @@ Generated from `TASKS.md` on 2026-10-30 18:54. Do not edit; regenerate with `scr
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
-- [ ] New `src/world/dino_motion.*`: `saDinosaur+0x2c8` mover, 0x18-byte
-- [ ] `FUN_00569660` element→move emitter; `emit_move_script()` on action start.
-- [ ] Retail applies element **events** (`0x569a00`→`0x5727b0`), not the `.bai`
-- [ ] Perception-list producer (`beh+0xb8`): the P3 "no writer" claim is
+- [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
+- [ ] `FUN_00569660` element-to-move emitter: one record per element profile
+- [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
+- [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
+- [ ] Runtime confirmation of the emitter record list: x32dbg probe of

@@ -1,6 +1,6 @@
 # NOW — Dino Island
 
-Updated: 2026-10-29
+Updated: 2026-10-30
 
 This is the injected dashboard. Keep it under ~80 lines. Full history and
 evidence live in `notes/STATE.md` (read on demand); open tasks are in
@@ -224,6 +224,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-30 - AI: retail dinosaur mover ported (saDinosaur+0x2c8) - 0x18-byte queue, phenotype walk/run 1.43-2.91 m/s, exact FUN_00575410 pre-rotated turn plan (45 deg/record, 1.0 s), 180 record, paddock clamp; element events replace the disproven .bai need deltas; selftest 201, full 522
 - 2026-10-29 - ARCH-5 actions: `ParkSession::tick_dino` owns action loop/Eat/clip selection; paddock queries moved; game.h 651->649; full 521
 - 2026-10-29 - ARCH-5 animator: CPU skinning moved render->world; `dino_animator` pose helper replaces duplicated code; full 521
 - 2026-10-29 - ARCH-5 split: `DinoAssets`/`ImportedDino` in world, `ImportedDinoDraw` in app, `park_session.imported_dinos`; game.h 665->651; dino render/save/show full 521
@@ -231,26 +232,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-29 - ARCH-2 slice 7: `ParkSession::advance_clock`/`update_staff` own clock + hourly staff update; Game keeps feed print, GPU and settlement; full 521
 - 2026-10-29 - MAINT-8: P1 robustness - simulation delta capped at 0.2 s; atomic save writes (temp+rename) for port/campaign; overwrite test checks no .tmp; full 521
 - 2026-10-29 - ARCH-2 slice 6: buildings/entrance moved into `ParkSession` (opt.entrance_road preserved); ratchet 272->266, full 521
-- 2026-10-29 - ARCH-2 slice 5: show runtime/catalog moved into `ParkSession`; game.h drops show_runtime.h; ratchet 274->272, full 521
-- 2026-10-29 - ARCH-2 slice 4: food/employee subsystem moved into `ParkSession`; game.h drops employees.h; ratchet 278->274, full 521
-- 2026-10-29 - ARCH-2 slice 3: visitor system/profiles moved into `ParkSession`; game.h drops visitors.h; ratchet 281->278, full 521
-- 2026-10-29 - ARCH-2 slice 2: build grid + paddocks moved into `ParkSession` (code-only replacement; PortState references kept); ratchet 283->281, full 521
-- 2026-10-29 - ARCH-2 slice 1: `ParkSession` owns clock/budget/sellback/ledger; `Game` references `park_session.*`; member ratchet 286->283; save/load + campaign + HUD green, full 521
-- 2026-10-29 - ARCH-1: layer guard + inversions gone - `tests/test_architecture.py` (286/171/700 ratchet), `asset_path` -> `formats/path.*`, INI parser -> `formats/ini.*`; census has no wrong-way edges; fast 379
-- 2026-10-29 - ARCHITECTURE: layer census + target + plan (`docs/platform/architecture.md`, `architecture.svg`); 286 Game members/172 methods, app 44% of code, two include inversions; ARCH-1..6 queued
-- 2026-10-29 - MAINT-7: `-Fast` is truly headless - 26 campaign + 1 video window tests marked slow, guard scans all port test modules, fast 376 in 31 s, full 518; member scan and audio RAII fixed; docs drift swept
-- 2026-10-29 - MAINT-6: Core Guidelines pass - cpp-guidelines policy + tests/test_cpp_style.py; MpgStream pimpl/PLM leak fixed with RAII; Game non-copyable; one dino::kPi (29 literals); catch (...) narrowed; place_building 270->164; full suite 518
-- 2026-10-29 - MAINT-5: long bodies split - update_session 434->8 (menu/park/campaign, campaign state+completion), load_island 386->153, apply_port_state 321->86, load_campaign_park 251->57; call order unchanged; fast 397, full 512
-- 2026-10-29 - MAINT-4: fast gate covers the app - 41 headless CLI tests now run in `-Fast` (397 passed / 115 deselected, 68 s) while 106 window/screenshot tests stay `slow`; guard in tests/test_app_shell.py; full suite 511
-- 2026-10-29 - MAINT-2 complete: draw_menu 428->26, update_placement 638->43, handle_input 638->45, draw_park_hud 758->64 plus a 14-line family dispatcher; every move verbatim, HUD shots unchanged, full suite 511
-- 2026-10-29 - MAINT-3: regression guards for the app-shell split - scene-pixel centre check, phase-order/member-shadow/SDL-free static guard (tests/test_app_shell.py); review fixes (minimap_eye, draw_ui_mesh param, named phase helpers); fast suite 355
-- 2026-10-29 - MAINT-1: readable app shell + naming complete - main.cpp 10 lines, Game::run() 35, per-domain game_*.cpp, 21 boot / 14 frame phases; selftest 194 PASS, fast suite 350 passed
-- 2026-10-28 - UI: paddock info panel on enclosure selection - EnclosureN name, dino count, occupation %, per-diet food sufficiency snapshot (0x5269e0/0x57e720); sell-mode cursor observation and DINO-STATS-1/P3-MOTION-1 audits recorded; full suite 500
-- 2026-10-28 - ECONOMY: fence sell flow - HUD Sell state, REQUEST dialog, inset-perimeter GetSellValue x SellBackFactor (live 870->630, port 2130->1890), non-empty gate, fence/ground/wall removal; removed the disproven 16-paddock gate; full suite 497
-- 2026-10-28 - VIDEO: cinematic MP2 audio wired - PL_MPEG audio decode, SDL float stereo stream, frame-PTS pacing, menu/island music paused; all retail movies probe 44.1 kHz/1 stream; full suite 497
-- 2026-10-28 - PLACE-1: Esc now clears the pending mode-2 enclosure grid (was leaving the blue dots); loaded/campaign paddocks build their gatAttraction sandy floors at load (rebuild after the paddock list); full suite 496
-- 2026-10-28 - INPUT: retail Escape behavior - default park no-op, construction strip stays, Esc closes OPTIONS_PANEL, placement/selection states leave; park Esc never quits; full suite 494
-- 2026-10-28 - PLACE-1: Esc leaves the active placement state (retail fence key handler 0x52be60 -> leave 0x5269c0, no close button); fence/road/building/show/store tools release and a selected paddock deselects, so placed enclosures can be selected; --inject-key test hook; full suite 493
 
 ## Blockers
 
