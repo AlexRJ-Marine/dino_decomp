@@ -2190,3 +2190,10 @@ Updated: 2026-10-28
   sync. `game.h` 665 -> 651 lines. This is the A9 layer split; dino needs/
   chooser/mover behavior remains ARCH-5 second half. Gates: selftest 194,
   fast 379, full 521 in 4:16 (dino render, save/load, show, campaign).
+
+- ARCH-5 animation slice (`9e0e782`): CPU skinning moved from `render` to
+  `world/skinning.*` (it never used GL), and `world/dino_animator.*` adds
+  `pose_imported_dino(dino, assets, terrain, time)` for skinning, colour copy
+  and terrain placement. `Game` add/update paths call the helper; the renderer
+  only uploads the posed mesh. Layer rule: render -> formats only. Gates:
+  selftest 194, fast 379, full 521 in 4:21.
