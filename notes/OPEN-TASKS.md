@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-30 20:34. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-30 21:18. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-57 open items.
+58 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -129,8 +129,9 @@ Generated from `TASKS.md` on 2026-10-30 20:34. Do not edit; regenerate with `scr
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
+- [ ] Park move scripts: the behaviour layer calls `0x573f40` directly and
+- [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
+- [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
-- [ ] `FUN_00569660` element-to-move emitter: one record per element profile
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
-- [ ] Runtime confirmation of the emitter record list: x32dbg probe of
