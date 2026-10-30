@@ -10,6 +10,7 @@
 #include "economy.h"
 #include "employees.h"
 #include "food.h"
+#include "imported_dino.h"
 #include "park_clock.h"
 #include "port_save.h"
 #include "show_runtime.h"
@@ -27,6 +28,7 @@ struct ParkSession {
     BudgetLedger ledger;
     BuildGrid build_grid;
     std::vector<Paddock> paddocks;
+    std::vector<ImportedDino> imported_dinos;
     VisitorSystem visitor_system;
     std::vector<VisitorProfile> visitor_profiles;
     std::vector<VisitorProfile> all_visitor_profiles;

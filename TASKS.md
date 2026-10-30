@@ -2210,6 +2210,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `building_center` into `ParkSession` (the `opt.entrance_road` option is
   preserved). Ratchet 272 -> 266; `game.h` 665 lines. Building, road,
   save/load and campaign tests unchanged.
+- [x] Split the dino types (A9): `world/imported_dino.h` holds formats-only
+  `DinoAssets` and simulation `ImportedDino`; the app keeps `ImportedDinoDraw`
+  (GPU mesh/shadow/texture) and the species cache. `park_session.imported_dinos`
+  now owns the live dinos; `game.h` 651 lines. Dino import/render/save/show
+  tests unchanged.
 - [x] Move the clock and staff update into `ParkSession`:
   `advance_clock(dt)` and `update_staff(dt)` (hourly assignment + employee
   update) now live in `world/park_session.cpp`; `Game` keeps the feed print,
@@ -2219,9 +2224,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   tickets, wages, budget and ledger updates; `Game` still resolves the
   construction ticket price, loads the profile tables and prints the summary.
   Daily-settlement, ledger and employee tests unchanged.
-- [ ] The show tick stays in `Game` until the dino split: `fill_show_scores`
-  reads `imported_dinos`, which moves with ARCH-5 (A9). Then
-  `ParkSession::update(dt)` can own the whole park tick.
+- [ ] The show tick stays in `Game` because `fill_show_scores` also uses the
+  `phenotype_table` and asset paths; move it with the ARCH-5 dino behavior.
+  Then `ParkSession::update(dt)` can own the whole park tick.
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
   bodies of `update_park_world`/`update_simulation` in a second step.
 - **Acceptance:** save/load, campaign and park tests unchanged; `Game` member
@@ -2248,9 +2253,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** ARCH-2/3.
 
 ### ARCH-5: DinoSim and DinoAnimator
-- [ ] Split `ImportedDino`/`ImportedSpecies` (currently nested in `Game`)
-  into world simulation state and render assets; moving them as-is would make
-  `world` depend on GL (architecture finding A9).
+- [x] Split `ImportedDino`/`ImportedSpecies` into world simulation state and
+  render assets: `world/imported_dino.h`, app `ImportedDinoDraw`, species
+  texture in the app cache. Moving them as-is would have made `world` depend
+  on GL (architecture finding A9).
 - [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
   `Game`/`render` into `world/dino_sim.*` and `render/dino_animator.*`; the
   mover and element events close `P3-MOTION-1`.

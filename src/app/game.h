@@ -108,30 +108,16 @@ public:
 private:
     // --- nested types --------------------------------------------------
     struct ImportedSpecies {
-            dino::Mesh mesh;
-            dino::Skeleton skeleton;
-            dino::Skin skin;
-            dino::Animation anim;
-            std::vector<int> vertex_bone;
-            std::vector<int> bone_skel;
+            std::shared_ptr<dino::DinoAssets> assets;
             GLuint texture = 0;
         };
 
-    struct ImportedDino {
-            std::shared_ptr<ImportedSpecies> assets;
+    // GPU state for the dinosaur at the same index in
+    // `park_session.imported_dinos`.
+    struct ImportedDinoDraw {
             GpuMesh gpu;
             GpuMesh shadow;
-            std::string species;
-            std::string family;
-            std::string clip;
-            bool carnivore = true;  // diet gene 14; drives the food source match
-            dino::DinoNeeds needs;
-            dino::DinoAttributes attributes;  // phenotype snapshot for objectives
-            std::optional<dino::DinoActionLoop> action_loop;
-            float x = 0.0f;
-            float y = 0.0f;
-            float angle = 0.0f;
-            double phase = 0.0;
+            GLuint texture = 0;
         };
 
     struct StorePreview {
@@ -272,7 +258,7 @@ private:
     GpuMesh dino_gpu;
     GpuMesh shadow_gpu;
     std::map<std::string, std::shared_ptr<ImportedSpecies>> imported_species;
-    std::vector<ImportedDino> imported_dinos;
+    std::vector<ImportedDinoDraw> imported_dino_draws;
     dino::DangerGrid danger_grid;
     double danger_timer;
     std::vector<dino::Paddock> park_paddocks;

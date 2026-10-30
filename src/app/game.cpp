@@ -574,7 +574,7 @@ dino::CampaignState Game::build_mission_state() {
     // beauty/aggression/stamina/agility/intelligence and a body
     // length. Hybrid/scarcity/strangeness/ornaments are not ported
     // yet, so those verbs stay pending.
-    for (const ImportedDino& dinosaur : imported_dinos) {
+    for (const dino::ImportedDino& dinosaur : park_session.imported_dinos) {
         dino::DinoTraitState trait;
         trait.species = dinosaur.species;
         trait.cuteness = dinosaur.attributes.beauty;
@@ -623,7 +623,7 @@ dino::CampaignState Game::build_mission_state() {
                 continue;
             }
             int occupants = 0;
-            for (const ImportedDino& other : imported_dinos) {
+            for (const dino::ImportedDino& other : park_session.imported_dinos) {
                 if (other.x >= x0 && other.x <= x1 && other.y >= y0 &&
                     other.y <= y1) {
                     ++occupants;
@@ -1032,12 +1032,12 @@ void Game::update_simulation() {
 
     // `FUN_00589CD0`: rebuild the 8-unit danger grid once per second, then
     // recompute each dinosaur's SECU from the cell under its position.
-    if (!imported_dinos.empty() && terrain.world_size > 0.0f) {
+    if (!park_session.imported_dinos.empty() && terrain.world_size > 0.0f) {
         danger_timer += frame_dt;
         if (danger_timer >= 1.0) {
             danger_timer = 0.0;
             danger_grid.clear();
-            for (const ImportedDino& dinosaur : imported_dinos) {
+            for (const dino::ImportedDino& dinosaur : park_session.imported_dinos) {
                 const dino::DinoNeeds& needs =
                     dinosaur.action_loop ? dinosaur.action_loop->needs()
                                          : dinosaur.needs;
@@ -1051,7 +1051,7 @@ void Game::update_simulation() {
             // retail grid would pin SECU to 99, so the port keeps the
             // configured value and `--dino-needs` fixtures stay useful.
             bool any_live = false;
-            for (const ImportedDino& dinosaur : imported_dinos) {
+            for (const dino::ImportedDino& dinosaur : park_session.imported_dinos) {
                 const dino::DinoNeeds& needs =
                     dinosaur.action_loop ? dinosaur.action_loop->needs()
                                          : dinosaur.needs;
@@ -1061,7 +1061,7 @@ void Game::update_simulation() {
                     break;
                 }
             }
-            for (ImportedDino& dinosaur : imported_dinos) {
+            for (dino::ImportedDino& dinosaur : park_session.imported_dinos) {
                 dino::DinoNeeds& needs =
                     dinosaur.action_loop ? dinosaur.action_loop->needs()
                                          : dinosaur.needs;
@@ -1093,7 +1093,10 @@ void Game::update_simulation() {
         }
     }
 
-    for (ImportedDino& dinosaur : imported_dinos) {
+    for (std::size_t dino_index = 0;
+         dino_index < park_session.imported_dinos.size(); ++dino_index) {
+        dino::ImportedDino& dinosaur =
+            park_session.imported_dinos[dino_index];
         if (dinosaur.action_loop) {
             // The `.bai` consume gate: Eat is only available when the
             // dinosaur's paddock holds a matching food source.
@@ -1154,8 +1157,11 @@ void Game::update_simulation() {
                                      : dino_clip_for_action(action);
                 if (clip != dinosaur.clip) {
                     try {
-                        dinosaur.assets = load_imported_species(
+                        const auto species_assets = load_imported_species(
                             dinosaur.species, dinosaur.family, clip);
+                        dinosaur.assets = species_assets->assets;
+                        imported_dino_draws[dino_index].texture =
+                            species_assets->texture;
                         dinosaur.clip = clip;
                     } catch (const std::exception& e) {
                         std::fprintf(stderr, "dino clip %s: %s\n",
@@ -1164,7 +1170,7 @@ void Game::update_simulation() {
                 }
             }
         }
-        const ImportedSpecies& assets = *dinosaur.assets;
+        const dino::DinoAssets& assets = *dinosaur.assets;
         if (assets.anim.bones.empty() || assets.anim.duration <= 0.0) {
             continue;
         }
@@ -1183,7 +1189,7 @@ void Game::update_simulation() {
         deformed = place_on_terrain(std::move(deformed), terrain,
                                     dinosaur.x, dinosaur.y,
                                     dinosaur.angle);
-        update_mesh(dinosaur.gpu, deformed, glfns);
+        update_mesh(imported_dino_draws[dino_index].gpu, deformed, glfns);
     }
 
     if (!park_session.visitor_system.visitors.empty()) {

@@ -436,7 +436,7 @@ std::optional<int> Game::boot_import_dinos() {
                             : dino::paddock_size_class(
                                   size_for_species(species));
                     const int dino_id =
-                        1000000 + static_cast<int>(imported_dinos.size());
+                        1000000 + static_cast<int>(park_session.imported_dinos.size());
                     int paddock_index = -1;
                     if (opt.buy_paddock >= 0 &&
                         opt.buy_paddock < static_cast<int>(park_session.paddocks.size()) &&
@@ -505,7 +505,7 @@ std::optional<int> Game::boot_import_dinos() {
                                 species, family, opt.dino_clip, x, y,
                                 theta * 180.0f / kPi + 90.0f,
                                 have_attributes ? &buy_attrs : nullptr)) {
-                            imported_dinos.back().carnivore =
+                            park_session.imported_dinos.back().carnivore =
                                 have_genotype
                                     ? dino::genotype_is_carnivore(buy_genotype)
                                     : true;
@@ -517,7 +517,7 @@ std::optional<int> Game::boot_import_dinos() {
                                 "dinos=%zu\n",
                                 entry->name.c_str(), entry->price,
                                 buy_budget - entry->price, paddock_index,
-                                imported_dinos.size());
+                                park_session.imported_dinos.size());
                             rebuild_extra_items();
                         } else {
                             std::printf("buy: %s model load failed\n",
@@ -532,7 +532,7 @@ std::optional<int> Game::boot_import_dinos() {
         print_paddock_totals();
 
         std::printf("park list: dinos=%zu paddocks=%zu\n",
-                    imported_dinos.size(), park_paddocks.size());
+                    park_session.imported_dinos.size(), park_paddocks.size());
     }
     return std::nullopt;
 }
@@ -683,10 +683,10 @@ std::optional<int> Game::boot_camera_setup() {
         center = park_session.building_center;
         distance = 60.0f;
     }
-    if (opt.focus_dinos && !imported_dinos.empty()) {
+    if (opt.focus_dinos && !park_session.imported_dinos.empty()) {
         const std::size_t focus_index = static_cast<std::size_t>(std::clamp(
-            opt.focus_dino, 0, static_cast<int>(imported_dinos.size()) - 1));
-        const ImportedDino& dinosaur = imported_dinos[focus_index];
+            opt.focus_dino, 0, static_cast<int>(park_session.imported_dinos.size()) - 1));
+        const ImportedDino& dinosaur = park_session.imported_dinos[focus_index];
         const float half = terrain.world_size * 0.5f;
         center = {dinosaur.x - half, dinosaur.y - half,
                   terrain.height_at(dinosaur.x - half,

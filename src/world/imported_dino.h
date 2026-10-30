@@ -1,0 +1,46 @@
+#pragma once
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "../formats/anim.h"
+#include "../formats/dino_data.h"
+#include "../formats/mesh.h"
+#include "../formats/skel.h"
+#include "../formats/skin.h"
+#include "dino_actions.h"
+
+namespace dino {
+
+// Formats-only dino assets (mesh, skeleton, skin, animation and the two
+// mapping tables). GL names stay in the app/render layer; this type is safe
+// for `world` and is shared between dinos of the same species/clip.
+struct DinoAssets {
+    Mesh mesh;
+    Skeleton skeleton;
+    Skin skin;
+    Animation anim;
+    std::vector<int> vertex_bone;
+    std::vector<int> bone_skel;
+};
+
+// Live dinosaur simulation state. The draw/GPU state lives in the app-side
+// ImportedDinoDraw at the same index (architecture finding A9).
+struct ImportedDino {
+    std::shared_ptr<const DinoAssets> assets;
+    std::string species;
+    std::string family;
+    std::string clip;
+    bool carnivore = true;  // diet gene 14; drives the food source match
+    DinoNeeds needs;
+    DinoAttributes attributes;  // phenotype snapshot for objectives
+    std::optional<DinoActionLoop> action_loop;
+    float x = 0.0f;
+    float y = 0.0f;
+    float angle = 0.0f;
+    double phase = 0.0;
+};
+
+}  // namespace dino

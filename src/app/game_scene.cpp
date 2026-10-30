@@ -216,12 +216,12 @@ void Game::rebuild_extra_items() {
             extra_items.push_back({&shadow_gpu, 0, 0.35f});
         }
     }
-    for (const ImportedDino& dinosaur : imported_dinos) {
-        if (dinosaur.gpu.vao != 0) {
-            extra_items.push_back(
-                {&dinosaur.gpu, dinosaur.assets->texture});
-            if (dinosaur.shadow.vao != 0) {
-                extra_items.push_back({&dinosaur.shadow, 0, 0.35f});
+    for (std::size_t i = 0; i < park_session.imported_dinos.size(); ++i) {
+        const ImportedDinoDraw& draw = imported_dino_draws[i];
+        if (draw.gpu.vao != 0) {
+            extra_items.push_back({&draw.gpu, draw.texture});
+            if (draw.shadow.vao != 0) {
+                extra_items.push_back({&draw.shadow, 0, 0.35f});
             }
         }
     }
@@ -473,7 +473,7 @@ void Game::spawn_world_dinos() {
         try {
             if (add_imported_dino(species, family, opt.dino_clip, x, y,
                                   angle, attrs_ptr)) {
-                imported_dinos.back().carnivore =
+                park_session.imported_dinos.back().carnivore =
                     dino::genotype_is_carnivore(record.genotype);
                 ++spawned;
                 ++species_counts[species];
@@ -640,7 +640,7 @@ void Game::print_paddock_totals() {
 }
 
 void Game::log_dino_food() {
-    for (const ImportedDino& dinosaur : imported_dinos) {
+    for (const dino::ImportedDino& dinosaur : park_session.imported_dinos) {
         const int pen = paddock_at(dinosaur.x, dinosaur.y);
         const dino::FoodSource* source =
             paddock_food(pen, dinosaur.carnivore);
@@ -664,56 +664,58 @@ std::shared_ptr<Game::ImportedSpecies> Game::load_imported_species(const std::st
     if (found != imported_species.end()) {
         return found->second;
     }
-    auto assets = std::make_shared<ImportedSpecies>();
+    auto species_assets = std::make_shared<ImportedSpecies>();
+    species_assets->assets = std::make_shared<dino::DinoAssets>();
+    dino::DinoAssets& assets = *species_assets->assets;
     const std::string dir =
         "Data/Graphics/Actors/Dinos/" + species + "/" + species;
-    assets->mesh = dino::load_mesh(
+    assets.mesh = dino::load_mesh(
         resolve_asset(opt.asset_root, dir + "_lod1.mesh"));
-    assets->skeleton = dino::load_skel(
+    assets.skeleton = dino::load_skel(
         resolve_asset(opt.asset_root, dir + ".skel"));
-    assets->skin = dino::load_skin(
+    assets.skin = dino::load_skin(
         resolve_asset(opt.asset_root, dir + "_lod1.skin"),
-        assets->mesh.name);
+        assets.mesh.name);
     // Same bind rule as the single-dinosaur path: the `.skin` mesh is a
     // crouched bind pose, so rebuild it from the standing `.mesh` while
     // keeping the skin weights.
-    if (assets->skin.mesh.positions.size() ==
-            assets->mesh.positions.size() &&
-        assets->skin.mesh.indices == assets->mesh.indices) {
-        for (std::size_t i = 0; i < assets->mesh.positions.size(); ++i) {
-            assets->skin.mesh.positions[i] = {
-                assets->mesh.positions[i].x * 100.0f,
-                assets->mesh.positions[i].y * 100.0f,
-                assets->mesh.positions[i].z * 100.0f};
+    if (assets.skin.mesh.positions.size() ==
+            assets.mesh.positions.size() &&
+        assets.skin.mesh.indices == assets.mesh.indices) {
+        for (std::size_t i = 0; i < assets.mesh.positions.size(); ++i) {
+            assets.skin.mesh.positions[i] = {
+                assets.mesh.positions[i].x * 100.0f,
+                assets.mesh.positions[i].y * 100.0f,
+                assets.mesh.positions[i].z * 100.0f};
         }
-        if (assets->mesh.uvs.size() == assets->mesh.positions.size()) {
-            assets->skin.mesh.uvs = assets->mesh.uvs;
+        if (assets.mesh.uvs.size() == assets.mesh.positions.size()) {
+            assets.skin.mesh.uvs = assets.mesh.uvs;
         }
-        if (assets->mesh.normals.size() == assets->mesh.positions.size()) {
-            assets->skin.mesh.normals = assets->mesh.normals;
+        if (assets.mesh.normals.size() == assets.mesh.positions.size()) {
+            assets.skin.mesh.normals = assets.mesh.normals;
         }
-        if (assets->mesh.colors.size() == assets->mesh.positions.size()) {
-            assets->skin.mesh.colors = assets->mesh.colors;
+        if (assets.mesh.colors.size() == assets.mesh.positions.size()) {
+            assets.skin.mesh.colors = assets.mesh.colors;
         }
     }
-    build_skin_mapping(assets->skin, assets->skeleton, assets->vertex_bone,
-                       assets->bone_skel);
+    build_skin_mapping(assets.skin, assets.skeleton, assets.vertex_bone,
+                       assets.bone_skel);
     if (!clip.empty() && !family.empty()) {
-        assets->anim = dino::load_anim(resolve_asset(
+        assets.anim = dino::load_anim(resolve_asset(
             opt.asset_root, "Data/Graphics/Actors/Dinos/animations/" +
                                 family + "/" + family + "_" + clip +
                                 ".anim"));
     }
     try {
-        assets->texture = upload_texture(dino::load_tga(resolve_asset(
+        species_assets->texture = upload_texture(dino::load_tga(resolve_asset(
             opt.asset_root,
             "Data/Graphics/Textures/actors/dinos/" + species + ".tga")));
     } catch (const std::exception& e) {
         std::fprintf(stderr, "dino texture %s: %s\n", species.c_str(),
                      e.what());
     }
-    imported_species[key] = assets;
-    return assets;
+    imported_species[key] = species_assets;
+    return species_assets;
 
 }
 
@@ -726,8 +728,9 @@ bool Game::add_imported_dino(const std::string& species,
     if (!assets) {
         return false;
     }
-    ImportedDino dinosaur;
-    dinosaur.assets = assets;
+    const dino::DinoAssets& model = *assets->assets;
+    dino::ImportedDino dinosaur;
+    dinosaur.assets = assets->assets;
     dinosaur.species = species;
     dinosaur.family = family;
     dinosaur.clip = clip;
@@ -735,7 +738,7 @@ bool Game::add_imported_dino(const std::string& species,
     dinosaur.y = y;
     dinosaur.angle = angle;
     dinosaur.phase =
-        static_cast<double>(imported_dinos.size()) * 617.0;
+        static_cast<double>(park_session.imported_dinos.size()) * 617.0;
     dinosaur.needs.value = dino_initial_needs;
     dinosaur.needs.threat = std::max(0, opt.dino_threat);
     dinosaur.needs.threat_radius = std::max(0, opt.dino_radius);
@@ -746,7 +749,7 @@ bool Game::add_imported_dino(const std::string& species,
     // eater action.
     dino::Vec3 lo{1e30f, 1e30f, 1e30f};
     dino::Vec3 hi{-1e30f, -1e30f, -1e30f};
-    for (const dino::Vec3& p : assets->mesh.positions) {
+    for (const dino::Vec3& p : model.mesh.positions) {
         lo.x = std::min(lo.x, p.x);
         lo.y = std::min(lo.y, p.y);
         lo.z = std::min(lo.z, p.z);
@@ -778,31 +781,34 @@ bool Game::add_imported_dino(const std::string& species,
                                      config);
     }
     const dino::Animation* anim_ptr =
-        assets->anim.bones.empty() ? nullptr : &assets->anim;
+        model.anim.bones.empty() ? nullptr : &model.anim;
     dino::Mesh pose = build_skinned_mesh(
-        assets->skin.mesh, assets->skin, assets->skeleton, anim_ptr, 0.0,
-        assets->vertex_bone, assets->bone_skel, false);
-    if (assets->mesh.colors.size() == pose.positions.size()) {
-        pose.colors = assets->mesh.colors;
+        model.skin.mesh, model.skin, model.skeleton, anim_ptr, 0.0,
+        model.vertex_bone, model.bone_skel, false);
+    if (model.mesh.colors.size() == pose.positions.size()) {
+        pose.colors = model.mesh.colors;
     }
     pose = place_on_terrain(std::move(pose), terrain, x, y, angle);
-    dinosaur.gpu = upload_mesh(pose, glfns);
+    ImportedDinoDraw draw;
+    draw.texture = assets->texture;
+    draw.gpu = upload_mesh(pose, glfns);
     const float half = terrain.world_size * 0.5f;
-    dinosaur.shadow = upload_mesh(
+    draw.shadow = upload_mesh(
         make_contact_shadow(x - half, y - half,
                             terrain.height_at(x - half, y - half) + 0.06f,
                             2.2f),
         glfns);
-    imported_dinos.push_back(std::move(dinosaur));
-    const std::size_t dino_index = imported_dinos.size() - 1;
-    if (imported_dinos[dino_index].action_loop) {
+    imported_dino_draws.push_back(std::move(draw));
+    park_session.imported_dinos.push_back(std::move(dinosaur));
+    const std::size_t dino_index = park_session.imported_dinos.size() - 1;
+    if (park_session.imported_dinos[dino_index].action_loop) {
         // `node+0x3c` target policy (`GetTarget` +0x14). The park target
         // factory is not decoded yet, so Eat/EatForSmallies are modelled
         // as the nearest stocked food source (box target); every other
         // action has no target (-1, threat term skipped).
-        imported_dinos[dino_index].action_loop->set_threat_provider(
+        park_session.imported_dinos[dino_index].action_loop->set_threat_provider(
             [this, dino_index](const dino::BaiAction& action) {
-                const ImportedDino& self = imported_dinos[dino_index];
+                const dino::ImportedDino& self = park_session.imported_dinos[dino_index];
                 if (action.name != "Eat" &&
                     action.name != "EatForSmallies") {
                     return 0;
@@ -844,12 +850,12 @@ bool Game::add_imported_dino(const std::string& species,
 }
 
 void Game::clear_imported_dinos() {
-    for (ImportedDino& dinosaur : imported_dinos) {
-        dinosaur.gpu.destroy(glfns);
-        dinosaur.shadow.destroy(glfns);
+    for (ImportedDinoDraw& draw : imported_dino_draws) {
+        draw.gpu.destroy(glfns);
+        draw.shadow.destroy(glfns);
     }
-    imported_dinos.clear();
-
+    imported_dino_draws.clear();
+    park_session.imported_dinos.clear();
 }
 
 }  // namespace dino::app

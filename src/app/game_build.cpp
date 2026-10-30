@@ -740,13 +740,14 @@ Game::StorePreview* Game::store_preview_for(const dino::ui::StoreRow& row) {
         const auto assets =
             load_imported_species(species, family, opt.dino_clip);
         if (assets) {
+            const dino::DinoAssets& model = *assets->assets;
             const dino::Animation* anim =
-                assets->anim.bones.empty() ? nullptr : &assets->anim;
+                model.anim.bones.empty() ? nullptr : &model.anim;
             dino::Mesh pose = build_skinned_mesh(
-                assets->skin.mesh, assets->skin, assets->skeleton, anim,
-                0.0, assets->vertex_bone, assets->bone_skel, false);
-            if (assets->mesh.colors.size() == pose.positions.size()) {
-                pose.colors = assets->mesh.colors;
+                model.skin.mesh, model.skin, model.skeleton, anim,
+                0.0, model.vertex_bone, model.bone_skel, false);
+            if (model.mesh.colors.size() == pose.positions.size()) {
+                pose.colors = model.mesh.colors;
             }
             if (!pose.positions.empty()) {
                 dino::Vec3 lo{1e30f, 1e30f, 1e30f};

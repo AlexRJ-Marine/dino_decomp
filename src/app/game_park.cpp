@@ -465,7 +465,7 @@ void Game::load_campaign_park(const std::string& world_path) {
             "campaign park: %s buildings=%zu roads=%zu fences=%zu "
             "dinos=%zu shows=%zu animals=%zu employees=%zu\n",
             world_path.c_str(), world.buildings.size(), wld_roads.size(),
-            wld_fences.size(), imported_dinos.size(),
+            wld_fences.size(), park_session.imported_dinos.size(),
             world.records.shows.size(), world.records.animals.size(),
             world.records.employees.size());
     } catch (const std::exception& e) {
@@ -767,7 +767,7 @@ void Game::apply_port_state(const dino::PortState& state) {
                 current_island.c_str(), park_session.budget, park_session.clock.day,
                 park_session.visitor_system.visitors.size(), park_session.build_grid.path_count,
                 park_session.build_grid.fence_count, park_session.building_instances.size(),
-                imported_dinos.size(), park_session.paddocks.size(),
+                park_session.imported_dinos.size(), park_session.paddocks.size(),
                 park_session.food_sources.size());
 
     resume_port_campaign(state);
@@ -885,7 +885,7 @@ void Game::apply_port_dinos(const dino::PortState& state) {
                                        saved.angle)) {
                     continue;
                 }
-                ImportedDino& dinosaur = imported_dinos.back();
+                ImportedDino& dinosaur = park_session.imported_dinos.back();
                 dino::DinoNeeds restored;
                 restored.value = saved.needs;
                 restored.size_cm = saved.size_cm;
@@ -1120,7 +1120,7 @@ dino::PortState Game::make_port_state() {
         state.visitors.push_back(saved);
     }
     state.buildings = park_session.building_instances;
-    for (const ImportedDino& dinosaur : imported_dinos) {
+    for (const ImportedDino& dinosaur : park_session.imported_dinos) {
         dino::PortDinoState saved;
         saved.species = dinosaur.species;
         saved.family = dinosaur.family;

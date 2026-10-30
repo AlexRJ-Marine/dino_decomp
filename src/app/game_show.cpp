@@ -11,12 +11,12 @@ void Game::sync_show_identity(dino::CampaignShowState& show,
     show.participant_hybrid.clear();
     for (int index : participants) {
         if (index < 0 ||
-            index >= static_cast<int>(imported_dinos.size())) {
+            index >= static_cast<int>(park_session.imported_dinos.size())) {
             continue;
         }
         show.participant_ids.push_back(index);
         show.participant_hybrid.push_back(
-            imported_dinos[static_cast<std::size_t>(index)]
+            park_session.imported_dinos[static_cast<std::size_t>(index)]
                 .attributes.originality);
     }
     show.participants =
@@ -42,7 +42,7 @@ void Game::fill_show_scores(dino::CampaignShowState& show,
         float best = -1.0e9f;
         for (int index : show.participant_ids) {
             const auto needs = dino::dino_show_needs(
-                imported_dinos[static_cast<std::size_t>(index)]
+                park_session.imported_dinos[static_cast<std::size_t>(index)]
                     .attributes,
                 phenotype_table);
             float dot = 0.0f;
@@ -194,8 +194,8 @@ void Game::auto_assign_show_participants(int show_index) {
     }
     std::array<int, 4> remaining = show->entry.cage_size;
     std::vector<int> participants;
-    for (int i = 0; i < static_cast<int>(imported_dinos.size()); ++i) {
-        const int length = imported_dinos[static_cast<std::size_t>(i)]
+    for (int i = 0; i < static_cast<int>(park_session.imported_dinos.size()); ++i) {
+        const int length = park_session.imported_dinos[static_cast<std::size_t>(i)]
                                .needs.size_cm;
         int size_class = 3;
         for (int category = 0; category < 4; ++category) {

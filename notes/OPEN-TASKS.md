@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-30 09:27. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-30 12:50. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-57 open items.
+56 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -100,7 +100,7 @@ Generated from `TASKS.md` on 2026-10-30 09:27. Do not edit; regenerate with `scr
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
 
 ## ARCH-2: Extract ParkSession state
-- [ ] The show tick stays in `Game` until the dino split: `fill_show_scores`
+- [ ] The show tick stays in `Game` because `fill_show_scores` also uses the
 - [ ] Add `ParkSession::update(dt)` only after the state is in place; move the
 
 ## ARCH-3: BuildController and CameraController
@@ -111,7 +111,6 @@ Generated from `TASKS.md` on 2026-10-30 09:27. Do not edit; regenerate with `scr
 - [ ] Replace the statement order in `Game::run()` with a table of named tasks
 
 ## ARCH-5: DinoSim and DinoAnimator
-- [ ] Split `ImportedDino`/`ImportedSpecies` (currently nested in `Game`)
 - [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
 
 ## ARCH-6: Renderer ownership and header split

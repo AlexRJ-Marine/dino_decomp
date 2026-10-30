@@ -920,7 +920,7 @@ void Game::place_selected_store_item() {
                                : 1);
                 const int dino_id =
                     1000000 +
-                    static_cast<int>(imported_dinos.size());
+                    static_cast<int>(park_session.imported_dinos.size());
                 dino::Paddock& paddock =
                     park_session.paddocks[static_cast<std::size_t>(
                         paddock_index)];
@@ -967,7 +967,7 @@ void Game::place_selected_store_item() {
                             "total=%.0f\n",
                             entry.name.c_str(),
                             pending_store_price, park_session.budget,
-                            paddock_index, imported_dinos.size(),
+                            paddock_index, park_session.imported_dinos.size(),
                             park_session.ledger.dinoachat_count,
                             park_session.ledger.dinoachat_total,
                             paddock.used, total_used);

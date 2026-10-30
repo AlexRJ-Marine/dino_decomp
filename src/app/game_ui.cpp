@@ -1126,7 +1126,7 @@ std::string Game::hud_widget_text(const std::string& name) {
     }
     if (name == "DINO_AMOUNT") {
         const std::size_t count =
-            imported_dinos.size() + (place_dino ? 1 : 0);
+            park_session.imported_dinos.size() + (place_dino ? 1 : 0);
         return std::to_string(count);
     }
     if (name == "SHOW_AMOUNT") {
@@ -1145,8 +1145,8 @@ std::string Game::hud_widget_text(const std::string& name) {
     };
     if (name.rfind("DINO_NAME_SLOT", 0) == 0) {
         const int slot = slot_index(name, "DINO_NAME_SLOT");
-        if (slot >= 0 && slot < static_cast<int>(imported_dinos.size())) {
-            return imported_dinos[static_cast<std::size_t>(slot)].species;
+        if (slot >= 0 && slot < static_cast<int>(park_session.imported_dinos.size())) {
+            return park_session.imported_dinos[static_cast<std::size_t>(slot)].species;
         }
         return "";
     }
@@ -1457,10 +1457,10 @@ void Game::refresh_fence_info_panel() {
     int carn = 0;
     int herb = 0;
     for (const int id : pen.occupants) {
-        if (id < 0 || id >= static_cast<int>(imported_dinos.size())) {
+        if (id < 0 || id >= static_cast<int>(park_session.imported_dinos.size())) {
             continue;
         }
-        if (imported_dinos[static_cast<std::size_t>(id)].carnivore) {
+        if (park_session.imported_dinos[static_cast<std::size_t>(id)].carnivore) {
             ++carn;
         } else {
             ++herb;
