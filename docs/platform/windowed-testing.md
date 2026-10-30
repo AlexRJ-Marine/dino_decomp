@@ -231,6 +231,21 @@ Evidence:
 - `notes/windowed-park.png` - park reached through the virtual-input path
 - `notes/park-retail-windowed.png` - free-game park after the windowed Reset fix
 - `notes/x32dbg-windowed-freegame.out.log` - loader trace from the run
+- `notes/harness/campaign-sim.png` - Cpg04 running after the normal clicking campaign path
+
+### Bordered-window frame offset (all UI managers)
+
+The retail `moWidgetManager::OnMouseMove` (`0x5bb4d0`) is installed in three
+vtables: the ViewManager (`0x642894`, slot `0x6428b0`), the park interface
+manager (`0x642b1c`) and the campaign manager (`0x647098`). The WndProc
+converts the client coordinate to window space, adding the bordered-window
+frame offset (~3x29 px in the test runtime). The proxy's
+`hook_view_mouse_move` subtracts that offset, but it was only patched into
+the ViewManager slot: menu clicks were correct while park/briefing HUD clicks
+landed ~26 px low (a briefing click could hit the objectives button and
+re-pause the sim). `install_view_probes` now patches all three slots. Verified
+by the normal (clicking) `start-campaign.ps1 -CampaignRow 3` path: it advances
+the briefing and reaches a running Cpg04 park (`notes/harness/campaign-sim.png`).
 
 Limitations:
 

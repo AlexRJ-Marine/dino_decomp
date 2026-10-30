@@ -1346,6 +1346,28 @@ bool install_view_probes() {
                             reinterpret_cast<void*>(&hook_view_key),
                             reinterpret_cast<void**>(&g_real_view_key)) &&
          ok;
+    // `moWidgetManager::OnMouseMove` (0x5bb4d0) is shared by three manager
+    // vtables: the ViewManager at 0x642894 slot 7 and the park/campaign
+    // managers at 0x642b1c and 0x647098. The WndProc converts every mouse
+    // move from client to window space (adding the bordered frame offset),
+    // so all three need the same correction or the park HUD lands ~26 px low
+    // while the menu is correct.
+    auto patch_mouse_slot = [&](std::uintptr_t slot_va) {
+        auto** slot = reinterpret_cast<void**>(exe_va(slot_va));
+        if (*slot != reinterpret_cast<void*>(exe_va(0x5bb4d0))) {
+            char line[128];
+            std::snprintf(line, sizeof(line),
+                          "force-active: mouse slot 0x%lx is not OnMouseMove",
+                          static_cast<unsigned long>(slot_va));
+            log_line(line);
+            return false;
+        }
+        return patch_vtable_entry(
+            slot, 0, reinterpret_cast<void*>(&hook_view_mouse_move),
+            reinterpret_cast<void**>(&g_real_view_mouse_move));
+    };
+    ok = patch_mouse_slot(0x642b1c) && ok;
+    ok = patch_mouse_slot(0x647098) && ok;
     installed = ok;
     log_line(ok ? "force-active: view/UI event probes installed"
                 : "force-active: view/UI event probes FAILED");
