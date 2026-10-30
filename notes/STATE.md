@@ -2197,3 +2197,12 @@ Updated: 2026-10-28
   and terrain placement. `Game` add/update paths call the helper; the renderer
   only uploads the posed mesh. Layer rule: render -> formats only. Gates:
   selftest 194, fast 379, full 521 in 4:21.
+
+- ARCH-5 behavior slice (`d2949b6`): the action->clip mapping moved from
+  `app/asset_paths` to `world/dino_actions`; `ParkSession` now owns
+  `paddock_at`/`paddock_food` and `tick_dino` (inventory gate, action-loop
+  tick, Eat consumption, score data and clip selection). `Game` only prints
+  the returned events, loads the clip assets/texture and uploads the pose.
+  `game.h` 651 -> 649 lines. Gates: selftest 194, fast 379, full 521 in 4:38
+  (dino action/eat, show, campaign, save). The walking mover/element events
+  remain (P3-MOTION).
