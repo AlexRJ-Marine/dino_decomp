@@ -2181,3 +2181,12 @@ Updated: 2026-10-28
   the profile-table load and the log line. The show tick stays in `Game`
   because `fill_show_scores` needs `imported_dinos`, which moves with ARCH-5.
   Gates: selftest 194, fast 379, full 521 in 4:14.
+
+- ARCH-5 split (`f284a6f`): `world/imported_dino.h` now holds formats-only
+  `DinoAssets` and simulation `ImportedDino`; the app keeps
+  `ImportedDinoDraw` (`GpuMesh gpu/shadow`, texture) at the same index and a
+  species cache wrapping shared assets. `park_session.imported_dinos` owns the
+  live dinos; add/clear/draw/clip-change/load paths keep the draw vector in
+  sync. `game.h` 665 -> 651 lines. This is the A9 layer split; dino needs/
+  chooser/mover behavior remains ARCH-5 second half. Gates: selftest 194,
+  fast 379, full 521 in 4:16 (dino render, save/load, show, campaign).
