@@ -88,8 +88,11 @@ See `notes/lanes.md`. Default split:
   `DinoAssets`/`ImportedDino`, the app keeps `ImportedDinoDraw` and species
   textures, and `park_session.imported_dinos` owns the live dinos. CPU
   skinning/posing is in `world`, and `ParkSession::tick_dino` owns the action
-  loop, Eat consumption and clip selection; only the walking mover/element
-  events remain (P3-MOTION). Next: ARCH-5 mover, then ARCH-3 (build/camera
+  loop, the retail mover (`dino_motion.*`), Eat consumption and clip
+  selection; `game.h` is 649 lines. The mover is ported with the exact
+  `FUN_00575410` turn plan and phenotype walk/run speeds. Remaining P3-MOTION:
+  the element→move emitter (`FUN_00569660`), the occupancy footprint, and the
+  action lifecycle (runtime probe running). Next: ARCH-3 (build/camera
   controllers), ARCH-4 (`FrameScheduler`), ARCH-6 (renderer/header split).
   Architecture: `docs/platform/architecture.md` + `architecture.svg`.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
@@ -191,13 +194,13 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. **ARCH-5 behavior is mostly done** (`docs/platform/architecture.md`): the
-   dino types are split, CPU skinning/posing is in `world`, and
-   `ParkSession::tick_dino` owns the action loop, Eat consumption and clip
-   selection; `game.h` is 649 lines. Next: the walking mover/element events
-   (P3-MOTION), then ARCH-3 (build/camera controllers), ARCH-4
-   (`FrameScheduler`), ARCH-6 (renderer/header split). Keep `--selftest` (194),
-   the fast suite (379) and the full suite (521) green.
+1. **P3-MOTION: mover done, emitter/eat probe running.** The retail mover
+   (`saDinosaur+0x2c8`, `dino_motion.*`) is ported with the exact
+   `FUN_00575410` turn plan, phenotype walk/run and paddock clamp. Next: use
+   the x32dbg `0x573f40`/`0x573dc0`/`0x574727`/`0x580e60` probe to replace the
+   one-record Eat script and the 3-unit meal gate with the observed element
+   records. Then the occupancy footprint and action lifecycle. Keep
+   `--selftest` (201), the fast suite and the full suite (522) green.
 2. MENU-1: Options (R-18) is done — sliders apply live and indication
    buttons cycle quality/depth/screen; cinematics skip on any mouse click.
    Next: retail `.sav` slots (R-16b, island in the header) and the Campaign
