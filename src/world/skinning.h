@@ -4,8 +4,8 @@
 // `.skel` hierarchy and deforms the bind mesh. No SDL, no GL: the result is a
 // plain dino::Mesh that the renderer uploads like any other.
 
-#ifndef DINO_RENDER_SKINNING_H
-#define DINO_RENDER_SKINNING_H
+#ifndef DINO_WORLD_SKINNING_H
+#define DINO_WORLD_SKINNING_H
 
 #include <vector>
 
@@ -29,4 +29,4 @@ dino::Mesh build_skinned_mesh(const dino::Mesh& bind, const dino::Skin& skin,
                               const std::vector<int>& bone_skel,
                               bool bind_from_skin);
 
-#endif  // DINO_RENDER_SKINNING_H
+#endif  // DINO_WORLD_SKINNING_H

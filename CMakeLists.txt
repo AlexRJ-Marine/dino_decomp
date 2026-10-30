@@ -60,6 +60,8 @@ add_library(dino_core STATIC
     src/world/show_runtime.cpp
     src/world/port_save.cpp
     src/world/park_session.cpp
+    src/world/skinning.cpp
+    src/world/dino_animator.cpp
     src/world/economy.cpp
 )
 
@@ -127,7 +129,6 @@ add_executable(dino_port
     src/render/mesh_gpu.cpp
     src/render/scene.cpp
     src/render/shaders.cpp
-    src/render/skinning.cpp
     src/render/text.cpp
     src/selftest.cpp
 )

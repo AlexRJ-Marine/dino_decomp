@@ -63,7 +63,7 @@
 #include "../render/mesh_gpu.h"
 #include "../render/scene.h"
 #include "../render/shaders.h"
-#include "../render/skinning.h"
+#include "../world/skinning.h"
 #include "../render/text.h"
 #include "../audio/music.h"
 #include "../audio/ui_sound.h"

@@ -66,7 +66,7 @@ wrong-way edge.
 | A6 | Medium | UI layout/state (`ui`) and UI drawing (`app/game_ui.cpp`, 1,500) are split across layers with no draw-list seam; every new panel couples to GL and `Game`. | `game_ui.cpp`, `ui/*` |
 | A7 | Low | GL names (`GpuMesh`, `GLuint` textures) are copyable, manual-destroy handles; the owner is `Game` and the deleter needs `GlFns`. | `render/mesh_gpu.h`; policy deviation row |
 | A8 | Low | No unit-test seam for `Game` (private phase methods, non-copyable); the only automated proof is the CLI/screenshot suite. | `tests/test_app_cpp.py`, `test_app_shell.py` |
-| A9 | Medium | `ImportedDino`/`ImportedSpecies` mixed simulation state (needs/attributes/action_loop/position) with GL state (`GpuMesh`, `GLuint texture`). **Split:** `world/imported_dino.h` now holds formats-only `DinoAssets` + simulation `ImportedDino`; the app keeps `ImportedDinoDraw` and the species texture. Dino behavior still lives in `Game` (ARCH-5). | `world/imported_dino.h`, `game_scene.cpp` |
+| A9 | Medium | `ImportedDino`/`ImportedSpecies` mixed simulation state (needs/attributes/action_loop/position) with GL state (`GpuMesh`, `GLuint texture`). **Split:** `world/imported_dino.h` now holds formats-only `DinoAssets` + simulation `ImportedDino`; the app keeps `ImportedDinoDraw` and the species texture. CPU skinning and dino posing now live in `world` (`skinning.*`, `dino_animator.*`); needs/chooser/mover behavior still lives in `Game` (ARCH-5). | `world/imported_dino.h`, `game_scene.cpp` |
 
 Strengths to keep: the lower layers are SDL/GL-free, the format layer has one
 parser per file with evidence, the 21 boot / 14 frame phases are named, the
@@ -91,7 +91,7 @@ and owns these domain types, each with a narrow interface:
 | --- | --- | --- |
 | `ParkSession` | budget/clock, build grid, paddocks, dinos, food, employees, shows, visitors | `update(dt)`, `load_state`/`save_state` |
 | `BuildController` | fence/road/building/store validation, cost, commit | `try_place_*`, `sell_*`, `preview()` |
-| `DinoSim` + `DinoAnimator` | needs/chooser/mover and clip selection/sampling/skinning | `update(dt)`, `pose()` |
+| `DinoSim` + `DinoAnimator` | needs/chooser/mover, clip selection; CPU skinning/pose in `world` | `update(dt)`, `pose()` |
 | `CameraController` | retail pan/yaw/zoom, orbit/free modes | `update(input)`, `view()` |
 | `FrameScheduler` | the retail task table and order | `run_tasks(dt)` |
 | `Renderer` | GL resources (RAII), scene/HUD passes | `draw(state)` |
@@ -114,7 +114,7 @@ task queue is `TASKS.md` ARCH-1..6.
 | **ARCH-2** | `ParkSession` state: move the park/economy/visitor/dino/build/show fields out of `Game` into `world/park_session.{h,cpp}`. Slices done: clock/budget/sellback/ledger, the build grid and paddocks, then the visitor system and profiles, then food/employees, then the show runtime/catalog, then buildings/entrance (266 members). `advance_clock`/`update_staff` and `settle_day` now live on `ParkSession`; the dino split moved `imported_dinos` into `ParkSession` (A9), while the show tick and dino behavior remain `Game`/ARCH-5. | save/load and campaign tests unchanged; `game.h` shrinks | full 521 |
 | **ARCH-3** | `BuildController` + `CameraController`: move placement/validation/cost and the camera equations behind the new types; keep the draw data in `Game`/`Renderer`. | placement/road/sell tests unchanged | full 521 |
 | **ARCH-4** | `FrameScheduler`: a table of named tasks in the retail order from `docs/decomp/scheduler.md`; `Game::run()` calls `scheduler.run_tasks(dt)`; phase-order test becomes task-order test. | order is data, not statement position | fast 379 |
-| **ARCH-5** | `DinoSim` + `DinoAnimator`: the `ImportedDino`/`ImportedSpecies` split is done; move needs/chooser/mover and clip selection/sampling/skinning out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 521 |
+| **ARCH-5** | `DinoSim` + `DinoAnimator`: the type split and CPU skinning/pose helper are done (`world/skinning.*`, `world/dino_animator.*`); remaining are needs/chooser/mover and clip selection out of `Game`; this is also the P3-MOTION functional gap. | dino/show/campaign tests unchanged | full 521 |
 | **ARCH-6** | `Renderer` + `AudioSystem`: GL RAII (or a documented owner), hidden capture mode, split `game.h` into domain headers; `Game` < 250 lines. | no GL in `Game`; clean build time down | full 521 |
 
 Sequencing rationale: guards first so every move is checked; state before

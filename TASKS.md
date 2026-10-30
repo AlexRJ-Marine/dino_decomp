@@ -2257,9 +2257,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   render assets: `world/imported_dino.h`, app `ImportedDinoDraw`, species
   texture in the app cache. Moving them as-is would have made `world` depend
   on GL (architecture finding A9).
-- [ ] Move needs/chooser/mover and clip selection/sampling/skinning out of
-  `Game`/`render` into `world/dino_sim.*` and `render/dino_animator.*`; the
-  mover and element events close `P3-MOTION-1`.
+- [x] Move CPU skinning from `render` to `world/skinning.*` and add
+  `world/dino_animator.*` (`pose_imported_dino`); `Game` add/update paths use
+  the helper instead of duplicating skinning/color/placement. Render now only
+  uploads the posed mesh. Dino render/save/show tests unchanged.
+- [ ] Move needs/chooser/mover and clip selection out of `Game` into
+  `world/dino_sim.*`; the mover and element events close `P3-MOTION-1`.
 - **Acceptance:** dino action/show/campaign tests unchanged; the P3-MOTION
   acceptance evidence is attached.
 - **Depends on:** ARCH-2.

@@ -6,6 +6,8 @@
 
 #include "game.h"
 
+#include "../world/dino_animator.h"
+
 namespace dino::app {
 
 Game::Game(int argc, char** argv) : opt(parse_args(argc, argv)) {}
@@ -1180,15 +1182,8 @@ void Game::update_simulation() {
                 elapsed * 4800.0 * opt.anim_speed + dinosaur.phase,
                 static_cast<double>(assets.anim.duration));
         }
-        dino::Mesh deformed = build_skinned_mesh(
-            assets.skin.mesh, assets.skin, assets.skeleton, &assets.anim,
-            anim_time, assets.vertex_bone, assets.bone_skel, false);
-        if (assets.mesh.colors.size() == deformed.positions.size()) {
-            deformed.colors = assets.mesh.colors;
-        }
-        deformed = place_on_terrain(std::move(deformed), terrain,
-                                    dinosaur.x, dinosaur.y,
-                                    dinosaur.angle);
+        dino::Mesh deformed = dino::pose_imported_dino(
+            dinosaur, assets, terrain, anim_time);
         update_mesh(imported_dino_draws[dino_index].gpu, deformed, glfns);
     }
 

@@ -86,11 +86,12 @@ See `notes/lanes.md`. Default split:
   state; `Game` holds `park_session` and the member ratchet is 266 (651-line
   `game.h`). The dino split is done: `world/imported_dino.h` holds
   `DinoAssets`/`ImportedDino`, the app keeps `ImportedDinoDraw` and species
-  textures, and `park_session.imported_dinos` owns the live dinos. Next:
-  ARCH-5 dino behavior (needs/chooser/mover/animator) or ARCH-3
-  (build/camera controllers), ARCH-4 (`FrameScheduler`), ARCH-6
-  (renderer/header split). Architecture: `docs/platform/architecture.md` +
-  `architecture.svg`.
+  textures, and `park_session.imported_dinos` owns the live dinos. CPU
+  skinning and posing moved to `world/skinning.*` + `world/dino_animator.*`;
+  the renderer only uploads the posed mesh. Next: ARCH-5 needs/chooser/mover
+  and clip selection (also P3-MOTION), then ARCH-3 (build/camera controllers),
+  ARCH-4 (`FrameScheduler`), ARCH-6 (renderer/header split). Architecture:
+  `docs/platform/architecture.md` + `architecture.svg`.
 - PLACE-1: **exact object placement (paused behind readability work).** Road cursor now
   snaps to the nearest 4-unit anchor like retail (`0x5faaa0`, half-down), so
   the horizontal/vertical flip at 45 degrees matches; the signed-length cost
@@ -190,10 +191,11 @@ See `notes/lanes.md`. Default split:
 
 ## Next actions
 
-1. **ARCH-5 first half is done** (`docs/platform/architecture.md`): the dino
-   types are split (`world/imported_dino.h`, app `ImportedDinoDraw`) and
-   `park_session.imported_dinos` owns the live dinos; `game.h` 651 lines. Next
-   move needs/chooser/mover/animator out of `Game` (ARCH-5 second half, also
+1. **ARCH-5 first half + animation is done** (`docs/platform/architecture.md`):
+   the dino types are split (`world/imported_dino.h`, app `ImportedDinoDraw`),
+   `park_session.imported_dinos` owns the live dinos, and CPU skinning/posing
+   is in `world/skinning.*` + `world/dino_animator.*`. Next move needs/
+   chooser/mover and clip selection out of `Game` (ARCH-5 second half, also
    P3-MOTION), then ARCH-3 (build/camera controllers), ARCH-4
    (`FrameScheduler`), ARCH-6 (renderer/header split). Keep `--selftest` (194),
    the fast suite (379) and the full suite (521) green.
@@ -223,6 +225,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-29 - ARCH-5 animator: CPU skinning moved render->world; `dino_animator` pose helper replaces duplicated code; full 521
 - 2026-10-29 - ARCH-5 split: `DinoAssets`/`ImportedDino` in world, `ImportedDinoDraw` in app, `park_session.imported_dinos`; game.h 665->651; dino render/save/show full 521
 - 2026-10-29 - ARCH-2 slice 8: `ParkSession::settle_day` owns daily ticket/wage/ledger math; Game keeps catalog/IO/print; full 521
 - 2026-10-29 - ARCH-2 slice 7: `ParkSession::advance_clock`/`update_staff` own clock + hourly staff update; Game keeps feed print, GPU and settlement; full 521

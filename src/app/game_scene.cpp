@@ -3,6 +3,8 @@
 
 #include "game.h"
 
+#include "../world/dino_animator.h"
+
 namespace dino::app {
 
 void Game::upload_vegetation() {
@@ -780,15 +782,8 @@ bool Game::add_imported_dino(const std::string& species,
         dinosaur.action_loop.emplace(&dino_action_table, dinosaur.needs,
                                      config);
     }
-    const dino::Animation* anim_ptr =
-        model.anim.bones.empty() ? nullptr : &model.anim;
-    dino::Mesh pose = build_skinned_mesh(
-        model.skin.mesh, model.skin, model.skeleton, anim_ptr, 0.0,
-        model.vertex_bone, model.bone_skel, false);
-    if (model.mesh.colors.size() == pose.positions.size()) {
-        pose.colors = model.mesh.colors;
-    }
-    pose = place_on_terrain(std::move(pose), terrain, x, y, angle);
+    dino::Mesh pose =
+        dino::pose_imported_dino(dinosaur, model, terrain, 0.0);
     ImportedDinoDraw draw;
     draw.texture = assets->texture;
     draw.gpu = upload_mesh(pose, glfns);
