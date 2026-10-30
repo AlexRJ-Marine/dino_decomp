@@ -357,9 +357,12 @@ involved. Mode 2 accumulates `+0x24` and finishes when it reaches the record
 threshold; mode 1 compares the position exactly. `FUN_005759c0` pre-drops
 walk/run records within 0.01 units.
 
-Turns are **45 degrees per step, 1.0 s per step** (`FUN_005758f0` side 3 =
-+45, side 4 = -45), with a single 180-degree record (side 5). The exact
-`FUN_00575410` plan:
+Turns are **45 degrees per record** (`FUN_005758f0` side 3 = +45, side 4 =
+-45), with a single 180-degree record (side 5). The duration is **per species**
+from the runtime action table (`X[0x1bc + kind*4]`): the 2026-10-30 Cpg04
+probe measured **1.2 s** for kinds 3/4 and **1.5 s** for kind 5 on 15/20
+dinos, and **2.0 s** on four others; `Actions.bad`'s 1.0 is not the runtime
+value. The exact `FUN_00575410` plan:
 
 | dot | plan |
 | ---: | --- |
@@ -392,23 +395,33 @@ arrival (`mode = 0`) and keeps at most one next record. The element emitter
 `duration = FUN_00575de0(kind)` and targets the nearest reachable cell.
 
 Port (2026-10-30): `src/world/dino_motion.{h,cpp}` implements the record
-queue, 45-degree turn records (1 s each, single 180 record), walk/run speeds
-from the phenotype, exact arrival and the paddock-rect clamp.
-`ParkSession::tick_dino` sets the bounds from the current paddock and copies
-the live position/angle back into `ImportedDino`; `place_on_terrain` then draws the
-dino at the moved pose. An Eat action queues one walk record to the paddock's
-matching food source; a meal is consumed when the Eat action completes within
-3 units of the source (the port's durations are independent of the walk, so
-this preserves retail's "eat only at the item actor" rule). The move starts
-and stops are logged as `dino move: <species> start|stop|blocked`.
+queue, 45-degree turn records (fixed 1 s in the port; retail is 1.2/1.5/2.0 s
+per species), walk/run speeds from the phenotype, exact arrival and the
+paddock-rect clamp. `ParkSession::tick_dino` sets the bounds from the current
+paddock and copies the live position/angle back into `ImportedDino`;
+`place_on_terrain` then draws the dino at the moved pose. An Eat action queues
+one walk record to the paddock's matching food source; a meal is consumed when
+the Eat action completes within 3 units of the source. The move starts and
+stops are logged as `dino move: <species> start|stop|blocked`.
+
+**Runtime correction (2026-10-30, `notes/dino-mover-runtime-probe.md`):** the
+Cpg04 retail park does **not** take this path. The park behaviour layer calls
+`0x573f40` directly and emits 1–3 record lists per element; `FUN_00569660` and
+the action completion `0x571190` fired **0** times, no kind-8 Eat record
+appeared, and `saFoodSource::SetLevel 0x580e60` never fired (the six
+`0x522300` controllers are visitor-side with a null source). The port's
+one-record Eat and its 3-unit consumption are **unsupported scaffolding** until
+the behaviour move-list and the real dino food path are ported. The 0x34/0x35
+walk/run markers are also re-issued every frame in retail, not once per
+action.
 
 Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
-instead of the element's full emitter script; the paddock inset is
+instead of the behaviour's record list; the paddock inset is
 `clamp(length_m*0.15, 1, 3)` rather than the retail footprint grid; the
 element→move profile (`element+0x04` weighted table) is not parsed yet; and
 the `+0x1c/+0x20` initial facing writer is still open in
 `notes/dino-mover-tick-recon.md`. The turn plan and the exact end facing are
-retail-exact.
+retail-exact; the turn duration is still the fixed 1.0 s placeholder.
 
 `--fixed-dt SECONDS` makes a headless run deterministic; `--dino-move-speed N`
 scales the mover for tests only. Selftest: `dino mover walk 2 m/s`, `turn

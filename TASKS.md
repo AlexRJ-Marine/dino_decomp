@@ -2352,26 +2352,37 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 
 ### P3-MOTION-1: Dinosaur mover and action execution
 - [x] `src/world/dino_motion.*`: 0x18-byte record queue, walk/run speeds from
-  the phenotype (`+0x268/+0x26c`; measured 1.431-2.909 / 5.736-11.635 m/s),
-  straight-line integrator, 45-degree steps at 1.0 s, single 180-degree
-  record, exact mode-1 arrival and the paddock-rect clamp. Selftest checks.
+  the phenotype (runtime confirmed exactly: 1.5237-3.0286 / 6.09-12.11 map
+  units/s; `dist/dt` ratio 1.0000), straight-line integrator, exact
+  `FUN_00575410` pre-rotated turn plan, single 180-degree record, exact
+  mode-1 arrival and the paddock-rect clamp. Selftest checks.
 - [x] Element events at action start (`FUN_00569a00`/`005727b0`); the `.bai`
   need deltas are no longer applied (Eat = VIOLENCE +15, no FOOD restore).
-- [x] Eat queues a walk record to the paddock food source; a meal requires the
-  dino within 3 units at action completion. `test_cpp_dino_walks_to_food`.
+- [x] Runtime move probe (`notes/dino-mover-runtime-probe.md`): 60 s Cpg04,
+  3282 queue records, 128 turn arrivals, 202 turn plans, 1250 mover ticks.
+  Confirmed 45.00/90/180 turns, map-unit speeds, per-frame 0x34/0x35 markers.
+- [ ] Turn duration: retail is **per species** from `X[0x1bc+kind*4]`
+  (1.2 s kinds 3/4, 1.5 s kind 5 for 15/20 Cpg04 dinos; 2.0 s for four),
+  not `Actions.bad`'s 1.0 and not the port's 1.0 constant. Needs the action
+  table build (`FUN_0061a5b0`) or a per-species duration table.
+- [ ] Park move scripts: the behaviour layer calls `0x573f40` directly and
+  emits 1-3 record lists per element; `FUN_00569660` is the item path and
+  fired 0 times. Port the behaviour call sites (0x56f... / 0x56e799 /
+  0x56fc94 / 0x5209d6) and represent current + next + record list.
+- [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
+  move is in progress; map the stop condition and the duplicate-insert path.
+- [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
+  probe; the six `0x522300` controllers are visitor-side with a null source.
+  The port's one-record Eat and 3-unit consumption are unsupported; find the
+  real dino food path (`FUN_00576e50` LunchBox/StaticBait) before keeping it.
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
   top of the rect clamp.
-- [ ] `FUN_00569660` element-to-move emitter: one record per element profile
-  (`element+0x04` kind), mode 2 `duration = FUN_00575de0(kind)`, nearest
-  reachable cell target. Current: one record per Eat.
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
   literal writer exists outside the mover; the port starts from the spawn
   angle. Pre-turn backwards rotation is implemented exactly.
-- [ ] Runtime confirmation of the emitter record list: x32dbg probe of
-  `0x573f40`/`0x573dc0` and `0x574727` in Cpg04.
 - **Evidence:** `notes/dino-ai-gap-audit.md`, `notes/dino-mover-tick-recon.md`,
-  `docs/decomp/dinosaur-actions.md`.
+  `notes/dino-mover-runtime-probe.md`, `docs/decomp/dinosaur-actions.md`.
 - **Depends on:** DINO-STATS-1, food sources, animation clips.
 
 ## Backlog / research
