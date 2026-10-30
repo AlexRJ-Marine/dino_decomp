@@ -2174,3 +2174,10 @@ Updated: 2026-10-28
   and all inputs are session-owned. Adds the source to dino_core. Gates:
   selftest 194, fast 379, full 521 in 4:50. Next ARCH-2: extend `update()` to
   the show tick/daily settlement; dinos deferred to ARCH-5 (A9).
+
+- ARCH-2 settlement slice (`288bd8f`): `ParkSession::settle_day(ticket_price)`
+  owns the ticket/wage/budget/ledger math and returns the figures;
+  `Game::run_daily_settlement` keeps the construction-catalog ticket price,
+  the profile-table load and the log line. The show tick stays in `Game`
+  because `fill_show_scores` needs `imported_dinos`, which moves with ARCH-5.
+  Gates: selftest 194, fast 379, full 521 in 4:14.
