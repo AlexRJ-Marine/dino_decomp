@@ -230,7 +230,8 @@ void Game::advance_time() {
     // debugger) must not advance the clock, needs, visitors or employees by
     // seconds. FPS diagnostics read the clamped value, so a stall shows the
     // 5 FPS floor rather than a bogus burst.
-    frame_dt = std::min(raw_dt, 0.2);
+    frame_dt = opt.fixed_dt > 0.0f ? opt.fixed_dt
+                                   : std::min(raw_dt, 0.2);
     elapsed += frame_dt;
 
     // Retail palette time: starts at 0 when the park scene is created and
@@ -1101,6 +1102,20 @@ void Game::update_simulation() {
             park_session.imported_dinos[dino_index];
         const auto event =
             park_session.tick_dino(dinosaur, frame_dt, dino_action_table);
+        if (event.move_started) {
+            std::printf(
+                "dino move: %s start x=%.1f y=%.1f target=%.1f,%.1f\n",
+                dinosaur.species.c_str(), event.x, event.y,
+                event.move_target_x, event.move_target_y);
+        }
+        if (event.move_finished) {
+            std::printf("dino move: %s stop x=%.1f y=%.1f\n",
+                        dinosaur.species.c_str(), event.x, event.y);
+        }
+        if (event.move_blocked) {
+            std::printf("dino move: %s blocked x=%.1f y=%.1f\n",
+                        dinosaur.species.c_str(), event.x, event.y);
+        }
         if (event.ate) {
             std::printf("dino eat: %s <- %s remaining=%.2f\n",
                         dinosaur.species.c_str(), event.food_name.c_str(),
@@ -1110,6 +1125,10 @@ void Game::update_simulation() {
                             event.food_name.c_str());
                 rebuild_extra_items();
             }
+        }
+        if (event.eat_missed) {
+            std::printf("dino eat: %s missed distance=%.1f\n",
+                        dinosaur.species.c_str(), event.eat_distance);
         }
         if (event.action_changed) {
             if (event.scored) {

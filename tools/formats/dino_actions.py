@@ -247,9 +247,10 @@ class LoopConfig:
 class DinoActionLoop:
     """Per-dinosaur need decay + chooser + action countdown.
 
-    Mirrors ``src/world/dino_actions.cpp``. The `.bai` need deltas are applied
-    when the action finishes, closing the loop until retail's feeding
-    interaction is decoded.
+    Mirrors ``src/world/dino_actions.cpp``. Retail runs the element events
+    when the action starts and never applies the `.bai` need-delta table;
+    the delta loop was removed after the whole-image writer census
+    (``notes/dino-ai-gap-audit.md`` §4.2).
     """
 
     def __init__(
@@ -265,6 +266,13 @@ class DinoActionLoop:
         self._action: int | None = None
         self._elapsed = 0.0
         self._duration = 0.0
+        self.last_score = 0
+        self.last_needs = (
+            block.food,
+            block.violence,
+            block.secu,
+            block.repos,
+        )
         # Decide on the first tick so a forced need state shows immediately.
         self._decision = self.config.decision_interval
 
@@ -322,16 +330,36 @@ class DinoActionLoop:
         self._elapsed = 0.0
         action = self.actions[choice.index]
         self._duration = max(0.1, action.field_2e * self.config.action_scale)
+        self.last_score = choice.score
+        self.last_needs = (
+            self.needs.food,
+            self.needs.violence,
+            self.needs.secu,
+            self.needs.repos,
+        )
+        apply_action_events(action, self.needs)
         self._decision = 0.0
 
     def _finish(self) -> None:
-        if self._action is not None:
-            axes = ("food", "violence", "secu", "repos")
-            for delta in self.actions[self._action].need_deltas:
-                if 0 <= delta.need <= 3:
-                    value = self.needs.need(delta.need) + delta.delta
-                    setattr(self.needs, axes[delta.need], clamp_need(value))
+        # Retail does not apply the `.bai` need deltas; the element events
+        # already ran in `_decide`.
         self._action = None
         self._elapsed = 0.0
         self._duration = 0.0
         self._decision = self.config.decision_interval
+
+
+def apply_action_events(action: Bai, block: NeedBlock) -> None:
+    """`FUN_00569A00` + `FUN_005727B0`: apply the action element events.
+
+    Ported kinds: 1 = VIOLENCE delta, 25 = REPOS from the rest-gauge percent.
+    Other kinds write actor/phenotype stats not modelled by ``NeedBlock``.
+    """
+    for element in action.effects:
+        for event in element.events:
+            if event.kind == 1:
+                block.violence = clamp_need(block.violence + event.value)
+            elif event.kind == 25:
+                block.repos = clamp_need(
+                    event.percent if event.percent else event.value
+                )

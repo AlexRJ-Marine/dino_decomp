@@ -249,6 +249,13 @@ table indexed by `scratch_actor +0x98/+0x9c/+0xa0/+0xa4`. The modified need
 state is then re-scored, so actions that satisfy needs score higher. Need ids:
 `0 food`, `1 violence`, `2 security`, `3 rest`.
 
+**Correction (2026-10-30):** this vector is a **scoring input only**. The
+whole-image writer census found no code that iterates `need_deltas` when an
+action starts or completes; `FUN_00569a00` executes the element `events`
+through `FUN_005727b0` instead. The port's action loop follows that split
+(events at start, deltas never applied). Evidence:
+`notes/dino-ai-gap-audit.md` §4.2 and `notes/dino-mover-tick-recon.md`.
+
 ### 4. Stat grants - file `(attribute, value)`
 
 Runtime `+0x90`, 8-byte records `(value, attribute)`. The loader rotation is

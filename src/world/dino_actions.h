@@ -143,6 +143,11 @@ public:
     const std::string& action_name() const;
     double action_progress() const;                      // 0..1
     double remaining() const;                            // seconds left
+    // The score and needs snapshot from the last successful decision (before
+    // the action's element events ran). `tick_dino` logs these as the retail
+    // selection values instead of rescoring after the events.
+    int last_score() const { return last_score_; }
+    const std::array<int, 4>& last_needs() const { return last_needs_; }
     const DinoNeeds& needs() const { return needs_; }
     DinoNeeds& needs() { return needs_; }
 
@@ -188,6 +193,8 @@ private:
     double decision_ = 0.0;
     int finished_count_ = 0;
     std::string last_finished_;
+    int last_score_ = 0;
+    std::array<int, 4> last_needs_{};
 };
 
 // FUN_0056e670: highest score >= 1 among the candidate nodes. An empty
@@ -198,5 +205,13 @@ std::optional<ActionChoice> choose_action(
     const std::vector<std::string>& node_names = {},
     bool inventory = false,
     const ActionThreatProvider& threat_provider = {});
+
+// `FUN_00569A00` + `FUN_005727B0`: apply the selected action's element
+// events. Retail runs this when the element executes, not on completion;
+// the `.bai` need-delta table is never applied (whole-image writer census,
+// notes/dino-ai-gap-audit.md §4.2). Ported kinds: 1 = VIOLENCE delta,
+// 25 = REPOS from the rest-gauge percent. Other kinds write phenotype/actor
+// stats (courage/perception/health) that DinoNeeds does not model yet.
+void apply_action_events(const BaiAction& action, DinoNeeds& needs);
 
 }  // namespace dino

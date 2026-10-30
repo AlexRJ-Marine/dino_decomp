@@ -79,6 +79,19 @@ struct ParkSession {
         std::string food_name;
         float remaining = 0.0f;
         bool food_depleted = false;
+        // Eat reached completion away from the item actor (retail only eats
+        // after the move script arrives).
+        bool eat_missed = false;
+        float eat_distance = -1.0f;
+        // Mover (`saDinosaur+0x2c8`) state for the frame.
+        bool moved = false;
+        bool move_started = false;
+        bool move_finished = false;
+        bool move_blocked = false;
+        float x = 0.0f;
+        float y = 0.0f;
+        float move_target_x = 0.0f;
+        float move_target_y = 0.0f;
     };
     DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
                               const std::vector<BaiAction>& actions);

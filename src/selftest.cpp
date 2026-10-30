@@ -12,6 +12,7 @@
 #include "world/campaign_objectives.h"
 #include "world/campaign_runtime.h"
 #include "world/danger_grid.h"
+#include "world/dino_motion.h"
 #include "world/show_runtime.h"
 #include "world/terrain.h"
 #include "world/visitors.h"
@@ -245,6 +246,40 @@ int run_selftest() {
     check(dino::fence_sell_value({540, 460, 569, 489}, 4.0f, 30, 4, 0.5f) ==
               315,
           "fence sellback 0.5");
+
+    // `saDinosaur+0x2c8` mover: walk speed 2 m/s, 45-degree turn steps,
+    // exact arrival and the paddock clamp (`FUN_0055af70`).
+    dino::DinoMover mover(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    mover.start(1, 10.0f, 0.0f, 1);
+    mover.tick(1.0);
+    check(std::fabs(mover.x() - 2.0f) < 0.001f && mover.y() == 0.0f,
+          "dino mover walk 2 m/s");
+    mover.tick(4.0);
+    check(!mover.active() && std::fabs(mover.x() - 10.0f) < 0.001f,
+          "dino mover arrives");
+    dino::DinoMover turn(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    turn.start(1, 0.0f, 10.0f, 1);
+    turn.tick(1.0);
+    check(turn.state() == 2 && std::fabs(turn.angle_deg() - 45.0f) < 0.001f,
+          "dino mover turn step 45");
+    turn.tick(1.0);
+    check(turn.state() == 1 && std::fabs(turn.angle_deg() - 90.0f) < 0.001f,
+          "dino mover turn 90");
+    turn.tick(1.0);
+    check(std::fabs(turn.x()) < 0.001f && std::fabs(turn.y() - 2.0f) < 0.001f,
+          "dino mover walks after turn");
+    dino::DinoMover u_turn(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    u_turn.start(1, -10.0f, 0.0f, 1);
+    u_turn.tick(1.0);
+    check(std::fabs(u_turn.angle_deg() - 180.0f) < 0.001f &&
+              u_turn.state() == 1,
+          "dino mover 180-degree record");
+    dino::DinoMover bounded(2.0f, 2.0f, 0.0f, 2.0f, 5.0f);
+    bounded.set_bounds(0.0f, 0.0f, 5.0f, 5.0f, 1.0f);
+    bounded.start(1, 10.0f, 2.0f, 1);
+    bounded.tick(2.0);
+    check(bounded.blocked() && std::fabs(bounded.x() - 2.0f) < 0.001f,
+          "dino mover paddock clamp");
 
     // gscMaterialBank pulse (`FUN_00600550`) worked values from
     // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit

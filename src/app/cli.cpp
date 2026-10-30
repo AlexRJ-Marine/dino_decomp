@@ -326,6 +326,12 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--dino-action-speed") {
             opt.dino_action_speed = static_cast<float>(
                 std::atof(next("--dino-action-speed")));
+        } else if (arg == "--dino-move-speed") {
+            opt.dino_move_speed = static_cast<float>(
+                std::atof(next("--dino-move-speed")));
+        } else if (arg == "--fixed-dt") {
+            opt.fixed_dt = static_cast<float>(
+                std::atof(next("--fixed-dt")));
         } else if (arg == "--dino-threat") {
             opt.dino_threat = std::atoi(next("--dino-threat"));
         } else if (arg == "--dino-radius") {
@@ -649,6 +655,8 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
                 "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
                 "  --dino-action-speed N action duration scale (default 1)\n"
+                "  --dino-move-speed N  mover speed scale for tests (default 1)\n"
+                "  --fixed-dt SECONDS   fixed simulation delta (headless tests)\n"
                 "  --dino-threat N      danger-grid stamp value for every imported dinosaur\n"
                 "  --dino-radius N      danger-grid stamp radius (world units)\n"
                 "  --dino-health CUR,MAX health pair for the SECU formula (default 100,100)\n"

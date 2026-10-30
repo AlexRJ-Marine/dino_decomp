@@ -123,6 +123,13 @@ struct Options {
     bool dino_action_loop = false;
     std::string dino_needs = "50,99,99,99";
     float dino_action_speed = 1.0f;
+    // Fixed simulation delta for deterministic headless runs. 0 = wall
+    // clock (retail lpScheduler behaviour).
+    float fixed_dt = 0.0f;
+    // Test accelerator for the mover: multiplies the phenotype walk/run
+    // speeds. Retail speed is 1.0; headless frames advance only ~1 ms of
+    // simulation each, so a movement test needs a multiplier.
+    float dino_move_speed = 1.0f;
     int dino_threat = 0;
     int dino_radius = 0;
     int dino_health = 100;

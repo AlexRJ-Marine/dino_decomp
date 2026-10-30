@@ -11,6 +11,7 @@
 #include "../formats/skel.h"
 #include "../formats/skin.h"
 #include "dino_actions.h"
+#include "dino_motion.h"
 
 namespace dino {
 
@@ -37,6 +38,10 @@ struct ImportedDino {
     DinoNeeds needs;
     DinoAttributes attributes;  // phenotype snapshot for objectives
     std::optional<DinoActionLoop> action_loop;
+    // `saDinosaur+0x2c8`: the move-command queue and integrator. Retail's
+    // behavior update queues records; this tick is independent of the action
+    // loop and writes the live position/facing.
+    DinoMover mover;
     float x = 0.0f;
     float y = 0.0f;
     float angle = 0.0f;

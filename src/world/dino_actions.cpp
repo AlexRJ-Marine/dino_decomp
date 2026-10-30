@@ -235,7 +235,34 @@ void DinoActionLoop::decide() {
     const BaiAction& action = (*actions_)[static_cast<std::size_t>(action_index_)];
     duration_ = std::max(0.1, static_cast<double>(action.field_2e) *
                                   config_.action_scale);
+    last_score_ = choice->score;
+    last_needs_ = needs_.value;
+    // `FUN_00569A00`: the element events run when the action starts.
+    apply_action_events(action, needs_);
     decision_ = 0.0;
+}
+
+void apply_action_events(const BaiAction& action, DinoNeeds& needs) {
+    for (const BaiElement& element : action.elements) {
+        for (const BaiEvent& event : element.events) {
+            switch (event.kind) {
+                case 1:  // VIOLENCE delta (`actor+0x248`)
+                    needs.value[1] += event.value;
+                    break;
+                case 25:  // rest gauge -> REPOS
+                    needs.value[3] =
+                        event.percent != 0 ? event.percent : event.value;
+                    break;
+                default:
+                    // 0x14 courage, 0x0a perception, 0x17/0x18 food/health
+                    // are actor/stat writers not modelled by DinoNeeds.
+                    break;
+            }
+        }
+    }
+    for (int& value : needs.value) {
+        value = std::max(0, std::min(99, value));
+    }
 }
 
 void DinoActionLoop::finish_action() {
@@ -244,13 +271,8 @@ void DinoActionLoop::finish_action() {
         const BaiAction& action =
             (*actions_)[static_cast<std::size_t>(action_index_)];
         last_finished_ = action.name;
-        for (const BaiNeedDelta& delta : action.need_deltas) {
-            if (delta.need > 3) {
-                continue;
-            }
-            int& value = needs_.value[delta.need];
-            value = std::max(0, std::min(99, value + delta.delta));
-        }
+        // Retail does not apply the `.bai` need deltas (the element events
+        // already ran at action start); only the completion writers below.
         // `FUN_00571190`: action 13 (GetCourage) copies phenotype +0x44 into
         // the danger-grid threat cache +0x2a0; action 26 (ObstAttackSize1)
         // copies phenotype +0x80 into the stamp radius +0x27c.

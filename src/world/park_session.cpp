@@ -1,6 +1,7 @@
 #include "park_session.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace dino {
 
@@ -96,14 +97,46 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     ImportedDino& dinosaur, double dt,
     const std::vector<BaiAction>& actions) {
     DinoActionEvent event;
+    (void)actions;  // scoring/event application lives in DinoActionLoop
     if (!dinosaur.action_loop) {
         return event;
     }
+    // `saDinosaur::Update` (`0x571540`) ticks the mover independently of the
+    // behavior update. The paddock rect is `path+0x1c0`; a step outside it is
+    // refused by `FUN_0055af70`. The inset approximates the actor footprint
+    // (retail `actor+0x13` cells) so the body does not clip the wall.
+    const int pen_before = paddock_at(dinosaur.x, dinosaur.y);
+    if (pen_before >= 0) {
+        const WorldRect& r = paddocks[static_cast<std::size_t>(pen_before)].rect;
+        const float length_m = static_cast<float>(dinosaur.needs.size_cm) / 100.0f;
+        const float inset = std::clamp(length_m * 0.15f, 1.0f, 3.0f);
+        dinosaur.mover.set_bounds(static_cast<float>(r.x0),
+                                  static_cast<float>(r.y0),
+                                  static_cast<float>(r.x1),
+                                  static_cast<float>(r.y1), inset);
+    } else {
+        dinosaur.mover.clear_bounds();
+    }
+    const bool was_moving = dinosaur.mover.active();
+    if (dinosaur.mover.tick(dt)) {
+        dinosaur.x = dinosaur.mover.x();
+        dinosaur.y = dinosaur.mover.y();
+        dinosaur.angle = dinosaur.mover.angle_deg();
+        event.moved = true;
+    }
+    if (was_moving && !dinosaur.mover.active()) {
+        event.move_finished = true;
+    }
+    if (dinosaur.mover.blocked()) {
+        event.move_blocked = true;
+    }
+    event.x = dinosaur.x;
+    event.y = dinosaur.y;
     // The `.bai` consume gate: Eat is only available when the dinosaur's
     // paddock holds a matching food source.
     const int pen = paddock_at(dinosaur.x, dinosaur.y);
-    dinosaur.action_loop->set_inventory(
-        paddock_food(pen, dinosaur.carnivore) != nullptr);
+    FoodSource* food = paddock_food(pen, dinosaur.carnivore);
+    dinosaur.action_loop->set_inventory(food != nullptr);
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);
@@ -113,12 +146,26 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
         if (finished == "Eat" || finished == "EatForSmallies") {
             FoodSource* source = paddock_food(pen, dinosaur.carnivore);
             if (source != nullptr) {
-                source->remaining = std::max(0.0f, source->remaining - 1.0f);
-                event.ate = true;
-                event.food_name =
-                    food_defs[static_cast<std::size_t>(source->def)].name;
-                event.remaining = source->remaining;
-                event.food_depleted = source->remaining <= 0.0f;
+                // Retail consumes when the eating animation ends, which only
+                // happens after the element's move script brought the dino to
+                // the item actor. The port's action duration is independent
+                // of the walk, so gate the meal on proximity (3 units).
+                const float fdx = source->x - dinosaur.x;
+                const float fdy = source->y - dinosaur.y;
+                const float distance =
+                    std::sqrt(fdx * fdx + fdy * fdy);
+                if (distance <= 3.0f) {
+                    source->remaining =
+                        std::max(0.0f, source->remaining - 1.0f);
+                    event.ate = true;
+                    event.food_name =
+                        food_defs[static_cast<std::size_t>(source->def)].name;
+                    event.remaining = source->remaining;
+                    event.food_depleted = source->remaining <= 0.0f;
+                } else {
+                    event.eat_missed = true;
+                    event.eat_distance = distance;
+                }
             }
         }
     }
@@ -126,15 +173,28 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     if (action != previous) {
         event.action_changed = true;
         event.action = action;
+        if (action == "Eat" || action == "EatForSmallies") {
+            // The item actor publishes the action list; the box target is the
+            // food source it was created from. The port's approximation uses
+            // the paddock's matching source as the record target.
+            FoodSource* source = paddock_food(pen, dinosaur.carnivore);
+            if (source != nullptr && !dinosaur.mover.active()) {
+                dinosaur.mover.start(1, source->x, source->y, 1);
+                event.move_started = true;
+                event.move_target_x = source->x;
+                event.move_target_y = source->y;
+            }
+        } else if (action == "Sleep") {
+            // Sleeping stops the current record; idle keeps it running so a
+            // move issued by the previous Eat/Exploration finishes.
+            dinosaur.mover.clear();
+        }
         if (action != "idle") {
-            const BaiAction& definition =
-                actions[static_cast<std::size_t>(
-                    dinosaur.action_loop->action_index())];
             event.scored = true;
-            event.score = score_action(definition, dinosaur.action_loop->needs());
-            const DinoNeeds& needs = dinosaur.action_loop->needs();
-            event.needs = {needs.value[0], needs.value[1], needs.value[2],
-                           needs.value[3]};
+            event.score = dinosaur.action_loop->last_score();
+            const std::array<int, 4>& needs =
+                dinosaur.action_loop->last_needs();
+            event.needs = needs;
         }
         event.clip =
             action == "idle" ? "Neutral" : dino_clip_for_action(action);

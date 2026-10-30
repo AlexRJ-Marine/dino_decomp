@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (194 checks)" in result.stdout
+    assert "selftest: PASS (201 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4171,6 +4171,9 @@ def test_cpp_food_feeding():
             "--asset-root", str(GAME), "--no-vegetation", "--no-water",
             "--wld-park", str(wld), "--place-food", "PigFood",
             "--food-pos", "118,94", "--dino-action-loop",
+            # The retail meal happens after the walk to the item actor; a
+            # fixed delta makes the approach deterministic and headless.
+            "--fixed-dt", "0.016",
         ]
         if speed is not None:
             args += ["--dino-action-speed", str(speed)]
@@ -4198,6 +4201,39 @@ def test_cpp_food_feeding():
     assert "food: PigFood depleted" in log
     # After depletion the carnivores fall back to Exploration.
     assert "dino action: allo Exploration" in log
+
+
+@pytest.mark.slow
+def test_cpp_dino_walks_to_food():
+    """`saDinosaur+0x2c8`: the Eat target becomes one move record; the dino
+    walks at the phenotype speed, turns in 45-degree steps and stops on the
+    item actor before the meal is consumed."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "900", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--place-food", "PigFood", "--food-pos", "118,94",
+         "--dino-action-loop", "--fixed-dt", "0.016",
+         "--dino-action-speed", "100", "--dino-needs", "20,90,50,90"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "food: PigFood kind=8 at 474.0,378.0" in log
+    moves = [line for line in log.splitlines()
+             if line.startswith("dino move: allo")]
+    assert any("start" in line and "target=474.0,378.0" in line
+               for line in moves)
+    # All three paddock-1 allosaurs reach the item actor and eat from it.
+    assert log.count("dino move: allo stop x=474.0 y=378.0") == 3
+    assert log.count("dino eat: allo <- PigFood") == 5
 
 
 def test_cpp_employee_info():

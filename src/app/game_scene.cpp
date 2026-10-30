@@ -740,6 +740,19 @@ bool Game::add_imported_dino(const std::string& species,
         dinosaur.action_loop.emplace(&dino_action_table, dinosaur.needs,
                                      config);
     }
+    // saDinosaur+0x268/+0x26c: the phenotype walk/run speeds in map units
+    // per second (measured: Allosaurus 1.431/5.736). The mover starts in the
+    // spawn pose; `tick_dino` sets the paddock bounds each frame.
+    const float walk_speed =
+        dinosaur.attributes.walk_speed > 0.0f
+            ? dinosaur.attributes.walk_speed
+            : 1.0f;
+    const float run_speed = dinosaur.attributes.run_speed > 0.0f
+                                ? dinosaur.attributes.run_speed
+                                : walk_speed * 2.0f;
+    const float move_scale = std::max(0.001f, opt.dino_move_speed);
+    dinosaur.mover = dino::DinoMover(x, y, angle, walk_speed * move_scale,
+                                     run_speed * move_scale);
     dino::Mesh pose =
         dino::pose_imported_dino(dinosaur, model, terrain, 0.0);
     ImportedDinoDraw draw;

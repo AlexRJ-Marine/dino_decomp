@@ -54,6 +54,7 @@ add_library(dino_core STATIC
     src/world/employees.cpp
     src/world/visitors.cpp
     src/world/dino_actions.cpp
+    src/world/dino_motion.cpp
     src/world/danger_grid.cpp
     src/world/campaign_objectives.cpp
     src/world/campaign_runtime.cpp

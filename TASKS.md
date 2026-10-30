@@ -2351,15 +2351,27 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** store/dino spawn, economy buckets, info panel.
 
 ### P3-MOTION-1: Dinosaur mover and action execution
-- [ ] New `src/world/dino_motion.*`: `saDinosaur+0x2c8` mover, 0x18-byte
-  command queue, `FUN_00574350`/`00574450` integrator, walk/run `+0x268/+0x26c`,
-  45° turn snaps (`0x575410`/`0x5758f0`), footprint/paddock clamp (`0x55af70`).
-- [ ] `FUN_00569660` element→move emitter; `emit_move_script()` on action start.
-- [ ] Retail applies element **events** (`0x569a00`→`0x5727b0`), not the `.bai`
-  need deltas; remove the port's delta application. No eating→food restore.
-- [ ] Perception-list producer (`beh+0xb8`): the P3 "no writer" claim is
-  disproven by the live trace; keep the direct start entry points.
-- **Evidence:** `notes/dino-ai-gap-audit.md`.
+- [x] `src/world/dino_motion.*`: 0x18-byte record queue, walk/run speeds from
+  the phenotype (`+0x268/+0x26c`; measured 1.431-2.909 / 5.736-11.635 m/s),
+  straight-line integrator, 45-degree steps at 1.0 s, single 180-degree
+  record, exact mode-1 arrival and the paddock-rect clamp. Selftest checks.
+- [x] Element events at action start (`FUN_00569a00`/`005727b0`); the `.bai`
+  need deltas are no longer applied (Eat = VIOLENCE +15, no FOOD restore).
+- [x] Eat queues a walk record to the paddock food source; a meal requires the
+  dino within 3 units at action completion. `test_cpp_dino_walks_to_food`.
+- [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
+  top of the rect clamp.
+- [ ] `FUN_00569660` element-to-move emitter: one record per element profile
+  (`element+0x04` kind), mode 2 `duration = FUN_00575de0(kind)`, nearest
+  reachable cell target. Current: one record per Eat.
+- [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
+- [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
+  literal writer exists outside the mover; the port starts from the spawn
+  angle. Pre-turn backwards rotation is implemented exactly.
+- [ ] Runtime confirmation of the emitter record list: x32dbg probe of
+  `0x573f40`/`0x573dc0` and `0x574727` in Cpg04.
+- **Evidence:** `notes/dino-ai-gap-audit.md`, `notes/dino-mover-tick-recon.md`,
+  `docs/decomp/dinosaur-actions.md`.
 - **Depends on:** DINO-STATS-1, food sources, animation clips.
 
 ## Backlog / research

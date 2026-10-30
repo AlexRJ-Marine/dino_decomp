@@ -285,6 +285,137 @@ GetCourage and `obstacle_radius` (phenotype `+0x80`) into `threat_radius`
 from `DinoAttributes`; `DINOPSAV` persists the caches and sources. Details:
 `notes/dino-action-chooser-recon.md` ("Danger-grid population").
 
+## Runtime execution: element events, never the need deltas
+
+`FUN_00569a00` executes the selected `.bai` **element**:
+
+- it walks the element's `events` vector and applies each through
+  `FUN_005727b0` (`event.kind`, value, percent, duration, texture);
+- it copies five dwords from the element (`+0x14..+0x28`) to `actor+0x504`;
+- when `element+0x54 == 2` it calls `0x57af70`;
+- it raises the one-frame `+0x4d` flag.
+
+The consequence is easy to get wrong: the `need_deltas` tail (`(need, delta)`)
+is a **scoring** input only. `FUN_0056e410` sums it into the candidate score;
+nothing iterates it when an action executes or completes. The completion
+`FUN_00571190` only runs the per-action writers (courage threat cache,
+obstacle radius, DinosaurAttack flags) and returns the actor to `0x1f`.
+
+Port (2026-10-30): `DinoActionLoop::decide` applies the element events at
+action start through `apply_action_events`; `finish_action` no longer applies
+the deltas. It walks every element of the action, while retail executes the
+one element selected by the element scorer; single-element actions
+(Eat/Exploration/Sleep) are exact, multi-element actions (Danse, HeadCharge,
+ObstAttackSize1) can over-apply until the element selector is ported. Ported
+kinds:
+
+| event kind | effect |
+| ---: | --- |
+| 1 | VIOLENCE (`actor+0x248`) delta, clamped to 99 |
+| 25 (`0x19`) | REPOS from the rest gauge (`actor+0x258`), percent value |
+
+Other kinds write actor/phenotype stats the port does not model yet: `0x14`
+courage (`+0x2a4`), `0x0a` perception, `0x17/0x18` food/health, `9..0x1c`
+active action/duration. This is why Eat in retail raises **VIOLENCE +15** and
+does not restore FOOD; employee feeding is the food-source refill path.
+
+### Action lifecycle (partly open)
+
+`FUN_00571540` decrements the action countdown at `saDinosaur+0x260` by dt and
+calls `FUN_00571190` when it goes negative. `FUN_005727b0` sets that countdown
+only for the special action ids 9..0x1c (Smell, Speed, ...); normal actions
+(`0 Explore`, `4 Eat`, `2 Sleep`) do not get it from the element. Their
+lifecycle is the element/animation state machine (`FUN_00522300` is the Eat
+state machine; it calls `saFoodSource::SetLevel 0x580e60` when the eating
+animation ends, not when the action id clears). The port currently uses the
+`.bai` `field_2e` (30 s) as the action duration and gates the meal on a
+3-unit proximity; **both are port scaffolding until the runtime probe
+(`notes/dino-mover-runtime-probe.md`) pins the real element duration and the
+SetLevel distance.**
+
+## The mover (`saDinosaur+0x2c8`)
+
+Park actions are straight-line steering, not a pathfinder. `saDinosaur::Update`
+(`0x571540`) ticks a 0x220-byte mover (`0x5715cb`, ECX = `dino+0x2c8`) after
+the behaviour update; the mover is a queue of 0x18-byte records and an
+integrator.
+
+| record offset | meaning |
+| ---: | --- |
+| `+0x00/+0x04` | target x/y (map units) |
+| `+0x08` | mode-2 threshold/duration |
+| `+0x0c/+0x0d` | flags |
+| `+0x10` | move kind (1 walk, 2 run, 3/4/5 turn, 0x34/0x35 jump) |
+| `+0x14` | arrival mode: 0 free, 1 exact position, 2 timed |
+
+State (`mover+0x1ec`): 0 idle, 1 moving, 2 wait, 3 knocked down. `FUN_00574450`
+integrates `pos += dt * speed * facing`; kind 1 uses `saDinosaur+0x268`
+(walk), kind 2 `+0x26c` (run). Those are the phenotype speeds in **map units
+per second**: measured Cpg04 values are 1.431/5.736 (6 m allosaur),
+2.502/10.007 (7.4 m), 2.909/11.635 (1.7 m), so no centimetre scaling is
+involved. Mode 2 accumulates `+0x24` and finishes when it reaches the record
+threshold; mode 1 compares the position exactly. `FUN_005759c0` pre-drops
+walk/run records within 0.01 units.
+
+Turns are **45 degrees per step, 1.0 s per step** (`FUN_005758f0` side 3 =
++45, side 4 = -45), with a single 180-degree record (side 5). The exact
+`FUN_00575410` plan:
+
+| dot | plan |
+| ---: | --- |
+| `>= 0.99` | `newFacing = desired`, no record |
+| `>= 0.9238795` (<= 22.5 deg) | `newFacing = desired`, no record |
+| `>= 0.38268343` (22.5..67.5 deg) | one record, unless run kind 2 and size class < 2 |
+| `>= 0.0` (67.5..90 deg) | two records |
+| `< 0.0` (> 90 deg) | one 180-degree record |
+
+`cross = desired.y*facing.x - facing.y*desired.x`. For a normal turn the
+new facing is `rotate(desired, side, steps)` with side 3 for `cross < 0` and
+side 4 otherwise, then the inserted records use the **opposite** side
+(kind 4 for `cross < 0`, else kind 3). That pre-rotation makes the completed
+records land **exactly on the desired vector**, not on a 45-degree grid.
+The `steps = 3` branch is dead code: both globals at `0x675710`/`0x675714`.
+The port implements this plan in `DinoMover::begin_segment` (pre-rotate,
+then one record per 1 s step).
+
+Confinement is `FUN_0055af70(actor, x, y, flag, checkBounds)`: a step outside
+the path object's paddock rect (`path+0x1c0`) or into an occupied footprint
+cell (`path+0x1ac`, u16 grid) is refused. There is no per-dino paddock id and
+no A*; the pathfinder (`FUN_0055ac30`/`0055ba50`) is only used for the
+jump run-up kinds 0x34/0x35.
+
+Queue semantics (`FUN_00573dc0` / `FUN_00573f40`): append and start when
+state 0; a command that arrives while moving cancels the current record's
+arrival (`mode = 0`) and keeps at most one next record. The element emitter
+`FUN_00569660` takes the move kind from the element's profile pointer
+(`element+0x04`, not the `+8` bone vector), always queues mode 2 with
+`duration = FUN_00575de0(kind)` and targets the nearest reachable cell.
+
+Port (2026-10-30): `src/world/dino_motion.{h,cpp}` implements the record
+queue, 45-degree turn records (1 s each, single 180 record), walk/run speeds
+from the phenotype, exact arrival and the paddock-rect clamp.
+`ParkSession::tick_dino` sets the bounds from the current paddock and copies
+the live position/angle back into `ImportedDino`; `place_on_terrain` then draws the
+dino at the moved pose. An Eat action queues one walk record to the paddock's
+matching food source; a meal is consumed when the Eat action completes within
+3 units of the source (the port's durations are independent of the walk, so
+this preserves retail's "eat only at the item actor" rule). The move starts
+and stops are logged as `dino move: <species> start|stop|blocked`.
+
+Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
+instead of the element's full emitter script; the paddock inset is
+`clamp(length_m*0.15, 1, 3)` rather than the retail footprint grid; the
+element→move profile (`element+0x04` weighted table) is not parsed yet; and
+the `+0x1c/+0x20` initial facing writer is still open in
+`notes/dino-mover-tick-recon.md`. The turn plan and the exact end facing are
+retail-exact.
+
+`--fixed-dt SECONDS` makes a headless run deterministic; `--dino-move-speed N`
+scales the mover for tests only. Selftest: `dino mover walk 2 m/s`, `turn
+step 45`, `turn 90`, `180-degree record`, `paddock clamp`. Integration:
+`test_cpp_dino_walks_to_food` (Cpg04 PigFood: three allosaurs walk to
+474,378 and eat five portions).
+
 ## Evidence
 
 - `notes/dinosaur-actions-recon.md` — decompiled switches and field evidence.
