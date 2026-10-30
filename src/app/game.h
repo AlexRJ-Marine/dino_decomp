@@ -637,8 +637,6 @@ private:
     void load_dino_family_tables();
     void spawn_world_dinos();
     void print_paddock_totals();
-    int paddock_at(float x, float y);
-    dino::FoodSource* paddock_food(int paddock, bool carnivore);
     void log_dino_food();
     float camera_radius();
     float camera_height();

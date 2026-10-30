@@ -584,48 +584,6 @@ const dino::WorldRect* Game::selected_paddock_rect() {
 
 }
 
-int Game::paddock_at(float x, float y) {
-    for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
-        const dino::WorldRect& r = park_session.paddocks[p].rect;
-        if (x >= static_cast<float>(std::min(r.x0, r.x1)) &&
-            x <= static_cast<float>(std::max(r.x0, r.x1)) &&
-            y >= static_cast<float>(std::min(r.y0, r.y1)) &&
-            y <= static_cast<float>(std::max(r.y0, r.y1))) {
-            return static_cast<int>(p);
-        }
-    }
-    return -1;
-
-}
-
-dino::FoodSource* Game::paddock_food(int paddock, bool carnivore) {
-    if (paddock < 0 ||
-        paddock >= static_cast<int>(park_session.paddocks.size())) {
-        return nullptr;
-    }
-    const dino::WorldRect& r =
-        park_session.paddocks[static_cast<std::size_t>(paddock)].rect;
-    for (dino::FoodSource& source : park_session.food_sources) {
-        if (source.remaining <= 0.0f || source.def < 0 ||
-            source.def >= static_cast<int>(park_session.food_defs.size())) {
-            continue;
-        }
-        if (dino::food_is_carnivore(
-                park_session.food_defs[static_cast<std::size_t>(source.def)].kind) !=
-            carnivore) {
-            continue;
-        }
-        if (source.x >= static_cast<float>(std::min(r.x0, r.x1)) &&
-            source.x <= static_cast<float>(std::max(r.x0, r.x1)) &&
-            source.y >= static_cast<float>(std::min(r.y0, r.y1)) &&
-            source.y <= static_cast<float>(std::max(r.y0, r.y1))) {
-            return &source;
-        }
-    }
-    return nullptr;
-
-}
-
 void Game::print_paddock_totals() {
     if (park_session.paddocks.empty()) {
         return;
@@ -643,9 +601,9 @@ void Game::print_paddock_totals() {
 
 void Game::log_dino_food() {
     for (const dino::ImportedDino& dinosaur : park_session.imported_dinos) {
-        const int pen = paddock_at(dinosaur.x, dinosaur.y);
+        const int pen = park_session.paddock_at(dinosaur.x, dinosaur.y);
         const dino::FoodSource* source =
-            paddock_food(pen, dinosaur.carnivore);
+            park_session.paddock_food(pen, dinosaur.carnivore);
         std::printf("dino food: %s paddock=%d diet=%s source=%s\n",
                     dinosaur.species.c_str(), pen,
                     dinosaur.carnivore ? "carnivore" : "herbivore",

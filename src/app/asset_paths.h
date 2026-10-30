@@ -39,11 +39,6 @@ std::string resolve_asset(const std::string& root, const std::string& path);
 void load_asset_tga(const std::string& root, const char* relative,
                     dino::Image& image, const char* what);
 
-// Action -> animation clip. The retail link is still open (the `.bai` files
-// carry no clip name); these are the name-based candidates documented in
-// `notes/dino-action-chooser-recon.md` and are marked inferred, not verified.
-std::string dino_clip_for_action(const std::string& action);
-
 std::vector<PortShowSpec> parse_show_specs(
     const std::vector<std::string>& specs, const std::string& asset_root);
 

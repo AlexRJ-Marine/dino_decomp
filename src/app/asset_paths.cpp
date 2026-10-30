@@ -29,32 +29,6 @@ void load_asset_tga(const std::string& root, const char* relative,
     }
 }
 
-std::string dino_clip_for_action(const std::string& action) {
-    if (action == "Sleep") {
-        return "Sleep";
-    }
-    if (action == "Eat" || action == "EatForSmallies" ||
-        action.rfind("EatBait", 0) == 0) {
-        return "Chew";
-    }
-    if (action == "Smell") {
-        return "Sniff";
-    }
-    if (action == "Exploration" || action == "ReachWaypoint") {
-        return "Walk";
-    }
-    if (action == "RunAway") {
-        return "Run";
-    }
-    if (action == "Victory") {
-        return "Winner";
-    }
-    if (action == "Danse") {
-        return "Dance";
-    }
-    return "Neutral";
-}
-
 std::vector<PortShowSpec> parse_show_specs(
     const std::vector<std::string>& specs, const std::string& asset_root) {
     std::vector<PortShowSpec> shows;

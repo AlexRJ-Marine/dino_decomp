@@ -1099,76 +1099,38 @@ void Game::update_simulation() {
          dino_index < park_session.imported_dinos.size(); ++dino_index) {
         dino::ImportedDino& dinosaur =
             park_session.imported_dinos[dino_index];
-        if (dinosaur.action_loop) {
-            // The `.bai` consume gate: Eat is only available when the
-            // dinosaur's paddock holds a matching food source.
-            const int pen = paddock_at(dinosaur.x, dinosaur.y);
-            dinosaur.action_loop->set_inventory(
-                paddock_food(pen, dinosaur.carnivore) != nullptr);
-            const int finished_before =
-                dinosaur.action_loop->finished_count();
-            const std::string previous =
-                dinosaur.action_loop->action_name();
-            dinosaur.action_loop->tick(frame_dt);
-            if (dinosaur.action_loop->finished_count() !=
-                finished_before) {
-                const std::string& finished =
-                    dinosaur.action_loop->last_finished_action();
-                if (finished == "Eat" || finished == "EatForSmallies") {
-                    dino::FoodSource* source =
-                        paddock_food(pen, dinosaur.carnivore);
-                    if (source != nullptr) {
-                        source->remaining =
-                            std::max(0.0f, source->remaining - 1.0f);
-                        const std::string& food_name =
-                            park_session.food_defs[static_cast<std::size_t>(
-                                          source->def)]
-                                .name;
-                        std::printf(
-                            "dino eat: %s <- %s remaining=%.2f\n",
-                            dinosaur.species.c_str(), food_name.c_str(),
-                            source->remaining);
-                        if (source->remaining <= 0.0f) {
-                            std::printf("food: %s depleted\n",
-                                        food_name.c_str());
-                            rebuild_extra_items();
-                        }
-                    }
-                }
+        const auto event =
+            park_session.tick_dino(dinosaur, frame_dt, dino_action_table);
+        if (event.ate) {
+            std::printf("dino eat: %s <- %s remaining=%.2f\n",
+                        dinosaur.species.c_str(), event.food_name.c_str(),
+                        event.remaining);
+            if (event.food_depleted) {
+                std::printf("food: %s depleted\n",
+                            event.food_name.c_str());
+                rebuild_extra_items();
             }
-            const std::string& action =
-                dinosaur.action_loop->action_name();
-            if (action != previous) {
-                if (action != "idle") {
-                    const dino::BaiAction& definition =
-                        dino_action_table[static_cast<std::size_t>(
-                            dinosaur.action_loop->action_index())];
-                    const int score = dino::score_action(
-                        definition, dinosaur.action_loop->needs());
-                    const dino::DinoNeeds& needs =
-                        dinosaur.action_loop->needs();
-                    std::printf(
-                        "dino action: %s %s score=%d "
-                        "needs=%d/%d/%d/%d\n",
-                        dinosaur.species.c_str(), action.c_str(), score,
-                        needs.value[0], needs.value[1], needs.value[2],
-                        needs.value[3]);
-                }
-                const std::string clip =
-                    action == "idle" ? "Neutral"
-                                     : dino_clip_for_action(action);
-                if (clip != dinosaur.clip) {
-                    try {
-                        const auto species_assets = load_imported_species(
-                            dinosaur.species, dinosaur.family, clip);
-                        dinosaur.assets = species_assets->assets;
-                        imported_dino_draws[dino_index].texture =
-                            species_assets->texture;
-                        dinosaur.clip = clip;
-                    } catch (const std::exception& e) {
-                        std::fprintf(stderr, "dino clip %s: %s\n",
-                                     clip.c_str(), e.what());
-                    }
+        }
+        if (event.action_changed) {
+            if (event.scored) {
+                std::printf(
+                    "dino action: %s %s score=%d "
+                    "needs=%d/%d/%d/%d\n",
+                    dinosaur.species.c_str(), event.action.c_str(),
+                    event.score, event.needs[0], event.needs[1],
+                    event.needs[2], event.needs[3]);
+            }
+            if (!event.clip.empty() && event.clip != dinosaur.clip) {
+                try {
+                    const auto species_assets = load_imported_species(
+                        dinosaur.species, dinosaur.family, event.clip);
+                    dinosaur.assets = species_assets->assets;
+                    imported_dino_draws[dino_index].texture =
+                        species_assets->texture;
+                    dinosaur.clip = event.clip;
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "dino clip %s: %s\n",
+                                 event.clip.c_str(), e.what());
                 }
             }
         }

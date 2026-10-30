@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <map>
 #include <optional>
 #include <vector>
@@ -59,6 +60,28 @@ struct ParkSession {
         int wages = 0;
     };
     DaySettlement settle_day(int ticket_price);
+
+    // Paddock/food queries used by the dino tick and the HUD food log.
+    int paddock_at(float x, float y) const;
+    FoodSource* paddock_food(int paddock, bool carnivore);
+
+    // One dinosaur behavior step: inventory gate, action-loop tick, Eat
+    // consumption and clip selection. `Game` prints the returned events,
+    // loads the clip assets and uploads the posed mesh.
+    struct DinoActionEvent {
+        bool action_changed = false;
+        bool scored = false;
+        std::string action;
+        int score = 0;
+        std::array<int, 4> needs{};
+        std::string clip;
+        bool ate = false;
+        std::string food_name;
+        float remaining = 0.0f;
+        bool food_depleted = false;
+    };
+    DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
+                              const std::vector<BaiAction>& actions);
 };
 
 }  // namespace dino

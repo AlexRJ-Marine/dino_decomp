@@ -2261,8 +2261,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `world/dino_animator.*` (`pose_imported_dino`); `Game` add/update paths use
   the helper instead of duplicating skinning/color/placement. Render now only
   uploads the posed mesh. Dino render/save/show tests unchanged.
-- [ ] Move needs/chooser/mover and clip selection out of `Game` into
-  `world/dino_sim.*`; the mover and element events close `P3-MOTION-1`.
+- [x] Move the action-loop behavior: `paddock_at`/`paddock_food` and
+  `ParkSession::tick_dino` now own the inventory gate, action tick, Eat
+  consumption, action score data and clip selection; `Game` prints the
+  returned events, loads the clip assets and uploads the pose. Action/eat/
+  show/campaign tests unchanged.
+- [ ] Move the walking mover and element events into `world/dino_sim.*`;
+  this is the remaining `P3-MOTION-1` functional gap.
 - **Acceptance:** dino action/show/campaign tests unchanged; the P3-MOTION
   acceptance evidence is attached.
 - **Depends on:** ARCH-2.

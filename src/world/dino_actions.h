@@ -85,6 +85,11 @@ using ActionThreatProvider = std::function<int(const BaiAction&)>;
 
 // FUN_0056e410: sum the action's need deltas, add the optional node rest and
 // threat terms, apply the node percentage, then add the `.bai` base score.
+// Action -> animation clip. The retail link is still open (the `.bai`
+// files carry no clip name); these are the name-based candidates
+// documented in `notes/dino-action-chooser-recon.md` (inferred).
+std::string dino_clip_for_action(const std::string& action);
+
 int score_action(const BaiAction& action, const DinoNeeds& needs,
                  int node_percent = 100, int node_rest = 0,
                  int threat_score = 0);

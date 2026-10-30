@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-30 13:56. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-30 18:54. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 56 open items.
 
@@ -111,7 +111,7 @@ Generated from `TASKS.md` on 2026-10-30 13:56. Do not edit; regenerate with `scr
 - [ ] Replace the statement order in `Game::run()` with a table of named tasks
 
 ## ARCH-5: DinoSim and DinoAnimator
-- [ ] Move needs/chooser/mover and clip selection out of `Game` into
+- [ ] Move the walking mover and element events into `world/dino_sim.*`;
 
 ## ARCH-6: Renderer ownership and header split
 - [ ] Move GL resources and passes behind a `render` owner (RAII or a
