@@ -95,6 +95,31 @@ two animation ids returned by vtable `+0x20`/`+0x24` at actor
 `+0x20`/`+0x24` (the `aac*`/`anm*` animation classes). The clip names and
 `.anim` files are already mapped in `docs/formats/anim-trans.md`.
 
+## Rest-gauge table evidence (2026-10-31)
+
+The per-activity scale table is `Actions.bad` block float `105 + kind` (the 51
+scale floats); the caller indexes it as `[block + 0x354 + kind*4]`. All five
+families agree:
+
+```text
+scale[1]    = 0.5    walk (record kind 1)
+scale[2]    = 2.0    run  (record kind 2)
+scale[0x1d] = 0.0    sleep transition
+scale[0x1e] = -10.0  sleep sentinel -> gauge -= rate * (-10) = +10/frame
+scale[0x1c] = 0.0    wake gesture
+```
+
+`FUN_00571540` at `0x5718e2`: `kind = [dino+0x4c0]` (mover activity type);
+`gauge(+0x258) = clamp(gauge - [dino+0x498] * scale[kind], 0, +0x1d8)`;
+`REPOS(+0x250) = ftol(gauge * 99 / +0x1d8)`. `[dino+0x498]` is the mover's
+`0x1d0` progress-at-last-accepted-move (usually 1.0). `FUN_00574350` resets
+`+0x4c0` every mover tick and sets it on record arrival (`FUN_00575ac0`).
+
+Open: how the `0x1e` sentinel (mode 2, duration FLT_MAX) becomes the activity
+type so sleep actually restores rest; needs a retail probe of
+`+0x4c0/+0x498/+0x258` while a dino sleeps. Max rest is `def+0x188` =
+`stamina + x` (`0x617dfb`, x untraced; store at `0x617a0a`).
+
 ## Port order
 
 1. `SaDinosaur` state: gauges, four needs, action id, current element.

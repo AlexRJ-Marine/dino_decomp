@@ -2341,9 +2341,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.
 - [x] VIOLENCE decay: `FUN_00571410` subtracts exactly 10 points on the 10 s
   pass (`0x5869e0`), not the tuned 0.2/s; C++/Python loop + selftest check.
+- [ ] Rest gauge (`0x571540`): formula/table solved — `scale[kind] =
+  Actions.bad f[105+kind]` (walk 0.5, run 2.0, sleep sentinel `0x1e` -10),
+  `gauge(+0x258) = clamp(gauge - [0x498]*scale[0x4c0], 0, +0x1d8)`,
+  `REPOS = ftol(gauge*99/+0x1d8)`. Open: how the `0x1e` sentinel becomes the
+  activity type (mode 2, FLT_MAX) and max rest `def+0x188 = stamina + x`
+  (x untraced at `0x617a0a`); needs a retail probe. Notes:
+  `notes/dinosaur-action-loop.md`.
 - [ ] Remaining per-tick health: `0x5869e0` (5 s regen), `0x5724d0` (health
-  bands), `regen = maxHP*stamina/1000+1`; SECU/REPOS still use the tuned
-  decay (REPOS `0x571540`, rest gauge `+0x258`).
+  bands), `regen = maxHP*stamina/1000+1`; SECU still uses the tuned decay.
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).
