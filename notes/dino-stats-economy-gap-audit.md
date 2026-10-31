@@ -617,8 +617,8 @@ Verified call sites that matter for dinosaurs:
 | Bucket | Setter | Retail caller | Port |
 | --- | --- | --- | --- |
 | DINOACHAT | `0x585cc0` | `0x535eeb` (dino placed) | `spend_dinoachat` — wired |
-| VENTES | `0x585c40` | `0x533a00` (dino sold), `0x5333xx` (fence sold) | `add_vente` exists but **is called by nothing**; the new fence sell does `park_budget += value` directly (`src/viewer/main.cpp` `sell_paddock_now`), so the VENTES row never moves. Dino sell missing. |
-| FOOD | `0x585c90` (budget vtable[0]) | `0x576d50` (food-source refill) | `spend_food` **not called by anything** (grep: only the definition) |
+| VENTES | `0x585c40` | `0x533a00` (dino sold), `0x5333xx` (fence sold) | `add_vente` is called by both sells: `Game::sell_dino` and `sell_paddock_now`; the fence log prints `ventes=count/total` (`test_cpp_fence_sell_empty`: 1/1890). |
+| FOOD | `0x585c90` (budget vtable[0]) | `0x576d50` (food-source refill) | `spend_food` wired: the nutritionist level-0 refill charges the `.bsi` price (`test_cpp_employee_feeding_and_wages`, PigFood 700). |
 | EFFECTIFS_SECU | `0x585d50` | `0x58ad00` over `park+0x90..+0x94` | not wired (known SIM-4 gap) |
 | EFFECTIFS_FOOD | `0x585d80` | `0x58ad00` over `park+0xe4..+0xe8` (employees, `cat 0`) | not wired (known SIM-4 gap) |
 | ENTREES | `0x585de0` | visitor entry + `0x58ad00` | wired |

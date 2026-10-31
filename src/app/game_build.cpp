@@ -993,13 +993,19 @@ void Game::sell_paddock_now(int index) {
     }
     park_paddocks = park_session.paddocks;
     park_session.budget += value;
+    // `0x585c40`: the fence sale credits the cash and the VENTES bucket
+    // (`+0xb4++`, `+0xb8 += amount`), same as the dino sale.
+    park_session.ledger.add_vente(value);
     park_sell_paddock = -1;
     rebuild_build_meshes();
     refresh_fence_info_panel();
     std::printf(
-        "sell: sold enclosure %d refund=%d budget=%d sellback=%.2f\n",
+        "sell: sold enclosure %d refund=%d budget=%d sellback=%.2f "
+        "ventes=%d/%d\n",
         index, value, park_session.budget,
-        static_cast<double>(park_session.sellback));
+        static_cast<double>(park_session.sellback),
+        park_session.ledger.ventes_count,
+        park_session.ledger.ventes_total);
 
 }
 

@@ -261,7 +261,9 @@ purchase price. Port: `DinoAttributes::market_value` (20/20 Cpg04
 capacity release, draw/actor removal; it runs after `boot_park_session` so
 the budget reset cannot wipe the credit) and the `--sell-dino NAME` test
 hook (`test_cpp_dino_sell`: value 2400, refund 2400, VENTES 1/2400, dinos
-20 -> 19). The interactive `REQUEST_SELL_DINO` hit test is still open.
+20 -> 19). The fence sale (`sell_paddock_now`) credits the same VENTES
+bucket (`test_cpp_fence_sell_empty`: refund 1890, VENTES 1/1890). The
+interactive `REQUEST_SELL_DINO` hit test is still open.
 
 ## Port status
 

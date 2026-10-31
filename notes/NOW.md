@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - economy: fence sale credits VENTES - sell_paddock_now calls add_vente (0x585c40) and logs ventes=1/1890; test_cpp_fence_sell_empty; full suite 537 passed on the previous build, fence build targeted+fast green
 - 2026-10-31 - world: Eat element lifetime - element plays when the dino is in the band and the mover is idle (0x0056c3b0), meal applies then and DinoActionLoop::finish_current ends the action; field_2e is only the 30 s cap; eat_applied latch; selftest 244, fast 384
 - 2026-10-31 - world: refill level producer solved - FUN_00580e30 is the only writer and all three call sites pass level 0, so the 100% refill is exact (66/33 unreachable); set_food_level selftest 244; fast 384
 - 2026-10-31 - world: nutritionist refill charge - FoodSource::level + set_food_level (100/66/33 %, level 3 invalid), level-0 completion charges .bsi price to FOOD via spend_food; PigFood 700 budget 74000->73300; test_cpp_employee_feeding_and_wages; fast 384
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - port: exact Eat gate and bite - object/box executor 0x0056c490 band 0.8r2..1.2r2 with r=.bai field_18*mode (Eat 3.1*0.01*body, EatForSmallies 2.5*(size_radius+1)); bite=dino+0x288=+0x9c=attack_head (anky 30 -> nutrition=3000 quantity=9970); --dino-info size/head; selftest 240, fast 384
 - 2026-10-31 - port: in-park dinosaur selection - click -> 80-degree ray vs posed dino meshes -> DINO_INFO_PANEL (empty click closes); --no-build scene-pick flag; pick refactor into dino_pick.h; test_cpp_dino_click_opens_panel; selftest 237, fast 384
 - 2026-10-31 - ui: live DINO_INFO_PANEL draws the anky portrait/name, 11 exact gauges and need icons; --dino-panel hook, screenshot test; selftest 237, fast 384
-- 2026-10-31 - world: --dino-info report (live 11 gauges/needs/food/rest/health/value) and sell-text gate proof (dino+0x65 = height byte 1, 20/20 Cpg04); selftest 237, fast 384
 
 ## Blockers
 

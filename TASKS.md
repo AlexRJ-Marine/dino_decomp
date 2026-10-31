@@ -2386,8 +2386,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FUN_00580e30` passes 0 at all three call sites; the 66/33 branches are
   unreachable in retail. The hour index domain/save restore remains open
   (`notes/food-refill-recon.md`).
-  The fence sell still credits the budget directly and leaves VENTES flat
-  (G11); the dino sell credits VENTES.
+  Both the fence sale and the dino sale credit the VENTES bucket
+  (`0x585c40`); the fence log prints `ventes=1/1890`
+  (`test_cpp_fence_sell_empty`).
 - [x] Dino market value (`def+0x19c`): 18-gene genotype-rarity value,
   `price[rarity(A)-1]+price[rarity(B)-1]`, allele prices 500/100/50. All 20
   Cpg04 `DINORESET f1ec` values match (`val=` in `DINO_DEBUG_PHENO`,

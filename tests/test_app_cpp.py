@@ -3415,8 +3415,9 @@ def test_cpp_fence_sell_empty():
     assert "fence: built rect 540,460-595,547" in out
     assert "sell: mode armed" in out
     assert "sell: enclosure 0 value=1890" in out
-    assert ("sell: sold enclosure 0 refund=1890 budget=74760 sellback=1.00"
-            in out)
+    # `0x585c40`: the refund credits the cash and the VENTES bucket.
+    assert ("sell: sold enclosure 0 refund=1890 budget=74760 sellback=1.00 "
+            "ventes=1/1890") in out
     assert "build: 0 path cells, 0 fences" in out
 
 
