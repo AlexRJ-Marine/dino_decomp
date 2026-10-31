@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - port: stand-cell Eat walk target - FUN_0055b5b0/0x0055b780 filled disc floor(r+0.5) around the feeder, occupancy predicate, min squared dino-cell distance, band-filtered; cached per element (eat_stand_x/y); Cpg04 anky target 457,321 d2=58; selftest 240, fast 384
 - 2026-10-31 - port: exact Eat gate and bite - object/box executor 0x0056c490 band 0.8r2..1.2r2 with r=.bai field_18*mode (Eat 3.1*0.01*body, EatForSmallies 2.5*(size_radius+1)); bite=dino+0x288=+0x9c=attack_head (anky 30 -> nutrition=3000 quantity=9970); --dino-info size/head; selftest 240, fast 384
 - 2026-10-31 - port: in-park dinosaur selection - click -> 80-degree ray vs posed dino meshes -> DINO_INFO_PANEL (empty click closes); --no-build scene-pick flag; pick refactor into dino_pick.h; test_cpp_dino_click_opens_panel; selftest 237, fast 384
 - 2026-10-31 - ui: live DINO_INFO_PANEL draws the anky portrait/name, 11 exact gauges and need icons; --dino-panel hook, screenshot test; selftest 237, fast 384
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - world: stable ImportedDino ids for paddock occupants, fence info, save/load and sell; old saves fall back to the 0-based index; sell test now needs no index shift; selftest 237, fast 384
 - 2026-10-31 - economy: dino sell flow - market value x sellback to budget/VENTES, paddock capacity release, actor/draw removal, --sell-dino hook; Cpg04 value=2400 refund=2400 dinos 20->19; selftest 237, fast 384
 - 2026-10-31 - formats: genotype-rarity market value (def+0x19c) solved, 20/20 Cpg04 f1ec values match; sell economy path decompiled; selftest 235, fast 384
-- 2026-10-31 - AI: retail occupancy footprint (FUN_0055af70) wired - radius 1, centre+4-neighbourhood, building/road/wall classes; actor+0x28 proven allocator fill; selftest 235, fast 384, soak 0 escapes
 
 ## Blockers
 

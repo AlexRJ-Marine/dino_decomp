@@ -435,11 +435,14 @@ port keeps one marker active toward the feeder; arrival clears it. The marker
 kind is `0x34 + (REPOS state != 2)` from `dino+0x2b8` (state 2 = BAD/tired),
 so a tired dino walks (0x34) and a rested one runs (0x35). Cpg04 evidence:
 `--dino-needs 20,90,50,90` logs `kind=0x35` and
-`dino eat gate: anky r=7.01` (body 226), `20,90,50,20` logs `kind=0x34`
-(`test_cpp_lunchbox_eat`). The port walks to the bowl centre, so the retail
-lower bound (`0.8 r²`) re-plan through the stand-cell search `FUN_0055b5b0`
-remains open; the outer bound gates arrival and the meal. The meal amount is
-`attack_head` (`dino+0x288`), matching `FUN_00569a00`'s `FUN_00576e50` call.
+`dino eat gate: anky r=7.01 ... stand=457,321` (body 226), `20,90,50,20`
+logs `kind=0x34` (`test_cpp_lunchbox_eat`). The port reproduces the stand-cell
+search (`FUN_0055b5b0`/`0x0055b780`): a filled disc of `floor(r+0.5)` cells
+around the feeder cell, the `0x0055af20` occupancy predicate, and the strict
+minimum squared distance to the dino's cell, filtered to the arrival band.
+The exact K-square clearance and spiral tie order remain open. The meal
+amount is `attack_head` (`dino+0x288`), matching `FUN_00569a00`'s
+`FUN_00576e50` call.
 
 Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
 instead of the behaviour's record list; the paddock inset is

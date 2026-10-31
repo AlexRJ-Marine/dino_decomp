@@ -2452,8 +2452,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   mode 3 = `0.01 × body`; `EatForSmallies`/`EatBaitForSmallies` mode 4 =
   `size_radius + 1`). Marker kind `0x34 + (REPOS state != 2)` (`dino+0x2b8`);
   Cpg04 logs `kind=0x35` at REPOS 90, `kind=0x34` at REPOS 20 and
-  `dino eat gate: anky r=7.01` (`test_cpp_lunchbox_eat`). The stand-cell
-  search `FUN_0055b5b0` and the duplicate-insert path remain open.
+  `dino eat gate: anky r=7.01 ... stand=457,321` (`test_cpp_lunchbox_eat`).
+  The stand-cell search `FUN_0055b5b0` is ported (disc + occupancy +
+  min squared distance to the dino cell); exact K-square clearance, spiral
+  tie order and the duplicate-insert path remain open.
 - [x] Eat bite amount: `dino+0x288` = the `+0x9c` stat slot = phenotype
   `+0x4c` `attack_head`; the anky eats 30, so the meal is
   `30 × nutrition 100 = 3000` (not the whole source). `--dino-info` prints

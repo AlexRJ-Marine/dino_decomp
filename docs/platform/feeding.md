@@ -94,8 +94,9 @@ persistence remain open.
   phenotype attack parts) to `+0x288..+0x298`, so the Eat amount is
   `attack_head` (phenotype `+0x4c`; anky 30). `GetCourage` overwrites the
   slot from `+0x270` when it completes; the port's park node set excludes
-  that action. The retail stand-cell search (`FUN_0055b5b0`) and the
-  animation-state duration remain open; the port walks to the bowl centre
-  and uses the outer `1.2 r²` bound.
+  that action. The stand-cell search (`FUN_0055b5b0`) is ported (disc +
+  occupancy + minimum squared distance to the dino cell, filtered to the
+  band); exact K-square clearance, spiral tie order and the animation-state
+  duration remain open.
 - The employee schedule actors and the visitor `.bsi` quantity/nutrition
   semantics; the carnivore live-prey (`.bni`) path.

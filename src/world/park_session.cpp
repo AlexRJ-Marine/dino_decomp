@@ -7,6 +7,94 @@
 
 namespace dino {
 
+namespace {
+
+// `0x0055af20` stand-cell predicate: class 0 is free; the port treats
+// buildings, roads and walls as blocked (the retail class-1 own-actor
+// exception needs the actor id, which the port's grid does not stamp).
+bool stand_cell_free(const OccupancyGrid& grid, int x, int y) {
+    if (!grid.in_bounds(x, y)) {
+        return false;
+    }
+    const std::uint16_t cls = grid.at(x, y) & OccupancyGrid::kTypeMask;
+    return cls != OccupancyGrid::kBuilding &&
+           cls != OccupancyGrid::kRoad && cls != OccupancyGrid::kWall;
+}
+
+// `0x0055b780` clearance with `K = actor+0x13 = 1`; the port's proven mover
+// footprint is the centre + 4-neighbourhood. The exact K-square ring shape
+// is still partially reconstructed in the note.
+bool stand_cell_clear(const OccupancyGrid& grid, int x, int y) {
+    return stand_cell_free(grid, x, y) &&
+           stand_cell_free(grid, x + 1, y) &&
+           stand_cell_free(grid, x - 1, y) &&
+           stand_cell_free(grid, x, y + 1) &&
+           stand_cell_free(grid, x, y - 1);
+}
+
+struct StandCell {
+    int x = 0;
+    int y = 0;
+};
+
+// `FUN_0055b5b0` / `0x0055cb50` / `0x0055b780`: the filled disc of cells
+// within `floor(r + 0.5)` of the feeder cell; first minimum of the squared
+// distance to the dino's cell wins (strict `<`, spiral order).
+std::optional<StandCell> find_stand_cell(const OccupancyGrid& grid,
+                                         const Feeder& feeder,
+                                         const ImportedDino& dino,
+                                         float radius) {
+    if (grid.width <= 0 || grid.height <= 0) {
+        return std::nullopt;
+    }
+    const int cells = static_cast<int>(std::floor(radius + 0.5f));
+    if (cells < 0) {
+        return std::nullopt;
+    }
+    const int fx = static_cast<int>(std::floor(feeder.x));
+    const int fy = static_cast<int>(std::floor(feeder.y));
+    const int ax = static_cast<int>(std::floor(dino.x));
+    const int ay = static_cast<int>(std::floor(dino.y));
+    // The retail visitor cost has no band filter; the port keeps only cells
+    // that satisfy the proven `0.8 r^2 .. 1.2 r^2` arrival test so the
+    // straight-line mover stops inside the band (the square disc includes
+    // corners beyond the Euclidean outer bound).
+    const float lower = 0.8f * radius * radius;
+    const float upper = 1.2f * radius * radius;
+    std::optional<StandCell> best;
+    int best_cost = 0;
+    for (int ring = 0; ring <= cells; ++ring) {
+        for (int dy = -ring; dy <= ring; ++dy) {
+            for (int dx = -ring; dx <= ring; ++dx) {
+                if (std::max(std::abs(dx), std::abs(dy)) != ring) {
+                    continue;
+                }
+                const int x = fx + dx;
+                const int y = fy + dy;
+                if (!stand_cell_clear(grid, x, y)) {
+                    continue;
+                }
+                const float ddx = static_cast<float>(x) - feeder.x;
+                const float ddy = static_cast<float>(y) - feeder.y;
+                const float feeder_d2 = ddx * ddx + ddy * ddy;
+                if (feeder_d2 < lower || feeder_d2 > upper) {
+                    continue;
+                }
+                const int adx = ax - x;
+                const int ady = ay - y;
+                const int cost = adx * adx + ady * ady;
+                if (!best || cost < best_cost) {
+                    best = StandCell{x, y};
+                    best_cost = cost;
+                }
+            }
+        }
+    }
+    return best;
+}
+
+}  // namespace
+
 void ParkSession::advance_clock(double dt) {
     clock.advance(dt);
 }
@@ -312,6 +400,9 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     if (action != previous) {
         event.action_changed = true;
         event.action = action;
+        // A new element recomputes the Eat stand cell (`FUN_0055b5b0`).
+        dinosaur.eat_stand_x = -1;
+        dinosaur.eat_stand_y = -1;
         // A new action replaces a lingering gesture record, but a walk/run
         // marker may finish. Sleep keeps its own 0x1d/0x1e list.
         if (!dead && dinosaur.mover.active() && action != "Sleep" &&
@@ -406,6 +497,20 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
             const float dy = feeder->y - dinosaur.y;
             const float radius = eat_radius(action);
             const float outer = 1.2f * radius * radius;
+            if (dinosaur.eat_stand_x < 0) {
+                const auto stand = find_stand_cell(build_grid.occupancy,
+                                                   *feeder, dinosaur, radius);
+                if (stand) {
+                    dinosaur.eat_stand_x = stand->x;
+                    dinosaur.eat_stand_y = stand->y;
+                }
+            }
+            const float target_x = dinosaur.eat_stand_x >= 0
+                                       ? static_cast<float>(dinosaur.eat_stand_x)
+                                       : feeder->x;
+            const float target_y = dinosaur.eat_stand_y >= 0
+                                       ? static_cast<float>(dinosaur.eat_stand_y)
+                                       : feeder->y;
             if (dx * dx + dy * dy <= outer) {
                 if (dinosaur.mover.active()) {
                     dinosaur.mover.clear();
@@ -415,8 +520,8 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                     dinosaur.mover.active() &&
                     (dinosaur.mover.kind() == 0x34 ||
                      dinosaur.mover.kind() == 0x35) &&
-                    dinosaur.mover.target_x() == feeder->x &&
-                    dinosaur.mover.target_y() == feeder->y;
+                    dinosaur.mover.target_x() == target_x &&
+                    dinosaur.mover.target_y() == target_y;
                 if (!walking) {
                     const int kind =
                         0x34 +
@@ -425,16 +530,18 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                              ? 1
                              : 0);
                     std::printf(
-                        "dino eat gate: %s r=%.2f d2=%.1f band=%.1f..%.1f\n",
+                        "dino eat gate: %s r=%.2f d2=%.1f band=%.1f..%.1f "
+                        "stand=%d,%d\n",
                         dinosaur.species.c_str(), static_cast<double>(radius),
                         static_cast<double>(dx * dx + dy * dy),
                         static_cast<double>(0.8f * radius * radius),
-                        static_cast<double>(outer));
-                    dinosaur.mover.start(kind, feeder->x, feeder->y, 1);
+                        static_cast<double>(outer),
+                        dinosaur.eat_stand_x, dinosaur.eat_stand_y);
+                    dinosaur.mover.start(kind, target_x, target_y, 1);
                     event.move_started = true;
                     event.move_kind = kind;
-                    event.move_target_x = feeder->x;
-                    event.move_target_y = feeder->y;
+                    event.move_target_x = target_x;
+                    event.move_target_y = target_y;
                 }
             }
         }

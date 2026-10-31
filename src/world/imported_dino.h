@@ -54,6 +54,11 @@ struct ImportedDino {
     // behavior update queues records; this tick is independent of the action
     // loop and writes the live position/facing.
     DinoMover mover;
+    // Eat stand cell (`FUN_0055b5b0`) cached for the current element;
+    // -1 = not computed. Retail state 0 computes it once and state 1 walks
+    // to it; recomputing every frame would retarget the mover.
+    int eat_stand_x = -1;
+    int eat_stand_y = -1;
     // Last posed world-space mesh (for screen picking). Replaced each frame
     // by the app's `pose_imported_dino` result; `nullptr` before the first
     // pose.

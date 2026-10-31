@@ -114,27 +114,53 @@ a 4×4 row-major float grid): `3,3,3,3 / 3,2,2,2 / 3,2,2,2 / 3,2,2,2`
 (3.0 iff target or self class is 0). `0x00675700 = 0.1f` is unused by the
 gate. No current port action uses this path; keep the recipe for attacks.
 
+## 4b. Stand-cell search (`FUN_0055b5b0` / `FUN_0055cb50` / `0x0055b780`)
+
+- `FUN_0055b5b0` takes the feeder-side cell `(ownX, ownY)`, the radius `r`
+  in world units, computes `R = ftol(r + 0.5)` cells, and asks
+  `FUN_0055cb50` for a filled spiral disc of cells around the feeder cell.
+- Per cell `0x0055b780` runs the `0x0055af20` occupancy predicate
+  (`cls = tile >> 12`; class 0 free; class 1 only if
+  `(tile & 0x7ff) == actor+0x28`; every other class blocks) plus a
+  `K = actor+0x13` clearance scan.
+- Cost (proven): `(actorCellX - x)^2 + (actorCellY - y)^2`, the squared grid
+  distance to the **dino's cell** (`+0x8/+0xc`), not the mover floats.
+- `FUN_0055b5b0` picks the strict minimum (`<`, first wins) and writes the
+  cell indices (no `*8+4`) to `out`. If no cell is appended it returns 0;
+  the executor asserts (`0x0056c670`), clears the action and posts the stop
+  record (`0x0056c70e`).
+- The port's `find_stand_cell` enumerates the same disc (round-half-down
+  `R`), filters with the port occupancy predicate and the proven arrival
+  band (`0.8 r² .. 1.2 r²`; the retail visitor itself has no band filter, but
+  the square disc has corners beyond the Euclidean outer bound), and picks
+  the minimum squared distance to the dino's cell. The cell is cached per
+  element (`ImportedDino::eat_stand_x/y`) and reset on action change; the
+  mover walks to the cell coordinate.
+- Cpg04: feeder (454,314), dino (463,327), `R = 7`, chosen `(457,321)`;
+  `d² = 58` is inside `[39.3, 58.9]`.
+
 ## 5. Port mapping
 
 - `src/world/dino_actions.*`: `eat_arrival_radius(field_18, mode, body,
   size_radius)` implements the two proven modes; `DinoAttributes::size_radius`
   is filled from `SizeCategoryNRadius` when the phenotype is built.
-- `ParkSession::tick_dino`: `r` from the selected action, walk while
-  `d² > 1.2 r²`, stop/meal when inside, bite `attack_head`, drain through
-  `feeder_drain` and `apply_food`.
+- `ParkSession::tick_dino`: `r` from the selected action, walk to the cached
+  stand cell while `d² > 1.2 r²`, stop/meal when inside, bite `attack_head`,
+  drain through `feeder_drain` and `apply_food`.
 - Evidence: `test_cpp_lunchbox_eat` logs
-  `dino eat gate: anky r=7.01 …` and
+  `dino eat gate: anky r=7.01 ... stand=457,321` and
   `dino eat: anky <- LunchBox nutrition=3000 quantity=9970 gauge=4255`;
   `--selftest` checks `4.65 / 12.5 / base`.
 
 ## Open
 
-1. The retail stand-cell search `FUN_0055b5b0` (candidate list
-   `FUN_0055cb50`) is not ported: retail walks to a min-cost cell at radius
-   `r`, the port walks to the bowl centre and uses only the outer bound.
-2. The animation-state duration (`FUN_00522300`) versus the port's `.bai`
+1. The exact spiral start/direction and the `K`-square clearance geometry
+   inside `0x0055b780`; the port uses the proven centre + 4-neighbour
+   footprint. Ties are resolved by the port's ring order.
+2. The `vtable+0x14` own-position source for the `0x0056c490` class (feeder
+   cell vs last stand cell); the port uses the feeder cell.
+3. The animation-state duration (`FUN_00522300`) versus the port's `.bai`
    `field_2e`; the port keeps `field_2e × action_scale`.
-3. `FUN_0055cb50`'s cell cost function.
 4. The actor `+0x60` name beyond `SizeCategory*Radius`.
 
 ## Evidence

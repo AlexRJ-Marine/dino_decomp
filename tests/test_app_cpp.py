@@ -4331,9 +4331,11 @@ def test_cpp_lunchbox_eat():
     # 0x34 + (REPOS state != 2). REPOS 90 is not BAD, so the anky runs
     # (0x35) to the bowl.
     assert "dino move: anky start" in log
-    assert "target=454.0,314.0 kind=0x35" in log
-    # Eat.bai field_18=3.1, field_1c=3: r = 3.1 * 0.01 * body 226 = 7.006.
+    assert "target=457.0,321.0 kind=0x35" in log
+    # `FUN_0055b5b0`: stand cell 457,321 = nearest free cell to the dino
+    # within floor(r+0.5) of the feeder cell, inside the arrival band.
     assert "dino eat gate: anky r=7.01" in log
+    assert "stand=457,321" in log
     # `FUN_00569a00` passes `dino+0x288` = attack_head (30 for this anky)
     # to `FUN_00576e50`: 30 * LunchBox nutrition 100 = 3000; the quantity
     # falls by 30 and the gauge clamps at max 4255.
