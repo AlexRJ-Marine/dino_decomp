@@ -273,6 +273,10 @@ Options parse_args(int argc, char** argv) {
             opt.place_food = next("--place-food");
         } else if (arg == "--food-pos") {
             opt.food_pos = next("--food-pos");
+        } else if (arg == "--place-lunchbox") {
+            opt.place_lunchbox = true;
+        } else if (arg == "--lunchbox-pos") {
+            opt.lunchbox_pos = next("--lunchbox-pos");
         } else if (arg == "--hire-nutritionist" ||
                    arg == "--hire-nutritionists") {
             opt.hire_nutritionists = std::atoi(next("--hire-nutritionist"));
@@ -635,6 +639,8 @@ Options parse_args(int argc, char** argv) {
                 "  --auto-continue      advance past CPGEND without a click (test hook)\n"
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
+                "  --place-lunchbox     place a LunchBox item actor (herbivore)\n"
+                "  --lunchbox-pos X,Y   LunchBox cell (default: first paddock)\n"
                 "  --hire-nutritionist N hire N nutritionists (500 each)\n"
                 "  --fire-nutritionist N dismiss N nutritionists (no refund)\n"
                 "  --feed-now           run one hourly feeding pass at startup\n"

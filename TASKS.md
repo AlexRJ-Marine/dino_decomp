@@ -2394,9 +2394,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   move is in progress; map the stop condition and the duplicate-insert path.
 - [x] Removed the port's `.bsi` dino Eat gate and 3-unit consumption (the
   `.bsi` source is visitor/employee; Cpg04 showed no dino Eat/`SetLevel`).
-- [ ] LunchBox/StaticBait item actor: `field_3c` quantity / `field_40`
-  nutrition, `FUN_00576e50` drain and `apply_food(amount*nutrition)`
-  (`notes/lunchbox-eat-recon.md`). The `.bsi` gate must not return.
+- [x] LunchBox item actor: `--place-lunchbox` loads the `.bfi`
+  (`field_3c` quantity 10000 / `field_40` nutrition 100), draws `bowl.mesh`,
+  the herbivore Eat gate + `0x34` walk, `feeder_drain` (`FUN_00576e50`) and
+  `apply_food(amount*nutrition)`. `test_cpp_lunchbox_eat` (anky:
+  `nutrition=1000000 quantity=0 gauge=4255`). The `.bsi` gate stays out.
+- [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
+  persistence of feeders.
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
   top of the rect clamp.
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.

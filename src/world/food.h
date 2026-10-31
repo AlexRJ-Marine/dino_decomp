@@ -34,6 +34,8 @@ struct Feeder {
     int kind = 0;
     float x = 0.0f;
     float y = 0.0f;
+    // Item actor radius (`.bfi` width/2; the Eat proximity gate).
+    float radius = 2.0f;
     float quantity = 0.0f;
     float max_quantity = 0.0f;
     float nutrition = 0.0f;

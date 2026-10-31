@@ -69,8 +69,7 @@ int ParkSession::paddock_at(float x, float y) const {
     return -1;
 }
 
-FoodSource* ParkSession::paddock_food(int paddock, bool carnivore) {
-    if (paddock < 0 ||
+FoodSource* ParkSession::paddock_food(int paddock, bool carnivore) {    if (paddock < 0 ||
         paddock >= static_cast<int>(paddocks.size())) {
         return nullptr;
     }
@@ -93,6 +92,39 @@ FoodSource* ParkSession::paddock_food(int paddock, bool carnivore) {
         }
     }
     return nullptr;
+}
+
+Feeder* ParkSession::paddock_feeder(int paddock, bool carnivore, float x,
+                                    float y) {
+    if (paddock < 0 ||
+        paddock >= static_cast<int>(paddocks.size())) {
+        return nullptr;
+    }
+    const WorldRect& r = paddocks[static_cast<std::size_t>(paddock)].rect;
+    const float min_x = static_cast<float>(std::min(r.x0, r.x1));
+    const float max_x = static_cast<float>(std::max(r.x0, r.x1));
+    const float min_y = static_cast<float>(std::min(r.y0, r.y1));
+    const float max_y = static_cast<float>(std::max(r.y0, r.y1));
+    Feeder* best = nullptr;
+    float best_distance = 1e30f;
+    for (Feeder& feeder : feeders) {
+        if (feeder.quantity <= 0.0f ||
+            food_is_carnivore(feeder.kind) != carnivore) {
+            continue;
+        }
+        if (feeder.x < min_x || feeder.x > max_x || feeder.y < min_y ||
+            feeder.y > max_y) {
+            continue;
+        }
+        const float dx = feeder.x - x;
+        const float dy = feeder.y - y;
+        const float distance = dx * dx + dy * dy;
+        if (distance < best_distance) {
+            best_distance = distance;
+            best = &feeder;
+        }
+    }
+    return best;
 }
 
 bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
@@ -156,11 +188,13 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     }
     event.x = dinosaur.x;
     event.y = dinosaur.y;
-    // The `.bsi` FoodSource is the visitor/employee source, not a dinosaur
-    // feeder. Park dinosaurs eat a LunchBox/StaticBait item actor
-    // (`FUN_00576e50`); until that actor is ported no dino Eat is offered.
+    // The `.bsi` FoodSource is the visitor/employee source; the dinosaur Eat
+    // target is a LunchBox/StaticBait item actor (`feeder`), and the meal
+    // drains it through `FUN_00576e50` into the food gauge.
     const int pen = confinement;
-    dinosaur.action_loop->set_inventory(false);
+    Feeder* feeder =
+        paddock_feeder(pen, dinosaur.carnivore, dinosaur.x, dinosaur.y);
+    dinosaur.action_loop->set_inventory(feeder != nullptr);
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);
@@ -175,7 +209,30 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     if (dinosaur.action_loop->finished_count() != finished_before) {
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
-        if (finished == "Sleep") {
+        if (finished == "Eat" || finished == "EatForSmallies") {
+            if (feeder != nullptr && feeder->quantity > 0.0f) {
+                const float dx = feeder->x - dinosaur.x;
+                const float dy = feeder->y - dinosaur.y;
+                const float gate = std::max(0.1f, feeder->radius);
+                if (dx * dx + dy * dy <= gate * gate) {
+                    // `FUN_00576e50` clamps the amount to the source; the
+                    // retail amount (FILD dino+0x288) is above the LunchBox
+                    // quantity, so one meal drains it and `apply_food`
+                    // clamps the gauge.
+                    const float value =
+                        feeder_drain(*feeder, feeder->quantity);
+                    dinosaur.action_loop->apply_food(value);
+                    std::printf(
+                        "dino eat: %s <- %s nutrition=%.0f quantity=%.0f "
+                        "gauge=%.0f\n",
+                        dinosaur.species.c_str(), feeder->name.c_str(),
+                        static_cast<double>(value),
+                        static_cast<double>(feeder->quantity),
+                        static_cast<double>(
+                            dinosaur.action_loop->food_gauge()));
+                }
+            }
+        } else if (finished == "Sleep") {
             // `FUN_0056eec0` case 2 (special_action 3): state 3 emits the
             // 0x1c wake gesture at the dino's own position.
             dinosaur.mover.clear();
@@ -197,7 +254,16 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
             dinosaur.mover.kind() != 0x35) {
             dinosaur.mover.clear();
         }
-        if (action == "Sleep") {
+        if (action == "Eat" || action == "EatForSmallies") {
+            // The item actor publishes the action list; the normal-action
+            // executor walks to the target with the 0x34/0x35 marker.
+            if (feeder != nullptr && !dinosaur.mover.active()) {
+                dinosaur.mover.start(0x34, feeder->x, feeder->y, 1);
+                event.move_started = true;
+                event.move_target_x = feeder->x;
+                event.move_target_y = feeder->y;
+            }
+        } else if (action == "Sleep") {
             // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel at
             // the dino's own position. The 0x1d waits 1.5 s, then the
             // sentinel holds the sleep pose until the action ends.

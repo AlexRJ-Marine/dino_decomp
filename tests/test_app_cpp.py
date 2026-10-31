@@ -4273,6 +4273,42 @@ def test_cpp_food_source_is_visitor_only():
     assert "dino action: allo Exploration" in log
 
 
+@pytest.mark.slow
+def test_cpp_lunchbox_eat():
+    """The real dinosaur food path: a LunchBox (.bfi) item actor in the
+    paddock gates Eat; the dino walks to it and FUN_00576e50 drains the
+    quantity into the food gauge (FUN_005727b0 0x17)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "900", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--place-lunchbox",
+         "--dino-action-loop", "--fixed-dt", "0.016",
+         "--dino-action-speed", "100", "--dino-needs", "20,90,50,90"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    # The .bfi fields: LunchBox quantity 10000, nutrition 100, kind 0.
+    assert ("lunchbox: LunchBox kind=0" in log)
+    assert "quantity=10000" in log
+    assert "nutrition=100" in log
+    # The herbivore anky eats; the carnivore allos cannot use kind 0.
+    assert "dino eat: anky <- LunchBox" in log
+    assert "dino eat: allo" not in log
+    # FUN_00576e50 returns quantity*nutrition and applies the gauge.
+    assert "nutrition=1000000" in log
+    assert "quantity=0" in log
+    assert "gauge=" in log
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

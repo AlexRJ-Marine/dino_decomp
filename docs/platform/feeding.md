@@ -1,9 +1,12 @@
 # Feeding — visitor/employee sources and the dinosaur LunchBox
 
-Status: **split by evidence (2026-10-31).** The `.bsi` `FoodSource` feeds
-visitors/employees; park dinosaurs eat a **LunchBox/StaticBait** item actor via
-`FUN_00576e50`, which fills the food gauge `+0x25c`. The port's former
-dino-Eat-from-`.bsi` gate and 3-unit meal were a placeholder and are removed.
+Status: **LunchBox actor ported (herbivore path).** The `.bsi` `FoodSource`
+feeds visitors/employees; park dinosaurs eat a **LunchBox/StaticBait** item
+actor via `FUN_00576e50`, which fills the food gauge `+0x25c`. The port's
+former dino-Eat-from-`.bsi` gate and 3-unit meal were a placeholder and are
+removed. `--place-lunchbox` places the `.bfi` bowl; the herbivore anky eats it
+and the gauge clamps to its weight. Interactive placement, the other baits
+and save persistence remain open.
 
 ## Retail chain
 
@@ -41,11 +44,25 @@ dino-Eat-from-`.bsi` gate and 3-unit meal were a placeholder and are removed.
   formula `gauge = value + percent*gauge/100`, clamped.
 - `src/formats/bfi.*` keeps `food_quantity`/`food_nutrition`; `Feeder` +
   `feeder_drain` in `src/world/food.*` are the exact `FUN_00576e50` model.
-  The LunchBox actor (placement, bowl mesh, item target, Eat gate) is the
-  next slice.
+- `--place-lunchbox` (optional `--lunchbox-pos CX,CY`, default first paddock
+  centre) loads `LunchBox.bfi`, creates a `Feeder` (quantity 10000,
+  nutrition 100, kind 0, radius = width/2), uploads `bowl.mesh` +
+  `bowl.tga`, and adds it to the draw list.
+- `ParkSession::paddock_feeder` returns the nearest non-empty feeder in the
+  paddock whose `food_kind` matches the diet. `Eat` is offered only when one
+  exists; the actor walks with the `0x34` marker. At the feeder, the Eat
+  completion drains it (`feeder_drain`) and calls
+  `apply_food(value)` (event 0x17).
+- Cpg04 verification: the anky (herbivore, paddock 0) starts at
+  (463.7,327.5), walks to the LunchBox at (460,328), and drains it:
+  `dino eat: anky <- LunchBox nutrition=1000000 quantity=0 gauge=4255`.
+  The allos are carnivores and cannot use the kind-0 LunchBox.
 
 ## Verification
 
+- `test_cpp_lunchbox_eat`: the `.bfi` LunchBox quantity 10000/nutrition 100,
+  the anky chooses Eat, walks to the bowl, drains it
+  (`nutrition=1000000 quantity=0 gauge=4255`), and the allos never eat it.
 - `test_cpp_food_source_is_visitor_only`: a placed PigFood shows
   `source=PigFood` in the food log but no dinosaur chooses Eat and the source
   is not depleted.
@@ -58,13 +75,13 @@ dino-Eat-from-`.bsi` gate and 3-unit meal were a placeholder and are removed.
 
 ## Open
 
-- LunchBox/StaticBait actor: placement (interactive `LUNCHBOX_SELECTED` and a
-  test hook), `bowl.mesh`/texture draw, the item target and the Eat gate.
+- Interactive LunchBox placement (`LUNCHBOX_SELECTED`, `FUN_00537040`); the
+  `--place-lunchbox` CLI is the current test hook.
+- StaticBait variants (Apple/Flower/Hay/Pumpkin/Watermelon) and save
+  persistence of placed feeders; only the LunchBox actor is placed now.
 - `dino+0x288`: `FILD [dino+0x288]` is the amount passed to `FUN_00576e50`;
   the field's identity/scale (probe read a float bit pattern there) is open.
   The LunchBox quantity (10000) is below the clamped amount, so one meal
-  currently drains the feeder.
-- The interactive `FOOD_DISTRIBUTION_PANEL` (`FUN_00537040`,
-  `LUNCHBOX_SELECTED`) and the employee schedule actors.
-- Visitor `.bsi` quantity/nutrition semantics and the carnivore live-prey
-  (`.bni`) path.
+  drains the feeder.
+- The employee schedule actors and the visitor `.bsi` quantity/nutrition
+  semantics; the carnivore live-prey (`.bni`) path.

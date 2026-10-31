@@ -643,6 +643,89 @@ std::optional<int> Game::boot_food_definitions() {
             std::fprintf(stderr, "food: %s\n", e.what());
         }
     }
+    if (opt.place_lunchbox) {
+        try {
+            const dino::BfiFeature bfi = dino::load_bfi(resolve_asset(
+                opt.asset_root,
+                "Data/Design/attractions/features/LunchBox.bfi"));
+            float fx = 0.0f;
+            float fy = 0.0f;
+            bool have_position = false;
+            int cx = 0;
+            int cy = 0;
+            if (std::sscanf(opt.lunchbox_pos.c_str(), "%d,%d", &cx, &cy) ==
+                2) {
+                fx = (static_cast<float>(cx) + 0.5f) *
+                     park_session.build_grid.cell_size;
+                fy = (static_cast<float>(cy) + 0.5f) *
+                     park_session.build_grid.cell_size;
+                have_position = true;
+            } else if (!park_session.paddocks.empty()) {
+                const dino::WorldRect& rect =
+                    park_session.paddocks.front().rect;
+                fx = (static_cast<float>(std::min(rect.x0, rect.x1)) +
+                      static_cast<float>(std::max(rect.x0, rect.x1)) +
+                      1.0f) *
+                     0.5f;
+                fy = (static_cast<float>(std::min(rect.y0, rect.y1)) +
+                      static_cast<float>(std::max(rect.y0, rect.y1)) +
+                      1.0f) *
+                     0.5f;
+                have_position = true;
+            }
+            if (!have_position) {
+                std::printf("lunchbox: no position (use --lunchbox-pos)\n");
+            } else {
+                dino::Feeder feeder;
+                feeder.name = bfi.name;
+                feeder.kind = bfi.food_kind;
+                feeder.quantity = static_cast<float>(bfi.food_quantity);
+                feeder.max_quantity = feeder.quantity;
+                feeder.nutrition = static_cast<float>(bfi.food_nutrition);
+                feeder.radius =
+                    std::max(1.0f, static_cast<float>(
+                                       std::max(bfi.width, bfi.height)) *
+                                       0.5f);
+                feeder.x = fx;
+                feeder.y = fy;
+                park_session.feeders.push_back(feeder);
+                std::string mesh_rel;
+                for (const std::string& slot : bfi.mesh_slots) {
+                    if (slot.ends_with(".mesh")) {
+                        mesh_rel = slot;
+                        break;
+                    }
+                }
+                if (!mesh_rel.empty()) {
+                    dino::Mesh mesh = dino::load_mesh(
+                        resolve_asset(opt.asset_root, mesh_rel));
+                    const std::string texture_name = mesh.texture_name();
+                    mesh = place_on_terrain(std::move(mesh), terrain, fx,
+                                            fy, 0.0f);
+                    ShowFeatureDraw draw;
+                    draw.gpu = upload_mesh(mesh, glfns);
+                    if (!texture_name.empty()) {
+                        draw.texture = upload_texture(dino::load_tga(
+                            resolve_asset(opt.asset_root,
+                                          bfi.texture_dir + "/" +
+                                              texture_name)));
+                    }
+                    show_feature_draws.push_back(std::move(draw));
+                }
+                rebuild_extra_items();
+                std::printf(
+                    "lunchbox: %s kind=%d at %.1f,%.1f quantity=%.0f "
+                    "nutrition=%.0f radius=%.1f\n",
+                    feeder.name.c_str(), feeder.kind,
+                    static_cast<double>(fx), static_cast<double>(fy),
+                    static_cast<double>(feeder.quantity),
+                    static_cast<double>(feeder.nutrition),
+                    static_cast<double>(feeder.radius));
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "lunchbox: %s\n", e.what());
+        }
+    }
     return std::nullopt;
 }
 

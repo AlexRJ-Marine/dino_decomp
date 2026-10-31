@@ -104,6 +104,8 @@ struct Options {
     std::string start_mission_path;
     std::string place_food;
     std::string food_pos;
+    bool place_lunchbox = false;
+    std::string lunchbox_pos;
     int hire_nutritionists = 0;
     int fire_nutritionists = 0;
     bool feed_now = false;

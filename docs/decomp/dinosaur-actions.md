@@ -227,15 +227,17 @@ action. This is confirmed by the two independent checks.
   name mapping (`Eat`→`Chew`, `Sleep`→`Sleep`, `Exploration`→`Walk`,
   `Smell`→`Sniff`, `Victory`→`Winner`, `RunAway`→`Run`, idle→`Neutral`).
   The loop prints `dino action: <species> <name> score=<n> needs=...` on
-  each action change. Cpg04 with `--dino-needs 20,90,50,90` gives 20 Eat
-  9009; `70,90,90,20` gives 20 Sleep 7060; `99,99,99,99` stays idle. The
-  default `50,99,99,99` selects Eat/EatForSmallies 450 (one Eat per dino).
-- Tests: `tests/test_dino_actions.py` (14 Python oracle/loop tests),
-  `tests/test_app_cpp.py::test_cpp_dino_action_chooser` and
-  `test_cpp_dino_action_loop`.
-- Open for the next increment: calibrate the decay rates and wire the SECU
-  danger grid into the chooser. The feeding interaction is ported
-  (`docs/platform/feeding.md`): a placed `.bsi` source gates Eat and depletes.
+  each action change. Without a LunchBox, Cpg04 with `--dino-needs
+  20,90,50,90` picks Exploration (Eat is unavailable); `70,90,90,20` gives
+  20 Sleep 7060; `99,99,99,99` stays idle. With `--place-lunchbox` the
+  herbivore anky gets Eat and walks to the bowl.
+- Tests: `tests/test_dino_actions.py` (Python oracle/loop tests),
+  `tests/test_app_cpp.py::test_cpp_dino_action_chooser`,
+  `test_cpp_dino_action_loop` and `test_cpp_lunchbox_eat`.
+- Open for the next increment: calibrate the remaining need gauges and wire
+  the SECU danger grid into the chooser. The feeding interaction is the
+  LunchBox item actor (`docs/platform/feeding.md`); `.bsi` sources are
+  visitor/employee-only.
 
 ### SECU danger grid
 
@@ -476,8 +478,9 @@ The food gauge is also exact: `max_food = weight`, `food_gauge` starts at
 `max_food*0.5`, the 10 s pass subtracts `10*food_consumption` and sets
 `FOOD = ftol(gauge*99/max)`, and `apply_food(value, percent)` implements
 `FUN_005727b0` case 0x17 (`gauge = value + percent*gauge/100`, clamped). The
-`.bsi` dino Eat path is removed; the LunchBox/StaticBait meal calls
-`apply_food(amount*nutrition)` when its actor is ported.
+`.bsi` dino Eat path is removed; the LunchBox actor is ported: the anky walks
+to `bowl.mesh`, `feeder_drain` implements `FUN_00576e50`, and
+`apply_food(amount*nutrition)` fills the gauge (`test_cpp_lunchbox_eat`).
 
 ### Normal-action executor (`0x56f7a0`)
 

@@ -39,6 +39,9 @@ struct ParkSession {
     std::vector<VisitorProfile> all_visitor_profiles;
     std::vector<FoodSource> food_sources;
     std::vector<FoodDef> food_defs;
+    // `.bfi` LunchBox/StaticBait item actors (`saFoodSource` created by the
+    // feature); the dinosaur Eat target and `FUN_00576e50` source.
+    std::vector<Feeder> feeders;
     EmployeeSystem employee_system;
     std::vector<EmployeeProfile> employee_profiles;
     ShowRuntime show_runtime;
@@ -68,6 +71,9 @@ struct ParkSession {
     // Paddock/food queries used by the dino tick and the HUD food log.
     int paddock_at(float x, float y) const;
     FoodSource* paddock_food(int paddock, bool carnivore);
+    // Nearest non-empty `.bfi` feeder in the paddock whose kind matches the
+    // diet (`food_is_carnivore`); null when none. `x/y` is the dinosaur.
+    Feeder* paddock_feeder(int paddock, bool carnivore, float x, float y);
     // One dinosaur behavior step: inventory gate, action-loop tick, Eat
     // consumption and clip selection. `Game` prints the returned events,
     // loads the clip assets and uploads the posed mesh.
