@@ -10,6 +10,7 @@ param(
     [switch]$SecuTrace,
     [switch]$FileTrace,
     [switch]$MoverTrace,
+    [switch]$MoveProfile,
     [switch]$SimProbe,
     [int]$SimSeconds = 20,
     [int]$MoverHotMs = 2500,
@@ -33,6 +34,10 @@ param(
 #     action completion) plus the eat path (0x522300 state machine, 0x580e60
 #     SetLevel) and a short 0x574350 mover-tick window for the per-frame dt.
 #     -SimSeconds sets the post-briefing simulation window.
+#   - -MoveProfile: the FUN_0056eec0 move-profile dispatcher (case entry points
+#     0x56ef84/0x56f07d/0x56f0d3/0x56f130/0x56f02c) plus 0x56c0c0 element
+#     registration, so every emitted record can be tied to the action record,
+#     the element and its profile +0x60 value.
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
 # -UnlockCampaigns backs up run/save/dino.dat, writes 8 (all campaigns; the
@@ -638,9 +643,9 @@ if (-not $game) {
                 $moverArgs = 'a1={p:[esp+4]}|a2={p:[esp+8]}|ax={p:[[esp+8]]}|ay={p:[[esp+8]+4]}|a3={p:[esp+0xc]}|a4={p:[esp+0x10]}|a5={p:[esp+0x14]}|a6={p:[esp+0x18]}|a7={p:[esp+0x1c]}'
                 $moverState = 'dino={p:[ecx+0x200]}|id={d:[[ecx+0x200]+0x28]}|act={d:[[ecx+0x200]+0x2c0]}|cd={p:[[ecx+0x200]+0x260]}|food={p:[[ecx+0x200]+0x25c]}|st={d:[ecx+0x1ec]}|actk={d:[ecx+0x1f4]}|pend={d:[ecx+0x1f0]}|px={p:[ecx+0xc]}|py={p:[ecx+0x10]}|fx={p:[ecx+0x1c]}|fy={p:[ecx+0x20]}|qb={p:[ecx+0x1dc]}|qe={p:[ecx+0x1e0]}|walk={p:[[ecx+0x1fc]+0x54]}|run={p:[[ecx+0x1fc]+0x58]}'
                 Send 'bp 0x573f40'
-                Send ('SetBreakpointCommand 0x573f40, "log MOVSTART|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '; run"')
+                Send ('SetBreakpointCommand 0x573f40, "log MOVSTART|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '|ret={p:[esp]}; run"')
                 Send 'bp 0x573dc0'
-                Send ('SetBreakpointCommand 0x573dc0, "log MOVAQUEUE|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '; run"')
+                Send ('SetBreakpointCommand 0x573dc0, "log MOVAQUEUE|t={d:GetTickCount()}|mv={p:ecx}|' + $moverState + '|' + $moverArgs + '|ret={p:[esp]}; run"')
                 # 0x574727: a turn record (kind 3/4/5) arrived; EBP=mover,
                 # ESI=queue record. 0x57472c is the same frame after the rotate.
                 Send 'bp 0x574727'
@@ -669,6 +674,28 @@ if (-not $game) {
                 # 0x571190 = saDinosaur action completion (ECX=dino).
                 Send 'bp 0x571190'
                 Send 'SetBreakpointCommand 0x571190, "log ACTDONE|t={d:GetTickCount()}|dino={p:ecx}|id={d:[ecx+0x28]}|act={d:[ecx+0x2c0]}|cd={p:[ecx+0x260]}|food={p:[ecx+0x25c]}|rest={p:[ecx+0x258]}|px={p:[ecx+0x2d4]}|py={p:[ecx+0x2d8]}|fx={p:[ecx+0x2e4]}|fy={p:[ecx+0x2e8]}; run"'
+            }
+            if ($MoveProfile) {
+                # FUN_0056eec0 picks the move-profile case from
+                # [[[ESI+0xc]+4]+0x60] - 1 (jump table 0x56f1e0) where ESI is the
+                # last element of the behaviour vector [EBX+0x18..0x1c].
+                # 0x56c0c0 registers an element: act = the action record
+                # ([act+0x28] = saDinosaur), el = the element object
+                # ([el+4] = move profile, [profile+0x60] = the case value).
+                Send 'bp 0x56c0c0'
+                Send 'SetBreakpointCommand 0x56c0c0, "log REGACT|t={d:GetTickCount()}|beh={p:ecx}|act={p:[esp+4]}|el={p:[esp+8]}|p4={p:[esp+0xc]}|p5={d:[esp+0x10]}|dino={p:[[esp+4]+0x28]}|el4={p:[[esp+8]+4]}|p60={d:[[[esp+8]+4]+0x60]}|edi={p:edi}|node={p:edi-8}|n38={p:[[edi-8]+0x38]}|n8={p:[[edi-8]+8]}|nc={p:[[edi-8]+0xc]}|n2c={p:[[edi-8]+0x2c]}|n30={p:[[edi-8]+0x30]}|a0={p:[[esp+4]]}|a4={p:[[esp+4]+4]}|ret={p:[esp]}; run"'
+                # Case entry points; ESI is still the element at each address.
+                $mp = 'dino={p:[[esi+0x14]+0x28]}|esi={p:esi}|ebx={p:ebx}|act={p:[esi+0x14]}|state={d:[esi+0x10]}|el={p:[esi+0xc]}|el4={p:[[esi+0xc]+4]}|p60={d:[[[esi+0xc]+4]+0x60]}|vb={p:[ebx+0x18]}|ve={p:[ebx+0x1c]}'
+                Send 'bp 0x56ef84'
+                Send ('SetBreakpointCommand 0x56ef84, "log MP0|t={d:GetTickCount()}|' + $mp + '; run"')
+                Send 'bp 0x56f044'
+                Send ('SetBreakpointCommand 0x56f044, "log MP1|t={d:GetTickCount()}|' + $mp + '; run"')
+                Send 'bp 0x56f0d3'
+                Send ('SetBreakpointCommand 0x56f0d3, "log MP2|t={d:GetTickCount()}|' + $mp + '; run"')
+                Send 'bp 0x56f130'
+                Send ('SetBreakpointCommand 0x56f130, "log MP3|t={d:GetTickCount()}|' + $mp + '; run"')
+                Send 'bp 0x56f02c'
+                Send ('SetBreakpointCommand 0x56f02c, "log MP4|t={d:GetTickCount()}|' + $mp + '; run"')
             }
             Resume
             if ($SimProbe) { Sample-Sim 'AFTERINSTALL' }
@@ -741,4 +768,4 @@ if ($errPath -eq $logPath) { $errPath = "$logPath.err" }
 $err | Set-Content -Path $errPath -Encoding utf8
 
 Write-Host "--- campaign trace matches ---"
-Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|PROVIDER|PARKREADY|EXCEPTION|MOVSTART|MOVAQUEUE|TURNPRE|TURNPOST|TURNPLAN|EMIT|SETLEVEL|EATSM|ACTDONE|MOVTICK" | Select-Object -First 120
+Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|PROVIDER|PARKREADY|EXCEPTION|MOVSTART|MOVAQUEUE|TURNPRE|TURNPOST|TURNPLAN|EMIT|SETLEVEL|EATSM|ACTDONE|MOVTICK|REGACT|MP0|MP1|MP2|MP3|MP4" | Select-Object -First 160
