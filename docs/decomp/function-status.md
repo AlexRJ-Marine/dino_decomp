@@ -45,6 +45,23 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0056ce80` | behavior-graph node reader (format versions 0x25..0x2b; 0x29 is the current version, **not** a node-type count) | decompiled | version branches, node record |
 | `0x0056d5a0` | behavior-graph node writer | decompiled | node record shape |
 
+## Dinosaur actions / feeding
+
+| Address | Purpose | Status | Evidence |
+| --- | --- | --- | --- |
+| `0x0056c490` | object/box Eat executor: radius `field_18 × mode`, `0.8r²..1.2r²` band, stand-cell marker, state-3 finish | decompiled, verified | `notes/dino-eat-gate-recon.md`; `test_cpp_lunchbox_eat` |
+| `0x0056c3b0` | element finish: `FUN_00569a00`, mark played, unregister, idle latch | decompiled, verified | same |
+| `0x0055b5b0` | stand-cell search wrapper (`ftol(r+0.5)` cells, minimum-cost candidate) | decompiled, verified | same |
+| `0x0055cb50` | filled-disc cell enumeration (spiral) | decompiled (K-square/tie order open) | same |
+| `0x0055b780` | per-cell occupancy predicate + squared distance to the dino cell | decompiled, verified | same |
+| `0x0056f7a0` | actor-target executor: `d = GeneralParams 4×4 grid[4·targetClass+selfClass] + self+0x60 + target+0x60`, `0.8d²..1.2d²` | decompiled (no port action uses it yet) | `notes/dino-eat-gate-recon.md` §4 |
+| `0x00569a00` | element execute: event effects, five `+0x14..+0x28` dwords, `+0x54` class | decompiled | `docs/decomp/dinosaur-actions.md` |
+| `0x00576d50` | `saFoodSource::SetFoodLevel` level 0/1/2 + `.bsi` price charge (`0x585c90`) | decompiled, verified | `notes/food-refill-recon.md`; selftest 100/66/33 |
+| `0x00576e50` | food-source drain: clamp, subtract, 2/3/1/3 state, return `amount × nutrition` | decompiled, verified | `test_cpp_lunchbox_eat`; selftest |
+| `0x00580e30` | hour-slot writer; all three call sites pass level 0 | decompiled, verified | `notes/food-refill-recon.md` |
+| `0x00580e60` | hourly refill path (`SetFoodLevel` + reset) | decompiled | same |
+| `0x005727b0` | element event switch; case 0x17 adds `amount × nutrition` to the food gauge | decompiled, verified | `notes/dino-food-gauge-recon.md` |
+
 ## Overlay / menu (UI-2)
 
 | Address | Purpose | Status | Evidence |
