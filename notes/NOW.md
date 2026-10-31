@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - docs: show arena wall DDA mapped - stPerimeter/stWall per-cell pieces, count=int((edgeLen+1)/wallRecord[0]); wallRecord[0] is the runtime pitch (not BWI version/height); per-piece display transform and Z remain OPEN, so no wall geometry is guessed; .bwi parser already committed
 - 2026-10-31 - review fixes + .bwi parser: paddock-index bounds in RunAway/Exploration, shared dino_graph_node_names, integer RunAway box, discriminating current-cost selftest (249), Eat item-list assertion; new src/formats/bwi + --bwi-info (24/24, test); corrected Victory/attach-list evidence; fast 385
 - 2026-10-31 - docs: show performance length is the scheduler slot window - no stShow/.shw duration field; FUN_0058c390 bounds the show and FUN_0058c8f0/FUN_0057b130 end it at the slot boundary; the port's 30-minute ShowRuntime duration is an explicit placeholder
 - 2026-10-31 - docs: live show cast writer, timer and score mapped - FUN_00583060/FUN_00582840 cast, FUN_0058c760/0057b110/0057ba50/0057b130 timer, FUN_00581770 five-float score; Victory emitter still open; exact-RunAway full suite 538 passed
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - AI: exact RunAway current-cost comparison - cur=grid[dino]-threat, chosen-=cur inside the threat_radius box, move only chosen<cur; the scan repeats every frame and runaway_moved stops it after the 0x35 goto; selftest 247, fast 384, full 538 on the item build
 - 2026-10-31 - AI: split the food-item action behavior - BfiFeature.actions/Feeder.actions carry the .bfi Eat list; the dino chooser is Exploration/RunAway/Sleep and switches to the item list when its best score wins; --place-lunchbox logs actions=Eat,EatForSmallies; selftest 247, fast 384, full 538 on the RunAway build
 - 2026-10-31 - AI: retail park node set + RunAway - chooser Exploration/RunAway/Sleep + item Eat family; runaway_cell implements FUN_00577570 danger-grid scan and 0x35/0x19 hold; test_cpp_dino_runaway_node; selftest 247, fast 384
-- 2026-10-31 - world: fix Eat re-selection blocker - revert finish_current so the meal applies once at arrival and the action runs to the field_2e cap; tie the stand-cell cache to the feeder; persist the phenotype tail in DINOPSAV; Eat node-set graph recon recorded; targeted/fast green (full 537 before fix)
 
 ## Blockers
 

@@ -129,7 +129,40 @@ values and the `iterations` spacing within the slot are OPEN. The port's
 30-minute `ShowRuntime` duration is therefore an explicit placeholder; it
 should become the slot window, not a `.shw`/`.bfi` length.
 
-## 6. Score and Victory
+## 7. Arena wall geometry (`FUN_00584090` / `FUN_00584200`)
+
+The `stShow` arena is an `stPerimeter` at `stShow+0x1c`:
+`FUN_00579440` -> `FUN_00580f00` (`stAttraction`) -> `FUN_00584090`
+(`stPerimeter`, vtable `0x643550`). It stores the four rectangle corners at
+`+0x1c/+0x20/+0x24/+0x28` and calls `FUN_00582210` once per edge; each edge
+allocates an `stWall` (`FUN_00584200`) and walks it cell-by-cell.
+
+- **Segment count** (`0x584249..0x584295`):
+  `count = int((edgeLen + 1.0) / wallRecord[0])`, with
+  `edgeLen = sqrt(dx²+dy²)`; `FUN_005ffa50` allocates that many pieces.
+- `wallRecord = design+0xc`, `design = DB+0x6c + show.field_14*0xb4`;
+  `wallRecord[0]` is the **runtime wall pitch**, not the `.bwi` version (4)
+  or height (8). Its exact builder/value is OPEN (Cpg04 likely 4).
+- `FUN_00584700` fills the 0x28 `stWall`: mesh/resource pointer
+  (`wallRecord+8`), a cell vector (8-byte {x,y}), `field44` at `+0x14`, the
+  pitch at `+0x20`, wall record at `+0x24`. It does **not** write a mesh
+  transform.
+- `FUN_005849a0` marks the world grid cells (occupancy class
+  `DAT_006757b4<<12`), not geometry.
+- The per-piece **position/yaw/scale/Z transform is applied by the generic
+  display/scene builder**; that helper was not isolated. The `.bwi` mesh
+  `fence_show_lod1.mesh` has local +Y as its long axis (bbox ~4.4 units,
+  height 8.5), so local +Y maps to the edge direction (yaw 0/90/180/270);
+  whether `BWI.scales[0]`/height are applied and where Z comes from are OPEN.
+- `showRecord+0x44` is not the wall id; it is a scheduler/registration handle
+  (`stAttraction+0x1c`). `field_14` selects the WallList/BWI record.
+
+Port state: `src/formats/bwi` parses all 24 walls (`Show.bwi` ->
+`fence_show_lod1.mesh`, height 8, scale 1.0, `--bwi-info`). The wall DDA
+(`count = int((edge+1)/pitch)`, per-cell pieces) is mapped, but rendering is
+deferred until the display transform is resolved; no yaw/scale/Z is guessed.
+
+## 8. Score and Victory
 
 - `.bfi` `score_steps`/`attribute_sets` are **unused** in this build.
 - `FUN_00581770(show, dt, participants)`:
