@@ -301,6 +301,9 @@ list; they are simply not hit until a dino uses an item.
   Cpg04 once a dino reaches food (~112 s). The 60 s negative in
   `notes/dino-mover-runtime-probe.md` section 6 must not be used to delete
   the Eat kind or the item-element emitter.
+- **Ported (2026-10-31):** at the meal the port now queues the observed
+  kind-8 record (`mode 2`, `family_duration(8, 2.0)`, target = the feeder) in
+  `ParkSession::tick_dino`, matching the 180 s `ret=0x569775` record.
 
 ## Harness state / stale lock
 

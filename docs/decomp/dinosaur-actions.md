@@ -480,7 +480,10 @@ around the feeder cell, the `0x0055af20` occupancy predicate, and the strict
 minimum squared distance to the dino's cell, filtered to the arrival band.
 The exact K-square clearance and spiral tie order remain open. The meal
 amount is `attack_head` (`dino+0x288`), matching `FUN_00569a00`'s
-`FUN_00576e50` call.
+`FUN_00576e50` call. The 180 s runtime item record is `kind 8 (Eat), mode 2,
+duration 2.0 s, target = the item cell` (`0x569770` inside `FUN_00569660`);
+the port queues the same record at the meal (`ParkSession::tick_dino`), so
+the item element holds the mover for its Eat duration.
 
 Port approximations (see `TASKS.md` P3-MOTION-1): the Exploration profile
 (`0x27, 0x27, 0x34, 0x20, 0x20`) is ported with the probe's targets and

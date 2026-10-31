@@ -2508,13 +2508,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `30 × nutrition 100 = 3000` (not the whole source). `--dino-info` prints
   `head=`, `size_radius`; `notes/dino-eat-gate-recon.md`.
 - [x] Removed the port's `.bsi` dino Eat gate and 3-unit consumption (the
-  `.bsi` source is visitor/employee; Cpg04 showed no dino Eat/`SetLevel`).
+  `.bsi` source is visitor/employee; the 60 s Cpg04 sample saw no dino
+  Eat/`SetLevel`, but the 180 s run did — a sampling artifact,
+  `notes/dino-mover-return-probe.md`).
 - [x] LunchBox item actor: `--place-lunchbox` loads the `.bfi`
   (`field_3c` quantity 10000 / `field_40` nutrition 100), draws `bowl.mesh`,
   the herbivore Eat gate + `0x34` walk, `feeder_drain` (`FUN_00576e50`) and
   `apply_food(amount*nutrition)`. `test_cpp_lunchbox_eat` (anky:
   `nutrition=3000 quantity=9970 gauge=4255`, bite = `attack_head 30`). The
   `.bsi` gate stays out.
+- [x] Eat item element record: the 180 s probe's `FUN_00569660` record
+  (kind 8, mode 2, 2.0 s, target = feeder, allowTurn 1) is queued at the
+  meal in `ParkSession::tick_dino`; `test_cpp_lunchbox_eat` still bounds the
+  meal count. This is the first observed normal-action element record; the
+  rest of the element list (0x12..0x17 executor gestures) remains open.
 - [ ] StaticBait variants and save persistence of placed feeders. The
   interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
   (`0x531c80`) arms feature mode, each ground click creates the dish at that

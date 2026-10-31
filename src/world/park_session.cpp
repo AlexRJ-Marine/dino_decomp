@@ -626,6 +626,14 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                     const float value = feeder_drain(*feeder, bite);
                     dinosaur.action_loop->apply_food(value);
                     dinosaur.eat_applied = true;
+                    // `FUN_00569660` item/Eat path (runtime 180 s Cpg04):
+                    // the element emits move kind 8 (Eat), mode 2,
+                    // `FUN_00575de0(8)` = 2.0 s, target = the item cell,
+                    // allowTurn 1. The port's mode-2 gesture holds the mover
+                    // for the Eat duration; the action animation already
+                    // plays Eat.
+                    dinosaur.mover.start(8, feeder->x, feeder->y, 2,
+                                         family_duration(8, 2.0f));
                     std::printf(
                         "dino eat: %s <- %s nutrition=%.0f quantity=%.0f "
                         "gauge=%.0f\n",
