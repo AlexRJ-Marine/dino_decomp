@@ -693,6 +693,8 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     if (out.size_class < 0) {
         out.size_class = 3;
     }
+    out.size_radius =
+        size_category_radius[static_cast<std::size_t>(out.size_class)];
     // Retail overrides the family for bipeds: `(class < 2) + 2`
     // (HeavyBiped 2 / LightBiped 3); quadruped keeps the legs family.
     if (!out.quadruped) {

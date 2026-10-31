@@ -34,7 +34,10 @@ struct Feeder {
     int kind = 0;
     float x = 0.0f;
     float y = 0.0f;
-    // Item actor radius (`.bfi` width/2; the Eat proximity gate).
+    // `.bfi` footprint half-size (width/2); used for the draw/footprint
+    // radius. The Eat proximity gate does **not** use it: the retail
+    // object executor scales the `.bai` element radius by the dino's body
+    // part length or size radius (`eat_arrival_radius`).
     float radius = 2.0f;
     float quantity = 0.0f;
     float max_quantity = 0.0f;

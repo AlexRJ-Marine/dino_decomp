@@ -2434,8 +2434,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
   (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
 - [ ] Port the normal-action executor rest: the full element record list and
-  the element gesture `0x12..0x17` from `element+0x40` (the `0x56fb70`
-  attack slot). The Eat actor path's marker/stop is done (next row).
+  the executor gesture `0x12..0x17` from `executor+0x40` (written only by
+  `0x56fb70`; `element+0x40` is `.bai params[8]`, not a gesture). The Eat
+  object path's marker/stop/gate is done (next rows).
 - [x] Sleep special list: `0x1d` + the `0x1e` sentinel at state 0, `0x1c`
   at wake, all self-target gestures. Gesture kinds now have zero speed and a
   mode-2 self record waits its duration. `test_cpp_dino_sleep_records`.
@@ -2445,18 +2446,26 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
   (needs the steering cell), Victory `bones[0]` 35 sentinel, and sp5
   `FUN_0056fb70` target/response logic.
-- [x] Eat actor path (`0x56f94a`): one active marker toward the feeder,
-  re-issued if absent; arrival clears it (`0x56f98a`); target loss aborts.
-  Marker kind `0x34 + (REPOS state != 2)` (`dino+0x2b8`); Cpg04 logs
-  `kind=0x35` at REPOS 90 and `kind=0x34` at REPOS 20
-  (`test_cpp_lunchbox_eat`). The general duplicate-insert path remains open.
+- [x] Eat object/box path (`0x0056c490`): one active marker toward the
+  feeder, re-issued if absent; arrival clears it; target loss aborts.
+  Gate `r = .bai field_18 × mode`, band `0.8r²..1.2r²` (`Eat`/`EatBait`
+  mode 3 = `0.01 × body`; `EatForSmallies`/`EatBaitForSmallies` mode 4 =
+  `size_radius + 1`). Marker kind `0x34 + (REPOS state != 2)` (`dino+0x2b8`);
+  Cpg04 logs `kind=0x35` at REPOS 90, `kind=0x34` at REPOS 20 and
+  `dino eat gate: anky r=7.01` (`test_cpp_lunchbox_eat`). The stand-cell
+  search `FUN_0055b5b0` and the duplicate-insert path remain open.
+- [x] Eat bite amount: `dino+0x288` = the `+0x9c` stat slot = phenotype
+  `+0x4c` `attack_head`; the anky eats 30, so the meal is
+  `30 × nutrition 100 = 3000` (not the whole source). `--dino-info` prints
+  `head=`, `size_radius`; `notes/dino-eat-gate-recon.md`.
 - [x] Removed the port's `.bsi` dino Eat gate and 3-unit consumption (the
   `.bsi` source is visitor/employee; Cpg04 showed no dino Eat/`SetLevel`).
 - [x] LunchBox item actor: `--place-lunchbox` loads the `.bfi`
   (`field_3c` quantity 10000 / `field_40` nutrition 100), draws `bowl.mesh`,
   the herbivore Eat gate + `0x34` walk, `feeder_drain` (`FUN_00576e50`) and
   `apply_food(amount*nutrition)`. `test_cpp_lunchbox_eat` (anky:
-  `nutrition=1000000 quantity=0 gauge=4255`). The `.bsi` gate stays out.
+  `nutrition=3000 quantity=9970 gauge=4255`, bite = `attack_head 30`). The
+  `.bsi` gate stays out.
 - [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
   persistence of feeders.
 - [x] Occupancy footprint adapter (`FUN_0055af70`): radius `actor+0x13 = 1`

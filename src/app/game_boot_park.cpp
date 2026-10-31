@@ -625,6 +625,14 @@ std::optional<int> Game::boot_import_dinos() {
                     static_cast<double>(park_session.sellback),
                     static_cast<int>(static_cast<float>(attrs.market_value) *
                                      park_session.sellback));
+                std::printf(
+                    "dino info size: class=%d radius=%d body=%d height=%d "
+                    "length=%d head=%d x=%.1f y=%.1f\n",
+                    attrs.size_class, attrs.size_radius,
+                    attrs.part_length[3], attrs.height_cm, attrs.length_cm,
+                    attrs.attack_head,
+                    static_cast<double>(dinosaur.x),
+                    static_cast<double>(dinosaur.y));
                 break;
             }
         }

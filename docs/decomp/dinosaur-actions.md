@@ -330,11 +330,14 @@ only for the special action ids 9..0x1c (Smell, Speed, ...); normal actions
 (`0 Explore`, `4 Eat`, `2 Sleep`) do not get it from the element. Their
 lifecycle is the element/animation state machine (`FUN_00522300` is the Eat
 state machine; it calls `saFoodSource::SetLevel 0x580e60` when the eating
-animation ends, not when the action id clears). The port currently uses the
-`.bai` `field_2e` (30 s) as the action duration and gates the meal on a
-3-unit proximity; **both are port scaffolding until the runtime probe
-(`notes/dino-mover-runtime-probe.md`) pins the real element duration and the
-SetLevel distance.**
+animation ends, not when the action id clears). The port still uses the
+`.bai` `field_2e` (30 s) as the action duration pending the animation-state
+probe. The proximity gate is **solved** (`0x0056c490`, object/box Eat
+executor): `r = Eat.bai field_18 3.1 × 0.01 × body part length`
+(`dino+0xf4`), arrival iff `0.8 r² ≤ d² ≤ 1.2 r²`. `EatForSmallies` uses
+`field_18 2.5`, mode 4: `r = 2.5 × (size_radius + 1)`. The bite amount is
+`dino+0x288` = the first `+0x9c` stat slot = phenotype `+0x4c`
+`attack_head`.
 
 ## The mover (`saDinosaur+0x2c8`)
 
@@ -423,13 +426,20 @@ and have been removed; the LunchBox/StaticBait actor + `FUN_00576e50` is the
 replacement. The 0x34/0x35 walk/run markers are re-issued every frame in
 retail, not once per action.
 
-The actor-target executor's Eat walk is now ported (`0x56f94a`): while the
-element is outside the target gate the port keeps one marker active toward
-the feeder; arrival clears it (`0x56f98a` stop). The marker kind is
-`0x34 + (REPOS state != 2)` from `dino+0x2b8` (state 2 = BAD/tired), so a
-tired dino walks (0x34) and a rested one runs (0x35). Cpg04 evidence:
-`--dino-needs 20,90,50,90` logs `kind=0x35`; `20,90,50,20` logs `kind=0x34`
-(`test_cpp_lunchbox_eat`).
+The object/box Eat executor's walk is ported from `0x0056c490` (not the
+actor-target `0x56f94a`): the radius comes from the selected `.bai` action
+(`Eat`/`EatBait`: `field_18 3.1`, mode 3 = `0.01 × body part length`;
+`EatForSmallies`/`EatBaitForSmallies`: `field_18 2.5`, mode 4 =
+`size_radius + 1`). While the dino is outside the `1.2 r²` outer bound the
+port keeps one marker active toward the feeder; arrival clears it. The marker
+kind is `0x34 + (REPOS state != 2)` from `dino+0x2b8` (state 2 = BAD/tired),
+so a tired dino walks (0x34) and a rested one runs (0x35). Cpg04 evidence:
+`--dino-needs 20,90,50,90` logs `kind=0x35` and
+`dino eat gate: anky r=7.01` (body 226), `20,90,50,20` logs `kind=0x34`
+(`test_cpp_lunchbox_eat`). The port walks to the bowl centre, so the retail
+lower bound (`0.8 r²`) re-plan through the stand-cell search `FUN_0055b5b0`
+remains open; the outer bound gates arrival and the meal. The meal amount is
+`attack_head` (`dino+0x288`), matching `FUN_00569a00`'s `FUN_00576e50` call.
 
 Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
 instead of the behaviour's record list; the paddock inset is

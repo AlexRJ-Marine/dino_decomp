@@ -449,4 +449,19 @@ std::string dino_clip_for_action(const std::string& action) {
     return "Neutral";
 }
 
+float eat_arrival_radius(float field_18, int mode, int body_length_cm,
+                         int size_radius) {
+    // `0x0056c52b` mode 2 uses the target's height; `0x0056c51f` mode 1 the
+    // body length cache. Neither mode occurs in the four Eat actions (all
+    // `.bai` files checked), so only the two proven modes are scaled here.
+    switch (mode) {
+        case 3:  // 0x0056c537: r = base * (target+0xf4 * 0.01)
+            return field_18 * static_cast<float>(body_length_cm) * 0.01f;
+        case 4:  // 0x0056c545: r = base * ((float)target+0x60 + 1.0)
+            return field_18 * (static_cast<float>(size_radius) + 1.0f);
+        default:
+            return field_18;
+    }
+}
+
 }  // namespace dino

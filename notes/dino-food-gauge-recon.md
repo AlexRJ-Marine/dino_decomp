@@ -38,7 +38,7 @@ the bar per 10 s for every dino**, and the need is derived from the gauge.
 `FUN_00569a00` (LunchBox/StaticBait branch, element profile contains kind 8):
 
 ```c
-amount = *(float*)(dino + 0x288);
+amount = (float)*(int*)(dino + 0x288);   /* +0x9c = attack_head */
 value  = (int)FUN_00576e50(source, amount);   // amount * nutrition
 FUN_005727b0(0x17, value, 100, 0, ...);
 ```
@@ -85,11 +85,11 @@ StaticBait `quantity=10000`, `nutrition=70`.
 
 ## Open
 
-- `dino+0x288`: the probe read 29.9 at that offset; it is the amount passed to
-  the drain. Name it (a food-gauge read? a bite size?) with a runtime
-  breakpoint at `0x569e...`/`0x576e50`.
-- `source+0x0c` `{nutrition, capacity}` mapping to BFI `field_40`/`field_3c`
-  at actor creation (`FUN_00589020` / `FUN_0053acd0`).
+- The retail stand-cell search `FUN_0055b5b0` / `FUN_0055cb50` (the walk
+  target is a min-cost cell at radius r, not the bowl centre); the port uses
+  the bowl centre and the outer `1.2 r²` bound.
+- The animation-state duration (`FUN_00522300`) versus the port's `.bai`
+  `field_2e`; the port keeps `field_2e × action_scale`.
 - The other three needs still use the port's tuned decay; the same gauge
   treatment is needed for VIOLENCE (`FUN_00571410`), REPOS (`FUN_00571540`)
   and SECU (already from the danger grid).

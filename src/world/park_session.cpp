@@ -146,7 +146,6 @@ bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
 ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, double dt,
     const std::vector<BaiAction>& actions) {
     DinoActionEvent event;
-    (void)actions;  // scoring/event application lives in DinoActionLoop
     if (!dinosaur.action_loop) {
         return event;
     }
@@ -247,21 +246,45 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         const float value = action_duration(actions_bad, family, kind);
         return value > 0.0f ? value : fallback;
     };
+    // `0x0056c500..0x0056c575` (object/box Eat executor): the radius is the
+    // selected `.bai` element radius scaled by mode 3 (body part length) or
+    // mode 4 (size radius + 1); retail's arrival band is
+    // `0.8*r^2 .. 1.2*r^2`. The port walks to the bowl centre, so only the
+    // outer bound gates arrival; the lower bound re-plans through the
+    // retail stand-cell search (`FUN_0055b5b0`), still open.
+    auto eat_radius = [&](const std::string& name) {
+        for (const dino::BaiAction& action : actions) {
+            if (action.name == name) {
+                return dino::eat_arrival_radius(
+                    action.field_18, static_cast<int>(action.field_1c),
+                    dinosaur.attributes.part_length[3],
+                    dinosaur.attributes.size_radius);
+            }
+        }
+        return 0.0f;
+    };
     if (dinosaur.action_loop->finished_count() != finished_before) {
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
-        if (finished == "Eat" || finished == "EatForSmallies") {
+        const bool finished_eat =
+            finished == "Eat" || finished == "EatForSmallies" ||
+            finished.rfind("EatBait", 0) == 0;
+        if (finished_eat) {
             if (!dead && feeder != nullptr && feeder->quantity > 0.0f) {
                 const float dx = feeder->x - dinosaur.x;
                 const float dy = feeder->y - dinosaur.y;
-                const float gate = std::max(0.1f, feeder->radius);
-                if (dx * dx + dy * dy <= gate * gate) {
-                    // `FUN_00576e50` clamps the amount to the source; the
-                    // retail amount (FILD dino+0x288) is above the LunchBox
-                    // quantity, so one meal drains it and `apply_food`
-                    // clamps the gauge.
-                    const float value =
-                        feeder_drain(*feeder, feeder->quantity);
+                const float radius = eat_radius(finished);
+                const float outer = 1.2f * radius * radius;
+                if (dx * dx + dy * dy <= outer) {
+                    // `FUN_00569a00` passes `dino+0x288` to
+                    // `FUN_00576e50`; `+0x288` is the first of the five
+                    // stat slots copied from `+0x9c` = phenotype `+0x4c`
+                    // (attack head). GetCourage would overwrite the slot
+                    // from `+0x270`, but the port's park node set does not
+                    // include that action, so the fresh-park value is exact.
+                    const float bite =
+                        static_cast<float>(dinosaur.attributes.attack_head);
+                    const float value = feeder_drain(*feeder, bite);
                     dinosaur.action_loop->apply_food(value);
                     std::printf(
                         "dino eat: %s <- %s nutrition=%.0f quantity=%.0f "
@@ -361,14 +384,18 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         event.clip =
             action == "idle" ? "Neutral" : dino_clip_for_action(action);
     }
-    // `0x56f94a` (actor-target executor): the walk/run marker is re-emitted
-    // every frame while the element is outside its target gate; arrival
-    // emits the kind-0 stop (`0x56f98a`). The marker kind is
+    // `0x0056c490` (object/box Eat executor): the walk/run marker is
+    // re-emitted every frame while the dino is outside the arrival band
+    // (`0x0056c718`); arrival emits the stop (`0x56c70e`) and the finish
+    // runs `FUN_0056c3b0`. The marker kind is
     // `0x34 + (REPOS state != 2)` (`dino+0x2b8`; state 2 = BAD/tired), so an
     // exhausted dino walks and a rested one runs to the food.
-    if (!dead && (action == "Eat" || action == "EatForSmallies")) {
+    const bool eat_action = action == "Eat" || action == "EatForSmallies" ||
+                            action.rfind("EatBait", 0) == 0;
+    if (!dead && eat_action) {
         if (feeder == nullptr || feeder->quantity <= 0.0f) {
-            // Target gone: `0x56f9fd` aborts the element (mode 0 cancel).
+            // Target gone: the retail element re-plans/aborts; the port
+            // cancels the walk marker.
             if (dinosaur.mover.active() &&
                 (dinosaur.mover.kind() == 0x34 ||
                  dinosaur.mover.kind() == 0x35)) {
@@ -377,8 +404,9 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         } else {
             const float dx = feeder->x - dinosaur.x;
             const float dy = feeder->y - dinosaur.y;
-            const float gate = std::max(0.1f, feeder->radius);
-            if (dx * dx + dy * dy <= gate * gate) {
+            const float radius = eat_radius(action);
+            const float outer = 1.2f * radius * radius;
+            if (dx * dx + dy * dy <= outer) {
                 if (dinosaur.mover.active()) {
                     dinosaur.mover.clear();
                 }
@@ -396,6 +424,12 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                              NeedAxis::Repos) != 2
                              ? 1
                              : 0);
+                    std::printf(
+                        "dino eat gate: %s r=%.2f d2=%.1f band=%.1f..%.1f\n",
+                        dinosaur.species.c_str(), static_cast<double>(radius),
+                        static_cast<double>(dx * dx + dy * dy),
+                        static_cast<double>(0.8f * radius * radius),
+                        static_cast<double>(outer));
                     dinosaur.mover.start(kind, feeder->x, feeder->y, 1);
                     event.move_started = true;
                     event.move_kind = kind;

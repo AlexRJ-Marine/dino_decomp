@@ -110,6 +110,16 @@ using ActionThreatProvider = std::function<int(const BaiAction&)>;
 // documented in `notes/dino-action-chooser-recon.md` (inferred).
 std::string dino_clip_for_action(const std::string& action);
 
+// `0x0056c500..0x0056c575` (object/box Eat executor): the proximity radius
+// for the arrive band. `field_18` is the `.bai` element radius and `mode`
+// its `field_1c`. The four Eat actions use mode 3 (`Eat`, `EatBait`:
+// `r = field_18 * body_length_cm * 0.01`) or mode 4 (`EatForSmallies`,
+// `EatBaitForSmallies`: `r = field_18 * (size_radius + 1)`). The arrival test
+// is `0.8*r^2 <= d^2 <= 1.2*r^2`. Other modes return the base radius; they
+// do not occur in the Eat family.
+float eat_arrival_radius(float field_18, int mode, int body_length_cm,
+                         int size_radius);
+
 int score_action(const BaiAction& action, const DinoNeeds& needs,
                  int node_percent = 100, int node_rest = 0,
                  int threat_score = 0);

@@ -393,6 +393,18 @@ int run_selftest() {
           "dino patrol point max");
     check(!dino::paddock_patrol_point({0, 0, 6, 6}, 0, 0, patrol_x, patrol_y),
           "dino patrol point small rect");
+    // `0x0056c500..0x0056c575`: the object/box Eat arrival radius.
+    // Eat.bai (3.1, mode 3) uses 0.01 * body part length; EatForSmallies
+    // (2.5, mode 4) uses size_radius + 1; the band is 0.8r^2..1.2r^2.
+    check(std::fabs(dino::eat_arrival_radius(3.1f, 3, 150, 0) - 4.65f) <
+              0.001f,
+          "dino eat radius body");
+    check(std::fabs(dino::eat_arrival_radius(2.5f, 4, 0, 4) - 12.5f) <
+              0.001f,
+          "dino eat radius smallies");
+    check(std::fabs(dino::eat_arrival_radius(3.1f, 0, 150, 4) - 3.1f) <
+              0.001f,
+          "dino eat radius base");
     // `FUN_00571370`: max_food = weight, gauge starts at max/2, 10 s pass
     // removes 10*consumption, need = ftol(gauge*99/max).
     dino::DinoNeeds gauge_needs;

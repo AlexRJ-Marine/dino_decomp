@@ -39,7 +39,9 @@ return amount * pf[0];                      // nutrition delivered
 ```
 
 `FUN_00569a00` calls it only when the element's move-profile kind list
-contains **8** (LunchBox/StaticBait), with `amount = *(float*)(dino+0x288)`;
+contains **8** (LunchBox/StaticBait), with
+`amount = (float)*(int*)(dino+0x288)` (`+0x288` is the `+0x9c` attack-head
+stat slot in a fresh park);
 it then applies `FUN_005727b0(0x17, result, 100, ...)`, i.e. the **food gauge**
 `dino+0x97` (max `+0x77`), not the port's `DinoNeeds::value[0]`.
 
@@ -68,14 +70,11 @@ record at `featureList+0x7c + type*0x1d8`.
 
 ## Open
 
-- Identity/range of `dino+0x288` (the probe read 29.9 at that offset); it is
-  the amount passed to the drain.
-- `source+0x0c`'s `{nutrition, capacity}` field mapping to the BFI
-  `field_40`/`field_3c` at actor creation (`FUN_00589020`).
-- The exact food-gauge max `+0x77` and its mapping to the 0..99 need
-  (DINO-STATS-1; `notes/dino-stats-economy-gap-audit.md`).
-- A runtime `FUN_00576e50` hit: place a LunchBox in a paddock with a hungry
-  dino and breakpoint `0x576e50`, logging the amount/source fields.
+- The retail stand-cell search (`FUN_0055b5b0`/`FUN_0055cb50`) and the
+  animation-state meal duration; the port uses the bowl centre, the outer
+  `1.2 r²` bound and `.bai field_2e`.
+- Confirm the attack-head amount with a live `FUN_00576e50` breakpoint (the
+  static path is `+0x288` = `+0x9c` = phenotype `+0x4c`).
 
 ## Evidence
 

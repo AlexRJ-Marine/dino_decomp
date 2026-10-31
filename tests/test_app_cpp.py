@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (237 checks)" in result.stdout
+    assert "selftest: PASS (240 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4313,8 +4313,9 @@ def test_cpp_lunchbox_eat():
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
          "--wld-park", str(wld), "--place-lunchbox",
+         "--lunchbox-pos", "113,78",
          "--dino-action-loop", "--fixed-dt", "0.016",
-         "--dino-action-speed", "100", "--dino-needs", "20,90,50,90"],
+         "--dino-action-speed", "10", "--dino-needs", "20,90,50,90"],
         capture_output=True, text=True, timeout=300,
     )
     assert result.returncode == 0, result.stderr
@@ -4326,14 +4327,19 @@ def test_cpp_lunchbox_eat():
     # The herbivore anky eats; the carnivore allos cannot use kind 0.
     assert "dino eat: anky <- LunchBox" in log
     assert "dino eat: allo" not in log
-    # `0x56f94a`: marker kind = 0x34 + (REPOS state != 2). REPOS 90 is not
-    # BAD, so the anky runs (0x35) to the bowl.
+    # `0x0056c490` object/box Eat executor: marker kind =
+    # 0x34 + (REPOS state != 2). REPOS 90 is not BAD, so the anky runs
+    # (0x35) to the bowl.
     assert "dino move: anky start" in log
-    assert "target=460.0,328.0 kind=0x35" in log
-    # FUN_00576e50 returns quantity*nutrition and applies the gauge.
-    assert "nutrition=1000000" in log
-    assert "quantity=0" in log
-    assert "gauge=" in log
+    assert "target=454.0,314.0 kind=0x35" in log
+    # Eat.bai field_18=3.1, field_1c=3: r = 3.1 * 0.01 * body 226 = 7.006.
+    assert "dino eat gate: anky r=7.01" in log
+    # `FUN_00569a00` passes `dino+0x288` = attack_head (30 for this anky)
+    # to `FUN_00576e50`: 30 * LunchBox nutrition 100 = 3000; the quantity
+    # falls by 30 and the gauge clamps at max 4255.
+    assert "nutrition=3000" in log
+    assert "quantity=9970" in log
+    assert "gauge=4255" in log
     # A tired dino (REPOS 20 -> state 2 BAD) walks (0x34) instead.
     tired = subprocess.run(
         [str(EXE), "--frames", "120", "--no-menu", "--no-hud",
@@ -4341,6 +4347,7 @@ def test_cpp_lunchbox_eat():
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
          "--wld-park", str(wld), "--place-lunchbox",
+         "--lunchbox-pos", "113,78",
          "--dino-action-loop", "--fixed-dt", "0.016",
          "--dino-action-speed", "100", "--dino-needs", "20,90,50,20"],
         capture_output=True, text=True, timeout=300,

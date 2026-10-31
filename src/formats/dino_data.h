@@ -123,6 +123,10 @@ struct DinoAttributes {
     int originality = 0;              // store ORIGINALITY/Strangeness gauge
     int ornament_count = 0;           // non-empty slots in the 23-slot +0xE8 map
     int size_class = -1;              // +0x190
+    // `+0x10` = `SizeCategory*Radius` (TranslatorConstants.ini):
+    // 0 / 2 / 4 / 7 for size class 0..3. Retail copies it to `actor+0x60`;
+    // the actor-target/eat radius modes read it.
+    int size_radius = 0;              // +0x10 (SizeCategoryNRadius)
     int family = -1;                  // +0x1ac
     bool quadruped = true;            // +0x1b4
 };
