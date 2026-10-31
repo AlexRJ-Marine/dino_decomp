@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI: LunchBox item actor - .bfi bowl draw, enclosure/diet feeder gate, 0x34 walk, FUN_00576e50 drain, apply_food gauge; Cpg04 anky nutrition=1000000 quantity=0 gauge=4255; fast 381, selftest 215
 - 2026-10-31 - AI: exact food gauge (max=weight, 10s pass, apply_food event 0x17), .bsi dino placeholder removed (visitor/employee source), BFI quantity/nutrition + FUN_00576e50 feeder drain model, sticky enclosure index; fast 381, selftest 215
 - 2026-10-31 - AI: Sleep special-action records (0x1d/0x1e/0x1c), gesture no-translation, normal-action executor 0x56f7a0 map (marker/stop/0x12..0x17 gesture); selftest 207, full 525
 - 2026-10-30 - AI: per-family turn durations from Actions.bad f[411..461] (Part10 family 2/3 -> file blocks 3/2; runtime 15x1.2 s / 4x2.0 s; DINORESET f1e0 size classes 20/20); --actions-bad-info; selftest 204, full 524
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-29 - ARCH-5 actions: `ParkSession::tick_dino` owns action loop/Eat/clip selection; paddock queries moved; game.h 651->649; full 521
 - 2026-10-29 - ARCH-5 animator: CPU skinning moved render->world; `dino_animator` pose helper replaces duplicated code; full 521
 - 2026-10-29 - ARCH-5 split: `DinoAssets`/`ImportedDino` in world, `ImportedDinoDraw` in app, `park_session.imported_dinos`; game.h 665->651; dino render/save/show full 521
-- 2026-10-29 - ARCH-2 slice 8: `ParkSession::settle_day` owns daily ticket/wage/ledger math; Game keeps catalog/IO/print; full 521
 
 ## Blockers
 
