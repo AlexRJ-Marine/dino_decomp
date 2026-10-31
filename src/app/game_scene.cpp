@@ -733,6 +733,12 @@ bool Game::add_imported_dino(const std::string& species,
         dinosaur.needs.agility = attributes->agility;
         dinosaur.needs.combined_attack = attributes->combined_attack;
         dinosaur.needs.obstacle_radius = attributes->obstacle_radius;
+        // `FUN_00571370`: max_food = weight (`+0x1dc`), initial gauge
+        // max*0.5, consumption = weight*0.001/s (`+0x6c`).
+        dinosaur.needs.max_food =
+            static_cast<float>(attributes->weight_kg);
+        dinosaur.needs.food_gauge = dinosaur.needs.max_food * 0.5f;
+        dinosaur.needs.food_consumption = attributes->food_consumption;
     }
     if (opt.dino_action_loop && !dino_action_table.empty()) {
         dino::DinoActionLoopConfig config;

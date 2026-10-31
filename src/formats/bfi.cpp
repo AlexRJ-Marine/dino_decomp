@@ -90,8 +90,8 @@ BfiFeature load_bfi(const std::string& path) {
     reader.need(show_count);
     reader.offset += show_count;
     feature.food_kind = static_cast<int>(reader.u32());
-    reader.u32();  // field_3c
-    reader.u32();  // field_40
+    feature.food_quantity = static_cast<int>(reader.u32());   // field_3c
+    feature.food_nutrition = static_cast<int>(reader.u32());  // field_40
     const std::uint32_t action_count = reader.u32();
     for (std::uint32_t i = 0; i < action_count; ++i) {
         reader.string();

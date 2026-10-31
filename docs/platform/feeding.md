@@ -1,84 +1,70 @@
-# Feeding — food sources and the Eat gate
+# Feeding — visitor/employee sources and the dinosaur LunchBox
 
-Status: **first slice.** A placed `.bsi` food source gates the dinosaur's Eat
-action by paddock and diet, and each completed meal consumes a portion.
-Employee feeding and the exact `.bsi` quantity semantics remain open.
+Status: **split by evidence (2026-10-31).** The `.bsi` `FoodSource` feeds
+visitors/employees; park dinosaurs eat a **LunchBox/StaticBait** item actor via
+`FUN_00576e50`, which fills the food gauge `+0x25c`. The port's former
+dino-Eat-from-`.bsi` gate and 3-unit meal were a placeholder and are removed.
 
 ## Retail chain
 
-- `Eat.bai` and `EatForSmallies.bai` have `consume_flag = 1`. The gate
-  `FUN_0056e0e0` rejects an action when its target item is absent, and
-  `FUN_0056e670` only scores available nodes. Without food, a hungry dinosaur
-  falls back to Exploration (`.bai` base score 1580).
-- Food sources are player-built via `FOOD_DISTRIBUTION`:
-  `FoodSourceList.ini` + `.bsi`. Kinds 0-4 are vegetarian, 5-9 carnivorous
-  (the `.bsi` UI button names and `.bni` animal kinds agree).
-- `asset[0]` is the placed animal/plant model (pig, cow, apple, …); the
-  `feeder_mesh` in the tail is the employee's carrying model. The texture is
-  `<texture_dir>/<mesh stem>.tga`, or the stem without its `_lodN`/`_partN`
-  suffix for the plant meshes (`apple_lod1` -> `apple.tga`).
-- The hourly schedule registers each food source with the nearest kind-8
-  (nutritionist) manager (`0x5953F0`/`0x58B5B0`). Employees are not ported
-  yet, so the port gates the dinosaur directly on the source.
+- `.bsi`/`FoodSourceList.ini` defines player-built food sources (kinds 0-4
+  vegetarian, 5-9 carnivorous). `saFoodSource::SetLevel 0x580e60` has one
+  caller (`0x522335`) in the **visitor** eat state machine; the employee
+  hourly schedule registers each source with the kind-8 nutritionist
+  (`0x5953F0`/`0x58B5B0`).
+- Park dinosaurs use the `.bfi` `LunchBox` and `StaticBait*` features. The
+  runtime item actor publishes the `Eat`/`EatBait` action list; when its
+  element move-profile kinds contain **8**, `FUN_00569a00` calls
+  `FUN_00576e50(source, amount)` and applies the result as
+  `FUN_005727b0(0x17, value, 100)` to the **food gauge** `dino+0x97`
+  (byte `+0x25c`, max `+0x1dc` = weight).
+- `FUN_00576e50`: clamp the amount to the source quantity (`+0x08`), subtract,
+  set state `+0x10` 0/1/2/3 at the 2/3 and 1/3 thresholds, return
+  `amount * nutrition` (`+0xc[0]`).
+- The `.bfi` fields: LunchBox `food_kind 0`, quantity `field_3c=10000`,
+  nutrition `field_40=100`; StaticBait quantity 10000, nutrition 70.
+- The Cpg04 60 s probe saw no dino Eat and no `SetLevel`; its six `0x522300`
+  controllers are visitor-side with a null source. The real dino path is only
+  active when a LunchBox/bait item actor is present.
 
 ## Port
 
-- `src/formats/bsi.{h,cpp}` reads the definitions.
-- `src/world/food.{h,cpp}` resolves the placed mesh + texture and exposes
-  `food_is_carnivore(kind)`.
-- CLI:
-  ```text
-  --place-food NAME|KIND   e.g. PigFood or 8
-  --food-pos CELL_X,CELL_Y build-grid cell (default: first paddock centre)
-  ```
-  The food model is added to the scene draw list and placed on the terrain.
-- **Diet**: genotype gene 14. The `Diet` expression matrix is
-  `[[1,1],[1,2]]` with translation `1 = herbivore, 2 = carnivore`, so only a
-  `(1,1)` pair is carnivorous. Cpg04 has 19 carnivores and one herbivore
-  (the anky row).
-- **Gate**: `DinoActionLoopConfig::inventory` is the `.bai` consume flag; the
-  viewer sets it per dinosaur each frame from a source in the dinosaur's
-  paddock whose kind matches its diet and whose remaining quantity is > 0.
-- **Save**: `DINOPSAV` records `paddock` (rect, capacity, used, occupants)
-  and `food` (definition name, world position, remaining) lines; older
-  saves simply omit them. `--load-port` rebuilds the live paddocks and
-  food sources, so the store and feeding work after a load.
-- **Meal**: a completed `Eat`/`EatForSmallies` removes one portion. Treating
-  `quantity` as the number of portions is **inferred**; the exact `.bsi`
-  quantity semantics are open. At 0 the source is removed from the scene and
-  Eat becomes unavailable (the dinosaur explores again).
-- Without `--place-food`, no dinosaur can Eat. This replaces the earlier
-  port assumption that food was always available; the action-loop tests now
-  expect Exploration in that case.
+- `src/formats/bsi.{h,cpp}` reads `.bsi`; `src/world/food.{h,cpp}` resolves
+  the placed mesh/texture and exposes `food_is_carnivore`.
+- `--place-food NAME|KIND` / `--food-pos` place a **visitor/employee**
+  `.bsi` source. It no longer gates a dinosaur's Eat and is not consumed by
+  dinosaurs.
+- `DinoNeeds` carries the exact food gauge: `max_food = weight`,
+  `food_gauge` (init `max_food*0.5`), `food_consumption = weight*0.001/s`.
+  Every 10 s: `gauge -= 10*consumption`, `FOOD = ftol(gauge*99/max_food)`.
+  `DinoActionLoop::apply_food(value, percent)` implements the event-0x17
+  formula `gauge = value + percent*gauge/100`, clamped.
+- `src/formats/bfi.*` keeps `food_quantity`/`food_nutrition`; `Feeder` +
+  `feeder_drain` in `src/world/food.*` are the exact `FUN_00576e50` model.
+  The LunchBox actor (placement, bowl mesh, item target, Eat gate) is the
+  next slice.
 
 ## Verification
 
-- `test_cpp_food_feeding`: PigFood at cell (118,94) (paddock 1) → the three
-  allos in that paddock choose `Eat score=9009`, the herbivore anky in
-  paddock 0 sees `source=none`, and five fast meals print
-  `remaining=0.00` + `food: PigFood depleted`.
-- `test_cpp_dino_action_loop`: without food, starving dinos pick Exploration
-  1580 and the 50 % steady state picks Exploration 75; Sleep is unaffected
-  (no consume flag).
-- `notes/food-pig-close.png`: the placed pig renders with its texture.
+- `test_cpp_food_source_is_visitor_only`: a placed PigFood shows
+  `source=PigFood` in the food log but no dinosaur chooses Eat and the source
+  is not depleted.
+- `test_cpp_employee_feeding_and_wages`: the nutritionist still feeds the
+  `.bsi` source and pays wages.
+- `--selftest`: food gauge 10 s pass/meal clamp and `feeder_drain`
+  30/empty checks.
+- `test_cpp_dino_action_loop`: without a LunchBox, starving dinos pick
+  Exploration 1580; Sleep is unaffected.
 
 ## Open
 
-- Employee feeding (nutritionists, hourly schedule) — STAFF research is
-  documented, but no staff actors exist in the port.
-- The interactive `FOOD_DISTRIBUTION_PANEL` is not ported. Its state ctor is
-  `FUN_00537040`: it resolves `FOOD_DISTRIBUTION_PANEL`, `PRICE_SLOT`,
-  `FOOD_DISTRIBUTION_TYPE_GROUP` and ten `FOOD_DISTRIBUTION_TIME_BUTTONn`
-  widgets from a 200-byte source-record list (`record+0xB8` name, callbacks
-  `LAB_00537940`/`LAB_00537AF0`); `FUN_00537DC0` re-selects the type group and
-  toggles the time buttons from `state+0x58`. The placement state string is
-  `LUNCHBOX_SELECTED`. Until it is ported, `--place-food` is the only way to
-  place a source.
-- Exact `quantity`/nutrition consumption per meal, and whether a meal refills
-  the FOOD need independently of the `.bai` delta.
-- Carnivore prey animals (`.bni`) vs the static `.bsi` sources; the retail
-  carnivore food may be a live animal actor.
-- Multiple placed food sources are logical (gate/consume) but only the
-  first is rendered by the viewer; the CLI creates one. The `.psav`
-  format stores every source and every paddock, and `--load-port`
-  rebuilds them (feeding continues after a load).
+- LunchBox/StaticBait actor: placement (interactive `LUNCHBOX_SELECTED` and a
+  test hook), `bowl.mesh`/texture draw, the item target and the Eat gate.
+- `dino+0x288`: `FILD [dino+0x288]` is the amount passed to `FUN_00576e50`;
+  the field's identity/scale (probe read a float bit pattern there) is open.
+  The LunchBox quantity (10000) is below the clamped amount, so one meal
+  currently drains the feeder.
+- The interactive `FOOD_DISTRIBUTION_PANEL` (`FUN_00537040`,
+  `LUNCHBOX_SELECTED`) and the employee schedule actors.
+- Visitor `.bsi` quantity/nutrition semantics and the carnivore live-prey
+  (`.bni`) path.

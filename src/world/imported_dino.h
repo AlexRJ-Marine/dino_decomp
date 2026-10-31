@@ -35,6 +35,10 @@ struct ImportedDino {
     std::string family;
     std::string clip;
     bool carnivore = true;  // diet gene 14; drives the food source match
+    // Retail's path object fixes the paddock rect (`path+0x1c0`) at creation.
+    // The port keeps the last paddock index so a numerical boundary step can
+    // never release the dino; a real move into another paddock updates it.
+    int paddock = -1;
     DinoNeeds needs;
     DinoAttributes attributes;  // phenotype snapshot for objectives
     std::optional<DinoActionLoop> action_loop;

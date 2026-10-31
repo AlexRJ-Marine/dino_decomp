@@ -218,6 +218,13 @@ void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
     elapsed_ = 0.0;
     decision_ = config_.decision_interval;
     decay_accum_.fill(0.0);
+    food_gauge_timer_ = 0.0;
+    if (needs_.max_food > 0.0f) {
+        // The port save stores the FOOD need, not the gauge; keep the two
+        // consistent until the next 10 s pass overwrites the need.
+        needs_.food_gauge =
+            needs_.max_food * static_cast<float>(needs_.value[0]) / 99.0f;
+    }
 }
 
 void DinoActionLoop::decide() {
@@ -296,6 +303,12 @@ void DinoActionLoop::tick(double dt) {
     const double rates[4] = {config_.food_decay, config_.violence_decay,
                              config_.secu_decay, config_.repos_decay};
     for (std::size_t i = 0; i < needs_.value.size(); ++i) {
+        // The food axis is gauge-driven when a phenotype weight is present
+        // (`FUN_00571370`); synthetic fixtures keep the configured decay.
+        if (i == 0 && needs_.max_food > 0.0f) {
+            decay_accum_[i] = 0.0;
+            continue;
+        }
         int& value = needs_.value[i];
         if (value <= 0 || rates[i] <= 0.0) {
             decay_accum_[i] = 0.0;
@@ -305,6 +318,19 @@ void DinoActionLoop::tick(double dt) {
         while (decay_accum_[i] >= 1.0 && value > 0) {
             --value;
             decay_accum_[i] -= 1.0;
+        }
+    }
+    if (needs_.max_food > 0.0f) {
+        // 10 s pass: gauge -= 10 * consumption; need = ftol(gauge*99/max).
+        food_gauge_timer_ += dt;
+        while (food_gauge_timer_ >= 10.0) {
+            food_gauge_timer_ -= 10.0;
+            const float amount = 10.0f * needs_.food_consumption;
+            float gauge = needs_.food_gauge;
+            gauge = gauge > amount ? gauge - amount : 0.0f;
+            needs_.food_gauge = gauge;
+            needs_.value[0] = std::clamp(
+                static_cast<int>(gauge * 99.0f / needs_.max_food), 0, 99);
         }
     }
 

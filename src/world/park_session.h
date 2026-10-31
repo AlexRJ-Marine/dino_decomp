@@ -68,7 +68,6 @@ struct ParkSession {
     // Paddock/food queries used by the dino tick and the HUD food log.
     int paddock_at(float x, float y) const;
     FoodSource* paddock_food(int paddock, bool carnivore);
-
     // One dinosaur behavior step: inventory gate, action-loop tick, Eat
     // consumption and clip selection. `Game` prints the returned events,
     // loads the clip assets and uploads the posed mesh.
@@ -79,14 +78,6 @@ struct ParkSession {
         int score = 0;
         std::array<int, 4> needs{};
         std::string clip;
-        bool ate = false;
-        std::string food_name;
-        float remaining = 0.0f;
-        bool food_depleted = false;
-        // Eat reached completion away from the item actor (retail only eats
-        // after the move script arrives).
-        bool eat_missed = false;
-        float eat_distance = -1.0f;
         // Mover (`saDinosaur+0x2c8`) state for the frame.
         bool moved = false;
         bool move_started = false;
@@ -100,5 +91,14 @@ struct ParkSession {
     DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
                               const std::vector<BaiAction>& actions);
 };
+
+// `FUN_0056eec0` case 0 (special_action 1, Exploration): a random action
+// point inside the paddock rect:
+//   x = minX + rand() % (maxX - minX - 7) + 4   (same for y)
+// The caller passes two `std::rand()` samples so the formula is testable.
+// Returns false when the rect is too small (span <= 0); the caller then keeps
+// the dino's current point.
+bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
+                          int& x, int& y);
 
 }  // namespace dino

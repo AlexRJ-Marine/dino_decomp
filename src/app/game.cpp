@@ -1119,20 +1119,6 @@ void Game::update_simulation() {
             std::printf("dino move: %s blocked x=%.1f y=%.1f\n",
                         dinosaur.species.c_str(), event.x, event.y);
         }
-        if (event.ate) {
-            std::printf("dino eat: %s <- %s remaining=%.2f\n",
-                        dinosaur.species.c_str(), event.food_name.c_str(),
-                        event.remaining);
-            if (event.food_depleted) {
-                std::printf("food: %s depleted\n",
-                            event.food_name.c_str());
-                rebuild_extra_items();
-            }
-        }
-        if (event.eat_missed) {
-            std::printf("dino eat: %s missed distance=%.1f\n",
-                        dinosaur.species.c_str(), event.eat_distance);
-        }
         if (event.action_changed) {
             if (event.scored) {
                 std::printf(

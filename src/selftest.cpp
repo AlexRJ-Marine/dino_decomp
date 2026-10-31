@@ -13,6 +13,7 @@
 #include "world/campaign_runtime.h"
 #include "world/danger_grid.h"
 #include "world/dino_motion.h"
+#include "world/park_session.h"
 #include "world/show_runtime.h"
 #include "world/terrain.h"
 #include "world/visitors.h"
@@ -315,6 +316,52 @@ int run_selftest() {
     marker.tick(1.0);
     check(std::fabs(marker.x() - 2.0f) < 0.001f,
           "dino 0x34 marker walks");
+    // `FUN_0056eec0` case 0: Exploration point is
+    // minX + rand() % (maxX-minX-7) + 4 (same for y).
+    int patrol_x = 0;
+    int patrol_y = 0;
+    check(dino::paddock_patrol_point({540, 460, 595, 547}, 0, 0, patrol_x,
+                                     patrol_y) &&
+              patrol_x == 544 && patrol_y == 464,
+          "dino patrol point min");
+    check(dino::paddock_patrol_point({540, 460, 595, 547}, 47, 79, patrol_x,
+                                     patrol_y) &&
+              patrol_x == 591 && patrol_y == 543,
+          "dino patrol point max");
+    check(!dino::paddock_patrol_point({0, 0, 6, 6}, 0, 0, patrol_x, patrol_y),
+          "dino patrol point small rect");
+    // `FUN_00571370`: max_food = weight, gauge starts at max/2, 10 s pass
+    // removes 10*consumption, need = ftol(gauge*99/max).
+    dino::DinoNeeds gauge_needs;
+    gauge_needs.max_food = 2000.0f;
+    gauge_needs.food_gauge = 2000.0f;
+    gauge_needs.food_consumption = 2.0f;
+    dino::DinoActionLoop gauge_loop(nullptr, gauge_needs);
+    gauge_loop.tick(10.0);
+    check(std::fabs(gauge_loop.food_gauge() - 1980.0f) < 0.01f &&
+              gauge_loop.needs().value[0] == 98,
+          "dino food gauge 10s");
+    gauge_loop.apply_food(100.0f);
+    check(std::fabs(gauge_loop.food_gauge() - 2000.0f) < 0.01f,
+          "dino food meal clamps");
+    gauge_loop.tick(10.0);
+    check(gauge_loop.needs().value[0] == 98,
+          "dino food need after meal");
+    // `FUN_00576e50`: clamp to quantity, 2/3 and 1/3 states, return
+    // amount*nutrition.
+    dino::Feeder feeder;
+    feeder.quantity = 10000.0f;
+    feeder.max_quantity = 10000.0f;
+    feeder.nutrition = 100.0f;
+    const float meal = dino::feeder_drain(feeder, 30.0f);
+    check(std::fabs(meal - 3000.0f) < 0.01f &&
+              feeder.state == 0 &&
+              std::fabs(feeder.quantity - 9970.0f) < 0.01f,
+          "feeder drain 30");
+    const float rest = dino::feeder_drain(feeder, 20000.0f);
+    check(std::fabs(rest - 997000.0f) < 0.01f && feeder.state == 3 &&
+              feeder.quantity == 0.0f,
+          "feeder empty clamps");
 
     // gscMaterialBank pulse (`FUN_00600550`) worked values from
     // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit

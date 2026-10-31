@@ -25,6 +25,25 @@ struct FoodDef {
     int price = 0;
 };
 
+// A `.bfi` LunchBox/StaticBait feeder (`saFoodSource` created by the item
+// actor). `quantity` is `+0x08`, `max_quantity` the capacity (`+0xc[1]`),
+// `nutrition` `+0xc[0]`, `state` `+0x10` (0 full, 1 = 2/3, 2 = 1/3,
+// 3 = empty).
+struct Feeder {
+    std::string name;
+    int kind = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float quantity = 0.0f;
+    float max_quantity = 0.0f;
+    float nutrition = 0.0f;
+    int state = 0;
+};
+
+// `FUN_00576e50`: clamp the amount to the remaining quantity, subtract, set
+// the 2/3 and 1/3 state thresholds, and return `amount * nutrition`.
+float feeder_drain(Feeder& feeder, float amount);
+
 // Kind ids 0..4 are vegetarian, 5..9 carnivorous (the `.bsi` UI buttons and
 // the `.bni` animal kinds agree).
 bool food_is_carnivore(int kind);

@@ -24,6 +24,14 @@ enum class NeedAxis : int {
 
 struct DinoNeeds {
     std::array<int, 4> value{99, 99, 99, 99};  // FOOD/VIOLENCE/SECU/REPOS
+    // Food gauge (`dino+0x25c`): max = weight (`+0x1dc`), initial value
+    // max*0.5, decay `10 * food_consumption` every 10 s, and the FOOD need is
+    // `ftol(gauge * 99 / max)` (`FUN_00571370`). `food_consumption` is
+    // `dino+0x6c` = weight * 0.001/s. A zero `max_food` keeps the old
+    // fixture decay for synthetic tests.
+    float max_food = 0.0f;
+    float food_gauge = 0.0f;
+    float food_consumption = 0.0f;
     int size_cm = 300;        // attribute 4, actor+0x50
     int size_class = 3;       // attribute 12, actor+0x98
     int aggression = 50;      // attribute 18, actor+0xbc
@@ -165,12 +173,25 @@ public:
         config_.threat_provider = std::move(provider);
     }
 
-    // `FUN_00571440`: the park-wide danger grid owns the SECU need. The
+    // `FUN_00571540`: the park-wide danger grid owns the SECU need. The
     // viewer pushes the recomputed value once per grid rebuild (once per
     // second in retail). Clamped to the 0..99 need range.
     void set_secu(int value) {
         needs_.value[2] = std::max(0, std::min(99, value));
     }
+
+    // `FUN_005727b0` event 0x17: gauge = value + percent*gauge/100, clamped
+    // to max_food. The FOOD need itself updates on the next 10 s pass, as in
+    // retail. Used by the LunchBox/StaticBait meal (value = amount*nutrition,
+    // percent = 100).
+    void apply_food(float value, float percent = 100.0f) {
+        if (needs_.max_food <= 0.0f) {
+            return;
+        }
+        const float next = value + percent * needs_.food_gauge * 0.01f;
+        needs_.food_gauge = std::clamp(next, 0.0f, needs_.max_food);
+    }
+    float food_gauge() const { return needs_.food_gauge; }
 
     // Number of completed actions and the name of the last one (the viewer
     // consumes a food portion when an Eat/EatForSmallies finishes).
@@ -187,6 +208,7 @@ private:
     DinoNeeds needs_;
     DinoActionLoopConfig config_;
     std::array<double, 4> decay_accum_{};
+    double food_gauge_timer_ = 0.0;  // 10 s `FUN_00571370` pass
     int action_index_ = -1;
     double elapsed_ = 0.0;
     double duration_ = 0.0;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 namespace dino {
 
@@ -94,8 +95,23 @@ FoodSource* ParkSession::paddock_food(int paddock, bool carnivore) {
     return nullptr;
 }
 
-ParkSession::DinoActionEvent ParkSession::tick_dino(
-    ImportedDino& dinosaur, double dt,
+bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
+                          int& x, int& y) {
+    const int min_x = std::min(rect.x0, rect.x1);
+    const int max_x = std::max(rect.x0, rect.x1);
+    const int min_y = std::min(rect.y0, rect.y1);
+    const int max_y = std::max(rect.y0, rect.y1);
+    const int span_x = max_x - min_x - 7;
+    const int span_y = max_y - min_y - 7;
+    if (span_x <= 0 || span_y <= 0) {
+        return false;
+    }
+    x = min_x + random_x % span_x + 4;
+    y = min_y + random_y % span_y + 4;
+    return true;
+}
+
+ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, double dt,
     const std::vector<BaiAction>& actions) {
     DinoActionEvent event;
     (void)actions;  // scoring/event application lives in DinoActionLoop
@@ -108,7 +124,14 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     // (retail `actor+0x13` cells) so the body does not clip the wall.
     const int pen_before = paddock_at(dinosaur.x, dinosaur.y);
     if (pen_before >= 0) {
-        const WorldRect& r = paddocks[static_cast<std::size_t>(pen_before)].rect;
+        dinosaur.paddock = pen_before;
+    }
+    const int confinement =
+        pen_before >= 0 ? pen_before : dinosaur.paddock;
+    if (confinement >= 0 &&
+        confinement < static_cast<int>(paddocks.size())) {
+        const WorldRect& r =
+            paddocks[static_cast<std::size_t>(confinement)].rect;
         const float length_m = static_cast<float>(dinosaur.needs.size_cm) / 100.0f;
         const float inset = std::clamp(length_m * 0.15f, 1.0f, 3.0f);
         dinosaur.mover.set_bounds(static_cast<float>(r.x0),
@@ -133,11 +156,11 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     }
     event.x = dinosaur.x;
     event.y = dinosaur.y;
-    // The `.bai` consume gate: Eat is only available when the dinosaur's
-    // paddock holds a matching food source.
-    const int pen = paddock_at(dinosaur.x, dinosaur.y);
-    FoodSource* food = paddock_food(pen, dinosaur.carnivore);
-    dinosaur.action_loop->set_inventory(food != nullptr);
+    // The `.bsi` FoodSource is the visitor/employee source, not a dinosaur
+    // feeder. Park dinosaurs eat a LunchBox/StaticBait item actor
+    // (`FUN_00576e50`); until that actor is ported no dino Eat is offered.
+    const int pen = confinement;
+    dinosaur.action_loop->set_inventory(false);
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);
@@ -152,31 +175,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     if (dinosaur.action_loop->finished_count() != finished_before) {
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
-        if (finished == "Eat" || finished == "EatForSmallies") {
-            FoodSource* source = paddock_food(pen, dinosaur.carnivore);
-            if (source != nullptr) {
-                // Retail consumes when the eating animation ends, which only
-                // happens after the element's move script brought the dino to
-                // the item actor. The port's action duration is independent
-                // of the walk, so gate the meal on proximity (3 units).
-                const float fdx = source->x - dinosaur.x;
-                const float fdy = source->y - dinosaur.y;
-                const float distance =
-                    std::sqrt(fdx * fdx + fdy * fdy);
-                if (distance <= 3.0f) {
-                    source->remaining =
-                        std::max(0.0f, source->remaining - 1.0f);
-                    event.ate = true;
-                    event.food_name =
-                        food_defs[static_cast<std::size_t>(source->def)].name;
-                    event.remaining = source->remaining;
-                    event.food_depleted = source->remaining <= 0.0f;
-                } else {
-                    event.eat_missed = true;
-                    event.eat_distance = distance;
-                }
-            }
-        } else if (finished == "Sleep") {
+        if (finished == "Sleep") {
             // `FUN_0056eec0` case 2 (special_action 3): state 3 emits the
             // 0x1c wake gesture at the dino's own position.
             dinosaur.mover.clear();
@@ -198,18 +197,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
             dinosaur.mover.kind() != 0x35) {
             dinosaur.mover.clear();
         }
-        if (action == "Eat" || action == "EatForSmallies") {
-            // The item actor publishes the action list; the box target is the
-            // food source it was created from. The port's approximation uses
-            // the paddock's matching source as the record target.
-            FoodSource* source = paddock_food(pen, dinosaur.carnivore);
-            if (source != nullptr && !dinosaur.mover.active()) {
-                dinosaur.mover.start(1, source->x, source->y, 1);
-                event.move_started = true;
-                event.move_target_x = source->x;
-                event.move_target_y = source->y;
-            }
-        } else if (action == "Sleep") {
+        if (action == "Sleep") {
             // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel at
             // the dino's own position. The 0x1d waits 1.5 s, then the
             // sentinel holds the sleep pose until the action ends.
@@ -219,6 +207,37 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
             dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2, 3.4e38f);
             std::printf("dino sleep: %s start kind=0x1d/0x1e\n",
                         dinosaur.species.c_str());
+        } else if (action == "Exploration") {
+            // `FUN_0056eec0` case 0 (special_action 1): a random action
+            // point in the paddock rect, then the five-record list:
+            // 0x27 self (2.0 s), 0x27 point (X[0x27]+0.5), 0x34 marker,
+            // 0x20 point (X[0x20]), 0x20 self (rand()%16+5).
+            int px = static_cast<int>(dinosaur.x);
+            int py = static_cast<int>(dinosaur.y);
+            if (pen >= 0) {
+                paddock_patrol_point(
+                    paddocks[static_cast<std::size_t>(pen)].rect, std::rand(),
+                    std::rand(), px, py);
+            }
+            const float point_x = static_cast<float>(px);
+            const float point_y = static_cast<float>(py);
+            const float turn_duration = family_duration(0x27, 2.0f);
+            dinosaur.mover.clear();
+            dinosaur.mover.start(0x27, dinosaur.x, dinosaur.y, 2,
+                                 turn_duration);
+            dinosaur.mover.queue(0x27, point_x, point_y, 2,
+                                 turn_duration + 0.5f);
+            dinosaur.mover.queue(0x34, point_x, point_y, 1);
+            dinosaur.mover.queue(0x20, point_x, point_y, 2,
+                                 family_duration(0x20, 1.5f));
+            dinosaur.mover.queue(
+                0x20, dinosaur.x, dinosaur.y, 2,
+                5.0f + static_cast<float>(std::rand() % 16));
+            std::printf(
+                "dino explore: %s point=%.1f,%.1f "
+                "records=0x27,0x27,0x34,0x20,0x20\n",
+                dinosaur.species.c_str(), static_cast<double>(point_x),
+                static_cast<double>(point_y));
         }
         if (action != "idle") {
             event.scored = true;

@@ -74,7 +74,7 @@ opener/closer in the port; the panel is reached by a world pick or is legacy.
 | `park-lab-clone` | `SELECT_LAB_CLONE` (361,513) | `CLONE_BACK` (439,507) | static | partial | - |
 | `park-attraction-stats` | `CONSTRUCTION_KIT_STATS_ICON` (84,527) | `ATTRACTION_STATS_OUTCOME_CANCEL` (488,375) | static | partial | `test_cpp_park_panels` |
 | `park-mission` | `OBJECTIF_PANEL_LIGHTS_GROUP` (12,50, inactive until a mission) | `MISSION_PANEL_OUTCOME_OK` (320,407) | briefing/tips, five objective lines, ON/OFF lights when `--start-mission` runs | partial | `test_campaign_cpp.py` |
-| `park-food` | no HUD opener | - | static | partial | `test_cpp_food_feeding` (CLI only) |
+| `park-food` | no HUD opener | - | static | partial | `test_cpp_food_source_is_visitor_only` (CLI only) |
 | info panels: `park-dino-info`, `park-cage-info`, `park-building-info`, `park-staff-security`, `park-staff-food`, `park-cage-list`, `park-dino-placement` | world pick / legacy | - | static or not shown | not ported | - |
 | `dialog-warning` | event or `--warning` | `WARNING_OUTCOME_ICON` | text zone | ported | `test_cpp_warning_dialog` |
 | `dialog-request` | event or `--request` | `REQUEST_VALIDATE_ICON` / `REQUEST_CANCEL_ICON` | text zone | ported | `test_cpp_request_dialog` |

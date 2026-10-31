@@ -2336,9 +2336,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   eleven live gauges from `+0x280/+0x90/+0x29c/5/+0xbc/+0x270/
   ftol(+0x268*20)/+0x98/+0x284/+0x2a4/+0xc0/(100-+0x1e4)`, caps from
   `AttributeRange.ini`.
-- [ ] Per-tick needs/health: `0x5869e0` (5 s regen, 10 s food/violence/state),
-  `0x571370` (`99*food/max`, starvation damage), `0x5724d0` (health bands),
-  `food_consumption = weight*0.001/s`, `regen = maxHP*stamina/1000+1`.
+- [x] Food gauge: `max_food = weight`, `+0x25c` gauge init max/2, 10 s pass
+  `gauge -= 10*food_consumption`, `FOOD = ftol(gauge*99/max)`, `apply_food`
+  for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.
+- [ ] Remaining per-tick health: `0x5869e0` (5 s regen, 10 s violence/state),
+  `0x5724d0` (health bands), `regen = maxHP*stamina/1000+1`; the other three
+  needs still use the tuned decay (VIOLENCE `0x571410`, REPOS `0x571540`).
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).
@@ -2381,15 +2384,19 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Sleep special list: `0x1d` + the `0x1e` sentinel at state 0, `0x1c`
   at wake, all self-target gestures. Gesture kinds now have zero speed and a
   mode-2 self record waits its duration. `test_cpp_dino_sleep_records`.
-- [ ] Port the remaining self-contained special lists: RunAway `0x19`,
-  Exploration's action-point records (needs the behaviour target), and sp5
+- [x] Exploration special list: `paddock_patrol_point` reproduces
+  `min + rand() % (max-min-7) + 4`; 0x27 self, 0x27 point, 0x34 marker,
+  0x20 point, 0x20 self 5..20 s. `test_cpp_dino_exploration_records`.
+- [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
+  (needs the steering cell), Victory `bones[0]` 35 sentinel, and sp5
   `FUN_0056fb70` target/response logic.
 - [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
   move is in progress; map the stop condition and the duplicate-insert path.
-- [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
-  probe; the six `0x522300` controllers are visitor-side with a null source.
-  The port's one-record Eat and 3-unit consumption are unsupported; find the
-  real dino food path (`FUN_00576e50` LunchBox/StaticBait) before keeping it.
+- [x] Removed the port's `.bsi` dino Eat gate and 3-unit consumption (the
+  `.bsi` source is visitor/employee; Cpg04 showed no dino Eat/`SetLevel`).
+- [ ] LunchBox/StaticBait item actor: `field_3c` quantity / `field_40`
+  nutrition, `FUN_00576e50` drain and `apply_food(amount*nutrition)`
+  (`notes/lunchbox-eat-recon.md`). The `.bsi` gate must not return.
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
   top of the rect clamp.
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.

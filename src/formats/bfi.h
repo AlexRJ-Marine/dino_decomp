@@ -18,6 +18,11 @@ struct BfiFeature {
     std::string class_tag;
     int judge_kind = 0;
     int food_kind = 0;
+    // `field_3c`/`field_40`: the feeder quantity and nutrition (LunchBox
+    // 10000/100, StaticBait 10000/70). The runtime saFoodSource uses
+    // `+8` = quantity and `+0xc` = {nutrition, capacity}.
+    int food_quantity = 0;
+    int food_nutrition = 0;
     int state_count = 0;
     std::vector<std::string> mesh_slots;  // 8
     std::string texture_dir;

@@ -403,9 +403,10 @@ queue, 45-degree turn records (fixed 1 s in the port; retail is 1.2/1.5/2.0 s
 per species), walk/run speeds from the phenotype, exact arrival and the
 paddock-rect clamp. `ParkSession::tick_dino` sets the bounds from the current
 paddock and copies the live position/angle back into `ImportedDino`;
-`place_on_terrain` then draws the dino at the moved pose. An Eat action queues
-one walk record to the paddock's matching food source; a meal is consumed when
-the Eat action completes within 3 units of the source. The move starts and
+`place_on_terrain` then draws the dino at the moved pose. The `.bsi` FoodSource
+is the visitor/employee source, not a dinosaur feeder; the port's former
+Eat-to-source/3-unit meal path was removed on 2026-10-31. The real dino path
+is the LunchBox/StaticBait item actor (`FUN_00576e50`). The move starts and
 stops are logged as `dino move: <species> start|stop|blocked`.
 
 **Runtime correction (2026-10-30, `notes/dino-mover-runtime-probe.md`):** the
@@ -414,10 +415,10 @@ Cpg04 retail park does **not** take this path. The park behaviour layer calls
 the action completion `0x571190` fired **0** times, no kind-8 Eat record
 appeared, and `saFoodSource::SetLevel 0x580e60` never fired (the six
 `0x522300` controllers are visitor-side with a null source). The port's
-one-record Eat and its 3-unit consumption are **unsupported scaffolding** until
-the behaviour move-list and the real dino food path are ported. The 0x34/0x35
-walk/run markers are also re-issued every frame in retail, not once per
-action.
+former one-record Eat and 3-unit consumption were **unsupported scaffolding**
+and have been removed; the LunchBox/StaticBait actor + `FUN_00576e50` is the
+replacement. The 0x34/0x35 walk/run markers are re-issued every frame in
+retail, not once per action.
 
 Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
 instead of the behaviour's record list; the paddock inset is
@@ -465,8 +466,18 @@ the remaining special lists.
 **Port (2026-10-31):** the Sleep special list is implemented
 (`ParkSession::tick_dino`): state 0 queues `0x1d` + the `0x1e` sentinel at the
 dino position, the wake queues `0x1c`; gesture kinds have zero movement speed
-and a mode-2 self record waits its full duration. Verified by
-`test_cpp_dino_sleep_records` (Cpg04: start + wake lines, no `dino move`).
+and a mode-2 self record waits its full duration. Exploration is implemented
+too: `paddock_patrol_point` reproduces
+`min + rand() % (max-min-7) + 4`, then the five records (`0x27` self,
+`0x27` point, `0x34` marker, `0x20` point, `0x20` self 5..20 s). Verified by
+`test_cpp_dino_sleep_records` and `test_cpp_dino_exploration_records`.
+
+The food gauge is also exact: `max_food = weight`, `food_gauge` starts at
+`max_food*0.5`, the 10 s pass subtracts `10*food_consumption` and sets
+`FOOD = ftol(gauge*99/max)`, and `apply_food(value, percent)` implements
+`FUN_005727b0` case 0x17 (`gauge = value + percent*gauge/100`, clamped). The
+`.bsi` dino Eat path is removed; the LunchBox/StaticBait meal calls
+`apply_food(amount*nutrition)` when its actor is ported.
 
 ### Normal-action executor (`0x56f7a0`)
 

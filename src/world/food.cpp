@@ -82,4 +82,22 @@ std::vector<FoodDef> load_food_defs(const std::string& asset_root,
     return defs;
 }
 
+float feeder_drain(Feeder& feeder, float amount) {
+    if (feeder.quantity < amount) {
+        amount = feeder.quantity;
+    }
+    feeder.quantity -= amount;
+    const float capacity = feeder.max_quantity;
+    if (capacity * 0.66666f <= feeder.quantity) {
+        feeder.state = 0;
+    } else if (capacity * 0.33333f <= feeder.quantity) {
+        feeder.state = 1;
+    } else if (0.0f < feeder.quantity) {
+        feeder.state = 2;
+    } else {
+        feeder.state = 3;
+    }
+    return amount * feeder.nutrition;
+}
+
 }  // namespace dino
