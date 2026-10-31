@@ -98,6 +98,10 @@ struct DinoAttributes {
     //   regen      = max_health * stamina / RegenerationDivider + 1
     int max_health = 0;
     int regen = 0;
+    // `def+0x19c` (`0x61766b..0x6176d4`): sum over the 18 genes of
+    // `price[rarity(alleleA)-1] + price[rarity(alleleB)-1]`, with
+    // price = {RareAlleleMarketPrice, Uncommon, Common}.
+    int market_value = 0;
     // The five expressed part allele pairs (Head/Arm/Leg/Body/Tail); kept
     // for the runtime phenotype report and the part-gated formulas.
     std::array<int, 5> part_allele_a{};
@@ -185,6 +189,11 @@ struct DinoPhenotypeTable {
     std::array<int, 20> max_attributes{};
     bool has_attribute_limits = false;
 
+    // Part 1 rarity weights: one vector per gene (18), values 1..3 with
+    // 1 = rare. `0x61766b` indexes it by allele, then the 3-entry price
+    // table below.
+    std::array<std::vector<int>, 18> rarity;
+    std::array<int, 3> allele_price{500, 100, 50};  // Rare, Uncommon, Common
     std::array<int, 4> size_category_max{200, 620, 900, 3200};
     std::array<int, 4> size_category_radius{0, 2, 4, 7};
     float food_consumption_rate = 0.1f;

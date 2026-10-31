@@ -2370,10 +2370,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   charges `def+0x8` price through `*DAT_0067572c`), but the **job level
   producer** at `*(set+0x5c+idx*8)` and the hook identity are not traced.
   Probe `0x576d50` at a Cpg04 hour rollover; `notes/food-refill-recon.md`.
-- [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
-  `ftol(dino+0x1ec * SellBackFactor)`, where `+0x1ec` is the 18-gene
-  genotype-rarity value (allele prices 500/100/50), independent of the Market
-  price.
+- [x] Dino market value (`def+0x19c`): 18-gene genotype-rarity value,
+  `price[rarity(A)-1]+price[rarity(B)-1]`, allele prices 500/100/50. All 20
+  Cpg04 `DINORESET f1ec` values match (`val=` in `DINO_DEBUG_PHENO`,
+  `test_cpp_cpg04_phenotype_attributes`); rarity blocks parsed for all 18
+  genes. Independent of the `Market.ini` price.
+- [ ] Dino sell flow (`0x532d9c`, `REQUEST_SELL_DINO`): `FUN_00533a00` calls
+  `FUN_00585c40(ftol(value*SellBackFactor))` -> VENTES count/total + budget,
+  then `FUN_0053a900` removes the actor. `notes/dino-sell-recon.md`; port
+  `sell_dino(index)` + CLI hook, then the interactive hit test.
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 - **Evidence:** `notes/dino-stats-economy-gap-audit.md`.
 - **Depends on:** store/dino spawn, economy buckets, info panel.

@@ -481,7 +481,7 @@ if (-not $game) {
             # Dinosaur creation/reset: this is the saDinosaur object, so the
             # +0x1e0 cost-index field can be read at load time.
             Send 'bp 0x570fd0'
-            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} len={p:[ecx+0x50]} p98={p:[ecx+0xe8]} pa4={p:[ecx+0xf4]} pa8={p:[ecx+0xf8]} f1b4={p:[ecx+0x204]} f1d4={p:[ecx+0x1d4]} f1d6={p:[ecx+0x1d6]} f2bc={p:[ecx+0x2bc]} f1d8={p:[ecx+0x1d8]} f1dc={p:[ecx+0x1dc]} f258={p:[ecx+0x258]} f25c={p:[ecx+0x25c]} f250={p:[ecx+0x250]} act={p:[ecx+0x2c0]}; run"'
+            Send 'SetBreakpointCommand 0x570fd0, "log DINORESET dino={p:ecx} id={p:[ecx+0x28]} f1e0={p:[ecx+0x1e0]} len={p:[ecx+0x50]} p98={p:[ecx+0xe8]} pa4={p:[ecx+0xf4]} pa8={p:[ecx+0xf8]} f1b4={p:[ecx+0x204]} f1d4={p:[ecx+0x1d4]} f1d6={p:[ecx+0x1d6]} f2bc={p:[ecx+0x2bc]} f1d8={p:[ecx+0x1d8]} f1dc={p:[ecx+0x1dc]} f1ec={p:[ecx+0x1ec]} f258={p:[ecx+0x258]} f25c={p:[ecx+0x25c]} f250={p:[ecx+0x250]} act={p:[ecx+0x2c0]}; run"'
             # Live 18-gene block at spawn (first stack arg = actor+0x3c).
             Send 'bp 0x586520'
             Send 'SetBreakpointCommand 0x586520, "log GEN g={p:[esp+4]} g0a={p:[[esp+4]]} g0b={p:[[esp+4]+4]} g1a={p:[[esp+4]+0xc]} g1b={p:[[esp+4]+0x10]} g2a={p:[[esp+4]+0x18]} g2b={p:[[esp+4]+0x1c]} g3a={p:[[esp+4]+0x24]} g3b={p:[[esp+4]+0x28]}; run"'

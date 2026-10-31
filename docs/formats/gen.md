@@ -107,9 +107,18 @@ Examples with `allo.gen`:
 | stamina | (2, 4) | 40 |
 | courage | (5, 6) | 70 |
 
-Rarity weights are 1–3 per allele (lower = rarer); they are the random
+Rarity weights are 1-3 per allele (lower = rarer); they are the random
 breeding weights. `SknTyp` is `3,3,2,2,2,2,1,1`; `Agre`/`Stam`/`Cour` are
 `3,3,2,2,2,2,2,2,1,1`.
+
+The C++ reader parses all 18 rarity blocks into
+`DinoPhenotypeTable::rarity[18]`. `DinoAttributes::market_value` (`def+0x19c`,
+`0x61766b`) sums, over the 18 genes,
+`price[rarity(A)-1] + price[rarity(B)-1]`, where the three prices are
+`RareAlleleMarketPrice`, `UncommonAlleleMarketPrice` and
+`CommonAlleleMarketPrice` (default 500/100/50). An all-common genotype is
+therefore `18 * (50 + 50) = 1800`; **this is the genotype-rarity sell value,
+not the `Market.ini` purchase price**.
 
 `anim_trans.dic` also lists the 20 dinosaur families (5 families:
 HighQuadruped, LightQuadruped, HeavyBiped, LightBiped, LowQuadruped);

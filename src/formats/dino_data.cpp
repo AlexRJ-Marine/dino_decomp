@@ -158,6 +158,31 @@ DinoGeneTable read_gene_table(const std::vector<std::string>& lines,
     return out;
 }
 
+// Part 1 rarity block: `// Rarities of the alleles of the gene <Code>`,
+// a count, then one weight (1 rare .. 3 common) per allele.
+std::vector<int> read_rarity_table(const std::vector<std::string>& lines,
+                                   const std::string& code,
+                                   const std::string& path) {
+    const std::string marker =
+        "// Rarities of the alleles of the gene <" + code + ">";
+    const std::size_t at = find_section(lines, marker, path) + 1;
+    if (at >= lines.size()) {
+        throw std::runtime_error("dino data: truncated rarity " + code);
+    }
+    const int count = parse_int(lines[at], path);
+    if (count <= 0 || count > 64) {
+        throw std::runtime_error("dino data: rarity count in " + code);
+    }
+    std::vector<int> out = read_int_tokens(
+        lines, at + 1, static_cast<std::size_t>(count), path);
+    for (const int value : out) {
+        if (value < 1 || value > 3) {
+            throw std::runtime_error("dino data: rarity weight in " + code);
+        }
+    }
+    return out;
+}
+
 // Part 1 block for a non-10-allele gene (dummy, skin, carapace).
 DinoAlleleTable read_allele_table(const std::vector<std::string>& lines,
                                   const std::string& code,
@@ -325,6 +350,12 @@ void read_translator_constants(const std::string& path,
             table.violence_evolution_rate = parse_float(value);
         } else if (key == "PhysicalBonusOnStamina") {
             table.physical_bonus_on_stamina = parse_int(value, path);
+        } else if (key == "RareAlleleMarketPrice") {
+            table.allele_price[0] = parse_int(value, path);
+        } else if (key == "UncommonAlleleMarketPrice") {
+            table.allele_price[1] = parse_int(value, path);
+        } else if (key == "CommonAlleleMarketPrice") {
+            table.allele_price[2] = parse_int(value, path);
         } else if (key == "RegenerationDivider") {
             table.regeneration_divider = parse_int(value, path);
         } else if (key == "WalkingSpeedCoef") {
@@ -995,6 +1026,26 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         std::clamp(out.conventional_appeal, 0, 100);
     // The store shows Strangeness/ORIGINALITY: a conventional body is low.
     out.originality = 100 - out.conventional_appeal;
+    // `def+0x19c` (`0x61766b..0x6176d4`): sum over the 18 genes of
+    // `price[rarity(A)-1] + price[rarity(B)-1]`; the retail record skips a
+    // gene only when its rarity table is absent.
+    out.market_value = 0;
+    for (int gene = 0; gene < 18; ++gene) {
+        const std::vector<int>& weights =
+            rarity[static_cast<std::size_t>(gene)];
+        const int a = genotype[static_cast<std::size_t>(gene)].first;
+        const int b = genotype[static_cast<std::size_t>(gene)].second;
+        if (a < 0 || b < 0 ||
+            a >= static_cast<int>(weights.size()) ||
+            b >= static_cast<int>(weights.size())) {
+            continue;
+        }
+        const std::size_t ca = static_cast<std::size_t>(
+            std::clamp(weights[static_cast<std::size_t>(a)] - 1, 0, 2));
+        const std::size_t cb = static_cast<std::size_t>(
+            std::clamp(weights[static_cast<std::size_t>(b)] - 1, 0, 2));
+        out.market_value += allele_price[ca] + allele_price[cb];
+    }
 
     // `FUN_00619fb0` clamps the final values with the Part 9 table.
     if (has_attribute_limits) {
@@ -1161,6 +1212,16 @@ DinoPhenotypeTable read_dino_phenotype(const std::string& proportion_path,
     table.carapace_type =
         read_allele_table(lines, "CarTyp", simu_trans_path);
     table.carapace_sub = read_allele_table(lines, "CarSub", simu_trans_path);
+    // Rarity weights, one vector per gene in the runtime genotype order
+    // (docs/formats/gen.md). `0x61766b` uses them for the `+0x19c` value.
+    static constexpr const char* kGeneCodes[18] = {
+        "Head", "ArmLeg", "Body", "Tail", "HDDi", "HDTy", "BDDi",
+        "BDTy", "TDDi", "TDTy", "SknTyp", "SknSub", "CarTyp", "CarSub",
+        "Diet", "Agre", "Stam", "Cour"};
+    for (int gene = 0; gene < 18; ++gene) {
+        table.rarity[static_cast<std::size_t>(gene)] = read_rarity_table(
+            lines, kGeneCodes[gene], simu_trans_path);
+    }
 
     // Parts 4-6: the dummy disposition/type tables and their influence
     // tables. Part 4/5 have three subparts (Head/Body/Tail), each introduced

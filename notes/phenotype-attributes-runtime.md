@@ -109,6 +109,25 @@ ported: 5 s `regen` when food/rest > 0.01 and state != 4; 10 s starvation
 damage; 67/34/0 % bands and the `0x15` knockdown (see
 `docs/decomp/dinosaur-actions.md`).
 
+## Genotype-rarity sell value (`def+0x19c`, 20 live rows)
+
+The `DINORESET` trace also logs `+0x1ec` (the phenotype copy of
+`def+0x19c`). `0x61766b..0x6176d4` sums, over the 18 genes,
+`price[rarity(A)-1] + price[rarity(B)-1]` with
+`price = [Rare 500, Uncommon 100, Common 50]` and the Part 1 rarity weights
+(1 rare .. 3 common). The C++ reader now parses all 18 rarity blocks; live
+values in row order:
+
+```text
+3600 3700 3700 3700 2900 2900 3300 2950 3100 3250
+3100 2950 2400 3300 3300 3300 3300 3300 2950 2950
+```
+
+All 20 match (`val=` in `DINO_DEBUG_PHENO`). This is the **sell value**
+(`dino+0x1ec`), independent of the `Market.ini` purchase price; the sell
+credit is `FUN_00585c40(ftol(value*SellBackFactor))` (see
+`notes/dino-sell-recon.md`).
+
 ## What matches
 
 - **Beauty, Agility, Armor**: the base sum is exact for the 17 rows whose

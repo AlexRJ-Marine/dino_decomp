@@ -65,6 +65,13 @@ The constructor stores the values in the translator object at:
 `+0x2b4` is a 4-byte gap in the object (not loaded from the file). The
 integer keys are read with `0x004094d0`; the float keys with `0x00409510`.
 
+`+0x2c8..+0x2d0` is the three-entry **allele price** table used by the
+genotype-rarity value `def+0x19c` (`0x61766b`): `RareAlleleMarketPrice 500`,
+`UncommonAlleleMarketPrice 100`, `CommonAlleleMarketPrice 50`. The phenotype
+builder adds `price[rarity(A)-1] + price[rarity(B)-1]` for all 18 genes; an
+all-common genotype is 1800. This is the dino sell value
+(`dino+0x1ec`), not the `Market.ini` purchase price.
+
 ## The five dinosaur needs (`0x00618020`)
 
 `FUN_00618020(translator, unused, phenotype, out[5])` fills five floats. With
