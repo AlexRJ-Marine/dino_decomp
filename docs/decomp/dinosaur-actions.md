@@ -434,6 +434,34 @@ step 45`, `turn 90`, `180-degree record`, `paddock clamp`. Integration:
 `test_cpp_dino_walks_to_food` (Cpg04 PigFood: three allosaurs walk to
 474,378 and eat five portions).
 
+## Move profiles (`special_action`)
+
+`FUN_0056eec0` dispatches on the action profile's `+0x60`, which the runtime
+probe identified as the `.bai` **`special_action` (1..6)**, not `effect_class`.
+The jump table at `0x56f1e0` indexes `special_action - 1`:
+
+| `special_action` | action examples | case | records emitted (state 0 unless noted) |
+| ---: | --- | --- | --- |
+| 0 (normal) | Eat, EatBait, Smell, gestures | — | **never enters `FUN_0056eec0`**; the `0x56f9xx` executor emits the per-frame `0x34/0x35` marker, then the stop/abort and the element gesture (`0x12..0x17`) |
+| 1 | Exploration (0) | `0x56ef12` | `0x27` 2.0 s self; `0x27` `X[0x258]+0.5` action point; `0x34` marker to the action point; `0x20` `X[0x23c]`; `0x20` 5..20 s random self |
+| 2 | RunAway (1) | `0x56ef8e` | `0x19` 2.0 s self, or a `0x35` marker to the steering cell |
+| 3 | Sleep (2) | `0x56f087` | state 3: `0x1c` 1.5 s self; state 0: `0x1d` 1.5 s self + `0x1e` sentinel (`0x7f7fc99e`) self |
+| 4 | DinoAttackForHerbivore/Carnivore (27/28) | `0x56f1c7` | none from this emitter |
+| 5 | ObstAttackSize1-4, LinkObstAttack* | `0x56f1c7` | none here; `FUN_0056fb70` emits the `0x0b..0x0f` gestures and the `0x12..0x18` responses |
+| 6 | Victory (3) | `0x56f152` | context gesture with duration `[0x006430a8]` (`0x7f7fc99e`) |
+
+`FUN_0056fb70` (sp5) picks a random group from the dino's `+0x288` counts,
+then a gesture kind (`0x0c..0x0f`, or 9/10 by the target's size class), and a
+second gesture from the target's movement state (`FUN_00575be0` 0..3 →
+`0x12/0x14/0x13/0x17` and the paired `0x13/0x16/0x18/0x17`). The probe saw the
+full record lists and action mapping; see
+`notes/dino-move-record-actions.md`.
+
+The port's current one-record Eat move is therefore the **normal-action**
+approximation; the special-action lists are not ported. The next slice is the
+normal `0x56f9xx` executor (per-frame marker + stop/gesture) and the
+self-contained Sleep/Exploration lists.
+
 ## Evidence
 
 - `notes/dinosaur-actions-recon.md` — decompiled switches and field evidence.

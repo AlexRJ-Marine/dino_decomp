@@ -2367,12 +2367,20 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   file blocks 3/2 (runtime: 15 Cpg04 dinos at 1.2 s, 4 at 2.0 s; size classes
   match `DINORESET f1e0` 20/20). Ported in `src/formats/actions_bad.*`;
   `DinoMover::set_turn_durations` gets kind 3/5 from the dino family. Cpg04
-  allos log `turn=1.20 uturn=1.50`; the real file test is
+  allos log `turn=2.00 uturn=2.00`; the 15 small bipeds use 1.20/1.50; the real file test is
   `test_cpp_actions_bad_durations`.
-- [ ] Park move scripts: the behaviour layer calls `0x573f40` directly and
-  emits 1-3 record lists per element; `FUN_00569660` is the item path and
-  fired 0 times. Port the behaviour call sites (0x56f... / 0x56e799 /
-  0x56fc94 / 0x5209d6) and represent current + next + record list.
+- [x] Move-profile mapping (`notes/dino-move-record-actions.md`):
+  profile `+0x60` is the `.bai` **special_action** 1..6, not `effect_class`.
+  `FUN_0056eec0` only handles special actions: Exploration 5 records,
+  RunAway 0x19/0x35, Sleep 0x1d+0x1e / 0x1c, sp4 none, sp5 `FUN_0056fb70`
+  gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
+  (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
+- [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
+  squared-distance gate, stop/abort on arrival, element gesture `0x12..0x17`
+  from `element+0x40`. Represent current + next + record list.
+- [ ] Port the self-contained special lists: Sleep (0x1d/0x1e at state 0,
+  0x1c at state 3) and RunAway 0x19. Exploration's action-point records need
+  the behaviour target; sp5 needs the target/response logic.
 - [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
   move is in progress; map the stop condition and the duplicate-insert path.
 - [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
