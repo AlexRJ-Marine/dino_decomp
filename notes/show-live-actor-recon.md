@@ -114,7 +114,20 @@ Scheduler (`FUN_0058c2f0`/`FUN_0058c760`/`FUN_0058c390`):
   over `stShow+0xf4`.
 - End: when the window/state check passes, `FUN_0058c8f0(show)` then
   **`FUN_0057b130(show, result)`** (`+0xd5=1, +0x94=result`).
+- `FUN_0057b150(show)` is the per-performance start: `+0x90=0, +0x88=0,
+  +0xd6=1, +0xd2=0, +0x80=+0x7c`, calls `FUN_00571190` per participant,
+  `FUN_0057ba50()`, `FUN_00576b80(0)` and `FUN_0057fe40(+0x94)`.
 - `stShow+0xe4`: 0 idle, 1 starting/running, 2 performing.
+
+**Performance length:** there is **no stShow duration field and no `.shw`
+length field**. The bound is the scheduler slot window (`FUN_0058c390`):
+`i = (int)(sched[0xc]*sched[0x20]) + 1; end = i*sched[0x24] - time*sched[0x14]`;
+the show runs while the window is active and `FUN_0058c8f0` +
+`FUN_0057b130` end it at the slot boundary. If the slot ends mid-performance
+the show ends there (no carry-over). The exact `sched+0x24`/`+0x20` unit
+values and the `iterations` spacing within the slot are OPEN. The port's
+30-minute `ShowRuntime` duration is therefore an explicit placeholder; it
+should become the slot window, not a `.shw`/`.bfi` length.
 
 ## 6. Score and Victory
 
@@ -162,8 +175,9 @@ Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bf
 ## Open
 
 1. Exact show-end Victory emitter (retail direct emitter not found).
-2. `show+0xe4` phase transitions: whether 2 is reached only via `FUN_0057ba50`
-   or also a show-length timer.
+2. The exact scheduler slot scale (`sched+0x24`/`+0x20`) and the
+   `iterations` spacing within the slot; the show ends at the slot boundary,
+   not a 30-minute duration.
 3. `.bfi` `score_steps`/`attribute_sets` are unused in this build (negative
    result).
 4. The cast writer and the scheduler start/end are now mapped

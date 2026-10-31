@@ -1552,9 +1552,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `.bfi` actors via `FUN_0053acd0`, Judge detected by the name at
   `design+0x34`, judge kind `featureDef+0x40` -> `FUN_0057c260` ->
   `stShow+0xcc`; score `FUN_00576550`/`FUN_00581770`; `.bfi` `score_steps`
-  unused). Implement the arena/judge/cast actors; open: the cast append
-  producer (`stShow+0x50/+0x54`), the show timer/end, and the show-end
-  Victory emitter.
+  unused). Implement the arena/judge/cast actors. The show length is the
+  scheduler slot window (`FUN_0058c390`), not a `.shw`/`.bfi` field; the
+  port's 30-minute duration is an explicit placeholder and should become the
+  slot window. Open: the per-performance/iteration spacing inside the slot
+  and the show-end Victory emitter.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
