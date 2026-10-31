@@ -77,6 +77,20 @@ The world-pick handler is an inline park-view method at `0x5396c0`
   in the scene/renderer update and fills the `0x006749e4` selection
   manager; its producer (the only write to the global is the manager ctor
   `FUN_004036e0` at `0x40383b`) is the open engine lead.
+- **The hit test is a pixel-ID buffer.** `FUN_005e0da0(scene, x)` at
+  `0x5e0da0` is exactly:
+
+  ```c
+  return *(u32 *)(scene->id_buffer(+0x8c)
+                  + (scene->row(+0x10) * scene->width(+0x04) + x) * 4);
+  ```
+
+  `0x539750` calls it with the mouse pixel, adds the returned actor to the
+  selection manager, clears the previous selection and reopens the panel
+  (`panel+0xc0`). So the retail pick is a **rendered object-ID color/ID
+  buffer**, not a ray or bounding box. The remaining renderer lead is the
+  pass that fills `scene+0x8c`; the port would need a matching offscreen
+  ID pass to select actors with retail semantics.
 
 So the UI side is fully mapped: the panel opens with the actor at
 `panel+0xc0`, and the 11 gauges/needs are filled from it. Only the
