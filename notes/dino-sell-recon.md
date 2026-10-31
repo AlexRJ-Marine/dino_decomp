@@ -54,6 +54,38 @@ Date: 2026-10-31. Read-only Ghidra pass; no runtime probe in this pass.
 5. [ ] Interactive `REQUEST_SELL_DINO` hit test/panel path (`0x532d9c..`);
    the stable id is now in place, only the UI selection remains.
 
+## Info-panel text path (`0x532d8c..0x532e2a`)
+
+The dino info panel update (`0x532d8c`, no Ghidra function boundary) gates the
+sell text on the **byte at `dino+0x65`**:
+
+```text
+00532d89 MOV ECX,[EAX+8]          ; dino definition/panel?
+00532d90 MOV EDX,[ECX+0x34]
+00532d93 TEST byte [EDX+0x65],AL  ; sellable flag
+00532d96 JZ 0x532ea7              ; no sell text
+00532d9c PUSH 0x663df8            ; "&REQUEST_SELL_DINO"
+... build loc string into panel+0x74 ...
+00532dfa FILD [dino+0x1ec]        ; market value
+00532e00 FMUL [panel+0x94][+0x98] ; SellBackFactor
+00532e06 CALL __ftol
+00532e0b .. format %d (0x64c6cc) into panel+0x68
+```
+
+So the panel shows the sell value as
+`ftol(dino+0x1ec * SellBackFactor)` (the exact same value the sell action
+credits) under the `REQUEST_SELL_DINO` label. `0x533a00` is the accept
+action.
+
+`dino+0x65` is actor `+0x50 + 0x15`, i.e. byte 1 of the phenotype height int
+(`def+0x14`), because the actor copies the 0x1b8-byte definition to `+0x50`.
+For a 234 cm dino byte 1 is 0; for heights >= 256 it is non-zero. No writer
+to the flag exists in the image (the audit's producer scan). This looks like
+a field-mapping/accidental gate, not a meaningful "sellable" state, so the
+port must not invent a sellable rule from it. The `--sell-dino` hook ignores
+the gate; the interactive panel should either reproduce the raw byte test
+once the field is confirmed or document the divergence.
+
 ## Open
 
 - The exact caller/UI of `FUN_00533a00` (`REQUEST_SELL_DINO` panel path) is
