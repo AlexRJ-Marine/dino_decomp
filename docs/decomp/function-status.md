@@ -152,7 +152,7 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 | `0x0051f290` / `0x0051f400` | AI manager load/save (5 lists, 17-byte entries) | decompiled | same |
 | `0x005e5b80` / `0x005e5ba0` | camera-switcher load/save (10 floats) | decompiled | same |
 | `0x005e5920` / `0x005e5940` | scenario-manager load/save wrapper | decompiled | same |
-| `0x00585c00` / `0x00585c40` | budget subtract / VENTES generic income | decompiled | `docs/decomp/economy.md` |
+| `0x00585c00` / `0x00585c40` | budget subtract / VENTES generic income | decompiled, verified | `docs/decomp/economy.md`; `test_cpp_dino_sell` (VENTES 1/2400) and `test_cpp_fence_sell_empty` (1/1890) |
 | `0x00585c90` | FOOD expense (`+0x0c` / `+0x10`) | decompiled | same |
 | `0x00585cc0` / `0x00585cf0` / `0x00585d20` | DINOACHAT / LABOACTION / CONSTRUCTION groups | decompiled | same |
 | `0x00585d50` / `0x00585d80` | EFFECTIFS_SECU / staff-role expense buckets | decompiled | same |
