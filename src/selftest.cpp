@@ -509,6 +509,28 @@ int run_selftest() {
     check(std::fabs(rest - 997000.0f) < 0.01f && feeder.state == 3 &&
               feeder.quantity == 0.0f,
           "feeder empty clamps");
+    // `FUN_00576d50`: level 0/1/2 = 100/66.66/33.33 % capacity; level 3 is
+    // rejected. Returns the `.bsi` price charged to FOOD. The only retail
+    // writer `FUN_00580e30` passes level 0.
+    dino::FoodSource level_source;
+    dino::FoodDef level_def;
+    level_def.quantity = 30.0f;
+    level_def.price = 700;
+    check(dino::set_food_level(level_source, level_def, 0) == 700 &&
+              level_source.level == 0 &&
+              std::fabs(level_source.remaining - 30.0f) < 0.01f,
+          "food level 0");
+    check(dino::set_food_level(level_source, level_def, 1) == 700 &&
+              level_source.level == 1 &&
+              std::fabs(level_source.remaining - 20.0f) < 0.01f,
+          "food level 1");
+    check(dino::set_food_level(level_source, level_def, 2) == 700 &&
+              level_source.level == 2 &&
+              std::fabs(level_source.remaining - 10.0f) < 0.01f,
+          "food level 2");
+    check(dino::set_food_level(level_source, level_def, 3) == 0 &&
+              level_source.level == 2,
+          "food level 3 rejected");
 
     // gscMaterialBank pulse (`FUN_00600550`) worked values from
     // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit

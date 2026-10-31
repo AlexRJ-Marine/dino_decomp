@@ -2381,8 +2381,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (`set_food_level` 100/66/33 %, level 3 invalid) and the `.bsi` price is
   charged to the FOOD bucket via `spend_food` (budget vtable[0] `0x585c90`).
   The nutritionist completion uses level 0; PigFood 700 moves the Cpg04 test
-  budget 74,000 -> 73,300. The **job level producer** at
-  `*(set+0x5c+idx*8)` is still untraced (`notes/food-refill-recon.md`).
+  budget 74,000 -> 73,300. Level 0 is exact: the only slot writer
+  `FUN_00580e30` passes 0 at all three call sites; the 66/33 branches are
+  unreachable in retail. The hour index domain/save restore remains open
+  (`notes/food-refill-recon.md`).
   The fence sell still credits the budget directly and leaves VENTES flat
   (G11); the dino sell credits VENTES.
 - [x] Dino market value (`def+0x19c`): 18-gene genotype-rarity value,

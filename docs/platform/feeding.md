@@ -42,8 +42,9 @@ persistence remain open.
 - Nutritionist refill: `set_food_level` implements the exact 100/66/33 %
   amounts; the completion uses level 0 and charges the `.bsi` price to FOOD
   (`BudgetLedger::spend_food`). `--feed-now` with PigFood logs
-  `food_spent=700 budget=73300` and `level=0`; the job level producer
-  (`*(set+0x5c+idx*8)`) is still untraced.
+  `food_spent=700 budget=73300` and `level=0`; level 0 is exact because the
+  only slot writer (`FUN_00580e30`) passes 0 at every call site. The 66/33
+  branches are retained for an edited/scripted slot, not produced by retail.
 - `DinoNeeds` carries the exact food gauge: `max_food = weight`,
   `food_gauge` (init `max_food*0.5`), `food_consumption = weight*0.001/s`.
   Every 10 s: `gauge -= 10*consumption`, `FOOD = ftol(gauge*99/max_food)`.
