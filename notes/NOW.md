@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI: exact violence decay (FUN_00571410 10/10s) and Eat walk marker re-issue with kind 0x34+(REPOS state!=2); Cpg04 kind=0x35/0x34 verified; selftest 216, fast 381
 - 2026-10-31 - AI: LunchBox item actor - .bfi bowl draw, enclosure/diet feeder gate, 0x34 walk, FUN_00576e50 drain, apply_food gauge; Cpg04 anky nutrition=1000000 quantity=0 gauge=4255; fast 381, selftest 215
 - 2026-10-31 - AI: exact food gauge (max=weight, 10s pass, apply_food event 0x17), .bsi dino placeholder removed (visitor/employee source), BFI quantity/nutrition + FUN_00576e50 feeder drain model, sticky enclosure index; fast 381, selftest 215
 - 2026-10-31 - AI: Sleep special-action records (0x1d/0x1e/0x1c), gesture no-translation, normal-action executor 0x56f7a0 map (marker/stop/0x12..0x17 gesture); selftest 207, full 525
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-30 - AI: retail dinosaur mover ported (saDinosaur+0x2c8) - 0x18-byte queue, phenotype walk/run 1.43-2.91 m/s, exact FUN_00575410 pre-rotated turn plan (45 deg/record, 1.0 s), 180 record, paddock clamp; element events replace the disproven .bai need deltas; selftest 201, full 522
 - 2026-10-29 - ARCH-5 actions: `ParkSession::tick_dino` owns action loop/Eat/clip selection; paddock queries moved; game.h 651->649; full 521
 - 2026-10-29 - ARCH-5 animator: CPU skinning moved render->world; `dino_animator` pose helper replaces duplicated code; full 521
-- 2026-10-29 - ARCH-5 split: `DinoAssets`/`ImportedDino` in world, `ImportedDinoDraw` in app, `park_session.imported_dinos`; game.h 665->651; dino render/save/show full 521
 
 ## Blockers
 

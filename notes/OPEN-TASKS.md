@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 02:03. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 02:16. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-59 open items.
+58 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -123,15 +123,14 @@ Generated from `TASKS.md` on 2026-10-31 02:03. Do not edit; regenerate with `scr
 
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
 - [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
-- [ ] Remaining per-tick health: `0x5869e0` (5 s regen, 10 s violence/state),
+- [ ] Remaining per-tick health: `0x5869e0` (5 s regen), `0x5724d0` (health
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
 - [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
-- [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
+- [ ] Port the normal-action executor rest: the full element record list and
 - [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
-- [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
 - [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
