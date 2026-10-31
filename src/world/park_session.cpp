@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace dino {
 
@@ -140,6 +141,14 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);
+    auto family_duration = [&](int kind, float fallback) {
+        int family = dinosaur.attributes.family;
+        if (family < 0 || family > 4) {
+            family = 3;
+        }
+        const float value = action_duration(actions_bad, family, kind);
+        return value > 0.0f ? value : fallback;
+    };
     if (dinosaur.action_loop->finished_count() != finished_before) {
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
@@ -167,12 +176,28 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                     event.eat_distance = distance;
                 }
             }
+        } else if (finished == "Sleep") {
+            // `FUN_0056eec0` case 2 (special_action 3): state 3 emits the
+            // 0x1c wake gesture at the dino's own position.
+            dinosaur.mover.clear();
+            dinosaur.mover.start(0x1c, dinosaur.x, dinosaur.y, 2,
+                                 family_duration(0x1c, 1.5f));
+            std::printf("dino sleep: %s wake kind=0x1c\n",
+                        dinosaur.species.c_str());
         }
     }
     const std::string& action = dinosaur.action_loop->action_name();
     if (action != previous) {
         event.action_changed = true;
         event.action = action;
+        // A new action replaces a lingering gesture record, but a walk/run
+        // marker may finish. Sleep keeps its own 0x1d/0x1e list.
+        if (dinosaur.mover.active() && action != "Sleep" &&
+            dinosaur.mover.kind() != 1 && dinosaur.mover.kind() != 2 &&
+            dinosaur.mover.kind() != 0x34 &&
+            dinosaur.mover.kind() != 0x35) {
+            dinosaur.mover.clear();
+        }
         if (action == "Eat" || action == "EatForSmallies") {
             // The item actor publishes the action list; the box target is the
             // food source it was created from. The port's approximation uses
@@ -185,9 +210,15 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                 event.move_target_y = source->y;
             }
         } else if (action == "Sleep") {
-            // Sleeping stops the current record; idle keeps it running so a
-            // move issued by the previous Eat/Exploration finishes.
+            // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel at
+            // the dino's own position. The 0x1d waits 1.5 s, then the
+            // sentinel holds the sleep pose until the action ends.
             dinosaur.mover.clear();
+            dinosaur.mover.start(0x1d, dinosaur.x, dinosaur.y, 2,
+                                 family_duration(0x1d, 1.5f));
+            dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2, 3.4e38f);
+            std::printf("dino sleep: %s start kind=0x1d/0x1e\n",
+                        dinosaur.species.c_str());
         }
         if (action != "idle") {
             event.scored = true;

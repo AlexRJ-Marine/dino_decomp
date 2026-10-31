@@ -2378,9 +2378,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
   squared-distance gate, stop/abort on arrival, element gesture `0x12..0x17`
   from `element+0x40`. Represent current + next + record list.
-- [ ] Port the self-contained special lists: Sleep (0x1d/0x1e at state 0,
-  0x1c at state 3) and RunAway 0x19. Exploration's action-point records need
-  the behaviour target; sp5 needs the target/response logic.
+- [x] Sleep special list: `0x1d` + the `0x1e` sentinel at state 0, `0x1c`
+  at wake, all self-target gestures. Gesture kinds now have zero speed and a
+  mode-2 self record waits its duration. `test_cpp_dino_sleep_records`.
+- [ ] Port the remaining self-contained special lists: RunAway `0x19`,
+  Exploration's action-point records (needs the behaviour target), and sp5
+  `FUN_0056fb70` target/response logic.
 - [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
   move is in progress; map the stop condition and the duplicate-insert path.
 - [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04

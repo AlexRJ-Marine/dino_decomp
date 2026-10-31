@@ -458,9 +458,38 @@ full record lists and action mapping; see
 `notes/dino-move-record-actions.md`.
 
 The port's current one-record Eat move is therefore the **normal-action**
-approximation; the special-action lists are not ported. The next slice is the
-normal `0x56f9xx` executor (per-frame marker + stop/gesture) and the
-self-contained Sleep/Exploration lists.
+approximation; of the special-action lists only Sleep is implemented. The next
+slice is the normal `0x56f9xx` executor (per-frame marker + stop/gesture) and
+the remaining special lists.
+
+**Port (2026-10-31):** the Sleep special list is implemented
+(`ParkSession::tick_dino`): state 0 queues `0x1d` + the `0x1e` sentinel at the
+dino position, the wake queues `0x1c`; gesture kinds have zero movement speed
+and a mode-2 self record waits its full duration. Verified by
+`test_cpp_dino_sleep_records` (Cpg04: start + wake lines, no `dino move`).
+
+### Normal-action executor (`0x56f7a0`)
+
+Normal actions (`special_action == 0`, including Eat) enter a separate
+executor whose start is `0x56f7a0` (`SUB ESP,0x3c`; Ghidra did not create the
+function boundary). Its jump table `0x56fb5c` switches on the action-node
+state (`node+0x10`, 0..3):
+
+- state 0 (`0x56f817`): compute the target/distance, call
+  `FUN_0055b5b0` (nearest reachable cell); if reachable and the target is
+  outside the node's distance gate (`node+0x00/+0x04`), emit the marker
+  `kind = 0x34 + (dino[0x2b8] != 2)` through `FUN_00573f40` at `0x56f94a`
+  (mode 1, duration 0), set state 1; otherwise call `FUN_0056f2f0` and set
+  the element's done flag. If unreachable, emit the stop record
+  `{self,self,0,mode2,0}`.
+- state 1 (`0x56f994`): wait for arrival, then a stop record and state 2.
+- state 2 (`0x56fa3b`): emit the element gesture from `node+0x40` with
+  `FUN_00575de0(kind)` at `0x56fa98`; the probe saw kinds `0x12..0x17`.
+- state 3: epilogue.
+
+The marker is re-issued every frame; `FUN_00573f40` cancels the current
+record's arrival (`mode = 0`) and keeps at most one pending. The source of
+`node+0x40` (the per-action gesture kind) is still open.
 
 ## Evidence
 

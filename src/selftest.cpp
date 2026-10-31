@@ -300,6 +300,21 @@ int run_selftest() {
     bounded.tick(2.0);
     check(bounded.blocked() && std::fabs(bounded.x() - 2.0f) < 0.001f,
           "dino mover paddock clamp");
+    // Gesture kinds do not translate; a mode-2 self record waits its full
+    // duration (Sleep 0x1d/0x1e, Victory 0x27/0x20).
+    dino::DinoMover gesture(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    gesture.start(0x1d, 0.0f, 0.0f, 2, 1.5f);
+    gesture.tick(1.0);
+    check(gesture.active() && std::fabs(gesture.x()) < 0.001f,
+          "dino gesture waits");
+    gesture.tick(0.6);
+    check(!gesture.active() && std::fabs(gesture.x()) < 0.001f,
+          "dino gesture completes at its duration");
+    dino::DinoMover marker(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    marker.start(0x34, 10.0f, 0.0f, 1);
+    marker.tick(1.0);
+    check(std::fabs(marker.x() - 2.0f) < 0.001f,
+          "dino 0x34 marker walks");
 
     // gscMaterialBank pulse (`FUN_00600550`) worked values from
     // notes/fence-selected-state-recon.md §1.4. Comparisons are in 8-bit

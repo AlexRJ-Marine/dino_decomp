@@ -228,13 +228,16 @@ bool DinoMover::step_allowed(float nx, float ny) const {
 }
 
 float DinoMover::speed_for_kind(int kind) const {
-    // `FUN_00574930`: kind 1 uses saDinosaur+0x268 (walk), kind 2 uses
-    // +0x26c (run). Other kinds use the per-species action table; the port
-    // keeps the walk speed until that table is loaded.
-    if (kind == 2) {
+    // `FUN_00574930`: kind 1/0x34 walk, kind 2/0x35 run. Every other kind is
+    // a gesture/turn/attack whose forward/lateral table slots are zero; the
+    // runtime probe measured 0.0000 displacement for those.
+    if (kind == 2 || kind == 0x35) {
         return run_speed_;
     }
-    return walk_speed_;
+    if (kind == 1 || kind == 0x34) {
+        return walk_speed_;
+    }
+    return 0.0f;
 }
 
 bool DinoMover::tick(double dt) {
@@ -284,7 +287,7 @@ bool DinoMover::tick(double dt) {
     const float distance = std::sqrt(dx * dx + dy * dy);
     const float dir_x = fx_;
     const float dir_y = fy_;
-    if (distance <= kArriveRadius) {
+    if (mode_ == 1 && distance <= kArriveRadius) {
         finish_segment();
         return true;
     }

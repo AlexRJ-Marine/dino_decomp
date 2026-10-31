@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (204 checks)" in result.stdout
+    assert "selftest: PASS (207 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -2867,6 +2867,34 @@ def test_cpp_dino_action_loop():
     default = run(None)
     assert len(default) == 20
     assert all(" Exploration score=75 " in line for line in default)
+
+
+@pytest.mark.slow
+def test_cpp_dino_sleep_records():
+    """`FUN_0056eec0` special_action 3 (Sleep): state 0 emits 0x1d then the
+    0x1e sentinel at the dino position; state 3 emits the 0x1c wake gesture."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail isl04/Cpg04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "60", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--dino-action-loop",
+         "--fixed-dt", "0.016", "--dino-action-speed", "100",
+         "--dino-needs", "70,90,90,20"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert " start kind=0x1d/0x1e" in log
+    assert " wake kind=0x1c" in log
+    # Gestures never translate the dino.
+    assert "dino move:" not in log
 
 
 @pytest.mark.slow
