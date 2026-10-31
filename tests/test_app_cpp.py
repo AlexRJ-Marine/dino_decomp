@@ -2734,6 +2734,34 @@ def test_cpp_campaign_spawn_positions():
 
 
 @pytest.mark.slow
+def test_cpp_dino_action_restart():
+    """When the chooser re-selects the same node after an action finishes
+    (Exploration), the port must issue a fresh element/list instance; the old
+    name-only check left the mover on the finished records and the dino
+    stopped after one walk."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2400", "--fixed-dt", "0.05", "--no-menu",
+         "--no-hud", "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--no-build", "--park-budget", "75000", "--dino-action-loop"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    explores = [line for line in log.splitlines()
+                if line.startswith("dino explore: anky")]
+    # Two Cpg04 ankies; 120 s contains several Exploration actions each.
+    assert len(explores) >= 4, explores
+
+
+@pytest.mark.slow
 def test_cpp_cpg04_phenotype_lengths():
     """Exact phenotype lengths from the live Cpg04 run (genotype -> part size).
 

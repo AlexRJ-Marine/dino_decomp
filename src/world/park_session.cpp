@@ -492,7 +492,15 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
         }
     }
     const std::string& action = dinosaur.action_loop->action_name();
-    if (action != previous) {
+    const bool action_finished =
+        dinosaur.action_loop->finished_count() != finished_before;
+    // A finished action can re-select the same node (Exploration/RunAway/
+    // Eat). Retail starts a fresh element/list instance; without this the
+    // mover keeps the old finished records and the dino stops. Sleep's wake
+    // is handled by the finished block above, so do not restart it here.
+    const bool restart_same =
+        action_finished && action == previous && action != "Sleep";
+    if (action != previous || restart_same) {
         event.action_changed = true;
         event.action = action;
         // A new element recomputes the Eat stand cell (`FUN_0055b5b0`) and

@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - fix: same-name dino action restart - tick_dino re-issues the element/move list when DinoActionLoop::finished_count changes, not only when the action name changes; before this the Exploration mover kept the finished records and the dino stopped after one walk; 120 s Cpg04 log shows repeated actions; test_cpp_dino_action_restart; full 548
 - 2026-10-31 - feat: retail cursors + campaign dino spawn - CursorMain_wood/money/put_in_enclos as SDL colour cursors; menu new game resets the stale construction tool (no path helper/paths at start) and enables the dino action loop; campaign .wld list0 positions/facings/needs/action wired (Anky 516,450 41/80/99/95, Allo 432,520); --dino-fill-spawn test fixture; play-port.ps1; full 548
 - 2026-10-31 - feat: exact StaticBait ground quad/UV - model-manager vtables 0x648A68->0x622DF0 (generic) and 0x648AA0->0x6236C0 (LunchBox); StaticBait chain 0x62301F->0x623FA0->0x622240; port quad now uses the retail vertex/UV order (full animaux.tga, no atlas); probe note/script committed; fast 386
 - 2026-10-31 - docs: static-bait display-type probe address (0x5f4e2a, model-manager vtable+0x28) and wall build path negative - FUN_00584200/00584700 make no scene call or wallRecord+8 deref, display owner OPEN; no code change (full 547)
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - fix: port-save clock fallback is 40.0 (not 60) - PortState default and apply_port_state match the Cpg04 runtime GeneralParams value; fast 386
 - 2026-10-31 - feat: static bait placement wired - BfiFeature.display_type, generic Game::place_feature_at, --place-bait/--bait-pos, construction-kit category+bait switches (switch_key), full-texture animaux.tga 4x4 ground quad, no LunchBox 16 cap; tests static_bait data/CLI/UI; fast 386, full 546
 - 2026-10-31 - docs+test: static bait variants mapped - StaticBaitFlower/Apple/Hay/Pumpkin/Watermelon data (food_kind 0/1/4/3/2, 10000/70, EatBait actions, prices 10/10/30/50/40, switch keys) and generic FUN_0052bbb0/FUN_0052b0d0 placement (no LunchBox 16 cap); ground-tile UV/visual and per-switch binding OPEN; test_static_bait_variants locks the five rows; fast 386
-- 2026-10-31 - probe: show-wall class-7 grid stamp is occupancy-only - hardware read watchpoint on (420,416) hits only FUN_005849a0's own read-modify-write in 60 s; stWall+0x00 = wallRecord+8 = .bwi field_08 100, not a mesh pointer; no grid-to-mesh renderer or stWall consumer found, display transform stays OPEN; show-wall-grid.ps1 committed; no code change (full 543 on the prior build)
 
 ## Blockers
 

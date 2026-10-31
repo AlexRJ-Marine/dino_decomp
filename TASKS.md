@@ -2500,6 +2500,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Sleep special list: `0x1d` + the `0x1e` sentinel at state 0, `0x1c`
   at wake, all self-target gestures. Gesture kinds now have zero speed and a
   mode-2 self record waits its duration. `test_cpp_dino_sleep_records`.
+- [x] Same-name action restart: `ParkSession::tick_dino` re-issues the
+  action's element/move list when `DinoActionLoop::finished_count()` changes,
+  not only when the action name changes. The old name-only check left the
+  mover on the finished Exploration records and the dino stopped after one
+  walk; `test_cpp_dino_action_restart` (120 s Cpg04, >=4 Exploration actions).
 - [x] Exploration special list: `paddock_patrol_point` reproduces
   `min + rand() % (max-min-7) + 4`; 0x27 self, 0x27 point, 0x34 marker,
   0x20 point, 0x20 self 5..20 s. `test_cpp_dino_exploration_records`.

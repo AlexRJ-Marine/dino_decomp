@@ -537,10 +537,9 @@ second gesture from the target's movement state (`FUN_00575be0` 0..3 →
 full record lists and action mapping; see
 `notes/dino-move-record-actions.md`.
 
-The port's current one-record Eat move is therefore the **normal-action**
-approximation; of the special-action lists only Sleep is implemented. The next
-slice is the normal `0x56f9xx` executor (per-frame marker + stop/gesture) and
-the remaining special lists.
+The port's normal-action Eat item record and the special lists Sleep,
+Exploration and RunAway are implemented; the remaining normal `0x56f9xx`
+executor gestures and the other special cases remain.
 
 **Port (2026-10-31):** the Sleep special list is implemented
 (`ParkSession::tick_dino`): state 0 queues `0x1d` + the `0x1e` sentinel at the
@@ -550,6 +549,13 @@ too: `paddock_patrol_point` reproduces
 `min + rand() % (max-min-7) + 4`, then the five records (`0x27` self,
 `0x27` point, `0x34` marker, `0x20` point, `0x20` self 5..20 s). Verified by
 `test_cpp_dino_sleep_records` and `test_cpp_dino_exploration_records`.
+A finished action that the chooser **re-selects with the same node name**
+must still start a fresh element/list instance. `tick_dino` therefore detects
+a change in `DinoActionLoop::finished_count()` as well as an action-name
+change and re-issues the Exploration/RunAway/Eat records; the old name-only
+check left the mover on the finished records, so the dino stopped after the
+first walk (`test_cpp_dino_action_restart`). Sleep's wake is handled by the
+finished-action block and is not restarted there.
 
 The food gauge is also exact: `max_food = weight`, `food_gauge` starts at
 `max_food*0.5`, the 10 s pass subtracts `10*food_consumption` and sets
