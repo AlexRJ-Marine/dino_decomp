@@ -174,6 +174,10 @@ Options parse_args(int argc, char** argv) {
             opt.free_camera = true;
         } else if (arg == "--build") {
             opt.build_mode = true;
+        } else if (arg == "--no-build") {
+            // --wld-park arms the path tool; tests that click the scene
+            // (dino selection) clear it with this flag.
+            opt.build_mode = false;
         } else if (arg == "--build-cell") {
             opt.build_cell = static_cast<float>(std::atof(next("--build-cell")));
         } else if (arg == "--path-texture") {
@@ -683,8 +687,9 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-health CUR,MAX health pair for the SECU/health tests (default phenotype)\n"
                 "  --dino-food N        initial food gauge for imported dinosaurs (test hook)\n"
                 "  --sell-dino NAME     sell the last imported dinosaur of NAME (test hook)\n"
+                "  --no-build           clear the default build tool (scene picking tests)\n"
                 "  --dino-info NAME     print one imported dinosaur's live panel values\n"
-                "  --dino-panel NAME    open DINO_INFO_PANEL for the first NAME (no world pick yet)\n"
+                "  --dino-panel NAME    open DINO_INFO_PANEL for the first NAME (or click a dinosaur)\n"
                 "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
                 "  --rest-probe         print each dinosaur's rest gauge, REPOS, health and state per second\n"
                 "  --save-port FILE     write the port park state\n"

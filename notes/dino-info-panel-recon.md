@@ -115,10 +115,22 @@ the world-pick that selects the dinosaur are still untraced.
   four `DINO_INFO_BESOINS_*` state icons (state 3 -> GOOD, per `0x5138b0`).
   `--dino-panel NAME` is the test opener; the 800x600 screenshot
   `build/dino-panel.png` shows the anky panel (`test_cpp_dino_info_panel`).
-- Still open: the world-pick opener (pixel-ID buffer pass), the other three
-  tabs (needs/visitor appreciation/calendar), the sell-text widget and the
-  teleport/next-dino buttons. Do not invent a click radius or a sellable
-  rule.
+- **Selection is wired (2026-10-31).** `apply_park_click` calls
+  `pick_dino_index`: the port keeps the last posed CPU mesh per dinosaur
+  (`ImportedDino::pick_mesh`), builds the same 80-degree camera ray as
+  `pick_terrain`, and takes the nearest triangle hit in front of the
+  heightfield. A hit opens the panel (`dino pick: anky id=1` ->
+  `dino panel open:`); an empty click closes it. The 800x600 capture
+  `build/pick-panel.png` shows the clicked anky with the panel.
+  `test_cpp_dino_click_opens_panel`.
+- The retail hit test is a pixel-ID buffer; the port's ray/mesh test is the
+  same selection for a dinosaur, but it only contains dinosaur meshes. A
+  dinosaur behind a building/vegetation can still be picked (terrain
+  occlusion is tested). The retail buffer draws every object, so a full
+  object-ID pass remains the exact solution; no click radius or sellability
+  rule is invented.
+- Still open: the other three tabs (needs/visitor appreciation/calendar),
+  the sell-text widget and the teleport/next-dino buttons.
 
 ## Evidence
 

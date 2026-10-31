@@ -119,6 +119,7 @@ add_executable(dino_port
     src/app/game_scene.cpp
     src/app/ui_geometry.cpp
     src/app/asset_paths.cpp
+    src/app/dino_pick.cpp
     src/app/reports.cpp
     src/app/keymap.cpp
     src/app/camera_config.cpp

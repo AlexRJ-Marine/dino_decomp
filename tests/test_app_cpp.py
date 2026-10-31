@@ -4596,6 +4596,47 @@ def test_cpp_dino_info_panel(tmp_path):
     assert mean > 20.0  # the wood panel replaces the bare HUD strip
 
 
+@pytest.mark.slow
+def test_cpp_dino_click_opens_panel(tmp_path):
+    """Clicking a dinosaur in the park selects it and opens the live
+    `DINO_INFO_PANEL` (`0x5396c0` selection -> `0x5135d0`)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    common = [str(EXE), "--frames", "6", "--no-menu", "--width", "800",
+              "--height", "600", "--no-vsync", "--no-save-config",
+              "--lnd", str(isl04), "--asset-root", str(GAME),
+              "--no-vegetation", "--focus-dino", "0",
+              "--wld-park", str(wld), "--no-build"]
+    base = tmp_path / "base.bmp"
+    panel = tmp_path / "panel.bmp"
+    result = subprocess.run(
+        common + ["--screenshot", str(base)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    result = subprocess.run(
+        common + ["--ground-click", "400,330", "--screenshot", str(panel)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "dino pick: anky id=1" in log
+    assert ("dino panel: anky id=1 PERCEPTION=12 BEAUTY=56 ATTACK=48 "
+            "AGGRESSIVENESS=82 ARMOR=78 SPEED=28 AGILITY=21 "
+            "INTELLIGENCE=18 COURAGE=77 STAMINA=83 ORIGINALITY=5") in log
+    assert "dino panel open: anky id=1" in log
+    from PIL import Image, ImageChops, ImageStat
+    before = Image.open(base).convert("RGB")
+    after = Image.open(panel).convert("RGB")
+    diff = ImageChops.difference(before.crop((0, 0, 170, 600)),
+                                 after.crop((0, 0, 170, 600)))
+    assert sum(ImageStat.Stat(diff).mean) / 3.0 > 20.0
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

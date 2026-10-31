@@ -1173,7 +1173,10 @@ void Game::update_simulation() {
         }
         dino::Mesh deformed = dino::pose_imported_dino(
             dinosaur, assets, terrain, anim_time);
-        update_mesh(imported_dino_draws[dino_index].gpu, deformed, glfns);
+        auto pick_mesh =
+            std::make_shared<const dino::Mesh>(std::move(deformed));
+        update_mesh(imported_dino_draws[dino_index].gpu, *pick_mesh, glfns);
+        dinosaur.pick_mesh = std::move(pick_mesh);
     }
 
     if (!park_session.visitor_system.visitors.empty()) {

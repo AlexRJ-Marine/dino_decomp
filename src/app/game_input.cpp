@@ -2,6 +2,8 @@
 
 #include "game.h"
 
+#include "dino_pick.h"
+
 namespace dino::app {
 
 void Game::apply_injected_input() {
@@ -1242,7 +1244,25 @@ void Game::apply_park_click() {
     // Sell mode (`OPEN_SELLING`, state 0x14) or paddock
     // selection (retail `gatFence` -> pass B). Clicking empty
     // ground/right-click deselects; the Dino_SelectedWall pulse
-    // is pass B. The retail info panel is still a separate task.
+    // is pass B. A dinosaur under the cursor opens `DINO_INFO_PANEL`
+    // (retail `0x5396c0` stores the picked actor at the panel and calls
+    // `FUN_005135d0(panel, 1)`).
+    if (!park_sell_mode && build_tool == 0) {
+        const int dino_index = pick_dino_index(
+            terrain, eye, view_center, park_session.imported_dinos, click_x,
+            click_y, logical_width, logical_height);
+        if (dino_index >= 0) {
+            const dino::ImportedDino& dinosaur =
+                park_session.imported_dinos[static_cast<std::size_t>(
+                    dino_index)];
+            std::printf("dino pick: %s id=%d\n", dinosaur.species.c_str(),
+                        dinosaur.id);
+            open_dino_panel(park, park_session.imported_dinos, dino_index);
+            return;
+        }
+        park.overlay.set_visible("DINO_INFO_PANEL", false);
+        park.overlay.set_visible("DINO_INFO_DINO_PIC", false);
+    }
     dino::Vec3 hit;
     if (pick_terrain(terrain, eye, view_center, click_x, click_y,
                      logical_width, logical_height, hit)) {
@@ -1308,7 +1328,7 @@ void Game::update_placement() {
             place_selected_store_item();
         } else if (build_ready && build_tool != 0) {
             apply_build_tool_click();
-        } else if (build_ready) {
+        } else {
             apply_park_click();
         }
     }

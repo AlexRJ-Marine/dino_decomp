@@ -54,6 +54,10 @@ struct ImportedDino {
     // behavior update queues records; this tick is independent of the action
     // loop and writes the live position/facing.
     DinoMover mover;
+    // Last posed world-space mesh (for screen picking). Replaced each frame
+    // by the app's `pose_imported_dino` result; `nullptr` before the first
+    // pose.
+    std::shared_ptr<const Mesh> pick_mesh;
     float x = 0.0f;
     float y = 0.0f;
     float angle = 0.0f;

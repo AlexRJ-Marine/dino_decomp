@@ -9,6 +9,13 @@
 #include "../formats/mesh.h"
 #include "terrain.h"
 
+// The camera ray through a screen pixel, using the same projection as the
+// scene pass (80 degrees in the park). `origin` is the eye, `direction` is
+// normalized.
+void screen_ray(const dino::Vec3& eye, const dino::Vec3& target,
+                float mouse_x, float mouse_y, int width, int height,
+                float fov_degrees, dino::Vec3& origin, dino::Vec3& direction);
+
 // Ray-marches the heightfield from the camera through a screen pixel.
 bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
                   const dino::Vec3& target, float mouse_x, float mouse_y,

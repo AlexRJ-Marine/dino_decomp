@@ -7,6 +7,24 @@
 #include <algorithm>
 #include <cmath>
 
+void screen_ray(const dino::Vec3& eye, const dino::Vec3& target,
+                float mouse_x, float mouse_y, int width, int height,
+                float fov_degrees, dino::Vec3& origin, dino::Vec3& direction) {
+    const dino::Vec3 forward = dino::normalize({target.x - eye.x, target.y - eye.y,
+                                                target.z - eye.z});
+    const dino::Vec3 right = dino::normalize(cross(forward, {0.0f, 0.0f, 1.0f}));
+    const dino::Vec3 up = cross(right, forward);
+    const float tan_half = std::tan(fov_degrees * dino::kPi / 360.0f);
+    const float aspect = static_cast<float>(width) / static_cast<float>(std::max(1, height));
+    const float ndc_x = (2.0f * mouse_x / static_cast<float>(width) - 1.0f) *
+                        tan_half * aspect;
+    const float ndc_y = (1.0f - 2.0f * mouse_y / static_cast<float>(height)) * tan_half;
+    origin = eye;
+    direction = dino::normalize({forward.x + right.x * ndc_x + up.x * ndc_y,
+                                 forward.y + right.y * ndc_x + up.y * ndc_y,
+                                 forward.z + right.z * ndc_x + up.z * ndc_y});
+}
+
 // Ray-marches the heightfield from the camera through a screen pixel.
 bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
                   const dino::Vec3& target, float mouse_x, float mouse_y,
@@ -14,22 +32,14 @@ bool pick_terrain(const dino::Terrain& terrain, const dino::Vec3& eye,
     if (terrain.world_size <= 0.0f) {
         return false;
     }
-    const dino::Vec3 forward = dino::normalize({target.x - eye.x, target.y - eye.y,
-                                                target.z - eye.z});
-    const dino::Vec3 right = dino::normalize(cross(forward, {0.0f, 0.0f, 1.0f}));
-    const dino::Vec3 up = cross(right, forward);
     // The park terrain is rendered with draw_scene's 80-degree FOV
     // (`terrain.world_size > 0`), so the pick ray must use the same value;
     // the old 33-degree value was the single-dino viewer and made the ground
     // point drift away from the cursor toward the screen edges.
-    const float tan_half = std::tan(80.0f * dino::kPi / 360.0f);
-    const float aspect = static_cast<float>(width) / static_cast<float>(std::max(1, height));
-    const float ndc_x = (2.0f * mouse_x / static_cast<float>(width) - 1.0f) *
-                        tan_half * aspect;
-    const float ndc_y = (1.0f - 2.0f * mouse_y / static_cast<float>(height)) * tan_half;
-    const dino::Vec3 dir = dino::normalize({forward.x + right.x * ndc_x + up.x * ndc_y,
-                                            forward.y + right.y * ndc_x + up.y * ndc_y,
-                                            forward.z + right.z * ndc_x + up.z * ndc_y});
+    dino::Vec3 origin;
+    dino::Vec3 dir;
+    screen_ray(eye, target, mouse_x, mouse_y, width, height, 80.0f, origin,
+               dir);
 
     auto at = [&](float t) {
         return dino::Vec3{eye.x + dir.x * t, eye.y + dir.y * t, eye.z + dir.z * t};

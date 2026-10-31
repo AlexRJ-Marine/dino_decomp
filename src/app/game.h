@@ -623,8 +623,7 @@ private:
                            const dino::DinoAttributes* attributes = nullptr,
                            int id = -1);
     void clear_imported_dinos();
-    // `FUN_00533a00`: sell credit + paddock capacity + actor/draw removal.
-    bool sell_dino(int index);
+    bool sell_dino(int index);  // FUN_00533a00: credit, capacity, draw
     void upload_vegetation();
     void release_vegetation();
     const dino::WorldRect* selected_paddock_rect();

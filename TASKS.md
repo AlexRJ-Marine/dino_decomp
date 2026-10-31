@@ -2342,9 +2342,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   fills the name, the 11 `ATTRIBUTES_<NAME>_GAUGE/_INDICS` gauges and the
   four need state icons; `--dino-panel NAME` opens it (`test_cpp_dino_info_panel`,
   `build/dino-panel.png`). State 3 maps to the GOOD icon.
-- [ ] Interactive rest: world-pick opener (pixel-ID buffer), needs/visitor/
-  calendar tabs, sell text (`dino+0x65 == (height>>8)&0xff` raw gate),
-  teleport/next-dino buttons.
+- [x] Interactive opener: clicking a dinosaur builds the same 80-degree
+  camera ray as `pick_terrain`, takes the nearest posed-mesh triangle hit in
+  front of the heightfield, and opens the panel; empty clicks close it.
+  `test_cpp_dino_click_opens_panel`, `build/pick-panel.png`. The retail
+  pixel-ID buffer also contains buildings/vegetation, so a full object-ID
+  pass remains the exact solution for occlusion by those objects.
+- [ ] Interactive rest: needs/visitor/calendar tabs, sell text
+  (`dino+0x65 == (height>>8)&0xff` raw gate), teleport/next-dino buttons.
 - [x] Food gauge: `max_food = weight`, `+0x25c` gauge init max/2, 10 s pass
   `gauge -= 10*food_consumption`, `FOOD = ftol(gauge*99/max)`, `apply_food`
   for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.
