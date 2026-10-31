@@ -93,6 +93,7 @@ struct ParkSession {
         float y = 0.0f;
         float move_target_x = 0.0f;
         float move_target_y = 0.0f;
+        int move_kind = 0;
     };
     DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
                               const std::vector<BaiAction>& actions);

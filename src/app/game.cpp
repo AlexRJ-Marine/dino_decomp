@@ -1105,9 +1105,9 @@ void Game::update_simulation() {
         if (event.move_started) {
             std::printf(
                 "dino move: %s start x=%.1f y=%.1f target=%.1f,%.1f "
-                "turn=%.2f uturn=%.2f\n",
+                "kind=0x%x turn=%.2f uturn=%.2f\n",
                 dinosaur.species.c_str(), event.x, event.y,
-                event.move_target_x, event.move_target_y,
+                event.move_target_x, event.move_target_y, event.move_kind,
                 static_cast<double>(dinosaur.mover.turn_seconds()),
                 static_cast<double>(dinosaur.mover.uturn_seconds()));
         }

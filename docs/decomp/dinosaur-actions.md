@@ -423,6 +423,14 @@ and have been removed; the LunchBox/StaticBait actor + `FUN_00576e50` is the
 replacement. The 0x34/0x35 walk/run markers are re-issued every frame in
 retail, not once per action.
 
+The actor-target executor's Eat walk is now ported (`0x56f94a`): while the
+element is outside the target gate the port keeps one marker active toward
+the feeder; arrival clears it (`0x56f98a` stop). The marker kind is
+`0x34 + (REPOS state != 2)` from `dino+0x2b8` (state 2 = BAD/tired), so a
+tired dino walks (0x34) and a rested one runs (0x35). Cpg04 evidence:
+`--dino-needs 20,90,50,90` logs `kind=0x35`; `20,90,50,20` logs `kind=0x34`
+(`test_cpp_lunchbox_eat`).
+
 Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
 instead of the behaviour's record list; the paddock inset is
 `clamp(length_m*0.15, 1, 3)` rather than the retail footprint grid; the
@@ -435,8 +443,8 @@ allos log `turn=1.20 uturn=1.50`).
 `--fixed-dt SECONDS` makes a headless run deterministic; `--dino-move-speed N`
 scales the mover for tests only. Selftest: `dino mover walk 2 m/s`, `turn
 step 45`, `turn 90`, `180-degree record`, `paddock clamp`. Integration:
-`test_cpp_dino_walks_to_food` (Cpg04 PigFood: three allosaurs walk to
-474,378 and eat five portions).
+`test_cpp_lunchbox_eat` (Cpg04 anky runs/walks to the LunchBox by REPOS
+state and drains it through `FUN_00576e50`).
 
 ## Move profiles (`special_action`)
 

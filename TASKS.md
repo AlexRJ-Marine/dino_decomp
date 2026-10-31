@@ -2380,9 +2380,9 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   RunAway 0x19/0x35, Sleep 0x1d+0x1e / 0x1c, sp4 none, sp5 `FUN_0056fb70`
   gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
   (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
-- [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
-  squared-distance gate, stop/abort on arrival, element gesture `0x12..0x17`
-  from `element+0x40`. Represent current + next + record list.
+- [ ] Port the normal-action executor rest: the full element record list and
+  the element gesture `0x12..0x17` from `element+0x40` (the `0x56fb70`
+  attack slot). The Eat actor path's marker/stop is done (next row).
 - [x] Sleep special list: `0x1d` + the `0x1e` sentinel at state 0, `0x1c`
   at wake, all self-target gestures. Gesture kinds now have zero speed and a
   mode-2 self record waits its duration. `test_cpp_dino_sleep_records`.
@@ -2392,8 +2392,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
   (needs the steering cell), Victory `bones[0]` 35 sentinel, and sp5
   `FUN_0056fb70` target/response logic.
-- [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
-  move is in progress; map the stop condition and the duplicate-insert path.
+- [x] Eat actor path (`0x56f94a`): one active marker toward the feeder,
+  re-issued if absent; arrival clears it (`0x56f98a`); target loss aborts.
+  Marker kind `0x34 + (REPOS state != 2)` (`dino+0x2b8`); Cpg04 logs
+  `kind=0x35` at REPOS 90 and `kind=0x34` at REPOS 20
+  (`test_cpp_lunchbox_eat`). The general duplicate-insert path remains open.
 - [x] Removed the port's `.bsi` dino Eat gate and 3-unit consumption (the
   `.bsi` source is visitor/employee; Cpg04 showed no dino Eat/`SetLevel`).
 - [x] LunchBox item actor: `--place-lunchbox` loads the `.bfi`

@@ -4303,10 +4303,28 @@ def test_cpp_lunchbox_eat():
     # The herbivore anky eats; the carnivore allos cannot use kind 0.
     assert "dino eat: anky <- LunchBox" in log
     assert "dino eat: allo" not in log
+    # `0x56f94a`: marker kind = 0x34 + (REPOS state != 2). REPOS 90 is not
+    # BAD, so the anky runs (0x35) to the bowl.
+    assert "dino move: anky start" in log
+    assert "target=460.0,328.0 kind=0x35" in log
     # FUN_00576e50 returns quantity*nutrition and applies the gauge.
     assert "nutrition=1000000" in log
     assert "quantity=0" in log
     assert "gauge=" in log
+    # A tired dino (REPOS 20 -> state 2 BAD) walks (0x34) instead.
+    tired = subprocess.run(
+        [str(EXE), "--frames", "120", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--place-lunchbox",
+         "--dino-action-loop", "--fixed-dt", "0.016",
+         "--dino-action-speed", "100", "--dino-needs", "20,90,50,20"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert tired.returncode == 0, tired.stderr
+    assert "dino move: anky start" in tired.stdout
+    assert "kind=0x34" in tired.stdout
 
 
 def test_cpp_employee_info():

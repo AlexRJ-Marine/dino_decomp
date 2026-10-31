@@ -254,16 +254,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
             dinosaur.mover.kind() != 0x35) {
             dinosaur.mover.clear();
         }
-        if (action == "Eat" || action == "EatForSmallies") {
-            // The item actor publishes the action list; the normal-action
-            // executor walks to the target with the 0x34/0x35 marker.
-            if (feeder != nullptr && !dinosaur.mover.active()) {
-                dinosaur.mover.start(0x34, feeder->x, feeder->y, 1);
-                event.move_started = true;
-                event.move_target_x = feeder->x;
-                event.move_target_y = feeder->y;
-            }
-        } else if (action == "Sleep") {
+        if (action == "Sleep") {
             // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel at
             // the dino's own position. The 0x1d waits 1.5 s, then the
             // sentinel holds the sleep pose until the action ends.
@@ -314,6 +305,50 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         }
         event.clip =
             action == "idle" ? "Neutral" : dino_clip_for_action(action);
+    }
+    // `0x56f94a` (actor-target executor): the walk/run marker is re-emitted
+    // every frame while the element is outside its target gate; arrival
+    // emits the kind-0 stop (`0x56f98a`). The marker kind is
+    // `0x34 + (REPOS state != 2)` (`dino+0x2b8`; state 2 = BAD/tired), so an
+    // exhausted dino walks and a rested one runs to the food.
+    if (action == "Eat" || action == "EatForSmallies") {
+        if (feeder == nullptr || feeder->quantity <= 0.0f) {
+            // Target gone: `0x56f9fd` aborts the element (mode 0 cancel).
+            if (dinosaur.mover.active() &&
+                (dinosaur.mover.kind() == 0x34 ||
+                 dinosaur.mover.kind() == 0x35)) {
+                dinosaur.mover.clear();
+            }
+        } else {
+            const float dx = feeder->x - dinosaur.x;
+            const float dy = feeder->y - dinosaur.y;
+            const float gate = std::max(0.1f, feeder->radius);
+            if (dx * dx + dy * dy <= gate * gate) {
+                if (dinosaur.mover.active()) {
+                    dinosaur.mover.clear();
+                }
+            } else {
+                const bool walking =
+                    dinosaur.mover.active() &&
+                    (dinosaur.mover.kind() == 0x34 ||
+                     dinosaur.mover.kind() == 0x35) &&
+                    dinosaur.mover.target_x() == feeder->x &&
+                    dinosaur.mover.target_y() == feeder->y;
+                if (!walking) {
+                    const int kind =
+                        0x34 +
+                        (dinosaur.action_loop->needs().state(
+                             NeedAxis::Repos) != 2
+                             ? 1
+                             : 0);
+                    dinosaur.mover.start(kind, feeder->x, feeder->y, 1);
+                    event.move_started = true;
+                    event.move_kind = kind;
+                    event.move_target_x = feeder->x;
+                    event.move_target_y = feeder->y;
+                }
+            }
+        }
     }
     return event;
 }
