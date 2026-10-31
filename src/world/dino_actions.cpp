@@ -219,6 +219,7 @@ void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
     decision_ = config_.decision_interval;
     decay_accum_.fill(0.0);
     food_gauge_timer_ = 0.0;
+    health_timer_ = 0.0;
     if (needs_.max_food > 0.0f) {
         // The port save stores the FOOD need, not the gauge; keep the two
         // consistent until the next 10 s pass overwrites the need.
@@ -230,6 +231,27 @@ void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
         // back through the same `ftol(gauge*99/max)` division.
         needs_.rest_gauge =
             needs_.max_rest * static_cast<float>(needs_.value[3]) / 99.0f;
+    }
+}
+
+void DinoActionLoop::apply_health(int delta) {
+    if (needs_.max_health <= 0) {
+        return;
+    }
+    // `FUN_005724d0`: health -= signed delta, clamp [0, max]; state bands
+    // 0/1/2 at >= 67 / 34..67 / < 34 %, and 4 (dead) at health < 1.
+    int health = needs_.health - delta;
+    health = std::clamp(health, 0, needs_.max_health);
+    needs_.health = health;
+    const int percent = health * 100 / needs_.max_health;
+    if (percent < 67) {
+        if (percent < 34) {
+            needs_.health_state = health < 1 ? 4 : 2;
+        } else {
+            needs_.health_state = 1;
+        }
+    } else {
+        needs_.health_state = 0;
     }
 }
 
@@ -350,9 +372,21 @@ void DinoActionLoop::tick(double dt) {
             decay_accum_[i] -= 1.0;
         }
     }
+    // 5 s pass (`FUN_005869e0` -> `FUN_005725e0`): heal `regen` while the
+    // food and rest gauges are positive and the dino is not dead. Retail
+    // runs this before the 10 s pass in the same frame.
+    health_timer_ += dt;
+    while (health_timer_ >= 5.0) {
+        health_timer_ -= 5.0;
+        if (needs_.food_gauge > 0.01f && needs_.rest_gauge > 0.01f &&
+            needs_.health_state != 4 && needs_.regen > 0) {
+            apply_health(-needs_.regen);
+        }
+    }
     // 10 s pass (`FUN_005869e0`): violence decays by 10 points
     // (`FUN_00571410`), then the food gauge/need when a phenotype weight is
-    // present.
+    // present. A gauge below the consumed amount deals starvation damage
+    // `max(1, int((amount - gauge) * 0.1))` (`0x5713ba`) and clamps to 0.
     food_gauge_timer_ += dt;
     while (food_gauge_timer_ >= 10.0) {
         food_gauge_timer_ -= 10.0;
@@ -362,7 +396,14 @@ void DinoActionLoop::tick(double dt) {
         if (needs_.max_food > 0.0f) {
             const float amount = 10.0f * needs_.food_consumption;
             float gauge = needs_.food_gauge;
-            gauge = gauge > amount ? gauge - amount : 0.0f;
+            if (gauge < amount) {
+                const int damage = std::max(
+                    1, static_cast<int>((amount - gauge) * 0.1f));
+                apply_health(damage);
+                gauge = 0.0f;
+            } else {
+                gauge -= amount;
+            }
             needs_.food_gauge = gauge;
             needs_.value[0] = std::clamp(
                 static_cast<int>(gauge * 99.0f / needs_.max_food), 0, 99);

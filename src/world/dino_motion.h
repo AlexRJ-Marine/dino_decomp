@@ -82,6 +82,9 @@ public:
                float threshold = 0.0f, bool instant = false,
                float segment = 0.0f);
     void clear();
+    // `FUN_00574450` kind 0x15 arrival with health < 1: the mover enters
+    // state 3 (knocked down) and ignores new records until it stands up.
+    void knock_down();
 
     // Advance by `dt` seconds. Returns true when the position or facing
     // changed (the caller copies x()/y()/angle_deg() into the actor).
@@ -90,8 +93,11 @@ public:
     bool active() const { return active_; }
     bool blocked() const { return blocked_; }
     std::size_t queued() const { return queue_.size(); }
-    int state() const { return state_; }  // 0 idle, 1 move, 2 turn/wait
+    int state() const { return state_; }  // 0 idle, 1 move, 2 turn/wait, 3 down
     int kind() const { return kind_; }
+    // The kind of the record that finished on the last tick (0 when a new
+    // record activated); `tick_dino` uses the 0x15 death record.
+    int last_finished_kind() const { return last_finished_kind_; }
     float x() const { return x_; }
     float y() const { return y_; }
     float angle_deg() const { return angle_deg_; }
@@ -150,6 +156,7 @@ private:
     float segment_seconds_ = 0.0f;
     int activity_kind_ = 0;
     float activity_progress_ = 0.0f;
+    int last_finished_kind_ = 0;
 
     // Turn-in-progress state.
     int turn_steps_ = 0;

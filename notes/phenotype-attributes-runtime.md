@@ -104,8 +104,10 @@ default). Live `(max_health, regen)` in row order:
 ```
 
 The port matches all 20 (`hp=`/`rg=` in `DINO_DEBUG_PHENO`). Health state
-`+0x2bc` was 0 (100 %) on all 20 at spawn. Damage/regen runtime pass
-(`FUN_005724d0`/`0x5725e0`) is not wired yet.
+`+0x2bc` was 0 (100 %) on all 20 at spawn. The damage/regen runtime pass is
+ported: 5 s `regen` when food/rest > 0.01 and state != 4; 10 s starvation
+damage; 67/34/0 % bands and the `0x15` knockdown (see
+`docs/decomp/dinosaur-actions.md`).
 
 ## What matches
 

@@ -75,6 +75,11 @@ class NeedBlock:
     # Rest gauge (`dino+0x258`): max = def+0x188, gauge init max.
     max_rest: float = 0.0
     rest_gauge: float = 0.0
+    # Health (`+0x16/+0x1d4/+0x1d6/+0x2bc`): regen every 5 s, damage bands.
+    health: int = 100
+    max_health: int = 100
+    regen: int = 0
+    health_state: int = 0
     size: int = 300          # attribute 4, actor+0x50 (centimetres)
     size_class: int = 3      # attribute 12, actor+0x98
     aggression: int = 50     # attribute 18, actor+0xbc
@@ -271,6 +276,7 @@ class DinoActionLoop:
         self.config = config or LoopConfig()
         self._decay = [0.0, 0.0, 0.0, 0.0]
         self._ten = 0.0
+        self._five = 0.0
         self._action: int | None = None
         self._elapsed = 0.0
         self._duration = 0.0
@@ -325,6 +331,16 @@ class DinoActionLoop:
             while self._decay[axis] >= 1.0 and self.needs.need(axis) > 0:
                 setattr(self.needs, axes[axis], self.needs.need(axis) - 1)
                 self._decay[axis] -= 1.0
+        self._five += dt
+        while self._five >= 5.0:
+            self._five -= 5.0
+            if (
+                self.needs.food_gauge > 0.01
+                and self.needs.rest_gauge > 0.01
+                and self.needs.health_state != 4
+                and self.needs.regen > 0
+            ):
+                self.apply_health(-self.needs.regen)
         self._ten += dt
         while self._ten >= 10.0:
             self._ten -= 10.0
@@ -332,7 +348,14 @@ class DinoActionLoop:
                 self.needs.violence = max(0, self.needs.violence - 10)
             if self.needs.max_food > 0.0:
                 amount = 10.0 * self.needs.food_consumption
-                gauge = max(0.0, self.needs.food_gauge - amount)
+                gauge = self.needs.food_gauge
+                if gauge < amount:
+                    self.apply_health(
+                        max(1, int((amount - gauge) * 0.1))
+                    )
+                    gauge = 0.0
+                else:
+                    gauge -= amount
                 self.needs.food_gauge = gauge
                 self.needs.food = clamp_need(
                     int(gauge * 99.0 / self.needs.max_food)
@@ -385,6 +408,26 @@ class DinoActionLoop:
         self.needs.repos = clamp_need(
             int(self.needs.rest_gauge * 99.0 / self.needs.max_rest)
         )
+
+    def apply_health(self, delta: int) -> None:
+        """``FUN_005724d0``: positive damages, negative heals.
+
+        Health state 0/1/2 at >= 67 / 34..67 / < 34 %, and 4 (dead) at 0.
+        """
+        if self.needs.max_health <= 0:
+            return
+        health = min(
+            max(self.needs.health - delta, 0), self.needs.max_health
+        )
+        self.needs.health = health
+        percent = health * 100 // self.needs.max_health
+        if percent < 67:
+            if percent < 34:
+                self.needs.health_state = 4 if health < 1 else 2
+            else:
+                self.needs.health_state = 1
+        else:
+            self.needs.health_state = 0
 
     def _finish(self) -> None:
         # Retail does not apply the `.bai` need deltas; the element events

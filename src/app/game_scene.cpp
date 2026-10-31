@@ -748,7 +748,10 @@ bool Game::add_imported_dino(const std::string& species,
         // max*0.5, consumption = weight*0.001/s (`+0x6c`).
         dinosaur.needs.max_food =
             static_cast<float>(attributes->weight_kg);
-        dinosaur.needs.food_gauge = dinosaur.needs.max_food * 0.5f;
+        dinosaur.needs.food_gauge =
+            opt.dino_food >= 0.0f
+                ? std::min(opt.dino_food, dinosaur.needs.max_food)
+                : dinosaur.needs.max_food * 0.5f;
         dinosaur.needs.food_consumption = attributes->food_consumption;
         // `def+0x188`/`+0x1d8`: max rest and the initial gauge. `FUN_00570fd0`
         // resets the live gauge to max; `--dino-needs` fixtures map the
@@ -757,6 +760,14 @@ bool Game::add_imported_dino(const std::string& species,
         dinosaur.needs.rest_gauge =
             dinosaur.needs.max_rest *
             static_cast<float>(dinosaur.needs.value[3]) / 99.0f;
+        // `def+0x184`/`+0x186`: max health and the 5 s regen. The
+        // `--dino-health` fixture must survive for the SECU/health tests.
+        dinosaur.needs.regen = attributes->regen;
+        if (!opt.dino_health_override) {
+            dinosaur.needs.max_health =
+                std::max(1, attributes->max_health);
+            dinosaur.needs.health = dinosaur.needs.max_health;
+        }
     }
     if (opt.dino_action_loop && !dino_action_table.empty()) {
         dino::DinoActionLoopConfig config;

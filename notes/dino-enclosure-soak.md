@@ -83,3 +83,23 @@ dino action:  21
 The gauge itself is verified separately: `test_cpp_dino_rest_gauge_sleep`
 (Cpg04, REPOS 10) shows the gauge climbing to max and REPOS 99 through the
 0x1e instant sleep sentinel.
+
+## Health build (2026-10-31)
+
+Same 600 s command with the 5 s `regen`, 10 s starvation damage and the
+death/knockdown state wired:
+
+```text
+exit=0
+dino escape:   0
+dino move: ... blocked: 0
+dino dead:     0
+dino down:     0
+dino eat:      1
+dino explore: 20
+dino action:  21
+```
+
+No dinosaur reaches 0 health in the ten-minute slice; the separate
+`test_cpp_dino_starvation_death` (food gauge 0, health 1) drives the state 4
+-> `0x15` -> knocked-down path.

@@ -201,6 +201,35 @@ def test_action_loop_rest_gauge(actions):
     assert ticked.needs.repos == 49
 
 
+def test_action_loop_health(actions):
+    # `FUN_005724d0`: damage bands 0/1/2 at >= 67/34..67/<34 %, state 4 at 0.
+    loop = DinoActionLoop(
+        actions, NeedBlock(max_health=100, health=100))
+    loop.apply_health(40)
+    assert (loop.needs.health, loop.needs.health_state) == (60, 1)
+    loop.apply_health(30)
+    assert (loop.needs.health, loop.needs.health_state) == (30, 2)
+    loop.apply_health(30)
+    assert (loop.needs.health, loop.needs.health_state) == (0, 4)
+    loop.apply_health(-50)
+    assert (loop.needs.health, loop.needs.health_state) == (50, 1)
+    # `FUN_005725e0`: 5 s regen when food/rest > 0.01 and state != 4.
+    regen = DinoActionLoop(
+        actions,
+        NeedBlock(max_health=100, health=50, regen=10, max_food=100,
+                  food_gauge=100, max_rest=100, rest_gauge=100))
+    regen.tick(5.0)
+    assert regen.needs.health == 60
+    # `0x5713ba`: amount 100 vs gauge 50 -> 5 starvation damage.
+    starve = DinoActionLoop(
+        actions,
+        NeedBlock(max_health=100, health=100, max_food=100,
+                  food_gauge=50, food_consumption=10))
+    starve.tick(10.0)
+    assert starve.needs.health == 95
+    assert starve.needs.food_gauge == 0.0
+
+
 def test_action_loop_applies_element_events_not_deltas(actions):
     # Retail applies the element events when the action starts (Eat = kind 1,
     # VIOLENCE +15) and never applies the `.bai` need deltas. Completing Eat

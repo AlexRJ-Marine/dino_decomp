@@ -62,6 +62,9 @@ void DinoMover::clear_bounds() { has_bounds_ = false; }
 
 void DinoMover::start(int kind, float x, float y, int mode, float threshold,
                       bool instant, float segment) {
+    if (state_ == 3) {
+        return;  // knocked down: `FUN_00574450` ignores records until up
+    }
     // `FUN_00573f40`: a command that arrives while moving cancels the
     // current record's arrival (`mode = 0`) and keeps at most one "next".
     if (active_) {
@@ -75,6 +78,9 @@ void DinoMover::start(int kind, float x, float y, int mode, float threshold,
 
 void DinoMover::queue(int kind, float x, float y, int mode, float threshold,
                       bool instant, float segment) {
+    if (state_ == 3) {
+        return;  // knocked down
+    }
     MoveCommand command;
     command.x = x;
     command.y = y;
@@ -103,9 +109,22 @@ void DinoMover::clear() {
     segment_seconds_ = 0.0f;
     activity_kind_ = 0;
     activity_progress_ = 0.0f;
+    last_finished_kind_ = 0;
     turn_steps_ = 0;
     turn_sign_ = 0;
     turn_left_ = 0.0f;
+}
+
+void DinoMover::knock_down() {
+    queue_.clear();
+    active_ = false;
+    blocked_ = false;
+    state_ = 3;
+    kind_ = 0;
+    mode_ = 0;
+    instant_ = false;
+    activity_kind_ = 0;
+    activity_progress_ = 0.0f;
 }
 
 void DinoMover::activate_next() {
@@ -123,6 +142,7 @@ void DinoMover::activate_next() {
     kind_ = command.kind;
     mode_ = command.mode;
     instant_ = command.instant;
+    last_finished_kind_ = 0;
     target_x_ = command.x;
     target_y_ = command.y;
     elapsed_ = 0.0f;
@@ -231,6 +251,7 @@ void DinoMover::finish_segment() {
     // `FUN_00575ac0` true -> the arrival handler publishes the kind that
     // just arrived; the first publish in a tick wins.
     publish_activity();
+    last_finished_kind_ = kind_;
     if (!queue_.empty()) {
         queue_.pop_front();
     }
@@ -273,7 +294,7 @@ bool DinoMover::tick(double dt) {
     // handler or the instant branch fills it for this tick only.
     activity_kind_ = 0;
     activity_progress_ = 0.0f;
-    if (!active_ || dt <= 0.0) {
+    if (state_ == 3 || !active_ || dt <= 0.0) {
         return false;
     }
     const float step = static_cast<float>(dt);

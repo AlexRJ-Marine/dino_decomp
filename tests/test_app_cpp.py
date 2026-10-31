@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (225 checks)" in result.stdout
+    assert "selftest: PASS (233 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4412,6 +4412,70 @@ def test_cpp_dino_rest_gauge_sleep():
     # After the 0x1d/0x1e sleep list the gauge reaches max, REPOS 99.
     assert any(gauge == max_rest and repos >= 95
                for gauge, max_rest, repos in rest)
+
+
+@pytest.mark.slow
+def test_cpp_dino_health_regen():
+    """`FUN_005725e0`: with food and rest positive, a health-50 dino heals
+    `regen` (17 for the 200 HP anky) every 5 s; the 67/34/0 state bands."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "260", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--dino-action-loop",
+         "--fixed-dt", "0.05", "--dino-action-speed", "100",
+         "--dino-needs", "99,99,99,99", "--dino-health", "50,100",
+         "--rest-probe"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    hp = []
+    for line in result.stdout.splitlines():
+        if not line.startswith("rest: anky ") or "max=94.0" not in line:
+            continue
+        fields = dict(token.split("=", 1) for token in line.split()
+                      if "=" in token)
+        hp.append((int(fields["hp"].split("/")[0]), int(fields["state"])))
+    assert hp and hp[0] == (50, 0)
+    # 50 -> 67 at 5 s (the state 0 boundary), 84 at 10 s.
+    assert any(value >= 67 for value, _ in hp)
+    assert any(value >= 84 for value, _ in hp)
+
+
+@pytest.mark.slow
+def test_cpp_dino_starvation_death():
+    """Food gauge 0 -> no 5 s regen; the 10 s pass deals
+    `max(1, amount*0.1)`, health reaches 0 (state 4), the 0x15 5 s record
+    runs and the mover enters state 3 (knocked down)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "500", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--dino-action-loop",
+         "--fixed-dt", "0.05", "--dino-action-speed", "100",
+         "--dino-needs", "99,99,99,99", "--dino-health", "1,200",
+         "--dino-food", "0", "--rest-probe"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "dino dead: anky health=0/200" in log
+    assert "dino down: anky health=0/200" in log
+    assert "hp=0/200 state=4" in log
 
 
 def test_cpp_employee_info():

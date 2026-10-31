@@ -198,6 +198,18 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     if (dinosaur.mover.blocked()) {
         event.move_blocked = true;
     }
+    // `FUN_00574450` kind 0x15 arrival with health < 1 enters mover state 3
+    // (knocked down); the death record itself is queued below when the
+    // damage pass sets state 4.
+    if (dinosaur.action_loop->health_state() == 4 &&
+        dinosaur.mover.state() != 3 &&
+        dinosaur.mover.last_finished_kind() == 0x15) {
+        dinosaur.mover.knock_down();
+        std::printf("dino down: %s health=%d/%d\n",
+                    dinosaur.species.c_str(),
+                    dinosaur.action_loop->needs().health,
+                    dinosaur.action_loop->needs().max_health);
+    }
     event.x = dinosaur.x;
     event.y = dinosaur.y;
     // `FUN_00571540` (`0x5718e2`): the mover tick publishes the arrived
@@ -226,6 +238,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);
+    const bool dead = dinosaur.action_loop->health_state() == 4;
     auto family_duration = [&](int kind, float fallback) {
         int family = dinosaur.attributes.family;
         if (family < 0 || family > 4) {
@@ -238,7 +251,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
         if (finished == "Eat" || finished == "EatForSmallies") {
-            if (feeder != nullptr && feeder->quantity > 0.0f) {
+            if (!dead && feeder != nullptr && feeder->quantity > 0.0f) {
                 const float dx = feeder->x - dinosaur.x;
                 const float dy = feeder->y - dinosaur.y;
                 const float gate = std::max(0.1f, feeder->radius);
@@ -263,11 +276,13 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         } else if (finished == "Sleep") {
             // `FUN_0056eec0` case 2 (special_action 3): state 3 emits the
             // 0x1c wake gesture at the dino's own position.
-            dinosaur.mover.clear();
-            dinosaur.mover.start(0x1c, dinosaur.x, dinosaur.y, 2,
-                                 family_duration(0x1c, 1.5f));
-            std::printf("dino sleep: %s wake kind=0x1c\n",
-                        dinosaur.species.c_str());
+            if (!dead) {
+                dinosaur.mover.clear();
+                dinosaur.mover.start(0x1c, dinosaur.x, dinosaur.y, 2,
+                                     family_duration(0x1c, 1.5f));
+                std::printf("dino sleep: %s wake kind=0x1c\n",
+                            dinosaur.species.c_str());
+            }
         }
     }
     const std::string& action = dinosaur.action_loop->action_name();
@@ -276,58 +291,65 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         event.action = action;
         // A new action replaces a lingering gesture record, but a walk/run
         // marker may finish. Sleep keeps its own 0x1d/0x1e list.
-        if (dinosaur.mover.active() && action != "Sleep" &&
+        if (!dead && dinosaur.mover.active() && action != "Sleep" &&
             dinosaur.mover.kind() != 1 && dinosaur.mover.kind() != 2 &&
             dinosaur.mover.kind() != 0x34 &&
             dinosaur.mover.kind() != 0x35) {
             dinosaur.mover.clear();
         }
         if (action == "Sleep") {
-            // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel at
-            // the dino's own position. The 0x1d waits 1.5 s, then the
-            // sentinel holds the sleep pose until the action ends.
-            dinosaur.mover.clear();
-            dinosaur.mover.start(0x1d, dinosaur.x, dinosaur.y, 2,
-                                 family_duration(0x1d, 1.5f));
-            // The 0x1e sentinel is an **instant** record: its segment timer
-            // is `Actions.bad` dur[0x1e] (2.0 s; LowQuad 1.5 s), then it
-            // publishes kind 0x1e every frame (+10 rest) until the action
-            // ends. The FLT_MAX mode-2 duration is the never-arrives mark.
-            dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2, 3.4e38f,
-                                 true, family_duration(0x1e, 2.0f));
-            std::printf("dino sleep: %s start kind=0x1d/0x1e\n",
-                        dinosaur.species.c_str());
-        } else if (action == "Exploration") {
-            // `FUN_0056eec0` case 0 (special_action 1): a random action
-            // point in the paddock rect, then the five-record list:
-            // 0x27 self (2.0 s), 0x27 point (X[0x27]+0.5), 0x34 marker,
-            // 0x20 point (X[0x20]), 0x20 self (rand()%16+5).
-            int px = static_cast<int>(dinosaur.x);
-            int py = static_cast<int>(dinosaur.y);
-            if (pen >= 0) {
-                paddock_patrol_point(
-                    paddocks[static_cast<std::size_t>(pen)].rect, std::rand(),
-                    std::rand(), px, py);
+            if (!dead) {
+                // `FUN_0056eec0` case 2 state 0: 0x1d then the 0x1e sentinel
+                // at the dino's own position. The 0x1d waits 1.5 s, then the
+                // sentinel holds the sleep pose until the action ends.
+                dinosaur.mover.clear();
+                dinosaur.mover.start(0x1d, dinosaur.x, dinosaur.y, 2,
+                                     family_duration(0x1d, 1.5f));
+                // The 0x1e sentinel is an **instant** record: its segment
+                // timer is `Actions.bad` dur[0x1e] (2.0 s; LowQuad 1.5 s),
+                // then it publishes kind 0x1e every frame (+10 rest) until
+                // the action ends. The FLT_MAX mode-2 duration is the
+                // never-arrives mark.
+                dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2,
+                                     3.4e38f, true,
+                                     family_duration(0x1e, 2.0f));
+                std::printf("dino sleep: %s start kind=0x1d/0x1e\n",
+                            dinosaur.species.c_str());
             }
-            const float point_x = static_cast<float>(px);
-            const float point_y = static_cast<float>(py);
-            const float turn_duration = family_duration(0x27, 2.0f);
-            dinosaur.mover.clear();
-            dinosaur.mover.start(0x27, dinosaur.x, dinosaur.y, 2,
-                                 turn_duration);
-            dinosaur.mover.queue(0x27, point_x, point_y, 2,
-                                 turn_duration + 0.5f);
-            dinosaur.mover.queue(0x34, point_x, point_y, 1);
-            dinosaur.mover.queue(0x20, point_x, point_y, 2,
-                                 family_duration(0x20, 1.5f));
-            dinosaur.mover.queue(
-                0x20, dinosaur.x, dinosaur.y, 2,
-                5.0f + static_cast<float>(std::rand() % 16));
-            std::printf(
-                "dino explore: %s point=%.1f,%.1f "
-                "records=0x27,0x27,0x34,0x20,0x20\n",
-                dinosaur.species.c_str(), static_cast<double>(point_x),
-                static_cast<double>(point_y));
+        } else if (action == "Exploration") {
+            if (!dead) {
+                // `FUN_0056eec0` case 0 (special_action 1): a random action
+                // point in the paddock rect, then the five-record list:
+                // 0x27 self (2.0 s), 0x27 point (X[0x27]+0.5), 0x34 marker,
+                // 0x20 point (X[0x20]), 0x20 self (rand()%16+5).
+                int px = static_cast<int>(dinosaur.x);
+                int py = static_cast<int>(dinosaur.y);
+                if (pen >= 0) {
+                    paddock_patrol_point(
+                        paddocks[static_cast<std::size_t>(pen)].rect,
+                        std::rand(), std::rand(), px, py);
+                }
+                const float point_x = static_cast<float>(px);
+                const float point_y = static_cast<float>(py);
+                const float turn_duration = family_duration(0x27, 2.0f);
+                dinosaur.mover.clear();
+                dinosaur.mover.start(0x27, dinosaur.x, dinosaur.y, 2,
+                                     turn_duration);
+                dinosaur.mover.queue(0x27, point_x, point_y, 2,
+                                     turn_duration + 0.5f);
+                dinosaur.mover.queue(0x34, point_x, point_y, 1);
+                dinosaur.mover.queue(0x20, point_x, point_y, 2,
+                                     family_duration(0x20, 1.5f));
+                dinosaur.mover.queue(
+                    0x20, dinosaur.x, dinosaur.y, 2,
+                    5.0f + static_cast<float>(std::rand() % 16));
+                std::printf(
+                    "dino explore: %s point=%.1f,%.1f "
+                    "records=0x27,0x27,0x34,0x20,0x20\n",
+                    dinosaur.species.c_str(),
+                    static_cast<double>(point_x),
+                    static_cast<double>(point_y));
+            }
         }
         if (action != "idle") {
             event.scored = true;
@@ -344,7 +366,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     // emits the kind-0 stop (`0x56f98a`). The marker kind is
     // `0x34 + (REPOS state != 2)` (`dino+0x2b8`; state 2 = BAD/tired), so an
     // exhausted dino walks and a rested one runs to the food.
-    if (action == "Eat" || action == "EatForSmallies") {
+    if (!dead && (action == "Eat" || action == "EatForSmallies")) {
         if (feeder == nullptr || feeder->quantity <= 0.0f) {
             // Target gone: `0x56f9fd` aborts the element (mode 0 cancel).
             if (dinosaur.mover.active() &&
@@ -382,6 +404,19 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                 }
             }
         }
+    }
+    // `FUN_005724d0` death branch: once health reaches 0 queue the 0x15
+    // record (5.0 s, mode 2, self); on arrival the mover enters state 3
+    // (knocked down) and ignores further records.
+    if (dinosaur.action_loop->health_state() == 4 &&
+        !dinosaur.death_queued) {
+        dinosaur.death_queued = true;
+        dinosaur.mover.clear();
+        dinosaur.mover.start(0x15, dinosaur.x, dinosaur.y, 2, 5.0f);
+        std::printf("dino dead: %s health=%d/%d\n",
+                    dinosaur.species.c_str(),
+                    dinosaur.action_loop->needs().health,
+                    dinosaur.action_loop->needs().max_health);
     }
     return event;
 }

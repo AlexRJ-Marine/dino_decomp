@@ -2356,10 +2356,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   0.5*cbrt(length*width*height))`, `def+0x186 = maxHP*stamina/
   RegenerationDivider + 1`. All 20 Cpg04 `DINORESET` dwords match
   (`test_cpp_cpg04_phenotype_attributes`, `hp=`/`rg=`).
-- [ ] Runtime health pass: `0x5725e0` (5 s heal when food/rest > 0.01 and
-  state != 4), `0x5724d0` (67/34/0 bands, state 4, the 0x15 knockdown
-  record) and the 10 s starvation damage `max(1, (amount-food)*0.1)`;
-  SECU still uses the tuned decay.
+- [x] Runtime health pass: `0x5725e0` (5 s heal when food/rest > 0.01 and
+  state != 4), `0x5724d0` (67/34/0 bands, state 4, the `0x15` 5 s record
+  and mover state 3), 10 s starvation `max(1, (amount-food)*0.1)`. Wired in
+  `DinoActionLoop::tick`/`apply_health` + `tick_dino` death/knockdown; the
+  dead dino's movement is suppressed. `test_cpp_dino_health_regen`,
+  `test_cpp_dino_starvation_death`, selftest bands/5 s/starve; SECU still
+  uses the tuned decay.
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).

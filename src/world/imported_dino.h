@@ -41,6 +41,8 @@ struct ImportedDino {
     // fall in a neighbouring rect cannot re-home the dino.
     int paddock = -1;
     bool escape_logged = false;
+    // `FUN_005724d0` queued the 0x15 5 s death record once health hit 0.
+    bool death_queued = false;
     DinoNeeds needs;
     DinoAttributes attributes;  // phenotype snapshot for objectives
     std::optional<DinoActionLoop> action_loop;

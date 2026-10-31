@@ -330,6 +330,13 @@ int run_selftest() {
     check(instant.activity_kind() == 0x1e &&
               std::fabs(instant.activity_progress() - 1.0f) < 0.001f,
           "dino instant publishes activity");
+    dino::DinoMover down(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    down.knock_down();
+    check(down.state() == 3, "dino mover knocked down");
+    down.start(1, 10.0f, 0.0f, 1);
+    down.tick(1.0);
+    check(down.state() == 3 && std::fabs(down.x()) < 0.001f,
+          "dino knocked down ignores records");
     dino::DinoMover marker(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
     marker.start(0x34, 10.0f, 0.0f, 1);
     marker.tick(1.0);
@@ -391,6 +398,47 @@ int run_selftest() {
     rest_tick_loop.tick(10.0);
     check(rest_tick_loop.needs().value[3] == 49,
           "dino rest need not tuned-decayed");
+    // `FUN_005724d0`: signed damage, 67/34/0 % state bands and 4 at 0.
+    dino::DinoNeeds hp_needs;
+    hp_needs.max_health = 100;
+    hp_needs.health = 100;
+    dino::DinoActionLoop hp_loop(nullptr, hp_needs);
+    hp_loop.apply_health(40);
+    check(hp_loop.needs().health == 60 && hp_loop.health_state() == 1,
+          "dino health 60 wounded");
+    hp_loop.apply_health(30);
+    check(hp_loop.needs().health == 30 && hp_loop.health_state() == 2,
+          "dino health 30 critical");
+    hp_loop.apply_health(30);
+    check(hp_loop.needs().health == 0 && hp_loop.health_state() == 4,
+          "dino health 0 dead");
+    hp_loop.apply_health(-50);
+    check(hp_loop.needs().health == 50 && hp_loop.health_state() == 1,
+          "dino health heal band");
+    // `FUN_005725e0`: 5 s regen when food/rest > 0.01 and not dead.
+    dino::DinoNeeds regen_needs;
+    regen_needs.max_health = 100;
+    regen_needs.health = 50;
+    regen_needs.regen = 10;
+    regen_needs.max_food = 100.0f;
+    regen_needs.food_gauge = 100.0f;
+    regen_needs.max_rest = 100.0f;
+    regen_needs.rest_gauge = 100.0f;
+    dino::DinoActionLoop regen_loop(nullptr, regen_needs);
+    regen_loop.tick(5.0);
+    check(regen_loop.needs().health == 60, "dino health 5s regen");
+    // `0x5713ba`: amount 100 vs gauge 50 -> 5 starvation damage.
+    dino::DinoNeeds starve_needs;
+    starve_needs.max_health = 100;
+    starve_needs.health = 100;
+    starve_needs.max_food = 100.0f;
+    starve_needs.food_gauge = 50.0f;
+    starve_needs.food_consumption = 10.0f;
+    dino::DinoActionLoop starve_loop(nullptr, starve_needs);
+    starve_loop.tick(10.0);
+    check(starve_loop.needs().health == 95 &&
+              starve_loop.food_gauge() == 0.0f,
+          "dino starvation damage");
     gauge_loop.apply_food(100.0f);
     check(std::fabs(gauge_loop.food_gauge() - 2000.0f) < 0.01f,
           "dino food meal clamps");

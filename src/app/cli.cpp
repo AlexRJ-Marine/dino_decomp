@@ -343,8 +343,12 @@ Options parse_args(int argc, char** argv) {
         } else if (arg == "--dino-radius") {
             opt.dino_radius = std::atoi(next("--dino-radius"));
         } else if (arg == "--dino-health") {
+            opt.dino_health_override = true;
             std::sscanf(next("--dino-health"), "%d,%d", &opt.dino_health,
                         &opt.dino_max_health);
+        } else if (arg == "--dino-food") {
+            opt.dino_food = static_cast<float>(
+                std::atof(next("--dino-food")));
         } else if (arg == "--secu-probe") {
             opt.secu_probe = true;
         } else if (arg == "--rest-probe") {
@@ -670,9 +674,10 @@ Options parse_args(int argc, char** argv) {
                 "  --fixed-dt SECONDS   fixed simulation delta (headless tests)\n"
                 "  --dino-threat N      danger-grid stamp value for every imported dinosaur\n"
                 "  --dino-radius N      danger-grid stamp radius (world units)\n"
-                "  --dino-health CUR,MAX health pair for the SECU formula (default 100,100)\n"
+                "  --dino-health CUR,MAX health pair for the SECU/health tests (default phenotype)\n"
+                "  --dino-food N        initial food gauge for imported dinosaurs (test hook)\n"
                 "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
-                "  --rest-probe         print each dinosaur's rest gauge and REPOS per second\n"
+                "  --rest-probe         print each dinosaur's rest gauge, REPOS, health and state per second\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"

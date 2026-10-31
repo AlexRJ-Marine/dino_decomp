@@ -47,6 +47,12 @@ struct DinoNeeds {
     // them when it recomputes SECU from the grid:
     int health = 100;         // int16 +0x16
     int max_health = 100;     // int16 +0x1d4
+    // `+0x1d6` regen (int16) and `+0x2bc` health state (0 good, 1 wounded,
+    // 2 critical, 4 dead). `FUN_005725e0` heals `regen` every 5 s when food
+    // and rest are > 0.01 and state != 4; `FUN_005724d0` applies signed
+    // damage and the 67/34/0 % bands.
+    int regen = 0;
+    int health_state = 0;
     int threat = 0;           // +0x2a0, the value stamped into the grid
     int threat_radius = 0;    // +0x27c, the stamp radius in world units
     // Phenotype sources for the completion writers (`FUN_00571190`):
@@ -178,6 +184,11 @@ public:
     float rest_gauge() const { return needs_.rest_gauge; }
     float max_rest() const { return needs_.max_rest; }
 
+    // `FUN_005724d0(short delta)`: positive damages, negative heals. The
+    // health state is 0/1/2 at >= 67 / 34..67 / < 34 %, and 4 at 0.
+    void apply_health(int delta);
+    int health_state() const { return needs_.health_state; }
+
     // Consume/item gate used by the next decision.
     void set_inventory(bool available) { config_.inventory = available; }
     bool inventory() const { return config_.inventory; }
@@ -223,6 +234,7 @@ private:
     DinoActionLoopConfig config_;
     std::array<double, 4> decay_accum_{};
     double food_gauge_timer_ = 0.0;  // 10 s `FUN_00571370` pass
+    double health_timer_ = 0.0;      // 5 s `FUN_005725e0` pass
     int action_index_ = -1;
     double elapsed_ = 0.0;
     double duration_ = 0.0;

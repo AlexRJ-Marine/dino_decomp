@@ -546,12 +546,23 @@ regen      = max_health * stamina / RegenerationDivider + 1
 ```
 
 (`0x617d47..0x617df4`, all final values; 20/20 Cpg04 runtime rows match in
-`test_cpp_cpg04_phenotype_attributes`). The runtime pass is documented but not
-wired yet: `FUN_005724d0(short delta)` subtracts `delta` from `+0x16`, bands
-0/1/2 at >= 67 / 34..67 / < 34 %, state 4 at 0 with the 0x15 5.0 s knockdown
-record; `FUN_005725e0` heals `regen` every 5 s when food and rest are > 0.01
-and the state is not 4; the 10 s starvation path deals
-`max(1, int((amount - food) * 0.1))`. See `TASKS.md` G5.
+`test_cpp_cpg04_phenotype_attributes`). The runtime pass is ported:
+
+- `FUN_005725e0` (every 5 s): if food and rest gauges are > 0.01 and the
+  state is not 4, heal `regen` (`apply_health(-regen)`).
+- The 10 s pass (`0x571370`): when the gauge is below the consumed amount,
+  deal `max(1, int((amount - food) * 0.1))` and clamp the gauge to 0.
+- `FUN_005724d0(short delta)`: `health = clamp(health - delta, 0, max)`;
+  state 0 at >= 67 %, 1 at 34..67 %, 2 below 34 %, and 4 at health < 1.
+  Death queues `0x15` (5.0 s, mode 2, self); on arrival the mover enters
+  state 3 (knocked down) and ignores further records. The app logs
+  `dino dead:`/`dino down:` and suppresses Eat/Sleep/Explore moves while dead.
+
+Verified by `test_cpp_dino_health_regen` (50 -> 67 -> 84 with regen 17),
+`test_cpp_dino_starvation_death` (food 0, health 1 -> state 4 -> `0x15` ->
+knocked down) and the selftest bands/5 s/starve checks. `--dino-food` and
+`--rest-probe` are the test hooks; a 600 s Cpg04 soak stays at 0 escapes,
+0 blocked.
 
 ### Normal-action executor (`0x56f7a0`)
 
