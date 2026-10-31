@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - docs: paddock Feeding Dish switch mapped - SWITCH_FENCE_LUNCHBOX 0x531c80 arms feature mode, next ground click creates the LunchBox at the point, cap 16, price 100 charged to CONSTRUCTION 0x585d20; fence dish push 0x57e440; interactive UI path not yet wired; full suite 539 passed on the reviewfix build
 - 2026-10-31 - docs: show arena wall DDA mapped - stPerimeter/stWall per-cell pieces, count=int((edgeLen+1)/wallRecord[0]); wallRecord[0] is the runtime pitch (not BWI version/height); per-piece display transform and Z remain OPEN, so no wall geometry is guessed; .bwi parser already committed
 - 2026-10-31 - review fixes + .bwi parser: paddock-index bounds in RunAway/Exploration, shared dino_graph_node_names, integer RunAway box, discriminating current-cost selftest (249), Eat item-list assertion; new src/formats/bwi + --bwi-info (24/24, test); corrected Victory/attach-list evidence; fast 385
 - 2026-10-31 - docs: show performance length is the scheduler slot window - no stShow/.shw duration field; FUN_0058c390 bounds the show and FUN_0058c8f0/FUN_0057b130 end it at the slot boundary; the port's 30-minute ShowRuntime duration is an explicit placeholder
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - AI: Victory class-6 gate proven never available in a park - the dino sub-behavior +0x10 is 0 until an attach, the 0x6430e4 +0x1c gate returns 50, and FUN_0056e410 scores only exactly 1; no cast producer. The port's Exploration/RunAway/Sleep set is exact; Victory execution allowTurn corrected to 0/instant 1
 - 2026-10-31 - AI: exact RunAway current-cost comparison - cur=grid[dino]-threat, chosen-=cur inside the threat_radius box, move only chosen<cur; the scan repeats every frame and runaway_moved stops it after the 0x35 goto; selftest 247, fast 384, full 538 on the item build
 - 2026-10-31 - AI: split the food-item action behavior - BfiFeature.actions/Feeder.actions carry the .bfi Eat list; the dino chooser is Exploration/RunAway/Sleep and switches to the item list when its best score wins; --place-lunchbox logs actions=Eat,EatForSmallies; selftest 247, fast 384, full 538 on the RunAway build
-- 2026-10-31 - AI: retail park node set + RunAway - chooser Exploration/RunAway/Sleep + item Eat family; runaway_cell implements FUN_00577570 danger-grid scan and 0x35/0x19 hold; test_cpp_dino_runaway_node; selftest 247, fast 384
 
 ## Blockers
 
