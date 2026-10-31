@@ -23,9 +23,10 @@ Scope: the three open items behind `FUN_0056f7a0` (normal-action executor) and
    the **minimum-cost cell centre** of the same rect.
 3. **Victory's gesture is `Victory.bai` element[0 or 1] `bones[0]` = 26 or 35**,
    duration the shared sentinel `[0x006430a8] = 0x7f7fc99e`, mode 2, self,
-   allowTurn 1. Element 0 is used when the actor is in the show/attraction cast
-   list (`FUN_00583230`), element 1 otherwise. Portable: with no cast list the
-   retail answer is element 1 -> kind 35.
+   allowTurn 0, instant 1. Element 0 is used when the actor is in the
+   show/attraction cast list (`FUN_00583230`), element 1 otherwise. Portable:
+   with no cast list the retail answer is element 1 -> kind 35. The class-6
+   availability gate returns 50, not 1, so Victory is never scored in a park.
 
 ## 1. `.bai` element `+0x3c` / `+0x40` are `params[7]` / `params[8]`
 
@@ -280,7 +281,7 @@ Emitted record:
 ```text
 kind = 26 (actor in cast list) or 35 (not in list)
 mode = 2, duration = 0x7f7fc99e (float 3.4e38 = wait forever / until cancelled)
-target = mover position (self), allowTurn = 1, instant = 0
+target = mover position (self), allowTurn = 0, instant = 1
 ```
 
 `[0x006430a8]` is a shared .rdata float constant sitting between the

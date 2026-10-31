@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI: Victory class-6 gate proven never available in a park - the dino sub-behavior +0x10 is 0 until an attach, the 0x6430e4 +0x1c gate returns 50, and FUN_0056e410 scores only exactly 1; no cast producer. The port's Exploration/RunAway/Sleep set is exact; Victory execution allowTurn corrected to 0/instant 1
 - 2026-10-31 - AI: exact RunAway current-cost comparison - cur=grid[dino]-threat, chosen-=cur inside the threat_radius box, move only chosen<cur; the scan repeats every frame and runaway_moved stops it after the 0x35 goto; selftest 247, fast 384, full 538 on the item build
 - 2026-10-31 - AI: split the food-item action behavior - BfiFeature.actions/Feeder.actions carry the .bfi Eat list; the dino chooser is Exploration/RunAway/Sleep and switches to the item list when its best score wins; --place-lunchbox logs actions=Eat,EatForSmallies; selftest 247, fast 384, full 538 on the RunAway build
 - 2026-10-31 - AI: retail park node set + RunAway - chooser Exploration/RunAway/Sleep + item Eat family; runaway_cell implements FUN_00577570 danger-grid scan and 0x35/0x19 hold; test_cpp_dino_runaway_node; selftest 247, fast 384
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - economy: fence sale credits VENTES - sell_paddock_now calls add_vente (0x585c40) and logs ventes=1/1890; test_cpp_fence_sell_empty; full suite 537 passed on the previous build, fence build targeted+fast green
 - 2026-10-31 - world: Eat element lifetime - element plays when the dino is in the band and the mover is idle (0x0056c3b0), meal applies then and DinoActionLoop::finish_current ends the action; field_2e is only the 30 s cap; eat_applied latch; selftest 244, fast 384
 - 2026-10-31 - world: refill level producer solved - FUN_00580e30 is the only writer and all three call sites pass level 0, so the 100% refill is exact (66/33 unreachable); set_food_level selftest 244; fast 384
-- 2026-10-31 - world: nutritionist refill charge - FoodSource::level + set_food_level (100/66/33 %, level 3 invalid), level-0 completion charges .bsi price to FOOD via spend_food; PigFood 700 budget 74000->73300; test_cpp_employee_feeding_and_wages; fast 384
 
 ## Blockers
 

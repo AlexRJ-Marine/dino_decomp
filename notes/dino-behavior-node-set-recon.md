@@ -128,7 +128,10 @@ action list is the `.bfi` `BfiFeature.actions` (LunchBox
 copied to `Feeder.actions`; `tick_dino` switches the chooser's candidate set
 to that list when its best score beats the dino graph's. The retail manager
 attach lists (`+0xb8`/`+0xf4`) are still open; the score switch is the port's
-model. Victory is excluded until the class-6 gate is proven. RunAway is
+model. **Victory is never available in a park**: the dino sub-behavior
+`+0x10` is 0 until an attach object is supplied; the `0x6430e4` `+0x1c` gate
+returns 50 unconditionally and `FUN_0056e410` scores only exactly 1; no park
+cast producer exists. Keep it out of the chooser. RunAway is
 ported: `runaway_move`/`find_runaway_cell` implement `FUN_00577570`
 (paddock-rect danger-grid scan, first strict minimum, 8-unit centre,
 four-unit clamp) and the exact current-cost comparison:

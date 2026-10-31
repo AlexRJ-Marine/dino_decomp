@@ -350,8 +350,10 @@ Victory}`, built by `FUN_005431c0` from the `ActionList.ini` names into
 `aiObj+0x24` descriptor container. Availability (`node+0x08`) is runtime:
 target geometry + `FUN_0056e0e0` preconditions; class 5 is forced off.
 `Eat`/`EatForSmallies` are **not** dino graph nodes; they belong to the
-food-item behavior. Victory's class-6 availability gate is still open and no
-park producer was found, so the port excludes it from the park chooser.
+food-item behavior. **Victory is never available in a park**: the dino
+sub-behavior `+0x10` is 0 until an attach object is supplied; the `0x6430e4`
+`+0x1c` gate returns 50 unconditionally and `FUN_0056e410` scores only
+exactly 1; no park cast producer exists. The port excludes it exactly.
 Full evidence: `notes/dino-behavior-node-set-recon.md`.
 
 Port state: the chooser default is the dino graph
