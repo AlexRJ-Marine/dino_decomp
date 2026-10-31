@@ -122,12 +122,15 @@ this is OPEN pending a call-site/save diff.
 
 ### Exact port decision
 
-`node_names` for the park dino must be
-`{Exploration, RunAway, Sleep, Victory}`. `Eat`/`EatForSmallies` must be
-removed from the dino's chooser and modeled on the **food-item behavior**
-path (the `.bfi` feature's action list + the dino's target policy). The
-current port's `{Exploration, Eat, EatForSmallies, Sleep}` is a confirmed
-placeholder: it changes membership and bypasses the item behavior.
+`node_names` for the park dino is `{Exploration, RunAway, Sleep}` plus the
+food-item action list `{Eat, EatForSmallies, EatBait, EatBaitForSmallies}`
+modeled on the same chooser. Victory is excluded until the class-6 gate is
+proven. RunAway is ported: `runaway_cell`/`find_runaway_cell` implement
+`FUN_00577570` (paddock-rect danger-grid scan, first strict minimum, 8-unit
+centre, four-unit clamp); a cheaper cell emits the `0x35` goto, otherwise the
+`0x19` hold. The retail current-cell threat/LOS term is open. The earlier
+port set `{Exploration, Eat, EatForSmallies, Sleep}` was a confirmed
+placeholder and has been replaced.
 
 ## Port consequence
 

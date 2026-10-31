@@ -350,9 +350,17 @@ Victory}`, built by `FUN_005431c0` from the `ActionList.ini` names into
 `aiObj+0x24` descriptor container. Availability (`node+0x08`) is runtime:
 target geometry + `FUN_0056e0e0` preconditions; class 5 is forced off.
 `Eat`/`EatForSmallies` are **not** dino graph nodes; they belong to the
-food-item behavior. The port's `DinoActionLoopConfig::node_names` default
-`{Exploration, Eat, EatForSmallies, Sleep}` is a confirmed placeholder.
+food-item behavior. Victory's class-6 availability gate is still open and no
+park producer was found, so the port excludes it from the park chooser.
 Full evidence: `notes/dino-behavior-node-set-recon.md`.
+
+Port state: the chooser default is the dino graph `Exploration/RunAway/Sleep`
+plus the food-item actions `Eat/EatForSmallies/EatBait/EatBaitForSmallies`
+(the item behavior's separate arbitration is not ported). RunAway's `0x35`
+goto/`0x19` hold is ported: `find_runaway_cell` scans the paddock-rect
+danger-grid cells (y outer, x inner, first strict minimum), converts the cell
+to its 8-unit centre and clamps four units inside the rect; no cheaper cell
+holds with `0x19`. The retail current-cell threat/LOS term is still open.
 
 ## The mover (`saDinosaur+0x2c8`)
 

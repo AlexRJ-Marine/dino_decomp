@@ -1113,7 +1113,8 @@ void Game::update_simulation() {
         dino::ImportedDino& dinosaur =
             park_session.imported_dinos[dino_index];
         const auto event =
-            park_session.tick_dino(dinosaur, frame_dt, dino_action_table);
+            park_session.tick_dino(dinosaur, frame_dt, dino_action_table,
+                                   &danger_grid);
         if (event.move_started) {
             std::printf(
                 "dino move: %s start x=%.1f y=%.1f target=%.1f,%.1f "

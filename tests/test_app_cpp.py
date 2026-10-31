@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (244 checks)" in result.stdout
+    assert "selftest: PASS (247 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4661,6 +4661,32 @@ def test_cpp_dino_click_opens_panel(tmp_path):
     diff = ImageChops.difference(before.crop((0, 0, 170, 600)),
                                  after.crop((0, 0, 170, 600)))
     assert sum(ImageStat.Stat(diff).mean) / 3.0 > 20.0
+
+
+@pytest.mark.slow
+def test_cpp_dino_runaway_node():
+    """The retail park node set includes RunAway: a low-SECU anky selects it
+    and an empty danger grid takes the `0x19` hold path."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "200", "--no-menu", "--no-hud", "--width",
+         "160", "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--wld-park", str(wld), "--dino-action-loop",
+         "--fixed-dt", "0.05", "--dino-action-speed", "1",
+         "--dino-needs", "20,90,10,90"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert ("dino action: anky RunAway score=3250 needs=20/90/10/90"
+            in log)
+    assert "dino run: anky hold kind=0x19" in log
 
 
 def test_cpp_employee_info():

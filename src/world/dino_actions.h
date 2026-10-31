@@ -141,8 +141,14 @@ struct ActionChoice {
 // algorithm. The `.bai` need deltas are applied when an action completes so
 // the loop closes; retail's feeding interaction is the open part.
 struct DinoActionLoopConfig {
-    std::vector<std::string> node_names{"Exploration", "Eat", "EatForSmallies",
-                                        "Sleep"};
+    // Retail park graph: Exploration/RunAway/Sleep. Victory is class-6
+    // gated and unavailable without a show cast, so it is excluded here.
+    // Eat/EatForSmallies/EatBait* are the food-item behavior's action list;
+    // the port models them on the same chooser (the item behavior's separate
+    // arbitration is not ported yet).
+    std::vector<std::string> node_names{
+        "Exploration", "RunAway", "Sleep", "Eat", "EatForSmallies",
+        "EatBait", "EatBaitForSmallies"};
     double decision_interval = 0.5;
     double food_decay = 0.5;      // need points per second
     double violence_decay = 0.2;

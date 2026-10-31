@@ -393,6 +393,27 @@ int run_selftest() {
           "dino patrol point max");
     check(!dino::paddock_patrol_point({0, 0, 6, 6}, 0, 0, patrol_x, patrol_y),
           "dino patrol point small rect");
+    // `FUN_00577570`: RunAway cell = first strict-minimum danger-grid cell
+    // in the rect, centre +4, clamped four units inside the rect.
+    dino::DangerGrid run_grid;
+    run_grid.clear();
+    run_grid.cell(10, 10) = 50;
+    float run_x = 0.0f;
+    float run_y = 0.0f;
+    check(dino::runaway_cell(run_grid, {80, 80, 120, 120}, 85.0f, 85.0f,
+                             run_x, run_y) &&
+              run_x == 92.0f && run_y == 84.0f,
+          "dino runaway cell");
+    check(!dino::runaway_cell(run_grid, {80, 80, 80, 80}, 85.0f, 85.0f,
+                              run_x, run_y),
+          "dino runaway no cheaper");
+    run_grid.clear();
+    run_grid.cell(1, 1) = 50;
+    run_grid.cell(2, 1) = 0;
+    check(dino::runaway_cell(run_grid, {10, 10, 18, 18}, 12.0f, 12.0f,
+                             run_x, run_y) &&
+              run_x == 14.0f && run_y == 12.0f,
+          "dino runaway clamp");
     // `0x0056c500..0x0056c575`: the object/box Eat arrival radius.
     // Eat.bai (3.1, mode 3) uses 0.01 * body part length; EatForSmallies
     // (2.5, mode 4) uses size_radius + 1; the band is 0.8r^2..1.2r^2.

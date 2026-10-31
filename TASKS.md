@@ -2438,15 +2438,18 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   RunAway 0x19/0x35, Sleep 0x1d+0x1e / 0x1c, sp4 none, sp5 `FUN_0056fb70`
   gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
   (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
-- [ ] **Behavior node set (DEC-2b follow-up).** Retail's park dino graph is
+- [x] **Behavior node set (DEC-2b follow-up).** Retail's park dino graph is
   exactly `{Exploration, RunAway, Sleep, Victory}` (`DB+0x158`, one node per
-  action record/target with runtime `+0x08` availability). `Eat` and
-  `EatForSmallies` are **food-item behavior** actions, not dino graph
-  nodes. The port's `node_names = {Exploration, Eat, EatForSmallies, Sleep}`
-  is a confirmed placeholder. Next: port the RunAway `0x35`/`0x19` records
-  (steering cell) and the Victory `35` sentinel, set the dino node set to
-  the retail four, and move Eat to the feeder/item path.
-  Evidence: `notes/dino-behavior-node-set-recon.md` §7.
+  action record/target with runtime `+0x08` availability). Victory's class-6
+  gate is open/unavailable in a park, so the port uses
+  `{Exploration, RunAway, Sleep}` plus the food-item list
+  `{Eat, EatForSmallies, EatBait, EatBaitForSmallies}`. RunAway is ported:
+  `runaway_cell` implements `FUN_00577570` (paddock-rect danger-grid strict
+  minimum, 8-unit centre, four-unit clamp), `0x35` goto or `0x19` hold;
+  `test_cpp_dino_runaway_node` and the selftest cover it. Open: the retail
+  current-cell threat/LOS term, the item behavior's separate arbitration, and
+  the class-6 Victory gate. Evidence:
+  `notes/dino-behavior-node-set-recon.md` §7.
 - [ ] Port the normal-action executor rest: the full element record list and
   the executor gesture `0x12..0x17` from `executor+0x40` (written only by
   `0x56fb70`; `element+0x40` is `.bai params[8]`, not a gesture). The Eat

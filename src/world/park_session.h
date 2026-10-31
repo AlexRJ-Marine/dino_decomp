@@ -9,6 +9,7 @@
 #include "../formats/actions_bad.h"
 #include "../formats/math.h"
 #include "build.h"
+#include "danger_grid.h"
 #include "economy.h"
 #include "employees.h"
 #include "food.h"
@@ -101,7 +102,8 @@ struct ParkSession {
         bool escaped = false;
     };
     DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
-                              const std::vector<BaiAction>& actions);
+                              const std::vector<BaiAction>& actions,
+                              const DangerGrid* danger_grid = nullptr);
 };
 
 // `FUN_0056eec0` case 0 (special_action 1, Exploration): a random action
@@ -112,5 +114,12 @@ struct ParkSession {
 // the dino's current point.
 bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
                           int& x, int& y);
+
+// `FUN_00577570` (RunAway case 1): the strict-minimum danger-grid cell in the
+// paddock rect, converted to its 8-unit centre and clamped four units inside
+// the rect. Returns false when no cell is cheaper than the dino's current
+// cell (the executor then holds with the `0x19` element).
+bool runaway_cell(const DangerGrid& grid, const WorldRect& rect, float dino_x,
+                  float dino_y, float& x, float& y);
 
 }  // namespace dino

@@ -93,6 +93,69 @@ std::optional<StandCell> find_stand_cell(const OccupancyGrid& grid,
     return best;
 }
 
+struct RunCell {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
+// `FUN_00577570` (case 1 RunAway): scan the paddock-rect danger-grid cells
+// (y outer, x inner, first strict minimum), convert the winning cell to its
+// 8-unit centre and clamp four units inside the rect. Returns nullopt when
+// no cell is cheaper than the dino's current cell; the executor then holds
+// `0x19`. The retail current-cell comparison adds the actor threat and a LOS
+// term (OPEN); the port compares the raw grid costs.
+std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
+                                         const WorldRect& rect,
+                                         float dino_x, float dino_y) {
+    const int xmin = std::min(rect.x0, rect.x1);
+    const int xmax = std::max(rect.x0, rect.x1);
+    const int ymin = std::min(rect.y0, rect.y1);
+    const int ymax = std::max(rect.y0, rect.y1);
+    const int x0 = std::clamp(xmin >> DangerGrid::kCellShift, 0,
+                              DangerGrid::kWidth - 1);
+    const int x1 = std::clamp(xmax >> DangerGrid::kCellShift, 0,
+                              DangerGrid::kWidth - 1);
+    const int y0 = std::clamp(ymin >> DangerGrid::kCellShift, 0,
+                              DangerGrid::kHeight - 1);
+    const int y1 = std::clamp(ymax >> DangerGrid::kCellShift, 0,
+                              DangerGrid::kHeight - 1);
+    const int current_x = std::clamp(
+        static_cast<int>(dino_x) >> DangerGrid::kCellShift, 0,
+        DangerGrid::kWidth - 1);
+    const int current_y = std::clamp(
+        static_cast<int>(dino_y) >> DangerGrid::kCellShift, 0,
+        DangerGrid::kHeight - 1);
+    int best = grid.cell(current_x, current_y);
+    int best_x = -1;
+    int best_y = -1;
+    for (int y = y0; y <= y1; ++y) {
+        for (int x = x0; x <= x1; ++x) {
+            const int cost = grid.cell(x, y);
+            if (cost < best) {
+                best = cost;
+                best_x = x;
+                best_y = y;
+            }
+        }
+    }
+    if (best_x < 0) {
+        return std::nullopt;
+    }
+    float wx = static_cast<float>(best_x * DangerGrid::kCellSize + 4);
+    float wy = static_cast<float>(best_y * DangerGrid::kCellSize + 4);
+    if (wx >= static_cast<float>(xmax)) {
+        wx = static_cast<float>(xmax - 4);
+    } else if (wx <= static_cast<float>(xmin)) {
+        wx = static_cast<float>(xmin + 4);
+    }
+    if (wy >= static_cast<float>(ymax)) {
+        wy = static_cast<float>(ymax - 4);
+    } else if (wy <= static_cast<float>(ymin)) {
+        wy = static_cast<float>(ymin + 4);
+    }
+    return RunCell{wx, wy};
+}
+
 }  // namespace
 
 void ParkSession::advance_clock(double dt) {
@@ -236,8 +299,21 @@ bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
     return true;
 }
 
-ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, double dt,
-    const std::vector<BaiAction>& actions) {
+bool runaway_cell(const DangerGrid& grid, const WorldRect& rect, float dino_x,
+                  float dino_y, float& x, float& y) {
+    const std::optional<RunCell> cell =
+        find_runaway_cell(grid, rect, dino_x, dino_y);
+    if (!cell) {
+        return false;
+    }
+    x = cell->x;
+    y = cell->y;
+    return true;
+}
+
+ParkSession::DinoActionEvent ParkSession::tick_dino(
+    ImportedDino& dinosaur, double dt,
+    const std::vector<BaiAction>& actions, const DangerGrid* danger_grid) {
     DinoActionEvent event;
     if (!dinosaur.action_loop) {
         return event;
@@ -451,6 +527,35 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                     dinosaur.species.c_str(),
                     static_cast<double>(point_x),
                     static_cast<double>(point_y));
+            }
+        } else if (action == "RunAway") {
+            if (!dead) {
+                // `0x0056f200` case 1: descend the danger grid over the
+                // paddock rect. A cheaper cell becomes the `0x35` goto
+                // target; otherwise hold with the `0x19` element. The cell
+                // is rolled once per activation; the `field_2e` cap ends
+                // the action.
+                std::optional<RunCell> target;
+                if (danger_grid != nullptr && pen >= 0) {
+                    target = find_runaway_cell(
+                        *danger_grid,
+                        paddocks[static_cast<std::size_t>(pen)].rect,
+                        dinosaur.x, dinosaur.y);
+                }
+                dinosaur.mover.clear();
+                if (target) {
+                    dinosaur.mover.start(0x35, target->x, target->y, 1);
+                    std::printf("dino run: %s start target=%.1f,%.1f\n",
+                                dinosaur.species.c_str(),
+                                static_cast<double>(target->x),
+                                static_cast<double>(target->y));
+                } else {
+                    const float hold = family_duration(0x19, 2.0f);
+                    dinosaur.mover.start(0x19, dinosaur.x, dinosaur.y, 2,
+                                         hold);
+                    std::printf("dino run: %s hold kind=0x19\n",
+                                dinosaur.species.c_str());
+                }
             }
         }
         if (action != "idle") {
