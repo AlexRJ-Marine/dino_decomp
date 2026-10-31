@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - docs: live show cast writer, timer and score mapped - FUN_00583060/FUN_00582840 cast, FUN_0058c760/0057b110/0057ba50/0057b130 timer, FUN_00581770 five-float score; Victory emitter still open; exact-RunAway full suite 538 passed
 - 2026-10-31 - AI: Victory class-6 gate proven never available in a park - the dino sub-behavior +0x10 is 0 until an attach, the 0x6430e4 +0x1c gate returns 50, and FUN_0056e410 scores only exactly 1; no cast producer. The port's Exploration/RunAway/Sleep set is exact; Victory execution allowTurn corrected to 0/instant 1
 - 2026-10-31 - AI: exact RunAway current-cost comparison - cur=grid[dino]-threat, chosen-=cur inside the threat_radius box, move only chosen<cur; the scan repeats every frame and runaway_moved stops it after the 0x35 goto; selftest 247, fast 384, full 538 on the item build
 - 2026-10-31 - AI: split the food-item action behavior - BfiFeature.actions/Feeder.actions carry the .bfi Eat list; the dino chooser is Exploration/RunAway/Sleep and switches to the item list when its best score wins; --place-lunchbox logs actions=Eat,EatForSmallies; selftest 247, fast 384, full 538 on the RunAway build
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - world: fix Eat re-selection blocker - revert finish_current so the meal applies once at arrival and the action runs to the field_2e cap; tie the stand-cell cache to the feeder; persist the phenotype tail in DINOPSAV; Eat node-set graph recon recorded; targeted/fast green (full 537 before fix)
 - 2026-10-31 - economy: fence sale credits VENTES - sell_paddock_now calls add_vente (0x585c40) and logs ventes=1/1890; test_cpp_fence_sell_empty; full suite 537 passed on the previous build, fence build targeted+fast green
 - 2026-10-31 - world: Eat element lifetime - element plays when the dino is in the band and the mover is idle (0x0056c3b0), meal applies then and DinoActionLoop::finish_current ends the action; field_2e is only the 30 s cap; eat_applied latch; selftest 244, fast 384
-- 2026-10-31 - world: refill level producer solved - FUN_00580e30 is the only writer and all three call sites pass level 0, so the 100% refill is exact (66/33 unreachable); set_food_level selftest 244; fast 384
 
 ## Blockers
 

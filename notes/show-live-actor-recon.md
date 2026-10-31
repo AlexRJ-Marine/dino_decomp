@@ -68,28 +68,75 @@ if (flag) FUN_005e9250(rec);
 
 ## 4. Cast/team
 
-`FUN_00583230(showObj, dino)` searches `showObj+0x50..+0x54` (0x10-byte
-records) for the dino pointer; returns 1/0. The show object is `dino+0xcc`.
-A show dino is created by `FUN_0053a980(genotype)` -> `FUN_00586690`
-(0x52c, `saDinosaur` ctor `0x5701f0`), then scene/anim `FUN_005f4450`/
-`FUN_005d9200`.
+`FUN_00583230(judge, dino)` searches `judge+0x50..+0x54` (0x10-byte records)
+for the dino pointer. **The writer is `FUN_00583060(judge, groupId)`**
+(`0x00583060`):
 
-**OPEN:** the producer that appends the dino into `show+0x50/+0x54`. The
-natural candidates `FUN_005e4cf0`/`FUN_00535710` were not proven.
+```c
+src = *(int**)(judge+0x44);              // = stShow+0xf0 participant vector
+for each p in src[+4..+8]:               // all show participants (dinos)
+    if (p+0x1d0 == groupId) append p -> judge+0x50;  // cast
+    else                    append p -> judge+0x60;  // spectators
+```
 
-## 5. Score and Victory
+`judge+0x44 = stShow+0xf0` is set by `FUN_0057c260`. `FUN_00583060` is
+called from the judge start/update subclasses (`FUN_00583fe0`, `0x583f78`).
+A second staging append `FUN_00582840(obj, dino)` pushes the dino pointer into
+a `+0x54` vector plus a 0 flag byte at `+0x44`; called from performance start
+`FUN_0057ba50` over `stShow+0xf4` participants and the judge groups
+`stShow+0xc0/+0x128/+0x148`.
 
-- `.bfi` `score_steps` are not consumed.
-- Runtime score: `FUN_00576550(dino5, profile5)` = dot of five floats,
-  clamped `[-100,+100]`; `FUN_00581770` takes the max over participants, adds
-  `dino+0x4f8/+0x4f9` bonuses, clamps `[-130,+130]`, smooths at
-  `0.07/frame`.
-- Dino five floats come from genotype -> `FUN_00618020`; `FUN_00586690` fills
-  them at dino creation.
-- Victory kind 26/35 is the class-6 animation. The normal park class-6 gate
-  is dead (returns 50; scorer needs 1), so a live show must **force** the
-  Victory element/action, not rely on node availability. The exact
-  show-end -> Victory producer is OPEN.
+The participant list is `stShow+0xf0` (begin `+0xf4`, end `+0xf8`); team id is
+`dino+0x1d0`.
+
+## 5. Show timer / phases
+
+`stShow` vtable `0x643220` (ctor `0x579440`):
+
+| slot | address | role |
+| ---: | --- | --- |
+| `+0x10` | `0x57a4a0` | participant/selection helper |
+| `+0x14` | `0x581710` | serialization/read |
+| `+0x18` | `0x57ba30` -> `FUN_00581770` | per-frame score |
+| `+0x1c` | `0x579830` | update/end helper |
+
+Scheduler (`FUN_0058c2f0`/`FUN_0058c760`/`FUN_0058c390`):
+
+- `FUN_0058c2f0` advances show time and sets `+0x28` when the hour slot
+  changes; `+0x29` is the after-10th-slot clamp.
+- `FUN_0058c760` at each slot: `show = list[sched[6]]`; requires
+  `show+0xd3 != 0` (scheduled), `show+0xe0 == 2`, `show+0xe4 == 0` (idle),
+  and `FUN_0058c390(show, parkTime)` in the window -> **`FUN_0057b110(show)`**
+  (`+0x14=1, +0xd4=1, +0xe4=1`).
+- **`FUN_0057ba50(show)`** is the performance reset/start: `+0x14=1,
+  +0xd5=0, +0xe4=2`; clears the `+0x108/+0x138` vectors, calls
+  `FUN_0057c700(+0x7c)`, then rebuilds judge cast lists via `FUN_00582840`
+  over `stShow+0xf4`.
+- End: when the window/state check passes, `FUN_0058c8f0(show)` then
+  **`FUN_0057b130(show, result)`** (`+0xd5=1, +0x94=result`).
+- `stShow+0xe4`: 0 idle, 1 starting/running, 2 performing.
+
+## 6. Score and Victory
+
+- `.bfi` `score_steps`/`attribute_sets` are **unused** in this build.
+- `FUN_00581770(show, dt, participants)`:
+  - each participant `p`, each visitor profile `w` in `[show+0x74]+0x34`:
+    `FUN_00576550([p+0x4fc], w)` = five-float dot, clamp `[-100,+100]`;
+  - category = max over participants; add `dot(p+0x500,w)` if `p+0x4f8`,
+    `dot(p+0x504,w)` if `p+0x4f9`; clamp `[-130,+130]`;
+  - smooth each `current[show+0x58+i]` toward the category at
+    `[DAT_00675770+0xc]` per second.
+- The five floats `[p+0x4fc]` are **static per dino**, set at creation by
+  `FUN_00586690` from `FUN_00618020`: beauty, danger, spectacle, conventional
+  appeal, tamability. Profiles are visitor preference vectors (`+0x18..+0x2c`).
+- `FUN_0057f5e0` = `stShowStatistics` ctor (0x84 bytes at `stShow+0x3b`):
+  five 0xDB-float arrays (`+0x28..+0x3c`), participant vectors
+  `+0x1c/+0x20/+0x24`, show pointer `+0x50`.
+- Victory kind 26/35 is the class-6 animation. The normal park gate is dead
+  (returns 50; scorer needs 1). **OPEN:** the exact show-end -> Victory
+  emitter. Port recipe: at `FUN_0057b130` end, pick the winner from the judge
+  cast and force the element (26/35, self, mode 2, sentinel, instant 1,
+  allowTurn 0).
 
 ## 6. Minimal live-show recipe
 
@@ -101,10 +148,12 @@ natural candidates `FUN_005e4cf0`/`FUN_00535710` were not proven.
    FUN_005e7630(arena, AI, scene, audio, ...)
 4. for each 0x18 rec in showRec+0x2c: FUN_0053acd0(showRec, rec, 0)
    judge .bfi -> featureDef+0x40 kind -> FUN_0057c260 -> judge at stShow+0xcc
-5. add dino: FUN_0053a980(genotype) -> saDino, append to stShow+0x50/+0x54
-   (producer OPEN)
-6. run stShowStatistics; score with FUN_00581770; at show end force the
-   Victory element (26/35) on the winner.
+5. add dinos: FUN_0053a980(genotype) -> saDino; the participant list is
+   stShow+0xf0 (+0xf4/+0xf8), team id dino+0x1d0.
+6. start: FUN_0057b110(show) -> FUN_0057ba50(show) rebuilds the judge cast
+   via FUN_00582840/FUN_00583060; per frame FUN_00581770 scores.
+7. end: FUN_0058c8f0(show) -> FUN_0057b130(show,result); force the Victory
+   element (26/35) on the winner (retail emitter OPEN).
 ```
 
 Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bfi`,
@@ -112,8 +161,11 @@ Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bf
 
 ## Open
 
-1. Cast append producer (`stShow+0x50/+0x54`).
-2. Exact show timer/end trigger.
-3. Show-end Victory emitter.
-4. `.bfi` `score_steps`/`attribute_sets` are unused in this build (negative
+1. Exact show-end Victory emitter (retail direct emitter not found).
+2. `show+0xe4` phase transitions: whether 2 is reached only via `FUN_0057ba50`
+   or also a show-length timer.
+3. `.bfi` `score_steps`/`attribute_sets` are unused in this build (negative
    result).
+4. The cast writer and the scheduler start/end are now mapped
+   (`FUN_00583060`, `FUN_0058c760`/`FUN_0057b110`/`FUN_0057ba50`/
+   `FUN_0057b130`).
