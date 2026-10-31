@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-30 21:18. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 01:25. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-58 open items.
+59 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -129,7 +129,8 @@ Generated from `TASKS.md` on 2026-10-30 21:18. Do not edit; regenerate with `scr
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
-- [ ] Park move scripts: the behaviour layer calls `0x573f40` directly and
+- [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
+- [ ] Port the remaining self-contained special lists: RunAway `0x19`,
 - [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
 - [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on

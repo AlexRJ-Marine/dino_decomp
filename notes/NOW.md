@@ -1,6 +1,6 @@
 # NOW — Dino Island
 
-Updated: 2026-10-30
+Updated: 2026-10-31
 
 This is the injected dashboard. Keep it under ~80 lines. Full history and
 evidence live in `notes/STATE.md` (read on demand); open tasks are in
@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI: Sleep special-action records (0x1d/0x1e/0x1c), gesture no-translation, normal-action executor 0x56f7a0 map (marker/stop/0x12..0x17 gesture); selftest 207, full 525
 - 2026-10-30 - AI: per-family turn durations from Actions.bad f[411..461] (Part10 family 2/3 -> file blocks 3/2; runtime 15x1.2 s / 4x2.0 s; DINORESET f1e0 size classes 20/20); --actions-bad-info; selftest 204, full 524
 - 2026-10-30 - AI: retail dinosaur mover ported (saDinosaur+0x2c8) - 0x18-byte queue, phenotype walk/run 1.43-2.91 m/s, exact FUN_00575410 pre-rotated turn plan (45 deg/record, 1.0 s), 180 record, paddock clamp; element events replace the disproven .bai need deltas; selftest 201, full 522
 - 2026-10-29 - ARCH-5 actions: `ParkSession::tick_dino` owns action loop/Eat/clip selection; paddock queries moved; game.h 651->649; full 521
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-29 - ARCH-5 split: `DinoAssets`/`ImportedDino` in world, `ImportedDinoDraw` in app, `park_session.imported_dinos`; game.h 665->651; dino render/save/show full 521
 - 2026-10-29 - ARCH-2 slice 8: `ParkSession::settle_day` owns daily ticket/wage/ledger math; Game keeps catalog/IO/print; full 521
 - 2026-10-29 - ARCH-2 slice 7: `ParkSession::advance_clock`/`update_staff` own clock + hourly staff update; Game keeps feed print, GPU and settlement; full 521
-- 2026-10-29 - MAINT-8: P1 robustness - simulation delta capped at 0.2 s; atomic save writes (temp+rename) for port/campaign; overwrite test checks no .tmp; full 521
 
 ## Blockers
 
