@@ -4719,6 +4719,131 @@ def test_cpp_bwi_info():
     assert "wall: MediumWood height=4 cost=10 elect=0 mesh= " in log
 
 
+@pytest.mark.slow
+def test_cpp_interactive_lunchbox():
+    """`SWITCH_FENCE_LUNCHBOX` (`0x531c80`): arm feature mode, then the next
+    scene click places one LunchBox at the clicked point; price 100 to
+    CONSTRUCTION (`0x585d20`), cap 16."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-build", "--park-budget", "75000", "--fence-lunchbox",
+         "--ground-click", "400,330"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "lunchbox: LunchBox kind=0" in log
+    assert "nutrition=100" in log
+    assert "actions=Eat,EatForSmallies" in log
+    assert "fence lunchbox: placed at" in log
+    assert "price=100 budget=74900 construction=1/100" in log
+
+
+@pytest.mark.slow
+def test_cpp_lunchbox_ui_switch():
+    """The paddock panel switch path: OPEN_CONSTRUCTION (764,135) ->
+    OPEN_CONSTRUCTION_FENCE (618,145) -> SWITCH_FENCE_LUNCHBOX (620,243) ->
+    world click. The deferred arm must survive the boot camera reset."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-build", "--park-budget", "75000",
+         "--park-click", "764,135", "--park-click", "618,145",
+         "--park-click", "620,243", "--ground-click", "400,330"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "park click 620,243 -> fence lunchbox" in log
+    assert "lunchbox: LunchBox kind=0" in log
+    assert ("fence lunchbox: placed at 463.5,327.4 price=100 budget=74900 "
+            "construction=1/100") in log
+
+
+@pytest.mark.slow
+def test_cpp_lunchbox_feature_mode_and_busy_space():
+    """Retail keeps feature mode after a placement and re-runs the
+    `FUN_005812b0` 4x4 footprint check; a second click at the same point is
+    `&WARNING_BUSY_SPACE`, not a second dish."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-build", "--park-budget", "75000", "--fence-lunchbox",
+         "--inject-click", "2,600,336", "--inject-click", "4,600,336"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "fence lunchbox: placed at 456.0,339.9" in log
+    assert "fence lunchbox: busy space at 456.0,339.9" in log
+    assert "construction=1/100" in log
+    assert "construction=2/200" not in log
+
+
+@pytest.mark.slow
+def test_cpp_lunchbox_cap_16():
+    """`0x527150`: 16 dishes allowed per fence, the 17th is
+    `&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE`; the cap is checked before the
+    budget/creation."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    base = [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width",
+            "800", "--height", "600", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--focus-dino", "0",
+            "--wld-park", str(wld), "--no-build", "--park-budget", "75000"]
+    result = subprocess.run(
+        base + ["--lunchbox-prefill", "16", "--fence-lunchbox",
+                "--ground-click", "600,336"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "lunchbox: prefill=16" in log
+    assert "fence lunchbox: enclosure 0 already has 16" in log
+    assert "fence lunchbox: placed at" not in log
+    # 15 existing dishes: the next click is the 16th and is charged.
+    result = subprocess.run(
+        base + ["--lunchbox-prefill", "15", "--fence-lunchbox",
+                "--ground-click", "600,336"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "lunchbox: prefill=15" in log
+    assert ("fence lunchbox: placed at 456.0,339.9 price=100 budget=74900 "
+            "construction=1/100") in log
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

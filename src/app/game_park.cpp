@@ -1316,4 +1316,85 @@ void Game::import_park_layout() {
 
 }
 
+bool Game::place_lunchbox_at(float x, float y, bool charge) {
+    try {
+        const dino::BfiFeature bfi = dino::load_bfi(resolve_asset(
+            opt.asset_root,
+            "Data/Design/attractions/features/LunchBox.bfi"));
+        if (charge && park_session.budget < bfi.price) {
+            park.show_warning(dino::ui::resolve_loc_text(
+                "&WARNING_NOT_ENOUGH_MONEY", park.loc));
+            std::printf("fence lunchbox: need %d budget %d\n", bfi.price,
+                        park_session.budget);
+            return false;
+        }
+        dino::Feeder feeder;
+        feeder.name = bfi.name;
+        feeder.kind = bfi.food_kind;
+        feeder.actions = bfi.actions;
+        feeder.quantity = static_cast<float>(bfi.food_quantity);
+        feeder.max_quantity = feeder.quantity;
+        feeder.nutrition = static_cast<float>(bfi.food_nutrition);
+        feeder.radius = std::max(
+            1.0f, static_cast<float>(std::max(bfi.width, bfi.height)) *
+                      0.5f);
+        feeder.x = x;
+        feeder.y = y;
+        park_session.feeders.push_back(feeder);
+        std::string mesh_rel;
+        for (const std::string& slot : bfi.mesh_slots) {
+            if (slot.ends_with(".mesh")) {
+                mesh_rel = slot;
+                break;
+            }
+        }
+        if (!mesh_rel.empty()) {
+            dino::Mesh mesh =
+                dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
+            const std::string texture_name = mesh.texture_name();
+            mesh = place_on_terrain(std::move(mesh), terrain, x, y, 0.0f);
+            ShowFeatureDraw draw;
+            draw.gpu = upload_mesh(mesh, glfns);
+            if (!texture_name.empty()) {
+                draw.texture = upload_texture(dino::load_tga(
+                    resolve_asset(opt.asset_root,
+                                  bfi.texture_dir + "/" + texture_name)));
+            }
+            show_feature_draws.push_back(std::move(draw));
+        }
+        rebuild_extra_items();
+        if (charge) {
+            park_session.budget -= bfi.price;
+            park_session.ledger.spend_construction(bfi.price);
+        }
+        std::string action_list;
+        for (const std::string& name : feeder.actions) {
+            if (!action_list.empty()) {
+                action_list += ",";
+            }
+            action_list += name;
+        }
+        std::printf(
+            "lunchbox: %s kind=%d at %.1f,%.1f quantity=%.0f "
+            "nutrition=%.0f radius=%.1f actions=%s\n",
+            feeder.name.c_str(), feeder.kind, static_cast<double>(x),
+            static_cast<double>(y), static_cast<double>(feeder.quantity),
+            static_cast<double>(feeder.nutrition),
+            static_cast<double>(feeder.radius), action_list.c_str());
+        if (charge) {
+            std::printf(
+                "fence lunchbox: placed at %.1f,%.1f price=%d budget=%d "
+                "construction=%d/%d\n",
+                static_cast<double>(x), static_cast<double>(y), bfi.price,
+                park_session.budget,
+                park_session.ledger.construction_count,
+                park_session.ledger.construction_total);
+        }
+        return true;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "lunchbox: %s\n", e.what());
+        return false;
+    }
+}
+
 }  // namespace dino::app

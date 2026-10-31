@@ -325,7 +325,7 @@ std::optional<int> Game::boot_menu_state() {
     pending_minimap_zoom = 0;
     pending_port_save = false;
     pending_port_load = false;
-    pending_fence_tool = false;
+    pending_build_tool = 0;
     fence_corner_x = -1;
     fence_corner_y = -1;
     return std::nullopt;
@@ -399,7 +399,10 @@ std::optional<int> Game::boot_menu_overlay() {
                     pending_construct_widget = action.substr(10);
                 } else if (action ==
                            "open FENCE_CONSTRUCTION_AND_INFO_PANEL") {
-                    pending_fence_tool = true;
+                    pending_build_tool = 6;
+                } else if (action == "fence lunchbox") {
+                    // `SWITCH_FENCE_LUNCHBOX` (`0x531c80`) arms feature mode.
+                    pending_build_tool = 7;
                 } else if (action == "sell mode") {
                     pending_sell_mode = true;
                 } else if (action.rfind("store buy ", 0) == 0) {

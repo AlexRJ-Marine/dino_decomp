@@ -795,64 +795,31 @@ std::optional<int> Game::boot_food_definitions() {
             if (!have_position) {
                 std::printf("lunchbox: no position (use --lunchbox-pos)\n");
             } else {
-                dino::Feeder feeder;
-                feeder.name = bfi.name;
-                feeder.kind = bfi.food_kind;
-                feeder.actions = bfi.actions;
-                feeder.quantity = static_cast<float>(bfi.food_quantity);
-                feeder.max_quantity = feeder.quantity;
-                feeder.nutrition = static_cast<float>(bfi.food_nutrition);
-                feeder.radius =
-                    std::max(1.0f, static_cast<float>(
-                                       std::max(bfi.width, bfi.height)) *
-                                       0.5f);
-                feeder.x = fx;
-                feeder.y = fy;
-                park_session.feeders.push_back(feeder);
-                std::string mesh_rel;
-                for (const std::string& slot : bfi.mesh_slots) {
-                    if (slot.ends_with(".mesh")) {
-                        mesh_rel = slot;
-                        break;
-                    }
-                }
-                if (!mesh_rel.empty()) {
-                    dino::Mesh mesh = dino::load_mesh(
-                        resolve_asset(opt.asset_root, mesh_rel));
-                    const std::string texture_name = mesh.texture_name();
-                    mesh = place_on_terrain(std::move(mesh), terrain, fx,
-                                            fy, 0.0f);
-                    ShowFeatureDraw draw;
-                    draw.gpu = upload_mesh(mesh, glfns);
-                    if (!texture_name.empty()) {
-                        draw.texture = upload_texture(dino::load_tga(
-                            resolve_asset(opt.asset_root,
-                                          bfi.texture_dir + "/" +
-                                              texture_name)));
-                    }
-                    show_feature_draws.push_back(std::move(draw));
-                }
-                rebuild_extra_items();
-                std::string action_list;
-                for (const std::string& name : feeder.actions) {
-                    if (!action_list.empty()) {
-                        action_list += ",";
-                    }
-                    action_list += name;
-                }
-                std::printf(
-                    "lunchbox: %s kind=%d at %.1f,%.1f quantity=%.0f "
-                    "nutrition=%.0f radius=%.1f actions=%s\n",
-                    feeder.name.c_str(), feeder.kind,
-                    static_cast<double>(fx), static_cast<double>(fy),
-                    static_cast<double>(feeder.quantity),
-                    static_cast<double>(feeder.nutrition),
-                    static_cast<double>(feeder.radius),
-                    action_list.c_str());
+                place_lunchbox_at(fx, fy, false);
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "lunchbox: %s\n", e.what());
         }
+    }
+    if (opt.lunchbox_prefill > 0 && !park_session.paddocks.empty()) {
+        // Test hook: a 3-column grid (5 units in x, 4 in y) centred in the
+        // first paddock; adjacent 4x4 footprints touch but do not overlap.
+        const dino::WorldRect& rect =
+            park_session.paddocks.front().rect;
+        const float cx = (static_cast<float>(std::min(rect.x0, rect.x1)) +
+                          static_cast<float>(std::max(rect.x0, rect.x1)) +
+                          1.0f) * 0.5f;
+        const float cy = (static_cast<float>(std::min(rect.y0, rect.y1)) +
+                          static_cast<float>(std::max(rect.y0, rect.y1)) +
+                          1.0f) * 0.5f;
+        std::printf("lunchbox: prefill rect=%d,%d..%d,%d\n", rect.x0,
+                    rect.y0, rect.x1, rect.y1);
+        for (int i = 0; i < opt.lunchbox_prefill; ++i) {
+            const float px = cx - 6.5f + static_cast<float>(i % 3) * 5.0f;
+            const float py = cy - 14.5f + static_cast<float>(i / 3) * 4.0f;
+            place_lunchbox_at(px, py, false);
+        }
+        std::printf("lunchbox: prefill=%d\n", opt.lunchbox_prefill);
     }
     return std::nullopt;
 }
@@ -865,6 +832,9 @@ std::optional<int> Game::boot_camera_setup() {
     build_tool = opt.build_mode ? 1 : 0;
     pending_construct_kind = -1;
     pending_click = false;
+    if (opt.fence_lunchbox) {
+        build_tool = 7;
+    }
     click_x = 0.0f;
     click_y = 0.0f;
     drag_distance = 0.0f;
@@ -1367,6 +1337,11 @@ std::optional<int> Game::boot_build_tools() {
         handle_attraction_action(action);
     }
     pending_attraction_actions.clear();
+    if (opt.fence_lunchbox) {
+        ensure_build_ready();
+        build_tool = 7;
+        std::printf("fence lunchbox: armed for the next scene click\n");
+    }
     return std::nullopt;
 }
 

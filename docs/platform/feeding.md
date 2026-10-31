@@ -102,11 +102,13 @@ persistence remain open.
 
 ## Open
 
-- Interactive LunchBox placement: `SWITCH_FENCE_LUNCHBOX` (`0x531c80`) arms
-  feature mode; the next ground click creates the dish at the clicked point,
-  cap 16 per fence, price 100 charged to CONSTRUCTION (`0x585d20`), fence
-  dish push `0x57e440`. See `notes/fence-lunchbox-switch-recon.md`. The
-  `--place-lunchbox` CLI is still the test hook until the UI path is wired.
+- Interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
+  (`0x531c80`) arms feature mode; each ground click creates one dish at the
+  clicked point, with the 4x4 `FUN_005812b0` overlap check
+  (`&WARNING_BUSY_SPACE`), cap 16 per fence (`0x527150`), price 100 charged
+  to CONSTRUCTION (`0x585d20`), fence dish push `0x57e440`. The mode persists
+  after a placement (the switch is not re-clicked per dish). See
+  `notes/fence-lunchbox-switch-recon.md`.
 - StaticBait variants (Apple/Flower/Hay/Pumpkin/Watermelon) and save
   persistence of placed feeders; only the LunchBox actor is placed now.
 - `dino+0x288` is **solved**: a fresh park copies `+0x9c..+0xac` (the five

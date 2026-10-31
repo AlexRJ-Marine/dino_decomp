@@ -279,6 +279,14 @@ Options parse_args(int argc, char** argv) {
             opt.food_pos = next("--food-pos");
         } else if (arg == "--place-lunchbox") {
             opt.place_lunchbox = true;
+        } else if (arg == "--fence-lunchbox") {
+            // Test hook for the paddock panel's SWITCH_FENCE_LUNCHBOX:
+            // arm feature mode; the next scene click places the dish.
+            opt.fence_lunchbox = true;
+        } else if (arg == "--lunchbox-prefill") {
+            // Test hook: place N dishes in a 5-unit grid in the first
+            // paddock so the 16-dish cap can be exercised.
+            opt.lunchbox_prefill = std::atoi(next("--lunchbox-prefill"));
         } else if (arg == "--lunchbox-pos") {
             opt.lunchbox_pos = next("--lunchbox-pos");
         } else if (arg == "--hire-nutritionist" ||
@@ -658,6 +666,8 @@ Options parse_args(int argc, char** argv) {
                 "  --place-food NAME    place a .bsi food source in the park\n"
                 "  --food-pos X,Y       food source cell (default: first paddock)\n"
                 "  --place-lunchbox     place a LunchBox item actor (herbivore)\n"
+                "  --fence-lunchbox     arm the paddock Feeding Dish switch (next scene click places)\n"
+                "  --lunchbox-prefill N place N test dishes in a 5-unit grid (cap test)\n"
                 "  --lunchbox-pos X,Y   LunchBox cell (default: first paddock)\n"
                 "  --hire-nutritionist N hire N nutritionists (500 each)\n"
                 "  --fire-nutritionist N dismiss N nutritionists (no refund)\n"

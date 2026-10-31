@@ -184,7 +184,7 @@ private:
     std::string pending_menu_load_path;
     std::string pending_menu_cinematic;
     std::string pending_construct_widget;
-    bool pending_fence_tool;
+    int pending_build_tool;  // 0 none, 6 fence, 7 LunchBox feature
     int fence_corner_x;
     int fence_corner_y;
     std::string pending_store_action;
@@ -624,6 +624,7 @@ private:
                            int id = -1);
     void clear_imported_dinos();
     bool sell_dino(int index);  // FUN_00533a00: credit, capacity, draw
+    bool place_lunchbox_at(float x, float y, bool charge);  // FUN_0053acd0
     void upload_vegetation();
     void release_vegetation();
     const dino::WorldRect* selected_paddock_rect();

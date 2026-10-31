@@ -2507,10 +2507,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `nutrition=3000 quantity=9970 gauge=4255`, bite = `attack_head 30`). The
   `.bsi` gate stays out.
 - [ ] StaticBait variants and save persistence of placed feeders. The
-  interactive LunchBox placement is **mapped** but not wired:
-  `SWITCH_FENCE_LUNCHBOX` (`0x531c80`) arms feature mode, the next ground
-  click creates the dish at that point, cap 16, price 100 charged to
-  CONSTRUCTION (`0x585d20`); the fence dish push is `0x57e440`. See
+  interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
+  (`0x531c80`) arms feature mode, each ground click creates the dish at that
+  point with the 4x4 `FUN_005812b0` overlap check (`&WARNING_BUSY_SPACE`),
+  cap 16, price 100 charged to CONSTRUCTION (`0x585d20`); the fence dish push
+  is `0x57e440` and the mode persists after a placement. See
   `notes/fence-lunchbox-switch-recon.md`.
 - [x] Occupancy footprint adapter (`FUN_0055af70`): radius `actor+0x13 = 1`
   (base ctor), truncate the target to cells and scan the centre +

@@ -953,6 +953,13 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return true;
     }
 
+    // Paddock panel Feeding Dish switch (`0x531c80`): arms feature mode;
+    // the next scene click places one LunchBox at the ground point.
+    if (name == "SWITCH_FENCE_LUNCHBOX") {
+        action = "fence lunchbox";
+        return true;
+    }
+
     // NAVIGATION_PANEL drives the park camera, not the minimap (0x5257a0).
     if (name == "NAVIGATION_GOTOP") {
         action = "camera pan forward";

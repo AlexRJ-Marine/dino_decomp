@@ -75,6 +75,29 @@ The check runs before creation, so with 15 dishes the 16th is allowed and the
 17th is blocked. **Effective max = 16**, not 15. There is no post-add
 rollback.
 
+### 3b. Placement validity before the cap
+
+`0x52b242` also calls `FUN_005812b0(scene, rect, orientation, size)` before
+the cap/budget gates. It tests the feature footprint rectangle (LunchBox
+4x4 at orientation 0/2; 1/3 swaps a square) against the occupied-rect vector
+at `state+0x34..+0x38` (`0x14`-byte records, min at `+4/+8`, max at
+`+0xc/+0x10`) and returns 1 on overlap. The caller then shows warning code 1
+= `&WARNING_BUSY_SPACE` (`0x66350c`) at `0x52c2e0`. It does **not** read the
+terrain occupancy grid; the check is only the feature rect list. The exact
+append of the new feature's rect into that vector was not isolated — OPEN.
+
+### 3c. Feature mode persists after a placement
+
+The tail after the charge is `0x52b347 JMP 0x52b372`; in feature mode
+(`state+0x5c == 0`) it returns at `0x52b586` without writing `+0x48`,
+`+0x78` or `+0x88`. `FUN_0053acd0`, `FUN_0053b0d0`, `vtable+0x40`
+(`0x527370`) and `FUN_005812b0` do not clear `+0x48` either. Each click
+re-reads the ground point and re-runs the cap (`0x52b2d2`) and budget gate
+(`0x52b3f0`), so dish-after-dish placement without re-clicking the switch is
+intended. Mode ends on right-click/leave (`0x52b562` -> `state+0x18 = 5`,
+`vtable+0x8` = `0x5269c0`), Esc (`0x52be60`), or a selection/enter refresh
+(`0x52bb70`).
+
 ## 4. Dish list push `FUN_0057e440` (stFence vtable `0x6432ac` slot `+0x0c`)
 
 `FUN_0057e440` detects the feature class tag `"LunchBox"` (`0x66303c`) and
@@ -103,24 +126,30 @@ group B setter (`+0xa4/+0xa8`); `park+0x120` is the ledger object.
 
 ```text
 switch click (620,243):
-    pending_lunchbox_place = true   // feature mode; no dish yet
+    pending_build_tool = 7        // feature mode; no dish yet
 
 next world ground click:
     (mx,my) = pick_terrain(...) + world/2
     fence = paddock at (mx,my) (or the selected fence)
     if not inside fence -> warn
+    cell = floor(mx),floor(my); rect = cell..cell+3   // 4x4 footprint
+    if rect overlaps an existing feature rect -> WARNING_BUSY_SPACE
     if LunchBox count in fence >= 16 -> WARNING_TOO_MANY_LUNCHOXES
     if budget < 100 -> WARNING_NOT_ENOUGH_MONEY
     create Feeder (LunchBox.bfi: quantity 10000, nutrition 100, actions
         {Eat,EatForSmallies}, radius 2) at (mx,my)
     append to park_session.feeders / fence dish list
     budget -= 100; ledger.spend_construction(100)
-    pending_lunchbox_place = false
+    keep feature mode (the switch is not re-clicked per dish)
 ```
 
 The port's `.bfi` display path (`--place-lunchbox`) already creates the
 `Feeder` + `bowl.mesh` draw; the interactive path reuses it at the clicked
-point and adds the CONSTRUCTION charge/cap.
+point and adds the overlap/cap/CONSTRUCTION checks. The switch itself only
+arms `pending_build_tool = 7`; the per-frame routing calls
+`ensure_build_ready()` and applies the click through `apply_build_tool_click`.
+The `--lunchbox-prefill N` test hook fills N dishes in a 3-column, 4-unit
+row grid in the first paddock for the cap test.
 
 ## Evidence
 

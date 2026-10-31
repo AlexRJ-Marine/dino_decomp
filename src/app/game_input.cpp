@@ -195,6 +195,8 @@ void Game::handle_key_input(const SDL_Event& event) {
             std::printf("construction: tool off (Esc)\n");
         } else if (build_tool == 5) {
             std::printf("show: tool off (Esc)\n");
+        } else if (build_tool == 7) {
+            std::printf("fence lunchbox: placement off (Esc)\n");
         }
         if (pending_store_index >= 0) {
             std::printf("store: selection off (Esc)\n");
@@ -369,6 +371,11 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
                             pending_construct_kind = -1;
                             std::printf(
                                 "fence: tool off (panel closed)\n");
+                        } else if (build_tool == 7) {
+                            build_tool = 0;
+                            std::printf(
+                                "fence lunchbox: placement off (panel "
+                                "closed)\n");
                         }
                     } else if (
                         panel == "CONSTRUCTION_BUILDINGS_PANEL" ||
@@ -414,6 +421,15 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
                         std::printf("sell: mode off\n");
                         pending_sell_mode = false;
                     }
+                } else if (action == "fence lunchbox") {
+                    // `SWITCH_FENCE_LUNCHBOX` (`0x531c80`): build_tool 7 =
+                    // feature mode; the next scene click creates one dish
+                    // at the clicked point (cap 16, price 100). Deferred so a
+                    // boot-time panel click survives the camera setup reset.
+                    pending_build_tool = 7;
+                    std::printf(
+                        "fence lunchbox: click inside enclosure %d\n",
+                        selected_paddock);
                 } else if (action == "accept request") {
                     if (park_sell_paddock >= 0) {
                         sell_paddock_now(park_sell_paddock);
@@ -997,6 +1013,82 @@ void Game::apply_build_tool_click() {
         std::printf("ground click %.0f,%.0f picked=%d hit=%.1f,%.1f\n", click_x,
                     click_y, picked ? 1 : 0, hit.x, hit.y);
     }
+    if (build_tool == 7) {
+        // `SWITCH_FENCE_LUNCHBOX` / `FUN_0052b0d0`: create one LunchBox at
+        // the clicked ground point, inside the selected/clicked paddock;
+        // cap 16, price 100 to CONSTRUCTION.
+        if (!picked) {
+            return;
+        }
+        const float half = terrain.world_size * 0.5f;
+        const float mx = hit.x + half;
+        const float my = hit.y + half;
+        int index = paddock_at_map(mx, my);
+        if (index < 0) {
+            index = selected_paddock;
+        }
+        if (index < 0 ||
+            index >= static_cast<int>(park_session.paddocks.size())) {
+            std::printf("fence lunchbox: no enclosure under the cursor\n");
+            return;
+        }
+        const dino::WorldRect& rect =
+            park_session.paddocks[static_cast<std::size_t>(index)].rect;
+        const int x0 = std::min(rect.x0, rect.x1);
+        const int x1 = std::max(rect.x0, rect.x1);
+        const int y0 = std::min(rect.y0, rect.y1);
+        const int y1 = std::max(rect.y0, rect.y1);
+        if (mx < static_cast<float>(x0) || mx > static_cast<float>(x1) ||
+            my < static_cast<float>(y0) || my > static_cast<float>(y1)) {
+            std::printf("fence lunchbox: outside enclosure %d\n", index);
+            return;
+        }
+        int count = 0;
+        for (const dino::Feeder& feeder : park_session.feeders) {
+            if (feeder.name != "LunchBox" || feeder.x < x0 ||
+                feeder.x > x1 || feeder.y < y0 || feeder.y > y1) {
+                continue;
+            }
+            ++count;
+        }
+        // `FUN_005812b0`: the 4x4 `.bfi` footprint (orientation 0/2; 1/3
+        // swaps a square) must not overlap an existing feature rect.
+        const int fx0 = static_cast<int>(std::floor(mx));
+        const int fy0 = static_cast<int>(std::floor(my));
+        const int fx1 = fx0 + 3;
+        const int fy1 = fy0 + 3;
+        for (const dino::Feeder& feeder : park_session.feeders) {
+            if (feeder.name != "LunchBox") {
+                continue;
+            }
+            const int gx0 = static_cast<int>(std::floor(feeder.x));
+            const int gy0 = static_cast<int>(std::floor(feeder.y));
+            const int gx1 = gx0 + 3;
+            const int gy1 = gy0 + 3;
+            if (fx0 <= gx1 && fx1 >= gx0 && fy0 <= gy1 && fy1 >= gy0) {
+                park.show_warning(dino::ui::resolve_loc_text(
+                    "&WARNING_BUSY_SPACE", park.loc));
+                std::printf(
+                    "fence lunchbox: busy space at %.1f,%.1f\n",
+                    static_cast<double>(mx), static_cast<double>(my));
+                return;
+            }
+        }
+        if (count >= 16) {
+            park.show_warning(dino::ui::resolve_loc_text(
+                "&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE", park.loc));
+            std::printf("fence lunchbox: enclosure %d already has 16\n",
+                        index);
+            return;
+        }
+        if (place_lunchbox_at(mx, my, true)) {
+            // Feature mode persists (`FUN_0052b0d0` tail does not clear
+            // state+0x48): the next ground click places another dish until
+            // the fence reaches 16, the budget runs out, or Esc/panel-close
+            // leaves the state.
+        }
+        return;
+    }
     if (picked) {
         int cx = 0;
         int cy = 0;
@@ -1312,18 +1404,27 @@ void Game::apply_park_click() {
 }
 
 void Game::update_placement() {
-    if (pending_fence_tool) {
+    if (pending_build_tool != 0) {
         ensure_build_ready();
-        build_tool = 6;
-        fence_corner_x = -1;
-        fence_corner_y = -1;
-        pending_construct_kind = -1;
-        pending_fence_tool = false;
-        std::printf("fence: tool armed (click two corners)\n");
+        build_tool = pending_build_tool;
+        if (build_tool == 6) {
+            fence_corner_x = -1;
+            fence_corner_y = -1;
+            pending_construct_kind = -1;
+            std::printf("fence: tool armed (click two corners)\n");
+        }
+        pending_build_tool = 0;
     }
     update_fence_cursor();
     if (pending_click) {
         pending_click = false;
+        if (build_tool != 0 && !build_ready) {
+            // A construction-state switch can be clicked before the terrain
+            // exists (boot-time `--park-click` sequence); retail enters the
+            // state only once the park is present. Defer the grid init to
+            // the first routed click so the tool still applies.
+            ensure_build_ready();
+        }
         if (pending_store_index >= 0 && build_ready) {
             place_selected_store_item();
         } else if (build_ready && build_tool != 0) {
