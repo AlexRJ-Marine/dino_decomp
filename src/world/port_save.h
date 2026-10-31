@@ -125,7 +125,9 @@ struct PortState {
 
     int day = 0;
     double elapsed = 0.0;
-    double time_scale = 60.0;
+    // GeneralParams `+0x1a0` runtime value (Cpg04 probe;
+    // notes/show-budget-runtime-probe.md).
+    double time_scale = 40.0;
 
     // Orbit camera; free-camera pose is stored separately.
     Vec3 target{};

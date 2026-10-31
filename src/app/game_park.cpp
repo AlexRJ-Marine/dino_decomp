@@ -696,7 +696,7 @@ void Game::apply_port_state(const dino::PortState& state) {
     park_session.budget = state.budget;
     park_session.clock.day = state.day;
     park_session.clock.elapsed = state.elapsed;
-    park_session.clock.time_scale = state.time_scale > 0.0 ? state.time_scale : 60.0;
+    park_session.clock.time_scale = state.time_scale > 0.0 ? state.time_scale : 40.0;
     center = state.target;
     yaw = state.yaw;
     pitch = std::clamp(state.pitch, -89.0f, 89.0f);
