@@ -4327,6 +4327,37 @@ def test_cpp_lunchbox_eat():
     assert "kind=0x34" in tired.stdout
 
 
+@pytest.mark.slow
+def test_cpp_dino_confinement_soak():
+    """Cpg04 soak: every imported dino stays in the paddock rect adopted at
+    spawn (retail `path+0x1c0` is fixed) and the mover never reports a
+    blocked step. 2,400 frames x 0.05 s = 120 s; the 600 s run is recorded in
+    `notes/dino-enclosure-soak.md`."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2400", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--place-lunchbox",
+         "--dino-action-loop", "--fixed-dt", "0.05",
+         "--dino-action-speed", "100", "--dino-needs", "20,90,50,90"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "dino escape:" not in log
+    assert not [line for line in log.splitlines()
+                if "dino move: " in line and " blocked" in line]
+    assert "dino action:" in log  # the loop is actually running
+    assert "dino explore:" in log
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

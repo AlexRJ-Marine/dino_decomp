@@ -2366,6 +2366,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Runtime move probe (`notes/dino-mover-runtime-probe.md`): 60 s Cpg04,
   3282 queue records, 128 turn arrivals, 202 turn plans, 1250 mover ticks.
   Confirmed 45.00/90/180 turns, map-unit speeds, per-frame 0x34/0x35 markers.
+- [x] Enclosure confinement: the paddock index is adopted once at spawn
+  (retail fixes `path+0x1c0` via `FUN_0055ac30` and never re-resolves it), so a
+  boundary cell cannot re-home a dino. 600 s Cpg04 soak: 0 escapes, 0 blocked
+  steps; `notes/dino-enclosure-soak.md`, `test_cpp_dino_confinement_soak`.
 - [x] Turn duration: **solved.** `Actions.bad` f[411..461] is the per-family
   duration table (the old recon read f[111]); `FUN_00615e80` loads it and
   `FUN_00617250` selects the family. The Part 10 family 2/3 indices map to

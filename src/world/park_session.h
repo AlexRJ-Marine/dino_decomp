@@ -94,6 +94,9 @@ struct ParkSession {
         float move_target_x = 0.0f;
         float move_target_y = 0.0f;
         int move_kind = 0;
+        // True when a dino with a fixed paddock is outside its rect (a
+        // confinement failure; the soak test asserts this never fires).
+        bool escaped = false;
     };
     DinoActionEvent tick_dino(ImportedDino& dinosaur, double dt,
                               const std::vector<BaiAction>& actions);

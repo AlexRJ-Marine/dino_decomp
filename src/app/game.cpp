@@ -1119,6 +1119,13 @@ void Game::update_simulation() {
             std::printf("dino move: %s blocked x=%.1f y=%.1f\n",
                         dinosaur.species.c_str(), event.x, event.y);
         }
+        if (event.escaped && !dinosaur.escape_logged) {
+            dinosaur.escape_logged = true;
+            std::printf("dino escape: %s x=%.1f y=%.1f pen=%d\n",
+                        dinosaur.species.c_str(),
+                        static_cast<double>(dinosaur.x),
+                        static_cast<double>(dinosaur.y), dinosaur.paddock);
+        }
         if (event.action_changed) {
             if (event.scored) {
                 std::printf(

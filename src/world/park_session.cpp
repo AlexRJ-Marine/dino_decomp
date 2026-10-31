@@ -154,22 +154,34 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     // behavior update. The paddock rect is `path+0x1c0`; a step outside it is
     // refused by `FUN_0055af70`. The inset approximates the actor footprint
     // (retail `actor+0x13` cells) so the body does not clip the wall.
-    const int pen_before = paddock_at(dinosaur.x, dinosaur.y);
-    if (pen_before >= 0) {
-        dinosaur.paddock = pen_before;
+    // Retail fixes the rect on the path object at creation (`FUN_0055ac30`
+    // stores it at `path+0x1c0`); the live position is only tested against
+    // it (`FUN_0055af70`). Adopt the spawn paddock once.
+    if (dinosaur.paddock < 0) {
+        dinosaur.paddock = paddock_at(dinosaur.x, dinosaur.y);
     }
-    const int confinement =
-        pen_before >= 0 ? pen_before : dinosaur.paddock;
+    const int confinement = dinosaur.paddock;
     if (confinement >= 0 &&
         confinement < static_cast<int>(paddocks.size())) {
         const WorldRect& r =
             paddocks[static_cast<std::size_t>(confinement)].rect;
+        const float min_x =
+            static_cast<float>(std::min(r.x0, r.x1));
+        const float max_x =
+            static_cast<float>(std::max(r.x0, r.x1));
+        const float min_y =
+            static_cast<float>(std::min(r.y0, r.y1));
+        const float max_y =
+            static_cast<float>(std::max(r.y0, r.y1));
+        // The mover clamps every accepted step to this rect, so an escape
+        // means the dino was placed outside or the clamp was bypassed.
+        event.escaped = dinosaur.x < min_x - 0.5f ||
+                        dinosaur.x > max_x + 0.5f ||
+                        dinosaur.y < min_y - 0.5f ||
+                        dinosaur.y > max_y + 0.5f;
         const float length_m = static_cast<float>(dinosaur.needs.size_cm) / 100.0f;
         const float inset = std::clamp(length_m * 0.15f, 1.0f, 3.0f);
-        dinosaur.mover.set_bounds(static_cast<float>(r.x0),
-                                  static_cast<float>(r.y0),
-                                  static_cast<float>(r.x1),
-                                  static_cast<float>(r.y1), inset);
+        dinosaur.mover.set_bounds(min_x, min_y, max_x, max_y, inset);
     } else {
         dinosaur.mover.clear_bounds();
     }

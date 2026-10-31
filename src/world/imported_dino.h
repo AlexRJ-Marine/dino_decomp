@@ -35,10 +35,12 @@ struct ImportedDino {
     std::string family;
     std::string clip;
     bool carnivore = true;  // diet gene 14; drives the food source match
-    // Retail's path object fixes the paddock rect (`path+0x1c0`) at creation.
-    // The port keeps the last paddock index so a numerical boundary step can
-    // never release the dino; a real move into another paddock updates it.
+    // Retail's path object fixes the paddock rect (`path+0x1c0`) at creation
+    // (`FUN_0055ac30`); it is never re-resolved from the live position. The
+    // port adopts the spawn paddock once, so a boundary cell that happens to
+    // fall in a neighbouring rect cannot re-home the dino.
     int paddock = -1;
+    bool escape_logged = false;
     DinoNeeds needs;
     DinoAttributes attributes;  // phenotype snapshot for objectives
     std::optional<DinoActionLoop> action_loop;

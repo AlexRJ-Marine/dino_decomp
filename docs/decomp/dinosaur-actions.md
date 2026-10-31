@@ -440,6 +440,13 @@ the `+0x1c/+0x20` initial facing writer is still open in
 retail-exact; the turn duration now comes from the family table (the Cpg04
 allos log `turn=1.20 uturn=1.50`).
 
+**Enclosure confinement (2026-10-31):** the port adopts the paddock index
+once at spawn. Retail fixes the path rect at creation (`FUN_0055ac30` stores
+it at `path+0x1c0`) and never re-resolves it from the live position, so a
+boundary cell cannot re-home a dino into a neighbouring rect. A 600 s Cpg04
+soak (20 dinosaurs, live action loop) logged 0 escapes and 0 blocked steps
+(`notes/dino-enclosure-soak.md`, `test_cpp_dino_confinement_soak`).
+
 `--fixed-dt SECONDS` makes a headless run deterministic; `--dino-move-speed N`
 scales the mover for tests only. Selftest: `dino mover walk 2 m/s`, `turn
 step 45`, `turn 90`, `180-degree record`, `paddock clamp`. Integration:
