@@ -798,6 +798,7 @@ std::optional<int> Game::boot_food_definitions() {
                 dino::Feeder feeder;
                 feeder.name = bfi.name;
                 feeder.kind = bfi.food_kind;
+                feeder.actions = bfi.actions;
                 feeder.quantity = static_cast<float>(bfi.food_quantity);
                 feeder.max_quantity = feeder.quantity;
                 feeder.nutrition = static_cast<float>(bfi.food_nutrition);
@@ -832,14 +833,22 @@ std::optional<int> Game::boot_food_definitions() {
                     show_feature_draws.push_back(std::move(draw));
                 }
                 rebuild_extra_items();
+                std::string action_list;
+                for (const std::string& name : feeder.actions) {
+                    if (!action_list.empty()) {
+                        action_list += ",";
+                    }
+                    action_list += name;
+                }
                 std::printf(
                     "lunchbox: %s kind=%d at %.1f,%.1f quantity=%.0f "
-                    "nutrition=%.0f radius=%.1f\n",
+                    "nutrition=%.0f radius=%.1f actions=%s\n",
                     feeder.name.c_str(), feeder.kind,
                     static_cast<double>(fx), static_cast<double>(fy),
                     static_cast<double>(feeder.quantity),
                     static_cast<double>(feeder.nutrition),
-                    static_cast<double>(feeder.radius));
+                    static_cast<double>(feeder.radius),
+                    action_list.c_str());
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "lunchbox: %s\n", e.what());

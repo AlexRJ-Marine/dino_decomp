@@ -50,8 +50,17 @@ persistence remain open.
   Every 10 s: `gauge -= 10*consumption`, `FOOD = ftol(gauge*99/max_food)`.
   `DinoActionLoop::apply_food(value, percent)` implements the event-0x17
   formula `gauge = value + percent*gauge/100`, clamped.
-- `src/formats/bfi.*` keeps `food_quantity`/`food_nutrition`; `Feeder` +
-  `feeder_drain` in `src/world/food.*` are the exact `FUN_00576e50` model.
+- `src/formats/bfi.*` keeps `food_quantity`/`food_nutrition` and the
+  `.bfi` action names (`BfiFeature.actions`); `Feeder` + `feeder_drain` in
+  `src/world/food.*` are the exact `FUN_00576e50` model. `--place-lunchbox`
+  copies the action list to `Feeder.actions` and logs
+  `actions=Eat,EatForSmallies`.
+- Retail's park dino graph is `Exploration/RunAway/Sleep`; `Eat` is the
+  **food-item behavior's** action list. `tick_dino` compares the best dino
+  graph action with the best item action (the feeder's `.bfi` list, inventory
+  gated) and switches the chooser's candidate set to the item list when it
+  wins. The retail manager's selection lists (`+0xb8`/`+0xf4`) are still
+  open; the score comparison is the port's model of the attach.
 - `--place-lunchbox` (optional `--lunchbox-pos CX,CY` in 4-unit build cells,
   default first paddock centre) loads `LunchBox.bfi`, creates a `Feeder`
   (quantity 10000, nutrition 100, kind 0, radius = width/2 = the `.bfi`

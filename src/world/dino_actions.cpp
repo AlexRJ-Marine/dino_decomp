@@ -234,6 +234,19 @@ void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
     }
 }
 
+std::optional<ActionChoice> DinoActionLoop::best_action(
+    const std::vector<std::string>& node_names) const {
+    if (actions_ == nullptr) {
+        return std::nullopt;
+    }
+    return choose_action(*actions_, needs_, node_names, config_.inventory,
+                         config_.threat_provider);
+}
+
+void DinoActionLoop::set_node_names(std::vector<std::string> node_names) {
+    config_.node_names = std::move(node_names);
+}
+
 void DinoActionLoop::apply_health(int delta) {
     if (needs_.max_health <= 0) {
         return;

@@ -4333,10 +4333,12 @@ def test_cpp_lunchbox_eat():
     )
     assert result.returncode == 0, result.stderr
     log = result.stdout
-    # The .bfi fields: LunchBox quantity 10000, nutrition 100, kind 0.
+    # The .bfi fields: LunchBox quantity 10000, nutrition 100, kind 0,
+    # actions Eat/EatForSmallies (the item behavior's node set).
     assert ("lunchbox: LunchBox kind=0" in log)
     assert "quantity=10000" in log
     assert "nutrition=100" in log
+    assert "actions=Eat,EatForSmallies" in log
     # The herbivore anky eats; the carnivore allos cannot use kind 0.
     assert "dino eat: anky <- LunchBox" in log
     assert "dino eat: allo" not in log

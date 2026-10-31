@@ -122,15 +122,19 @@ this is OPEN pending a call-site/save diff.
 
 ### Exact port decision
 
-`node_names` for the park dino is `{Exploration, RunAway, Sleep}` plus the
-food-item action list `{Eat, EatForSmallies, EatBait, EatBaitForSmallies}`
-modeled on the same chooser. Victory is excluded until the class-6 gate is
-proven. RunAway is ported: `runaway_cell`/`find_runaway_cell` implement
-`FUN_00577570` (paddock-rect danger-grid scan, first strict minimum, 8-unit
-centre, four-unit clamp); a cheaper cell emits the `0x35` goto, otherwise the
-`0x19` hold. The retail current-cell threat/LOS term is open. The earlier
-port set `{Exploration, Eat, EatForSmallies, Sleep}` was a confirmed
-placeholder and has been replaced.
+The dino chooser is `{Exploration, RunAway, Sleep}`. The food-item behavior's
+action list is the `.bfi` `BfiFeature.actions` (LunchBox
+`{Eat, EatForSmallies}`, StaticBait `{EatBait, EatBaitForSmallies}`),
+copied to `Feeder.actions`; `tick_dino` switches the chooser's candidate set
+to that list when its best score beats the dino graph's. The retail manager
+attach lists (`+0xb8`/`+0xf4`) are still open; the score switch is the port's
+model. Victory is excluded until the class-6 gate is proven. RunAway is
+ported: `runaway_cell`/`find_runaway_cell` implement `FUN_00577570`
+(paddock-rect danger-grid scan, first strict minimum, 8-unit centre,
+four-unit clamp); a cheaper cell emits the `0x35` goto, otherwise the `0x19`
+hold. The retail current-cell threat/LOS term is open. The earlier port set
+`{Exploration, Eat, EatForSmallies, Sleep}` was a confirmed placeholder and
+has been replaced.
 
 ## Port consequence
 

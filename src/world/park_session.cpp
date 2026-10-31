@@ -412,6 +412,26 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
         dinosaur.eat_stand_y = -1;
     }
     dinosaur.action_loop->set_inventory(feeder != nullptr);
+    // Retail: the dino graph is Exploration/RunAway/Sleep; the food-item
+    // behavior contributes its own `.bfi` action list (Eat family). The
+    // manager attaches the item graph through its selection lists
+    // (+0xb8/+0xf4, still open); the port switches the chooser's candidate
+    // set to the item list when its best score beats the dino graph's.
+    if (!dinosaur.action_loop->busy()) {
+        static const std::vector<std::string> kDinoNodes{
+            "Exploration", "RunAway", "Sleep"};
+        const auto dino_choice =
+            dinosaur.action_loop->best_action(kDinoNodes);
+        std::optional<ActionChoice> item_choice;
+        if (feeder != nullptr && !feeder->actions.empty()) {
+            item_choice = dinosaur.action_loop->best_action(feeder->actions);
+        }
+        const bool item_wins =
+            item_choice &&
+            (!dino_choice || item_choice->score >= dino_choice->score);
+        dinosaur.action_loop->set_node_names(
+            item_wins ? feeder->actions : kDinoNodes);
+    }
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
     dinosaur.action_loop->tick(dt);

@@ -141,14 +141,11 @@ struct ActionChoice {
 // algorithm. The `.bai` need deltas are applied when an action completes so
 // the loop closes; retail's feeding interaction is the open part.
 struct DinoActionLoopConfig {
-    // Retail park graph: Exploration/RunAway/Sleep. Victory is class-6
-    // gated and unavailable without a show cast, so it is excluded here.
-    // Eat/EatForSmallies/EatBait* are the food-item behavior's action list;
-    // the port models them on the same chooser (the item behavior's separate
-    // arbitration is not ported yet).
-    std::vector<std::string> node_names{
-        "Exploration", "RunAway", "Sleep", "Eat", "EatForSmallies",
-        "EatBait", "EatBaitForSmallies"};
+    // Retail park dino graph: Exploration/RunAway/Sleep. Victory is class-6
+    // gated and unavailable without a show cast. The food-item behavior has
+    // its own action list (Eat/EatForSmallies, EatBait*); `tick_dino` switches
+    // this set to the feeder's `.bfi` actions when the item action wins.
+    std::vector<std::string> node_names{"Exploration", "RunAway", "Sleep"};
     double decision_interval = 0.5;
     double food_decay = 0.5;      // need points per second
     double violence_decay = 0.2;
@@ -191,6 +188,13 @@ public:
     // The loop resumes without re-scoring; a valid id with 0 left finishes on
     // the next tick.
     void restore(const DinoNeeds& needs, int action_id, double action_left);
+
+    // The best available action among `node_names` for the current needs,
+    // inventory and threat provider; used by `tick_dino` to arbitrate the
+    // dino graph against the food-item `.bfi` list.
+    std::optional<ActionChoice> best_action(
+        const std::vector<std::string>& node_names) const;
+    void set_node_names(std::vector<std::string> node_names);
 
     // `FUN_00571540` (`0x5718e2`): apply one mover tick's rest-gauge change.
     // `kind` is the mover activity type (`+0x4c0`), `progress` its

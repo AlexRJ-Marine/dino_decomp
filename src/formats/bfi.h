@@ -23,6 +23,9 @@ struct BfiFeature {
     // `+8` = quantity and `+0xc` = {nutrition, capacity}.
     int food_quantity = 0;
     int food_nutrition = 0;
+    // The feature's action list (`Eat`/`EatForSmallies` for LunchBox,
+    // `EatBait*` for StaticBait); the item behavior's nodes.
+    std::vector<std::string> actions;
     int state_count = 0;
     std::vector<std::string> mesh_slots;  // 8
     std::string texture_dir;

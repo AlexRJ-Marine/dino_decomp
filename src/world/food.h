@@ -36,6 +36,9 @@ struct Feeder {
     int kind = 0;
     float x = 0.0f;
     float y = 0.0f;
+    // `.bfi` action list (Eat/EatForSmallies, EatBait*); the food-item
+    // behavior's node set.
+    std::vector<std::string> actions;
     // `.bfi` footprint half-size (width/2); used for the draw/footprint
     // radius. The Eat proximity gate does **not** use it: the retail
     // object executor scales the `.bai` element radius by the dino's body

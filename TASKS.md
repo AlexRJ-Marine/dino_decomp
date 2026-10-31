@@ -2442,13 +2442,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   exactly `{Exploration, RunAway, Sleep, Victory}` (`DB+0x158`, one node per
   action record/target with runtime `+0x08` availability). Victory's class-6
   gate is open/unavailable in a park, so the port uses
-  `{Exploration, RunAway, Sleep}` plus the food-item list
-  `{Eat, EatForSmallies, EatBait, EatBaitForSmallies}`. RunAway is ported:
+  `{Exploration, RunAway, Sleep}`; the food-item behavior's `.bfi` action
+  list (`BfiFeature.actions` -> `Feeder.actions`) is supplied separately and
+  the chooser switches to it when its best score wins. RunAway is ported:
   `runaway_cell` implements `FUN_00577570` (paddock-rect danger-grid strict
   minimum, 8-unit centre, four-unit clamp), `0x35` goto or `0x19` hold;
   `test_cpp_dino_runaway_node` and the selftest cover it. Open: the retail
-  current-cell threat/LOS term, the item behavior's separate arbitration, and
-  the class-6 Victory gate. Evidence:
+  manager attach lists (`+0xb8`/`+0xf4`), the current-cell threat/LOS term,
+  and the class-6 Victory gate. Evidence:
   `notes/dino-behavior-node-set-recon.md` §7.
 - [ ] Port the normal-action executor rest: the full element record list and
   the executor gesture `0x12..0x17` from `executor+0x40` (written only by

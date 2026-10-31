@@ -94,7 +94,7 @@ BfiFeature load_bfi(const std::string& path) {
     feature.food_nutrition = static_cast<int>(reader.u32());  // field_40
     const std::uint32_t action_count = reader.u32();
     for (std::uint32_t i = 0; i < action_count; ++i) {
-        reader.string();
+        feature.actions.push_back(reader.string());
     }
     reader.u32();  // anim_flag
     reader.f32();  // anim_speed
