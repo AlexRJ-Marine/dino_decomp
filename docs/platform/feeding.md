@@ -59,8 +59,9 @@ persistence remain open.
   **food-item behavior's** action list. `tick_dino` compares the best dino
   graph action with the best item action (the feeder's `.bfi` list, inventory
   gated) and switches the chooser's candidate set to the item list when it
-  wins. The retail manager's selection lists (`+0xb8`/`+0xf4`) are still
-  open; the score comparison is the port's model of the attach.
+  wins. No retail counterpart for the item arbitration was decoded;
+  `+0xb8`/`+0xf4` are the two sub-behaviors' mode/activation lists, not item
+  attach lists. The score comparison is the port's model.
 - `--place-lunchbox` (optional `--lunchbox-pos CX,CY` in 4-unit build cells,
   default first paddock centre) loads `LunchBox.bfi`, creates a `Feeder`
   (quantity 10000, nutrition 100, kind 0, radius = width/2 = the `.bfi`

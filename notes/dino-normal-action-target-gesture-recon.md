@@ -25,8 +25,10 @@ Scope: the three open items behind `FUN_0056f7a0` (normal-action executor) and
    duration the shared sentinel `[0x006430a8] = 0x7f7fc99e`, mode 2, self,
    allowTurn 0, instant 1. Element 0 is used when the actor is in the
    show/attraction cast list (`FUN_00583230`), element 1 otherwise. Portable:
-   with no cast list the retail answer is element 1 -> kind 35. The class-6
-   availability gate returns 50, not 1, so Victory is never scored in a park.
+   with no cast list the retail answer is element 1 -> kind 35. No park
+   class-6 availability path was found; the `+0x1c` gate mechanism is open
+   (its result is recorded as unused in `notes/dino-target-vtable-recon.md`),
+   so Victory is not scored in a park (negative result).
 
 ## 1. `.bai` element `+0x3c` / `+0x40` are `params[7]` / `params[8]`
 

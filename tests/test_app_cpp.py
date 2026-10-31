@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (247 checks)" in result.stdout
+    assert "selftest: PASS (249 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4342,6 +4342,9 @@ def test_cpp_lunchbox_eat():
     # The herbivore anky eats; the carnivore allos cannot use kind 0.
     assert "dino eat: anky <- LunchBox" in log
     assert "dino eat: allo" not in log
+    # The Eat action comes from the feeder's `.bfi` item list, not the dino
+    # graph (the sharpest available assertion until StaticBait placement).
+    assert "dino action: anky Eat score=9009" in log
     # `0x0056c490` object/box Eat executor: marker kind =
     # 0x34 + (REPOS state != 2). REPOS 90 is not BAD, so the anky runs
     # (0x35) to the bowl.
@@ -4689,6 +4692,31 @@ def test_cpp_dino_runaway_node():
     assert ("dino action: anky RunAway score=3250 needs=20/90/10/90"
             in log)
     assert "dino run: anky hold kind=0x19" in log
+
+
+def test_cpp_bwi_info():
+    """The .bwi wall parser matches the retail WallList values."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    walls = GAME / "Data" / "Design" / "attractions" / "walls"
+    if not walls.exists():
+        pytest.skip("retail walls missing")
+    result = subprocess.run(
+        [str(EXE), "--bwi-info", "--asset-root", str(GAME)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "wall walls: 24" in log
+    assert ("wall: Show height=8 cost=30 elect=0 "
+            "mesh=DATA\\graphics\\attractions\\walls\\fence_show_lod1.mesh "
+            "material=SWITCH_WALL_PLATES "
+            "height_switch=SWITCH_WALL_HUGE") in log
+    assert ("wall: Fence height=8 cost=30 elect=0 "
+            "mesh=DATA\\graphics\\paddock\\fences\\fence_paddock_lod1.mesh"
+            in log)
+    assert "wall: LowElect height=2 cost=15 elect=1" in log
+    assert "wall: MediumWood height=4 cost=10 elect=0 mesh= " in log
 
 
 def test_cpp_employee_info():

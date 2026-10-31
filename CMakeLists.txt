@@ -40,6 +40,7 @@ add_library(dino_core STATIC
     src/formats/bei.cpp
     src/formats/shw.cpp
     src/formats/bfi.cpp
+    src/formats/bwi.cpp
     src/formats/mpg.cpp
     src/formats/general_params.cpp
     src/formats/ini.cpp

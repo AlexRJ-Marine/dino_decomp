@@ -140,12 +140,17 @@ struct ActionChoice {
 // gauge constants are not calibrated yet); the chooser itself is the retail
 // algorithm. The `.bai` need deltas are applied when an action completes so
 // the loop closes; retail's feeding interaction is the open part.
+// The retail park dino graph (`DB+0x158`): Exploration/RunAway/Sleep.
+// Victory has no park availability path (negative result); the food-item
+// list (Eat/EatBait family) is supplied separately.
+const std::vector<std::string>& dino_graph_node_names();
+
 struct DinoActionLoopConfig {
-    // Retail park dino graph: Exploration/RunAway/Sleep. Victory is class-6
-    // gated and unavailable without a show cast. The food-item behavior has
-    // its own action list (Eat/EatForSmallies, EatBait*); `tick_dino` switches
-    // this set to the feeder's `.bfi` actions when the item action wins.
-    std::vector<std::string> node_names{"Exploration", "RunAway", "Sleep"};
+    // Retail park dino graph: Exploration/RunAway/Sleep. Victory has no park
+    // availability path. The food-item behavior has its own action list
+    // (Eat/EatForSmallies, EatBait*); `tick_dino` switches this set to the
+    // feeder's `.bfi` actions when the item action wins.
+    std::vector<std::string> node_names = dino_graph_node_names();
     double decision_interval = 0.5;
     double food_decay = 0.5;      // need points per second
     double violence_decay = 0.2;

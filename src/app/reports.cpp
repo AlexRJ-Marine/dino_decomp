@@ -1,5 +1,7 @@
 #include "reports.h"
 
+#include "../formats/bwi.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -602,6 +604,28 @@ std::optional<int> run_cli_reports(const Options& opt) {
         }
     }
 
+    if (opt.bwi_info) {
+        try {
+            const std::vector<dino::BwiWall> walls = dino::load_bwi_dir(
+                resolve_asset(opt.asset_root,
+                              "Data/Design/attractions/walls"));
+            for (const dino::BwiWall& wall : walls) {
+                std::printf(
+                    "wall: %s height=%.0f cost=%u elect=%d mesh=%s "
+                    "material=%s height_switch=%s\n",
+                    wall.name.c_str(), static_cast<double>(wall.height),
+                    wall.field_0c, wall.electrified ? 1 : 0,
+                    wall.meshes[0].c_str(), wall.switch_material.c_str(),
+                    wall.switch_height.c_str());
+            }
+            std::printf("wall walls: %zu\n", walls.size());
+            return 0;
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "bwi-info: %s\n", e.what());
+            return 1;
+        }
+    }
+
     if (opt.employee_info) {
         try {
             const std::vector<dino::EmployeeProfile> profiles =
@@ -757,8 +781,9 @@ std::optional<int> run_cli_reports(const Options& opt) {
                              actions.size());
                 return 1;
             }
-            // The retail behavior graph only contains the self/special actions
-            // for these needs; the other 60 need a perceived world target.
+            // Chooser fixture for the scenario assertions below: the old
+            // self/item set. The live dino graph is dino_graph_node_names()
+            // (Exploration/RunAway/Sleep); the feeder `.bfi` list is separate.
             const std::vector<std::string> nodes = {
                 "Exploration", "Eat", "EatForSmallies", "Sleep"};
             const auto make_needs = [](int food, int violence, int secu,

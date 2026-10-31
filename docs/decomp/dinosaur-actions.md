@@ -350,17 +350,21 @@ Victory}`, built by `FUN_005431c0` from the `ActionList.ini` names into
 `aiObj+0x24` descriptor container. Availability (`node+0x08`) is runtime:
 target geometry + `FUN_0056e0e0` preconditions; class 5 is forced off.
 `Eat`/`EatForSmallies` are **not** dino graph nodes; they belong to the
-food-item behavior. **Victory is never available in a park**: the dino
-sub-behavior `+0x10` is 0 until an attach object is supplied; the `0x6430e4`
-`+0x1c` gate returns 50 unconditionally and `FUN_0056e410` scores only
-exactly 1; no park cast producer exists. The port excludes it exactly.
-Full evidence: `notes/dino-behavior-node-set-recon.md`.
+food-item behavior. **No class-6 Victory availability path was found in a
+park**: the dino sub-behavior `+0x10` is 0 until an attach object is supplied,
+and no park path supplying a class-6-available object was found. The earlier
+"gate returns 50 while the scorer requires 1" claim is not supported by
+`notes/dino-target-vtable-recon.md` (the `+0x1c` result is unused there and
+`0x006430e4` is the visitor/obstacle target class). The port excludes Victory
+as a negative result. Full evidence: `notes/dino-behavior-node-set-recon.md`.
 
 Port state: the chooser default is the dino graph
 `Exploration/RunAway/Sleep`; the food-item behavior's `.bfi` action list
 (`Eat/EatForSmallies` or `EatBait*`) is supplied per feeder and the chooser
-switches to it when its best score wins (the retail manager attach lists
-`+0xb8`/`+0xf4` are still open). RunAway's `0x35` goto/`0x19` hold is ported:
+switches to it when its best score wins (no retail counterpart for that
+arbitration was decoded; `+0xb8`/`+0xf4` are the two sub-behaviors'
+mode/activation lists, not item attach lists). RunAway's `0x35` goto/`0x19`
+hold is ported:
 `find_runaway_cell` scans the paddock-rect danger-grid cells (y outer,
 x inner, first strict minimum), converts the cell to its 8-unit centre and
 clamps four units inside the rect; `runaway_move` implements the exact

@@ -145,8 +145,10 @@ should become the slot window, not a `.shw`/`.bfi` length.
 - `FUN_0057f5e0` = `stShowStatistics` ctor (0x84 bytes at `stShow+0x3b`):
   five 0xDB-float arrays (`+0x28..+0x3c`), participant vectors
   `+0x1c/+0x20/+0x24`, show pointer `+0x50`.
-- Victory kind 26/35 is the class-6 animation. The normal park gate is dead
-  (returns 50; scorer needs 1). **OPEN:** the exact show-end -> Victory
+- Victory kind 26/35 is the class-6 animation. **No park class-6
+  availability path was found**; the earlier "gate returns 50" claim is not
+  supported (the target-vtable note records the `+0x1c` result as unused).
+  **OPEN:** the exact show-end -> Victory
   emitter. Port recipe: at `FUN_0057b130` end, pick the winner from the judge
   cast and force the element (26/35, self, mode 2, sentinel, instant 1,
   allowTurn 0).

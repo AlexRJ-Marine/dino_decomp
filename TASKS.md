@@ -2449,9 +2449,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
 - [x] **Behavior node set (DEC-2b follow-up).** Retail's park dino graph is
   exactly `{Exploration, RunAway, Sleep, Victory}` (`DB+0x158`, one node per
-  action record/target with runtime `+0x08` availability). Victory is
-  **never available in a park** (the class-6 gate returns 50, the scorer
-  requires exactly 1; no cast producer), so the port uses
+  action record/target with runtime `+0x08` availability). No park class-6
+  Victory availability path was found (negative result), so the port uses
   `{Exploration, RunAway, Sleep}`; the food-item behavior's `.bfi` action
   list (`BfiFeature.actions` -> `Feeder.actions`) is supplied separately and
   the chooser switches to it when its best score wins. RunAway is ported:
@@ -2460,8 +2459,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `cur = grid[dino] - threat` comparison (`chosen -= cur` inside the
   threat-radius box; move only `chosen < cur`), `0x35` goto or `0x19` hold;
   the scan repeats every frame. `test_cpp_dino_runaway_node` and the
-  selftest cover it. Open: the retail manager attach lists
-  (`+0xb8`/`+0xf4`). Evidence: `notes/dino-behavior-node-set-recon.md` §7.
+  selftest cover it. Open: the item arbitration has no decoded retail
+  counterpart. Evidence: `notes/dino-behavior-node-set-recon.md` §7.
 - [ ] Port the normal-action executor rest: the full element record list and
   the executor gesture `0x12..0x17` from `executor+0x40` (written only by
   `0x56fb70`; `element+0x40` is `.bai params[8]`, not a gesture). The Eat
@@ -2473,8 +2472,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `min + rand() % (max-min-7) + 4`; 0x27 self, 0x27 point, 0x34 marker,
   0x20 point, 0x20 self 5..20 s. `test_cpp_dino_exploration_records`.
 - [x] Special lists for the park graph: Exploration, RunAway (`0x35` goto /
-  `0x19` hold, exact current-cost), Sleep. Victory is never available in a
-  park (class-6 gate returns 50; the scorer requires 1; no cast producer);
+  `0x19` hold, exact current-cost), Sleep. Victory has no park availability
+  path (negative result; the class-6 gate mechanism is open);
   sp5 `FUN_0056fb70` ObstAttack is not a `DB+0x158` node. The show/attraction
   controller (`0x520880`) remains a separate subsystem.
 - [x] Eat object/box path (`0x0056c490`): one active marker toward the

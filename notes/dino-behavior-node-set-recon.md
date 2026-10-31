@@ -126,12 +126,17 @@ The dino chooser is `{Exploration, RunAway, Sleep}`. The food-item behavior's
 action list is the `.bfi` `BfiFeature.actions` (LunchBox
 `{Eat, EatForSmallies}`, StaticBait `{EatBait, EatBaitForSmallies}`),
 copied to `Feeder.actions`; `tick_dino` switches the chooser's candidate set
-to that list when its best score beats the dino graph's. The retail manager
-attach lists (`+0xb8`/`+0xf4`) are still open; the score switch is the port's
-model. **Victory is never available in a park**: the dino sub-behavior
-`+0x10` is 0 until an attach object is supplied; the `0x6430e4` `+0x1c` gate
-returns 50 unconditionally and `FUN_0056e410` scores only exactly 1; no park
-cast producer exists. Keep it out of the chooser. RunAway is
+to that list when its best score beats the dino graph's. `+0xb8`/`+0xf4`
+are the two sub-behaviors' mode/activation lists over the same dino node set,
+not the item attach lists; **no retail counterpart for the item arbitration
+was decoded**, so the score switch is the port's model. **No class-6 Victory
+availability path was found in a park.** The earlier "gate returns 50 while
+the scorer requires 1" claim is not supported:
+`notes/dino-target-vtable-recon.md` records the `+0x1c` result as unused and
+`0x006430e4` is the visitor/obstacle reaction target class. The dino
+sub-behavior `+0x10` is 0 until an attach; no park path supplying a
+class-6-available object was found. The port keeps Victory out as a negative
+result; the 26/35 emitter is only for a forced/show path. RunAway is
 ported: `runaway_move`/`find_runaway_cell` implement `FUN_00577570`
 (paddock-rect danger-grid scan, first strict minimum, 8-unit centre,
 four-unit clamp) and the exact current-cost comparison:
@@ -146,7 +151,14 @@ move   = chosen < cur
 The scan runs every frame while holding; a move sets state 3 and
 `runaway_moved`, otherwise the `0x19` hold is kept (`FUN_00572dd0` is the
 box test, not LOS). `dur[0x19]` is the same Actions.bad table (LowQuad 1.5 s,
-the other families 2.0 s). The earlier port set
+the other families 2.0 s).
+
+Raw: `0x56efcf..0x56f02a` computes `cur = grid[x>>3][y>>3] -
+[actor+0x2a0]`; `FUN_00572dd0(actor, cell)` is the integer box
+(`|Δ| <= +0x27c`); inside -> `chosen -= cur`; `JGE` -> hold; `0x56f1c0`
+sets node state 3. `FUN_00577570` seeds the scan with `0x7fffffff`
+(the earlier current-cell-seeded scan was wrong and is fixed).
+The earlier port set
 `{Exploration, Eat, EatForSmallies, Sleep}` was a confirmed placeholder and
 has been replaced.
 

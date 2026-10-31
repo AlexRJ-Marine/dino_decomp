@@ -110,6 +110,7 @@ struct Options {
     int fire_nutritionists = 0;
     bool feed_now = false;
     bool employee_info = false;
+    bool bwi_info = false;
     std::string show_info_path;
     std::vector<std::string> show_specs;  // --show NAME[:IDX,IDX]
     std::vector<std::string> place_show_specs;  // --place-show NAME[:X,Y]

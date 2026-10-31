@@ -416,6 +416,24 @@ int run_selftest() {
                              0, 10, run_x, run_y) &&
               run_x == 14.0f && run_y == 12.0f,
           "dino runaway clamp");
+    // Discriminating current-cost case: cur=5 at the dino cell (outside the
+    // scanned rect), scanned min=7. Inside the threat box the retail
+    // `chosen -= cur` makes 2 < 5 (move); outside it stays 7 >= 5 (hold).
+    // Without the subtraction both would hold.
+    run_grid.clear();
+    for (int y = 10; y <= 15; ++y) {
+        for (int x = 11; x <= 15; ++x) {
+            run_grid.cell(x, y) = 7;
+        }
+    }
+    run_grid.cell(10, 10) = 5;
+    check(dino::runaway_move(run_grid, {88, 80, 120, 120}, 85.0f, 85.0f,
+                             0, 10, run_x, run_y) &&
+              run_x == 92.0f && run_y == 84.0f,
+          "dino runaway current-cost subtract");
+    check(!dino::runaway_move(run_grid, {88, 80, 120, 120}, 85.0f, 85.0f,
+                              0, 0, run_x, run_y),
+          "dino runaway current-cost outside");
     // `0x0056c500..0x0056c575`: the object/box Eat arrival radius.
     // Eat.bai (3.1, mode 3) uses 0.01 * body part length; EatForSmallies
     // (2.5, mode 4) uses size_radius + 1; the band is 0.8r^2..1.2r^2.

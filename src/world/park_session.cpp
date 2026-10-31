@@ -102,11 +102,9 @@ struct RunCell {
 
 // `FUN_00577570` (case 1 RunAway): scan the paddock-rect danger-grid cells
 // (y outer, x inner, first strict minimum), convert the winning cell to its
-// 8-unit centre and clamp four units inside the rect. Returns nullopt only
-// when the rect has no grid cells; the move/hold comparison is in
-// `runaway_move`.
-std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
-                                         const WorldRect& rect) {
+// 8-unit centre and clamp four units inside the rect. The clamped cell range
+// is always non-empty; the move/hold comparison is in `runaway_move`.
+RunCell find_runaway_cell(const DangerGrid& grid, const WorldRect& rect) {
     const int xmin = std::min(rect.x0, rect.x1);
     const int xmax = std::max(rect.x0, rect.x1);
     const int ymin = std::min(rect.y0, rect.y1);
@@ -133,7 +131,9 @@ std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
         }
     }
     if (best_x < 0) {
-        return std::nullopt;
+        best_x = x0;
+        best_y = y0;
+        best = grid.cell(x0, y0);
     }
     float wx = static_cast<float>(best_x * DangerGrid::kCellSize + 4);
     float wy = static_cast<float>(best_y * DangerGrid::kCellSize + 4);
@@ -296,10 +296,7 @@ bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
 bool runaway_move(const DangerGrid& grid, const WorldRect& rect, float dino_x,
                   float dino_y, int threat, int threat_radius, float& x,
                   float& y) {
-    const std::optional<RunCell> cell = find_runaway_cell(grid, rect);
-    if (!cell) {
-        return false;
-    }
+    const RunCell cell = find_runaway_cell(grid, rect);
     const int current_x = std::clamp(
         static_cast<int>(dino_x) >> DangerGrid::kCellShift, 0,
         DangerGrid::kWidth - 1);
@@ -307,18 +304,22 @@ bool runaway_move(const DangerGrid& grid, const WorldRect& rect, float dino_x,
         static_cast<int>(dino_y) >> DangerGrid::kCellShift, 0,
         DangerGrid::kHeight - 1);
     const int current = grid.cell(current_x, current_y) - threat;
-    // `FUN_00572dd0`: the steering point must be inside the dino's
-    // `+0x27c` box for the current-cost subtraction.
-    const float radius = static_cast<float>(std::max(0, threat_radius));
+    // `FUN_00572dd0`: integer box test (`dino.x/y +/- +0x27c`); the steering
+    // point must be inside for the current-cost subtraction.
+    const int ix = static_cast<int>(dino_x);
+    const int iy = static_cast<int>(dino_y);
+    const int radius = std::max(0, threat_radius);
     const bool inside =
-        cell->x >= dino_x - radius && cell->x <= dino_x + radius &&
-        cell->y >= dino_y - radius && cell->y <= dino_y + radius;
-    const int chosen = cell->cost - (inside ? current : 0);
+        static_cast<int>(cell.x) >= ix - radius &&
+        static_cast<int>(cell.x) <= ix + radius &&
+        static_cast<int>(cell.y) >= iy - radius &&
+        static_cast<int>(cell.y) <= iy + radius;
+    const int chosen = cell.cost - (inside ? current : 0);
     if (chosen >= current) {
         return false;
     }
-    x = cell->x;
-    y = cell->y;
+    x = cell.x;
+    y = cell.y;
     return true;
 }
 
@@ -411,6 +412,8 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     // target is a LunchBox/StaticBait item actor (`feeder`), and the meal
     // drains it through `FUN_00576e50` into the food gauge.
     const int pen = confinement;
+    const bool pen_valid =
+        pen >= 0 && pen < static_cast<int>(paddocks.size());
     Feeder* feeder =
         paddock_feeder(pen, dinosaur.carnivore, dinosaur.x, dinosaur.y);
     // The nearest feeder can change as the dino moves or a source empties;
@@ -429,10 +432,10 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
     // (+0xb8/+0xf4, still open); the port switches the chooser's candidate
     // set to the item list when its best score beats the dino graph's.
     if (!dinosaur.action_loop->busy()) {
-        static const std::vector<std::string> kDinoNodes{
-            "Exploration", "RunAway", "Sleep"};
+        const std::vector<std::string>& dino_nodes =
+            dino_graph_node_names();
         const auto dino_choice =
-            dinosaur.action_loop->best_action(kDinoNodes);
+            dinosaur.action_loop->best_action(dino_nodes);
         std::optional<ActionChoice> item_choice;
         if (feeder != nullptr && !feeder->actions.empty()) {
             item_choice = dinosaur.action_loop->best_action(feeder->actions);
@@ -441,7 +444,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
             item_choice &&
             (!dino_choice || item_choice->score >= dino_choice->score);
         dinosaur.action_loop->set_node_names(
-            item_wins ? feeder->actions : kDinoNodes);
+            item_wins ? feeder->actions : dino_nodes);
     }
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
@@ -534,7 +537,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                 // 0x20 point (X[0x20]), 0x20 self (rand()%16+5).
                 int px = static_cast<int>(dinosaur.x);
                 int py = static_cast<int>(dinosaur.y);
-                if (pen >= 0) {
+                if (pen_valid) {
                     paddock_patrol_point(
                         paddocks[static_cast<std::size_t>(pen)].rect,
                         std::rand(), std::rand(), px, py);
@@ -677,7 +680,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
         float tx = 0.0f;
         float ty = 0.0f;
         const bool move =
-            danger_grid != nullptr && pen >= 0 &&
+            danger_grid != nullptr && pen_valid &&
             runaway_move(*danger_grid,
                          paddocks[static_cast<std::size_t>(pen)].rect,
                          dinosaur.x, dinosaur.y,

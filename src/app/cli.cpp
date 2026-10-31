@@ -291,6 +291,8 @@ Options parse_args(int argc, char** argv) {
             opt.feed_now = true;
         } else if (arg == "--employee-info") {
             opt.employee_info = true;
+        } else if (arg == "--bwi-info") {
+            opt.bwi_info = true;
         } else if (arg == "--show-info") {
             opt.show_info_path = next("--show-info");
         } else if (arg == "--show") {
@@ -661,6 +663,7 @@ Options parse_args(int argc, char** argv) {
                 "  --fire-nutritionist N dismiss N nutritionists (no refund)\n"
                 "  --feed-now           run one hourly feeding pass at startup\n"
                 "  --employee-info      print the .bei employee profiles and exit\n"
+                "  --bwi-info           print the .bwi wall definitions and exit\n"
                 "  --show-info PATH     print .shw show summaries and exit\n"
                 "  --show NAME[:I,J]    place a show arena with dino participants\n"
                 "  --place-show NAME[:X,Y] place a scheduled show (mission [SHOWS] catalog)\n"

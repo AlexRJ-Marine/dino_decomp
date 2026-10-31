@@ -5,6 +5,13 @@
 #include <utility>
 
 namespace dino {
+
+const std::vector<std::string>& dino_graph_node_names() {
+    static const std::vector<std::string> names{
+        "Exploration", "RunAway", "Sleep"};
+    return names;
+}
+
 namespace {
 
 int axis_index(NeedAxis axis) {
