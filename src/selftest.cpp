@@ -330,6 +330,34 @@ int run_selftest() {
     check(instant.activity_kind() == 0x1e &&
               std::fabs(instant.activity_progress() - 1.0f) < 0.001f,
           "dino instant publishes activity");
+    // `FUN_0055af70` grid footprint: a blocked cell ahead stops the step.
+    dino::DinoMover guarded(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    guarded.set_cell_test([](int x, int y) { return x == 4 && y == 0; });
+    guarded.start(1, 10.0f, 0.0f, 1);
+    for (int step = 0; step < 6; ++step) {
+        guarded.tick(0.5);
+    }
+    // The radius-1 footprint stops one cell before the blocked cell itself.
+    check(guarded.blocked() && std::fabs(guarded.x() - 2.0f) < 0.001f,
+          "dino mover footprint blocks");
+    dino::OccupancyGrid footprint_grid;
+    footprint_grid.init(20, 20);
+    footprint_grid.stamp(4, 0, 4, 0, dino::OccupancyGrid::kWall);
+    dino::DinoMover wall_mover(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    wall_mover.set_cell_test([&footprint_grid](int x, int y) {
+        const std::uint16_t cls =
+            footprint_grid.at(x, y) & dino::OccupancyGrid::kTypeMask;
+        return cls == dino::OccupancyGrid::kBuilding ||
+               cls == dino::OccupancyGrid::kRoad ||
+               cls == dino::OccupancyGrid::kWall;
+    });
+    wall_mover.start(1, 10.0f, 0.0f, 1);
+    for (int step = 0; step < 6; ++step) {
+        wall_mover.tick(0.5);
+    }
+    check(wall_mover.blocked() &&
+              std::fabs(wall_mover.x() - 2.0f) < 0.001f,
+          "dino mover occupancy wall");
     dino::DinoMover down(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
     down.knock_down();
     check(down.state() == 3, "dino mover knocked down");

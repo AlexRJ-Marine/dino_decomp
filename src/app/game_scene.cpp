@@ -789,6 +789,22 @@ bool Game::add_imported_dino(const std::string& species,
     const float move_scale = std::max(0.001f, opt.dino_move_speed);
     dinosaur.mover = dino::DinoMover(x, y, angle, walk_speed * move_scale,
                                      run_speed * move_scale);
+    // `FUN_0055af70`: the mover refuses cells occupied by walls, roads or
+    // buildings (`path+0x1ac`). The footprint radius is `actor+0x13` = 1
+    // (base ctor). The class-1 low-bit exception compares against
+    // `actor+0x28`, which retail leaves as the allocator fill
+    // (`BAADF00D`/`BAADF00A` in the mover trace), so class 1 blocks in
+    // practice. `kBlocked` (0xf) is the port's terrain mask, not a retail
+    // occupancy class, so it is not treated as a dino obstacle.
+    const dino::OccupancyGrid& occupancy = park_session.build_grid.occupancy;
+    dinosaur.mover.set_cell_test(
+        [&occupancy](int cx, int cy) {
+            const std::uint16_t cls =
+                occupancy.at(cx, cy) & dino::OccupancyGrid::kTypeMask;
+            return cls == dino::OccupancyGrid::kBuilding ||
+                   cls == dino::OccupancyGrid::kRoad ||
+                   cls == dino::OccupancyGrid::kWall;
+        });
     // Per-family turn record duration (`Actions.bad` f[411..461]): kinds 3/4
     // share the 45-degree time, kind 5 is the 180-degree record. The
     // phenotype family is 0..4; unknown fixtures fall back to LightBiped.

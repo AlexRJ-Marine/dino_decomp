@@ -2433,13 +2433,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `nutrition=1000000 quantity=0 gauge=4255`). The `.bsi` gate stays out.
 - [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
   persistence of feeders.
-- [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
-  top of the rect clamp. Decompiled: base ctor sets `actor+0x13 = 1`; the
-  visitor `0x55af20` blocks every class except 0, and class 1 unless
-  `(cell & 0x7ff) == actor+0x28`. `actor+0x28` is still unidentified
-  (`DINORESET` read `BAADF00D` at reset), so do not wire a naive class-1
-  block. Probe the callback on a walking Cpg04 dino next to a building;
-  `notes/dino-footprint-recon.md`.
+- [x] Occupancy footprint adapter (`FUN_0055af70`): radius `actor+0x13 = 1`
+  (base ctor), truncate the target to cells and scan the centre +
+  4-neighbourhood. The visitor `0x55af20` blocks every class except 0 and
+  class 1 unless `(cell & 0x7ff) == actor+0x28`; the mover trace shows
+  `+0x28` is the allocator fill (`BAADF00D`/`BAADF00A`), so class 1 blocks in
+  practice. Wired in `Game::add_imported_dino` over
+  `BuildGrid::occupancy` (building/road/wall); 600 s Cpg04 soak 0 escapes,
+  0 blocked. Tests: `dino mover footprint blocks`, `dino mover occupancy
+  wall`. Notes: `notes/dino-footprint-recon.md`.
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
   literal writer exists outside the mover; the port starts from the spawn

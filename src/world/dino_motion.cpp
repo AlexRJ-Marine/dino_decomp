@@ -60,6 +60,12 @@ void DinoMover::set_bounds(float x0, float y0, float x1, float y1,
 
 void DinoMover::clear_bounds() { has_bounds_ = false; }
 
+void DinoMover::set_cell_test(CellTest test) {
+    cell_test_ = std::move(test);
+}
+
+void DinoMover::clear_cell_test() { cell_test_ = nullptr; }
+
 void DinoMover::start(int kind, float x, float y, int mode, float threshold,
                       bool instant, float segment) {
     if (state_ == 3) {
@@ -269,11 +275,30 @@ void DinoMover::finish_segment() {
 }
 
 bool DinoMover::step_allowed(float nx, float ny) const {
-    if (!has_bounds_) {
-        return true;
+    if (has_bounds_ &&
+        (nx < bounds_x0_ || nx > bounds_x1_ || ny < bounds_y0_ ||
+         ny > bounds_y1_)) {
+        return false;
     }
-    return nx >= bounds_x0_ && nx <= bounds_x1_ && ny >= bounds_y0_ &&
-           ny <= bounds_y1_;
+    if (cell_test_) {
+        // `FUN_0055af70`: truncate the target to cells, then scan the
+        // radius-1 footprint (centre + 4-neighbourhood).
+        const int cx = static_cast<int>(nx);
+        const int cy = static_cast<int>(ny);
+        for (int dy = -kFootprintRadius; dy <= kFootprintRadius; ++dy) {
+            for (int dx = -kFootprintRadius; dx <= kFootprintRadius; ++dx) {
+                const int ax = dx < 0 ? -dx : dx;
+                const int ay = dy < 0 ? -dy : dy;
+                if (ax + ay > kFootprintRadius) {
+                    continue;
+                }
+                if (cell_test_(cx + dx, cy + dy)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 float DinoMover::speed_for_kind(int kind) const {

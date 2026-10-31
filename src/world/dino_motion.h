@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <functional>
 
 namespace dino {
 
@@ -71,6 +72,12 @@ public:
     // the actor footprint radius (retail `actor+0x13` cells).
     void set_bounds(float x0, float y0, float x1, float y1, float inset);
     void clear_bounds();
+    // `FUN_0055af70` occupancy test (`path+0x1ac`): called for the target
+    // cell and the radius-1 footprint (base ctor `actor+0x13 = 1`); returns
+    // true when the cell blocks movement.
+    using CellTest = std::function<bool(int x, int y)>;
+    void set_cell_test(CellTest test);
+    void clear_cell_test();
 
     // `FUN_00573f40`: append and start when idle. `FUN_00573dc0`: append only.
     // `instant`/`segment` are record +0x0c and the segment timer override
@@ -140,6 +147,9 @@ private:
     float bounds_y0_ = 0.0f;
     float bounds_x1_ = 0.0f;
     float bounds_y1_ = 0.0f;
+    CellTest cell_test_;
+    // `actor+0x13` is 1 for every dinosaur (saActor ctor `FUN_00577690`).
+    static constexpr int kFootprintRadius = 1;
 
     std::deque<MoveCommand> queue_;
     bool active_ = false;
