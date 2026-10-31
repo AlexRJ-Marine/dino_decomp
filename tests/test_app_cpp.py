@@ -4908,6 +4908,43 @@ def test_cpp_static_bait_ui():
             "construction=1/10") in log
 
 
+@pytest.mark.slow
+def test_cpp_port_save_feeder(tmp_path):
+    """A placed StaticBait feeder survives the port `.psav`: the name, kind,
+    actions, quantity/nutrition/radius and position are written, and the load
+    rebuilds both the Feeder and its ground-quad draw."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    save = tmp_path / "feeder.psav"
+    base = [str(EXE), "--frames", "3", "--no-menu", "--no-hud", "--width",
+            "160", "--height", "120", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--wld-park", str(wld),
+            "--no-build", "--park-budget", "75000"]
+    result = subprocess.run(
+        base + ["--place-bait", "StaticBaitFlower", "--bait-pos", "113,78",
+                "--save-port", str(save)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = save.read_text(encoding="utf-8").splitlines()
+    assert ("feeder StaticBaitFlower EatBait,EatBaitForSmallies 0 10000 "
+            "10000 70 2 454 314") in lines
+    result = subprocess.run(
+        base + ["--load-port", str(save)],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "port feeders: 1" in log
+    assert "feature: StaticBaitFlower kind=0" in log
+    assert "drew=1" in log
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

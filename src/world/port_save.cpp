@@ -106,6 +106,13 @@ void save_port_state(const PortState& state, const std::string& path) {
         out << "food " << food.name << " " << food.x << " " << food.y << " "
             << food.remaining << "\n";
     }
+    for (const PortFeederState& feeder : state.feeders) {
+        out << "feeder " << feeder.name << " "
+            << (feeder.actions.empty() ? "-" : feeder.actions) << " "
+            << feeder.kind << " " << feeder.quantity << " "
+            << feeder.max_quantity << " " << feeder.nutrition << " "
+            << feeder.radius << " " << feeder.x << " " << feeder.y << "\n";
+    }
     for (const PortEmployeeState& employee : state.employees) {
         out << "employee " << employee.profile << " " << employee.x << " "
             << employee.y << "\n";
@@ -338,6 +345,18 @@ PortState load_port_state(const std::string& path) {
             require(parts, key, path);
             if (!food.name.empty()) {
                 state.food.push_back(std::move(food));
+            }
+        } else if (key == "feeder") {
+            PortFeederState feeder;
+            parts >> feeder.name >> feeder.actions >> feeder.kind >>
+                feeder.quantity >> feeder.max_quantity >>
+                feeder.nutrition >> feeder.radius >> feeder.x >> feeder.y;
+            require(parts, key, path);
+            if (feeder.actions == "-") {
+                feeder.actions.clear();
+            }
+            if (!feeder.name.empty()) {
+                state.feeders.push_back(std::move(feeder));
             }
         } else if (key == "employee") {
             PortEmployeeState employee;

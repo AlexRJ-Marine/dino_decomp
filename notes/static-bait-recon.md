@@ -92,6 +92,11 @@ applies the 4x4 overlap/budget, with the 16 cap only for the LunchBox class.
 `--place-bait` is the uncharged boot hook; the UI/ground-click path charges
 CONSTRUCTION. Tests: `test_static_bait_variants` (data),
 `test_cpp_static_bait_place`, `test_cpp_static_bait_ui`; full suite 546.
+Feeder persistence: the port `.psav` now stores a `feeder` record per placed
+LunchBox/StaticBait (name, actions, kind, quantity/max, nutrition, radius,
+position) and the load rebuilds the Feeder + mesh/ground-quad draw
+(`test_cpp_port_save_feeder`; full suite 547). The retail `.sav` feature
+list is not decoded yet.
 
 The ground quad uses the full `animaux.tga` UV (0,0)-(1,1), footprint 4x4,
 yaw 0, terrain Z + 0.08. The exact retail display-type branch/quad builder

@@ -24,7 +24,10 @@ scene between sessions. A retail `.sav` writer exists as a tool
   orientation state;
 - every imported dinosaur: species/family/clip, position, angle, the four
   needs, the current action id, the remaining action seconds and the clip
-  playback phase.
+  playback phase;
+- every placed `.bfi` feeder (LunchBox/StaticBait): name, kind, interaction
+  actions, quantity/max/nutrition/radius and position. The loader rebuilds
+  the Feeder and its mesh/ground-quad draw from the `.bfi` name.
 
 Buildings are re-loaded from `Data/Design/buildings/<name>.bbi` on restore;
 dinosaurs are re-created through the same species/animation loader and their
@@ -48,6 +51,7 @@ fence <x> <y> <edge>          # edge 0 south, 1 east
 visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y> <profile> <need0> <need1> <need2> <global_profile> <need0_at_use> <state> <target_attraction> <route_index> <use_timer> <decay0> <decay1> <decay2> <rng> <done> <route_count> [<x> <y>]...
 building <kind> <cell_x> <cell_y> <state>
 dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm> <carnivore> <phase> <threat> <threat_radius> <combined_attack> <obstacle_radius> <id> [<size_class> <size_radius> <body_length_cm> <attack_head> <length_cm> <height_cm>]
+feeder <name> <actions|-> <kind> <quantity> <max_quantity> <nutrition> <radius> <x> <y>
 ```
 
 `state` is 0 `Choose`, 1 `Travel`, 2 `Use`, 3 `Leave`; `route_count`

@@ -3,6 +3,8 @@
 
 #include "game.h"
 
+#include <sstream>
+
 namespace dino::app {
 
 void Game::load_island(const std::string& island, bool reset_view) {
@@ -1036,6 +1038,48 @@ void Game::apply_port_food_and_employees(const dino::PortState& state) {
             }
         }
     }
+    // Placed `.bfi` feeders (LunchBox/StaticBait): rebuild the Feeder state
+    // and the mesh/ground-quad draw from the saved names. The draw is not
+    // part of the save; `add_feeder=false` draws without appending a second
+    // Feeder.
+    for (ShowFeatureDraw& feature : show_feature_draws) {
+        feature.gpu.destroy(glfns);
+    }
+    show_feature_draws.clear();
+    park_session.feeders.clear();
+    for (const dino::PortFeederState& saved : state.feeders) {
+        try {
+            const dino::BfiFeature bfi = dino::load_bfi(resolve_asset(
+                opt.asset_root,
+                "Data/Design/attractions/features/" + saved.name + ".bfi"));
+            place_feature_at(bfi, saved.x, saved.y, false, false);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "port feeder draw: %s\n", e.what());
+        }
+        dino::Feeder feeder;
+        feeder.name = saved.name;
+        if (!saved.actions.empty()) {
+            std::istringstream input(saved.actions);
+            std::string action;
+            while (std::getline(input, action, ',')) {
+                if (!action.empty()) {
+                    feeder.actions.push_back(action);
+                }
+            }
+        }
+        feeder.kind = saved.kind;
+        feeder.quantity = saved.quantity;
+        feeder.max_quantity =
+            saved.max_quantity > 0.0f ? saved.max_quantity : saved.quantity;
+        feeder.nutrition = saved.nutrition;
+        feeder.radius = saved.radius;
+        feeder.x = saved.x;
+        feeder.y = saved.y;
+        park_session.feeders.push_back(std::move(feeder));
+    }
+    if (!state.feeders.empty()) {
+        std::printf("port feeders: %zu\n", park_session.feeders.size());
+    }
 }
 
 void Game::resume_port_campaign(const dino::PortState& state) {
@@ -1200,6 +1244,24 @@ dino::PortState Game::make_port_state() {
         saved.remaining = food.remaining;
         state.food.push_back(std::move(saved));
     }
+    for (const dino::Feeder& feeder : park_session.feeders) {
+        dino::PortFeederState saved;
+        saved.name = feeder.name;
+        for (const std::string& action : feeder.actions) {
+            if (!saved.actions.empty()) {
+                saved.actions += ",";
+            }
+            saved.actions += action;
+        }
+        saved.kind = feeder.kind;
+        saved.quantity = feeder.quantity;
+        saved.max_quantity = feeder.max_quantity;
+        saved.nutrition = feeder.nutrition;
+        saved.radius = feeder.radius;
+        saved.x = feeder.x;
+        saved.y = feeder.y;
+        state.feeders.push_back(std::move(saved));
+    }
     for (const dino::Employee& employee : park_session.employee_system.employees) {
         if (employee.profile < 0 ||
             employee.profile >= static_cast<int>(park_session.employee_profiles.size())) {
@@ -1317,7 +1379,7 @@ void Game::import_park_layout() {
 }
 
 bool Game::place_feature_at(const dino::BfiFeature& bfi, float x, float y,
-                            bool charge) {
+                            bool charge, bool add_feeder) {
     const bool lunchbox = bfi.name == "LunchBox";
     const char* log_prefix = lunchbox ? "lunchbox" : "feature";
     const char* placed_prefix = lunchbox ? "fence lunchbox" : "feature";
@@ -1331,17 +1393,21 @@ bool Game::place_feature_at(const dino::BfiFeature& bfi, float x, float y,
         }
         const bool is_food =
             bfi.class_tag == "LunchBox" || bfi.class_tag == "StaticBait";
+        const float feature_radius =
+            is_food ? std::max(
+                          1.0f,
+                          static_cast<float>(std::max(bfi.width, bfi.height)) *
+                              0.5f)
+                    : 0.0f;
         dino::Feeder feeder;
-        if (is_food) {
+        if (is_food && add_feeder) {
             feeder.name = bfi.name;
             feeder.kind = bfi.food_kind;
             feeder.actions = bfi.actions;
             feeder.quantity = static_cast<float>(bfi.food_quantity);
             feeder.max_quantity = feeder.quantity;
             feeder.nutrition = static_cast<float>(bfi.food_nutrition);
-            feeder.radius = std::max(
-                1.0f, static_cast<float>(std::max(bfi.width, bfi.height)) *
-                          0.5f);
+            feeder.radius = feature_radius;
             feeder.x = x;
             feeder.y = y;
             park_session.feeders.push_back(feeder);
@@ -1426,7 +1492,7 @@ bool Game::place_feature_at(const dino::BfiFeature& bfi, float x, float y,
             log_prefix, bfi.name.c_str(), bfi.food_kind,
             static_cast<double>(x), static_cast<double>(y),
             bfi.food_quantity, bfi.food_nutrition,
-            static_cast<double>(is_food ? feeder.radius : 0.0f),
+            static_cast<double>(feature_radius),
             bfi.display_type, drew ? 1 : 0, action_list.c_str());
         if (charge) {
             std::printf(

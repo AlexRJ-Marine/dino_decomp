@@ -73,6 +73,20 @@ struct PortFoodState {
     float remaining = 0.0f;
 };
 
+// One placed `.bfi` feeder (LunchBox/StaticBait): the item actor with its
+// remaining quantity and the interaction action names (Eat/EatBait...).
+struct PortFeederState {
+    std::string name;
+    std::string actions;  // comma-separated, "-" when empty
+    int kind = 0;
+    float quantity = 0.0f;
+    float max_quantity = 0.0f;
+    float nutrition = 0.0f;
+    float radius = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
 // One imported dinosaur, including its need/action-loop state. `action_id` is
 // the ActionList index; 0x1f is the idle sentinel.
 struct PortDinoState {
@@ -154,6 +168,7 @@ struct PortState {
     std::vector<PortDinoState> dinos;
     std::vector<PortPaddockState> paddocks;
     std::vector<PortFoodState> food;
+    std::vector<PortFeederState> feeders;
     std::vector<PortEmployeeState> employees;
 };
 
