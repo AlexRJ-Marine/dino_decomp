@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - formats: genotype-rarity market value (def+0x19c) solved, 20/20 Cpg04 f1ec values match; sell economy path decompiled; selftest 235, fast 384
 - 2026-10-31 - AI: retail occupancy footprint (FUN_0055af70) wired - radius 1, centre+4-neighbourhood, building/road/wall classes; actor+0x28 proven allocator fill; selftest 235, fast 384, soak 0 escapes
 - 2026-10-31 - AI: exact health pass - 5s regen (FUN_005725e0), 10s starvation damage, 67/34/0 bands, state 4 + 0x15 knocked-down mover; phenotype maxHP/regen wired; selftest 233, fast 384
 - 2026-10-31 - AI/phenotype: max health + regen formula solved, 20/20 Cpg04 DINORESET rows match (hp=200..67, rg=17..3); selftest 225, fast 383
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - AI: fixed-rect enclosure confinement (adopt paddock once) + 600 s Cpg04 soak 0 escapes/0 blocked; test_cpp_dino_confinement_soak; fast 381
 - 2026-10-31 - AI: exact violence decay (FUN_00571410 10/10s) and Eat walk marker re-issue with kind 0x34+(REPOS state!=2); Cpg04 kind=0x35/0x34 verified; selftest 216, fast 381
 - 2026-10-31 - AI: LunchBox item actor - .bfi bowl draw, enclosure/diet feeder gate, 0x34 walk, FUN_00576e50 drain, apply_food gauge; Cpg04 anky nutrition=1000000 quantity=0 gauge=4255; fast 381, selftest 215
-- 2026-10-31 - AI: exact food gauge (max=weight, 10s pass, apply_food event 0x17), .bsi dino placeholder removed (visitor/employee source), BFI quantity/nutrition + FUN_00576e50 feeder drain model, sticky enclosure index; fast 381, selftest 215
 
 ## Blockers
 
