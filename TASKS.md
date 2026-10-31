@@ -2332,10 +2332,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - **Depends on:** P3/economic object ownership, dino stats.
 
 ### DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
-- [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
-  eleven live gauges from `+0x280/+0x90/+0x29c/5/+0xbc/+0x270/
-  ftol(+0x268*20)/+0x98/+0x284/+0x2a4/+0xc0/(100-+0x1e4)`, caps from
-  `AttributeRange.ini`.
+- [x] Live dino values: `--dino-info NAME` prints the eleven `ivwDinoInfo`
+  gauges (`0x5e2940` order: PERCEPTION, BEAUTY, ATTACK=`attack_total/5`,
+  AGGRESSIVENESS, ARMOR, SPEED=`ftol(walk*20)`, AGILITY, INTELLIGENCE,
+  COURAGE, STAMINA, ORIGINALITY=`max(0,100-conventional)`), the four
+  needs/states, food gauge/kind/source, rest, health/state and market
+  value/refund. `test_cpp_dino_info` locks the Cpg04 anky row.
+- [ ] Draw the interactive `ivwDinoInfo` widgets/tabs and the sell text
+  (`REQUEST_SELL_DINO` appears only when `dino+0x65` is set; the runtime
+  trace proves that byte is `(height>>8)&0xff`, so reproduce the raw test).
 - [x] Food gauge: `max_food = weight`, `+0x25c` gauge init max/2, 10 s pass
   `gauge -= 10*food_consumption`, `FOOD = ftol(gauge*99/max)`, `apply_food`
   for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.

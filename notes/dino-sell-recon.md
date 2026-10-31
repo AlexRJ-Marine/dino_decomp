@@ -79,12 +79,22 @@ action.
 
 `dino+0x65` is actor `+0x50 + 0x15`, i.e. byte 1 of the phenotype height int
 (`def+0x14`), because the actor copies the 0x1b8-byte definition to `+0x50`.
-For a 234 cm dino byte 1 is 0; for heights >= 256 it is non-zero. No writer
-to the flag exists in the image (the audit's producer scan). This looks like
-a field-mapping/accidental gate, not a meaningful "sellable" state, so the
-port must not invent a sellable rule from it. The `--sell-dino` hook ignores
-the gate; the interactive panel should either reproduce the raw byte test
-once the field is confirmed or document the divergence.
+
+**Confirmed at runtime (2026-10-31).** The `DINORESET` trace with
+`f65={p:[ecx+0x65]}` and `f14={p:[ecx+0x64]}` on the 20 Cpg04 dinosaurs
+matches exactly:
+
+```text
+height 234 420 420 420 150 150 323 148 291 291 432 147 181 210 ...
+f65      0   1   1   1   0   0   1   0   1   1   1   0   0   0 ...
+```
+
+`f65 == (height >> 8) & 0xff` for all 20. The retail sell text therefore
+appears only for dinos at least 256 cm tall (six of the twenty); shorter
+dinos can never show it. No writer to the byte exists in the image, so this
+is an accidental height-byte gate, not a sellable state. The port must
+reproduce the raw byte test in the interactive panel, not invent a
+sellability rule; `--sell-dino` is a test hook and bypasses it.
 
 ## Open
 

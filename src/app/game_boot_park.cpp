@@ -545,6 +545,87 @@ std::optional<int> Game::boot_import_dinos() {
 
         std::printf("park list: dinos=%zu paddocks=%zu\n",
                     park_session.imported_dinos.size(), park_paddocks.size());
+        if (!opt.dino_info.empty()) {
+            const auto matches = [](const std::string& text,
+                                    const std::string& want) {
+                if (want.size() > text.size()) {
+                    return false;
+                }
+                for (std::size_t i = 0; i < want.size(); ++i) {
+                    if (std::tolower(static_cast<unsigned char>(text[i])) !=
+                        std::tolower(static_cast<unsigned char>(want[i]))) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            for (const dino::ImportedDino& dinosaur :
+                 park_session.imported_dinos) {
+                if (!matches(dinosaur.species, opt.dino_info)) {
+                    continue;
+                }
+                const dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                const dino::DinoAttributes& attrs = dinosaur.attributes;
+                // Live `ivwDinoInfo` gauge order (`0x5e2940`): the cached
+                // fields are the phenotype attributes; attack is the
+                // combined total / 5, speed is walk speed * 20, and
+                // originality is 100 - conventional appeal.
+                const int gauges[11] = {
+                    attrs.perception, attrs.beauty, attrs.attack_total / 5,
+                    attrs.aggression, attrs.armor,
+                    static_cast<int>(attrs.walk_speed * 20.0f),
+                    attrs.agility, attrs.intelligence, attrs.courage,
+                    attrs.stamina,
+                    std::max(0, 100 - attrs.conventional_appeal)};
+                static const char* const kNames[11] = {
+                    "PERCEPTION", "BEAUTY", "ATTACK", "AGGRESSIVENESS",
+                    "ARMOR", "SPEED", "AGILITY", "INTELLIGENCE", "COURAGE",
+                    "STAMINA", "ORIGINALITY"};
+                std::printf("dino info: %s id=%d", dinosaur.species.c_str(),
+                            dinosaur.id);
+                for (int i = 0; i < 11; ++i) {
+                    std::printf(" %s=%d", kNames[i], gauges[i]);
+                }
+                std::printf("\n");
+                std::printf(
+                    "dino info needs: FOOD=%d(%d) VIOLENCE=%d(%d) "
+                    "SECU=%d(%d) REPOS=%d(%d)\n",
+                    needs.value[0], dino::need_state(needs.value[0]),
+                    needs.value[1], dino::need_state(needs.value[1]),
+                    needs.value[2], dino::need_state(needs.value[2]),
+                    needs.value[3], dino::need_state(needs.value[3]));
+                dino::Feeder* feeder = park_session.paddock_feeder(
+                    dinosaur.paddock, dinosaur.carnivore, dinosaur.x,
+                    dinosaur.y);
+                std::printf(
+                    "dino info food: gauge=%.1f max=%.1f kind=%d "
+                    "source=%s quantity=%.0f\n",
+                    static_cast<double>(needs.food_gauge),
+                    static_cast<double>(needs.max_food),
+                    feeder != nullptr ? feeder->kind : -1,
+                    feeder != nullptr ? feeder->name.c_str() : "none",
+                    feeder != nullptr
+                        ? static_cast<double>(feeder->quantity)
+                        : 0.0);
+                std::printf(
+                    "dino info rest: gauge=%.1f max=%.1f repos=%d\n",
+                    static_cast<double>(needs.rest_gauge),
+                    static_cast<double>(needs.max_rest), needs.value[3]);
+                std::printf(
+                    "dino info health: %d/%d state=%d regen=%d\n",
+                    needs.health, needs.max_health, needs.health_state,
+                    needs.regen);
+                std::printf(
+                    "dino info value: %d sellback=%.2f refund=%d\n",
+                    attrs.market_value,
+                    static_cast<double>(park_session.sellback),
+                    static_cast<int>(static_cast<float>(attrs.market_value) *
+                                     park_session.sellback));
+                break;
+            }
+        }
     }
     return std::nullopt;
 }

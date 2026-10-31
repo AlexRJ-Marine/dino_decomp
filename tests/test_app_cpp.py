@@ -4521,6 +4521,39 @@ def test_cpp_dino_sell():
     assert int(fields["pen"]) >= 0
 
 
+@pytest.mark.slow
+def test_cpp_dino_info():
+    """`--dino-info` prints the live `ivwDinoInfo` gauge formulas
+    (`0x5e2940`), needs/states, food/rest/health and sell value for the
+    first imported anky (Cpg04 row 0)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--dino-info", "anky"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert ("dino info: anky id=1 PERCEPTION=12 BEAUTY=56 ATTACK=48 "
+            "AGGRESSIVENESS=82 ARMOR=78 SPEED=28 AGILITY=21 "
+            "INTELLIGENCE=18 COURAGE=77 STAMINA=83 ORIGINALITY=5") in log
+    assert ("dino info needs: FOOD=50(1) VIOLENCE=99(3) SECU=99(3) "
+            "REPOS=99(3)") in log
+    assert ("dino info food: gauge=2127.5 max=4255.0 kind=-1 source=none "
+            "quantity=0") in log
+    assert "dino info rest: gauge=94.0 max=94.0 repos=99" in log
+    assert "dino info health: 200/200 state=0 regen=17" in log
+    assert "dino info value: 3600 sellback=1.00 refund=3600" in log
+
+
 def test_cpp_employee_info():
     """The .bei reader returns the two retail employee profiles."""
     if not EXE.exists():

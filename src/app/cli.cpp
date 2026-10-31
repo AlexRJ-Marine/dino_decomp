@@ -351,6 +351,8 @@ Options parse_args(int argc, char** argv) {
                 std::atof(next("--dino-food")));
         } else if (arg == "--sell-dino") {
             opt.sell_dino = next("--sell-dino");
+        } else if (arg == "--dino-info") {
+            opt.dino_info = next("--dino-info");
         } else if (arg == "--secu-probe") {
             opt.secu_probe = true;
         } else if (arg == "--rest-probe") {
@@ -679,6 +681,7 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-health CUR,MAX health pair for the SECU/health tests (default phenotype)\n"
                 "  --dino-food N        initial food gauge for imported dinosaurs (test hook)\n"
                 "  --sell-dino NAME     sell the last imported dinosaur of NAME (test hook)\n"
+                "  --dino-info NAME     print one imported dinosaur's live panel values\n"
                 "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
                 "  --rest-probe         print each dinosaur's rest gauge, REPOS, health and state per second\n"
                 "  --save-port FILE     write the port park state\n"
