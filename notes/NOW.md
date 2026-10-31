@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI/phenotype: max health + regen formula solved, 20/20 Cpg04 DINORESET rows match (hp=200..67, rg=17..3); selftest 225, fast 383
 - 2026-10-31 - AI: exact rest gauge + sleep recovery: Actions.bad f[105..155] scale table, instant 0x1e republish (+10/frame), REPOS=ftol(gauge*99/max); max rest formula solved and 20/20 Cpg04 runtime rows match; selftest 225, fast 383
 - 2026-10-31 - AI: fixed-rect enclosure confinement (adopt paddock once) + 600 s Cpg04 soak 0 escapes/0 blocked; test_cpp_dino_confinement_soak; fast 381
 - 2026-10-31 - AI: exact violence decay (FUN_00571410 10/10s) and Eat walk marker re-issue with kind 0x34+(REPOS state!=2); Cpg04 kind=0x35/0x34 verified; selftest 216, fast 381
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - AI: exact food gauge (max=weight, 10s pass, apply_food event 0x17), .bsi dino placeholder removed (visitor/employee source), BFI quantity/nutrition + FUN_00576e50 feeder drain model, sticky enclosure index; fast 381, selftest 215
 - 2026-10-31 - AI: Sleep special-action records (0x1d/0x1e/0x1c), gesture no-translation, normal-action executor 0x56f7a0 map (marker/stop/0x12..0x17 gesture); selftest 207, full 525
 - 2026-10-30 - AI: per-family turn durations from Actions.bad f[411..461] (Part10 family 2/3 -> file blocks 3/2; runtime 15x1.2 s / 4x2.0 s; DINORESET f1e0 size classes 20/20); --actions-bad-info; selftest 204, full 524
-- 2026-10-30 - AI: retail dinosaur mover ported (saDinosaur+0x2c8) - 0x18-byte queue, phenotype walk/run 1.43-2.91 m/s, exact FUN_00575410 pre-rotated turn plan (45 deg/record, 1.0 s), 180 record, paddock clamp; element events replace the disproven .bai need deltas; selftest 201, full 522
 
 ## Blockers
 

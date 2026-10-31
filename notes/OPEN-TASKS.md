@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 02:47. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 02:51. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 58 open items.
 
@@ -123,7 +123,7 @@ Generated from `TASKS.md` on 2026-10-31 02:47. Do not edit; regenerate with `scr
 
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
 - [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
-- [ ] Remaining per-tick health: `0x5869e0` (5 s regen), `0x5724d0` (health
+- [ ] Runtime health pass: `0x5725e0` (5 s heal when food/rest > 0.01 and
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
 - [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
