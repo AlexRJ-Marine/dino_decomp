@@ -270,6 +270,12 @@ struct WldDinoState {
     std::array<int, 4> need_states{};                    // +0x98
     int activity = 0;                                    // +0xa8
     int action_id = 0x1f;                                // +0xac
+    // Raw `saDinosaur` actor state carried by the same gauge image.
+    // Image base = +0x214 (0xa8 -> +0x2bc, 0xac -> +0x2c0):
+    float food_gauge = 0.0f;      // +0x25c -> 0x48
+    float rest_gauge = 0.0f;      // +0x258 -> 0x44
+    int threat = 0;               // +0x2a0 -> 0x8c
+    int threat_radius = 0;        // +0x27c -> 0x68
     // CampaignPath prefix (`sav_campaign.py::_read_path`).
     float path_x = 0.0f, path_y = 0.0f;
     float dir_x = 1.0f, dir_y = 0.0f;

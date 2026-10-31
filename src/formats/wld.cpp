@@ -608,6 +608,15 @@ void read_campaign_dino_state(const std::vector<std::uint8_t>& data,
     }
     out.activity = out.gauges[0xa8];
     out.action_id = gauge_i32(0xac);
+    auto gauge_f32 = [&](std::size_t off) {
+        float value = 0.0f;
+        std::memcpy(&value, out.gauges.data() + off, 4);
+        return value;
+    };
+    out.food_gauge = gauge_f32(0x48);
+    out.rest_gauge = gauge_f32(0x44);
+    out.threat = gauge_i32(0x8c);
+    out.threat_radius = gauge_i32(0x68);
 }
 }  // namespace
 

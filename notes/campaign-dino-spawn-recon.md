@@ -57,3 +57,24 @@ Allosaurus2  object 63835  path (479.17,373.70)            needs 40/0/77/82
 
 `test_cpp_campaign_spawn_positions` asserts the first two lines and 20
 `source=wld` spawns. Full suite 548 passed.
+
+## Raw `saDinosaur` gauges (2026-10-31)
+
+`WldDinoState` also exposes the raw actor image fields that the same gauge
+block carries (image base +0x214; see `notes/dino-stats-economy-gap-audit.md`
+and `notes/dino-cache-writers-recon.md`):
+
+| Port field | Gauge offset | Actor offset | Cpg04 values (Anky / Allo1 / Allo2) |
+| --- | --- | --- | --- |
+| `food_gauge` (f32) | +0x48 | +0x25c | 1786.68 / 839.58 / 819.59 |
+| `rest_gauge` (f32) | +0x44 | +0x258 | 97.90 / 56.22 / 53.12 |
+| `threat` (i32) | +0x8c | +0x2a0 | 53 / 68 / 68 |
+| `threat_radius` (i32) | +0x68 | +0x27c | 5 / 10 / 10 |
+
+These are parsed only; `Game::spawn_world_dinos` still sets
+`DinoNeeds::food_gauge/rest_gauge` from the 0..99 need percentage. Wiring the
+raw float gauges (max food = weight, max rest = `rest_base`) is the next step
+for exact Eat/Sleep timing. The saved threat caches matter because retail seeds
+the danger grid from them; the port currently leaves `DinoNeeds::threat` at the
+CLI default, so `RunAway` cannot trigger from the Cpg04 save.
+

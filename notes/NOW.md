@@ -47,6 +47,26 @@ See `notes/lanes.md`. Default split:
 
 ## Focus
 
+- BEHAV-1: **open, user-reported.** The dinos now repeat Exploration actions,
+  but the user still sees "the same couple of steps in a loop". The walk clip
+  is the port's fixed playback (`elapsed * 4800 * anim_speed` wrapped by
+  `anim.duration`), with no proven retail rate or clip selection; the action
+  restart (`af90b4e`) only fixed the stopped mover. Next: probe
+  `saDinosaur::Update` (`0x571540`) and the animator for the animation-time
+  advance, the Walk/Idle clip selector and whether the walk cycle scales with
+  the mover speed. Do not tune by eye.
+- UI-SELL: **open, user-reported.** Clicking the HUD Sell button cycles the
+  cursor wood -> money -> put_in_enclos instead of toggling sell. The switch
+  handler toggles `park_sell_mode`, so suspect UI hit-test coordinates (clicks
+  use raw `event.button.x/y`, mouse motion uses logical coordinates): reproduce
+  at 800x600 and at a DPI-scaled 1280x800, then scale window -> logical.
+- CAMPAIGN gauges: `WldDinoState` now parses the raw `saDinosaur`
+  `food_gauge`/`rest_gauge`/`threat`/`threat_radius`
+  (`notes/campaign-dino-spawn-recon.md`). `spawn_world_dinos` still sets the
+  gauges from the 0..99 need percentages and leaves `threat` at the CLI
+  default, so `RunAway` cannot trigger from the Cpg04 save; wire the raw values
+  next.
+
 - MAINT-4: **done.** `tests/test_app_cpp.py` no longer sets a module-wide
   `slow` marker: 41 headless CLI tests (validate, selftest, sav, *-info) run in
   `-Fast`, 106 window/screenshot tests stay opt-in. A guard now rejects a
