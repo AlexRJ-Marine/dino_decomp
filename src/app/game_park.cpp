@@ -1429,16 +1429,20 @@ bool Game::place_feature_at(const dino::BfiFeature& bfi, float x, float y,
             const float w = static_cast<float>(std::max(1, bfi.width));
             const float h = static_cast<float>(std::max(1, bfi.height));
             dino::Mesh quad;
+            // `FUN_00622240`: one quad per feature, centred on the footprint;
+            // vertices v0 (-w/2,+h/2) UV (0,1), v1 (-w/2,-h/2) UV (1,1),
+            // v2 (+w/2,+h/2) UV (0,0), v3 (+w/2,-h/2) UV (1,0); triangles
+            // (v0,v1,v2) and (v1,v3,v2). The texture is full 0..1.
             quad.positions = {
+                {-w * 0.5f, h * 0.5f, 0.08f},
                 {-w * 0.5f, -h * 0.5f, 0.08f},
-                {w * 0.5f, -h * 0.5f, 0.08f},
                 {w * 0.5f, h * 0.5f, 0.08f},
-                {-w * 0.5f, h * 0.5f, 0.08f}};
-            quad.uvs = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f},
-                        {0.0f, 1.0f}};
+                {w * 0.5f, -h * 0.5f, 0.08f}};
+            quad.uvs = {{0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f},
+                        {1.0f, 0.0f}};
             quad.normals = {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f},
                             {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}};
-            quad.indices = {0, 1, 2, 0, 2, 3};
+            quad.indices = {0, 1, 2, 1, 3, 2};
             quad = place_on_terrain(std::move(quad), terrain, x, y, 0.0f);
             ShowFeatureDraw draw;
             draw.gpu = upload_mesh(quad, glfns);

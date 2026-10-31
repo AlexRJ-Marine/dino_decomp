@@ -99,20 +99,22 @@ position) and the load rebuilds the Feeder + mesh/ground-quad draw
 list is not decoded yet.
 
 The ground quad uses the full `animaux.tga` UV (0,0)-(1,1), footprint 4x4,
-yaw 0, terrain Z + 0.08. The exact retail display-type branch/quad builder
-inside the `FUN_005f4e10` virtual (`vtable+0x28`) remains OPEN; the atlas
-reading is disproven (the texture is one 128x128 image, not a grid).
-
-**Runtime probe for the remaining branch:** break at `0x5f4e2a` (the
-`CALL dword [EAX+0x28]` in `FUN_005f4e10`), read `EAX` (the model-manager
-vtable) and `[EAX+0x28]`, then step into it with the `.bfi` record in `ECX`.
-That function owns the `display_type 3` quad/UV generation.
+yaw 0, terrain Z + 0.08. The retail display-type 3 branch is **resolved**:
+`FUN_005f4e10` (`0x5f4e2a`) dispatches to the generic manager vtable
+`0x648A68` -> `0x622DF0`; the `StaticBait` branch is `0x62301F` ->
+`0x623FA0` -> `0x622240`, which builds one quad with vertices
+`(-w/2,+h/2)` UV (0,1), `(-w/2,-h/2)` UV (1,1), `(+w/2,+h/2)` UV (0,0),
+`(+w/2,-h/2)` UV (1,0), triangles `(v0,v1,v2)`/`(v1,v3,v2)`, orientation from
+`actor+0x24`, Z from the scene transform. The port uses this exact order.
+The static chain is decompiled; Cpg04 has no `StaticBait` record, so a retail
+placement run is the remaining confirmation.
 
 ## Open
 
-1. The ground-tile visual: the full-texture quad is the only data-supported
-   reading; the exact display-type branch/UV builder inside the
-   `FUN_005f4e10` virtual remains OPEN.
+1. Runtime confirmation of the `StaticBait` model-manager branch
+   (`0x62301F` -> `0x623FA0` -> `0x622240`): the chain and quad/UV are
+   decompiled exactly, but Cpg04 has no `StaticBait` record, so a retail
+   placement run is the remaining check.
 2. The exact per-`SWITCH_BAIT_*` callback binding (the selection mechanism is
    shared and proven; the port maps by the `.bfi` `switch_key`).
 3. The live `AnimalBait*` actor behavior (moving goat/cow/etc.) is not part of

@@ -79,9 +79,11 @@ persistence remain open.
   charge) with **no 16-dish cap** (that cap is LunchBox-only). The port places
   them with `--place-bait NAME` or the construction-kit path
   (`OPEN_CONSTRUCTION` -> `OPEN_CONSTRUCTION_KIT` -> Bait -> Flowers/Fruit/...),
-  drawing one full-texture `animaux.tga` 4x4 ground quad. The exact retail
-  display-type branch/UV builder is OPEN; see `notes/static-bait-recon.md` and
-  `docs/formats/bfi.md`.
+  drawing one full-texture `animaux.tga` 4x4 ground quad. The retail
+  `display_type 3` branch is decompiled: generic manager vtable `0x648A68` ->
+  `0x622DF0`, `StaticBait` -> `0x62301F` -> `0x623FA0` -> `0x622240` (one
+  quad, exact full-texture UV order; see `notes/static-bait-recon.md` and
+  `docs/formats/bfi.md`).
 - `ParkSession::paddock_feeder` returns the nearest non-empty feeder in the
   paddock whose `food_kind` matches the diet. `Eat` is offered only when one
   exists. `tick_dino` uses the selected `.bai` record to compute the retail

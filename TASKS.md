@@ -2532,11 +2532,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `switch_key` `SWITCH_BAIT_FLOWER/FRUITS/HAY/CITROUILLE/PASTEQUE`, generic
   4x4 overlap + CONSTRUCTION charge, no LunchBox 16 cap). `--place-bait` and
   the construction-kit category/switch path place them with a full-texture
-  `animaux.tga` 4x4 ground quad. The port `.psav` now persists each feeder
-  (`feeder` record + draw rebuild, `test_cpp_port_save_feeder`). Open: the
-  exact retail display-type branch and the retail `.sav` feature list
-  (`notes/static-bait-recon.md`). Interactive LunchBox placement is
-  **wired**: `SWITCH_FENCE_LUNCHBOX`
+  `animaux.tga` 4x4 ground quad with the retail vertex/UV order. The port
+  `.psav` now persists each feeder (`feeder` record + draw rebuild,
+  `test_cpp_port_save_feeder`). Open: the retail `.sav` feature list and a
+  retail `StaticBait` placement confirmation (`notes/static-bait-recon.md`).
+  Interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
   (`0x531c80`) arms feature mode, each ground click creates the dish at that
   point with the 4x4 `FUN_005812b0` overlap check (`&WARNING_BUSY_SPACE`),
   cap 16, price 100 charged to CONSTRUCTION (`0x585d20`); the fence dish push
