@@ -49,9 +49,9 @@ Addresses are virtual addresses in the unpatched `DinoIsland.exe` (image base
 
 | Address | Purpose | Status | Evidence |
 | --- | --- | --- | --- |
-| `0x0056c490` | object/box Eat executor: radius `field_18 × mode`, `0.8r²..1.2r²` band, stand-cell marker, state-3 finish | decompiled, verified | `notes/dino-eat-gate-recon.md`; `test_cpp_lunchbox_eat` |
-| `0x0056c3b0` | element finish: `FUN_00569a00`, mark played, unregister, idle latch | decompiled, verified | same |
-| `0x0055b5b0` | stand-cell search wrapper (`ftol(r+0.5)` cells, minimum-cost candidate) | decompiled, verified | same |
+| `0x0056c490` | object/box Eat executor: radius `field_18 × mode`, `0.8r²..1.2r²` band, stand-cell marker, state-3 finish | decompiled, verified (K-square/tie order open) | `notes/dino-eat-gate-recon.md`; `test_cpp_lunchbox_eat` |
+| `0x0056c3b0` | element finish: `FUN_00569a00`, mark played, unregister, idle latch | decompiled, verified (early-end latch writer open) | same |
+| `0x0055b5b0` | stand-cell search wrapper (`ftol(r+0.5)` cells, minimum-cost candidate) | decompiled, verified (K-square/tie order open) | same |
 | `0x0055cb50` | filled-disc cell enumeration (spiral) | decompiled (K-square/tie order open) | same |
 | `0x0055b780` | per-cell occupancy predicate + squared distance to the dino cell | decompiled, verified | same |
 | `0x0056f7a0` | actor-target executor: `d = GeneralParams 4×4 grid[4·targetClass+selfClass] + self+0x60 + target+0x60`, `0.8d²..1.2d²` | decompiled (no port action uses it yet) | `notes/dino-eat-gate-recon.md` §4 |
