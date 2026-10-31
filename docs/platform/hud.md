@@ -168,8 +168,10 @@ the drawn buttons on windows wider than 800 px. The regression test is
 The HUD time/day fields are driven by `ParkClock`, mirroring the time manager
 `0x0058c1c0`/`0x0058c2f0`/`0x0058c350`:
 
-- `time_scale` is 60.0 (the schedule manager's float, not `Dino.ini`
-  `GameSpeed`); hours/sec = scale/3600, minutes/sec = scale/60;
+- `time_scale` is 40.0 at runtime (the schedule manager's float
+  `GeneralParams+0x1a0`, not `Dino.ini` `GameSpeed`;
+  `notes/show-budget-runtime-probe.md`); hours/sec = scale/3600,
+  minutes/sec = scale/60;
 - the base hour is hard-coded 9 and the day counter starts at 0 (HUD day 1);
 - a day is 12 hours; reaching hour 11 sets the end-of-day flag, then the day
   increments, elapsed resets and the HUD shows `day+1`;

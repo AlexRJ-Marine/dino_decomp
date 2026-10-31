@@ -1929,14 +1929,14 @@ def test_cpp_park_clock():
         assert result.returncode == 0, result.stderr
         assert f"park clock: scale={scale}.0 base=9 time={time} day=1" in result.stdout
 
-    # One game hour at scale 60 is 60 real seconds.
+    # One game hour at the retail default scale 40 is 90 real seconds.
     advanced = subprocess.run(
         [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
-         "--no-vegetation", "--park-time", "10:00", "--park-advance", "60"],
+         "--no-vegetation", "--park-time", "10:00", "--park-advance", "90"],
         capture_output=True, text=True, timeout=120,
     )
     assert advanced.returncode == 0, advanced.stderr
-    assert "park clock: scale=60.0 base=9 time=11:00 day=1" in advanced.stdout
+    assert "park clock: scale=40.0 base=9 time=11:00 day=1" in advanced.stdout
     # 19:59 + 2 s crosses the 11-hour day boundary and rolls to day 2, 09:00.
     rolled = subprocess.run(
         [str(EXE), "--validate", "--lnd", str(ISL01), "--asset-root", str(GAME),
@@ -1944,7 +1944,7 @@ def test_cpp_park_clock():
         capture_output=True, text=True, timeout=120,
     )
     assert rolled.returncode == 0, rolled.stderr
-    assert "park clock: scale=60.0 base=9 time=09:00 day=2" in rolled.stdout
+    assert "park clock: scale=40.0 base=9 time=09:00 day=2" in rolled.stdout
 
 def test_cpp_pachy_lod2_mesh_bind():
     if not EXE.exists() or not (GAME / "Data/Graphics/Actors/Dinos/pachy").exists():

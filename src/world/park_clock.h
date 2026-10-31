@@ -6,8 +6,9 @@
 //
 // Mirrors spScheduleManager's time manager (0x0058c1c0 / 0x0058c2f0 /
 // 0x0058c350). A day is 12 hours; the 11th hour ends it. The constructor
-// pushes 9 (09:00) and GeneralParams stores 60.0; GameSpeed drives the
-// scheduler timer, not this clock. See `notes/NOW.md` (CAM-1/PLACE-1).
+// pushes 9 (09:00) and GeneralParams `+0x1a0` is **40.0** at runtime
+// (`FUN_0058c1c0(40, 9)`; the old 60.0 came from the 4x4 matrix start at
+// `+0x1a8`). See `notes/show-budget-runtime-probe.md`.
 
 #ifndef DINO_WORLD_PARK_CLOCK_H
 #define DINO_WORLD_PARK_CLOCK_H
@@ -19,9 +20,10 @@ struct ParkClock {
     int base_hour = 9;  // hardcoded PUSH 9 in spScheduleManager ctor
     int day = 0;
     double elapsed = 0.0;
-    // GeneralParams.bgd/clock object: 60.0 next to the 10 at +0x1a0;
-    // GameSpeed (Dino.ini) drives the scheduler timer, not this clock.
-    double time_scale = 60.0;
+    // GeneralParams.bgd `+0x1a0` = 40.0 at runtime (Cpg04 probe,
+    // `FUN_0058c1c0(40, 9)`); the 60.0 in older docs was `+0x1a8`, the
+    // matrix start. `--park-time-scale` / the GameSpeed slider override it.
+    double time_scale = 40.0;
     bool new_hour = false;
     bool end_of_day = false;
 

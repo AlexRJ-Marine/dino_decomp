@@ -1557,10 +1557,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `count = int((edgeLen+1)/wallRecord[0])`; `wallRecord[0]` is the runtime
   pitch (not the BWI version/height), and the per-piece display transform is
   OPEN. `src/formats/bwi` + `--bwi-info` parse the 24 walls
-  (`Show.bwi` -> `fence_show_lod1.mesh`, height 8). The show length is the
-  scheduler slot window (`FUN_0058c390`), not a `.shw`/`.bfi` field; the
-  port's 30-minute duration is an explicit placeholder and should become the
-  slot window. Open: the wall display transform, the per-performance/iteration
+  (`Show.bwi` -> `fence_show_lod1.mesh`, height 8). The show start/end is the
+  scheduler slot window (`FUN_0058c390`: `i=int(prev/90)+1`,
+  `end=90*i-45` s at time_scale 40); the performance budget `stShow+0x94` is
+  `3000/40 = 75` real s = **50 park minutes** (`FUN_0057b130`), now the port
+  default. Open: the wall display transform, the per-performance/iteration
   spacing inside the slot and the show-end Victory emitter.
 
 ### SIM-4: Economy and attractions

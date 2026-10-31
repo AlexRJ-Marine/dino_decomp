@@ -71,27 +71,26 @@ Both widgets are created by `0x005234e0` at `panel+0x1e0` / `panel+0x1e4`.
   each valid show it calls `0x0058c8f0` (feature/actor list) and
   `0x0057b130` (activate).
 
-`0x0058c390(offset)` (2026-10-31 correction: the argument is the fixed
-GeneralParams value **10.0**, not the clock; `scheduleList+0x1c = cfg+0x1a0`,
-and the pushed dword is `[cfg+0x1a4] = 10.0`):
+`0x0058c390(offset)` (2026-10-31 correction: the argument is the GeneralParams
+pair at `cfg+0x110`, not the clock; `scheduleList+0x1c = cfg+0x110`, and the
+pushed dword is `[cfg+0x114] = 1800.0`):
 
 ```text
-i      = int(+0x0c * +0x20) + 1          # +0x20 = 1/60 at time_scale 60
-window = i * +0x24 - offset * +0x14      # +0x24 = 60, +0x14 = 1/60
+i      = int(+0x0c * +0x20) + 1          # +0x20 = 1/90 at time_scale 40
+window = i * +0x24 - offset * +0x14      # +0x24 = 90, +0x14 = 1/40
 active = (+0x0c <= window <= +0x08)
 ```
 
-With `time_scale = 60` this is `i = int(prev/60) + 1` and
-`window = 60*i - 10/60` seconds: the show assigned to slot `i` starts on the
-frame that crosses the ~60 s mark (1 game hour per slot). See
+With `time_scale = 40` this is `i = int(prev/90) + 1` and
+`window = 90*i - 45` seconds: the show assigned to slot `i` starts on the
+frame that crosses the ~90 s slot boundary (1 game hour per slot). See
 `notes/show-live-actor-recon.md` section 9.
 
 `0x0057b130(show, result)` also stores the performance budget:
-`show+0x94 = *(float*)(cfg+0x1a0) / time_scale`. GeneralParams has **40.0**
-at `cfg+0x1a0`, so the stored value is **0.6667**; state 4 adds the raw frame
-`dt` to `show+0x90` and ends at `+0x94 <= +0x90`. The unit of that `dt` is
-still OPEN, so this is not yet a duration the port can use (see
-`notes/show-live-actor-recon.md` section 9).
+`show+0x94 = *(float*)(cfg+0x110) / time_scale`. GeneralParams has **3000.0**
+at `cfg+0x110`, so the stored value is **75.0 real seconds** (= 50 park
+minutes at 40x); `dt` is the raw frame delta and state 4/5 ends at
+`+0x94 <= +0x90` (runtime probe `notes/show-budget-runtime-probe.md`).
 
 `0x0058c8f0(manager, show)` fills the show's participant list (`+0xf4`) from
 its cage/team assignment vector (`+0xb0`), skipping any dino that already
@@ -139,7 +138,8 @@ the dword at `show+0xe4` (0..7); the live fields are:
 
 The port's `ShowRuntime` (`src/world/show_runtime.h`) keeps the same state
 numbers and field meanings, with the `.bfi` arena animation replaced by a
-performance length (`duration_minutes_`, 30 park minutes by default):
+performance length (`duration_minutes_`, 50 park minutes by default, matching
+`stShow+0x94 = 3000/40 = 75 real s`):
 
 - state 2 counts `elapsed` in park minutes;
 - a completed performance calls the judge callback once and increments
@@ -188,11 +188,12 @@ shop daily counters `+0x38` → `+0x3c`).
 - The schedule manager ctor passes `PUSH 9` as the base hour and `PUSH 9` as
   the timing-table size; `0x58c1c0` stores `9` in `+0x00`. Free Game starts at
   **09:00**, not a scenario value.
-- The `time_scale` argument is a float from the park/scene object
-  (`+0x1a0`), not `Dino.ini GameSpeed`. `GeneralParams.bgd` contains `60.0`
-  adjacent to the `10` written at `+0x1a0`; 60.0 matches the observed pace and
-  is the port default. `GameSpeed` only drives the scheduler timer
-  (`0x00506d20`).
+- The `time_scale` argument is the float at the park/scene object `+0x1a0`,
+  not `Dino.ini GameSpeed`. Runtime Cpg04 probe (2026-10-31):
+  `FUN_0058c1c0(40.0, 9)`, so `+0x10 = 40.0`; `GeneralParams.bgd` has
+  `+0x1a0 = 40.0`, `+0x110 = 3000.0`, `+0x114 = 1800.0`. The older `60.0`
+  reading was the 4x4 matrix start at `+0x1a8`, not the time scale. `GameSpeed`
+  only drives the scheduler timer (`0x00506d20`).
 - `0x5234e0` clears `panel+0x8d`, so the HUD uses `%.2d:%.2d` (24-hour, no
   AM/PM) for Free Game.
 - The day counter has no explicit initializer; fresh zeroed memory gives 0
@@ -201,8 +202,8 @@ shop daily counters `+0x38` → `+0x3c`).
 ## Open
 
 - The fixed economy-category labels; see `docs/decomp/economy.md`.
-- Runtime confirmation of the 60.0 time scale (the static owner of the
-  `+0x1a0` float is not fully resolved).
+- The exact `iterations` spacing inside a show slot (the slot itself is now
+  exact: `i=int(prev/90)+1`, `end=90*i-45` s).
 
 ## Evidence
 

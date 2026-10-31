@@ -12,6 +12,7 @@ param(
     [switch]$MoverTrace,
     [switch]$MoveProfile,
     [switch]$SimProbe,
+    [switch]$ShowProbe,
     [int]$SimSeconds = 20,
     [int]$MoverHotMs = 2500,
     [switch]$PhysicalInput,
@@ -38,6 +39,14 @@ param(
 #     0x56ef84/0x56f07d/0x56f0d3/0x56f130/0x56f02c) plus 0x56c0c0 element
 #     registration, so every emitted record can be tied to the action record,
 #     the element and its profile +0x60 value.
+#   - -ShowProbe: the show performance budget chain (notes/
+#     show-budget-runtime-probe.md). SHOWBUDGET = the schedule list ctor store
+#     (0x58c4ba, after `fstp [ebx]`), SHOWSTART = the scheduler's slot-rollover
+#     FUN_0057b130 call (0x58c82c), SHOWSET = the display-path +0x94 overwrite
+#     (0x57b211), SHOWCHECK = stShow::update's shared end check in states 4/5
+#     (0x57b81f), SHOWTICK = the state-5 dt add (0x57b8da), RAWDT = the raw
+#     frame dt handed to the park clock (0x58c2fe) for the unit comparison.
+#     Uses the Esc briefing dismissal and suppresses the hot ACTOR trace.
 #
 # Cpg04 (campaign row 3) has 9 fences and 20 dinosaurs.
 # -UnlockCampaigns backs up run/save/dino.dat, writes 8 (all campaigns; the
@@ -82,7 +91,7 @@ if ($VirtualMouse) {
     # Retail stops polling DirectInput when it is not the active window; the
     # proxy reports active when this is set (same contract as the target trace).
     $env:DINO_FORCE_INPUT_ACTIVE = "1"
-    if ($SimProbe -or $MoverTrace) { $env:DINO_VIRTUAL_KEYS = "1" }
+    if ($SimProbe -or $MoverTrace -or $ShowProbe) { $env:DINO_VIRTUAL_KEYS = "1" }
     . (Join-Path $PSScriptRoot "VirtualInput.ps1")
     $previousForeground = [DinoVirtualInputShared]::GetForegroundWindow()
 }
@@ -152,6 +161,59 @@ $errTask = $p.StandardError.ReadToEndAsync()
 function Send([string]$line) {
     $p.StandardInput.WriteLine($line)
     $p.StandardInput.Flush()
+}
+
+# -ShowProbe: the show performance budget (stShow+0x94) and the state-machine dt.
+#
+#   spScheduleManager (0x594b80, called from the world ctor 0x587a6d) builds the
+#   time manager and then the schedule list (FUN_0058c480 at 0x594be1):
+#       fstp dword ptr [ebx]  at 0x58c4b8   -> scheduleList[0]
+#       [ebx+0x14] = time manager (its +0x14 = 1/time_scale)
+#       [ebx+0x1c] = GeneralParams+0x110 ([[..]] = 3000.0, +4 = 1800.0)
+#     Runtime (Cpg04): time_scale = GeneralParams+0x1a0 = 40.0, so
+#     scheduleList[0] = 3000.0/40.0 = 75.0 s (not 40/60 = 0.667).
+#     Break at 0x58c4ba (after the store) so [ebx] already holds the float.
+#   FUN_0058c760 (scheduler tick) at 0x58c82c: FUN_0057b130(show, scheduleList[0]);
+#     show = edi, the pushed budget = [esi].  This is the slot-rollover store.
+#   FUN_0057b200 at 0x57b211 (after `mov [ecx+0x94],eax`): the display/attraction
+#     path can overwrite +0x94 with a computed design value.
+#   FUN_0057b220 = stShow::update(dt); arg1 = dt at [esp+0x28].
+#     state = [esi+0xe4]; jump table 0x57ba08[0..7]:
+#       0 idle, 1 start, 2 wait, 3 ready, 4 collect, 5 perform, 6/7 end.
+#     0x57b81f is the shared end check (`+0x94 <= +0x90`) in states 4/5;
+#     0x57b8da is the state-5 dt add (the address in the recon note is state 5,
+#     not 4).  Both are logged so a state-4-only loop is still covered.
+#   FUN_0058c2f0(dt) at 0x58c2fe: the raw frame dt handed to the park clock, so
+#     the show dt can be compared with the frame dt in the same frame (unit).
+function Install-ShowBudgetProbe {
+    Send 'bp 0x58c4ba'
+    Send ('SetBreakpointCommand 0x58c4ba, "log SHOWBUDGET|list={p:[ebx]}' +
+          '|cfg40={p:[[ebx+0x1c]]}|cfg1a4={p:[[ebx+0x1c]+4]}|tm={p:[ebx+0x14]}' +
+          '|scale={p:[[ebx+0x14]+0x14]}|t={d:GetTickCount()}; run"')
+}
+function Install-ShowProbes {
+    # Show start (FUN_0057b110) and per-performance reset (FUN_0057b150): rare.
+    Send 'bp 0x57b110'
+    Send ('SetBreakpointCommand 0x57b110, "log SHOWBEGIN|show={p:ecx}' +
+          '|d3={d:[ecx+0xd3]}|e0={d:[ecx+0xe0]}|e4={d:[ecx+0xe4]}' +
+          '|t={d:GetTickCount()}; run"')
+    Send 'bp 0x57b150'
+    Send ('SetBreakpointCommand 0x57b150, "log SHOWPERF|show={p:ecx}' +
+          '|elapsed={p:[ecx+0x90]}|budget={p:[ecx+0x94]}|t={d:GetTickCount()}; run"')
+    Send 'bp 0x58c82c'
+    Send ('SetBreakpointCommand 0x58c82c, "log SHOWSTART|show={p:edi}|budget={p:[esi]}' +
+          '|state={d:[edi+0xe4]}|e0={d:[edi+0xe0]}|d3={d:[edi+0xd3]}|t={d:GetTickCount()}; run"')
+    Send 'bp 0x57b211'
+    Send ('SetBreakpointCommand 0x57b211, "log SHOWSET|show={p:ecx}|budget={p:[ecx+0x94]}' +
+          '|d1={d:[ecx+0xd1]}|state={d:[ecx+0xe4]}|t={d:GetTickCount()}; run"')
+    Send 'bp 0x57b81f'
+    Send ('SetBreakpointCommand 0x57b81f, "log SHOWCHECK|show={p:esi}|dt={p:[esp+0x28]}' +
+          '|elapsed={p:[esi+0x90]}|budget={p:[esi+0x94]}|state={d:[esi+0xe4]}' +
+          '|act={d:[esi+0x88]}|t={d:GetTickCount()}; run"')
+    Send 'bp 0x57b8da'
+    Send ('SetBreakpointCommand 0x57b8da, "log SHOWTICK|show={p:esi}|dt={p:[esp+0x28]}' +
+          '|elapsed={p:[esi+0x90]}|budget={p:[esi+0x94]}|state={d:[esi+0xe4]}' +
+          '|t={d:GetTickCount()}; run"')
 }
 
 # Windows PowerShell 5.1 prefixes the first stdin write with a UTF-8 BOM,
@@ -485,6 +547,12 @@ if (-not $game) {
             # Live 18-gene block at spawn (first stack arg = actor+0x3c).
             Send 'bp 0x586520'
             Send 'SetBreakpointCommand 0x586520, "log GEN g={p:[esp+4]} g0a={p:[[esp+4]]} g0b={p:[[esp+4]+4]} g1a={p:[[esp+4]+0xc]} g1b={p:[[esp+4]+0x10]} g2a={p:[[esp+4]+0x18]} g2b={p:[[esp+4]+0x1c]} g3a={p:[[esp+4]+0x24]} g3b={p:[[esp+4]+0x28]}; run"'
+            if ($ShowProbe) {
+                # The schedule-list ctor runs in the world/park ctor (0x587a6d),
+                # i.e. after Start, so the budget probe goes in here.
+                Install-ShowBudgetProbe
+                Install-ShowProbes
+            }
         } else {
             # -NoTrace still needs proof that the mission Start click loaded the
             # park: one one-shot sentinel in the world import, not a trace dump.
@@ -492,6 +560,10 @@ if (-not $game) {
             Start-Sleep -Milliseconds 400
             Send 'bp 0x57dc60'
             Send 'SetBreakpointCommand 0x57dc60, "log PARKREADY fence={p:ecx}; bc 0x57dc60; run"'
+            if ($ShowProbe) {
+                Install-ShowBudgetProbe
+                Install-ShowProbes
+            }
         }
         if ($FileTrace) {
             # Every file the park load opens (CF_ = CreateFileA path), e.g.
@@ -548,6 +620,67 @@ if (-not $game) {
             Set-Content -Path $keys -Value "" -NoNewline -Encoding ascii
             Start-Sleep -Milliseconds 400
         }
+        function Sample-ShowSched([string]$label) {
+            # Bounded scheduler window (the tick is once per frame, so no
+            # conditions are needed): slot, rollover flags, park clock, array and
+            # the candidate show's gates. 0x58c790 is only reached with a
+            # non-null show, so every deref there is valid.
+            Send 'pause'
+            Start-Sleep -Milliseconds 300
+            Send 'bp 0x58c760'
+            Send ('SetBreakpointCommand 0x58c760, "log SHOWSCHED|' + $label +
+                  '|sched={p:ecx}|slot={d:[ecx+0x18]}|f28={d:[[ecx+0x14]+0x28]}' +
+                  '|f29={d:[[ecx+0x14]+0x29]}|clock={p:[[ecx+0x14]+8]}' +
+                  '|prev={p:[[ecx+0x14]+0xc]}|ts={p:[[ecx+0x14]+0x10]}' +
+                  '|off={p:[[ecx+0x1c]+4]}|arr={p:[ecx+8]}; run"')
+            Send 'bp 0x58c790'
+            Send ('SetBreakpointCommand 0x58c790, "log SHOWSHOW|' + $label +
+                  '|show={p:edi}|slot={d:[esi+0x18]}|d3={d:[edi+0xd3]}' +
+                  '|e0={d:[edi+0xe0]}|e4={d:[edi+0xe4]}|budget={p:[edi+0x94]}' +
+                  '|elapsed={p:[edi+0x90]}|iter={d:[edi+0x8c]}|slot100={d:[edi+0x100]}' +
+                  '|clock={p:[[esi+0x14]+8]}|t={d:GetTickCount()}; run"')
+            Send 'bp 0x58c7c1'
+            Send ('SetBreakpointCommand 0x58c7c1, "log SHOWTEST|' + $label +
+                  '|show={p:edi}|res={d:al}|clock={p:[[esi+0x14]+8]}' +
+                  '|prev={p:[[esi+0x14]+0xc]}; run"')
+            Send 'run'
+            Start-Sleep -Milliseconds 600
+            Send 'pause'
+            Start-Sleep -Milliseconds 300
+            Send 'bc 0x58c760'
+            Send 'bc 0x58c790'
+            Send 'bc 0x58c7c1'
+            Send 'run'
+            Write-Host "show scheduler sample: $label"
+        }
+        function Sample-ShowDt([string]$label) {
+            # stShow::update(dt) is 0x57b220; the call site at 0x589e8f (world
+            # update 0x589cd0) pushes its own arg1 = [esp]. Its caller 0x586abe
+            # pushes [esp+0x18]. RAWDT is the dt handed to the park clock
+            # (FUN_0058c2f0(dt), arg1 at [esp+8] after `push esi`). Same frame,
+            # same GetTickCount => the unit is directly comparable.
+            Send 'pause'
+            Start-Sleep -Milliseconds 300
+            Send 'bp 0x589e8f'
+            Send ('SetBreakpointCommand 0x589e8f, "log SHOWDT|' + $label +
+                  '|show={p:ecx}|dt={p:[esp]}|t={d:GetTickCount()}; run"')
+            Send 'bp 0x586abe'
+            Send ('SetBreakpointCommand 0x586abe, "log UPDT|' + $label +
+                  '|owner={p:ecx}|dt={p:[esp]}|t={d:GetTickCount()}; run"')
+            Send 'bp 0x58c2fe'
+            Send ('SetBreakpointCommand 0x58c2fe, "log RAWDT|' + $label +
+                  '|dt={p:[esp+8]}|clock={p:[esi+8]}|prev={p:[esi+0xc]}' +
+                  '|t={d:GetTickCount()}; run"')
+            Send 'run'
+            Start-Sleep -Milliseconds 600
+            Send 'pause'
+            Start-Sleep -Milliseconds 300
+            Send 'bc 0x589e8f'
+            Send 'bc 0x586abe'
+            Send 'bc 0x58c2fe'
+            Send 'run'
+            Write-Host "show dt sample: $label"
+        }
         if ($SimProbe) { Sample-Sim 'PRE' }
 
         # Mission briefing pages (1/4 ...): the green check closes/advances.
@@ -555,7 +688,7 @@ if (-not $game) {
         # accurate in the menus, and one stray click on the HUD objectives
         # button pauses the simulator again. Escape closes the briefing
         # (probe-postclick/probe-postesc in notes/harness: dt = 0 -> dt > 0).
-        if ($MoverTrace) {
+        if ($MoverTrace -or $ShowProbe) {
             Send-VirtualKeys '01' 250          # DIK_ESCAPE
             Start-Sleep -Milliseconds 900
             Save-Window "campaign-running"
@@ -567,6 +700,16 @@ if (-not $game) {
             }
             Start-Sleep -Seconds 5
             Save-Window "campaign-running"
+        }
+        if ($ShowProbe) {
+            # The briefing pauses the sim, so the samples start after the
+            # Escape hand-off. Both are bounded windows: no conditions.
+            Sample-ShowSched 'EARLY'
+            Sample-ShowDt 'EARLY'
+            # The first slot boundary is 45 s (i*90 - 1800/40); sample the gate
+            # there too so the parked show's flags are recorded at that point.
+            Start-Sleep -Seconds 44
+            Sample-ShowSched 'BOUNDARY'
         }
         if ($SimProbe) {
             Sample-Sim 'POSTCLICK'
@@ -600,7 +743,7 @@ if (-not $game) {
             Start-Sleep -Milliseconds 400
             # The action selector fires for every dino every frame (~500/s); the
             # mover probe does not need it and it dominates the frame time.
-            if (-not $MoverTrace) {
+            if (-not $MoverTrace -and -not $ShowProbe) {
                 Send 'bp 0x56e670'
                 Send 'SetBreakpointCommand 0x56e670, "log ACTOR beh={p:ecx} actor={p:[ecx+0x28]} x={p:[[ecx+0x28]+8]} y={p:[[ecx+0x28]+0xc]} f1e0={p:[[ecx+0x28]+0x1e0]} f1dc={p:[[ecx+0x28]+0x1dc]} act={p:[[ecx+0x28]+0x2c0]} tr={p:[[ecx+0x28]+0x2a0]} r={p:[[ecx+0x28]+0x27c]} secu={p:[[ecx+0x28]+0x24c]}; run"'
             }
@@ -718,6 +861,12 @@ if (-not $game) {
                 Send 'run'
             }
             Save-Window "campaign-sim"
+        } elseif ($ShowProbe) {
+            # -ShowProbe with -NoTrace skips the dino trace block above, so run
+            # the show window (and the show probes installed before Start) here.
+            Resume
+            Start-Sleep -Seconds $SimSeconds
+            Save-Window "campaign-show"
         }
 
         if ($BuyDino) {
@@ -769,3 +918,13 @@ $err | Set-Content -Path $errPath -Encoding utf8
 
 Write-Host "--- campaign trace matches ---"
 Select-String -Path $logPath -Pattern "FENCE |DINORESET|ACTOR |CANADD|PROVIDER|PARKREADY|EXCEPTION|MOVSTART|MOVAQUEUE|TURNPRE|TURNPOST|TURNPLAN|EMIT|SETLEVEL|EATSM|ACTDONE|MOVTICK|REGACT|MP0|MP1|MP2|MP3|MP4" | Select-Object -First 160
+
+if ($ShowProbe) {
+    Write-Host "--- show budget probe ---"
+    Select-String -Path $logPath -Pattern "SHOWBUDGET|SHOWSTART|SHOWSET|SHOWCHECK|SHOWTICK|SHOWEND|SHOWSCHED|SHOWSHOW|SHOWTEST|SHOWBEGIN|SHOWPERF" |
+        Select-Object -First 40 | ForEach-Object { $_.Line }
+    $raw = @(Select-String -Path $logPath -Pattern "RAWDT").Count
+    $tick = @(Select-String -Path $logPath -Pattern "SHOWTICK").Count
+    $check = @(Select-String -Path $logPath -Pattern "SHOWCHECK").Count
+    Write-Host ("show probe counts: RAWDT={0} SHOWTICK={1} SHOWCHECK={2}" -f $raw, $tick, $check)
+}

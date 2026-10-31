@@ -136,7 +136,7 @@ std::optional<int> Game::boot_budgets_and_clock() {
         std::fprintf(stderr, "free game scenario: %s\n", e.what());
     }
     park_session.clock.time_scale =
-        opt.park_time_scale > 0.0f ? opt.park_time_scale : 60.0;
+        opt.park_time_scale > 0.0f ? opt.park_time_scale : 40.0;
     if (!opt.park_time.empty()) {
         int hour = 0;
         int minute = 0;

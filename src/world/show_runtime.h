@@ -83,10 +83,12 @@ public:
     bool set_enabled(int index, bool enabled);
     bool set_valid(int index, bool valid);
 
-    // Performance length in park minutes. Retail's own length is driven by
-    // the arena element animations; this is the port's placeholder until the
-    // `.bfi` arena is simulated. Zero completes a performance on the next
-    // tick (test hook).
+    // Performance length in park minutes. Retail's `stShow+0x94` is the
+    // GeneralParams+0x110 budget (3000 game seconds) / time_scale:
+    // 3000/40 = 75 real seconds = **50 park minutes** at the measured
+    // time_scale 40 (`notes/show-budget-runtime-probe.md`; Cpg04's show never
+    // performs, so this is the budget field, not a measured performance).
+    // Zero completes a performance on the next tick (test hook).
     void set_duration_minutes(float minutes) { duration_minutes_ = minutes; }
     float duration_minutes() const { return duration_minutes_; }
 
@@ -146,7 +148,7 @@ private:
     std::vector<ParkShow> shows_;
     int last_day_ = -1;
     int last_hour_ = -1;
-    float duration_minutes_ = 30.0f;
+    float duration_minutes_ = 50.0f;
 };
 
 }  // namespace dino

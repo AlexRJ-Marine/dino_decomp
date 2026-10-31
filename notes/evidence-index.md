@@ -16,6 +16,7 @@ add a row when a claim becomes something later work depends on.
 | `.bbi` construction cost is file offset 21 | `docs/formats/bbi.md`, `notes/building-def-record-recon.md` | `tests/test_bbi.py::test_construction_cost_is_file_offset_21` |
 | `.bfi` weight lists / score steps are dead editor data | `docs/decomp/show-score.md` | `notes/show-score-recon.md` |
 | Show judge score = 5-float weighted sum | `docs/decomp/show-score.md` | `tests/test_app_cpp.py` (show tests) |
+| Park clock time_scale = **40.0** (not 60) and show budget `stShow+0x94 = GeneralParams+0x110/time_scale = 3000/40 = 75 real s = 50 park minutes`; slot boundary `i=int(prev/90)+1`, `end=90*i-45` s; `dt` is raw real seconds. Cpg04's show is closed (`+0xd3=0`) and invalid (`+0xe0=0`), so no performance ran | `notes/show-budget-runtime-probe.md`, `docs/decomp/park-time.md`, `notes/show-live-actor-recon.md` s9 | x32dbg `SHOWBUDGET`/`SHOWDT`/`RAWDT` samples (`notes/harness/show-budget.log`); `test_cpp_park_clock` (scale 40, 1 game hour = 90 s) |
 | Visitor attraction score + needs decay | `docs/decomp/visitor-ai.md` | `tests/test_app_cpp.py::test_cpp_sim2b_visitor_state_machine` |
 | Employee tasks are the hourly feeding queue | `docs/decomp/employee-ai.md` | `notes/employee-ai-recon.md` |
 | Dinosaur chooser / `.bai` scoring | `docs/decomp/dinosaur-actions.md`, `notes/dino-action-chooser-recon.md` | `tests/test_app_cpp.py::test_cpp_dino_action_loop` |

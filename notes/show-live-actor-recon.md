@@ -119,15 +119,16 @@ Scheduler (`FUN_0058c2f0`/`FUN_0058c760`/`FUN_0058c390`):
   `FUN_0057ba50()`, `FUN_00576b80(0)` and `FUN_0057fe40(+0x94)`.
 - `stShow+0xe4`: 0 idle, 1 starting/running, 2 performing.
 
-**Performance length:** there is **no stShow duration field and no `.shw`
-length field**. The bound is the scheduler slot window (`FUN_0058c390`):
-`i = (int)(sched[0xc]*sched[0x20]) + 1; end = i*sched[0x24] - time*sched[0x14]`;
-the show runs while the window is active and `FUN_0058c8f0` +
-`FUN_0057b130` end it at the slot boundary. If the slot ends mid-performance
-the show ends there (no carry-over). The exact `sched+0x24`/`+0x20` unit
-values and the `iterations` spacing within the slot are OPEN. The port's
-30-minute `ShowRuntime` duration is therefore an explicit placeholder; it
-should become the slot window, not a `.shw`/`.bfi` length.
+**Performance length:** the scheduler slot window (`FUN_0058c390`) is the
+start/end boundary; `stShow+0x94` is the performance budget (not a `.shw`
+length). Runtime probe (`notes/show-budget-runtime-probe.md`):
+`+0x94 = GeneralParams+0x110 / time_scale = 3000.0/40.0 = 75.0` real seconds
+= **50 park minutes**. State 4 adds raw `dt` to `+0x90` and ends at
+`+0x94 <= +0x90`; the judge can end earlier. Cpg04's show is closed
+(`+0xd3 = 0`) and invalid (`+0xe0 = 0`), so no performance was observed — the
+75 s is the field value, not a measured run. The port's `ShowRuntime` duration
+is now 50 park minutes at the default time_scale 40. The exact `iterations`
+spacing within the slot remains open.
 
 ## 7. Arena wall geometry (`FUN_00584090` / `FUN_00584200`)
 
@@ -189,7 +190,7 @@ deferred until the display transform is resolved; no yaw/scale/Z is guessed.
 ## 9. Scheduler slot boundary (2026-10-31, exact)
 
 `FUN_0058c1c0(time_scale, 9)` is the time manager: `+0x00 = 9` (base
-hour), `+0x10 = time_scale` (**60.0** from `GeneralParams.bgd` `+0x1a8`),
+hour), `+0x10 = time_scale` = **40.0** at runtime (Cpg04 probe; `cfg+0x1a0`),
 `+0x14 = 1/time_scale`, `+0x18 = time_scale/60`, `+0x1c = 60/time_scale`,
 `+0x20 = time_scale/3600`, `+0x24 = 3600/time_scale`. `FUN_0058c2f0` adds the
 raw frame `dt` to `+0x08` and copies the old value to `+0x0c`; the clock is
@@ -206,29 +207,28 @@ end  = i * sched[0x24] - offset * sched[0x14];
 cross = (end >= prev) && (end <= now);
 ```
 
-The `offset` argument is **not the clock**: at `0x58c7b5` it is
-`[scheduleList+0x1c] -> +4`, and `scheduleList+0x1c = cfg+0x1a0`; the field at
-`cfg+0x1a4` is the fixed GeneralParams value **10.0**. With `time_scale=60`:
+The `offset` argument is **not the clock**: `scheduleList+0x1c = cfg+0x110`
+(the config pair), and the pushed dword is `[cfg+0x114] = 1800.0`. With
+`time_scale = 40`:
 
 ```text
-i = (int)(prev / 60) + 1
-end = i * 60 - 10.0/60 = 60*i - 0.1667 s
+i = (int)(prev / 90) + 1
+end = i * 90 - 1800/40 = 90*i - 45 s
 ```
 
-So the scheduler starts the show assigned to slot `i` on the frame that
-crosses the roughly 60 s marks (10 slots, 09:00 base); the 11th hour ends the
-day. This is **1 game hour per slot** at 1 game minute per real second, not
-72-minute slots.
+So slot boundaries are at 45 s, 135 s, 225 s, ... (09:30, 10:30, ... game
+time); the slot length is 3600/40 = 90 real seconds = **1 game hour**. The
+11th hour ends the day.
 
 `FUN_0057b130(show, result)` sets the performance budget `show+0x94` to
-`scheduleList[0] = *(float*)(cfg+0x1a0) * (1/time_scale)`. GeneralParams
-stores **40.0** at `cfg+0x1a0`, so the stored budget is **0.6667**. State 4
-(`0x57b8da`) adds the raw `dt` to `show+0x90` and ends the performance when
-`+0x94 <= +0x90`. The arithmetic and object chain are exact; the **unit of
-that `dt`/`+0x94` is OPEN** (0.667 real seconds would be implausible), so the
-port keeps its explicit 30-minute `ShowRuntime` placeholder until a runtime
-probe reads `show+0x94`/`+0x90` and the `dt` at `0x57b81f`. Do not hardcode
-40 or 60 minutes from the field value alone.
+`scheduleList[0] = *(float*)(cfg+0x110) * (1/time_scale) = 3000.0/40.0 =
+**75.0 real seconds** (= 50 park minutes at 40x). `dt` is raw real seconds,
+bit-identical to the park-clock dt; `show+0x90 += dt` and the shared end
+check (`0x57b81f`, reached from states 4 and 5) ends at `+0x94 <= +0x90`
+(the `0x57b8da` `+0x90 += dt` site is **state 5**, not state 4). Cpg04's show
+is closed (`+0xd3 = 0`) and invalid (`+0xe0 = 0`), so no performance ran —
+the 75 s is the field value, not a measured run. The port's `ShowRuntime`
+duration is now 50 park minutes at the default `time_scale` 40.
 
 ## 10. Live-show recipe (latest)
 
@@ -254,11 +254,12 @@ Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bf
 ## Open
 
 1. Exact show-end Victory emitter (retail direct emitter not found).
-2. Scheduler slot scale: **resolved** (`FUN_0058c1c0(60, 9)`,
-   `FUN_0058c390`: `i=int(prev/60)+1`, `end=60*i-10/60` s; section 9). The
-   remaining show-length datum is the unit of `show+0x94` (0.667 from
-   `field_1a0=40`/`time_scale`): probe `show+0x94`/`+0x90` and the `dt` at
-   `0x57b81f` before replacing the port's 30-minute placeholder.
+2. Scheduler slot and budget: **resolved** (`FUN_0058c1c0(40, 9)`,
+   `FUN_0058c390`: `i=int(prev/90)+1`, `end=90*i-45` s; `show+0x94 =
+   3000/40 = 75` real s = 50 park minutes; section 9). Cpg04's show never
+   performs because `+0xd3=0`/`+0xe0=0`, so the performance length is the
+   field value, not a measured run; a park with an open/valid show would
+   confirm the 75 s end.
 3. `.bfi` `score_steps`/`attribute_sets` are unused in this build (negative
    result).
 4. The cast writer and the scheduler start/end are now mapped

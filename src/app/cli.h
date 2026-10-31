@@ -120,7 +120,7 @@ struct Options {
     std::vector<std::string> show_participant_specs;  // NAME:I,J
     std::vector<std::string> show_hour_specs;         // NAME:SLOT
     std::vector<std::string> show_iteration_specs;    // NAME:N
-    float show_duration_minutes = 30.0f;              // --show-duration
+    float show_duration_minutes = 50.0f;              // --show-duration
     bool show_locked = false;                         // --show-locked
     bool show_status = false;                         // --show-status
     std::string camera_target;

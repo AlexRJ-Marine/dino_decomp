@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - show clock: runtime time_scale=40.0 (not 60), slot boundary i=int(prev/90)+1/end=90i-45 s, show+0x94=3000/40=75 real s=50 park minutes; port ParkClock/ShowRuntime/--show-duration defaults and test_cpp_park_clock updated; Cpg04 show closed d3=0/e0=0 so no performance ran (negative); full suite 543
 - 2026-10-31 - docs: show scheduler slot boundary exact - FUN_0058c390's argument is the GeneralParams 10.0 offset (not the clock); time_scale 60 -> i=int(prev/60)+1, end=60i-10/60 s, one game hour per slot; show+0x94 = field_1a0/time_scale = 0.667 with the dt unit OPEN, so the ShowRuntime 30-minute placeholder stays until a 0x57b81f probe
 - 2026-10-31 - probe: mover return-address attribution - per-frame 0x34/0x35 = FUN_00574450 mover tick (0x57466d walk/0x57469c run), 0x27+0x20+0x20 lunge = FUN_005741c0 case 0 (caller 0x56ef84); 180 s run shows the item/Eat path (FUN_00569660 24 kind-8, SetLevel 7x, item sites), correcting the 60 s no-Eat negative; fast 385
 - 2026-10-31 - feat: paddock Feeding Dish wired - SWITCH_FENCE_LUNCHBOX arms feature mode (deferred pending_build_tool), each ground click places a LunchBox at the point with the 4x4 FUN_005812b0 BUSY_SPACE check, cap 16 (0x527150), price 100 to CONSTRUCTION (0x585d20), mode persists after placement; tests cover boot hook, UI switch, persistence and cap; full suite 543
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - docs: show arena wall DDA mapped - stPerimeter/stWall per-cell pieces, count=int((edgeLen+1)/wallRecord[0]); wallRecord[0] is the runtime pitch (not BWI version/height); per-piece display transform and Z remain OPEN, so no wall geometry is guessed; .bwi parser already committed
 - 2026-10-31 - review fixes + .bwi parser: paddock-index bounds in RunAway/Exploration, shared dino_graph_node_names, integer RunAway box, discriminating current-cost selftest (249), Eat item-list assertion; new src/formats/bwi + --bwi-info (24/24, test); corrected Victory/attach-list evidence; fast 385
 - 2026-10-31 - docs: show performance length is the scheduler slot window - no stShow/.shw duration field; FUN_0058c390 bounds the show and FUN_0058c8f0/FUN_0057b130 end it at the slot boundary; the port's 30-minute ShowRuntime duration is an explicit placeholder
-- 2026-10-31 - docs: live show cast writer, timer and score mapped - FUN_00583060/FUN_00582840 cast, FUN_0058c760/0057b110/0057ba50/0057b130 timer, FUN_00581770 five-float score; Victory emitter still open; exact-RunAway full suite 538 passed
 
 ## Blockers
 
