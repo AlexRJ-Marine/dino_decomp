@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - world: --dino-info report (live 11 gauges/needs/food/rest/health/value) and sell-text gate proof (dino+0x65 = height byte 1, 20/20 Cpg04); selftest 237, fast 384
 - 2026-10-31 - world: stable ImportedDino ids for paddock occupants, fence info, save/load and sell; old saves fall back to the 0-based index; sell test now needs no index shift; selftest 237, fast 384
 - 2026-10-31 - economy: dino sell flow - market value x sellback to budget/VENTES, paddock capacity release, actor/draw removal, --sell-dino hook; Cpg04 value=2400 refund=2400 dinos 20->19; selftest 237, fast 384
 - 2026-10-31 - formats: genotype-rarity market value (def+0x19c) solved, 20/20 Cpg04 f1ec values match; sell economy path decompiled; selftest 235, fast 384
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - AI: exact health pass - 5s regen (FUN_005725e0), 10s starvation damage, 67/34/0 bands, state 4 + 0x15 knocked-down mover; phenotype maxHP/regen wired; selftest 233, fast 384
 - 2026-10-31 - AI/phenotype: max health + regen formula solved, 20/20 Cpg04 DINORESET rows match (hp=200..67, rg=17..3); selftest 225, fast 383
 - 2026-10-31 - AI: exact rest gauge + sleep recovery: Actions.bad f[105..155] scale table, instant 0x1e republish (+10/frame), REPOS=ftol(gauge*99/max); max rest formula solved and 20/20 Cpg04 runtime rows match; selftest 225, fast 383
-- 2026-10-31 - AI: fixed-rect enclosure confinement (adopt paddock once) + 600 s Cpg04 soak 0 escapes/0 blocked; test_cpp_dino_confinement_soak; fast 381
 
 ## Blockers
 
