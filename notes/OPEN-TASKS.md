@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 03:35. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 03:45. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 56 open items.
 
@@ -122,7 +122,7 @@ Generated from `TASKS.md` on 2026-10-31 03:35. Do not edit; regenerate with `scr
 - [ ] Extend the sell click to roads, buildings, dinosaurs, features and shows
 
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
-- [ ] Draw the interactive `ivwDinoInfo` widgets/tabs and the sell text
+- [ ] Interactive rest: world-pick opener (pixel-ID buffer), needs/visitor/
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
 - [ ] Interactive `REQUEST_SELL_DINO` hit test/panel (stable ids done).
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
