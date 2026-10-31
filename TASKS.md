@@ -2366,6 +2366,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).
+  `FUN_00576d50` is decoded (level 0/1/2 -> capacity/2-3/1-3, level 3 invalid;
+  charges `def+0x8` price through `*DAT_0067572c`), but the **job level
+  producer** at `*(set+0x5c+idx*8)` and the hook identity are not traced.
+  Probe `0x576d50` at a Cpg04 hour rollover; `notes/food-refill-recon.md`.
 - [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
   `ftol(dino+0x1ec * SellBackFactor)`, where `+0x1ec` is the 18-gene
   genotype-rarity value (allele prices 500/100/50), independent of the Market
@@ -2430,7 +2434,12 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
   persistence of feeders.
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
-  top of the rect clamp.
+  top of the rect clamp. Decompiled: base ctor sets `actor+0x13 = 1`; the
+  visitor `0x55af20` blocks every class except 0, and class 1 unless
+  `(cell & 0x7ff) == actor+0x28`. `actor+0x28` is still unidentified
+  (`DINORESET` read `BAADF00D` at reset), so do not wire a naive class-1
+  block. Probe the callback on a walking Cpg04 dino next to a building;
+  `notes/dino-footprint-recon.md`.
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
   literal writer exists outside the mover; the port starts from the spawn
