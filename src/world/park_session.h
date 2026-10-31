@@ -3,6 +3,7 @@
 #include <array>
 #include <map>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "../formats/bbi.h"
@@ -45,6 +46,9 @@ struct ParkSession {
     // `.bfi` LunchBox/StaticBait item actors (`saFoodSource` created by the
     // feature); the dinosaur Eat target and `FUN_00576e50` source.
     std::vector<Feeder> feeders;
+    // Construction-kit feature selected by `FUN_0052bbb0` (`SWITCH_BAIT_*`
+    // or a feature tile); empty = the fence panel's LunchBox default.
+    std::string selected_feature;
     EmployeeSystem employee_system;
     std::vector<EmployeeProfile> employee_profiles;
     ShowRuntime show_runtime;

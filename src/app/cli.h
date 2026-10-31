@@ -108,6 +108,8 @@ struct Options {
     bool fence_lunchbox = false;
     int lunchbox_prefill = 0;
     std::string lunchbox_pos;
+    std::string place_bait;
+    std::string bait_pos;
     int hire_nutritionists = 0;
     int fire_nutritionists = 0;
     bool feed_now = false;

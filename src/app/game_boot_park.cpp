@@ -795,10 +795,49 @@ std::optional<int> Game::boot_food_definitions() {
             if (!have_position) {
                 std::printf("lunchbox: no position (use --lunchbox-pos)\n");
             } else {
-                place_lunchbox_at(fx, fy, false);
+                place_feature_at(bfi, fx, fy, false);
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "lunchbox: %s\n", e.what());
+        }
+    }
+    if (!opt.place_bait.empty()) {
+        try {
+            const dino::BfiFeature bfi = dino::load_bfi(resolve_asset(
+                opt.asset_root,
+                "Data/Design/attractions/features/" + opt.place_bait +
+                    ".bfi"));
+            float fx = 0.0f;
+            float fy = 0.0f;
+            bool have_position = false;
+            int cx = 0;
+            int cy = 0;
+            if (std::sscanf(opt.bait_pos.c_str(), "%d,%d", &cx, &cy) == 2) {
+                fx = (static_cast<float>(cx) + 0.5f) *
+                     park_session.build_grid.cell_size;
+                fy = (static_cast<float>(cy) + 0.5f) *
+                     park_session.build_grid.cell_size;
+                have_position = true;
+            } else if (!park_session.paddocks.empty()) {
+                const dino::WorldRect& rect =
+                    park_session.paddocks.front().rect;
+                fx = (static_cast<float>(std::min(rect.x0, rect.x1)) +
+                      static_cast<float>(std::max(rect.x0, rect.x1)) +
+                      1.0f) *
+                     0.5f;
+                fy = (static_cast<float>(std::min(rect.y0, rect.y1)) +
+                      static_cast<float>(std::max(rect.y0, rect.y1)) +
+                      1.0f) *
+                     0.5f;
+                have_position = true;
+            }
+            if (!have_position) {
+                std::printf("bait: no position (use --bait-pos)\n");
+            } else {
+                place_feature_at(bfi, fx, fy, false);
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "bait: %s\n", e.what());
         }
     }
     if (opt.lunchbox_prefill > 0 && !park_session.paddocks.empty()) {
@@ -814,10 +853,13 @@ std::optional<int> Game::boot_food_definitions() {
                           1.0f) * 0.5f;
         std::printf("lunchbox: prefill rect=%d,%d..%d,%d\n", rect.x0,
                     rect.y0, rect.x1, rect.y1);
+        const dino::BfiFeature lunchbox_bfi = dino::load_bfi(resolve_asset(
+            opt.asset_root,
+            "Data/Design/attractions/features/LunchBox.bfi"));
         for (int i = 0; i < opt.lunchbox_prefill; ++i) {
             const float px = cx - 6.5f + static_cast<float>(i % 3) * 5.0f;
             const float py = cy - 14.5f + static_cast<float>(i / 3) * 4.0f;
-            place_lunchbox_at(px, py, false);
+            place_feature_at(lunchbox_bfi, px, py, false);
         }
         std::printf("lunchbox: prefill=%d\n", opt.lunchbox_prefill);
     }

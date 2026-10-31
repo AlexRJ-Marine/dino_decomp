@@ -4800,7 +4800,7 @@ def test_cpp_lunchbox_feature_mode_and_busy_space():
     assert result.returncode == 0, result.stderr
     log = result.stdout
     assert "fence lunchbox: placed at 456.0,339.9" in log
-    assert "fence lunchbox: busy space at 456.0,339.9" in log
+    assert "feature: busy space at 456.0,339.9" in log
     assert "construction=1/100" in log
     assert "construction=2/200" not in log
 
@@ -4842,6 +4842,70 @@ def test_cpp_lunchbox_cap_16():
     assert "lunchbox: prefill=15" in log
     assert ("fence lunchbox: placed at 456.0,339.9 price=100 budget=74900 "
             "construction=1/100") in log
+
+
+@pytest.mark.slow
+def test_cpp_static_bait_place():
+    """The generic `.bfi` feature path places the ground-tile baits: Flower
+    (kind 0, 10000/70, price 10) and Pumpkin (kind 3, price 50), with the
+    full-texture `animaux.tga` quad (`display=3 drew=1`)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    base = [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width",
+            "160", "--height", "120", "--no-vsync", "--no-save-config",
+            "--lnd", str(isl04), "--asset-root", str(GAME),
+            "--no-vegetation", "--no-water", "--wld-park", str(wld),
+            "--no-build", "--park-budget", "75000"]
+    result = subprocess.run(
+        base + ["--place-bait", "StaticBaitFlower", "--bait-pos", "113,78"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert ("feature: StaticBaitFlower kind=0 at 454.0,314.0 "
+            "quantity=10000 nutrition=70 radius=2.0 display=3 drew=1 "
+            "actions=EatBait,EatBaitForSmallies") in log
+    result = subprocess.run(
+        base + ["--place-bait", "StaticBaitPumpkin", "--bait-pos", "113,78"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "feature: StaticBaitPumpkin kind=3" in result.stdout
+
+
+@pytest.mark.slow
+def test_cpp_static_bait_ui():
+    """`OPEN_CONSTRUCTION` (764,135) -> `OPEN_CONSTRUCTION_KIT` (648,145) ->
+    `SWITCH_FEATURE_CATEGORY_BAIT` (111,259) -> `SWITCH_BAIT_FLOWER`
+    (52,332) -> ground click. The generic placement charges the `.bfi` price
+    10 to CONSTRUCTION (`0x585d20`) and has no LunchBox 16 cap."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
+         "800", "--height", "600", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-build", "--park-budget", "75000",
+         "--park-click", "764,135", "--park-click", "648,145",
+         "--park-click", "111,259", "--park-click", "52,332",
+         "--ground-click", "400,330"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "park click 52,332 -> bait StaticBaitFlower" in log
+    assert "feature: StaticBaitFlower kind=0" in log
+    assert ("feature: placed at 463.5,327.4 price=10 budget=74990 "
+            "construction=1/10") in log
 
 
 def test_cpp_employee_info():

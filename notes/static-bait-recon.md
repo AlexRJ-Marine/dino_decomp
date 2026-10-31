@@ -79,12 +79,32 @@ The port's `.bfi` parser already exposes `price`, `food_kind`,
 `switch_key`, `display_type`, `textures`; `tests/test_bfi.py::test_static_bait_variants`
 locks the five rows against the retail files.
 
+## Port status (2026-10-31)
+
+Wired: `BfiFeature.display_type`; `Game::place_feature_at` (generic; the
+LunchBox bowl/mesh path plus the `display_type 3` full-texture ground quad);
+`--place-bait NAME --bait-pos X,Y`; the construction-kit UI path
+`OPEN_CONSTRUCTION` (764,135) -> `OPEN_CONSTRUCTION_KIT` (648,145) ->
+`SWITCH_FEATURE_CATEGORY_BAIT` (111,259) -> `SWITCH_BAIT_FLOWER` (52,332) ->
+ground click. The five switches map through their `.bfi` `switch_key` to
+`park_session.selected_feature`; the generic tool 7 path loads the `.bfi` and
+applies the 4x4 overlap/budget, with the 16 cap only for the LunchBox class.
+`--place-bait` is the uncharged boot hook; the UI/ground-click path charges
+CONSTRUCTION. Tests: `test_static_bait_variants` (data),
+`test_cpp_static_bait_place`, `test_cpp_static_bait_ui`; full suite 546.
+
+The ground quad uses the full `animaux.tga` UV (0,0)-(1,1), footprint 4x4,
+yaw 0, terrain Z + 0.08. The exact retail display-type branch/quad builder
+inside the `FUN_005f4e10` virtual (`vtable+0x28`) remains OPEN; the atlas
+reading is disproven (the texture is one 128x128 image, not a grid).
+
 ## Open
 
-1. The ground-tile visual: `display_type 3` uses `animaux.tga` but the atlas
-   UV/tile selection for each bait is not decoded; do not draw a guessed quad.
+1. The ground-tile visual: the full-texture quad is the only data-supported
+   reading; the exact display-type branch/UV builder inside the
+   `FUN_005f4e10` virtual remains OPEN.
 2. The exact per-`SWITCH_BAIT_*` callback binding (the selection mechanism is
-   shared and proven).
+   shared and proven; the port maps by the `.bfi` `switch_key`).
 3. The live `AnimalBait*` actor behavior (moving goat/cow/etc.) is not part of
    this static path.
 

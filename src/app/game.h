@@ -624,7 +624,8 @@ private:
                            int id = -1);
     void clear_imported_dinos();
     bool sell_dino(int index);  // FUN_00533a00: credit, capacity, draw
-    bool place_lunchbox_at(float x, float y, bool charge);  // FUN_0053acd0
+    bool place_feature_at(const dino::BfiFeature& bfi, float x, float y,
+                          bool charge);  // FUN_0053acd0
     void upload_vegetation();
     void release_vegetation();
     const dino::WorldRect* selected_paddock_rect();

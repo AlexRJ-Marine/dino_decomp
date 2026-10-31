@@ -960,6 +960,42 @@ bool ParkHud::click(int x, int y, std::string& action) {
         return true;
     }
 
+    // Construction-kit static-bait switches (`SWITCH_BAIT_*`): the `.bfi`
+    // `switch_key` selects the feature (`FUN_0052bbb0`); the next ground
+    // click uses the generic `FUN_0052b0d0` placement.
+    if (name == "SWITCH_FEATURE_CATEGORY_BAIT") {
+        // `LAB_00531a80`: category 5 (bait) shows/enables the bait group.
+        for (Widget& widget : overlay.widgets) {
+            if (widget.name == "CONSTRUCTION_KIT_BAIT_FEATURE_GROUP" ||
+                widget.parent == "CONSTRUCTION_KIT_BAIT_FEATURE_GROUP") {
+                widget.visible = true;
+                widget.enable = true;
+            }
+        }
+        action = "bait category";
+        return true;
+    }
+    if (name == "SWITCH_BAIT_FLOWER") {
+        action = "bait StaticBaitFlower";
+        return true;
+    }
+    if (name == "SWITCH_BAIT_FRUITS") {
+        action = "bait StaticBaitApple";
+        return true;
+    }
+    if (name == "SWITCH_BAIT_HAY") {
+        action = "bait StaticBaitHay";
+        return true;
+    }
+    if (name == "SWITCH_BAIT_CITROUILLE") {
+        action = "bait StaticBaitPumpkin";
+        return true;
+    }
+    if (name == "SWITCH_BAIT_PASTEQUE") {
+        action = "bait StaticBaitWatermelon";
+        return true;
+    }
+
     // NAVIGATION_PANEL drives the park camera, not the minimap (0x5257a0).
     if (name == "NAVIGATION_GOTOP") {
         action = "camera pan forward";

@@ -80,6 +80,7 @@ BfiFeature load_bfi(const std::string& path) {
     std::memcpy(&feature.vertical, data.data() + 8, 4);
     std::memcpy(&feature.variant, data.data() + 0x0C, 4);
     std::memcpy(&feature.price, data.data() + 0x19, 4);
+    std::memcpy(&feature.display_type, data.data() + 0x21, 4);
 
     Reader tag_reader{data, 0x2D};
     feature.class_tag = tag_reader.string();

@@ -402,6 +402,12 @@ std::optional<int> Game::boot_menu_overlay() {
                     pending_build_tool = 6;
                 } else if (action == "fence lunchbox") {
                     // `SWITCH_FENCE_LUNCHBOX` (`0x531c80`) arms feature mode.
+                    park_session.selected_feature = "LunchBox";
+                    pending_build_tool = 7;
+                } else if (action.rfind("bait ", 0) == 0) {
+                    // Construction-kit bait switch: select the `.bfi` and arm
+                    // the generic feature placement.
+                    park_session.selected_feature = action.substr(5);
                     pending_build_tool = 7;
                 } else if (action == "sell mode") {
                     pending_sell_mode = true;

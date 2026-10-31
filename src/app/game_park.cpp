@@ -1316,51 +1316,97 @@ void Game::import_park_layout() {
 
 }
 
-bool Game::place_lunchbox_at(float x, float y, bool charge) {
+bool Game::place_feature_at(const dino::BfiFeature& bfi, float x, float y,
+                            bool charge) {
+    const bool lunchbox = bfi.name == "LunchBox";
+    const char* log_prefix = lunchbox ? "lunchbox" : "feature";
+    const char* placed_prefix = lunchbox ? "fence lunchbox" : "feature";
     try {
-        const dino::BfiFeature bfi = dino::load_bfi(resolve_asset(
-            opt.asset_root,
-            "Data/Design/attractions/features/LunchBox.bfi"));
         if (charge && park_session.budget < bfi.price) {
             park.show_warning(dino::ui::resolve_loc_text(
                 "&WARNING_NOT_ENOUGH_MONEY", park.loc));
-            std::printf("fence lunchbox: need %d budget %d\n", bfi.price,
+            std::printf("%s: need %d budget %d\n", placed_prefix, bfi.price,
                         park_session.budget);
             return false;
         }
+        const bool is_food =
+            bfi.class_tag == "LunchBox" || bfi.class_tag == "StaticBait";
         dino::Feeder feeder;
-        feeder.name = bfi.name;
-        feeder.kind = bfi.food_kind;
-        feeder.actions = bfi.actions;
-        feeder.quantity = static_cast<float>(bfi.food_quantity);
-        feeder.max_quantity = feeder.quantity;
-        feeder.nutrition = static_cast<float>(bfi.food_nutrition);
-        feeder.radius = std::max(
-            1.0f, static_cast<float>(std::max(bfi.width, bfi.height)) *
-                      0.5f);
-        feeder.x = x;
-        feeder.y = y;
-        park_session.feeders.push_back(feeder);
-        std::string mesh_rel;
-        for (const std::string& slot : bfi.mesh_slots) {
-            if (slot.ends_with(".mesh")) {
-                mesh_rel = slot;
-                break;
-            }
+        if (is_food) {
+            feeder.name = bfi.name;
+            feeder.kind = bfi.food_kind;
+            feeder.actions = bfi.actions;
+            feeder.quantity = static_cast<float>(bfi.food_quantity);
+            feeder.max_quantity = feeder.quantity;
+            feeder.nutrition = static_cast<float>(bfi.food_nutrition);
+            feeder.radius = std::max(
+                1.0f, static_cast<float>(std::max(bfi.width, bfi.height)) *
+                          0.5f);
+            feeder.x = x;
+            feeder.y = y;
+            park_session.feeders.push_back(feeder);
         }
-        if (!mesh_rel.empty()) {
-            dino::Mesh mesh =
-                dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
-            const std::string texture_name = mesh.texture_name();
-            mesh = place_on_terrain(std::move(mesh), terrain, x, y, 0.0f);
-            ShowFeatureDraw draw;
-            draw.gpu = upload_mesh(mesh, glfns);
-            if (!texture_name.empty()) {
-                draw.texture = upload_texture(dino::load_tga(
-                    resolve_asset(opt.asset_root,
-                                  bfi.texture_dir + "/" + texture_name)));
+        bool drew = false;
+        if (bfi.display_type == 3) {
+            // StaticBait/ground tile: one quad with the `.bfi` ground texture
+            // (mesh slot 6, `animaux.tga`). The texture is a single 128x128
+            // image shared by all five baits, not an atlas; use full UV and
+            // the `.bfi` footprint. The exact retail display-type branch is
+            // OPEN (notes/static-bait-recon.md).
+            std::string texture_rel;
+            for (const std::string& slot : bfi.mesh_slots) {
+                if (slot.ends_with(".tga")) {
+                    texture_rel = slot;
+                    break;
+                }
             }
-            show_feature_draws.push_back(std::move(draw));
+            const float w = static_cast<float>(std::max(1, bfi.width));
+            const float h = static_cast<float>(std::max(1, bfi.height));
+            dino::Mesh quad;
+            quad.positions = {
+                {-w * 0.5f, -h * 0.5f, 0.08f},
+                {w * 0.5f, -h * 0.5f, 0.08f},
+                {w * 0.5f, h * 0.5f, 0.08f},
+                {-w * 0.5f, h * 0.5f, 0.08f}};
+            quad.uvs = {{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f},
+                        {0.0f, 1.0f}};
+            quad.normals = {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f},
+                            {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}};
+            quad.indices = {0, 1, 2, 0, 2, 3};
+            quad = place_on_terrain(std::move(quad), terrain, x, y, 0.0f);
+            ShowFeatureDraw draw;
+            draw.gpu = upload_mesh(quad, glfns);
+            if (!texture_rel.empty()) {
+                draw.texture = upload_texture(dino::load_tga(
+                    resolve_asset(opt.asset_root, texture_rel)));
+            }
+            if (draw.gpu.vao != 0) {
+                show_feature_draws.push_back(std::move(draw));
+                drew = true;
+            }
+        } else {
+            std::string mesh_rel;
+            for (const std::string& slot : bfi.mesh_slots) {
+                if (slot.ends_with(".mesh")) {
+                    mesh_rel = slot;
+                    break;
+                }
+            }
+            if (!mesh_rel.empty()) {
+                dino::Mesh mesh =
+                    dino::load_mesh(resolve_asset(opt.asset_root, mesh_rel));
+                const std::string texture_name = mesh.texture_name();
+                mesh = place_on_terrain(std::move(mesh), terrain, x, y, 0.0f);
+                ShowFeatureDraw draw;
+                draw.gpu = upload_mesh(mesh, glfns);
+                if (!texture_name.empty()) {
+                    draw.texture = upload_texture(dino::load_tga(
+                        resolve_asset(opt.asset_root,
+                                      bfi.texture_dir + "/" + texture_name)));
+                }
+                show_feature_draws.push_back(std::move(draw));
+                drew = true;
+            }
         }
         rebuild_extra_items();
         if (charge) {
@@ -1368,31 +1414,32 @@ bool Game::place_lunchbox_at(float x, float y, bool charge) {
             park_session.ledger.spend_construction(bfi.price);
         }
         std::string action_list;
-        for (const std::string& name : feeder.actions) {
+        for (const std::string& name : bfi.actions) {
             if (!action_list.empty()) {
                 action_list += ",";
             }
             action_list += name;
         }
         std::printf(
-            "lunchbox: %s kind=%d at %.1f,%.1f quantity=%.0f "
-            "nutrition=%.0f radius=%.1f actions=%s\n",
-            feeder.name.c_str(), feeder.kind, static_cast<double>(x),
-            static_cast<double>(y), static_cast<double>(feeder.quantity),
-            static_cast<double>(feeder.nutrition),
-            static_cast<double>(feeder.radius), action_list.c_str());
+            "%s: %s kind=%d at %.1f,%.1f quantity=%d nutrition=%d "
+            "radius=%.1f display=%d drew=%d actions=%s\n",
+            log_prefix, bfi.name.c_str(), bfi.food_kind,
+            static_cast<double>(x), static_cast<double>(y),
+            bfi.food_quantity, bfi.food_nutrition,
+            static_cast<double>(is_food ? feeder.radius : 0.0f),
+            bfi.display_type, drew ? 1 : 0, action_list.c_str());
         if (charge) {
             std::printf(
-                "fence lunchbox: placed at %.1f,%.1f price=%d budget=%d "
+                "%s: placed at %.1f,%.1f price=%d budget=%d "
                 "construction=%d/%d\n",
-                static_cast<double>(x), static_cast<double>(y), bfi.price,
-                park_session.budget,
+                placed_prefix, static_cast<double>(x),
+                static_cast<double>(y), bfi.price, park_session.budget,
                 park_session.ledger.construction_count,
                 park_session.ledger.construction_total);
         }
         return true;
     } catch (const std::exception& e) {
-        std::fprintf(stderr, "lunchbox: %s\n", e.what());
+        std::fprintf(stderr, "%s: %s\n", log_prefix, e.what());
         return false;
     }
 }

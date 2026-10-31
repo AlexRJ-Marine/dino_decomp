@@ -289,6 +289,12 @@ Options parse_args(int argc, char** argv) {
             opt.lunchbox_prefill = std::atoi(next("--lunchbox-prefill"));
         } else if (arg == "--lunchbox-pos") {
             opt.lunchbox_pos = next("--lunchbox-pos");
+        } else if (arg == "--place-bait") {
+            // Test hook: place a StaticBait feature (for example
+            // StaticBaitFlower) through the generic feature path.
+            opt.place_bait = next("--place-bait");
+        } else if (arg == "--bait-pos") {
+            opt.bait_pos = next("--bait-pos");
         } else if (arg == "--hire-nutritionist" ||
                    arg == "--hire-nutritionists") {
             opt.hire_nutritionists = std::atoi(next("--hire-nutritionist"));
@@ -669,6 +675,8 @@ Options parse_args(int argc, char** argv) {
                 "  --fence-lunchbox     arm the paddock Feeding Dish switch (next scene click places)\n"
                 "  --lunchbox-prefill N place N test dishes in a 5-unit grid (cap test)\n"
                 "  --lunchbox-pos X,Y   LunchBox cell (default: first paddock)\n"
+                "  --place-bait NAME    place a StaticBait feature (generic .bfi path)\n"
+                "  --bait-pos X,Y       StaticBait cell (default: first paddock)\n"
                 "  --hire-nutritionist N hire N nutritionists (500 each)\n"
                 "  --fire-nutritionist N dismiss N nutritionists (no refund)\n"
                 "  --feed-now           run one hourly feeding pass at startup\n"

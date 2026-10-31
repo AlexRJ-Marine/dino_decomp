@@ -426,10 +426,21 @@ void Game::handle_park_mouse_down(const SDL_Event& event) {
                     // feature mode; the next scene click creates one dish
                     // at the clicked point (cap 16, price 100). Deferred so a
                     // boot-time panel click survives the camera setup reset.
+                    park_session.selected_feature = "LunchBox";
                     pending_build_tool = 7;
                     std::printf(
                         "fence lunchbox: click inside enclosure %d\n",
                         selected_paddock);
+                } else if (action.rfind("bait ", 0) == 0) {
+                    // Construction-kit bait switch: select the `.bfi`
+                    // feature (`FUN_0052bbb0`) and arm the generic placement
+                    // (`FUN_0052b0d0`); the next ground click places it.
+                    park_session.selected_feature = action.substr(5);
+                    pending_build_tool = 7;
+                    std::printf("bait: selected %s, click inside enclosure "
+                                "%d\n",
+                                park_session.selected_feature.c_str(),
+                                selected_paddock);
                 } else if (action == "accept request") {
                     if (park_sell_paddock >= 0) {
                         sell_paddock_now(park_sell_paddock);
@@ -1014,10 +1025,25 @@ void Game::apply_build_tool_click() {
                     click_y, picked ? 1 : 0, hit.x, hit.y);
     }
     if (build_tool == 7) {
-        // `SWITCH_FENCE_LUNCHBOX` / `FUN_0052b0d0`: create one LunchBox at
-        // the clicked ground point, inside the selected/clicked paddock;
-        // cap 16, price 100 to CONSTRUCTION.
+        // `FUN_0052b0d0`: place the selected construction feature at the
+        // clicked ground point, inside the selected/clicked paddock. The
+        // fence panel's LunchBox and the construction-kit bait switches
+        // share this path; only LunchBox has the 16-dish cap.
         if (!picked) {
+            return;
+        }
+        const std::string feature_name =
+            park_session.selected_feature.empty()
+                ? "LunchBox"
+                : park_session.selected_feature;
+        dino::BfiFeature bfi;
+        try {
+            bfi = dino::load_bfi(resolve_asset(
+                opt.asset_root,
+                "Data/Design/attractions/features/" + feature_name +
+                    ".bfi"));
+        } catch (const std::exception& e) {
+            std::printf("feature: %s\n", e.what());
             return;
         }
         const float half = terrain.world_size * 0.5f;
@@ -1029,7 +1055,7 @@ void Game::apply_build_tool_click() {
         }
         if (index < 0 ||
             index >= static_cast<int>(park_session.paddocks.size())) {
-            std::printf("fence lunchbox: no enclosure under the cursor\n");
+            std::printf("feature: no enclosure under the cursor\n");
             return;
         }
         const dino::WorldRect& rect =
@@ -1040,7 +1066,7 @@ void Game::apply_build_tool_click() {
         const int y1 = std::max(rect.y0, rect.y1);
         if (mx < static_cast<float>(x0) || mx > static_cast<float>(x1) ||
             my < static_cast<float>(y0) || my > static_cast<float>(y1)) {
-            std::printf("fence lunchbox: outside enclosure %d\n", index);
+            std::printf("feature: outside enclosure %d\n", index);
             return;
         }
         int count = 0;
@@ -1058,9 +1084,6 @@ void Game::apply_build_tool_click() {
         const int fx1 = fx0 + 3;
         const int fy1 = fy0 + 3;
         for (const dino::Feeder& feeder : park_session.feeders) {
-            if (feeder.name != "LunchBox") {
-                continue;
-            }
             const int gx0 = static_cast<int>(std::floor(feeder.x));
             const int gy0 = static_cast<int>(std::floor(feeder.y));
             const int gx1 = gx0 + 3;
@@ -1069,23 +1092,22 @@ void Game::apply_build_tool_click() {
                 park.show_warning(dino::ui::resolve_loc_text(
                     "&WARNING_BUSY_SPACE", park.loc));
                 std::printf(
-                    "fence lunchbox: busy space at %.1f,%.1f\n",
+                    "feature: busy space at %.1f,%.1f\n",
                     static_cast<double>(mx), static_cast<double>(my));
                 return;
             }
         }
-        if (count >= 16) {
+        if (bfi.class_tag == "LunchBox" && count >= 16) {
             park.show_warning(dino::ui::resolve_loc_text(
                 "&WARNING_TOO_MANY_LUNCHOXES_IN_FENCE", park.loc));
             std::printf("fence lunchbox: enclosure %d already has 16\n",
                         index);
             return;
         }
-        if (place_lunchbox_at(mx, my, true)) {
+        if (place_feature_at(bfi, mx, my, true)) {
             // Feature mode persists (`FUN_0052b0d0` tail does not clear
-            // state+0x48): the next ground click places another dish until
-            // the fence reaches 16, the budget runs out, or Esc/panel-close
-            // leaves the state.
+            // state+0x48): the next ground click places another feature until
+            // the budget runs out or Esc/panel-close leaves the state.
         }
         return;
     }

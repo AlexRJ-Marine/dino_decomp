@@ -15,6 +15,8 @@ struct BfiFeature {
     float vertical = 0.0f;
     int variant = 0;
     int price = 0;
+    // `.bfi` `display_type` at 0x21: 0 mesh prop/judge, 1 cage, 3 ground tile.
+    int display_type = 0;
     std::string class_tag;
     int judge_kind = 0;
     int food_kind = 0;
