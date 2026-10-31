@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - probe: show-wall class-7 grid stamp is occupancy-only - hardware read watchpoint on (420,416) hits only FUN_005849a0's own read-modify-write in 60 s; stWall+0x00 = wallRecord+8 = .bwi field_08 100, not a mesh pointer; no grid-to-mesh renderer or stWall consumer found, display transform stays OPEN; show-wall-grid.ps1 committed; no code change (full 543 on the prior build)
 - 2026-10-31 - feat: port the observed Eat item move record - the 180 s Cpg04 probe's kind-8 record (mode 2, 2.0 s, target=feeder, allowTurn 1) is queued at the meal in ParkSession::tick_dino; docs/TASKS corrected the 60 s no-Eat sample; fast 385, full 543
 - 2026-10-31 - show clock: runtime time_scale=40.0 (not 60), slot boundary i=int(prev/90)+1/end=90i-45 s, show+0x94=3000/40=75 real s=50 park minutes; port ParkClock/ShowRuntime/--show-duration defaults and test_cpp_park_clock updated; Cpg04 show closed d3=0/e0=0 so no performance ran (negative); full suite 543
 - 2026-10-31 - docs: show scheduler slot boundary exact - FUN_0058c390's argument is the GeneralParams 10.0 offset (not the clock); time_scale 60 -> i=int(prev/60)+1, end=60i-10/60 s, one game hour per slot; show+0x94 = field_1a0/time_scale = 0.667 with the dt unit OPEN, so the ShowRuntime 30-minute placeholder stays until a 0x57b81f probe
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - feat: paddock Feeding Dish wired - SWITCH_FENCE_LUNCHBOX arms feature mode (deferred pending_build_tool), each ground click places a LunchBox at the point with the 4x4 FUN_005812b0 BUSY_SPACE check, cap 16 (0x527150), price 100 to CONSTRUCTION (0x585d20), mode persists after placement; tests cover boot hook, UI switch, persistence and cap; full suite 543
 - 2026-10-31 - docs: paddock Feeding Dish switch mapped - SWITCH_FENCE_LUNCHBOX 0x531c80 arms feature mode, next ground click creates the LunchBox at the point, cap 16, price 100 charged to CONSTRUCTION 0x585d20; fence dish push 0x57e440; interactive UI path not yet wired; full suite 539 passed on the reviewfix build
 - 2026-10-31 - docs: show arena wall DDA mapped - stPerimeter/stWall per-cell pieces, count=int((edgeLen+1)/wallRecord[0]); wallRecord[0] is the runtime pitch (not BWI version/height); per-piece display transform and Z remain OPEN, so no wall geometry is guessed; .bwi parser already committed
-- 2026-10-31 - review fixes + .bwi parser: paddock-index bounds in RunAway/Exploration, shared dino_graph_node_names, integer RunAway box, discriminating current-cost selftest (249), Eat item-list assertion; new src/formats/bwi + --bwi-info (24/24, test); corrected Victory/attach-list evidence; fast 385
 
 ## Blockers
 

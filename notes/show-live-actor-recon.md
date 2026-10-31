@@ -144,17 +144,22 @@ allocates an `stWall` (`FUN_00584200`) and walks it cell-by-cell.
 - `wallRecord = design+0xc`, `design = DB+0x6c + show.field_14*0xb4`;
   `wallRecord[0]` is the **runtime wall pitch**, not the `.bwi` version (4)
   or height (8). Its exact builder/value is OPEN (Cpg04 likely 4).
-- `FUN_00584700` fills the 0x28 `stWall`: mesh/resource pointer
-  (`wallRecord+8`), a cell vector (8-byte {x,y}), `field44` at `+0x14`, the
-  pitch at `+0x20`, wall record at `+0x24`. It does **not** write a mesh
-  transform.
+- `FUN_00584700` fills the 0x28 `stWall`: `+0x00` = `wallRecord+8`
+  (**`.bwi field_08` = 100**, not a mesh pointer), a cell vector (8-byte
+  {x,y}), `field44` at `+0x14`, the pitch at `+0x20`, wall record at `+0x24`.
+  It does **not** write a mesh transform.
 - `FUN_005849a0` marks the world grid cells (occupancy class
-  `DAT_006757b4<<12`), not geometry.
-- The per-piece **position/yaw/scale/Z transform is applied by the generic
-  display/scene builder**; that helper was not isolated. The `.bwi` mesh
-  `fence_show_lod1.mesh` has local +Y as its long axis (bbox ~4.4 units,
-  height 8.5), so local +Y maps to the edge direction (yaw 0/90/180/270);
-  whether `BWI.scales[0]`/height are applied and where Z comes from are OPEN.
+  `DAT_006757b4<<12` = 0x7000). **Measured negative (2026-10-31,
+  `notes/show-wall-grid-probe.md`): the stamp is occupancy-only.** A 16-bit
+  hardware read watchpoint on a show cell `(420,416)` fired only on the
+  marking function's own read-modify-write in 60 s; no renderer or scene
+  builder read it. The class-7 grid cells are **not** the wall-mesh path.
+- The per-piece **position/yaw/scale/Z transform is still OPEN**: no grid
+  consumer, no `stWall` vtable consumer, and `0x58dfc0` is only the show
+  **actor** render-record builder. The `.bwi` mesh `fence_show_lod1.mesh` has
+  local +Y as its long axis (bbox ~4.4 units, height 8.5), so local +Y maps
+  to the edge direction (yaw 0/90/180/270); whether `BWI.scales[0]`/height
+  are applied and where Z comes from remain OPEN. Do not guess wall geometry.
 - `showRecord+0x44` is not the wall id; it is a scheduler/registration handle
   (`stAttraction+0x1c`). `field_14` selects the WallList/BWI record.
 
@@ -271,3 +276,7 @@ Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bf
 4. The cast writer and the scheduler start/end are now mapped
    (`FUN_00583060`, `FUN_0058c760`/`FUN_0057b110`/`FUN_0057ba50`/
    `FUN_0057b130`).
+5. Show wall display transform: the grid stamp is occupancy-only (hardware
+   watchpoint) and no `stWall` vtable consumer was found; `0x58dfc0` is the
+   actor render-record builder. The mesh instantiation owner is OPEN
+   (`notes/show-wall-grid-probe.md`).
