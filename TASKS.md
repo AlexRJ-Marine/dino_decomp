@@ -1547,7 +1547,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `ATTRACTION_LIST_TIME1..10` widgets and `FUN_00516dd0` clears
   `ATTRACTION_LIST_NAME` to `DAT_006743c8`; the port now blanks empty rows
   (`notes/attraction-list-empty.png`).
-- [ ] Live `.bfi` arena/judge actors and per-show weight authoring.
+- [ ] Live show actors: chain mapped in `notes/show-live-actor-recon.md`
+  (`FUN_0053cfb0` -> `stShow` vtable `0x643220`, arena/scene/audio/AI,
+  `.bfi` actors via `FUN_0053acd0`, Judge detected by the name at
+  `design+0x34`, judge kind `featureDef+0x40` -> `FUN_0057c260` ->
+  `stShow+0xcc`; score `FUN_00576550`/`FUN_00581770`; `.bfi` `score_steps`
+  unused). Implement the arena/judge/cast actors; open: the cast append
+  producer (`stShow+0x50/+0x54`), the show timer/end, and the show-end
+  Victory emitter.
 
 ### SIM-4: Economy and attractions
 - [x] Decompile the park budget API, ticket income, expense categories and
