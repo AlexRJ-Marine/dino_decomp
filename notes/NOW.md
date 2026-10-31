@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - docs+test: static bait variants mapped - StaticBaitFlower/Apple/Hay/Pumpkin/Watermelon data (food_kind 0/1/4/3/2, 10000/70, EatBait actions, prices 10/10/30/50/40, switch keys) and generic FUN_0052bbb0/FUN_0052b0d0 placement (no LunchBox 16 cap); ground-tile UV/visual and per-switch binding OPEN; test_static_bait_variants locks the five rows; fast 386
 - 2026-10-31 - probe: show-wall class-7 grid stamp is occupancy-only - hardware read watchpoint on (420,416) hits only FUN_005849a0's own read-modify-write in 60 s; stWall+0x00 = wallRecord+8 = .bwi field_08 100, not a mesh pointer; no grid-to-mesh renderer or stWall consumer found, display transform stays OPEN; show-wall-grid.ps1 committed; no code change (full 543 on the prior build)
 - 2026-10-31 - feat: port the observed Eat item move record - the 180 s Cpg04 probe's kind-8 record (mode 2, 2.0 s, target=feeder, allowTurn 1) is queued at the meal in ParkSession::tick_dino; docs/TASKS corrected the 60 s no-Eat sample; fast 385, full 543
 - 2026-10-31 - show clock: runtime time_scale=40.0 (not 60), slot boundary i=int(prev/90)+1/end=90i-45 s, show+0x94=3000/40=75 real s=50 park minutes; port ParkClock/ShowRuntime/--show-duration defaults and test_cpp_park_clock updated; Cpg04 show closed d3=0/e0=0 so no performance ran (negative); full suite 543
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - probe: mover return-address attribution - per-frame 0x34/0x35 = FUN_00574450 mover tick (0x57466d walk/0x57469c run), 0x27+0x20+0x20 lunge = FUN_005741c0 case 0 (caller 0x56ef84); 180 s run shows the item/Eat path (FUN_00569660 24 kind-8, SetLevel 7x, item sites), correcting the 60 s no-Eat negative; fast 385
 - 2026-10-31 - feat: paddock Feeding Dish wired - SWITCH_FENCE_LUNCHBOX arms feature mode (deferred pending_build_tool), each ground click places a LunchBox at the point with the 4x4 FUN_005812b0 BUSY_SPACE check, cap 16 (0x527150), price 100 to CONSTRUCTION (0x585d20), mode persists after placement; tests cover boot hook, UI switch, persistence and cap; full suite 543
 - 2026-10-31 - docs: paddock Feeding Dish switch mapped - SWITCH_FENCE_LUNCHBOX 0x531c80 arms feature mode, next ground click creates the LunchBox at the point, cap 16, price 100 charged to CONSTRUCTION 0x585d20; fence dish push 0x57e440; interactive UI path not yet wired; full suite 539 passed on the reviewfix build
-- 2026-10-31 - docs: show arena wall DDA mapped - stPerimeter/stWall per-cell pieces, count=int((edgeLen+1)/wallRecord[0]); wallRecord[0] is the runtime pitch (not BWI version/height); per-piece display transform and Z remain OPEN, so no wall geometry is guessed; .bwi parser already committed
 
 ## Blockers
 

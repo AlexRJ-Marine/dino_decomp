@@ -61,6 +61,42 @@ def test_class_tags():
     assert set(tags) - {""} == set(CLASS_TAGS)
 
 
+def test_static_bait_variants():
+    """The five ground-tile baits: FeatureList/`.bfi` switch key, price and
+    feeder fields (Ghidra: generic `FUN_0052bbb0`/`FUN_0052b0d0` placement,
+    no 16-dish cap for non-LunchBox features)."""
+    if not FEATURES.exists():
+        pytest.skip("retail sample not present")
+    expected = {
+        "StaticBaitFlower": (10, 0, "SWITCH_BAIT_FLOWER"),
+        "StaticBaitApple": (10, 1, "SWITCH_BAIT_FRUITS"),
+        "StaticBaitHay": (30, 4, "SWITCH_BAIT_HAY"),
+        "StaticBaitPumpkin": (50, 3, "SWITCH_BAIT_CITROUILLE"),
+        "StaticBaitWatermelon": (40, 2, "SWITCH_BAIT_PASTEQUE"),
+    }
+    found = {}
+    for item in scan(FEATURES):
+        if item.name in expected:
+            found[item.name] = item
+    assert set(found) == set(expected)
+    for name, (price, food_kind, switch_key) in expected.items():
+        item = found[name]
+        assert item.class_tag == "StaticBait"
+        assert item.price == price
+        assert item.food_kind == food_kind
+        assert item.field_3c == 10000
+        assert item.field_40 == 70
+        assert item.actions == ["EatBait", "EatBaitForSmallies"]
+        assert item.switch_key == switch_key
+        assert item.width == 4 and item.height == 4
+        assert item.display_type == 3
+        assert item.category == 2
+        assert item.state_count == 1
+        assert item.textures == [
+            "DATA\\graphics\\TEXTURES\\buildings\\animaux.tga"
+        ]
+
+
 def test_feature_list_matches_files():
     if not LIST.exists():
         pytest.skip("retail sample not present")

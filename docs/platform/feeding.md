@@ -69,6 +69,16 @@ persistence remain open.
   (quantity 10000, nutrition 100, kind 0, radius = width/2 = the `.bfi`
   footprint, **not** the Eat gate), uploads `bowl.mesh` + `bowl.tga`, and
   adds it to the draw list.
+- **Static bait variants (data mapped, placement not yet wired):**
+  `StaticBaitFlower/Apple/Hay/Pumpkin/Watermelon` are ground tiles
+  (`display_type 3`, no mesh, one `animaux.tga` texture) with
+  `food_kind 0/1/4/3/2`, quantity 10000, nutrition 70, actions
+  `EatBait`/`EatBaitForSmallies`, prices 10/10/30/50/40, and switch keys
+  `SWITCH_BAIT_FLOWER`/`FRUITS`/`HAY`/`CITROUILLE`/`PASTEQUE`. They use the
+  same generic `FUN_0052bbb0`/`FUN_0052b0d0` placement (4x4 overlap, CONSTRUCTION
+  charge) with **no 16-dish cap** (that cap is LunchBox-only). The ground-tile
+  UV/visual is not decoded; see `notes/static-bait-recon.md` and
+  `docs/formats/bfi.md`.
 - `ParkSession::paddock_feeder` returns the nearest non-empty feeder in the
   paddock whose `food_kind` matches the diet. `Eat` is offered only when one
   exists. `tick_dino` uses the selected `.bai` record to compute the retail

@@ -54,6 +54,26 @@ boolean at record `+0x34`; they do **not** change the body shape.
 | `LunchBox` | 1 | LunchBox |
 | `Teleport` | 1 | Teleport |
 
+### Static bait variants (ground tiles)
+
+All five `StaticBait*` records share width/height 4, vertical 4.0,
+`display_type 3`, `category 2`, `state_count 1`, `anim_speed 0.1`, and one
+texture in mesh slot 6 (`DATA\graphics\TEXTURES\buildings\animaux.tga`); they
+have no `.mesh`. The feeder fields and the construction-kit switch key are:
+
+| Feature | `switch_key` | price | `food_kind` | `field_3c` | `field_40` | actions |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `StaticBaitFlower` | `SWITCH_BAIT_FLOWER` | 10 | 0 | 10000 | 70 | `EatBait`, `EatBaitForSmallies` |
+| `StaticBaitApple` | `SWITCH_BAIT_FRUITS` | 10 | 1 | 10000 | 70 | same |
+| `StaticBaitHay` | `SWITCH_BAIT_HAY` | 30 | 4 | 10000 | 70 | same |
+| `StaticBaitPumpkin` | `SWITCH_BAIT_CITROUILLE` | 50 | 3 | 10000 | 70 | same |
+| `StaticBaitWatermelon` | `SWITCH_BAIT_PASTEQUE` | 40 | 2 | 10000 | 70 | same |
+
+The retail placement is the generic `FUN_0052bbb0`/`FUN_0052b0d0` feature
+path (4x4 overlap, budget gate, CONSTRUCTION charge); the 16-dish cap
+`0x527150` only applies to the `LunchBox` tag. The `AnimalBait*` records are
+live bait actors, not static feeders. See `notes/static-bait-recon.md`.
+
 ## Body
 
 The body starts right after the class-tag string and is read in this exact

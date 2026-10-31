@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 08:27. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 08:32. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 54 open items.
 
@@ -128,6 +128,6 @@ Generated from `TASKS.md` on 2026-10-31 08:27. Do not edit; regenerate with `scr
 
 ## P3-MOTION-1: Dinosaur mover and action execution
 - [ ] Port the normal-action executor rest: the full element record list and
-- [ ] StaticBait variants and save persistence of placed feeders. The
+- [ ] StaticBait variants and save persistence of placed feeders. The data
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no

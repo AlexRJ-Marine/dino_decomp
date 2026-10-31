@@ -2525,8 +2525,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   meal in `ParkSession::tick_dino`; `test_cpp_lunchbox_eat` still bounds the
   meal count. This is the first observed normal-action element record; the
   rest of the element list (0x12..0x17 executor gestures) remains open.
-- [ ] StaticBait variants and save persistence of placed feeders. The
-  interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
+- [ ] StaticBait variants and save persistence of placed feeders. The data
+  and generic placement path are **mapped**:
+  `StaticBaitFlower/Apple/Hay/Pumpkin/Watermelon` (`food_kind 0/1/4/3/2`,
+  10000/70, `EatBait`/`EatBaitForSmallies`, prices 10/10/30/50/40,
+  `switch_key` `SWITCH_BAIT_FLOWER/FRUITS/HAY/CITROUILLE/PASTEQUE`, generic
+  4x4 overlap + CONSTRUCTION charge, no LunchBox 16 cap). Open: the
+  ground-tile UV/visual and the per-switch callback binding
+  (`notes/static-bait-recon.md`). Interactive LunchBox placement is **wired**: `SWITCH_FENCE_LUNCHBOX`
   (`0x531c80`) arms feature mode, each ground click creates the dish at that
   point with the 4x4 `FUN_005812b0` overlap check (`&WARNING_BUSY_SPACE`),
   cap 16, price 100 charged to CONSTRUCTION (`0x585d20`); the fence dish push
