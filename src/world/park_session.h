@@ -34,6 +34,8 @@ struct ParkSession {
     BuildGrid build_grid;
     std::vector<Paddock> paddocks;
     std::vector<ImportedDino> imported_dinos;
+    // Next stable `ImportedDino::id`; `clear_imported_dinos` resets it.
+    int next_imported_dino_id = 1;
     VisitorSystem visitor_system;
     std::vector<VisitorProfile> visitor_profiles;
     std::vector<VisitorProfile> all_visitor_profiles;

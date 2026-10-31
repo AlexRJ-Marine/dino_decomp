@@ -2381,9 +2381,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `boot_sell_dino` (after the park-session budget reset) + `--sell-dino NAME`
   hook. Cpg04: value 2400, refund 2400, VENTES 1/2400, dinos 20 -> 19
   (`test_cpp_dino_sell`). `notes/dino-sell-recon.md`.
-- [ ] Interactive `REQUEST_SELL_DINO` hit test/panel; add a stable
-  `ImportedDino::id` first so arbitrary in-park sales do not shift the
-  UI's index-based paddock occupant lookup.
+- [x] Stable `ImportedDino::id`: unique ids for campaign/bought dinos,
+  paddock occupants and the info-panel lookups use them; `.psav` stores the
+  id and old saves fall back to the 0-based import index. Campaign Cpg04
+  ids 1..20 (`test_cpp_port_save_danger_cache`).
+- [ ] Interactive `REQUEST_SELL_DINO` hit test/panel (stable ids done).
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 - **Evidence:** `notes/dino-stats-economy-gap-audit.md`.
 - **Depends on:** store/dino spawn, economy buckets, info panel.

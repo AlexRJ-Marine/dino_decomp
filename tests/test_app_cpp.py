@@ -2494,11 +2494,12 @@ def test_cpp_port_save_danger_cache(tmp_path):
     dino_lines = [ln for ln in target.read_text().splitlines()
                   if ln.startswith("dino ")]
     assert len(dino_lines) == 20
-    # Tail: threat, threat_radius, combined_attack, obstacle_radius.
-    assert all(line.split()[-4] == "54" for line in dino_lines)
-    assert all(line.split()[-3] == "7" for line in dino_lines)
+    # Tail: threat, threat_radius, combined_attack, obstacle_radius, id.
+    assert all(line.split()[-5] == "54" for line in dino_lines)
+    assert all(line.split()[-4] == "7" for line in dino_lines)
+    assert all(int(line.split()[-3]) > 0 for line in dino_lines)
     assert all(int(line.split()[-2]) > 0 for line in dino_lines)
-    assert all(int(line.split()[-1]) > 0 for line in dino_lines)
+    assert all(1 <= int(line.split()[-1]) <= 20 for line in dino_lines)
 
     load = subprocess.run(
         common + ["--load-port", str(target), "--secu-probe"],
@@ -4666,7 +4667,10 @@ def test_cpp_port_save_paddocks_food(tmp_path):
     assert "dino food: allo paddock=1 diet=carnivore source=PigFood" in load.stdout
     # The diet gene is saved too: the anky in paddock 0 stays herbivorous.
     assert "dino food: anky paddock=0 diet=herbivore source=none" in load.stdout
-    assert "Eat score=9009 needs=20/90/50/90" in load.stdout
+    # The .bsi source is visitor/employee-only; with no LunchBox the anky
+    # cannot offer Eat and explores (the saved needs/gauge survive).
+    assert "dino action: anky Exploration score=1580 needs=20/90/50/90" in load.stdout
+    assert "dino eat:" not in load.stdout
 
 def test_cpp_sav_park_roundtrip(tmp_path):
     """The C++ writer reproduces retail saves byte-for-byte."""

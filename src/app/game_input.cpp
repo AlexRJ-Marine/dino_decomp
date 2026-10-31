@@ -919,8 +919,7 @@ void Game::place_selected_store_item() {
                                ? size_for_species(species)
                                : 1);
                 const int dino_id =
-                    1000000 +
-                    static_cast<int>(park_session.imported_dinos.size());
+                    park_session.next_imported_dino_id;
                 dino::Paddock& paddock =
                     park_session.paddocks[static_cast<std::size_t>(
                         paddock_index)];
@@ -945,7 +944,8 @@ void Game::place_selected_store_item() {
                             species, family, opt.dino_clip, wx,
                             wy, 0.0f,
                             have_attributes ? &store_attrs
-                                            : nullptr)) {
+                                            : nullptr,
+                            dino_id)) {
                         dino::paddock_add(paddock, dino_id,
                                           cost_class);
                         park_session.budget -= pending_store_price;

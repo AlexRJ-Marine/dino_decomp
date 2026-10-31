@@ -76,6 +76,10 @@ struct PortFoodState {
 // One imported dinosaur, including its need/action-loop state. `action_id` is
 // the ActionList index; 0x1f is the idle sentinel.
 struct PortDinoState {
+    // Stable `ImportedDino::id`; 0 in older saves (assigned sequentially on
+    // load, matching the old index-based paddock occupants).
+    int id = 0;
+    bool has_id = false;
     std::string species;
     std::string family;
     std::string clip;

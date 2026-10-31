@@ -447,7 +447,7 @@ std::optional<int> Game::boot_import_dinos() {
                             : dino::paddock_size_class(
                                   size_for_species(species));
                     const int dino_id =
-                        1000000 + static_cast<int>(park_session.imported_dinos.size());
+                        park_session.next_imported_dino_id;
                     int paddock_index = -1;
                     if (opt.buy_paddock >= 0 &&
                         opt.buy_paddock < static_cast<int>(park_session.paddocks.size()) &&
@@ -515,7 +515,8 @@ std::optional<int> Game::boot_import_dinos() {
                         if (add_imported_dino(
                                 species, family, opt.dino_clip, x, y,
                                 theta * 180.0f / kPi + 90.0f,
-                                have_attributes ? &buy_attrs : nullptr)) {
+                                have_attributes ? &buy_attrs : nullptr,
+                                dino_id)) {
                             park_session.imported_dinos.back().carnivore =
                                 have_genotype
                                     ? dino::genotype_is_carnivore(buy_genotype)

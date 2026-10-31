@@ -1457,10 +1457,16 @@ void Game::refresh_fence_info_panel() {
     int carn = 0;
     int herb = 0;
     for (const int id : pen.occupants) {
-        if (id < 0 || id >= static_cast<int>(park_session.imported_dinos.size())) {
+        const auto it = std::find_if(
+            park_session.imported_dinos.begin(),
+            park_session.imported_dinos.end(),
+            [id](const dino::ImportedDino& dinosaur) {
+                return dinosaur.id == id;
+            });
+        if (it == park_session.imported_dinos.end()) {
             continue;
         }
-        if (park_session.imported_dinos[static_cast<std::size_t>(id)].carnivore) {
+        if (it->carnivore) {
             ++carn;
         } else {
             ++herb;

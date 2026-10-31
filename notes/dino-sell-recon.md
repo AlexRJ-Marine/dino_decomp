@@ -46,11 +46,13 @@ Date: 2026-10-31. Read-only Ghidra pass; no runtime probe in this pass.
    `sell dino: anky value=2400 refund=2400 budget=3400 ventes=1/2400
    pen=4 used=48 sellback=1.00 dinos=19` with `--park-budget 1000`
    (`test_cpp_dino_sell`).
-4. [ ] Interactive `REQUEST_SELL_DINO` hit test/panel path (`0x532d9c..`).
-   The actor id used by the paddock occupants is the import index for
-   campaign dinos and `1000000+index` for bought ones; a stable
-   `ImportedDino::id` is needed before arbitrary in-park sales so the UI
-   index lookups stay valid.
+4. [x] Stable `ImportedDino::id` (2026-10-31): every import/buy gets a
+   unique id from `ParkSession::next_imported_dino_id`; paddock occupants,
+   the info-panel diet lookup and `sell_dino` use it. The `.psav` writer
+   appends the id; older saves (no id) restore the 0-based import index so
+   their occupant lists still resolve. Campaign Cpg04 ids are 1..20.
+5. [ ] Interactive `REQUEST_SELL_DINO` hit test/panel path (`0x532d9c..`);
+   the stable id is now in place, only the UI selection remains.
 
 ## Open
 

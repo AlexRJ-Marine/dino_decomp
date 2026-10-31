@@ -620,7 +620,8 @@ private:
     bool add_imported_dino(const std::string& species, const std::string& family,
                            const std::string& clip, float x, float y,
                            float angle,
-                           const dino::DinoAttributes* attributes = nullptr);
+                           const dino::DinoAttributes* attributes = nullptr,
+                           int id = -1);
     void clear_imported_dinos();
     // `FUN_00533a00`: sell credit + paddock capacity + actor/draw removal.
     bool sell_dino(int index);

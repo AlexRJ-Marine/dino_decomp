@@ -47,12 +47,17 @@ path <x> <y>
 fence <x> <y> <edge>          # edge 0 south, 1 east
 visitor <x> <y> <angle> <phase> <cell_x> <cell_y> <target_x> <target_y> <prev_x> <prev_y> <profile> <need0> <need1> <need2> <global_profile> <need0_at_use> <state> <target_attraction> <route_index> <use_timer> <decay0> <decay1> <decay2> <rng> <done> <route_count> [<x> <y>]...
 building <kind> <cell_x> <cell_y> <state>
-dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm> <carnivore> <phase>
+dino <species> <family> <clip> <x> <y> <angle> <food> <violence> <secu> <repos> <action_id> <action_left> <size_cm> <carnivore> <phase> <threat> <threat_radius> <combined_attack> <obstacle_radius> <id>
 ```
 
 `state` is 0 `Choose`, 1 `Travel`, 2 `Use`, 3 `Leave`; `route_count`
 followed by that many grid cells is the exact remaining path. Older saves
 end after the needs / `size_cm`, and the loader defaults the new fields.
+The trailing cache fields and the stable `ImportedDino::id` are optional;
+when the id is absent the loader assigns the 0-based import index, which is
+exactly what older saves stored in the paddock occupant list. New paddock
+occupants always store the stable id, so a sale does not shift the UI's
+per-dino lookups.
 
 Floats are written with 9 significant digits. Unknown keys are ignored on
 load; a missing `DINOPSAV` header or a different version is an error.

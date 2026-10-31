@@ -878,11 +878,18 @@ void Game::apply_port_buildings(const dino::PortState& state) {
 void Game::apply_port_dinos(const dino::PortState& state) {
     if (!state.dinos.empty()) {
         clear_imported_dinos();
+        std::size_t legacy_index = 0;
         for (const dino::PortDinoState& saved : state.dinos) {
             try {
+                // Older saves stored the 0-based import index as the
+                // paddock occupant; assign that same id on load.
+                const int restore_id =
+                    saved.has_id ? saved.id
+                                 : static_cast<int>(legacy_index);
+                ++legacy_index;
                 if (!add_imported_dino(saved.species, saved.family,
                                        saved.clip, saved.x, saved.y,
-                                       saved.angle)) {
+                                       saved.angle, nullptr, restore_id)) {
                     continue;
                 }
                 ImportedDino& dinosaur = park_session.imported_dinos.back();
@@ -1122,6 +1129,8 @@ dino::PortState Game::make_port_state() {
     state.buildings = park_session.building_instances;
     for (const ImportedDino& dinosaur : park_session.imported_dinos) {
         dino::PortDinoState saved;
+        saved.id = dinosaur.id;
+        saved.has_id = true;
         saved.species = dinosaur.species;
         saved.family = dinosaur.family;
         saved.clip = dinosaur.clip;

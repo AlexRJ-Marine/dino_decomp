@@ -88,7 +88,7 @@ void save_port_state(const PortState& state, const std::string& path) {
             << (dinosaur.carnivore ? 1 : 0) << " " << dinosaur.phase
             << " " << dinosaur.threat << " " << dinosaur.threat_radius
             << " " << dinosaur.combined_attack << " "
-            << dinosaur.obstacle_radius << "\n";
+            << dinosaur.obstacle_radius << " " << dinosaur.id << "\n";
     }
     for (const PortPaddockState& paddock : state.paddocks) {
         out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
@@ -282,6 +282,10 @@ PortState load_port_state(const std::string& path) {
             }
             if (parts >> value) {
                 dinosaur.obstacle_radius = value;
+            }
+            if (parts >> value) {
+                dinosaur.id = value;
+                dinosaur.has_id = true;
             }
             if (dinosaur.species.empty() || dinosaur.family.empty() ||
                 dinosaur.clip.empty()) {

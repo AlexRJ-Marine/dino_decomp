@@ -399,11 +399,13 @@ void Game::spawn_world_dinos() {
                 : dino::DinoAttributes{};
         const dino::DinoAttributes* attrs_ptr =
             phenotype_table.valid ? &attrs : nullptr;
+        const int cost_class =
+            phenotype_table.valid
+                ? phenotype_table.size_class(record.genotype)
+                : dino::paddock_size_class(size_for_species(species));
+        const int new_id = park_session.next_imported_dino_id;
+        int paddock_index = -1;
         if (!park_session.paddocks.empty()) {
-            const int cost_class =
-                phenotype_table.valid
-                    ? phenotype_table.size_class(record.genotype)
-                    : dino::paddock_size_class(size_for_species(species));
             if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
                 std::fprintf(
                     stderr,
@@ -448,10 +450,9 @@ void Game::spawn_world_dinos() {
                     record.genotype[16].first, record.genotype[16].second,
                     record.genotype[17].first, record.genotype[17].second);
             }
-            int paddock_index = -1;
             for (std::size_t p = 0; p < park_session.paddocks.size(); ++p) {
                 if (dino::paddock_can_add(
-                        park_session.paddocks[p], static_cast<int>(i), cost_class)) {
+                        park_session.paddocks[p], new_id, cost_class)) {
                     paddock_index = static_cast<int>(p);
                     break;
                 }
@@ -459,8 +460,7 @@ void Game::spawn_world_dinos() {
             if (paddock_index >= 0) {
                 dino::Paddock& paddock =
                     park_session.paddocks[static_cast<std::size_t>(paddock_index)];
-                dino::paddock_add(paddock, static_cast<int>(i),
-                                  cost_class);
+                dino::paddock_add(paddock, new_id, cost_class);
                 const dino::WorldRect& pen = paddock.rect;
                 const float x0 =
                     static_cast<float>(std::min(pen.x0, pen.x1));
@@ -486,11 +486,16 @@ void Game::spawn_world_dinos() {
         }
         try {
             if (add_imported_dino(species, family, opt.dino_clip, x, y,
-                                  angle, attrs_ptr)) {
+                                  angle, attrs_ptr, new_id)) {
                 park_session.imported_dinos.back().carnivore =
                     dino::genotype_is_carnivore(record.genotype);
                 ++spawned;
                 ++species_counts[species];
+            } else if (paddock_index >= 0) {
+                dino::paddock_remove(
+                    park_session.paddocks[
+                        static_cast<std::size_t>(paddock_index)],
+                    new_id, cost_class);
             }
         } catch (const std::exception& e) {
             std::fprintf(stderr, "dino %u (%s): %s\n",
@@ -695,13 +700,19 @@ bool Game::add_imported_dino(const std::string& species,
                                  const std::string& family,
                                  const std::string& clip, float x, float y,
                                  float angle,
-                                 const dino::DinoAttributes* attributes ) {
+                                 const dino::DinoAttributes* attributes,
+                                 int id ) {
     auto assets = load_imported_species(species, family, clip);
     if (!assets) {
         return false;
     }
     const dino::DinoAssets& model = *assets->assets;
     dino::ImportedDino dinosaur;
+    const int assigned_id =
+        id >= 0 ? id : park_session.next_imported_dino_id;
+    park_session.next_imported_dino_id =
+        std::max(park_session.next_imported_dino_id, assigned_id + 1);
+    dinosaur.id = assigned_id;
     dinosaur.assets = assets->assets;
     dinosaur.species = species;
     dinosaur.family = family;
@@ -897,14 +908,11 @@ bool Game::sell_dino(int index) {
     park_session.ledger.add_vente(refund);
     const int cost_class =
         std::clamp(dinosaur.attributes.size_class, 0, 3);
-    // Campaign dinos carry their import index as the paddock occupant id;
-    // bought dinos use 1000000 + index. Try both.
     int pen_index = -1;
     float pen_used = 0.0f;
     for (std::size_t pen = 0; pen < park_session.paddocks.size(); ++pen) {
         dino::Paddock& paddock = park_session.paddocks[pen];
-        if (dino::paddock_remove(paddock, index, cost_class) ||
-            dino::paddock_remove(paddock, 1000000 + index, cost_class)) {
+        if (dino::paddock_remove(paddock, dinosaur.id, cost_class)) {
             pen_index = static_cast<int>(pen);
             pen_used = paddock.used;
             break;
@@ -939,6 +947,7 @@ void Game::clear_imported_dinos() {
     }
     imported_dino_draws.clear();
     park_session.imported_dinos.clear();
+    park_session.next_imported_dino_id = 1;
 }
 
 }  // namespace dino::app

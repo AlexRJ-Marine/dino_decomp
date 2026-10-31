@@ -30,6 +30,10 @@ struct DinoAssets {
 // Live dinosaur simulation state. The draw/GPU state lives in the app-side
 // ImportedDinoDraw at the same index (architecture finding A9).
 struct ImportedDino {
+    // Stable identity for paddock occupants, the info panel and sales. The
+    // retail actor id; campaign imports used their vector index in older
+    // port saves (id 0 = unassigned, assigned sequentially on load).
+    int id = 0;
     std::shared_ptr<const DinoAssets> assets;
     std::string species;
     std::string family;
