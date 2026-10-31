@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 03:03. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 03:08. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-57 open items.
+56 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -131,6 +131,5 @@ Generated from `TASKS.md` on 2026-10-31 03:03. Do not edit; regenerate with `scr
 - [ ] Port the normal-action executor rest: the full element record list and
 - [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
 - [ ] StaticBait variants, interactive `LUNCHBOX_SELECTED` placement and save
-- [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
