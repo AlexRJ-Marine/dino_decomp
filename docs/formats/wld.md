@@ -301,6 +301,13 @@ f4c, f44`.
 Employee (0x2B): `id, cell_x, cell_y, state[4], u16, u16, state, x, y, dx, dy,
 f44, f45, f4c`.
 
+List0 is parsed by `src/formats/wld.cpp` into `WldDinoState`: `object_id`,
+cell `x/y`, state bytes, UTF-16 name, `field_38`, thresholds, the 0xB0 gauge
+image (food/violence/security/rest, need states, activity, action id) and the
+`CampaignPath` position/direction prefix. The world block's `WorldDinosaur`
+list is the genotype bank; `WldDinoState.object_id` matches
+`WorldDinosaur.field_1c`. See `notes/campaign-dino-spawn-recon.md`.
+
 Cpg04: list0 20 dinos, list1 2 food sources (ids 264/267 at 461.5,421.5 and
 461.5,445.5), list2 6 employees, then a 57-record list (one per building).
 The list1/list2 bytes are identical to the corresponding blocks of
@@ -326,13 +333,13 @@ Returns a `WldFile` with `version`, `mode`, a `WorldBlock`, `roads`,
 exposes the subset the port needs:
 
 - `read_wld(path)` — campaign file: header, world block, road rectangles,
-  simulation list0/list1/list2 (`food_sources`, `employees_sim`) and the
-  40-byte camera tail. The later lists (one per building, store/lab) are not
-  decoded, so the reader does not require the roads to end at the camera
-  (Cpg04 has ~33 KB of simulation state there). `tools/formats/wld.py` now
-  exposes the same lists as `simulation_dinos`, `food_sources`, `employees`,
-  `attraction_count` and `simulation_end`; it reuses
-  `tools/formats/sav_campaign.py` for the record layouts.
+  simulation list0/list1/list2 (`simulation_dinos`, `food_sources`,
+  `employees_sim`) and the 40-byte camera tail. The later lists (one per
+  building, store/lab) are not decoded, so the reader does not require the
+  roads to end at the camera (Cpg04 has ~33 KB of simulation state there).
+  `tools/formats/wld.py` exposes the same lists as `simulation_dinos`,
+  `food_sources`, `employees`, `attraction_count` and `simulation_end`; it
+  reuses `tools/formats/sav_campaign.py` for the record layouts.
 - `read_sav_world(path)` — save file: skips the header
   (`0x18 + name_len`) and parses the same world block with the campaign flag
   clear. It stops before the show catalog count.

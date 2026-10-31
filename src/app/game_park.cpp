@@ -448,6 +448,7 @@ void Game::load_campaign_park(const std::string& world_path) {
         }
         rebuild_extra_items();
         wld_dinosaurs = world.dinosaurs;
+        park_session.campaign_dinos = world.simulation_dinos;
         for (const dino::RoadRect& road : world.roads) {
             wld_roads.push_back({road.x0, road.y0, road.x1, road.y1});
         }

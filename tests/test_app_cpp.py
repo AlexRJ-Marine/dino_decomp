@@ -2707,6 +2707,33 @@ def test_cpp_wld_park_dinosaurs(tmp_path):
 
 
 @pytest.mark.slow
+def test_cpp_campaign_spawn_positions():
+    """The campaign `.wld` list0 live state drives the Cpg04 herd: retail
+    positions, facing and need gauges (not generic paddock centres)."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width",
+         "160", "--height", "120", "--no-vsync", "--no-save-config",
+         "--lnd", str(isl04), "--asset-root", str(GAME),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--dino-action-loop"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert ("dino spawn: anky at 516.0,450.0 angle=0.0 "
+            "needs=41/80/99/95 source=wld") in log
+    assert ("dino spawn: allo at 432.0,520.0 angle=113.8 "
+            "needs=41/80/93/86 source=wld") in log
+    assert log.count("source=wld") == 20
+
+
+@pytest.mark.slow
 def test_cpp_cpg04_phenotype_lengths():
     """Exact phenotype lengths from the live Cpg04 run (genotype -> part size).
 
@@ -2726,7 +2753,7 @@ def test_cpp_cpg04_phenotype_lengths():
         [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
          "--height", "120", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water", "--wld-park", str(wld)],
+         "--no-vegetation", "--no-water", "--wld-park", str(wld), "--dino-fill-spawn"],
         capture_output=True, text=True, timeout=180, env=env,
     )
     assert result.returncode == 0, result.stderr
@@ -2761,7 +2788,7 @@ def test_cpp_cpg04_phenotype_attributes():
         [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
          "--height", "120", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water", "--wld-park", str(wld)],
+         "--no-vegetation", "--no-water", "--wld-park", str(wld), "--dino-fill-spawn"],
         capture_output=True, text=True, timeout=180, env=env,
     )
     assert result.returncode == 0, result.stderr
@@ -2867,7 +2894,7 @@ def test_cpp_dino_action_loop():
                 "--width", "160", "--height", "120", "--no-vsync",
                 "--no-save-config", "--lnd", str(isl04),
                 "--asset-root", str(GAME), "--no-vegetation", "--no-water",
-                "--wld-park", str(wld), "--dino-action-loop"]
+                "--wld-park", str(wld), "--dino-fill-spawn", "--dino-action-loop"]
         if needs:
             args += ["--dino-needs", needs]
         result = subprocess.run(
@@ -2916,7 +2943,7 @@ def test_cpp_dino_exploration_records():
          "--width", "160", "--height", "120", "--no-vsync",
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
-         "--wld-park", str(wld), "--dino-action-loop",
+         "--wld-park", str(wld), "--dino-fill-spawn", "--dino-action-loop",
          "--fixed-dt", "0.016"],
         capture_output=True, text=True, timeout=300,
     )
@@ -2981,7 +3008,7 @@ def test_cpp_danger_grid_secu():
              "--width", "160", "--height", "120", "--no-vsync",
              "--no-save-config", "--lnd", str(isl04),
              "--asset-root", str(GAME), "--no-vegetation", "--no-water",
-             "--wld-park", str(wld), "--dino-action-loop", "--secu-probe"]
+             "--wld-park", str(wld), "--dino-fill-spawn", "--dino-action-loop", "--secu-probe"]
             + extra,
             capture_output=True, text=True, timeout=180,
         )
@@ -4326,7 +4353,7 @@ def test_cpp_lunchbox_eat():
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
          "--wld-park", str(wld), "--place-lunchbox",
-         "--lunchbox-pos", "113,78",
+         "--lunchbox-pos", "131,112",
          "--dino-action-loop", "--fixed-dt", "0.016",
          "--dino-action-speed", "10", "--dino-needs", "20,90,50,90"],
         capture_output=True, text=True, timeout=300,
@@ -4339,6 +4366,8 @@ def test_cpp_lunchbox_eat():
     assert "quantity=10000" in log
     assert "nutrition=100" in log
     assert "actions=Eat,EatForSmallies" in log
+    # The campaign `.wld` spawn: Ankylosaur1 at its saved position.
+    assert "dino spawn: anky at 516.0,450.0" in log
     # The herbivore anky eats; the carnivore allos cannot use kind 0.
     assert "dino eat: anky <- LunchBox" in log
     assert "dino eat: allo" not in log
@@ -4349,11 +4378,11 @@ def test_cpp_lunchbox_eat():
     # 0x34 + (REPOS state != 2). REPOS 90 is not BAD, so the anky runs
     # (0x35) to the bowl.
     assert "dino move: anky start" in log
-    assert "target=457.0,321.0 kind=0x35" in log
-    # `FUN_0055b5b0`: stand cell 457,321 = nearest free cell to the dino
+    assert "target=519.0,450.0 kind=0x35" in log
+    # `FUN_0055b5b0`: stand cell 519,450 = nearest free cell to the dino
     # within floor(r+0.5) of the feeder cell, inside the arrival band.
     assert "dino eat gate: anky r=7.01" in log
-    assert "stand=457,321" in log
+    assert "stand=519,450" in log
     # `FUN_00569a00` passes `dino+0x288` = attack_head (30 for this anky)
     # to `FUN_00576e50`: 30 * LunchBox nutrition 100 = 3000; the quantity
     # falls by 30 and the gauge clamps at max 4255.
@@ -4371,7 +4400,7 @@ def test_cpp_lunchbox_eat():
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
          "--wld-park", str(wld), "--place-lunchbox",
-         "--lunchbox-pos", "113,78",
+         "--lunchbox-pos", "131,112",
          "--dino-action-loop", "--fixed-dt", "0.016",
          "--dino-action-speed", "100", "--dino-needs", "20,90,50,20"],
         capture_output=True, text=True, timeout=300,
@@ -4568,7 +4597,7 @@ def test_cpp_dino_info():
          "--width", "160", "--height", "120", "--no-vsync",
          "--no-save-config", "--lnd", str(isl04),
          "--asset-root", str(GAME), "--no-vegetation", "--no-water",
-         "--wld-park", str(wld), "--dino-info", "anky"],
+         "--wld-park", str(wld), "--dino-fill-spawn", "--dino-info", "anky"],
         capture_output=True, text=True, timeout=180,
     )
     assert result.returncode == 0, result.stderr
@@ -4598,7 +4627,7 @@ def test_cpp_dino_info_panel(tmp_path):
     common = [str(EXE), "--frames", "3", "--no-menu", "--width", "800",
               "--height", "600", "--no-vsync", "--no-save-config",
               "--lnd", str(isl04), "--asset-root", str(GAME),
-              "--no-vegetation", "--distance", "500", "--wld-park", str(wld)]
+              "--no-vegetation", "--distance", "500", "--wld-park", str(wld), "--dino-fill-spawn"]
     base = tmp_path / "base.bmp"
     panel = tmp_path / "panel.bmp"
     result = subprocess.run(
@@ -4763,7 +4792,7 @@ def test_cpp_lunchbox_ui_switch():
         [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
          "800", "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
-         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld), "--dino-fill-spawn",
          "--no-build", "--park-budget", "75000",
          "--park-click", "764,135", "--park-click", "618,145",
          "--park-click", "620,243", "--ground-click", "400,330"],
@@ -4792,7 +4821,7 @@ def test_cpp_lunchbox_feature_mode_and_busy_space():
         [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
          "800", "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
-         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld), "--dino-fill-spawn",
          "--no-build", "--park-budget", "75000", "--fence-lunchbox",
          "--inject-click", "2,600,336", "--inject-click", "4,600,336"],
         capture_output=True, text=True, timeout=300,
@@ -4820,7 +4849,7 @@ def test_cpp_lunchbox_cap_16():
             "800", "--height", "600", "--no-vsync", "--no-save-config",
             "--lnd", str(isl04), "--asset-root", str(GAME),
             "--no-vegetation", "--no-water", "--focus-dino", "0",
-            "--wld-park", str(wld), "--no-build", "--park-budget", "75000"]
+            "--wld-park", str(wld), "--dino-fill-spawn", "--no-build", "--park-budget", "75000"]
     result = subprocess.run(
         base + ["--lunchbox-prefill", "16", "--fence-lunchbox",
                 "--ground-click", "600,336"],
@@ -4893,7 +4922,7 @@ def test_cpp_static_bait_ui():
         [str(EXE), "--frames", "8", "--no-menu", "--no-hud", "--width",
          "800", "--height", "600", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME), "--no-vegetation",
-         "--no-water", "--focus-dino", "0", "--wld-park", str(wld),
+         "--no-water", "--focus-dino", "0", "--wld-park", str(wld), "--dino-fill-spawn",
          "--no-build", "--park-budget", "75000",
          "--park-click", "764,135", "--park-click", "648,145",
          "--park-click", "111,259", "--park-click", "52,332",
@@ -5068,7 +5097,7 @@ def test_cpp_port_save_paddocks_food(tmp_path):
         [str(EXE), "--frames", "2", "--no-menu", "--no-hud", "--width", "160",
          "--height", "120", "--no-vsync", "--no-save-config",
          "--lnd", str(isl04), "--asset-root", str(GAME),
-         "--no-vegetation", "--no-water", "--wld-park", str(wld),
+         "--no-vegetation", "--no-water", "--wld-park", str(wld), "--dino-fill-spawn",
          "--place-food", "PigFood", "--food-pos", "118,94",
          "--dino-action-loop", "--dino-needs", "20,90,50,90",
          "--save-port", str(target)],

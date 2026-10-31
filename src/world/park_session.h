@@ -9,6 +9,7 @@
 #include "../formats/bbi.h"
 #include "../formats/actions_bad.h"
 #include "../formats/math.h"
+#include "../formats/wld.h"
 #include "build.h"
 #include "danger_grid.h"
 #include "economy.h"
@@ -36,6 +37,9 @@ struct ParkSession {
     BuildGrid build_grid;
     std::vector<Paddock> paddocks;
     std::vector<ImportedDino> imported_dinos;
+    // Campaign `.wld` list0 live state (positions/needs/action), matched to
+    // the genotype bank at spawn. Empty for free game/imports.
+    std::vector<WldDinoState> campaign_dinos;
     // Next stable `ImportedDino::id`; `clear_imported_dinos` resets it.
     int next_imported_dino_id = 1;
     VisitorSystem visitor_system;

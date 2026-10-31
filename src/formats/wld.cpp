@@ -523,7 +523,93 @@ void check_version(std::uint32_t version, const std::string& path) {
 namespace {
 std::size_t campaign_dino_end(const std::vector<std::uint8_t>& data,
                               std::size_t pos, const std::string& path);
+
+// Campaign `.wld` list0 `saDinosaur` fields before the path. The full record
+// layout and all offsets are the same as
+// `tools/formats/sav_campaign.py::read_campaign_dino`.
+void read_campaign_dino_state(const std::vector<std::uint8_t>& data,
+                              std::size_t pos, const std::string& path,
+                              WldDinoState& out) {
+    auto need = [&](std::size_t size, const char* what) {
+        if (pos + size > data.size()) {
+            throw std::runtime_error(std::string("wld: ") + what +
+                                     " past simulation end in " + path);
+        }
+    };
+    need(0x19, "campaign dino prefix");
+    out.object_id = read_u32(data, pos, "campaign dino object id");
+    out.x = read_u32(data, pos + 0x04, "campaign dino x");
+    out.y = read_u32(data, pos + 0x08, "campaign dino y");
+    for (int i = 0; i < 4; ++i) {
+        out.state_bytes[static_cast<std::size_t>(i)] =
+            data[pos + 0x0c + static_cast<std::size_t>(i)];
+    }
+    out.field_10 = static_cast<std::uint16_t>(
+        data[pos + 0x10] | (data[pos + 0x11] << 8));
+    out.field_12 = static_cast<std::uint16_t>(
+        data[pos + 0x12] | (data[pos + 0x13] << 8));
+    out.flag = data[pos + 0x14];
+    const std::uint32_t name_len =
+        read_u32(data, pos + 0x15, "campaign dino name length");
+    if (name_len == 0 || (name_len & 1) != 0 || name_len > 4096) {
+        throw std::runtime_error("wld: bad campaign dino name length in " +
+                                 path);
+    }
+    need(0x19 + name_len, "campaign dino name");
+    for (std::size_t i = 0; i + 1 < name_len; i += 2) {
+        const char c = static_cast<char>(data[pos + 0x19 + i]);
+        if (c == '\0') {
+            break;
+        }
+        out.name.push_back(c);
+    }
+    std::size_t cursor = pos + 0x19 + name_len;
+    need(4, "campaign dino field_38");
+    out.field_38 = read_u32(data, cursor, "campaign dino field_38");
+    cursor += 4;
+    if (out.flag == 0) {
+        need(0x30, "campaign dino thresholds");
+        std::memcpy(out.thresholds.data(), data.data() + cursor, 0x30);
+        cursor += 0x30;
+    }
+    need(0xB0 + 0x0C + 3 + 4, "campaign dino state");
+    std::memcpy(out.gauges.data(), data.data() + cursor, 0xB0);
+    cursor += 0xB0;
+    cursor += 0x0C;  // state3
+    cursor += 3;     // anim flags
+    const std::uint32_t texture_len =
+        read_u32(data, cursor, "campaign dino texture length");
+    if (texture_len == 0 || texture_len > 4096) {
+        throw std::runtime_error("wld: bad campaign dino texture length in " +
+                                 path);
+    }
+    cursor += 4 + texture_len;
+    need(4 + 1 + 4, "campaign dino path prefix");
+    cursor += 4;  // field_524
+    cursor += 1;  // field_517
+    cursor += 4;  // field_1d0
+    need(0x20, "campaign dino path position");
+    out.path_x = read_f32(data, cursor, "campaign dino path x");
+    out.path_y = read_f32(data, cursor + 4, "campaign dino path y");
+    out.dir_x = read_f32(data, cursor + 0x18, "campaign dino path dir x");
+    out.dir_y = read_f32(data, cursor + 0x1c, "campaign dino path dir y");
+    auto gauge_i32 = [&](std::size_t off) {
+        int value = 0;
+        std::memcpy(&value, out.gauges.data() + off, 4);
+        return value;
+    };
+    out.food = gauge_i32(0x30);
+    out.violence = gauge_i32(0x34);
+    out.security = gauge_i32(0x38);
+    out.rest = gauge_i32(0x3c);
+    for (int i = 0; i < 4; ++i) {
+        out.need_states[static_cast<std::size_t>(i)] =
+            gauge_i32(0x98 + static_cast<std::size_t>(i) * 4);
+    }
+    out.activity = out.gauges[0xa8];
+    out.action_id = gauge_i32(0xac);
 }
+}  // namespace
 
 WldWorld read_wld(const std::string& path) {
     const std::vector<std::uint8_t> data = read_binary_file(path);
@@ -566,7 +652,11 @@ WldWorld read_wld(const std::string& path) {
     // the last 40 bytes of the file. Parse the lists that carry the live
     // actor positions/state (see notes/campaign-world-instantiation.md).
     const std::uint32_t dino_count = r.count("simulation dino count", 10000);
+    out.simulation_dinos.reserve(dino_count);
     for (std::uint32_t i = 0; i < dino_count; ++i) {
+        WldDinoState dino;
+        read_campaign_dino_state(data, r.offset(), path, dino);
+        out.simulation_dinos.push_back(std::move(dino));
         const std::size_t pos = campaign_dino_end(data, r.offset(), path);
         if (pos > body_end || pos < r.offset()) {
             throw std::runtime_error("wld: campaign dino record past body");

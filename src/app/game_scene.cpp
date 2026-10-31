@@ -390,6 +390,19 @@ void Game::spawn_world_dinos() {
         if (family.empty()) {
             family = "LightBiped";
         }
+        // Campaign `.wld` list0 live state: `object_id` matches the genotype
+        // record's `field_1c` (e.g. 63823 for Ankylosaur1). Free-game/imports
+        // have no simulation list.
+        const dino::WldDinoState* sim = nullptr;
+        if (!opt.dino_fill_spawn) {
+            for (const dino::WldDinoState& candidate :
+                 park_session.campaign_dinos) {
+                if (candidate.object_id == record.field_1c) {
+                    sim = &candidate;
+                    break;
+                }
+            }
+        }
         float x = terrain.world_size * 0.5f;
         float y = terrain.world_size * 0.5f;
         float angle = static_cast<float>(i) * 137.5f;
@@ -405,7 +418,13 @@ void Game::spawn_world_dinos() {
                 : dino::paddock_size_class(size_for_species(species));
         const int new_id = park_session.next_imported_dino_id;
         int paddock_index = -1;
-        if (!park_session.paddocks.empty()) {
+        if (sim != nullptr) {
+            // The saved position is inside its retail fence; use that paddock
+            // directly. A campaign load restores the saved population even if
+            // the port's approximate capacity model would reject it.
+            paddock_index = paddock_at_map(sim->path_x, sim->path_y);
+        }
+        if (paddock_index < 0 && !park_session.paddocks.empty()) {
             if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
                 std::fprintf(
                     stderr,
@@ -457,10 +476,21 @@ void Game::spawn_world_dinos() {
                     break;
                 }
             }
-            if (paddock_index >= 0) {
-                dino::Paddock& paddock =
-                    park_session.paddocks[static_cast<std::size_t>(paddock_index)];
-                dino::paddock_add(paddock, new_id, cost_class);
+        }
+        if (sim != nullptr) {
+            // Live `.wld` position/facing (CampaignPath prefix). This is used
+            // even when the position is not matched to a port paddock, so the
+            // saved herd layout is never replaced by generic centres.
+            x = sim->path_x;
+            y = sim->path_y;
+            angle = static_cast<float>(
+                std::atan2(sim->dir_y, sim->dir_x) * 180.0 / kPi);
+        }
+        if (paddock_index >= 0) {
+            dino::Paddock& paddock =
+                park_session.paddocks[static_cast<std::size_t>(paddock_index)];
+            dino::paddock_add(paddock, new_id, cost_class);
+            if (sim == nullptr) {
                 const dino::WorldRect& pen = paddock.rect;
                 const float x0 =
                     static_cast<float>(std::min(pen.x0, pen.x1));
@@ -479,16 +509,54 @@ void Game::spawn_world_dinos() {
                 x = (x0 + x1) * 0.5f + std::cos(theta) * radius;
                 y = (y0 + y1) * 0.5f + std::sin(theta) * radius;
                 angle = theta * 180.0f / kPi + 90.0f;
-            } else {
-                std::printf("dino %u (%s): no paddock capacity\n",
-                            record.object_id, species.c_str());
             }
+        } else {
+            std::printf("dino %u (%s): no paddock capacity\n",
+                        record.object_id, species.c_str());
         }
         try {
             if (add_imported_dino(species, family, opt.dino_clip, x, y,
                                   angle, attrs_ptr, new_id)) {
-                park_session.imported_dinos.back().carnivore =
+                dino::ImportedDino& imported =
+                    park_session.imported_dinos.back();
+                imported.carnivore =
                     dino::genotype_is_carnivore(record.genotype);
+                if (sim != nullptr) {
+                    if (!opt.dino_needs_set) {
+                        const int food = std::clamp(sim->food, 0, 99);
+                        const int violence = std::clamp(sim->violence, 0, 99);
+                        const int security = std::clamp(sim->security, 0, 99);
+                        const int rest = std::clamp(sim->rest, 0, 99);
+                        imported.needs.value = {food, violence, security, rest};
+                        if (imported.needs.max_food > 0.0f) {
+                            imported.needs.food_gauge =
+                                static_cast<float>(food) / 99.0f *
+                                imported.needs.max_food;
+                        }
+                        if (imported.needs.max_rest > 0.0f) {
+                            imported.needs.rest_gauge =
+                                static_cast<float>(rest) / 99.0f *
+                                imported.needs.max_rest;
+                        }
+                        if (imported.action_loop) {
+                            imported.action_loop->restore(
+                                imported.needs, sim->action_id, 0.0);
+                        }
+                    }
+                    std::printf(
+                        "dino spawn: %s at %.1f,%.1f angle=%.1f "
+                        "needs=%d/%d/%d/%d source=wld\n",
+                        species.c_str(), static_cast<double>(x),
+                        static_cast<double>(y), static_cast<double>(angle),
+                        imported.needs.value[0], imported.needs.value[1],
+                        imported.needs.value[2], imported.needs.value[3]);
+                } else {
+                    std::printf(
+                        "dino spawn: %s at %.1f,%.1f angle=%.1f "
+                        "source=fill\n",
+                        species.c_str(), static_cast<double>(x),
+                        static_cast<double>(y), static_cast<double>(angle));
+                }
                 ++spawned;
                 ++species_counts[species];
             } else if (paddock_index >= 0) {

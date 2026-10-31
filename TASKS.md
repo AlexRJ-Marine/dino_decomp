@@ -1926,9 +1926,24 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `+0xa0`, `+0x40` and the store/lab tail; typed C++ `SavCampaignDino`.
   Campaign saves have **no park block** (`FUN_0058b200` gates visitors/
   economy/schedule out), so `--sav-park` cannot use one.
-- [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
-  into `load_campaign_park` and assert the Cpg04 counts
-  (`notes/playtest-2026-10-27.md`).
+- [x] Campaign list0 live state: `WldDinoState` parses the 20 `saDinosaur`
+  records (object id, cell/path position, facing, gauges/needs, action id) and
+  `spawn_world_dinos` matches them to the genotype bank by
+  `WorldDinosaur.field_1c`, spawning at the retail positions with the saved
+  FOOD/VIOLENCE/SECU/REPOS. `--dino-fill-spawn` is the old paddock-order test
+  fixture. `notes/campaign-dino-spawn-recon.md`,
+  `test_cpp_campaign_spawn_positions`.
+- [x] Retail park cursors: `CursorMain.ini` -> `CursorMain_wood.tga`,
+  `CursorSell.ini` -> `money.tga`, `CursorInsertFence.ini` ->
+  `put_in_enclos.tga`, installed as SDL colour cursors and selected by
+  sell/fence modes. A menu new game also resets the stale construction tool
+  (`build_tool`, road start, selections, pending widgets) so the road helper
+  cannot sit under the mouse or place paths on the first click.
+  `notes/cursor-recon.md`.
+- [ ] CAMPAIGN population: wire the remaining `WldWorld.records.shows/
+  animals/employees` wrappers into `load_campaign_park` and assert the Cpg04
+  counts (`notes/playtest-2026-10-27.md`); the live list0 dino spawn is done
+  above.
 - [x] Autosave/manual flag: patching park `header_a` 3->0 and `header_c`
   0->10 makes the free-game autosave loadable via the retail LOAD panel
   (`notes/sav-autosave-manualized.png`); `tools/formats/sav_manual.py`

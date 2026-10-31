@@ -7,6 +7,7 @@
 #include "game.h"
 
 #include "../world/dino_animator.h"
+#include "cursor.h"
 
 namespace dino::app {
 
@@ -42,6 +43,11 @@ int Game::run() {
         update_camera_view();
         update_placement();
         update_preview();
+        set_cursor_mode(park_sell_mode
+                            ? CursorMode::Sell
+                            : (build_tool == 2 || build_tool == 6)
+                                  ? CursorMode::Fence
+                                  : CursorMode::Main);
         draw_frame();
         present_frame();
     }
@@ -53,6 +59,7 @@ int Game::run() {
 // Release every GL/SDL resource and write the end-of-run output (config,
 // build save, visitor stats).
 void Game::shutdown() {
+    shutdown_cursors();
     if (opt.save_config) {
         int final_width = 0, final_height = 0;
         SDL_GetWindowSize(window, &final_width, &final_height);
@@ -279,6 +286,49 @@ void Game::update_menu_loading() {
             menu.loading = false;
             menu.active = false;
             start_screen = false;
+            // Interactive games drive the live dino action loop; `--dino-static`
+            // keeps the rest pose for deterministic screenshots/tests.
+            opt.dino_action_loop = !opt.dino_static;
+            // A new game must not inherit the previous park's construction
+            // tool, road start, sell mode, selection or feeder draws. Retail
+            // enters the default park state after a scenario load; a stale
+            // `build_tool` would leave the road/fence helper under the mouse
+            // and commit paths on the first click.
+            auto reset_park_tools = [&]() {
+                build_tool = 0;
+                road_has_start = false;
+                road_start_x = 0;
+                road_start_y = 0;
+                road_preview_key = {-1, -1, -1, -1};
+                road_preview_cost = -1;
+                fence_corner_x = -1;
+                fence_corner_y = -1;
+                fence_preview_visible = false;
+                pending_construct_kind = -1;
+                pending_build_tool = 0;
+                pending_click = false;
+                selected_paddock = -1;
+                selected_construct.clear();
+                park_session.selected_feature.clear();
+                park_session.campaign_dinos.clear();
+                park_sell_mode = false;
+                park_sell_paddock = -1;
+                pending_sell_mode = false;
+                pending_show_index = -1;
+                pending_store_index = -1;
+                pending_show_action.clear();
+                pending_store_action.clear();
+                pending_attraction_actions.clear();
+                for (ShowFeatureDraw& feature : show_feature_draws) {
+                    feature.gpu.destroy(glfns);
+                }
+                show_feature_draws.clear();
+                park_session.feeders.clear();
+                park_session.show_runtime.clear();
+                park_session.show_catalog.clear();
+                camera_retail_model = !opt.camera_orbit;
+            };
+            reset_park_tools();
             const bool campaign_start = menu.start_campaign;
             menu.start_campaign = false;
             const dino::Campaign* campaign =

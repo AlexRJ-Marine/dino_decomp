@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 09:11. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 10:11. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 54 open items.
 
@@ -96,7 +96,7 @@ Generated from `TASKS.md` on 2026-10-31 09:11. Do not edit; regenerate with `scr
 
 ## SAVE-1: Save/load
 - [ ] Campaign parity rest: walk the 57-record `spPark+0x90` attraction list,
-- [ ] CAMPAIGN population: wire `WldWorld.records.shows/animals/employees`
+- [ ] CAMPAIGN population: wire the remaining `WldWorld.records.shows/
 - [ ] `--sav-manual` writer option (autosave -> manual); blocked while
 
 ## ARCH-2: Extract ParkSession state

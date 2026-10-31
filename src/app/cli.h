@@ -129,7 +129,10 @@ struct Options {
     bool budget_info = false;
     bool dino_actions_info = false;
     bool dino_action_loop = false;
+    bool dino_static = false;  // menu games: keep the rest pose (tests)
+    bool dino_fill_spawn = false;  // test fixture: ignore .wld list0 positions
     std::string dino_needs = "50,99,99,99";
+    bool dino_needs_set = false;  // --dino-needs test override
     float dino_action_speed = 1.0f;
     // Fixed simulation delta for deterministic headless runs. 0 = wall
     // clock (retail lpScheduler behaviour).

@@ -347,8 +347,17 @@ Options parse_args(int argc, char** argv) {
             opt.dino_actions_info = true;
         } else if (arg == "--dino-action-loop") {
             opt.dino_action_loop = true;
+        } else if (arg == "--dino-static") {
+            // Menu-started games enable the action loop by default (the live
+            // park); this keeps the rest pose for deterministic screenshots.
+            opt.dino_static = true;
+        } else if (arg == "--dino-fill-spawn") {
+            // Test fixture: ignore the campaign `.wld` list0 positions/needs
+            // and fill paddocks in record order (the pre-2026-10-31 layout).
+            opt.dino_fill_spawn = true;
         } else if (arg == "--dino-needs") {
             opt.dino_needs = next("--dino-needs");
+            opt.dino_needs_set = true;
         } else if (arg == "--dino-action-speed") {
             opt.dino_action_speed = static_cast<float>(
                 std::atof(next("--dino-action-speed")));
@@ -699,6 +708,8 @@ Options parse_args(int argc, char** argv) {
                 "  --budget-info        print the budget ledger (current/yesterday/totals)\n"
                 "  --dino-actions       print the dinosaur action chooser and exit\n"
                 "  --dino-action-loop   drive imported dinosaur clips from the chooser\n"
+                "  --dino-static        keep the rest pose in menu-started games\n"
+                "  --dino-fill-spawn    test fixture: fill paddocks in record order\n"
                 "  --dino-needs F,V,S,R imported dinosaur FOOD,VIOLENCE,SECU,REPOS (default 50,99,99,99)\n"
                 "  --dino-action-speed N action duration scale (default 1)\n"
                 "  --dino-move-speed N  mover speed scale for tests (default 1)\n"

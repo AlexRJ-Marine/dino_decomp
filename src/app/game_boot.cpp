@@ -4,6 +4,7 @@
 
 #include "game.h"
 
+#include "cursor.h"
 #include "reports.h"
 
 #include "../formats/ini.h"
@@ -1144,6 +1145,7 @@ std::optional<int> Game::boot_platform() {
             std::fprintf(stderr, "audio open failed: %s\n", SDL_GetError());
         }
     }
+    init_cursors(opt.asset_root);
     return std::nullopt;
 }
 

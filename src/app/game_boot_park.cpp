@@ -302,6 +302,7 @@ std::optional<int> Game::boot_park_objects() {
                 wld_roads.clear();
                 wld_fences.clear();
                 wld_dinosaurs = world.dinosaurs;
+                park_session.campaign_dinos = world.simulation_dinos;
                 for (const dino::RoadRect& road : world.roads) {
                     wld_roads.push_back(
                         {road.x0, road.y0, road.x1, road.y1});

@@ -252,6 +252,29 @@ struct WldEmployeeState {
     std::uint8_t field_44 = 0, field_45 = 0, field_4c = 0;
 };
 
+// Campaign `.wld` list0 `saDinosaur` record (the live simulation state; the
+// world block's `WorldDinosaur` list is the genotype bank). Parsed from the
+// same record layout as `tools/formats/sav_campaign.py::read_campaign_dino`.
+struct WldDinoState {
+    std::uint32_t object_id = 0;
+    std::uint32_t x = 0, y = 0;
+    std::array<std::uint8_t, 4> state_bytes{};
+    std::uint16_t field_10 = 0, field_12 = 0;
+    std::uint8_t flag = 0;
+    std::string name;
+    std::uint32_t field_38 = 0;
+    std::array<int, 12> thresholds{};
+    std::array<std::uint8_t, 0xB0> gauges{};
+    // Derived from the gauge image:
+    int food = 0, violence = 0, security = 0, rest = 0;  // +0x30/34/38/3c
+    std::array<int, 4> need_states{};                    // +0x98
+    int activity = 0;                                    // +0xa8
+    int action_id = 0x1f;                                // +0xac
+    // CampaignPath prefix (`sav_campaign.py::_read_path`).
+    float path_x = 0.0f, path_y = 0.0f;
+    float dir_x = 1.0f, dir_y = 0.0f;
+};
+
 struct WldWorld {
     std::uint32_t version = 0;
     std::uint32_t mode = 0;
@@ -271,6 +294,7 @@ struct WldWorld {
     // Campaign `.wld` simulation lists after the roads (positions/state of
     // the actors created from records.animals/employees).
     bool has_simulation_lists = false;
+    std::vector<WldDinoState> simulation_dinos;
     std::vector<WldFoodSource> food_sources;
     std::vector<WldEmployeeState> employees_sim;
     std::array<float, 10> camera{};
