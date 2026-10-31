@@ -190,6 +190,8 @@ float paddock_cost(int cost_index);  // 8 << clamp(index, 0..3)
 int paddock_size_class(int size_cm);
 bool paddock_can_add(const Paddock& paddock, int dinosaur_id, int cost_index);
 bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index);
+// Removes the occupant and refunds its capacity cost (`paddock_cost`).
+bool paddock_remove(Paddock& paddock, int dinosaur_id, int cost_index);
 // Retail road tool (`ROAD_CONSTRUCTION`, state 0x10; see
 // notes/road-construction-recon.md). A road is a straight, axis-aligned run
 // of 4-unit cells placed with two clicks; the second click commits and the

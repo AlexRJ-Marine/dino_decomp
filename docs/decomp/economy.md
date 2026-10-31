@@ -250,6 +250,19 @@ updates the totals but not the rows.
 A save taken after one in-game day is the quickest way to validate the row
 mapping at runtime.
 
+## Dino sale (`0x00533a00`)
+
+`FUN_00533a00` credits `FUN_00585c40(ftol(dino+0x1ec * SellBackFactor))`,
+which increments VENTES count/total and the budget, then `FUN_0053a900`
+unregisters and deletes the actor. `dino+0x1ec` is the genotype-rarity value
+`def+0x19c` (18 genes, rarity price table 500/100/50), not the `Market.ini`
+purchase price. Port: `DinoAttributes::market_value` (20/20 Cpg04
+`DINORESET f1ec`), `Game::sell_dino` (budget + `ledger.add_vente`, paddock
+capacity release, draw/actor removal; it runs after `boot_park_session` so
+the budget reset cannot wipe the credit) and the `--sell-dino NAME` test
+hook (`test_cpp_dino_sell`: value 2400, refund 2400, VENTES 1/2400, dinos
+20 -> 19). The interactive `REQUEST_SELL_DINO` hit test is still open.
+
 ## Port status
 
 `src/world/economy.{h,cpp}` implements the ledger: current/yesterday copies of

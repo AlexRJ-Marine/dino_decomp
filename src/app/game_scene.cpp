@@ -881,6 +881,57 @@ bool Game::add_imported_dino(const std::string& species,
 
 }
 
+bool Game::sell_dino(int index) {
+    if (index < 0 ||
+        index >= static_cast<int>(park_session.imported_dinos.size())) {
+        return false;
+    }
+    const dino::ImportedDino& dinosaur =
+        park_session.imported_dinos[static_cast<std::size_t>(index)];
+    const int value = dinosaur.attributes.market_value;
+    // `FUN_00533a00` -> `FUN_00585c40(ftol(value * SellBackFactor))`:
+    // VENTES count/total + budget.
+    const int refund = static_cast<int>(
+        static_cast<float>(value) * park_session.sellback);
+    park_session.budget += refund;
+    park_session.ledger.add_vente(refund);
+    const int cost_class =
+        std::clamp(dinosaur.attributes.size_class, 0, 3);
+    // Campaign dinos carry their import index as the paddock occupant id;
+    // bought dinos use 1000000 + index. Try both.
+    int pen_index = -1;
+    float pen_used = 0.0f;
+    for (std::size_t pen = 0; pen < park_session.paddocks.size(); ++pen) {
+        dino::Paddock& paddock = park_session.paddocks[pen];
+        if (dino::paddock_remove(paddock, index, cost_class) ||
+            dino::paddock_remove(paddock, 1000000 + index, cost_class)) {
+            pen_index = static_cast<int>(pen);
+            pen_used = paddock.used;
+            break;
+        }
+    }
+    const std::string species = dinosaur.species;
+    if (index < static_cast<int>(imported_dino_draws.size())) {
+        imported_dino_draws[static_cast<std::size_t>(index)].gpu.destroy(glfns);
+        imported_dino_draws[static_cast<std::size_t>(index)].shadow.destroy(
+            glfns);
+        imported_dino_draws.erase(imported_dino_draws.begin() + index);
+    }
+    park_session.imported_dinos.erase(
+        park_session.imported_dinos.begin() + index);
+    rebuild_extra_items();
+    std::printf(
+        "sell dino: %s value=%d refund=%d budget=%d ventes=%d/%d "
+        "pen=%d used=%.0f sellback=%.2f dinos=%zu\n",
+        species.c_str(), value, refund, park_session.budget,
+        park_session.ledger.ventes_count,
+        park_session.ledger.ventes_total, pen_index,
+        static_cast<double>(pen_used),
+        static_cast<double>(park_session.sellback),
+        park_session.imported_dinos.size());
+    return true;
+}
+
 void Game::clear_imported_dinos() {
     for (ImportedDinoDraw& draw : imported_dino_draws) {
         draw.gpu.destroy(glfns);

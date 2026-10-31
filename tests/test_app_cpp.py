@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (235 checks)" in result.stdout
+    assert "selftest: PASS (237 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -4481,6 +4481,43 @@ def test_cpp_dino_starvation_death():
     assert "dino dead: anky health=0/200" in log
     assert "dino down: anky health=0/200" in log
     assert "hp=0/200 state=4" in log
+
+
+@pytest.mark.slow
+def test_cpp_dino_sell():
+    """`FUN_00533a00`: sell the last Cpg04 anky, credit
+    `ftol(market_value*sellback)` to VENTES and the budget, free the paddock
+    capacity and remove the actor/draw."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "2", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--park-budget", "1000",
+         "--sell-dino", "anky"],
+        capture_output=True, text=True, timeout=180,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    line = next(line for line in log.splitlines()
+                if line.startswith("sell dino: anky "))
+    fields = dict(token.split("=", 1) for token in line.split()
+                  if "=" in token)
+    value = int(fields["value"])
+    refund = int(fields["refund"])
+    assert value == 2400  # Cpg04 240 cm anky, genotype-rarity value
+    assert refund == value  # --wld-park sellback 1.00
+    assert int(fields["budget"]) == 1000 + refund
+    assert int(fields["ventes"].split("/")[0]) == 1
+    assert int(fields["ventes"].split("/")[1]) == refund
+    assert int(fields["dinos"]) == 19
+    assert int(fields["pen"]) >= 0
 
 
 def test_cpp_employee_info():

@@ -2375,10 +2375,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   Cpg04 `DINORESET f1ec` values match (`val=` in `DINO_DEBUG_PHENO`,
   `test_cpp_cpg04_phenotype_attributes`); rarity blocks parsed for all 18
   genes. Independent of the `Market.ini` price.
-- [ ] Dino sell flow (`0x532d9c`, `REQUEST_SELL_DINO`): `FUN_00533a00` calls
-  `FUN_00585c40(ftol(value*SellBackFactor))` -> VENTES count/total + budget,
-  then `FUN_0053a900` removes the actor. `notes/dino-sell-recon.md`; port
-  `sell_dino(index)` + CLI hook, then the interactive hit test.
+- [x] Dino sell economy (`FUN_00533a00` -> `FUN_00585c40(
+  ftol(value*SellBackFactor))`): VENTES count/total + budget, then
+  `FUN_0053a900` removes the actor. `Game::sell_dino` + `paddock_remove` +
+  `boot_sell_dino` (after the park-session budget reset) + `--sell-dino NAME`
+  hook. Cpg04: value 2400, refund 2400, VENTES 1/2400, dinos 20 -> 19
+  (`test_cpp_dino_sell`). `notes/dino-sell-recon.md`.
+- [ ] Interactive `REQUEST_SELL_DINO` hit test/panel; add a stable
+  `ImportedDino::id` first so arbitrary in-park sales do not shift the
+  UI's index-based paddock occupant lookup.
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 - **Evidence:** `notes/dino-stats-economy-gap-audit.md`.
 - **Depends on:** store/dino spawn, economy buckets, info panel.

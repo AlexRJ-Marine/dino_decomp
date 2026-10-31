@@ -29,18 +29,28 @@ Date: 2026-10-31. Read-only Ghidra pass; no runtime probe in this pass.
 - Removal: `FUN_0053a900` walks the actor list, unregisters the dino and
   deletes it; `FUN_0053b3d0` refreshes the scene.
 
-## Port plan
+## Port status (2026-10-31)
 
-1. Finish `DinoAttributes::market_value` (rarity weights + price table
-   `Rare/Uncommon/Common` 500/100/50) and verify it against the 20 Cpg04
-   `DINORESET f1ec` values.
-2. Add `ParkSession::sell_dino(index)`:
-   - `refund = (int)(attributes.market_value * sellback)`;
-   - `budget += refund`, ledger `add_vente(refund)`;
-   - free the paddock capacity (`paddock_remove`);
-   - remove the dino from `imported_dinos` (and the parallel draw list).
-3. Expose it as a test hook first (`--sell-dino N|SPECIES`), then the
-   interactive hit test/REQUEST_SELL_DINO panel.
+1. [x] `DinoAttributes::market_value` — rarity weights parsed for all 18
+   genes + price table 500/100/50; all 20 Cpg04 `DINORESET f1ec` values
+   match (`notes/phenotype-attributes-runtime.md`).
+2. [x] `Game::sell_dino(index)`:
+   - `refund = (int)(market_value * sellback)`;
+   - `budget += refund`, `ledger.add_vente(refund)` (VENTES count/total);
+   - `paddock_remove` subtracts the size-class capacity cost;
+   - removes the dino and its `imported_dino_draws` entry.
+   Called from `boot_sell_dino()` **after** `boot_park_session()` so the
+   park-session budget reset cannot wipe the credit.
+3. [x] Test hook `--sell-dino NAME` (last matching imported dino, so earlier
+   indices do not shift). Cpg04 log:
+   `sell dino: anky value=2400 refund=2400 budget=3400 ventes=1/2400
+   pen=4 used=48 sellback=1.00 dinos=19` with `--park-budget 1000`
+   (`test_cpp_dino_sell`).
+4. [ ] Interactive `REQUEST_SELL_DINO` hit test/panel path (`0x532d9c..`).
+   The actor id used by the paddock occupants is the import index for
+   campaign dinos and `1000000+index` for bought ones; a stable
+   `ImportedDino::id` is needed before arbitrary in-park sales so the UI
+   index lookups stay valid.
 
 ## Open
 

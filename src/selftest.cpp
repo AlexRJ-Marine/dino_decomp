@@ -358,6 +358,15 @@ int run_selftest() {
     check(wall_mover.blocked() &&
               std::fabs(wall_mover.x() - 2.0f) < 0.001f,
           "dino mover occupancy wall");
+    // Paddock capacity release on a dino sale (`FUN_0053a900` frees the
+    // occupant; `paddock_remove` subtracts its `paddock_cost`).
+    dino::Paddock sale_pen;
+    sale_pen.capacity = 100.0f;
+    check(dino::paddock_add(sale_pen, 3, 1), "paddock sale add");
+    const float sale_used = sale_pen.used;
+    check(sale_used > 0.0f && dino::paddock_remove(sale_pen, 3, 1) &&
+              sale_pen.used == 0.0f && sale_pen.occupants.empty(),
+          "paddock sale releases capacity");
     dino::DinoMover down(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
     down.knock_down();
     check(down.state() == 3, "dino mover knocked down");

@@ -1,10 +1,6 @@
 // The port's application object: one process, one window, one park.
-//
-// This header lists the session state the app shell owns. The data
-// mirrors the retail application globals (spPark, spSimuManager, the
-// display/view lists) grouped by subsystem; the methods are the
-// sections of the old 11k-line main(), each named after what it does.
-//
+// Session state mirrors the retail globals (spPark, spSimuManager,
+// display/view lists); methods are the old main() sections.
 // Keep this file a map: no logic here beyond inline data helpers.
 
 #pragma once
@@ -626,6 +622,8 @@ private:
                            float angle,
                            const dino::DinoAttributes* attributes = nullptr);
     void clear_imported_dinos();
+    // `FUN_00533a00`: sell credit + paddock capacity + actor/draw removal.
+    bool sell_dino(int index);
     void upload_vegetation();
     void release_vegetation();
     const dino::WorldRect* selected_paddock_rect();

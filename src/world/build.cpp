@@ -802,6 +802,19 @@ bool paddock_add(Paddock& paddock, int dinosaur_id, int cost_index) {
     return true;
 }
 
+bool paddock_remove(Paddock& paddock, int dinosaur_id, int cost_index) {
+    const auto it =
+        std::find(paddock.occupants.begin(), paddock.occupants.end(),
+                  dinosaur_id);
+    if (it == paddock.occupants.end()) {
+        return false;
+    }
+    paddock.occupants.erase(it);
+    paddock.used =
+        std::max(0.0f, paddock.used - paddock_cost(cost_index));
+    return true;
+}
+
 int RoadSegment::cells() const {
     return std::abs(x1 - x0) + std::abs(y1 - y0) + 1;
 }

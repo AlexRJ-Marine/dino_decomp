@@ -3,6 +3,8 @@
 
 #include "game.h"
 
+#include <cctype>
+
 namespace dino::app {
 
 std::optional<int> Game::boot_scene_resources() {
@@ -1086,6 +1088,35 @@ std::optional<int> Game::boot_employee_session() {
                     park_session.employee_system.employees.size(),
                     employee_pose.positions.size());
         rebuild_extra_items();
+    }
+    // `--sell-dino` runs after the budget override and the pending buy (so
+    // the park-session budget reset cannot wipe the sale credit). The last
+    // match is sold so earlier import indices do not shift.
+    if (!opt.sell_dino.empty() && !park_session.imported_dinos.empty()) {
+        const auto matches = [](const std::string& text,
+                                const std::string& want) {
+            if (want.size() > text.size()) {
+                return false;
+            }
+            for (std::size_t i = 0; i < want.size(); ++i) {
+                if (std::tolower(static_cast<unsigned char>(text[i])) !=
+                    std::tolower(static_cast<unsigned char>(want[i]))) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        for (int i = static_cast<int>(park_session.imported_dinos.size()) -
+                     1;
+             i >= 0; --i) {
+            if (matches(park_session.imported_dinos[
+                            static_cast<std::size_t>(i)]
+                            .species,
+                        opt.sell_dino)) {
+                sell_dino(i);
+                break;
+            }
+        }
     }
     return std::nullopt;
 }

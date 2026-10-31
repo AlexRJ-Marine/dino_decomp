@@ -139,6 +139,7 @@ struct Options {
     int dino_max_health = 100;
     bool dino_health_override = false;
     float dino_food = -1.0f;  // <0 keeps the phenotype max/2
+    std::string sell_dino;     // sell the last imported dino of this species
     bool secu_probe = false;
     bool rest_probe = false;
     float building_x = 520.0f;
