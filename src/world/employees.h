@@ -21,6 +21,13 @@ struct Employee {
     float work_left = 0.0f;
 };
 
+// One `EmployeeSystem::update` step: completed feed jobs and the FOOD price
+// charged by `FUN_00576d50` (`0x585c90`).
+struct FeedResult {
+    int completed = 0;
+    int food_spent = 0;
+};
+
 // Port of the decoded employee loop (`apEmployeeBehavior::Update`,
 // 0x5220e0) at the first-slice level: every new hour each idle nutritionist
 // takes one placed food source that is below capacity, walks to it, plays the
@@ -42,11 +49,13 @@ struct EmployeeSystem {
                    const std::vector<FoodSource>& sources,
                    const std::vector<FoodDef>& defs, bool instant = false);
 
-    // Moves/works; refills a source to the definition quantity on completion.
-    // Returns the number of completed feed actions in this step.
-    int update(float dt, const std::vector<EmployeeProfile>& profiles,
-               std::vector<FoodSource>& sources,
-               const std::vector<FoodDef>& defs);
+    // Moves/works; refills a source with `set_food_level(level 0)` on
+    // completion and returns the completed count plus the charged FOOD
+    // price (`FUN_00576d50`). The level producer is still open; the port's
+    // full refill is the level-0 case.
+    FeedResult update(float dt, const std::vector<EmployeeProfile>& profiles,
+                      std::vector<FoodSource>& sources,
+                      const std::vector<FoodDef>& defs);
 
     int active() const;
 

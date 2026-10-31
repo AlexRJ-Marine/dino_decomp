@@ -105,7 +105,12 @@ int ParkSession::update_staff(double dt) {
         assigned = employee_system.start_hour(employee_profiles, food_sources,
                                               food_defs);
     }
-    employee_system.update(dt, employee_profiles, food_sources, food_defs);
+    const FeedResult feed =
+        employee_system.update(dt, employee_profiles, food_sources, food_defs);
+    if (feed.food_spent > 0) {
+        budget -= feed.food_spent;
+        ledger.spend_food(feed.food_spent);
+    }
     return assigned;
 }
 

@@ -121,11 +121,12 @@ int EmployeeSystem::start_hour(const std::vector<EmployeeProfile>& profiles,
     return assigned;
 }
 
-int EmployeeSystem::update(float dt,
-                           const std::vector<EmployeeProfile>& profiles,
-                           std::vector<FoodSource>& sources,
-                           const std::vector<FoodDef>& defs) {
-    int completed = 0;    for (Employee& employee : employees) {
+FeedResult EmployeeSystem::update(float dt,
+                                  const std::vector<EmployeeProfile>& profiles,
+                                  std::vector<FoodSource>& sources,
+                                  const std::vector<FoodDef>& defs) {
+    FeedResult result;
+    for (Employee& employee : employees) {
         if (employee.target < 0 ||
             employee.target >= static_cast<int>(sources.size())) {
             employee.target = -1;
@@ -156,16 +157,27 @@ int EmployeeSystem::update(float dt,
         } else if (employee.state == 2) {
             employee.work_left -= dt;
             if (employee.work_left <= 0.0f) {
-                source.remaining = source_capacity(source, defs);
+                const FoodDef* def =
+                    (source.def >= 0 &&
+                     source.def < static_cast<int>(defs.size()))
+                        ? &defs[static_cast<std::size_t>(source.def)]
+                        : nullptr;
+                if (def != nullptr) {
+                    // `FUN_00576d50` level 0: full refill; the `.bsi` price
+                    // is charged to the FOOD bucket (`0x585c90`).
+                    result.food_spent += set_food_level(source, *def, 0);
+                } else {
+                    source.remaining = source_capacity(source, defs);
+                }
                 employee.state = 0;
                 employee.target = -1;
                 employee.work_left = 0.0f;
                 ++serviced;
-                ++completed;
+                ++result.completed;
             }
         }
     }
-    return completed;
+    return result;
 }
 
 Mesh EmployeeSystem::build_mesh(const Terrain& terrain, const Mesh& pose) const {

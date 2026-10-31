@@ -82,6 +82,18 @@ std::vector<FoodDef> load_food_defs(const std::string& asset_root,
     return defs;
 }
 
+int set_food_level(FoodSource& source, const FoodDef& def, int level) {
+    if (level < 0 || level > 2) {
+        return 0;
+    }
+    const float factor = level == 0 ? 1.0f
+                         : level == 1 ? 0.66666f
+                                      : 0.33333f;
+    source.level = level;
+    source.remaining = def.quantity * factor;
+    return def.price;
+}
+
 float feeder_drain(Feeder& feeder, float amount) {
     if (feeder.quantity < amount) {
         amount = feeder.quantity;

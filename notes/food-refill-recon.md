@@ -26,8 +26,9 @@ call *(*DAT_0067572c)(__ftol(price));         // budget charge hook
 - Level 0/1/2 = 100 % / 2/3 / 1/3 of the definition capacity; level 3 is
   rejected (the empty state is set elsewhere).
 - The price is taken from `def+0x8` (the `.bsi` price, e.g. 10..50) and
-  passed to the function at `*DAT_0067572c` (the budget/Food bucket hook; the
-  exact object is not yet named).
+  passed to the function at `*DAT_0067572c`; the budget hook is the budget
+  vtable slot 0 `0x585c90` = `spend_food` (dino-stats audit §4.3/§6), i.e.
+  `budget -= price; food_total += price; food_count++`.
 
 `FUN_00580e60(set, index)`:
 
@@ -44,20 +45,22 @@ The nutritionist completion path `FUN_00522300` calls
 
 ## Port status
 
-`src/world/food.h` has `FoodSource::remaining` only; `src/world/employees.cpp`
-refills to `source_capacity()` at the end of the nutritionist job and never
-charges `FoodDef::price`. This is the documented G6/G9 gap. Do not change it
-until the job-level producer and the `DAT_0067572c` hook are identified.
+**Implemented (2026-10-31).** `src/world/food.h` carries `FoodSource::level`;
+`set_food_level` implements the exact 100/66/33 % amounts and rejects level 3.
+`EmployeeSystem::update` returns `FeedResult {completed, food_spent}`; the
+nutritionist completion calls `set_food_level(source, def, 0)` (the port's
+full refill is the level-0 case) and both call sites deduct the budget and
+call `BudgetLedger::spend_food(price)`. `--feed-now` logs
+`food_spent=700 budget=73300` for PigFood and the per-source `level=0`.
+The **job level producer** at `*(set+0x5c+idx*8)` remains untraced; the port
+always uses level 0.
 
 ## Next probe
 
 Break on `0x576d50` during a Cpg04 hour rollover (the Cpg04 save has 6
 nutritionists) and log the source pointer, `level`, `def+0x4` capacity and
-`def+0x8` price. That confirms both the level values chosen in practice and
-the charge amount. Then:
-- add `FoodSource::level`, use the exact 100/66/33 % amounts;
-- call the port economy's FOOD bucket (`spend_food`) with the `.bsi` price;
-- test the ledger delta on a real source.
+`def+0x8` price. That confirms the level values chosen in practice; the
+charge amount is already proven.
 
 ## Evidence
 

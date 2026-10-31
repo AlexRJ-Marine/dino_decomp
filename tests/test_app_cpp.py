@@ -4686,11 +4686,14 @@ def test_cpp_employee_feeding_and_wages():
     log = result.stdout
     # The `.bei` dword 8 (500) is both the hire cost and the daily wage.
     assert "employees: hired=2 wage=500 budget=74000" in log
-    assert "feed: assigned=1 completed=1 serviced=1 sources=1" in log
-    assert "feed: source def=8 remaining=5.000 capacity=5.000" in log
-    # 75,000 - 2*500 hire - 2*500 wages = 73,000 (no visitors in the .wld).
+    assert ("feed: assigned=1 completed=1 serviced=1 sources=1 "
+            "food_spent=700 budget=73300") in log
+    assert ("feed: source def=8 remaining=5.000 capacity=5.000 level=0"
+            in log)
+    # `FUN_00576d50` charges the `.bsi` PigFood price 700 to FOOD:
+    # 75,000 - 2*500 hire - 700 refill - 2*500 wages = 72,300.
     assert ("daily settlement: day=0 visitors=0 ticket=50 income=0 "
-            "wages=1000 budget=73000") in log
+            "wages=1000 budget=72300") in log
 
 
 @pytest.mark.slow

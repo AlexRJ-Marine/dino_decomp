@@ -1133,23 +1133,37 @@ std::optional<int> Game::boot_employee_session() {
     if (opt.feed_now) {
         const int assigned = park_session.employee_system.start_hour(
             park_session.employee_profiles, park_session.food_sources, park_session.food_defs, true);
-        int completed = 0;
+        dino::FeedResult feed_result;
         for (int step = 0; step < 20; ++step) {
-            completed += park_session.employee_system.update(
-                10.0f, park_session.employee_profiles, park_session.food_sources, park_session.food_defs);
+            const dino::FeedResult step_result =
+                park_session.employee_system.update(
+                    10.0f, park_session.employee_profiles,
+                    park_session.food_sources, park_session.food_defs);
+            feed_result.completed += step_result.completed;
+            feed_result.food_spent += step_result.food_spent;
+        }
+        if (feed_result.food_spent > 0) {
+            // `FUN_00576d50` charges the `.bsi` price to the FOOD bucket.
+            park_session.budget -= feed_result.food_spent;
+            park_session.ledger.spend_food(feed_result.food_spent);
         }
         std::printf(
-            "feed: assigned=%d completed=%d serviced=%d sources=%zu\n",
-            assigned, completed, park_session.employee_system.serviced, park_session.food_sources.size());
+            "feed: assigned=%d completed=%d serviced=%d sources=%zu "
+            "food_spent=%d budget=%d\n",
+            assigned, feed_result.completed,
+            park_session.employee_system.serviced,
+            park_session.food_sources.size(), feed_result.food_spent,
+            park_session.budget);
         for (const dino::FoodSource& source : park_session.food_sources) {
             const float capacity =
                 source.def >= 0 &&
                         source.def < static_cast<int>(park_session.food_defs.size())
                     ? park_session.food_defs[static_cast<std::size_t>(source.def)].quantity
                     : 0.0f;
-            std::printf("feed: source def=%d remaining=%.3f capacity=%.3f\n",
-                        source.def, static_cast<double>(source.remaining),
-                        static_cast<double>(capacity));
+            std::printf(
+                "feed: source def=%d remaining=%.3f capacity=%.3f level=%d\n",
+                source.def, static_cast<double>(source.remaining),
+                static_cast<double>(capacity), source.level);
         }
     }
 

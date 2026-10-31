@@ -39,6 +39,11 @@ persistence remain open.
 - `--place-food NAME|KIND` / `--food-pos` place a **visitor/employee**
   `.bsi` source. It no longer gates a dinosaur's Eat and is not consumed by
   dinosaurs.
+- Nutritionist refill: `set_food_level` implements the exact 100/66/33 %
+  amounts; the completion uses level 0 and charges the `.bsi` price to FOOD
+  (`BudgetLedger::spend_food`). `--feed-now` with PigFood logs
+  `food_spent=700 budget=73300` and `level=0`; the job level producer
+  (`*(set+0x5c+idx*8)`) is still untraced.
 - `DinoNeeds` carries the exact food gauge: `max_food = weight`,
   `food_gauge` (init `max_food*0.5`), `food_consumption = weight*0.001/s`.
   Every 10 s: `gauge -= 10*consumption`, `FOOD = ftol(gauge*99/max_food)`.
@@ -77,8 +82,8 @@ persistence remain open.
 - `test_cpp_food_source_is_visitor_only`: a placed PigFood shows
   `source=PigFood` in the food log but no dinosaur chooses Eat and the source
   is not depleted.
-- `test_cpp_employee_feeding_and_wages`: the nutritionist still feeds the
-  `.bsi` source and pays wages.
+- `test_cpp_employee_feeding_and_wages`: the nutritionist refills the
+  `.bsi` source (`level=0`), charges its 700 price to FOOD and pays wages.
 - `--selftest`: food gauge 10 s pass/meal clamp and `feeder_drain`
   30/empty checks.
 - `test_cpp_dino_action_loop`: without a LunchBox, starving dinos pick

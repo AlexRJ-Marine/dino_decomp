@@ -1,8 +1,8 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 04:31. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 04:36. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
-56 open items.
+55 open items.
 
 ## FMT-10: `.bvi` visitor profiles
 - [ ] Decode the five preference weights and the 91–113-byte tail.
@@ -123,7 +123,6 @@ Generated from `TASKS.md` on 2026-10-31 04:31. Do not edit; regenerate with `scr
 
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
 - [ ] Interactive rest: needs/visitor/calendar tabs, sell text
-- [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
 - [ ] Interactive `REQUEST_SELL_DINO` hit test/panel (stable ids done).
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 

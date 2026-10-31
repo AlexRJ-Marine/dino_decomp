@@ -12,6 +12,8 @@ struct FoodSource {
     float x = 0.0f;
     float y = 0.0f;
     float remaining = 0.0f;
+    // `saFoodSource+0x10`: 0 full (100 %), 1 = 2/3, 2 = 1/3, 3 empty.
+    int level = 0;
 };
 
 // `.bsi` food-source definition plus the resolved render assets.
@@ -44,6 +46,12 @@ struct Feeder {
     float nutrition = 0.0f;
     int state = 0;
 };
+
+// `FUN_00576d50(source, level)`: level 0/1/2 sets the quantity to 100 / 66.66
+// / 33.33 % of the definition capacity; level 3 (empty) is rejected. Returns
+// the `.bsi` price charged to the FOOD bucket (`*DAT_0067572c` =
+// `0x585c90`), or 0 for an invalid level.
+int set_food_level(FoodSource& source, const FoodDef& def, int level);
 
 // `FUN_00576e50`: clamp the amount to the remaining quantity, subtract, set
 // the 2/3 and 1/3 state thresholds, and return `amount * nutrition`.

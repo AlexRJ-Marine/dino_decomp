@@ -2377,13 +2377,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   dead dino's movement is suppressed. `test_cpp_dino_health_regen`,
   `test_cpp_dino_starvation_death`, selftest bands/5 s/starve; SECU still
   uses the tuned decay.
-- [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
-  the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
-  called (the fence sell credits the budget directly and leaves VENTES flat).
-  `FUN_00576d50` is decoded (level 0/1/2 -> capacity/2-3/1-3, level 3 invalid;
-  charges `def+0x8` price through `*DAT_0067572c`), but the **job level
-  producer** at `*(set+0x5c+idx*8)` and the hook identity are not traced.
-  Probe `0x576d50` at a Cpg04 hour rollover; `notes/food-refill-recon.md`.
+- [x] Food refill charge: `FUN_00576d50` levels are exact
+  (`set_food_level` 100/66/33 %, level 3 invalid) and the `.bsi` price is
+  charged to the FOOD bucket via `spend_food` (budget vtable[0] `0x585c90`).
+  The nutritionist completion uses level 0; PigFood 700 moves the Cpg04 test
+  budget 74,000 -> 73,300. The **job level producer** at
+  `*(set+0x5c+idx*8)` is still untraced (`notes/food-refill-recon.md`).
+  The fence sell still credits the budget directly and leaves VENTES flat
+  (G11); the dino sell credits VENTES.
 - [x] Dino market value (`def+0x19c`): 18-gene genotype-rarity value,
   `price[rarity(A)-1]+price[rarity(B)-1]`, allele prices 500/100/50. All 20
   Cpg04 `DINORESET f1ec` values match (`val=` in `DINO_DEBUG_PHENO`,
