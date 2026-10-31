@@ -230,6 +230,12 @@ is closed (`+0xd3 = 0`) and invalid (`+0xe0 = 0`), so no performance ran —
 the 75 s is the field value, not a measured run. The port's `ShowRuntime`
 duration is now 50 park minutes at the default `time_scale` 40.
 
+**Port approximation (not a guess):** `ShowRuntime::start_hour` still starts
+slot `h` when the hour index changes, while the retail raw boundary is
+`slot_len*i - offset` (`90*i - 45` s at 40x); the `i` → `show+0x100` mapping
+was not observed because Cpg04's show is gated. Do not change the port start
+mapping until a park with an open/valid show is probed.
+
 ## 10. Live-show recipe (latest)
 
 ```text
