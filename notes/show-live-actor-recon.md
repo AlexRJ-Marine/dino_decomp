@@ -156,10 +156,16 @@ allocates an `stWall` (`FUN_00584200`) and walks it cell-by-cell.
   builder read it. The class-7 grid cells are **not** the wall-mesh path.
 - The per-piece **position/yaw/scale/Z transform is still OPEN**: no grid
   consumer, no `stWall` vtable consumer, and `0x58dfc0` is only the show
-  **actor** render-record builder. The `.bwi` mesh `fence_show_lod1.mesh` has
-  local +Y as its long axis (bbox ~4.4 units, height 8.5), so local +Y maps
-  to the edge direction (yaw 0/90/180/270); whether `BWI.scales[0]`/height
-  are applied and where Z comes from remain OPEN. Do not guess wall geometry.
+  **actor** render-record builder. `FUN_00584200`/`FUN_00584700` make no
+  scene/model call (`0x5f4e10`/`0x5fc260`/model-manager `vtable+0x28`) and
+  never dereference `wallRecord+8`; the build path produces only the cells,
+  pitch and class stamp, and `stWall+0` = 100 is not a mesh pointer. The
+  `.bwi` mesh `fence_show_lod1.mesh` has local +Y as its long axis (bbox
+  ~4.4 units, height 8.5), so local +Y maps to the edge direction (yaw
+  0/90/180/270); whether `BWI.scales[0]`/height are applied and where Z
+  comes from remain OPEN. Do not guess wall geometry. Suggested probe:
+  watch `wallRecord+8`/`stWall+0` for a dereference during the arena build,
+  and the parsed `.bwi` mesh pointer for its consumer.
 - `showRecord+0x44` is not the wall id; it is a scheduler/registration handle
   (`stAttraction+0x1c`). `field_14` selects the WallList/BWI record.
 

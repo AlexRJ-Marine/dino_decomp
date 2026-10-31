@@ -103,6 +103,11 @@ yaw 0, terrain Z + 0.08. The exact retail display-type branch/quad builder
 inside the `FUN_005f4e10` virtual (`vtable+0x28`) remains OPEN; the atlas
 reading is disproven (the texture is one 128x128 image, not a grid).
 
+**Runtime probe for the remaining branch:** break at `0x5f4e2a` (the
+`CALL dword [EAX+0x28]` in `FUN_005f4e10`), read `EAX` (the model-manager
+vtable) and `[EAX+0x28]`, then step into it with the `.bfi` record in `ECX`.
+That function owns the `display_type 3` quad/UV generation.
+
 ## Open
 
 1. The ground-tile visual: the full-texture quad is the only data-supported
