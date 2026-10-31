@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (215 checks)" in result.stdout
+    assert "selftest: PASS (216 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):

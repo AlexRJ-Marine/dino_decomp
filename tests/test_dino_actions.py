@@ -162,11 +162,18 @@ def test_action_loop_timeline(actions):
 
 
 def test_action_loop_decay(actions):
-    loop = DinoActionLoop(actions, NeedBlock())
-    loop.tick(10.0)
-    # Exploration's event kind 1 clamps VIOLENCE at 99.
+    # SECU 90 makes the 0.5 s decision pick Exploration; its event kind 1 then
+    # clamps VIOLENCE at 99. The 10 s pass (`FUN_00571410`) later subtracts
+    # exactly 10 points, below the clamped value. FOOD and REPOS keep the
+    # tuned 0.5/s port rate in these synthetic fixtures.
+    loop = DinoActionLoop(
+        actions, NeedBlock(food=99, violence=99, secu=90, repos=99))
+    loop.tick(0.5)
+    assert loop.action_name == "Exploration"
+    assert loop.needs.violence == 99
+    loop.tick(9.5)
     assert (loop.needs.food, loop.needs.violence, loop.needs.secu,
-            loop.needs.repos) == (94, 99, 99, 94)
+            loop.needs.repos) == (94, 89, 90, 94)
     assert loop.action_name == "Exploration"
 
 

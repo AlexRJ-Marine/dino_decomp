@@ -2339,9 +2339,11 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Food gauge: `max_food = weight`, `+0x25c` gauge init max/2, 10 s pass
   `gauge -= 10*food_consumption`, `FOOD = ftol(gauge*99/max)`, `apply_food`
   for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.
-- [ ] Remaining per-tick health: `0x5869e0` (5 s regen, 10 s violence/state),
-  `0x5724d0` (health bands), `regen = maxHP*stamina/1000+1`; the other three
-  needs still use the tuned decay (VIOLENCE `0x571410`, REPOS `0x571540`).
+- [x] VIOLENCE decay: `FUN_00571410` subtracts exactly 10 points on the 10 s
+  pass (`0x5869e0`), not the tuned 0.2/s; C++/Python loop + selftest check.
+- [ ] Remaining per-tick health: `0x5869e0` (5 s regen), `0x5724d0` (health
+  bands), `regen = maxHP*stamina/1000+1`; SECU/REPOS still use the tuned
+  decay (REPOS `0x571540`, rest gauge `+0x258`).
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).

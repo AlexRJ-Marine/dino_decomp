@@ -309,6 +309,11 @@ void DinoActionLoop::tick(double dt) {
             decay_accum_[i] = 0.0;
             continue;
         }
+        // Violence is the exact 10-point 10 s pass below, not a tuned rate.
+        if (i == 1) {
+            decay_accum_[i] = 0.0;
+            continue;
+        }
         int& value = needs_.value[i];
         if (value <= 0 || rates[i] <= 0.0) {
             decay_accum_[i] = 0.0;
@@ -320,11 +325,16 @@ void DinoActionLoop::tick(double dt) {
             decay_accum_[i] -= 1.0;
         }
     }
-    if (needs_.max_food > 0.0f) {
-        // 10 s pass: gauge -= 10 * consumption; need = ftol(gauge*99/max).
-        food_gauge_timer_ += dt;
-        while (food_gauge_timer_ >= 10.0) {
-            food_gauge_timer_ -= 10.0;
+    // 10 s pass (`FUN_005869e0`): violence decays by 10 points
+    // (`FUN_00571410`), then the food gauge/need when a phenotype weight is
+    // present.
+    food_gauge_timer_ += dt;
+    while (food_gauge_timer_ >= 10.0) {
+        food_gauge_timer_ -= 10.0;
+        if (needs_.value[1] > 0) {
+            needs_.value[1] = std::max(0, needs_.value[1] - 10);
+        }
+        if (needs_.max_food > 0.0f) {
             const float amount = 10.0f * needs_.food_consumption;
             float gauge = needs_.food_gauge;
             gauge = gauge > amount ? gauge - amount : 0.0f;

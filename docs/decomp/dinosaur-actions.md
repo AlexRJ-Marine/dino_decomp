@@ -212,9 +212,10 @@ action. This is confirmed by the two independent checks.
 - `src/world/dino_actions.{h,cpp}`: `DinoNeeds` (four values + states +
   attribute accessor), the retail weight tables, `need_term`, `score_action`,
   `preconditions_ok`, `choose_action`, and `DinoActionLoop` (need decay,
-  action countdown, `.bai` deltas applied on completion). The decay rates in
-  `DinoActionLoopConfig` are port tuning; the chooser and completion rule are
-  the retail algorithm.
+  action countdown, `.bai` deltas applied on completion). The FOOD gauge and
+  the VIOLENCE 10-point 10 s pass are exact; the SECU/REPOS decay rates in
+  `DinoActionLoopConfig` remain port tuning. The chooser and completion rule
+  are the retail algorithm.
 - `--dino-actions` prints the chooser result for starving / tired / both /
   full / small scenarios and a 40 s action timeline.
 - The viewer runs one `DinoActionLoop` per imported dinosaur
@@ -478,8 +479,12 @@ The food gauge is also exact: `max_food = weight`, `food_gauge` starts at
 `max_food*0.5`, the 10 s pass subtracts `10*food_consumption` and sets
 `FOOD = ftol(gauge*99/max)`, and `apply_food(value, percent)` implements
 `FUN_005727b0` case 0x17 (`gauge = value + percent*gauge/100`, clamped). The
-`.bsi` dino Eat path is removed; the LunchBox actor is ported: the anky walks
-to `bowl.mesh`, `feeder_drain` implements `FUN_00576e50`, and
+same 10 s pass calls `FUN_00571410(10.0f)`, which subtracts **exactly 10
+VIOLENCE points per 10 s** (`value = max(0, value - 10)`), replacing the tuned
+0.2/s rate. Caller confirmed: `FUN_005869e0` resets its `+0x10` 10 s
+accumulator at `0x586aa0` and calls `FUN_00571370(10.0f)` +
+`FUN_00571410(10.0f)` + `FUN_00571350()` per dinosaur. The `.bsi` dino Eat path is removed; the LunchBox actor is ported: the
+anky walks to `bowl.mesh`, `feeder_drain` implements `FUN_00576e50`, and
 `apply_food(amount*nutrition)` fills the gauge (`test_cpp_lunchbox_eat`).
 
 ### Normal-action executor (`0x56f7a0`)

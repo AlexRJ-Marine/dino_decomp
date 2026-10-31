@@ -68,6 +68,10 @@ class NeedBlock:
     violence: int = 99
     secu: int = 99
     repos: int = 99
+    # Food gauge (`dino+0x25c`): max = weight, gauge init max/2.
+    max_food: float = 0.0
+    food_gauge: float = 0.0
+    food_consumption: float = 0.0
     size: int = 300          # attribute 4, actor+0x50 (centimetres)
     size_class: int = 3      # attribute 12, actor+0x98
     aggression: int = 50     # attribute 18, actor+0xbc
@@ -238,7 +242,7 @@ class LoopConfig:
         "Exploration", "Eat", "EatForSmallies", "Sleep")
     decision_interval: float = 0.5
     food_decay: float = 0.5
-    violence_decay: float = 0.2
+    violence_decay: float = 0.2  # unused: the exact 10-point 10 s pass wins
     secu_decay: float = 0.0
     repos_decay: float = 0.5
     action_scale: float = 1.0
@@ -263,6 +267,7 @@ class DinoActionLoop:
         self.needs = block
         self.config = config or LoopConfig()
         self._decay = [0.0, 0.0, 0.0, 0.0]
+        self._ten = 0.0
         self._action: int | None = None
         self._elapsed = 0.0
         self._duration = 0.0
@@ -301,6 +306,10 @@ class DinoActionLoop:
         )
         axes = ("food", "violence", "secu", "repos")
         for axis, rate in enumerate(rates):
+            if axis == 1:
+                # `FUN_00571410`: exact 10-point decay on the 10 s pass below.
+                self._decay[axis] = 0.0
+                continue
             value = self.needs.need(axis)
             if value <= 0 or rate <= 0.0:
                 self._decay[axis] = 0.0
@@ -309,6 +318,18 @@ class DinoActionLoop:
             while self._decay[axis] >= 1.0 and self.needs.need(axis) > 0:
                 setattr(self.needs, axes[axis], self.needs.need(axis) - 1)
                 self._decay[axis] -= 1.0
+        self._ten += dt
+        while self._ten >= 10.0:
+            self._ten -= 10.0
+            if self.needs.violence > 0:
+                self.needs.violence = max(0, self.needs.violence - 10)
+            if self.needs.max_food > 0.0:
+                amount = 10.0 * self.needs.food_consumption
+                gauge = max(0.0, self.needs.food_gauge - amount)
+                self.needs.food_gauge = gauge
+                self.needs.food = clamp_need(
+                    int(gauge * 99.0 / self.needs.max_food)
+                )
         if self._action is not None:
             self._elapsed += dt
             if self._elapsed >= self._duration:

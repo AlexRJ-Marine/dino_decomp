@@ -341,6 +341,8 @@ int run_selftest() {
     check(std::fabs(gauge_loop.food_gauge() - 1980.0f) < 0.01f &&
               gauge_loop.needs().value[0] == 98,
           "dino food gauge 10s");
+    // `FUN_00571410`: the same 10 s pass subtracts exactly 10 VIOLENCE.
+    check(gauge_loop.needs().value[1] == 89, "dino violence 10s pass");
     gauge_loop.apply_food(100.0f);
     check(std::fabs(gauge_loop.food_gauge() - 2000.0f) < 0.01f,
           "dino food meal clamps");
