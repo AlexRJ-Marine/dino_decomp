@@ -9,6 +9,20 @@
 
 namespace dino::ui {
 
+// Values for the live `DINO_INFO_PANEL` (`0x5e2940`). The app fills this
+// from the world layer; `ui` must not include `world` (layer guard).
+struct DinoPanelData {
+    std::string name;
+    int id = 0;
+    // PERCEPTION, BEAUTY, ATTACK, AGGRESSIVENESS, ARMOR, SPEED, AGILITY,
+    // INTELLIGENCE, COURAGE, STAMINA, ORIGINALITY.
+    std::array<int, 11> gauges{};
+    // FOOD, VIOLENCE, PEUR, REPOS values and their panel states
+    // (0 GOOD, 1 MID, 2 BAD; state 3 is drawn as GOOD).
+    std::array<int, 4> need_values{};
+    std::array<int, 4> need_panel_states{};
+};
+
 // One row of the dinosaur store panel (`DINO_ACHAT_SAVE_NAMES_LIST`).
 // The retail list shows six rows of `name`/`price`; the viewer feeds the
 // entries from Market.ini / the mission DinoStore.
@@ -57,6 +71,10 @@ public:
 
     // Modal DIALOG_BACKGROUND family: WARNING_PANEL, REQUEST_PANEL and
     // CPGEND_PANEL. The text is resolved by the caller; the port only renders.
+    // Fills the retail `DINO_INFO_PANEL` from the live dinosaur: the 11
+    // `0x5e2940` gauges, the four need state icons, the name and the
+    // attributes tab. The world-pick opener is not wired yet.
+    void show_dino_info(const DinoPanelData& data);
     void show_warning(const std::string& text);
     void show_request(const std::string& text);
     void show_campaign_end(const std::string& text);

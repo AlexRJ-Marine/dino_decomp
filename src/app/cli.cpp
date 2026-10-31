@@ -353,6 +353,8 @@ Options parse_args(int argc, char** argv) {
             opt.sell_dino = next("--sell-dino");
         } else if (arg == "--dino-info") {
             opt.dino_info = next("--dino-info");
+        } else if (arg == "--dino-panel") {
+            opt.dino_panel = next("--dino-panel");
         } else if (arg == "--secu-probe") {
             opt.secu_probe = true;
         } else if (arg == "--rest-probe") {
@@ -682,6 +684,7 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-food N        initial food gauge for imported dinosaurs (test hook)\n"
                 "  --sell-dino NAME     sell the last imported dinosaur of NAME (test hook)\n"
                 "  --dino-info NAME     print one imported dinosaur's live panel values\n"
+                "  --dino-panel NAME    open DINO_INFO_PANEL for the first NAME (no world pick yet)\n"
                 "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
                 "  --rest-probe         print each dinosaur's rest gauge, REPOS, health and state per second\n"
                 "  --save-port FILE     write the port park state\n"

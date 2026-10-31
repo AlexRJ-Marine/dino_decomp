@@ -141,6 +141,7 @@ struct Options {
     float dino_food = -1.0f;  // <0 keeps the phenotype max/2
     std::string sell_dino;     // sell the last imported dino of this species
     std::string dino_info;     // print one imported dino's live panel values
+    std::string dino_panel;    // open DINO_INFO_PANEL for this species
     bool secu_probe = false;
     bool rest_probe = false;
     float building_x = 520.0f;

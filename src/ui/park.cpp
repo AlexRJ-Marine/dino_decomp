@@ -237,6 +237,60 @@ void ParkHud::clear_mission() {
     close_panel("MISSION_PANEL");
 }
 
+void ParkHud::show_dino_info(const DinoPanelData& data) {
+    open_panel("DINO_INFO_PANEL");
+    overlay.set_visible("DINO_INFO_DINO_PIC", true);
+    overlay.set_visible("DINO_INFO_VAL_CALCU_PANEL", true);
+    overlay.set_visible("DINO_INFO_BESOINS_PANEL", false);
+    if (Widget* name = overlay.get("DINO_NAME_SLOT")) {
+        name->text = data.name;
+    }
+    // `0x5e2940` order and values (see notes/dino-info-panel-recon.md).
+    static const char* const kNames[11] = {
+        "PERCEPTION", "BEAUTY", "ATTACK", "AGGRESSIVENESS", "ARMOR",
+        "SPEED", "AGILITY", "INTELLIGENCE", "COURAGE", "STAMINA",
+        "ORIGINALITY"};
+    static constexpr int kMax[11] = {100, 100, 120, 100, 100, 100,
+                                     100, 100, 100, 100, 100};
+    std::printf("dino panel: %s id=%d", data.name.c_str(), data.id);
+    for (int i = 0; i < 11; ++i) {
+        const std::string prefix =
+            std::string("ATTRIBUTES_") + kNames[i];
+        if (Widget* gauge = overlay.get(prefix + "_GAUGE")) {
+            gauge->progress_max = kMax[i];
+            gauge->progress_current =
+                std::clamp(data.gauges[static_cast<std::size_t>(i)], 0,
+                           gauge->progress_max);
+        }
+        if (Widget* indics = overlay.get(prefix + "_INDICS")) {
+            indics->text =
+                std::to_string(data.gauges[static_cast<std::size_t>(i)]);
+        }
+        std::printf(" %s=%d", kNames[i],
+                    data.gauges[static_cast<std::size_t>(i)]);
+    }
+    std::printf("\n");
+    static const char* const kGroups[4] = {
+        "DINO_INFO_BESOINS_FOOD", "DINO_INFO_BESOINS_VIOLENCE",
+        "DINO_INFO_BESOINS_PEUR", "DINO_INFO_BESOINS_REPOS"};
+    static const char* const kLabels[4] = {"FOOD", "VIOLENCE", "PEUR",
+                                           "REPOS"};
+    std::printf("dino panel needs:");
+    for (int i = 0; i < 4; ++i) {
+        const int panel_state =
+            std::clamp(data.need_panel_states[static_cast<std::size_t>(i)],
+                       0, 2);
+        const std::string prefix(kGroups[i]);
+        overlay.set_visible(prefix + "_GOODSTATE", panel_state == 0);
+        overlay.set_visible(prefix + "_MIDSTATE", panel_state == 1);
+        overlay.set_visible(prefix + "_BADSTATE", panel_state == 2);
+        std::printf(" %s=%d(%d)", kLabels[i],
+                    data.need_values[static_cast<std::size_t>(i)],
+                    panel_state);
+    }
+    std::printf("\n");
+}
+
 void ParkHud::show_warning(const std::string& text) {
     // The dialog family is an interface-level overlay
     // (DIALOG_BACKGROUND is a ROOT child with ZPRIORITY 0.01, in front of the

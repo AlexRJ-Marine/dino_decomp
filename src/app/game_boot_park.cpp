@@ -626,6 +626,54 @@ std::optional<int> Game::boot_import_dinos() {
                 break;
             }
         }
+        if (!opt.dino_panel.empty() && opt.park_hud && park.loaded()) {
+            const auto matches = [](const std::string& text,
+                                    const std::string& want) {
+                if (want.size() > text.size()) {
+                    return false;
+                }
+                for (std::size_t i = 0; i < want.size(); ++i) {
+                    if (std::tolower(static_cast<unsigned char>(text[i])) !=
+                        std::tolower(static_cast<unsigned char>(want[i]))) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+            for (const dino::ImportedDino& dinosaur :
+                 park_session.imported_dinos) {
+                if (!matches(dinosaur.species, opt.dino_panel)) {
+                    continue;
+                }
+                const dino::DinoNeeds& needs =
+                    dinosaur.action_loop ? dinosaur.action_loop->needs()
+                                         : dinosaur.needs;
+                const dino::DinoAttributes& attrs = dinosaur.attributes;
+                dino::ui::DinoPanelData data;
+                data.name = dinosaur.species;
+                data.id = dinosaur.id;
+                data.gauges = {
+                    attrs.perception, attrs.beauty, attrs.attack_total / 5,
+                    attrs.aggression, attrs.armor,
+                    static_cast<int>(attrs.walk_speed * 20.0f),
+                    attrs.agility, attrs.intelligence, attrs.courage,
+                    attrs.stamina,
+                    std::max(0, 100 - attrs.conventional_appeal)};
+                data.need_values = {
+                    needs.value[0], needs.value[1],
+                    needs.value[2], needs.value[3]};
+                for (int axis = 0; axis < 4; ++axis) {
+                    const int state =
+                        dino::need_state(data.need_values[static_cast<std::size_t>(axis)]);
+                    data.need_panel_states[static_cast<std::size_t>(axis)] =
+                        state >= 3 ? 0 : state;
+                }
+                park.show_dino_info(data);
+                std::printf("dino panel open: %s id=%d\n",
+                            dinosaur.species.c_str(), dinosaur.id);
+                break;
+            }
+        }
     }
     return std::nullopt;
 }

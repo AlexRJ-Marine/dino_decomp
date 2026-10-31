@@ -110,9 +110,15 @@ the world-pick that selects the dinosaur are still untraced.
 
 - `--dino-info NAME` prints every live value (11 gauges in `0x5e2940` order,
   4 needs/states, food/rest/health, value/refund); `test_cpp_dino_info`.
-- The overlay tree is loadable by name; the panel is not opened or filled
-  interactively yet. The selection world pick and the sell-text widget are
-  the two open leads; do not invent a click radius or a sellable rule.
+- `ParkHud::show_dino_info` opens `DINO_INFO_PANEL`/`DINO_INFO_DINO_PIC`,
+  fills `DINO_NAME_SLOT`, the `ATTRIBUTES_<NAME>_GAUGE/_INDICS` set and the
+  four `DINO_INFO_BESOINS_*` state icons (state 3 -> GOOD, per `0x5138b0`).
+  `--dino-panel NAME` is the test opener; the 800x600 screenshot
+  `build/dino-panel.png` shows the anky panel (`test_cpp_dino_info_panel`).
+- Still open: the world-pick opener (pixel-ID buffer pass), the other three
+  tabs (needs/visitor appreciation/calendar), the sell-text widget and the
+  teleport/next-dino buttons. Do not invent a click radius or a sellable
+  rule.
 
 ## Evidence
 

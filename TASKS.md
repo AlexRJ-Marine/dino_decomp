@@ -2338,9 +2338,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   COURAGE, STAMINA, ORIGINALITY=`max(0,100-conventional)`), the four
   needs/states, food gauge/kind/source, rest, health/state and market
   value/refund. `test_cpp_dino_info` locks the Cpg04 anky row.
-- [ ] Draw the interactive `ivwDinoInfo` widgets/tabs and the sell text
-  (`REQUEST_SELL_DINO` appears only when `dino+0x65` is set; the runtime
-  trace proves that byte is `(height>>8)&0xff`, so reproduce the raw test).
+- [x] Draw `DINO_INFO_PANEL`: `ParkHud::show_dino_info` opens the panel,
+  fills the name, the 11 `ATTRIBUTES_<NAME>_GAUGE/_INDICS` gauges and the
+  four need state icons; `--dino-panel NAME` opens it (`test_cpp_dino_info_panel`,
+  `build/dino-panel.png`). State 3 maps to the GOOD icon.
+- [ ] Interactive rest: world-pick opener (pixel-ID buffer), needs/visitor/
+  calendar tabs, sell text (`dino+0x65 == (height>>8)&0xff` raw gate),
+  teleport/next-dino buttons.
 - [x] Food gauge: `max_food = weight`, `+0x25c` gauge init max/2, 10 s pass
   `gauge -= 10*food_consumption`, `FOOD = ftol(gauge*99/max)`, `apply_food`
   for `FUN_005727b0` case 0x17. `DinoNeeds` + selftest checks.
