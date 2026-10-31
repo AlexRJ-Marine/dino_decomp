@@ -139,6 +139,29 @@ gate. No current port action uses this path; keep the recipe for attacks.
 - Cpg04: feeder (454,314), dino (463,327), `R = 7`, chosen `(457,321)`;
   `d² = 58` is inside `[39.3, 58.9]`.
 
+## 4c. Element lifetime and meal timing (`0x0056c0c0` / `0x0056c3b0`)
+
+- `FUN_0056c0c0` initialises `action+0x1c` from the `.bai` `field_2e`
+  (30.0 for Eat) and `FUN_0056d880` decrements it; that is the **action cap**,
+  not the element duration. On expiry it runs the end ramp
+  `FUN_0056ddb0(action+0x30, action+0x34)` and unregisters the action.
+- The object executor plays the element when the dino is in the arrival band
+  (or already on the stand cell) and `exec+4` (the previous animation
+  finished latch) is 1: it calls `FUN_00569660` and clears `exec+4`.
+- State 3 waits for the target mover `actor+0x4b4 == 0` (idle), then calls
+  `FUN_0056c3b0`: `FUN_00569a00(action, element, actor)` applies the element
+  (meal/needs), `action+0x14 = 1`, `FUN_0056c260` unregisters it and
+  `exec+4 = 1`.
+- The Eat element's own `duration` is **0.0**; the meal fires on
+  arrival + mover idle, not after 30 s.
+- Port: `tick_dino` applies the meal when `d² <= 1.2 r²` and
+  `mover.state() == 0`, sets `ImportedDino::eat_applied`, then calls
+  `DinoActionLoop::finish_current()` so the next action is chosen. The
+  `field_2e` cap is still the action-loop duration for the case where the
+  dino never reaches the feeder. The FOOD need only updates on the next 10 s
+  pass, so the dino can re-select Eat while still at the bowl; that is
+  consistent with the gauge/need split.
+
 ## 5. Port mapping
 
 - `src/world/dino_actions.*`: `eat_arrival_radius(field_18, mode, body,
@@ -159,8 +182,9 @@ gate. No current port action uses this path; keep the recipe for attacks.
    footprint. Ties are resolved by the port's ring order.
 2. The `vtable+0x14` own-position source for the `0x0056c490` class (feeder
    cell vs last stand cell); the port uses the feeder cell.
-3. The animation-state duration (`FUN_00522300`) versus the port's `.bai`
-   `field_2e`; the port keeps `field_2e × action_scale`.
+3. The `exec+4` latch writer outside `FUN_0056c3b0` (the ctor sets 1) and
+   whether an animation callback clears `actor+0x32c` to end the cap early;
+   the port uses `finish_current` at the meal.
 4. The actor `+0x60` name beyond `SizeCategory*Radius`.
 
 ## Evidence

@@ -319,7 +319,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Decode the remaining header consumers: `field_32` is an additive
   behavior-node score (`FUN_0056e820`); `params[7]` and indexed `params[i]`
   are percent score multipliers (`FUN_0056cb30`/`FUN_0056cc20`);
-  `field_2e` is the action duration (`FUN_0056c0c0`/`FUN_0056d880`);
+  `field_2e` is the action cap (`FUN_0056c0c0`/`FUN_0056d880`); the element
+  duration is 0 and the Eat element plays when the mover is idle;
   `field_26`/`field_2a` are the end-of-action ramp pair (`FUN_0056ddb0`);
   `flag_20` is copied by `FUN_0056ac80` but never read. Element `+0x28` is a
   duration in seconds, not a size.

@@ -102,7 +102,8 @@ persistence remain open.
   slot from `+0x270` when it completes; the port's park node set excludes
   that action. The stand-cell search (`FUN_0055b5b0`) is ported (disc +
   occupancy + minimum squared distance to the dino cell, filtered to the
-  band); exact K-square clearance, spiral tie order and the animation-state
-  duration remain open.
+  band); exact K-square clearance and spiral tie order remain open. The Eat
+  element now plays when the mover is idle, with `field_2e` only the action
+  cap.
 - The employee schedule actors and the visitor `.bsi` quantity/nutrition
   semantics; the carnivore live-prey (`.bni`) path.

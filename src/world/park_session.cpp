@@ -359,37 +359,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     if (dinosaur.action_loop->finished_count() != finished_before) {
         const std::string& finished =
             dinosaur.action_loop->last_finished_action();
-        const bool finished_eat =
-            finished == "Eat" || finished == "EatForSmallies" ||
-            finished.rfind("EatBait", 0) == 0;
-        if (finished_eat) {
-            if (!dead && feeder != nullptr && feeder->quantity > 0.0f) {
-                const float dx = feeder->x - dinosaur.x;
-                const float dy = feeder->y - dinosaur.y;
-                const float radius = eat_radius(finished);
-                const float outer = 1.2f * radius * radius;
-                if (dx * dx + dy * dy <= outer) {
-                    // `FUN_00569a00` passes `dino+0x288` to
-                    // `FUN_00576e50`; `+0x288` is the first of the five
-                    // stat slots copied from `+0x9c` = phenotype `+0x4c`
-                    // (attack head). GetCourage would overwrite the slot
-                    // from `+0x270`, but the port's park node set does not
-                    // include that action, so the fresh-park value is exact.
-                    const float bite =
-                        static_cast<float>(dinosaur.attributes.attack_head);
-                    const float value = feeder_drain(*feeder, bite);
-                    dinosaur.action_loop->apply_food(value);
-                    std::printf(
-                        "dino eat: %s <- %s nutrition=%.0f quantity=%.0f "
-                        "gauge=%.0f\n",
-                        dinosaur.species.c_str(), feeder->name.c_str(),
-                        static_cast<double>(value),
-                        static_cast<double>(feeder->quantity),
-                        static_cast<double>(
-                            dinosaur.action_loop->food_gauge()));
-                }
-            }
-        } else if (finished == "Sleep") {
+        if (finished == "Sleep") {
             // `FUN_0056eec0` case 2 (special_action 3): state 3 emits the
             // 0x1c wake gesture at the dino's own position.
             if (!dead) {
@@ -405,9 +375,11 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     if (action != previous) {
         event.action_changed = true;
         event.action = action;
-        // A new element recomputes the Eat stand cell (`FUN_0055b5b0`).
+        // A new element recomputes the Eat stand cell (`FUN_0055b5b0`) and
+        // clears the one-shot meal latch.
         dinosaur.eat_stand_x = -1;
         dinosaur.eat_stand_y = -1;
+        dinosaur.eat_applied = false;
         // A new action replaces a lingering gesture record, but a walk/run
         // marker may finish. Sleep keeps its own 0x1d/0x1e list.
         if (!dead && dinosaur.mover.active() && action != "Sleep" &&
@@ -519,6 +491,28 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
             if (dx * dx + dy * dy <= outer) {
                 if (dinosaur.mover.active()) {
                     dinosaur.mover.clear();
+                }
+                // `0x0056c3b0` state 3: the element plays once the mover is
+                // idle. Apply the meal here and end the action; the `.bai`
+                // `field_2e` 30 s is only the action cap, not the Eat
+                // duration. `FUN_00569a00` passes `dino+0x288` = `+0x9c`
+                // (phenotype `+0x4c` attack head) to `FUN_00576e50`.
+                if (!dead && !dinosaur.eat_applied &&
+                    dinosaur.mover.state() == 0 && feeder->quantity > 0.0f) {
+                    const float bite =
+                        static_cast<float>(dinosaur.attributes.attack_head);
+                    const float value = feeder_drain(*feeder, bite);
+                    dinosaur.action_loop->apply_food(value);
+                    dinosaur.eat_applied = true;
+                    std::printf(
+                        "dino eat: %s <- %s nutrition=%.0f quantity=%.0f "
+                        "gauge=%.0f\n",
+                        dinosaur.species.c_str(), feeder->name.c_str(),
+                        static_cast<double>(value),
+                        static_cast<double>(feeder->quantity),
+                        static_cast<double>(
+                            dinosaur.action_loop->food_gauge()));
+                    dinosaur.action_loop->finish_current();
                 }
             } else {
                 const bool walking =

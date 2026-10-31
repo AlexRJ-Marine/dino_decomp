@@ -88,8 +88,9 @@ StaticBait `quantity=10000`, `nutrition=70`.
 - The retail stand-cell search `FUN_0055b5b0` / `FUN_0055cb50` (the walk
   target is a min-cost cell at radius r, not the bowl centre); the port uses
   the bowl centre and the outer `1.2 r²` bound.
-- The animation-state duration (`FUN_00522300`) versus the port's `.bai`
-  `field_2e`; the port keeps `field_2e × action_scale`.
+- The element duration is 0; `.bai field_2e` is the action cap and the Eat
+  element plays when the mover is idle (`FUN_0056c3b0`). The port applies the
+  meal at that point and calls `finish_current`.
 - The other three needs still use the port's tuned decay; the same gauge
   treatment is needed for VIOLENCE (`FUN_00571410`), REPOS (`FUN_00571540`)
   and SECU (already from the danger grid).

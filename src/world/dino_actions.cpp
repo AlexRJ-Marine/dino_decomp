@@ -314,8 +314,13 @@ void apply_action_events(const BaiAction& action, DinoNeeds& needs) {
     }
 }
 
-void DinoActionLoop::finish_action() {
-    if (actions_ != nullptr && action_index_ >= 0 &&
+void DinoActionLoop::finish_current() {
+    if (action_index_ >= 0) {
+        finish_action();
+    }
+}
+
+void DinoActionLoop::finish_action() {    if (actions_ != nullptr && action_index_ >= 0 &&
         static_cast<std::size_t>(action_index_) < actions_->size()) {
         const BaiAction& action =
             (*actions_)[static_cast<std::size_t>(action_index_)];

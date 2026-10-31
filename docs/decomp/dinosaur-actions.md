@@ -330,9 +330,11 @@ only for the special action ids 9..0x1c (Smell, Speed, ...); normal actions
 (`0 Explore`, `4 Eat`, `2 Sleep`) do not get it from the element. Their
 lifecycle is the element/animation state machine (`FUN_00522300` is the Eat
 state machine; it calls `saFoodSource::SetLevel 0x580e60` when the eating
-animation ends, not when the action id clears). The port still uses the
-`.bai` `field_2e` (30 s) as the action duration pending the animation-state
-probe. The proximity gate is **solved** (`0x0056c490`, object/box Eat
+animation ends, not when the action id clears). The port now plays the Eat
+element when the dino is inside the arrival band and its mover is idle (the
+`0x0056c3b0` state-3 condition), applies the meal and ends the action;
+`.bai field_2e` (30 s) remains only the action cap and the Eat element's own
+duration is 0. The proximity gate is **solved** (`0x0056c490`, object/box Eat
 executor): `r = Eat.bai field_18 3.1 × 0.01 × body part length`
 (`dino+0xf4`), arrival iff `0.8 r² ≤ d² ≤ 1.2 r²`. `EatForSmallies` uses
 `field_18 2.5`, mode 4: `r = 2.5 × (size_radius + 1)`. The bite amount is

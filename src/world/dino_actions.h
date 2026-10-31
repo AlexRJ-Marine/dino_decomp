@@ -167,6 +167,10 @@ public:
     // Advance decay, action countdown and the decision timer by `dt` seconds.
     void tick(double dt);
 
+    // `FUN_0056c3b0`: the element played and the mover is idle. End the
+    // current action now instead of waiting for the `.bai field_2e` cap.
+    void finish_current();
+
     bool busy() const { return action_index_ >= 0; }
     int action_index() const { return action_index_; }   // ActionList index
     int action_id() const;                               // 0x1f when idle

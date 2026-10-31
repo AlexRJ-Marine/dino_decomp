@@ -59,6 +59,8 @@ struct ImportedDino {
     // to it; recomputing every frame would retarget the mover.
     int eat_stand_x = -1;
     int eat_stand_y = -1;
+    // `FUN_0056c3b0`: the Eat element was played and its meal applied once.
+    bool eat_applied = false;
     // Last posed world-space mesh (for screen picking). Replaced each frame
     // by the app's `pose_imported_dino` result; `nullptr` before the first
     // pose.
