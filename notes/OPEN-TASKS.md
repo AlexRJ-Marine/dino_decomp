@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 01:25. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 01:56. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 59 open items.
 
@@ -123,16 +123,16 @@ Generated from `TASKS.md` on 2026-10-31 01:25. Do not edit; regenerate with `scr
 
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
 - [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
-- [ ] Per-tick needs/health: `0x5869e0` (5 s regen, 10 s food/violence/state),
+- [ ] Remaining per-tick health: `0x5869e0` (5 s regen, 10 s violence/state),
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
 - [ ] Dino sell (`0x532d9c`, `REQUEST_SELL_DINO`): refund =
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
 - [ ] Port the normal-action executor: per-frame 0x34/0x35 marker behind the
-- [ ] Port the remaining self-contained special lists: RunAway `0x19`,
+- [ ] Port the remaining self-contained special lists: RunAway `0x19`/`0x35`
 - [ ] Per-frame 0x34/0x35 walk/run markers: retail re-issues them while a
-- [ ] Eat: no kind-8 Eat record and no `SetLevel 0x580e60` in the Cpg04
+- [ ] LunchBox/StaticBait item actor: `field_3c` quantity / `field_40`
 - [ ] Occupancy footprint adapter (`FUN_0055af70` cell test, `path+0x1ac`) on
 - [ ] Perception-list producer (`beh+0xb8`): open probe at `0x51f9ec`.
 - [ ] Initial facing (`+0x1c/+0x20` writer): the ctor zeroes it and no
