@@ -326,6 +326,15 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     const int pen = confinement;
     Feeder* feeder =
         paddock_feeder(pen, dinosaur.carnivore, dinosaur.x, dinosaur.y);
+    // The nearest feeder can change as the dino moves or a source empties;
+    // invalidate the cached stand cell when it does.
+    const int feeder_index =
+        feeder != nullptr ? static_cast<int>(feeder - feeders.data()) : -1;
+    if (dinosaur.eat_feeder != feeder_index) {
+        dinosaur.eat_feeder = feeder_index;
+        dinosaur.eat_stand_x = -1;
+        dinosaur.eat_stand_y = -1;
+    }
     dinosaur.action_loop->set_inventory(feeder != nullptr);
     const int finished_before = dinosaur.action_loop->finished_count();
     const std::string previous = dinosaur.action_loop->action_name();
@@ -342,9 +351,10 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     // `0x0056c500..0x0056c575` (object/box Eat executor): the radius is the
     // selected `.bai` element radius scaled by mode 3 (body part length) or
     // mode 4 (size radius + 1); retail's arrival band is
-    // `0.8*r^2 .. 1.2*r^2`. The port walks to the bowl centre, so only the
-    // outer bound gates arrival; the lower bound re-plans through the
-    // retail stand-cell search (`FUN_0055b5b0`), still open.
+    // `0.8*r^2 .. 1.2*r^2`. The port walks to the stand cell
+    // (`find_stand_cell`, `FUN_0055b5b0`/`0x0055b780`) and applies the
+    // element when the mover is idle; only the exact K-square clearance and
+    // spiral tie order remain open.
     auto eat_radius = [&](const std::string& name) {
         for (const dino::BaiAction& action : actions) {
             if (action.name == name) {
@@ -380,6 +390,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
         dinosaur.eat_stand_x = -1;
         dinosaur.eat_stand_y = -1;
         dinosaur.eat_applied = false;
+        dinosaur.eat_feeder = -1;
         // A new action replaces a lingering gesture record, but a walk/run
         // marker may finish. Sleep keeps its own 0x1d/0x1e list.
         if (!dead && dinosaur.mover.active() && action != "Sleep" &&
@@ -512,7 +523,11 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
                         static_cast<double>(feeder->quantity),
                         static_cast<double>(
                             dinosaur.action_loop->food_gauge()));
-                    dinosaur.action_loop->finish_current();
+                    // Do not end the action here: retail's element play is
+                    // followed by the `.bai field_2e` action cap. Ending it
+                    // immediately lets the chooser re-select Eat every tick
+                    // and drains the whole source in seconds (reviewer
+                    // measurement: 334 meals/14.4 s before this fix).
                 }
             } else {
                 const bool walking =

@@ -88,7 +88,10 @@ void save_port_state(const PortState& state, const std::string& path) {
             << (dinosaur.carnivore ? 1 : 0) << " " << dinosaur.phase
             << " " << dinosaur.threat << " " << dinosaur.threat_radius
             << " " << dinosaur.combined_attack << " "
-            << dinosaur.obstacle_radius << " " << dinosaur.id << "\n";
+            << dinosaur.obstacle_radius << " " << dinosaur.id << " "
+            << dinosaur.size_class << " " << dinosaur.size_radius << " "
+            << dinosaur.body_length_cm << " " << dinosaur.attack_head << " "
+            << dinosaur.length_cm << " " << dinosaur.height_cm << "\n";
     }
     for (const PortPaddockState& paddock : state.paddocks) {
         out << "paddock " << paddock.x0 << " " << paddock.y0 << " "
@@ -286,6 +289,25 @@ PortState load_port_state(const std::string& path) {
             if (parts >> value) {
                 dinosaur.id = value;
                 dinosaur.has_id = true;
+            }
+            // Optional phenotype tail (after the id, backward compatible).
+            if (parts >> value) {
+                dinosaur.size_class = value;
+            }
+            if (parts >> value) {
+                dinosaur.size_radius = value;
+            }
+            if (parts >> value) {
+                dinosaur.body_length_cm = value;
+            }
+            if (parts >> value) {
+                dinosaur.attack_head = value;
+            }
+            if (parts >> value) {
+                dinosaur.length_cm = value;
+            }
+            if (parts >> value) {
+                dinosaur.height_cm = value;
             }
             if (dinosaur.species.empty() || dinosaur.family.empty() ||
                 dinosaur.clip.empty()) {

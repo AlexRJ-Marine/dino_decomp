@@ -51,8 +51,8 @@ struct EmployeeSystem {
 
     // Moves/works; refills a source with `set_food_level(level 0)` on
     // completion and returns the completed count plus the charged FOOD
-    // price (`FUN_00576d50`). The level producer is still open; the port's
-    // full refill is the level-0 case.
+    // price (`FUN_00576d50`). Level 0 is exact: `FUN_00580e30` is the only
+    // slot writer and all three call sites pass 0.
     FeedResult update(float dt, const std::vector<EmployeeProfile>& profiles,
                       std::vector<FoodSource>& sources,
                       const std::vector<FoodDef>& defs);

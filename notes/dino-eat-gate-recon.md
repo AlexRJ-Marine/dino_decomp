@@ -136,8 +136,9 @@ gate. No current port action uses this path; keep the recipe for attacks.
   the minimum squared distance to the dino's cell. The cell is cached per
   element (`ImportedDino::eat_stand_x/y`) and reset on action change; the
   mover walks to the cell coordinate.
-- Cpg04: feeder (454,314), dino (463,327), `R = 7`, chosen `(457,321)`;
-  `d² = 58` is inside `[39.3, 58.9]`.
+- Cpg04: feeder (454,314), dino (463,327), `R = 7`, chosen `(457,321)`.
+  The minimized dino-cell cost is 72; the feeder-to-stand `d² = 58` is inside
+  the arrival band `[39.3, 58.9]`.
 
 ## 4c. Element lifetime and meal timing (`0x0056c0c0` / `0x0056c3b0`)
 
@@ -155,12 +156,12 @@ gate. No current port action uses this path; keep the recipe for attacks.
 - The Eat element's own `duration` is **0.0**; the meal fires on
   arrival + mover idle, not after 30 s.
 - Port: `tick_dino` applies the meal when `d² <= 1.2 r²` and
-  `mover.state() == 0`, sets `ImportedDino::eat_applied`, then calls
-  `DinoActionLoop::finish_current()` so the next action is chosen. The
-  `field_2e` cap is still the action-loop duration for the case where the
-  dino never reaches the feeder. The FOOD need only updates on the next 10 s
-  pass, so the dino can re-select Eat while still at the bowl; that is
-  consistent with the gauge/need split.
+  `mover.state() == 0`, and sets `ImportedDino::eat_applied` so one element
+  applies one meal. The action then runs to the `.bai field_2e` cap; it is
+  **not** ended early. Ending it at the meal made the chooser re-select Eat
+  every tick and drained a LunchBox in seconds (reviewer measurement: 334
+  meals in 14.4 s), so the proven cap is the guard. The FOOD need updates on
+  the next 10 s pass.
 
 ## 5. Port mapping
 
@@ -184,7 +185,7 @@ gate. No current port action uses this path; keep the recipe for attacks.
    cell vs last stand cell); the port uses the feeder cell.
 3. The `exec+4` latch writer outside `FUN_0056c3b0` (the ctor sets 1) and
    whether an animation callback clears `actor+0x32c` to end the cap early;
-   the port uses `finish_current` at the meal.
+   the port runs to the `field_2e` cap (no early end at the meal).
 4. The actor `+0x60` name beyond `SizeCategory*Radius`.
 
 ## Evidence

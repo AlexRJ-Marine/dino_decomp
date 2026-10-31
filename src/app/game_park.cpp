@@ -893,9 +893,22 @@ void Game::apply_port_dinos(const dino::PortState& state) {
                     continue;
                 }
                 ImportedDino& dinosaur = park_session.imported_dinos.back();
+                // Restore the phenotype fields the Eat gate/bite reads.
+                dinosaur.attributes.size_class = saved.size_class;
+                dinosaur.attributes.size_radius = saved.size_radius;
+                if (saved.body_length_cm > 0) {
+                    dinosaur.attributes.part_length[3] =
+                        saved.body_length_cm;
+                }
+                dinosaur.attributes.attack_head = saved.attack_head;
+                dinosaur.attributes.length_cm = saved.length_cm;
+                dinosaur.attributes.height_cm = saved.height_cm;
                 dino::DinoNeeds restored;
                 restored.value = saved.needs;
                 restored.size_cm = saved.size_cm;
+                if (saved.size_class >= 0) {
+                    restored.size_class = saved.size_class;
+                }
                 restored.threat =
                     opt.dino_threat > 0 ? opt.dino_threat : saved.threat;
                 restored.threat_radius =
@@ -1155,6 +1168,12 @@ dino::PortState Game::make_port_state() {
         saved.threat_radius = needs.threat_radius;
         saved.combined_attack = needs.combined_attack;
         saved.obstacle_radius = needs.obstacle_radius;
+        saved.size_class = dinosaur.attributes.size_class;
+        saved.size_radius = dinosaur.attributes.size_radius;
+        saved.body_length_cm = dinosaur.attributes.part_length[3];
+        saved.attack_head = dinosaur.attributes.attack_head;
+        saved.length_cm = dinosaur.attributes.length_cm;
+        saved.height_cm = dinosaur.attributes.height_cm;
         state.dinos.push_back(saved);
     }
     for (const dino::Paddock& paddock : park_session.paddocks) {
@@ -1211,6 +1230,35 @@ void Game::do_port_save(const std::string& path) {
 void Game::do_port_load(const std::string& path) {
     try {
         apply_port_state(dino::load_port_state(path));
+        if (!opt.dino_info.empty()) {
+            const std::string& want = opt.dino_info;
+            for (const ImportedDino& dinosaur : park_session.imported_dinos) {
+                if (dinosaur.species.size() < want.size()) {
+                    continue;
+                }
+                bool match = true;
+                for (std::size_t i = 0; i < want.size(); ++i) {
+                    if (std::tolower(static_cast<unsigned char>(
+                            dinosaur.species[i])) !=
+                        std::tolower(static_cast<unsigned char>(want[i]))) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (!match) {
+                    continue;
+                }
+                const dino::DinoAttributes& attrs = dinosaur.attributes;
+                std::printf(
+                    "dino info size: class=%d radius=%d body=%d height=%d "
+                    "length=%d head=%d x=%.1f y=%.1f\n",
+                    attrs.size_class, attrs.size_radius,
+                    attrs.part_length[3], attrs.height_cm, attrs.length_cm,
+                    attrs.attack_head, static_cast<double>(dinosaur.x),
+                    static_cast<double>(dinosaur.y));
+                break;
+            }
+        }
     } catch (const std::exception& e) {
         std::fprintf(stderr, "port load: %s\n", e.what());
     }

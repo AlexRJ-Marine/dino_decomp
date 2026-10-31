@@ -341,6 +341,19 @@ executor): `r = Eat.bai field_18 3.1 × 0.01 × body part length`
 `dino+0x288` = the first `+0x9c` stat slot = phenotype `+0x4c`
 `attack_head`.
 
+## Park behavior node set (2026-10-31)
+
+The retail park dino graph is **exactly** `{Exploration, RunAway, Sleep,
+Victory}`, built by `FUN_005431c0` from the `ActionList.ini` names into
+`DB+0x158`, then one node per action record/target by `FUN_0056a9a0` /
+`FUN_0056e300`. Both `apDinosaurBehavior` sub-behaviors read the same
+`aiObj+0x24` descriptor container. Availability (`node+0x08`) is runtime:
+target geometry + `FUN_0056e0e0` preconditions; class 5 is forced off.
+`Eat`/`EatForSmallies` are **not** dino graph nodes; they belong to the
+food-item behavior. The port's `DinoActionLoopConfig::node_names` default
+`{Exploration, Eat, EatForSmallies, Sleep}` is a confirmed placeholder.
+Full evidence: `notes/dino-behavior-node-set-recon.md`.
+
 ## The mover (`saDinosaur+0x2c8`)
 
 Park actions are straight-line steering, not a pathfinder. `saDinosaur::Update`

@@ -70,9 +70,10 @@ record at `featureList+0x7c + type*0x1d8`.
 
 ## Open
 
-- The retail stand-cell search (`FUN_0055b5b0`/`FUN_0055cb50`) and the
-  animation-state meal duration; the port uses the bowl centre, the outer
-  `1.2 r²` bound and `.bai field_2e`.
+- The retail stand-cell search (`FUN_0055b5b0`/`FUN_0055cb50`) is ported
+  (disc + occupancy + min dino-cell distance); exact K-square/tie order
+  remain open. The Eat element plays at arrival + mover idle and the action
+  runs to `.bai field_2e`.
 - Confirm the attack-head amount with a live `FUN_00576e50` breakpoint (the
   static path is `+0x288` = `+0x9c` = phenotype `+0x4c`).
 

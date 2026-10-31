@@ -61,6 +61,9 @@ struct ImportedDino {
     int eat_stand_y = -1;
     // `FUN_0056c3b0`: the Eat element was played and its meal applied once.
     bool eat_applied = false;
+    // Feeder index the cached stand cell belongs to; -1 = none. The nearest
+    // feeder can change as the dino moves or a source empties.
+    int eat_feeder = -1;
     // Last posed world-space mesh (for screen picking). Replaced each frame
     // by the app's `pose_imported_dino` result; `nullptr` before the first
     // pose.

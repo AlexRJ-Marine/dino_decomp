@@ -2438,6 +2438,15 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   RunAway 0x19/0x35, Sleep 0x1d+0x1e / 0x1c, sp4 none, sp5 `FUN_0056fb70`
   gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
   (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
+- [ ] **Behavior node set (DEC-2b follow-up).** Retail's park dino graph is
+  exactly `{Exploration, RunAway, Sleep, Victory}` (`DB+0x158`, one node per
+  action record/target with runtime `+0x08` availability). `Eat` and
+  `EatForSmallies` are **food-item behavior** actions, not dino graph
+  nodes. The port's `node_names = {Exploration, Eat, EatForSmallies, Sleep}`
+  is a confirmed placeholder. Next: port the RunAway `0x35`/`0x19` records
+  (steering cell) and the Victory `35` sentinel, set the dino node set to
+  the retail four, and move Eat to the feeder/item path.
+  Evidence: `notes/dino-behavior-node-set-recon.md` §7.
 - [ ] Port the normal-action executor rest: the full element record list and
   the executor gesture `0x12..0x17` from `executor+0x40` (written only by
   `0x56fb70`; `element+0x40` is `.bai params[8]`, not a gesture). The Eat
@@ -2460,7 +2469,10 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `dino eat gate: anky r=7.01 ... stand=457,321` (`test_cpp_lunchbox_eat`).
   The stand-cell search `FUN_0055b5b0` is ported (disc + occupancy +
   min squared distance to the dino cell); exact K-square clearance, spiral
-  tie order and the duplicate-insert path remain open.
+  tie order and the duplicate-insert path remain open. The meal applies once
+  at arrival + mover idle; the action runs to the `field_2e` cap (ending it
+  early made the chooser re-select Eat every tick and drain the box;
+  `test_cpp_lunchbox_eat` bounds the meal count).
 - [x] Eat bite amount: `dino+0x288` = the `+0x9c` stat slot = phenotype
   `+0x4c` `attack_head`; the anky eats 30, so the meal is
   `30 × nutrition 100 = 3000` (not the whole source). `--dino-info` prints

@@ -99,6 +99,14 @@ struct PortDinoState {
     int threat_radius = 0;    // +0x27c
     int combined_attack = 0;  // phenotype +0x44
     int obstacle_radius = 0;  // phenotype +0x80
+    // Phenotype fields the Eat gate/bite reads (`eat_arrival_radius`,
+    // `attack_head`). Optional tail added after `id`; older saves end at id.
+    int size_class = -1;      // +0x190
+    int size_radius = 0;      // +0x10 SizeCategory*Radius
+    int body_length_cm = 0;   // part_length[3], +0xa4
+    int attack_head = 0;      // +0x4c
+    int length_cm = 0;        // +0x00
+    int height_cm = 0;        // +0x14
 };
 
 struct PortEmployeeState {

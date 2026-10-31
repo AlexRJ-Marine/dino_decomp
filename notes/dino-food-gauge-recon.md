@@ -85,12 +85,11 @@ StaticBait `quantity=10000`, `nutrition=70`.
 
 ## Open
 
-- The retail stand-cell search `FUN_0055b5b0` / `FUN_0055cb50` (the walk
-  target is a min-cost cell at radius r, not the bowl centre); the port uses
-  the bowl centre and the outer `1.2 r²` bound.
-- The element duration is 0; `.bai field_2e` is the action cap and the Eat
-  element plays when the mover is idle (`FUN_0056c3b0`). The port applies the
-  meal at that point and calls `finish_current`.
+- The retail stand-cell search `FUN_0055b5b0`/`FUN_0055cb50` is ported
+  (filled disc + occupancy + minimum dino-cell distance); exact K-square
+  clearance/tie order remain open. The Eat element plays when the mover is
+  idle (`FUN_0056c3b0`); the action runs to the `.bai field_2e` cap (the
+  port no longer ends it early).
 - The other three needs still use the port's tuned decay; the same gauge
   treatment is needed for VIOLENCE (`FUN_00571410`), REPOS (`FUN_00571540`)
   and SECU (already from the danger grid).

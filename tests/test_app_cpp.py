@@ -2457,13 +2457,17 @@ def test_cpp_port_save_dino_state(tmp_path):
         [str(EXE), "--frames", "4", "--no-menu", "--no-hud", "--width", "160",
          "--height", "120", "--no-vsync", "--no-save-config",
          "--asset-root", str(GAME), "--load-port", str(target),
-         "--dino-action-loop"],
+         "--dino-action-loop", "--dino-info", "anky"],
         capture_output=True, text=True, timeout=300,
     )
     assert load.returncode == 0, load.stderr
     assert ("port load: island=isl04 budget=75000 day=0 visitors=0 "
             "paths=301 fences=268 buildings=57 dinos=20") in load.stdout
     assert "dino action: " in load.stdout
+    # The phenotype tail survives the port save: the Eat gate/bite fields
+    # are no longer zero after a load.
+    assert ("dino info size: class=1 radius=2 body=226 height=234 "
+            "length=606 head=30") in load.stdout
     # No food source after a save load (paddocks are not part of the save),
     # so the restored 20/90/50/20 state selects Sleep 6360, not Eat.
     assert "Sleep score=6360 needs=20/90/50/20" in load.stdout
@@ -2494,12 +2498,20 @@ def test_cpp_port_save_danger_cache(tmp_path):
     dino_lines = [ln for ln in target.read_text().splitlines()
                   if ln.startswith("dino ")]
     assert len(dino_lines) == 20
-    # Tail: threat, threat_radius, combined_attack, obstacle_radius, id.
-    assert all(line.split()[-5] == "54" for line in dino_lines)
-    assert all(line.split()[-4] == "7" for line in dino_lines)
+    # Tail: threat, threat_radius, combined_attack, obstacle_radius, id,
+    # size_class, size_radius, body_length_cm, attack_head, length_cm,
+    # height_cm.
+    assert all(line.split()[-11] == "54" for line in dino_lines)
+    assert all(line.split()[-10] == "7" for line in dino_lines)
+    assert all(int(line.split()[-9]) > 0 for line in dino_lines)
+    assert all(int(line.split()[-8]) > 0 for line in dino_lines)
+    assert all(1 <= int(line.split()[-7]) <= 20 for line in dino_lines)
+    assert all(int(line.split()[-6]) >= 0 for line in dino_lines)
+    assert all(int(line.split()[-5]) >= 0 for line in dino_lines)
+    assert all(int(line.split()[-4]) > 0 for line in dino_lines)
     assert all(int(line.split()[-3]) > 0 for line in dino_lines)
     assert all(int(line.split()[-2]) > 0 for line in dino_lines)
-    assert all(1 <= int(line.split()[-1]) <= 20 for line in dino_lines)
+    assert all(int(line.split()[-1]) > 0 for line in dino_lines)
 
     load = subprocess.run(
         common + ["--load-port", str(target), "--secu-probe"],
@@ -4343,6 +4355,10 @@ def test_cpp_lunchbox_eat():
     assert "nutrition=3000" in log
     assert "quantity=9970" in log
     assert "gauge=4255" in log
+    # The action runs to the `.bai field_2e` cap; ending it at the meal made
+    # the chooser re-select Eat every tick (reviewer: 334 meals/14.4 s).
+    meals = log.count("dino eat: anky <- LunchBox")
+    assert 1 <= meals <= 6, meals
     # A tired dino (REPOS 20 -> state 2 BAD) walks (0x34) instead.
     tired = subprocess.run(
         [str(EXE), "--frames", "120", "--no-menu", "--no-hud",

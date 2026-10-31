@@ -67,9 +67,9 @@ persistence remain open.
   `feeder_drain(feeder, attack_head)` and calls `apply_food(value)` (event
   0x17).
 - Cpg04 verification (`--place-lunchbox --lunchbox-pos 113,78`): the anky
-  (herbivore, paddock 0) starts at (463.7,327.5), walks to the bowl at
-  (454,314) with `r=7.01` (`3.1 × 0.01 × body 226`) and eats
-  `attack_head 30 × nutrition 100`:
+  (herbivore, paddock 0) starts at (463.7,327.5), walks to the stand cell
+  (457,321) with `r=7.01` (`3.1 × 0.01 × body 226`; feeder at 454,314) and
+  eats `attack_head 30 × nutrition 100`:
   `dino eat: anky <- LunchBox nutrition=3000 quantity=9970 gauge=4255`.
   The allos are carnivores and cannot use the kind-0 LunchBox.
 
