@@ -2434,6 +2434,13 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
 - [x] Runtime move probe (`notes/dino-mover-runtime-probe.md`): 60 s Cpg04,
   3282 queue records, 128 turn arrivals, 202 turn plans, 1250 mover ticks.
   Confirmed 45.00/90/180 turns, map-unit speeds, per-frame 0x34/0x35 markers.
+- [x] Return-address attribution (`notes/dino-mover-return-probe.md`): the
+  per-frame `0x34`/`0x35` markers are the mover tick `FUN_00574450`
+  (`0x57466d` walk / `0x57469c` run, ~15 ms), not an action emitter; the
+  `0x27+0x20+0x20` lunge is `FUN_005741c0` (move-profile case 0, only caller
+  `0x56ef84`). The item executor and `FUN_00569660` **do** fire once a dino
+  reaches food (~112 s: 24 kind-8 Eat, `SetLevel` 7x), so the 60 s "no Eat"
+  negative was a sampling artifact. The port keeps the Eat kind/emitter.
 - [x] Enclosure confinement: the paddock index is adopted once at spawn
   (retail fixes `path+0x1c0` via `FUN_0055ac30` and never re-resolves it), so a
   boundary cell cannot re-home a dino. 600 s Cpg04 soak: 0 escapes, 0 blocked
@@ -2451,7 +2458,8 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `FUN_0056eec0` only handles special actions: Exploration 5 records,
   RunAway 0x19/0x35, Sleep 0x1d+0x1e / 0x1c, sp4 none, sp5 `FUN_0056fb70`
   gestures 0x0b..0x0f + responses, Victory sentinel gesture. Normal actions
-  (sp0, including Eat) never enter it; they use the `0x56f9xx` executor.
+  (sp0, including Eat) never enter it; the object/item executor queues the
+  marker and the mover tick re-issues the walk/run record.
 - [x] **Behavior node set (DEC-2b follow-up).** Retail's park dino graph is
   exactly `{Exploration, RunAway, Sleep, Victory}` (`DB+0x158`, one node per
   action record/target with runtime `+0x08` availability). No park class-6

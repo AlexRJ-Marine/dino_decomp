@@ -385,7 +385,7 @@ integrator.
 | `+0x00/+0x04` | target x/y (map units) |
 | `+0x08` | mode-2 threshold/duration |
 | `+0x0c/+0x0d` | flags |
-| `+0x10` | move kind (1 walk, 2 run, 3/4/5 turn, 0x34/0x35 jump) |
+| `+0x10` | move kind (1 walk, 2 run, 3/4/5 turn, 0x34/0x35 walk/run aliases) |
 | `+0x14` | arrival mode: 0 free, 1 exact position, 2 timed |
 
 State (`mover+0x1ec`): 0 idle, 1 moving, 2 wait, 3 knocked down. `FUN_00574450`
@@ -429,14 +429,17 @@ Confinement is `FUN_0055af70(actor, x, y, flag, checkBounds)`: a step outside
 the path object's paddock rect (`path+0x1c0`) or into an occupied footprint
 cell (`path+0x1ac`, u16 grid) is refused. There is no per-dino paddock id and
 no A*; the pathfinder (`FUN_0055ac30`/`0055ba50`) is only used for the
-jump run-up kinds 0x34/0x35.
+walk/run cell step (`0x34`/`0x35` markers).
 
 Queue semantics (`FUN_00573dc0` / `FUN_00573f40`): append and start when
 state 0; a command that arrives while moving cancels the current record's
 arrival (`mode = 0`) and keeps at most one next record. The element emitter
 `FUN_00569660` takes the move kind from the element's profile pointer
 (`element+0x04`, not the `+8` bone vector), always queues mode 2 with
-`duration = FUN_00575de0(kind)` and targets the nearest reachable cell.
+`duration = FUN_00575de0(kind)` and targets the nearest reachable cell. At
+runtime it fires on the **item/Eat path** only (24 kind-8 records after
+~112 s); the park action movers call `0x573f40` directly
+(`notes/dino-mover-return-probe.md`).
 
 Port (2026-10-30): `src/world/dino_motion.{h,cpp}` implements the record
 queue, 45-degree turn records (fixed 1 s in the port; retail is 1.2/1.5/2.0 s
@@ -449,16 +452,17 @@ Eat-to-source/3-unit meal path was removed on 2026-10-31. The real dino path
 is the LunchBox/StaticBait item actor (`FUN_00576e50`). The move starts and
 stops are logged as `dino move: <species> start|stop|blocked`.
 
-**Runtime correction (2026-10-30, `notes/dino-mover-runtime-probe.md`):** the
-Cpg04 retail park does **not** take this path. The park behaviour layer calls
-`0x573f40` directly and emits 1–3 record lists per element; `FUN_00569660` and
-the action completion `0x571190` fired **0** times, no kind-8 Eat record
-appeared, and `saFoodSource::SetLevel 0x580e60` never fired (the six
-`0x522300` controllers are visitor-side with a null source). The port's
-former one-record Eat and 3-unit consumption were **unsupported scaffolding**
-and have been removed; the LunchBox/StaticBait actor + `FUN_00576e50` is the
-replacement. The 0x34/0x35 walk/run markers are re-issued every frame in
-retail, not once per action.
+**Runtime correction (2026-10-31, `notes/dino-mover-return-probe.md`):** the
+Cpg04 park behaviour layer calls `0x573f40` directly and emits 1–3 record lists
+per element. The per-frame `0x34`/`0x35` walk/run markers are the mover tick
+itself (`FUN_00574450`, `0x57466d`/`0x57469c`, ~15 ms), not a separate action
+emitter. The `0x27 + 0x20 + 0x20` lunge is the atomic move-profile case-0
+builder `FUN_005741c0` (only caller `0x56ef84`): `0x27` 2 s at the dino
+position, a direct `0x34`, `0x20` to the lunge point, and `0x20` back.
+`FUN_00569660`, the item executor and a kind-8 Eat record **do** run once a
+dino reaches an item (~112 s into the 180 s window; `SetLevel` 7 times), so
+the 60 s "no Eat" negative was a sampling artifact. The 0x34/0x35 kinds are
+walk/run aliases, not jumps.
 
 The object/box Eat executor's walk is ported from `0x0056c490` (not the
 actor-target `0x56f94a`): the radius comes from the selected `.bai` action
@@ -478,11 +482,12 @@ The exact K-square clearance and spiral tie order remain open. The meal
 amount is `attack_head` (`dino+0x288`), matching `FUN_00569a00`'s
 `FUN_00576e50` call.
 
-Port approximations (see `TASKS.md` P3-MOTION-1): one record per action
-instead of the behaviour's record list; the paddock inset is
-`clamp(length_m*0.15, 1, 3)` rather than the retail footprint grid; the
-element→move profile (`element+0x04` weighted table) is not parsed yet; and
-the `+0x1c/+0x20` initial facing writer is still open in
+Port approximations (see `TASKS.md` P3-MOTION-1): the Exploration profile
+(`0x27, 0x27, 0x34, 0x20, 0x20`) is ported with the probe's targets and
+durations; the other move-profile cases (the `0x19`, `0x1c..0x1e` arms and
+the attack lunge) are not yet emitted from the `.bai` profile; the paddock
+inset is `clamp(length_m*0.15, 1, 3)` rather than the retail footprint grid;
+and the `+0x1c/+0x20` initial facing writer is still open in
 `notes/dino-mover-tick-recon.md`. The turn plan and the exact end facing are
 retail-exact; the turn duration now comes from the family table (the Cpg04
 allos log `turn=1.20 uturn=1.50`).
@@ -514,7 +519,7 @@ The jump table at `0x56f1e0` indexes `special_action - 1`:
 
 | `special_action` | action examples | case | records emitted (state 0 unless noted) |
 | ---: | --- | --- | --- |
-| 0 (normal) | Eat, EatBait, Smell, gestures | — | **never enters `FUN_0056eec0`**; the `0x56f9xx` executor emits the per-frame `0x34/0x35` marker, then the stop/abort and the element gesture (`0x12..0x17`) |
+| 0 (normal) | Eat, EatBait, Smell, gestures | — | **never enters `FUN_0056eec0`**; the object executor queues the marker once and the mover tick (`FUN_00574450`) re-issues `0x34/0x35` every ~15 ms while it walks/runs; the `0x56f9xx` bodies emit the one-shot `0x35`/`0x00` records |
 | 1 | Exploration (0) | `0x56ef12` | `0x27` 2.0 s self; `0x27` `X[0x258]+0.5` action point; `0x34` marker to the action point; `0x20` `X[0x23c]`; `0x20` 5..20 s random self |
 | 2 | RunAway (1) | `0x56ef8e` | `0x19` 2.0 s self, or a `0x35` marker to the steering cell |
 | 3 | Sleep (2) | `0x56f087` | state 3: `0x1c` 1.5 s self; state 0: `0x1d` 1.5 s self + `0x1e` sentinel (`0x7f7fc99e`) self |

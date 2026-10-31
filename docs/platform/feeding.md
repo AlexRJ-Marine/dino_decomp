@@ -28,9 +28,11 @@ persistence remain open.
   `amount * nutrition` (`+0xc[0]`).
 - The `.bfi` fields: LunchBox `food_kind 0`, quantity `field_3c=10000`,
   nutrition `field_40=100`; StaticBait quantity 10000, nutrition 70.
-- The Cpg04 60 s probe saw no dino Eat and no `SetLevel`; its six `0x522300`
-  controllers are visitor-side with a null source. The real dino path is only
-  active when a LunchBox/bait item actor is present.
+- The 60 s Cpg04 probe saw no dino Eat and no `SetLevel`; its six `0x522300`
+  controllers are visitor-side with a null source. The **180 s** run then saw
+  `FUN_00569660` fire 24 kind-8 Eat records and `SetLevel` 7 times once a dino
+  reached food (~112 s), so the dino path is live; the real dino target is a
+  LunchBox/bait item actor (`notes/dino-mover-return-probe.md`).
 
 ## Port
 

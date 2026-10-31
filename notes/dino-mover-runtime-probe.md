@@ -220,7 +220,14 @@ MOVAQUEUE|t=601172359| kind=0x20 mode=2 dur=1.4  tgt=(528,389) pos=(534,390)
 MOVAQUEUE|t=601172359| kind=0x20 mode=2 dur=1.9  tgt=(534,390) pos=(534,390)
 ```
 
-## 6. Eat: no dino Eat record, no food level consumed
+## 6. Eat: absent in the 60 s window (sampling artifact; corrected by the 180 s run)
+
+> **Correction (2026-10-31, `notes/dino-mover-return-probe.md`):** the 60 s
+> window ended before any dino reached food. In a 180 s window `0x569660`
+> fired **24 kind-8 Eat records** (`ret=0x569775`), `0x580e60 SetLevel` fired
+> **7 times**, and the item executor sites `0x56c65f`/`0x56c70e` fired
+> (`0x35`/`0x00`). Keep the Eat kind and the item-element emitter; the
+> negative below is only the 60 s sample.
 
 - **No kind 8 (`Eat`) or kind 9 (`EatBait`) record from a dino action** in
   60 s. One kind-9 record appeared, from a single `MOVSTART` with no follow-up:
@@ -250,12 +257,11 @@ MOVAQUEUE|t=601172359| kind=0x20 mode=2 dur=1.9  tgt=(534,390) pos=(534,390)
   pointers is in the 20 dino pointer set, and the vtable `0x00642AC4` is
   written by `FUN_00521e40` in the visitor/park-behaviour region.
 
-Reading: in Cpg04 the visitor-side eat controllers cycle without ever being
-given a food source, and the dinosaur move records never include an Eat kind.
-The port's "one record + consume one level per Eat" is therefore **not
-supported by retail**; the closest observed analogue is one gesture record
-(the kind-8 profile) plus the per-frame `0x34/0x35` walk marker that carries
-the dino to the target.
+Reading: in the 60 s window the visitor-side eat controllers cycle without
+ever being given a food source, and the dinosaur move records never include an
+Eat kind. The later 180 s run shows the item/Eat path does fire once a dino
+reaches food (~112 s), so the 60 s negative is a **sampling artifact**, not a
+dead path.
 
 ## 7. Action id and countdown are not usable labels here
 
@@ -274,13 +280,15 @@ used to label a record or to measure an Eat duration.
    value; the file's five family blocks cannot explain 1.2/1.5/1.8/2.0.
 2. `notes/dino-mover-tick-recon.md` section 7 and `notes/dino-ai-gap-audit.md`
    section 7 item 5: the element-to-move emitter `FUN_00569660` is *not* how
-   the park's dinosaurs move. It never runs in the campaign park; the behaviour
-   layer calls `0x573f40` directly (10 call sites) and re-issues the `0x34/0x35`
-   marker every frame.
+   the park's **action** dinosaurs move; the behaviour layer calls `0x573f40`
+   directly and the mover tick re-issues the `0x34/0x35` marker every frame.
+   It **does** run on the item/Eat path once a dino reaches food (~112 s; 24
+   kind-8 records, `notes/dino-mover-return-probe.md`), so it is not dead.
 3. `notes/dino-ai-gap-audit.md` section 4.3: "one level is consumed per meal"
-   via `FUN_00522300` -> `FUN_00580E60`. In Cpg04 the state machine runs but
-   never has a source or level (`+0x54/+0x58/+0x5c` all zero) and `SetLevel`
-   never fires; the controllers are not dinosaurs.
+   via `FUN_00522300` -> `FUN_00580E60`. In the 60 s window the six
+   `0x522300` controllers are visitor-side with a null source and `SetLevel`
+   never fires; the 180 s window then fires `SetLevel` **7 times** on the dino
+   item/Eat path. The 60 s negative is a sampling artifact.
 4. `notes/dino-mover-tick-recon.md` sections 0/6: the record layout is right,
    but the *argument* offsets quoted for the two queue functions are short by
    one dword (the `Vec2*` position argument) - see section 2 above.
@@ -291,15 +299,16 @@ and `+0x26c` are map units per second, applied as `speed * dt` with ratio
 
 ## Open
 
-1. Which of the `0x573f40` call sites emit the per-frame `0x34/0x35` marker and
-   the `0x27 + 0x20 + 0x20` lunge profile. One more run logging `{p:[esp]}`
-   (return address) at `0x573f40` answers it.
+1. **Closed** by `notes/dino-mover-return-probe.md`: the per-frame
+   `0x34`/`0x35` markers are the mover tick `FUN_00574450`
+   (`0x57466d` walk, `0x57469c` run, ~15 ms); the `0x27 + 0x20 + 0x20`
+   lunge is `FUN_005741c0` (only caller `0x56ef84`).
 2. The runtime per-species duration table: is it built by scaling
    `Actions.bad`, or from the animation blocks? Four species share 2.0 s while
    the rest share 1.2/1.5, so it is quantised, not proportional to size.
-3. Whether an Eat action ever runs in a park with a stocked food source. The
-   probe needs a park where `[ctrl+0x38]+0x54` is non-zero (a visitor at a
-   food stand) or a mission that starts with hungry dinos.
+3. Whether an Eat action ever runs in a park with a stocked food source.
+   **Answered yes** by the 180 s run (`0x569660` 24 x kind 8, `SetLevel` 7);
+   the remaining question is the exact item record list, not whether it runs.
 
 ## Harness changes made for this probe
 

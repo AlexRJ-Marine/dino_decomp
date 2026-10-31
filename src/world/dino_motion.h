@@ -22,7 +22,7 @@ struct MoveCommand {
     float threshold = 0.0f;
     std::uint8_t flag = 0;
     std::uint8_t flag2 = 0;
-    int kind = 1;  // 1 walk, 2 run, 3/4/5 turn, 0x34/0x35 jump
+    int kind = 1;  // 1 walk, 2 run, 3/4/5 turn, 0x34/0x35 walk/run aliases
     int mode = 1;  // 0 free, 1 position, 2 timed
     // `FUN_00574450`: record +0x0c. An instant record publishes its kind as
     // the rest-gauge activity every frame once its segment timer
