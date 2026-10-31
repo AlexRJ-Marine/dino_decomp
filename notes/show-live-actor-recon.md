@@ -186,7 +186,51 @@ deferred until the display transform is resolved; no yaw/scale/Z is guessed.
   cast and force the element (26/35, self, mode 2, sentinel, instant 1,
   allowTurn 0).
 
-## 6. Minimal live-show recipe
+## 9. Scheduler slot boundary (2026-10-31, exact)
+
+`FUN_0058c1c0(time_scale, 9)` is the time manager: `+0x00 = 9` (base
+hour), `+0x10 = time_scale` (**60.0** from `GeneralParams.bgd` `+0x1a8`),
+`+0x14 = 1/time_scale`, `+0x18 = time_scale/60`, `+0x1c = 60/time_scale`,
+`+0x20 = time_scale/3600`, `+0x24 = 3600/time_scale`. `FUN_0058c2f0` adds the
+raw frame `dt` to `+0x08` and copies the old value to `+0x0c`; the clock is
+elapsed **seconds**.
+
+`FUN_0058c390(sched, offset)` is a boundary-crossing test, not a continuous
+window:
+
+```c
+prev = sched[0x0c];
+now  = sched[0x08];
+i    = (int)(prev * sched[0x20]) + 1;
+end  = i * sched[0x24] - offset * sched[0x14];
+cross = (end >= prev) && (end <= now);
+```
+
+The `offset` argument is **not the clock**: at `0x58c7b5` it is
+`[scheduleList+0x1c] -> +4`, and `scheduleList+0x1c = cfg+0x1a0`; the field at
+`cfg+0x1a4` is the fixed GeneralParams value **10.0**. With `time_scale=60`:
+
+```text
+i = (int)(prev / 60) + 1
+end = i * 60 - 10.0/60 = 60*i - 0.1667 s
+```
+
+So the scheduler starts the show assigned to slot `i` on the frame that
+crosses the roughly 60 s marks (10 slots, 09:00 base); the 11th hour ends the
+day. This is **1 game hour per slot** at 1 game minute per real second, not
+72-minute slots.
+
+`FUN_0057b130(show, result)` sets the performance budget `show+0x94` to
+`scheduleList[0] = *(float*)(cfg+0x1a0) * (1/time_scale)`. GeneralParams
+stores **40.0** at `cfg+0x1a0`, so the stored budget is **0.6667**. State 4
+(`0x57b8da`) adds the raw `dt` to `show+0x90` and ends the performance when
+`+0x94 <= +0x90`. The arithmetic and object chain are exact; the **unit of
+that `dt`/`+0x94` is OPEN** (0.667 real seconds would be implausible), so the
+port keeps its explicit 30-minute `ShowRuntime` placeholder until a runtime
+probe reads `show+0x94`/`+0x90` and the `dt` at `0x57b81f`. Do not hardcode
+40 or 60 minutes from the field value alone.
+
+## 10. Live-show recipe (latest)
 
 ```text
 1. stShow = FUN_005868f0(world, showRec+0x18, design+0xc, showRec+0x44)
@@ -210,9 +254,11 @@ Files: `Data/Design/Scenario/show/*.shw`, `Data/Design/attractions/features/*.bf
 ## Open
 
 1. Exact show-end Victory emitter (retail direct emitter not found).
-2. The exact scheduler slot scale (`sched+0x24`/`+0x20`) and the
-   `iterations` spacing within the slot; the show ends at the slot boundary,
-   not a 30-minute duration.
+2. Scheduler slot scale: **resolved** (`FUN_0058c1c0(60, 9)`,
+   `FUN_0058c390`: `i=int(prev/60)+1`, `end=60*i-10/60` s; section 9). The
+   remaining show-length datum is the unit of `show+0x94` (0.667 from
+   `field_1a0=40`/`time_scale`): probe `show+0x94`/`+0x90` and the `dt` at
+   `0x57b81f` before replacing the port's 30-minute placeholder.
 3. `.bfi` `score_steps`/`attribute_sets` are unused in this build (negative
    result).
 4. The cast writer and the scheduler start/end are now mapped

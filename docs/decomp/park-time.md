@@ -71,12 +71,27 @@ Both widgets are created by `0x005234e0` at `panel+0x1e0` / `panel+0x1e4`.
   each valid show it calls `0x0058c8f0` (feature/actor list) and
   `0x0057b130` (activate).
 
-`0x0058c390(time)`:
+`0x0058c390(offset)` (2026-10-31 correction: the argument is the fixed
+GeneralParams value **10.0**, not the clock; `scheduleList+0x1c = cfg+0x1a0`,
+and the pushed dword is `[cfg+0x1a4] = 10.0`):
 
 ```text
-window = (int(time * +0x20) + 1) * +0x24 - time * +0x14
+i      = int(+0x0c * +0x20) + 1          # +0x20 = 1/60 at time_scale 60
+window = i * +0x24 - offset * +0x14      # +0x24 = 60, +0x14 = 1/60
 active = (+0x0c <= window <= +0x08)
 ```
+
+With `time_scale = 60` this is `i = int(prev/60) + 1` and
+`window = 60*i - 10/60` seconds: the show assigned to slot `i` starts on the
+frame that crosses the ~60 s mark (1 game hour per slot). See
+`notes/show-live-actor-recon.md` section 9.
+
+`0x0057b130(show, result)` also stores the performance budget:
+`show+0x94 = *(float*)(cfg+0x1a0) / time_scale`. GeneralParams has **40.0**
+at `cfg+0x1a0`, so the stored value is **0.6667**; state 4 adds the raw frame
+`dt` to `show+0x90` and ends at `+0x94 <= +0x90`. The unit of that `dt` is
+still OPEN, so this is not yet a duration the port can use (see
+`notes/show-live-actor-recon.md` section 9).
 
 `0x0058c8f0(manager, show)` fills the show's participant list (`+0xf4`) from
 its cage/team assignment vector (`+0xb0`), skipping any dino that already
