@@ -63,3 +63,23 @@ tick and stayed inside it; the mover never exhausted a blocked step.
 - at least one `dino action:` and one `dino explore:` line (the loop ran).
 
 Evidence: this note; `build/soak600.log` (gitignored).
+
+## Rest-gauge build (2026-10-31, later that day)
+
+Same 600 s command after the exact rest gauge was wired. The action-speed
+fixture (100) makes Exploration 0.3 s, so FOOD/REPOS stay high and Sleep is
+not selected; the confinement result is unchanged:
+
+```text
+exit=0
+dino escape:   0
+dino move: ... blocked: 0
+dino eat:      1
+dino explore: 20
+dino sleep:    0
+dino action:  21
+```
+
+The gauge itself is verified separately: `test_cpp_dino_rest_gauge_sleep`
+(Cpg04, REPOS 10) shows the gauge climbing to max and REPOS 99 through the
+0x1e instant sleep sentinel.

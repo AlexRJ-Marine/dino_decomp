@@ -23,6 +23,12 @@ struct MoveCommand {
     std::uint8_t flag2 = 0;
     int kind = 1;  // 1 walk, 2 run, 3/4/5 turn, 0x34/0x35 jump
     int mode = 1;  // 0 free, 1 position, 2 timed
+    // `FUN_00574450`: record +0x0c. An instant record publishes its kind as
+    // the rest-gauge activity every frame once its segment timer
+    // (`Actions.bad` dur[kind], `+0x30`) has elapsed; the sleep sentinel
+    // 0x1e is the only park use.
+    bool instant = false;
+    float segment = 0.0f;
 };
 
 // `saDinosaur+0x2c8` mover (`FUN_00573370` ctor, `FUN_00574350` tick,
@@ -67,10 +73,14 @@ public:
     void clear_bounds();
 
     // `FUN_00573f40`: append and start when idle. `FUN_00573dc0`: append only.
+    // `instant`/`segment` are record +0x0c and the segment timer override
+    // (`Actions.bad` dur[kind]); the sleep sentinel 0x1e uses them.
     void start(int kind, float x, float y, int mode = 1,
-               float threshold = 0.0f);
+               float threshold = 0.0f, bool instant = false,
+               float segment = 0.0f);
     void queue(int kind, float x, float y, int mode = 1,
-               float threshold = 0.0f);
+               float threshold = 0.0f, bool instant = false,
+               float segment = 0.0f);
     void clear();
 
     // Advance by `dt` seconds. Returns true when the position or facing
@@ -93,11 +103,17 @@ public:
     float uturn_seconds() const { return uturn_seconds_; }
     float target_x() const { return target_x_; }
     float target_y() const { return target_y_; }
+    // `FUN_00574350` resets these every tick; arrival (`FUN_00575ac0`) or
+    // the instant branch sets the arrived record's kind and progress, which
+    // `FUN_00571540` reads as `mover+0x1f8`/`+0x1d0` for the rest gauge.
+    int activity_kind() const { return activity_kind_; }
+    float activity_progress() const { return activity_progress_; }
 
 private:
     void activate_next();
     void begin_segment();
     void finish_segment();
+    void publish_activity();
     void set_desired_facing();
     bool step_allowed(float nx, float ny) const;
     float speed_for_kind(int kind) const;
@@ -126,10 +142,14 @@ private:
 
     int kind_ = 0;
     int mode_ = 0;
+    bool instant_ = false;
     float target_x_ = 0.0f;
     float target_y_ = 0.0f;
     float elapsed_ = 0.0f;
     float duration_ = 0.0f;
+    float segment_seconds_ = 0.0f;
+    int activity_kind_ = 0;
+    float activity_progress_ = 0.0f;
 
     // Turn-in-progress state.
     int turn_steps_ = 0;

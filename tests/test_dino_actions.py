@@ -177,6 +177,30 @@ def test_action_loop_decay(actions):
     assert loop.action_name == "Exploration"
 
 
+def test_action_loop_rest_gauge(actions):
+    # `FUN_00571540`: gauge -= progress * scale[activity]; REPOS =
+    # ftol(gauge*99/max). Walk 0.5, run 2.0, sleep sentinel 0x1e -10.
+    loop = DinoActionLoop(
+        actions, NeedBlock(max_rest=100.0, rest_gauge=100.0))
+    loop.update_rest(1, 1.0, 0.5)
+    assert loop.needs.rest_gauge == pytest.approx(99.5)
+    assert loop.needs.repos == 98
+    loop.update_rest(2, 1.0, 2.0)
+    assert loop.needs.rest_gauge == pytest.approx(97.5)
+    assert loop.needs.repos == 96
+    loop.update_rest(0x1E, 1.0, -10.0)
+    assert loop.needs.rest_gauge == pytest.approx(100.0)
+    assert loop.needs.repos == 99
+    before = loop.needs.rest_gauge
+    loop.update_rest(0, 1.0, 0.5)
+    assert loop.needs.rest_gauge == pytest.approx(before)
+    # The tuned REPOS decay must not fight the gauge-driven REPOS.
+    ticked = DinoActionLoop(
+        actions, NeedBlock(repos=49, max_rest=100.0, rest_gauge=50.0))
+    ticked.tick(10.0)
+    assert ticked.needs.repos == 49
+
+
 def test_action_loop_applies_element_events_not_deltas(actions):
     # Retail applies the element events when the action starts (Eat = kind 1,
     # VIOLENCE +15) and never applies the `.bai` need deltas. Completing Eat

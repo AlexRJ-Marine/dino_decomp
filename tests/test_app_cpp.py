@@ -897,7 +897,7 @@ def test_cpp_selftest():
         [str(EXE), "--selftest"], capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "selftest: PASS (216 checks)" in result.stdout
+    assert "selftest: PASS (225 checks)" in result.stdout
 
 @pytest.mark.slow
 def test_cpp_hud(tmp_path):
@@ -2766,6 +2766,11 @@ def test_cpp_cpg04_phenotype_attributes():
 
     rows = [fields(line) for line in lines]
     # Live ctor columns (`notes/phenotype-attributes-runtime.md`).
+    # `def+0x188` max rest from the live DINORESET `f1d8` trace.
+    assert [int(r["rest"]) for r in rows] == [
+        94, 47, 47, 47, 40, 40, 57, 61, 47, 47,
+        55, 61, 56, 64, 64, 64, 64, 64, 56, 56,
+    ]
     assert [int(r["wid"]) for r in rows] == [
         139, 260, 260, 260, 69, 69, 187, 71, 165, 165,
         260, 72, 111, 111, 111, 111, 111, 111, 74, 74,
@@ -3663,13 +3668,17 @@ def test_cpp_actions_bad_durations():
     log = result.stdout
     assert "actions bad: families=5 kinds=51" in log
     assert ("family 0: dur3=1.50 dur4=1.50 dur5=2.00 dur9=2.00 "
-            "dur25=2.00 dur28=2.00 dur39=2.00") in log
+            "dur25=2.00 dur28=2.00 dur39=2.00 "
+            "scale1=0.50 scale2=2.00 scale30=-10.00") in log
     assert ("family 2: dur3=1.20 dur4=1.20 dur5=1.50 dur9=1.20 "
-            "dur25=2.00 dur28=1.50 dur39=2.00") in log
+            "dur25=2.00 dur28=1.50 dur39=2.00 "
+            "scale1=0.50 scale2=2.00 scale30=-10.00") in log
     assert ("family 3: dur3=2.00 dur4=2.00 dur5=2.00 dur9=1.80 "
-            "dur25=2.00 dur28=1.50 dur39=2.00") in log
+            "dur25=2.00 dur28=1.50 dur39=2.00 "
+            "scale1=0.50 scale2=2.00 scale30=-10.00") in log
     assert ("family 4: dur3=2.00 dur4=2.00 dur5=1.50 dur9=1.50 "
-            "dur25=1.50 dur28=1.50 dur39=2.00") in log
+            "dur25=1.50 dur28=1.50 dur39=2.00 "
+            "scale1=0.50 scale2=2.00 scale30=-10.00") in log
 
 def test_cpp_dino_action_chooser():
     if not EXE.exists():
@@ -4356,6 +4365,45 @@ def test_cpp_dino_confinement_soak():
                 if "dino move: " in line and " blocked" in line]
     assert "dino action:" in log  # the loop is actually running
     assert "dino explore:" in log
+
+
+@pytest.mark.slow
+def test_cpp_dino_rest_gauge_sleep():
+    """`FUN_00571540`: a tired Cpg04 anky chooses Sleep; the 0x1e instant
+    sentinel adds +10 rest per frame (scale -10) and REPOS rises to 99."""
+    if not EXE.exists():
+        pytest.skip("viewer not built")
+    isl04 = GAME / "Data" / "Design" / "landscape" / "isl04" / "isl04.lnd"
+    wld = GAME / "Data" / "Design" / "Scenario" / "Cpg04" / "Cpg04_Save.wld"
+    if not isl04.exists() or not wld.exists():
+        pytest.skip("retail Cpg04/isl04 missing")
+    result = subprocess.run(
+        [str(EXE), "--frames", "160", "--no-menu", "--no-hud",
+         "--width", "160", "--height", "120", "--no-vsync",
+         "--no-save-config", "--lnd", str(isl04),
+         "--asset-root", str(GAME), "--no-vegetation", "--no-water",
+         "--wld-park", str(wld), "--dino-action-loop",
+         "--fixed-dt", "0.05", "--dino-action-speed", "1",
+         "--dino-needs", "20,90,50,10", "--rest-probe"],
+        capture_output=True, text=True, timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    log = result.stdout
+    assert "dino sleep: anky start kind=0x1d/0x1e" in log
+    rest = []
+    for line in log.splitlines():
+        if not line.startswith("rest: anky "):
+            continue
+        fields = dict(token.split("=", 1) for token in line.split()
+                      if "=" in token)
+        rest.append((float(fields["gauge"]), float(fields["max"]),
+                     int(fields["repos"])))
+    assert rest
+    # The spawn fixture maps REPOS 10 to ~10 % of the max.
+    assert rest[0][0] < 20.0 and rest[0][2] <= 10
+    # After the 0x1d/0x1e sleep list the gauge reaches max, REPOS 99.
+    assert any(gauge == max_rest and repos >= 95
+               for gauge, max_rest, repos in rest)
 
 
 def test_cpp_employee_info():

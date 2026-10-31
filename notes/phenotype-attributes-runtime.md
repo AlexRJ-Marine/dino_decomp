@@ -61,6 +61,29 @@ The five-part sums use `part -> gene [0,1,1,2,3]` and the Part 3 tables
 | 19 | (3,3) | 40/75/55/70/30/225 | 41/77/55/70/30/225 | 60/30/50 | 60/30/50 | 0.240 |
 | 20 | (3,3) | 40/75/55/70/30/225 | 41/77/55/70/30/225 | 60/30/50 | 60/30/50 | 0.240 |
 
+## Max rest (`def+0x188`, 20 live rows)
+
+The same Cpg04 run logged `+0x1d8` at `DINORESET` (`0x570fd0`), which is the
+copy of `def+0x188`. `0x617dfb` stores it as
+`float(final stamina + x)` after the accumulator; `x` is the int computed at
+`0x6179d6..0x617a0a`:
+
+```text
+x = (WeightArm[g1b][g1a] + WeightLeg[g1b][g1a])
+    * PhysicalBonusOnStamina / weight_sum          (integer truncation)
+```
+
+`WeightArm`/`WeightLeg` are the raw Part 3 Weight tables (no part scale),
+both indexed by the **raw gene-1 allele pair**, and `weight_sum` is the
+pre-accumulator Part 3 weight sum (`0x6173c1`). Live values in row order:
+
+```text
+94 47 47 47 40 40 57 61 47 47 55 61 56 64 64 64 64 64 56 56
+```
+
+The C++ port computes all 20 exactly (`DINO_DEBUG_PHENO=1`, field `rest`);
+`tests/test_app_cpp.py::test_cpp_cpg04_phenotype_attributes` asserts them.
+
 ## What matches
 
 - **Beauty, Agility, Armor**: the base sum is exact for the 17 rows whose

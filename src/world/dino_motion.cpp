@@ -60,7 +60,8 @@ void DinoMover::set_bounds(float x0, float y0, float x1, float y1,
 
 void DinoMover::clear_bounds() { has_bounds_ = false; }
 
-void DinoMover::start(int kind, float x, float y, int mode, float threshold) {
+void DinoMover::start(int kind, float x, float y, int mode, float threshold,
+                      bool instant, float segment) {
     // `FUN_00573f40`: a command that arrives while moving cancels the
     // current record's arrival (`mode = 0`) and keeps at most one "next".
     if (active_) {
@@ -69,16 +70,19 @@ void DinoMover::start(int kind, float x, float y, int mode, float threshold) {
             queue_.pop_back();
         }
     }
-    queue(kind, x, y, mode, threshold);
+    queue(kind, x, y, mode, threshold, instant, segment);
 }
 
-void DinoMover::queue(int kind, float x, float y, int mode, float threshold) {
+void DinoMover::queue(int kind, float x, float y, int mode, float threshold,
+                      bool instant, float segment) {
     MoveCommand command;
     command.x = x;
     command.y = y;
     command.threshold = threshold;
     command.kind = kind;
     command.mode = mode;
+    command.instant = instant;
+    command.segment = segment;
     queue_.push_back(command);
     // `FUN_00573dc0`: append and start when the mover is idle.
     if (!active_) {
@@ -93,8 +97,12 @@ void DinoMover::clear() {
     state_ = 0;
     kind_ = 0;
     mode_ = 0;
+    instant_ = false;
     elapsed_ = 0.0f;
     duration_ = 0.0f;
+    segment_seconds_ = 0.0f;
+    activity_kind_ = 0;
+    activity_progress_ = 0.0f;
     turn_steps_ = 0;
     turn_sign_ = 0;
     turn_left_ = 0.0f;
@@ -106,6 +114,7 @@ void DinoMover::activate_next() {
         state_ = 0;
         kind_ = 0;
         mode_ = 0;
+        instant_ = false;
         return;
     }
     const MoveCommand& command = queue_.front();
@@ -113,11 +122,26 @@ void DinoMover::activate_next() {
     blocked_ = false;
     kind_ = command.kind;
     mode_ = command.mode;
+    instant_ = command.instant;
     target_x_ = command.x;
     target_y_ = command.y;
     elapsed_ = 0.0f;
     duration_ = command.threshold;
+    // `FUN_00574ad0`: the segment timer is `dur[kind]` (`+0x30`) for a
+    // non-walk/run record; the instant publish uses that timer, while the
+    // mode-2 arrival test keeps reading the record duration (+0x08).
+    segment_seconds_ = command.segment > 0.0f ? command.segment
+                                             : command.threshold;
     begin_segment();
+}
+
+void DinoMover::publish_activity() {
+    // `FUN_00574450` instant branch: `0x1f8 = 0x1f4`, `0x1d0 = 1.0`.
+    // The first arrival in a tick wins (`FUN_00575ac0` checks 0x1f8 == 0).
+    if (activity_kind_ == 0) {
+        activity_kind_ = kind_;
+        activity_progress_ = 1.0f;
+    }
 }
 
 void DinoMover::begin_segment() {
@@ -204,6 +228,9 @@ void DinoMover::set_desired_facing() {
 }
 
 void DinoMover::finish_segment() {
+    // `FUN_00575ac0` true -> the arrival handler publishes the kind that
+    // just arrived; the first publish in a tick wins.
+    publish_activity();
     if (!queue_.empty()) {
         queue_.pop_front();
     }
@@ -212,6 +239,7 @@ void DinoMover::finish_segment() {
         state_ = 0;
         kind_ = 0;
         mode_ = 0;
+        instant_ = false;
         // The blocked flag stays latched (`mover+0x64`) until the next
         // record is activated; `activate_next` clears it.
         return;
@@ -241,6 +269,10 @@ float DinoMover::speed_for_kind(int kind) const {
 }
 
 bool DinoMover::tick(double dt) {
+    // `FUN_00574350` starts every tick with `mover+0x1f8 = 0`; the arrival
+    // handler or the instant branch fills it for this tick only.
+    activity_kind_ = 0;
+    activity_progress_ = 0.0f;
     if (!active_ || dt <= 0.0) {
         return false;
     }
@@ -276,9 +308,15 @@ bool DinoMover::tick(double dt) {
 
     if (mode_ == 2) {
         elapsed_ += step;
-        if (elapsed_ >= duration_) {
+        if (!instant_ && elapsed_ >= duration_) {
             finish_segment();
             return true;
+        }
+        // `FUN_00574450`: an instant record publishes its kind every frame
+        // after its segment timer, until it is replaced/canceled. The sleep
+        // sentinel 0x1e (duration FLT_MAX) never reaches its arrival test.
+        if (instant_ && elapsed_ >= segment_seconds_) {
+            publish_activity();
         }
     }
 

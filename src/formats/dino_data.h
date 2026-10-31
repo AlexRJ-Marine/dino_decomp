@@ -87,8 +87,19 @@ struct DinoAttributes {
     int attack_tail = 0;     // +0x5c
     int attack_total = 0;    // +0x60
     int aggression = 0;      // +0x6c
-    int stamina = 0;         // +0x70
+    int stamina = 0;         // +0x70 (post-accumulator)
     int courage = 0;         // +0x74
+    // `def+0x188` (`0x617dfb`): max rest = gene-expression stamina + the
+    // raw Body/Tail weight percentage bonus. This is the `+0x1d8` max used
+    // by the rest gauge `FUN_00571540`.
+    float max_rest = 0.0f;
+    // The five expressed part allele pairs (Head/Arm/Leg/Body/Tail); kept
+    // for the runtime phenotype report and the part-gated formulas.
+    std::array<int, 5> part_allele_a{};
+    std::array<int, 5> part_allele_b{};
+    // Raw (unscaled) Part 3 Weight table cells, for the rest-gauge bonus
+    // (`0x6179d6`) and the runtime phenotype report.
+    std::array<int, 5> weight_part_raw{};
 
     int weight_kg = 0;        // +0x18
     float food_consumption = 0.0f;  // +0x1c
@@ -173,6 +184,7 @@ struct DinoPhenotypeTable {
     std::array<int, 4> size_category_radius{0, 2, 4, 7};
     float food_consumption_rate = 0.1f;
     float violence_evolution_rate = 0.4f;
+    int physical_bonus_on_stamina = 100;  // translator +0x294
     float walking_speed_coef = 0.1f;
     float running_speed_coef = 0.4f;
     float min_motricity_to_run = 0.01f;

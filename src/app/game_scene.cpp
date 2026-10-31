@@ -407,14 +407,17 @@ void Game::spawn_world_dinos() {
             if (std::getenv("DINO_DEBUG_PHENO") != nullptr) {
                 std::fprintf(
                     stderr,
-                    "pheno %zu g0=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
+                    "pheno %zu g0=(%u,%u) g1=(%u,%u) g2=(%u,%u) g3=(%u,%u) len=%d "
                     "class=%d family=%d wid=%d hei=%d P=%d I=%d B=%d Agi=%d Arm=%d "
                     "Atk=%d Ag=%d O=%d CA=%d Orn=%d St=%d Co=%d walk=%.3f run=%.3f "
                     "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
-                    "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f "
+                    "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f rest=%.0f "
+                    "wr=%d,%d,%d,%d,%d al=%d,%d/%d,%d "
                     "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
                     i, record.genotype[0].first,
                     record.genotype[0].second,
+                    record.genotype[1].first,
+                    record.genotype[1].second,
                     record.genotype[2].first,
                     record.genotype[2].second,
                     record.genotype[3].first,
@@ -433,6 +436,12 @@ void Game::spawn_world_dinos() {
                     attrs.part_length[4], attrs.attack_head,
                     attrs.attack_body, attrs.attack_arm, attrs.attack_leg,
                     attrs.attack_tail, static_cast<double>(attrs.food_consumption),
+                    static_cast<double>(attrs.max_rest),
+                    attrs.weight_part_raw[0], attrs.weight_part_raw[1],
+                    attrs.weight_part_raw[2], attrs.weight_part_raw[3],
+                    attrs.weight_part_raw[4],
+                    attrs.part_allele_a[1], attrs.part_allele_b[1],
+                    attrs.part_allele_a[2], attrs.part_allele_b[2],
                     record.genotype[15].first, record.genotype[15].second,
                     record.genotype[16].first, record.genotype[16].second,
                     record.genotype[17].first, record.genotype[17].second);
@@ -739,6 +748,13 @@ bool Game::add_imported_dino(const std::string& species,
             static_cast<float>(attributes->weight_kg);
         dinosaur.needs.food_gauge = dinosaur.needs.max_food * 0.5f;
         dinosaur.needs.food_consumption = attributes->food_consumption;
+        // `def+0x188`/`+0x1d8`: max rest and the initial gauge. `FUN_00570fd0`
+        // resets the live gauge to max; `--dino-needs` fixtures map the
+        // requested REPOS back through `ftol(gauge*99/max)`.
+        dinosaur.needs.max_rest = attributes->max_rest;
+        dinosaur.needs.rest_gauge =
+            dinosaur.needs.max_rest *
+            static_cast<float>(dinosaur.needs.value[3]) / 99.0f;
     }
     if (opt.dino_action_loop && !dino_action_table.empty()) {
         dino::DinoActionLoopConfig config;

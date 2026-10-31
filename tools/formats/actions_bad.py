@@ -56,6 +56,16 @@ class ActionsBad:
         """
         return [block[411:462] for block in self.blocks]
 
+    @property
+    def scales(self) -> list[list[float]]:
+        """The 51 per-kind rest-gauge scales: block f[105..155].
+
+        ``FUN_00571540`` reads them as ``block+0x354+kind*4`` and applies
+        ``gauge -= progress * scale[kind]``; walk 0.5, run 2.0, the sleep
+        sentinel `0x1e` -10. All five blocks agree.
+        """
+        return [block[105:156] for block in self.blocks]
+
     def summary(self) -> dict:
         return {
             "path": self.path,

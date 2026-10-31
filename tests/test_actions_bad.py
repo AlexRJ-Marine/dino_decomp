@@ -56,6 +56,25 @@ def test_duration_table():
         )
 
 
+def test_rest_gauge_scale_table():
+    """f[105..155] is the rest-gauge scale table used by FUN_00571540.
+
+    Walk 0.5, run 2.0, sleep sentinel 0x1e -10 (gauge increases), and the
+    sleep transition/wake records 0x1d/0x1c 0. All five blocks agree.
+    """
+    if not BAD.exists():
+        pytest.skip("retail sample not present")
+    data = read_actions_bad(BAD)
+    assert len(data.scales) == 5
+    for row in data.scales:
+        assert len(row) == 51
+        assert (row[0], row[1], row[2]) == pytest.approx((-2.0, 0.5, 2.0))
+        assert row[0x1C] == 0.0
+        assert row[0x1D] == 0.0
+        assert row[0x1E] == pytest.approx(-10.0)
+        assert row[0x27] == 0.0  # exploration turn is a duration, no scale
+
+
 def test_tail_speeds_are_animation_scales():
     """Every tail value is in the `.bai` field_18 scale range."""
     if not BAD.exists():

@@ -28,12 +28,17 @@ ActionsBad load_actions_bad(const std::string& path) {
     ActionsBad table;
     table.valid = true;
     for (int family = 0; family < ActionsBad::kFamilies; ++family) {
-        const std::size_t float_index =
-            static_cast<std::size_t>(family) * ActionsBad::kBlockFloats +
-            ActionsBad::kDurationOffset;
-        const std::size_t byte_offset = 4 + float_index * sizeof(float);
+        const std::size_t block =
+            static_cast<std::size_t>(family) * ActionsBad::kBlockFloats;
+        const std::size_t duration_byte =
+            4 + (block + ActionsBad::kDurationOffset) * sizeof(float);
         std::memcpy(table.durations[static_cast<std::size_t>(family)].data(),
-                    data.data() + byte_offset,
+                    data.data() + duration_byte,
+                    sizeof(float) * ActionsBad::kKinds);
+        const std::size_t scale_byte =
+            4 + (block + ActionsBad::kScaleOffset) * sizeof(float);
+        std::memcpy(table.scales[static_cast<std::size_t>(family)].data(),
+                    data.data() + scale_byte,
                     sizeof(float) * ActionsBad::kKinds);
     }
     return table;
@@ -50,6 +55,17 @@ float action_duration(const ActionsBad& table, int family, int kind) {
         return 0.0f;
     }
     return table.durations[static_cast<std::size_t>(
+        kBlockForFamily[family])][static_cast<std::size_t>(kind)];
+}
+
+float action_scale(const ActionsBad& table, int family, int kind) {
+    static constexpr int kBlockForFamily[ActionsBad::kFamilies] = {0, 1, 3,
+                                                                   2, 4};
+    if (!table.valid || family < 0 || family >= ActionsBad::kFamilies ||
+        kind < 0 || kind >= ActionsBad::kKinds) {
+        return 0.0f;
+    }
+    return table.scales[static_cast<std::size_t>(
         kBlockForFamily[family])][static_cast<std::size_t>(kind)];
 }
 

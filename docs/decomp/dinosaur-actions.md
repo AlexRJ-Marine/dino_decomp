@@ -212,10 +212,10 @@ action. This is confirmed by the two independent checks.
 - `src/world/dino_actions.{h,cpp}`: `DinoNeeds` (four values + states +
   attribute accessor), the retail weight tables, `need_term`, `score_action`,
   `preconditions_ok`, `choose_action`, and `DinoActionLoop` (need decay,
-  action countdown, `.bai` deltas applied on completion). The FOOD gauge and
-  the VIOLENCE 10-point 10 s pass are exact; the SECU/REPOS decay rates in
-  `DinoActionLoopConfig` remain port tuning. The chooser and completion rule
-  are the retail algorithm.
+  action countdown, `.bai` deltas applied on completion). The FOOD gauge, the
+  VIOLENCE 10-point 10 s pass and the rest gauge (REPOS) are exact; the SECU
+  decay rate in `DinoActionLoopConfig` remains port tuning. The chooser and
+  completion rule are the retail algorithm.
 - `--dino-actions` prints the chooser result for starving / tired / both /
   full / small scenarios and a 40 s action timeline.
 - The viewer runs one `DinoActionLoop` per imported dinosaur
@@ -501,6 +501,40 @@ accumulator at `0x586aa0` and calls `FUN_00571370(10.0f)` +
 `FUN_00571410(10.0f)` + `FUN_00571350()` per dinosaur. The `.bsi` dino Eat path is removed; the LunchBox actor is ported: the
 anky walks to `bowl.mesh`, `feeder_drain` implements `FUN_00576e50`, and
 `apply_food(amount*nutrition)` fills the gauge (`test_cpp_lunchbox_eat`).
+
+### Rest gauge and REPOS (`FUN_00571540`)
+
+`mover+0x1f8` (`dino+0x4c0`) is the activity kind and `mover+0x1d0`
+(`+0x498`) the progress-at-last-accepted-move. `FUN_00574350` resets the kind
+every mover tick; `FUN_00575ac0` returns 1 on arrival and the handler sets it.
+An **instant** record (record `+0x0c = 1`) republishes its kind every frame
+after its segment timer (`Actions.bad dur[kind]`, `mover+0x30`), which is how
+the sleep sentinel keeps feeding the gauge. Then:
+
+```text
+rest_gauge(+0x258) = clamp(rest_gauge - progress * scale[kind], 0, max_rest)
+REPOS(+0x250)      = ftol(rest_gauge * 99 / max_rest)
+```
+
+`scale[kind]` is `Actions.bad` `f[105+kind]` (`block+0x354+kind*4`): walk
+0.5, run 2.0, sleep sentinel `0x1e` **-10** (so sleep adds 10 per frame),
+`0x1c`/`0x1d` 0. The sleep list's `0x1e` record is instant with a `2.0 s`
+(LowQuad 1.5 s) segment and a `FLT_MAX` mode-2 duration, so it never arrives
+but publishes every frame until the action ends.
+
+`max_rest` is `def+0x188 = final stamina + x`, stored after the
+`0x619a60/0x619b80` accumulator and the `0x619fb0` clamp:
+
+```text
+x = (WeightArm[g1b][g1a] + WeightLeg[g1b][g1a])
+    * PhysicalBonusOnStamina / weight_sum          (integer truncation)
+```
+
+The Weight part tables are used raw (no part scale), both with the raw gene-1
+allele pair (`EBX+0xc/+0x10`), and `weight_sum` is the pre-accumulator Part 3
+weight sum from `0x6173c1`. Verified on the 20 Cpg04 runtime rows (max rest
+94, 47, ..., 56, 56): `test_cpp_cpg04_phenotype_attributes`. Sleep recovery
+and the +10/frame path: `test_cpp_dino_rest_gauge_sleep` (`--rest-probe`).
 
 ### Normal-action executor (`0x56f7a0`)
 

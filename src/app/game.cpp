@@ -1092,6 +1092,16 @@ void Game::update_simulation() {
                         needs.threat, needs.threat_radius, cell,
                         needs.health, needs.max_health, applied);
                 }
+                if (opt.rest_probe) {
+                    // `FUN_00571540`: rest gauge `+0x258`, max `+0x1d8`,
+                    // REPOS `+0x250`.
+                    std::printf(
+                        "rest: %s gauge=%.1f max=%.1f repos=%d\n",
+                        dinosaur.species.c_str(),
+                        static_cast<double>(needs.rest_gauge),
+                        static_cast<double>(needs.max_rest),
+                        needs.value[3]);
+                }
             }
         }
     }

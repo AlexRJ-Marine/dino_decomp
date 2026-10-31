@@ -347,6 +347,8 @@ Options parse_args(int argc, char** argv) {
                         &opt.dino_max_health);
         } else if (arg == "--secu-probe") {
             opt.secu_probe = true;
+        } else if (arg == "--rest-probe") {
+            opt.rest_probe = true;
         } else if (arg == "--building-pos") {
             std::sscanf(next("--building-pos"), "%f,%f",
                         &opt.building_x, &opt.building_y);
@@ -670,6 +672,7 @@ Options parse_args(int argc, char** argv) {
                 "  --dino-radius N      danger-grid stamp radius (world units)\n"
                 "  --dino-health CUR,MAX health pair for the SECU formula (default 100,100)\n"
                 "  --secu-probe         print each dinosaur's grid cell and SECU per rebuild\n"
+                "  --rest-probe         print each dinosaur's rest gauge and REPOS per second\n"
                 "  --save-port FILE     write the port park state\n"
                 "  --load-port FILE     load a port park state at startup\n"
                 "  --save-name NAME     Options Save target name (default quicksave)\n"

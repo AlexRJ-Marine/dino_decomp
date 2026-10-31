@@ -115,10 +115,24 @@ scale[0x1c] = 0.0    wake gesture
 `0x1d0` progress-at-last-accepted-move (usually 1.0). `FUN_00574350` resets
 `+0x4c0` every mover tick and sets it on record arrival (`FUN_00575ac0`).
 
-Open: how the `0x1e` sentinel (mode 2, duration FLT_MAX) becomes the activity
-type so sleep actually restores rest; needs a retail probe of
-`+0x4c0/+0x498/+0x258` while a dino sleeps. Max rest is `def+0x188` =
-`stamina + x` (`0x617dfb`, x untraced; store at `0x617a0a`).
+**Resolved (2026-10-31).** The `0x1e` record is **instant**
+(`FUN_0056f13b` pushes `instant=1`; its segment timer is `dur[0x1e]`, 2.0 s /
+LowQuad 1.5 s). `FUN_00574450` republishes `0x1f8 = 0x1f4` and `0x1d0 = 1.0`
+every frame after the segment timer, so the gauge gains
+`1.0 * -(-10) = +10` per frame until the action ends.
+
+Max rest is `def+0x188`: after the accumulator, `[ESI+0x70]` (final stamina)
++ `x`, where `x` is the int computed at `0x6179d6..0x617a0a`:
+
+```text
+x = (WeightArm[g1b][g1a] + WeightLeg[g1b][g1a])
+    * PhysicalBonusOnStamina / weight_sum
+```
+
+Raw Weight tables (no part scale), one raw gene-1 pair for both,
+`weight_sum` = the pre-accumulator Part 3 weight sum (`0x6173c1`), integer
+division. Verified against 20 Cpg04 `DINORESET f1d8` values (`94, 47, ...,
+56, 56`); see `notes/phenotype-attributes-runtime.md`.
 
 ## Port order
 

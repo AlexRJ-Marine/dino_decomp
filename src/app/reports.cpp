@@ -469,6 +469,14 @@ std::optional<int> run_cli_reports(const Options& opt) {
                                 static_cast<double>(dino::action_duration(
                                     table, family, kind)));
                 }
+                // Rest-gauge scale `FUN_00571540` (`block f[105+kind]`).
+                std::printf(" scale1=%.2f scale2=%.2f scale30=%.2f",
+                            static_cast<double>(
+                                dino::action_scale(table, family, 1)),
+                            static_cast<double>(
+                                dino::action_scale(table, family, 2)),
+                            static_cast<double>(
+                                dino::action_scale(table, family, 0x1e)));
                 std::printf("\n");
             }
             return 0;

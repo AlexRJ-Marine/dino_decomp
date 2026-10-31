@@ -311,6 +311,25 @@ int run_selftest() {
     gesture.tick(0.6);
     check(!gesture.active() && std::fabs(gesture.x()) < 0.001f,
           "dino gesture completes at its duration");
+    // `FUN_00574350` activity publish read by `FUN_00571540`: an arrival
+    // publishes the record kind for that tick; the instant sleep sentinel
+    // publishes every frame after `dur[kind]`.
+    dino::DinoMover activity(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    activity.start(1, 4.0f, 0.0f, 1);
+    activity.tick(2.0);
+    check(activity.activity_kind() == 1 &&
+              std::fabs(activity.activity_progress() - 1.0f) < 0.001f,
+          "dino activity walk arrival");
+    activity.tick(0.1);
+    check(activity.activity_kind() == 0, "dino activity resets per tick");
+    dino::DinoMover instant(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
+    instant.queue(0x1e, 0.0f, 0.0f, 2, 3.4e38f, true, 0.5f);
+    instant.tick(0.4);
+    check(instant.activity_kind() == 0, "dino instant waits segment");
+    instant.tick(0.2);
+    check(instant.activity_kind() == 0x1e &&
+              std::fabs(instant.activity_progress() - 1.0f) < 0.001f,
+          "dino instant publishes activity");
     dino::DinoMover marker(0.0f, 0.0f, 0.0f, 2.0f, 5.0f);
     marker.start(0x34, 10.0f, 0.0f, 1);
     marker.tick(1.0);
@@ -343,6 +362,35 @@ int run_selftest() {
           "dino food gauge 10s");
     // `FUN_00571410`: the same 10 s pass subtracts exactly 10 VIOLENCE.
     check(gauge_loop.needs().value[1] == 89, "dino violence 10s pass");
+    // `FUN_00571540`: rest gauge applies `progress * scale[activity]`.
+    dino::DinoNeeds rest_needs;
+    rest_needs.max_rest = 100.0f;
+    rest_needs.rest_gauge = 100.0f;
+    dino::DinoActionLoop rest_loop(nullptr, rest_needs);
+    rest_loop.update_rest(1, 1.0f, 0.5f);  // walk
+    check(std::fabs(rest_loop.rest_gauge() - 99.5f) < 0.001f &&
+              rest_loop.needs().value[3] == 98,
+          "dino rest walk scale");
+    rest_loop.update_rest(2, 1.0f, 2.0f);  // run
+    check(std::fabs(rest_loop.rest_gauge() - 97.5f) < 0.001f &&
+              rest_loop.needs().value[3] == 96,
+          "dino rest run scale");
+    rest_loop.update_rest(0x1e, 1.0f, -10.0f);  // sleep sentinel
+    check(std::fabs(rest_loop.rest_gauge() - 100.0f) < 0.001f &&
+              rest_loop.needs().value[3] == 99,
+          "dino rest sleep scale");
+    const float rest_before_idle = rest_loop.rest_gauge();
+    rest_loop.update_rest(0, 1.0f, 0.5f);  // no active record
+    check(rest_loop.rest_gauge() == rest_before_idle,
+          "dino rest idle inert");
+    dino::DinoNeeds rest_tick_needs;
+    rest_tick_needs.max_rest = 100.0f;
+    rest_tick_needs.rest_gauge = 50.0f;
+    rest_tick_needs.value[3] = 49;
+    dino::DinoActionLoop rest_tick_loop(nullptr, rest_tick_needs);
+    rest_tick_loop.tick(10.0);
+    check(rest_tick_loop.needs().value[3] == 49,
+          "dino rest need not tuned-decayed");
     gauge_loop.apply_food(100.0f);
     check(std::fabs(gauge_loop.food_gauge() - 2000.0f) < 0.01f,
           "dino food meal clamps");

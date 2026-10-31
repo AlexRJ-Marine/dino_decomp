@@ -77,6 +77,28 @@ the HeavyBiped group, and the lone kind-9 1.8 s record on a HeavyBiped.
 `FUN_00575de0` uses `dur[kind]` for every kind except walk/run (kind 1/2 use
 the stride formula).
 
+## Scale table (`f[105..155]`, runtime `+0x354`)
+
+The 51 floats after the forward/lateral pairs are the per-kind **rest-gauge
+scale** table. `FUN_00571540` reads `block[0x354 + kind*4]` and applies
+`rest_gauge -= progress * scale[kind]` (see
+`docs/decomp/dinosaur-actions.md`). The values are identical in all five
+blocks:
+
+| kind | scale | meaning |
+| ---: | ---: | --- |
+| 0 | -2.0 | (unused activity id) |
+| 1 | 0.5 | walk arrival |
+| 2 | 2.0 | run arrival |
+| 0x1c | 0.0 | wake gesture |
+| 0x1d | 0.0 | sleep transition |
+| 0x1e | **-10.0** | sleep sentinel -> gauge increases |
+| 0x27 | 0.0 | exploration turn |
+
+`--actions-bad-info` prints `scale1=0.50 scale2=2.00 scale30=-10.00` per
+effective family; `test_actions_bad.py::test_rest_gauge_scale_table` checks
+all five blocks against the retail file.
+
 ## Reader
 
 `tools/formats/actions_bad.py`:

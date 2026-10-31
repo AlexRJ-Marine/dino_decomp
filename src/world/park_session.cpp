@@ -200,6 +200,22 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
     }
     event.x = dinosaur.x;
     event.y = dinosaur.y;
+    // `FUN_00571540` (`0x5718e2`): the mover tick publishes the arrived
+    // record's kind/progress (`+0x1f8`/`+0x1d0`); the rest gauge applies
+    // `-progress * scale[kind]` (walk 0.5, run 2.0, sleep sentinel 0x1e -10)
+    // and rewrites REPOS as `ftol(gauge*99/max_rest)`.
+    if (dinosaur.action_loop) {
+        const int activity = dinosaur.mover.activity_kind();
+        if (activity != 0) {
+            int family = dinosaur.attributes.family;
+            if (family < 0 || family > 4) {
+                family = 3;
+            }
+            dinosaur.action_loop->update_rest(
+                activity, dinosaur.mover.activity_progress(),
+                action_scale(actions_bad, family, activity));
+        }
+    }
     // The `.bsi` FoodSource is the visitor/employee source; the dinosaur Eat
     // target is a LunchBox/StaticBait item actor (`feeder`), and the meal
     // drains it through `FUN_00576e50` into the food gauge.
@@ -273,7 +289,12 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(    ImportedDino& dinosaur, 
             dinosaur.mover.clear();
             dinosaur.mover.start(0x1d, dinosaur.x, dinosaur.y, 2,
                                  family_duration(0x1d, 1.5f));
-            dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2, 3.4e38f);
+            // The 0x1e sentinel is an **instant** record: its segment timer
+            // is `Actions.bad` dur[0x1e] (2.0 s; LowQuad 1.5 s), then it
+            // publishes kind 0x1e every frame (+10 rest) until the action
+            // ends. The FLT_MAX mode-2 duration is the never-arrives mark.
+            dinosaur.mover.queue(0x1e, dinosaur.x, dinosaur.y, 2, 3.4e38f,
+                                 true, family_duration(0x1e, 2.0f));
             std::printf("dino sleep: %s start kind=0x1d/0x1e\n",
                         dinosaur.species.c_str());
         } else if (action == "Exploration") {

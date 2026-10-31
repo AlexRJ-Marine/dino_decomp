@@ -323,6 +323,8 @@ void read_translator_constants(const std::string& path,
             table.food_consumption_rate = parse_float(value);
         } else if (key == "ViolenceEvolutionRate") {
             table.violence_evolution_rate = parse_float(value);
+        } else if (key == "PhysicalBonusOnStamina") {
+            table.physical_bonus_on_stamina = parse_int(value, path);
         } else if (key == "WalkingSpeedCoef") {
             table.walking_speed_coef = parse_float(value);
         } else if (key == "RunningSpeedCoef") {
@@ -569,6 +571,8 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         }
         allele_a[part] = static_cast<int>(gene.first);
         allele_b[part] = static_cast<int>(gene.second);
+        out.part_allele_a[static_cast<std::size_t>(part)] = allele_a[part];
+        out.part_allele_b[static_cast<std::size_t>(part)] = allele_b[part];
     }
 
     int raw_length[5] = {};
@@ -668,6 +672,7 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         const auto table = static_cast<std::size_t>(part);
         const auto b = static_cast<std::size_t>(allele_b[part]);
         const auto a = static_cast<std::size_t>(allele_a[part]);
+        out.weight_part_raw[table] = weight[table][b][a];
         weight_sum += truncate(static_cast<float>(weight[table][b][a]) * scale[part]);
         speed_sum += truncate(static_cast<float>(speed[table][b][a]) * scale[part]);
     }
@@ -697,6 +702,7 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
     out.aggression = express(agre, 15);
     out.stamina = express(stam, 16);
     out.courage = express(cour, 17);
+
 
     int perception_sum = 0;
     int intelligence_sum = 0;
@@ -1012,6 +1018,25 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
         clamp_attr(out.courage, 19);
     }
 
+    // `def+0x188` (`0x617dfb`, after the accumulator and the `0x619fb0`
+    // clamp): max rest = final stamina + x. `0x6179d6..0x617a0a` computes
+    //   x = (weight[1][g1b][g1a] + weight[2][g1b][g1a])
+    //       * PhysicalBonusOnStamina / weight_sum
+    // Part order is Head/Arm/Leg/Body/Tail, so tables 1/2 are Arm/Leg and
+    // both share the raw gene-1 allele pair; the tables are used unscaled
+    // and the division truncates.
+    if (weight_sum > 0) {
+        const int g1a = genotype[1].first;
+        const int g1b = genotype[1].second;
+        if (g1a >= 0 && g1a < 20 && g1b >= 0 && g1b < 20) {
+            const auto b = static_cast<std::size_t>(g1b);
+            const auto a = static_cast<std::size_t>(g1a);
+            const int raw = weight[1][b][a] + weight[2][b][a];
+            const int bonus =
+                (raw * physical_bonus_on_stamina) / weight_sum;
+            out.max_rest = static_cast<float>(out.stamina + bonus);
+        }
+    }
     out.food_consumption = static_cast<float>(out.weight_kg) *
                            food_consumption_rate * 0.01f;
     out.violence_evolution = static_cast<float>(out.aggression) *

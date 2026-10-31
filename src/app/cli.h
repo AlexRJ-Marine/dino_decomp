@@ -138,6 +138,7 @@ struct Options {
     int dino_health = 100;
     int dino_max_health = 100;
     bool secu_probe = false;
+    bool rest_probe = false;
     float building_x = 520.0f;
     float building_y = 376.0f;
     int building_state = 0;

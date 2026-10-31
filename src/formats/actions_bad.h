@@ -22,10 +22,15 @@ struct ActionsBad {
     static constexpr int kKinds = 51;
     static constexpr int kBlockFloats = 462;
     static constexpr int kDurationOffset = 411;
+    // The 51 scale floats (`f[105+kind]`, runtime `block+0x354+kind*4`):
+    // walk 0.5, run 2.0, sleep sentinel 0x1e -10 (rest-gauge update
+    // `FUN_00571540`). Identical in all five blocks.
+    static constexpr int kScaleOffset = 105;
     static constexpr int kFileBytes = 4 + kFamilies * kBlockFloats * 4;
 
     bool valid = false;
     std::array<std::array<float, kKinds>, kFamilies> durations{};
+    std::array<std::array<float, kKinds>, kFamilies> scales{};
 };
 
 // Throws std::runtime_error on a wrong size/count. The retail file is exactly
@@ -41,5 +46,8 @@ ActionsBad load_actions_bad(const std::string& path);
 // 4 x 2.0 s (family 3); family 4 uses block 4 (2.0/1.5).
 // Returns 0 for an unknown family/kind (callers keep their fallback).
 float action_duration(const ActionsBad& table, int family, int kind);
+
+// `FUN_00571540`: the per-activity rest-gauge scale `f[105+kind]`.
+float action_scale(const ActionsBad& table, int family, int kind);
 
 }  // namespace dino

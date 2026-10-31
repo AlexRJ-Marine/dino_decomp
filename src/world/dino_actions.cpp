@@ -225,6 +225,26 @@ void DinoActionLoop::restore(const DinoNeeds& needs, int action_id,
         needs_.food_gauge =
             needs_.max_food * static_cast<float>(needs_.value[0]) / 99.0f;
     }
+    if (needs_.max_rest > 0.0f) {
+        // `FUN_00570fd0` initialises the gauge to max; a restored need maps
+        // back through the same `ftol(gauge*99/max)` division.
+        needs_.rest_gauge =
+            needs_.max_rest * static_cast<float>(needs_.value[3]) / 99.0f;
+    }
+}
+
+void DinoActionLoop::update_rest(int kind, float progress, float scale) {
+    if (kind == 0 || needs_.max_rest <= 0.0f || scale == 0.0f) {
+        return;
+    }
+    // `0x571905`: gauge -= [dino+0x498] * block[kind]; clamp to
+    // [0, +0x1d8]. A negative scale (the sleep sentinel 0x1e is -10)
+    // increases the gauge. `0x57195c` stores the truncating quotient.
+    const float gauge =
+        needs_.rest_gauge - progress * scale;
+    needs_.rest_gauge = std::clamp(gauge, 0.0f, needs_.max_rest);
+    needs_.value[3] = std::clamp(
+        static_cast<int>(needs_.rest_gauge * 99.0f / needs_.max_rest), 0, 99);
 }
 
 void DinoActionLoop::decide() {
@@ -311,6 +331,11 @@ void DinoActionLoop::tick(double dt) {
         }
         // Violence is the exact 10-point 10 s pass below, not a tuned rate.
         if (i == 1) {
+            decay_accum_[i] = 0.0;
+            continue;
+        }
+        // REPOS is the rest gauge (`FUN_00571540`), not a tuned rate.
+        if (i == 3 && needs_.max_rest > 0.0f) {
             decay_accum_[i] = 0.0;
             continue;
         }

@@ -32,6 +32,12 @@ struct DinoNeeds {
     float max_food = 0.0f;
     float food_gauge = 0.0f;
     float food_consumption = 0.0f;
+    // Rest gauge (`dino+0x258`, max `+0x1d8` = `def+0x188`): it starts at
+    // max and each mover tick applies `gauge -= progress * scale[kind]`
+    // (`FUN_00571540`, `Actions.bad` f[105+kind]); REPOS is
+    // `ftol(gauge*99/max_rest)`.
+    float max_rest = 0.0f;
+    float rest_gauge = 0.0f;
     int size_cm = 300;        // attribute 4, actor+0x50
     int size_class = 3;       // attribute 12, actor+0x98
     int aggression = 50;      // attribute 18, actor+0xbc
@@ -163,6 +169,14 @@ public:
     // The loop resumes without re-scoring; a valid id with 0 left finishes on
     // the next tick.
     void restore(const DinoNeeds& needs, int action_id, double action_left);
+
+    // `FUN_00571540` (`0x5718e2`): apply one mover tick's rest-gauge change.
+    // `kind` is the mover activity type (`+0x4c0`), `progress` its
+    // progress-at-last-accepted-move (`+0x498`), and `scale` the
+    // `Actions.bad` f[105+kind] value. kind 0 means no active record.
+    void update_rest(int kind, float progress, float scale);
+    float rest_gauge() const { return needs_.rest_gauge; }
+    float max_rest() const { return needs_.max_rest; }
 
     // Consume/item gate used by the next decision.
     void set_inventory(bool available) { config_.inventory = available; }

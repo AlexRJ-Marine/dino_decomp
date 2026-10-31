@@ -72,6 +72,9 @@ class NeedBlock:
     max_food: float = 0.0
     food_gauge: float = 0.0
     food_consumption: float = 0.0
+    # Rest gauge (`dino+0x258`): max = def+0x188, gauge init max.
+    max_rest: float = 0.0
+    rest_gauge: float = 0.0
     size: int = 300          # attribute 4, actor+0x50 (centimetres)
     size_class: int = 3      # attribute 12, actor+0x98
     aggression: int = 50     # attribute 18, actor+0xbc
@@ -310,6 +313,10 @@ class DinoActionLoop:
                 # `FUN_00571410`: exact 10-point decay on the 10 s pass below.
                 self._decay[axis] = 0.0
                 continue
+            if axis == 3 and self.needs.max_rest > 0.0:
+                # REPOS is the rest gauge (`FUN_00571540`), not a tuned rate.
+                self._decay[axis] = 0.0
+                continue
             value = self.needs.need(axis)
             if value <= 0 or rate <= 0.0:
                 self._decay[axis] = 0.0
@@ -360,6 +367,24 @@ class DinoActionLoop:
         )
         apply_action_events(action, self.needs)
         self._decision = 0.0
+
+    def update_rest(self, kind: int, progress: float, scale: float) -> None:
+        """``FUN_00571540``: one mover tick's rest-gauge change.
+
+        ``kind`` is the mover activity type (``+0x4c0``), ``progress`` the
+        ``+0x498`` value and ``scale`` the ``Actions.bad`` ``f[105+kind]``.
+        Kind 0 means no active record; a negative scale (the sleep sentinel
+        ``0x1e`` is -10) increases the gauge.
+        """
+        if kind == 0 or self.needs.max_rest <= 0.0 or scale == 0.0:
+            return
+        gauge = self.needs.rest_gauge - progress * scale
+        self.needs.rest_gauge = min(
+            max(gauge, 0.0), self.needs.max_rest
+        )
+        self.needs.repos = clamp_need(
+            int(self.needs.rest_gauge * 99.0 / self.needs.max_rest)
+        )
 
     def _finish(self) -> None:
         # Retail does not apply the `.bai` need deltas; the element events
