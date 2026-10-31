@@ -536,6 +536,23 @@ weight sum from `0x6173c1`. Verified on the 20 Cpg04 runtime rows (max rest
 94, 47, ..., 56, 56): `test_cpp_cpg04_phenotype_attributes`. Sleep recovery
 and the +10/frame path: `test_cpp_dino_rest_gauge_sleep` (`--rest-probe`).
 
+### Health (`def+0x184`/`+0x186`)
+
+The phenotype definition stores:
+
+```text
+max_health = int(sqrt(weight) + 0.5 * cbrt(length*width*height))
+regen      = max_health * stamina / RegenerationDivider + 1
+```
+
+(`0x617d47..0x617df4`, all final values; 20/20 Cpg04 runtime rows match in
+`test_cpp_cpg04_phenotype_attributes`). The runtime pass is documented but not
+wired yet: `FUN_005724d0(short delta)` subtracts `delta` from `+0x16`, bands
+0/1/2 at >= 67 / 34..67 / < 34 %, state 4 at 0 with the 0x15 5.0 s knockdown
+record; `FUN_005725e0` heals `regen` every 5 s when food and rest are > 0.01
+and the state is not 4; the 10 s starvation path deals
+`max(1, int((amount - food) * 0.1))`. See `TASKS.md` G5.
+
 ### Normal-action executor (`0x56f7a0`)
 
 Normal actions (`special_action == 0`, including Eat) enter a separate

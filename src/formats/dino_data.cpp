@@ -325,6 +325,8 @@ void read_translator_constants(const std::string& path,
             table.violence_evolution_rate = parse_float(value);
         } else if (key == "PhysicalBonusOnStamina") {
             table.physical_bonus_on_stamina = parse_int(value, path);
+        } else if (key == "RegenerationDivider") {
+            table.regeneration_divider = parse_int(value, path);
         } else if (key == "WalkingSpeedCoef") {
             table.walking_speed_coef = parse_float(value);
         } else if (key == "RunningSpeedCoef") {
@@ -1037,6 +1039,18 @@ DinoAttributes DinoPhenotypeTable::attributes(const DinoGenotype& genotype) cons
             out.max_rest = static_cast<float>(out.stamina + bonus);
         }
     }
+    // `0x617d47..0x617d7c`: max health = sqrt(weight) +
+    // 0.5 * cbrt(length*width*height), all final phenotype values.
+    const double body_volume = static_cast<double>(out.length_cm) *
+                               static_cast<double>(out.width_cm) *
+                               static_cast<double>(out.height_cm);
+    out.max_health = static_cast<int>(
+        std::sqrt(static_cast<double>(out.weight_kg)) +
+        0.5 * std::cbrt(body_volume));
+    // `0x617dd9..0x617df4`: regen = maxHP*stamina / RegenerationDivider + 1.
+    out.regen = (out.max_health * out.stamina) /
+                    std::max(1, regeneration_divider) +
+                1;
     out.food_consumption = static_cast<float>(out.weight_kg) *
                            food_consumption_rate * 0.01f;
     out.violence_evolution = static_cast<float>(out.aggression) *

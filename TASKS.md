@@ -2352,8 +2352,14 @@ Current focus: **Phase 1, FMT-5 `.anim`**.
   `test_cpp_cpg04_phenotype_attributes`, `test_cpp_dino_rest_gauge_sleep`,
   `--rest-probe`; notes `notes/dinosaur-action-loop.md`,
   `notes/phenotype-attributes-runtime.md`.
-- [ ] Remaining per-tick health: `0x5869e0` (5 s regen), `0x5724d0` (health
-  bands), `regen = maxHP*stamina/1000+1`; SECU still uses the tuned decay.
+- [x] Phenotype health: `def+0x184 = int(sqrt(weight) +
+  0.5*cbrt(length*width*height))`, `def+0x186 = maxHP*stamina/
+  RegenerationDivider + 1`. All 20 Cpg04 `DINORESET` dwords match
+  (`test_cpp_cpg04_phenotype_attributes`, `hp=`/`rg=`).
+- [ ] Runtime health pass: `0x5725e0` (5 s heal when food/rest > 0.01 and
+  state != 4), `0x5724d0` (67/34/0 bands, state 4, the 0x15 knockdown
+  record) and the 10 s starvation damage `max(1, (amount-food)*0.1)`;
+  SECU still uses the tuned decay.
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
   the FOOD bucket (0x585c90); the port's `spend_food`/`add_vente` are never
   called (the fence sell credits the budget directly and leaves VENTES flat).

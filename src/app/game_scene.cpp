@@ -412,6 +412,7 @@ void Game::spawn_world_dinos() {
                     "Atk=%d Ag=%d O=%d CA=%d Orn=%d St=%d Co=%d walk=%.3f run=%.3f "
                     "jump=%d wt=%d pl=%d,%d,%d,%d,%d "
                     "Ah=%d Ab=%d Aa=%d Al=%d At=%d food=%.3f rest=%.0f "
+                    "hp=%d rg=%d "
                     "wr=%d,%d,%d,%d,%d al=%d,%d/%d,%d "
                     "g15=(%u,%u) g16=(%u,%u) g17=(%u,%u)\n",
                     i, record.genotype[0].first,
@@ -437,6 +438,7 @@ void Game::spawn_world_dinos() {
                     attrs.attack_body, attrs.attack_arm, attrs.attack_leg,
                     attrs.attack_tail, static_cast<double>(attrs.food_consumption),
                     static_cast<double>(attrs.max_rest),
+                    attrs.max_health, attrs.regen,
                     attrs.weight_part_raw[0], attrs.weight_part_raw[1],
                     attrs.weight_part_raw[2], attrs.weight_part_raw[3],
                     attrs.weight_part_raw[4],

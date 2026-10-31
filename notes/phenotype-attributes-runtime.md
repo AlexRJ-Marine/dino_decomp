@@ -84,6 +84,29 @@ pre-accumulator Part 3 weight sum (`0x6173c1`). Live values in row order:
 The C++ port computes all 20 exactly (`DINO_DEBUG_PHENO=1`, field `rest`);
 `tests/test_app_cpp.py::test_cpp_cpg04_phenotype_attributes` asserts them.
 
+## Max health and regen (`def+0x184`/`+0x186`, 20 live rows)
+
+The same `DINORESET` trace logged `+0x1d4` (dword = max health low int16,
+regen high int16). `0x617d47..0x617d7c` computes
+
+```text
+max_health = int(sqrt(weight) + 0.5 * cbrt(length*width*height))
+regen      = max_health * stamina / RegenerationDivider + 1
+```
+
+(all values final, after the accumulator/clamp; `RegenerationDivider` = 1000
+default). Live `(max_health, regen)` in row order:
+
+```text
+(200,17) (261,11) (261,11) (261,11) (67,2) (67,2) (187,10) (66,3)
+(169,7) (166,7) (259,13) (67,3) (94,5) (100,6) (100,6) (100,6)
+(100,6) (100,6) (67,3) (67,3)
+```
+
+The port matches all 20 (`hp=`/`rg=` in `DINO_DEBUG_PHENO`). Health state
+`+0x2bc` was 0 (100 %) on all 20 at spawn. Damage/regen runtime pass
+(`FUN_005724d0`/`0x5725e0`) is not wired yet.
+
 ## What matches
 
 - **Beauty, Agility, Armor**: the base sum is exact for the 17 rows whose
