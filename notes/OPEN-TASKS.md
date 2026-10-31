@@ -1,6 +1,6 @@
 # Open tasks
 
-Generated from `TASKS.md` on 2026-10-31 03:13. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
+Generated from `TASKS.md` on 2026-10-31 03:21. Do not edit; regenerate with `scripts/tasks.ps1 -Update`.
 
 56 open items.
 
@@ -124,7 +124,7 @@ Generated from `TASKS.md` on 2026-10-31 03:13. Do not edit; regenerate with `scr
 ## DINO-STATS-1: Live dinosaur stats, needs/health/food and dino sell
 - [ ] `ivwDinoInfo` (`0x511d80`, gauge fill `0x5e2940`→`0x5e2be0`): the
 - [ ] Food economy: `saFoodSource` 3 levels (100/66/33 %) and refill charging
-- [ ] Dino sell flow (`0x532d9c`, `REQUEST_SELL_DINO`): `FUN_00533a00` calls
+- [ ] Interactive `REQUEST_SELL_DINO` hit test/panel; add a stable
 - [ ] Growth/aging/lifespan: negative result (no key/timer in this build).
 
 ## P3-MOTION-1: Dinosaur mover and action execution
