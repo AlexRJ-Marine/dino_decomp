@@ -64,6 +64,8 @@ struct ImportedDino {
     // Feeder index the cached stand cell belongs to; -1 = none. The nearest
     // feeder can change as the dino moves or a source empties.
     int eat_feeder = -1;
+    // RunAway: the `0x35` goto was issued; retail state 3 no longer re-scans.
+    bool runaway_moved = false;
     // Last posed world-space mesh (for screen picking). Replaced each frame
     // by the app's `pose_imported_dino` result; `nullptr` before the first
     // pose.

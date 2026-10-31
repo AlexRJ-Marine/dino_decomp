@@ -129,10 +129,21 @@ copied to `Feeder.actions`; `tick_dino` switches the chooser's candidate set
 to that list when its best score beats the dino graph's. The retail manager
 attach lists (`+0xb8`/`+0xf4`) are still open; the score switch is the port's
 model. Victory is excluded until the class-6 gate is proven. RunAway is
-ported: `runaway_cell`/`find_runaway_cell` implement `FUN_00577570`
+ported: `runaway_move`/`find_runaway_cell` implement `FUN_00577570`
 (paddock-rect danger-grid scan, first strict minimum, 8-unit centre,
-four-unit clamp); a cheaper cell emits the `0x35` goto, otherwise the `0x19`
-hold. The retail current-cell threat/LOS term is open. The earlier port set
+four-unit clamp) and the exact current-cost comparison:
+
+```text
+cur    = grid[dino cell] - dino+0x2a0 (threat)
+inside = steering point within dino.x/y +/- dino+0x27c (threat_radius)
+chosen = scanned min cost - (inside ? cur : 0)
+move   = chosen < cur
+```
+
+The scan runs every frame while holding; a move sets state 3 and
+`runaway_moved`, otherwise the `0x19` hold is kept (`FUN_00572dd0` is the
+box test, not LOS). `dur[0x19]` is the same Actions.bad table (LowQuad 1.5 s,
+the other families 2.0 s). The earlier port set
 `{Exploration, Eat, EatForSmallies, Sleep}` was a confirmed placeholder and
 has been replaced.
 

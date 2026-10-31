@@ -227,6 +227,7 @@ See `notes/lanes.md`. Default split:
 
 ## Recent
 
+- 2026-10-31 - AI: exact RunAway current-cost comparison - cur=grid[dino]-threat, chosen-=cur inside the threat_radius box, move only chosen<cur; the scan repeats every frame and runaway_moved stops it after the 0x35 goto; selftest 247, fast 384, full 538 on the item build
 - 2026-10-31 - AI: split the food-item action behavior - BfiFeature.actions/Feeder.actions carry the .bfi Eat list; the dino chooser is Exploration/RunAway/Sleep and switches to the item list when its best score wins; --place-lunchbox logs actions=Eat,EatForSmallies; selftest 247, fast 384, full 538 on the RunAway build
 - 2026-10-31 - AI: retail park node set + RunAway - chooser Exploration/RunAway/Sleep + item Eat family; runaway_cell implements FUN_00577570 danger-grid scan and 0x35/0x19 hold; test_cpp_dino_runaway_node; selftest 247, fast 384
 - 2026-10-31 - world: fix Eat re-selection blocker - revert finish_current so the meal applies once at arrival and the action runs to the field_2e cap; tie the stand-cell cache to the feeder; persist the phenotype tail in DINOPSAV; Eat node-set graph recon recorded; targeted/fast green (full 537 before fix)
@@ -234,7 +235,6 @@ See `notes/lanes.md`. Default split:
 - 2026-10-31 - world: Eat element lifetime - element plays when the dino is in the band and the mover is idle (0x0056c3b0), meal applies then and DinoActionLoop::finish_current ends the action; field_2e is only the 30 s cap; eat_applied latch; selftest 244, fast 384
 - 2026-10-31 - world: refill level producer solved - FUN_00580e30 is the only writer and all three call sites pass level 0, so the 100% refill is exact (66/33 unreachable); set_food_level selftest 244; fast 384
 - 2026-10-31 - world: nutritionist refill charge - FoodSource::level + set_food_level (100/66/33 %, level 3 invalid), level-0 completion charges .bsi price to FOOD via spend_food; PigFood 700 budget 74000->73300; test_cpp_employee_feeding_and_wages; fast 384
-- 2026-10-31 - port: stand-cell Eat walk target - FUN_0055b5b0/0x0055b780 filled disc floor(r+0.5) around the feeder, occupancy predicate, min squared dino-cell distance, band-filtered; cached per element (eat_stand_x/y); Cpg04 anky target 457,321 d2=58; selftest 240, fast 384
 
 ## Blockers
 

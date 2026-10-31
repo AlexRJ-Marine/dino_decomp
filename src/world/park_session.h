@@ -117,9 +117,12 @@ bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
 
 // `FUN_00577570` (RunAway case 1): the strict-minimum danger-grid cell in the
 // paddock rect, converted to its 8-unit centre and clamped four units inside
-// the rect. Returns false when no cell is cheaper than the dino's current
-// cell (the executor then holds with the `0x19` element).
-bool runaway_cell(const DangerGrid& grid, const WorldRect& rect, float dino_x,
-                  float dino_y, float& x, float& y);
+// the rect. `runaway_move` applies the retail current-cell comparison:
+// `cur = grid[dino] - threat`; if the steering point is inside the dino's
+// `threat_radius` box, `chosen -= cur`; move only when `chosen < cur`.
+// Returns false when the dino should hold with the `0x19` element.
+bool runaway_move(const DangerGrid& grid, const WorldRect& rect, float dino_x,
+                  float dino_y, int threat, int threat_radius,
+                  float& target_x, float& target_y);
 
 }  // namespace dino

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 
 namespace dino {
 
@@ -96,17 +97,16 @@ std::optional<StandCell> find_stand_cell(const OccupancyGrid& grid,
 struct RunCell {
     float x = 0.0f;
     float y = 0.0f;
+    int cost = 0;
 };
 
 // `FUN_00577570` (case 1 RunAway): scan the paddock-rect danger-grid cells
 // (y outer, x inner, first strict minimum), convert the winning cell to its
-// 8-unit centre and clamp four units inside the rect. Returns nullopt when
-// no cell is cheaper than the dino's current cell; the executor then holds
-// `0x19`. The retail current-cell comparison adds the actor threat and a LOS
-// term (OPEN); the port compares the raw grid costs.
+// 8-unit centre and clamp four units inside the rect. Returns nullopt only
+// when the rect has no grid cells; the move/hold comparison is in
+// `runaway_move`.
 std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
-                                         const WorldRect& rect,
-                                         float dino_x, float dino_y) {
+                                         const WorldRect& rect) {
     const int xmin = std::min(rect.x0, rect.x1);
     const int xmax = std::max(rect.x0, rect.x1);
     const int ymin = std::min(rect.y0, rect.y1);
@@ -119,13 +119,7 @@ std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
                               DangerGrid::kHeight - 1);
     const int y1 = std::clamp(ymax >> DangerGrid::kCellShift, 0,
                               DangerGrid::kHeight - 1);
-    const int current_x = std::clamp(
-        static_cast<int>(dino_x) >> DangerGrid::kCellShift, 0,
-        DangerGrid::kWidth - 1);
-    const int current_y = std::clamp(
-        static_cast<int>(dino_y) >> DangerGrid::kCellShift, 0,
-        DangerGrid::kHeight - 1);
-    int best = grid.cell(current_x, current_y);
+    int best = std::numeric_limits<int>::max();
     int best_x = -1;
     int best_y = -1;
     for (int y = y0; y <= y1; ++y) {
@@ -153,7 +147,7 @@ std::optional<RunCell> find_runaway_cell(const DangerGrid& grid,
     } else if (wy <= static_cast<float>(ymin)) {
         wy = static_cast<float>(ymin + 4);
     }
-    return RunCell{wx, wy};
+    return RunCell{wx, wy, best};
 }
 
 }  // namespace
@@ -299,11 +293,28 @@ bool paddock_patrol_point(const WorldRect& rect, int random_x, int random_y,
     return true;
 }
 
-bool runaway_cell(const DangerGrid& grid, const WorldRect& rect, float dino_x,
-                  float dino_y, float& x, float& y) {
-    const std::optional<RunCell> cell =
-        find_runaway_cell(grid, rect, dino_x, dino_y);
+bool runaway_move(const DangerGrid& grid, const WorldRect& rect, float dino_x,
+                  float dino_y, int threat, int threat_radius, float& x,
+                  float& y) {
+    const std::optional<RunCell> cell = find_runaway_cell(grid, rect);
     if (!cell) {
+        return false;
+    }
+    const int current_x = std::clamp(
+        static_cast<int>(dino_x) >> DangerGrid::kCellShift, 0,
+        DangerGrid::kWidth - 1);
+    const int current_y = std::clamp(
+        static_cast<int>(dino_y) >> DangerGrid::kCellShift, 0,
+        DangerGrid::kHeight - 1);
+    const int current = grid.cell(current_x, current_y) - threat;
+    // `FUN_00572dd0`: the steering point must be inside the dino's
+    // `+0x27c` box for the current-cost subtraction.
+    const float radius = static_cast<float>(std::max(0, threat_radius));
+    const bool inside =
+        cell->x >= dino_x - radius && cell->x <= dino_x + radius &&
+        cell->y >= dino_y - radius && cell->y <= dino_y + radius;
+    const int chosen = cell->cost - (inside ? current : 0);
+    if (chosen >= current) {
         return false;
     }
     x = cell->x;
@@ -487,6 +498,7 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
         dinosaur.eat_stand_y = -1;
         dinosaur.eat_applied = false;
         dinosaur.eat_feeder = -1;
+        dinosaur.runaway_moved = false;
         // A new action replaces a lingering gesture record, but a walk/run
         // marker may finish. Sleep keeps its own 0x1d/0x1e list.
         if (!dead && dinosaur.mover.active() && action != "Sleep" &&
@@ -547,35 +559,6 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                     dinosaur.species.c_str(),
                     static_cast<double>(point_x),
                     static_cast<double>(point_y));
-            }
-        } else if (action == "RunAway") {
-            if (!dead) {
-                // `0x0056f200` case 1: descend the danger grid over the
-                // paddock rect. A cheaper cell becomes the `0x35` goto
-                // target; otherwise hold with the `0x19` element. The cell
-                // is rolled once per activation; the `field_2e` cap ends
-                // the action.
-                std::optional<RunCell> target;
-                if (danger_grid != nullptr && pen >= 0) {
-                    target = find_runaway_cell(
-                        *danger_grid,
-                        paddocks[static_cast<std::size_t>(pen)].rect,
-                        dinosaur.x, dinosaur.y);
-                }
-                dinosaur.mover.clear();
-                if (target) {
-                    dinosaur.mover.start(0x35, target->x, target->y, 1);
-                    std::printf("dino run: %s start target=%.1f,%.1f\n",
-                                dinosaur.species.c_str(),
-                                static_cast<double>(target->x),
-                                static_cast<double>(target->y));
-                } else {
-                    const float hold = family_duration(0x19, 2.0f);
-                    dinosaur.mover.start(0x19, dinosaur.x, dinosaur.y, 2,
-                                         hold);
-                    std::printf("dino run: %s hold kind=0x19\n",
-                                dinosaur.species.c_str());
-                }
             }
         }
         if (action != "idle") {
@@ -683,6 +666,37 @@ ParkSession::DinoActionEvent ParkSession::tick_dino(
                     event.move_target_y = target_y;
                 }
             }
+        }
+    }
+    // `0x0056f200` case 1 RunAway: state 0 re-scans every frame. A cheaper
+    // steering cell (the retail current-cost comparison is in
+    // `runaway_move`) issues the `0x35` goto and sets state 3; otherwise the
+    // `0x19` hold is kept and the scan repeats until a move appears or the
+    // `field_2e` cap ends the action.
+    if (!dead && action == "RunAway" && !dinosaur.runaway_moved) {
+        float tx = 0.0f;
+        float ty = 0.0f;
+        const bool move =
+            danger_grid != nullptr && pen >= 0 &&
+            runaway_move(*danger_grid,
+                         paddocks[static_cast<std::size_t>(pen)].rect,
+                         dinosaur.x, dinosaur.y,
+                         dinosaur.action_loop->needs().threat,
+                         dinosaur.action_loop->needs().threat_radius, tx, ty);
+        if (move) {
+            dinosaur.mover.clear();
+            dinosaur.mover.start(0x35, tx, ty, 1);
+            dinosaur.runaway_moved = true;
+            std::printf("dino run: %s start target=%.1f,%.1f\n",
+                        dinosaur.species.c_str(),
+                        static_cast<double>(tx), static_cast<double>(ty));
+        } else if (!dinosaur.mover.active() ||
+                   dinosaur.mover.kind() != 0x19) {
+            dinosaur.mover.clear();
+            dinosaur.mover.start(0x19, dinosaur.x, dinosaur.y, 2,
+                                 family_duration(0x19, 2.0f));
+            std::printf("dino run: %s hold kind=0x19\n",
+                        dinosaur.species.c_str());
         }
     }
     // `FUN_005724d0` death branch: once health reaches 0 queue the 0x15

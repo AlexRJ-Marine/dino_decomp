@@ -359,10 +359,13 @@ Port state: the chooser default is the dino graph
 (`Eat/EatForSmallies` or `EatBait*`) is supplied per feeder and the chooser
 switches to it when its best score wins (the retail manager attach lists
 `+0xb8`/`+0xf4` are still open). RunAway's `0x35` goto/`0x19` hold is ported:
-`find_runaway_cell` scans the paddock-rect danger-grid cells (y outer, x inner,
-first strict minimum), converts the cell to its 8-unit centre and clamps four
-units inside the rect; no cheaper cell holds with `0x19`. The retail
-current-cell threat/LOS term is still open.
+`find_runaway_cell` scans the paddock-rect danger-grid cells (y outer,
+x inner, first strict minimum), converts the cell to its 8-unit centre and
+clamps four units inside the rect; `runaway_move` implements the exact
+current cost: `cur = grid[dino] - threat`; if the steering point is inside
+the `threat_radius` box, `chosen -= cur`; move only when `chosen < cur`
+(`FUN_00572dd0` is that box test). The scan repeats every frame while
+holding.
 
 ## The mover (`saDinosaur+0x2c8`)
 
